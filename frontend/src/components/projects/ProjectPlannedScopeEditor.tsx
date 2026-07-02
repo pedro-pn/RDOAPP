@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -73,8 +73,6 @@ const toNum = (v: string) => {
   const n = Number(v.replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 };
-const clampPct = (v: number) => Math.min(100, Math.max(0, v));
-
 // Distribui inteiros somando exatamente `total`, proporcionais a `weights` (maior resto).
 function roundToSum(weights: number[], total: number): number[] {
   if (weights.length === 0) return [];
@@ -91,7 +89,23 @@ function roundToSum(weights: number[], total: number): number[] {
 function withWeights(services: ServiceRow[], ints: number[]): ServiceRow[] {
   return services.map((s, i) => ({ ...s, weight: String(ints[i]) }));
 }
-// Reequilibra os pesos para somar 100% mantendo a proporção (fallback: igualitário).
+
+// Reequilíbrio "inteligente": os serviços que o usuário JÁ editou (touched) ficam fixos; só os
+// não editados dividem igualmente o que sobra para o total tentar fechar 100%. Assim dá para
+// digitar cada um manualmente — quando todos estão fixos, nada é mexido (a soma guia via aviso).
+function rebalanceUntouched(services: ServiceRow[], touched: Set<string>): ServiceRow[] {
+  const untouched = services.filter(s => !touched.has(s.key));
+  if (untouched.length === 0) return services;
+  const touchedSum = services
+    .filter(s => touched.has(s.key))
+    .reduce((sum, s) => sum + (toNum(s.weight) ?? 0), 0);
+  const ints = roundToSum(untouched.map(() => 1), Math.max(0, 100 - touchedSum));
+  let ui = 0;
+  return services.map(s => (touched.has(s.key) ? s : { ...s, weight: String(ints[ui++]) }));
+}
+
+// Reequilibra os pesos para somar 100% mantendo a proporção (fallback: igualitário). Usado só ao
+// carregar (normaliza dados antigos).
 function rescaleTo100(services: ServiceRow[]): ServiceRow[] {
   if (services.length === 0) return services;
   const vals = services.map(s => toNum(s.weight) ?? 0);
@@ -147,6 +161,8 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [overtime, setOvertime] = useState<OvertimeRow[]>([]);
   const [baseline, setBaseline] = useState('');
+  // Serviços cujo peso o usuário já editou manualmente (ficam fixos no reequilíbrio).
+  const touchedWeights = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!data) return;
@@ -154,6 +170,8 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
     setServices(next.services);
     setOvertime(next.overtime);
     setBaseline(normalize(next.services, next.overtime));
+    // Dados carregados já têm pesos definidos: trata como fixos (edição livre, sem "brigar").
+    touchedWeights.current = new Set(next.services.map(s => s.key));
   }, [data]);
 
   const dirty = useMemo(() => normalize(services, overtime) !== baseline, [services, overtime, baseline]);
@@ -191,36 +209,31 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
     mutation.mutate(payload);
   }
 
-  // Edita o peso de um serviço e reequilibra os demais para o total voltar a 100%.
-  // O campo editado mantém o texto digitado; os OUTROS são ajustados proporcionalmente entre si,
-  // preservando a razão entre eles (assim dá para digitar cada um sem "brigar" com os demais).
+  // Edita o peso: o campo mexido vira "fixo" e só os NÃO editados absorvem o que falta p/ 100%.
+  // Assim dá para digitar os 3 manualmente (ex.: 10, 30, 60) sem o app mexer nos já preenchidos.
   function changeWeight(key: string, raw: string) {
-    // Mantém o texto digitado, mas trava fora de 0–100 (o backend exige 0–100).
     const parsed = toNum(raw);
-    const value = parsed === null ? raw : parsed > 100 ? '100' : parsed < 0 ? '0' : raw;
-    setServices(prev => {
-      const others = prev.filter(s => s.key !== key);
-      if (others.length === 0) return prev.map(s => (s.key === key ? { ...s, weight: value } : s));
-      const remaining = Math.max(0, 100 - clampPct(parsed ?? 0));
-      const otherVals = others.map(o => toNum(o.weight) ?? 0);
-      const base = otherVals.some(v => v > 0) ? otherVals : others.map(() => 1);
-      const ints = roundToSum(base, remaining);
-      let oi = 0;
-      return prev.map(s => (s.key === key ? { ...s, weight: value } : { ...s, weight: String(ints[oi++]) }));
-    });
+    const value = parsed === null ? raw : parsed > 100 ? '100' : parsed < 0 ? '0' : raw; // trava 0–100
+    touchedWeights.current.add(key);
+    setServices(prev => rebalanceUntouched(
+      prev.map(s => (s.key === key ? { ...s, weight: value } : s)),
+      touchedWeights.current
+    ));
   }
 
-  // Adiciona um serviço e divide os pesos igualmente (1→100%, 2→50/50, 3→33/33/34…).
+  // Adiciona um serviço (não editado): os não editados dividem igualmente o que sobra dos fixos.
+  // Sem nenhum fixo, dá a divisão igual clássica (1→100, 2→50/50, 3→34/33/33…).
   function addService() {
-    setServices(prev => {
-      const list = [...prev, { key: nextKey(), serviceType: 'LIMPEZA_QUIMICA', weight: '', systems: [] } as ServiceRow];
-      return withWeights(list, roundToSum(list.map(() => 1), 100));
-    });
+    setServices(prev => rebalanceUntouched(
+      [...prev, { key: nextKey(), serviceType: 'LIMPEZA_QUIMICA', weight: '', systems: [] } as ServiceRow],
+      touchedWeights.current
+    ));
   }
 
-  // Remove um serviço e reequilibra os pesos restantes para somar 100%.
+  // Remove um serviço e deixa os não editados reabsorverem o que sobra.
   function removeService(key: string) {
-    setServices(prev => rescaleTo100(prev.filter(s => s.key !== key)));
+    touchedWeights.current.delete(key);
+    setServices(prev => rebalanceUntouched(prev.filter(s => s.key !== key), touchedWeights.current));
   }
 
   // Troca o serviço: descarta sistemas não permitidos pelo novo tipo.
@@ -279,7 +292,7 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
                   </select>
                 </div>
                 <div className="field-group acp-svc-weight-fg">
-                  <label>Peso <HelpTip icon help="Quanto este serviço representa do avanço da obra (%). Os pesos são mantidos somando 100% automaticamente: ao mexer em um, os demais se ajustam. Você também pode digitar cada um manualmente." /></label>
+                  <label>Peso <HelpTip icon help="Quanto este serviço representa do avanço da obra (%). Ao adicionar serviços, eles dividem 100% igualmente. Quando você digita um valor, ele fica fixo e só os que você ainda não mexeu se ajustam — assim dá para definir os três manualmente (ex.: 10, 30, 60). O ideal é somar 100%." /></label>
                   <div className="acp-pct-field">
                     <input
                       type="number" min="0" max="100" step="1" inputMode="numeric" placeholder="0"
