@@ -7,6 +7,7 @@ import {
   type PlannedScope
 } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
+import { PortalTip } from '../ui/PortalTip';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -182,17 +183,23 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
               {data.ultimosDias.length === 0 ? (
                 <span className="placeholder-copy">Sem RDOs.</span>
               ) : data.ultimosDias.map((d, i) => (
-                <div className="acp-det-dot-wrap" key={i} tabIndex={0} aria-label={`${fmtDate(d.date)}: ${DAY_META[d.status].label}`}>
+                <PortalTip
+                  key={i}
+                  triggerClassName="acp-det-dot-wrap"
+                  ariaLabel={`${fmtDate(d.date)}: ${DAY_META[d.status].label}`}
+                  content={(
+                    <>
+                      <div className="acp-det-tip-date">{fmtDate(d.date)}</div>
+                      <div className="acp-det-tip-status">
+                        <span className={`acp-det-tip-dot ${DAY_META[d.status].cls}`} />{DAY_META[d.status].label}
+                      </div>
+                      <div className="acp-det-tip-row"><span>Trabalhado</span><strong>{fmtHM(d.workedMinutes)}</strong></div>
+                      <div className="acp-det-tip-row"><span>Standby</span><strong>{fmtHM(d.standbyMinutes)}</strong></div>
+                    </>
+                  )}
+                >
                   <span className={`acp-det-dot ${DAY_META[d.status].cls}`} />
-                  <div className="acp-det-tip" role="tooltip">
-                    <div className="acp-det-tip-date">{fmtDate(d.date)}</div>
-                    <div className="acp-det-tip-status">
-                      <span className={`acp-det-tip-dot ${DAY_META[d.status].cls}`} />{DAY_META[d.status].label}
-                    </div>
-                    <div className="acp-det-tip-row"><span>Trabalhado</span><strong>{fmtHM(d.workedMinutes)}</strong></div>
-                    <div className="acp-det-tip-row"><span>Standby</span><strong>{fmtHM(d.standbyMinutes)}</strong></div>
-                  </div>
-                </div>
+                </PortalTip>
               ))}
             </div>
 

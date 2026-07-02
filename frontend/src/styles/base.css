@@ -1926,24 +1926,7 @@ a {
 .acp-det-dot.yellow { background: #e0a400; }
 .acp-det-dot.red { background: #c81519; }
 
-/* Balão (tooltip) das bolinhas — instantâneo, no padrão do app */
-.acp-det-tip {
-  position: absolute; bottom: calc(100% + 10px); left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  min-width: 160px; background: var(--wh); color: var(--tx);
-  border: 1px solid var(--br); border-radius: var(--rs); box-shadow: var(--shadow);
-  padding: 8px 10px; z-index: 40; white-space: nowrap;
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity .09s ease, transform .09s ease;
-}
-.acp-det-dot-wrap:hover .acp-det-tip,
-.acp-det-dot-wrap:focus-visible .acp-det-tip {
-  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
-}
-.acp-det-tip::after {
-  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-  border: 6px solid transparent; border-top-color: var(--wh);
-}
+/* Conteúdo do balão das bolinhas (renderizado via PortalTip, com clamp na viewport) */
 .acp-det-tip-date { font-weight: 700; font-size: 12px; }
 .acp-det-tip-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mu); margin: 3px 0 5px; }
 .acp-det-tip-dot { width: 9px; height: 9px; border-radius: 50%; }
