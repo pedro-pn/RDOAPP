@@ -75,8 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (isUnauthorizedError(error)) {
           clearSession(storedToken);
         } else {
-          setToken(storedToken);
-          setUser(null);
+          clearSession(storedToken);
         }
       } finally {
         if (mounted) setIsBootstrapping(false);
