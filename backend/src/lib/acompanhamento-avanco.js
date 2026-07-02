@@ -150,16 +150,22 @@ async function aggregateRealized(projectIds) {
 }
 
 // Avanço de vários projetos de uma vez (usado no dashboard). Retorna Map<projectId, progress>.
+// Método: RDO ponderado quando há escopo com meta; senão cai no avanço MANUAL (Project.manualProgressPct)
+// se informado; senão fica indefinido (null).
 export async function computeProgressForProjects(projectIds) {
   const result = new Map();
   if (!projectIds || projectIds.length === 0) return result;
 
-  const plannedServices = await prisma.projectPlannedService.findMany({
-    where: { projectId: { in: projectIds } },
-    orderBy: [{ order: 'asc' }],
-    include: { systems: { orderBy: [{ order: 'asc' }] } }
-  });
+  const [plannedServices, projects] = await Promise.all([
+    prisma.projectPlannedService.findMany({
+      where: { projectId: { in: projectIds } },
+      orderBy: [{ order: 'asc' }],
+      include: { systems: { orderBy: [{ order: 'asc' }] } }
+    }),
+    prisma.project.findMany({ where: { id: { in: projectIds } }, select: { id: true, manualProgressPct: true } })
+  ]);
 
+  const manualById = new Map(projects.map(p => [p.id, p.manualProgressPct != null ? Number(p.manualProgressPct) : null]));
   const byProject = new Map();
   for (const svc of plannedServices) {
     if (!byProject.has(svc.projectId)) byProject.set(svc.projectId, []);
@@ -168,8 +174,18 @@ export async function computeProgressForProjects(projectIds) {
 
   const realized = await aggregateRealized([...byProject.keys()]);
 
-  for (const [projectId, services] of byProject) {
-    result.set(projectId, buildProgress(services, realized.get(projectId) ?? new Map()));
+  for (const projectId of projectIds) {
+    const services = byProject.get(projectId);
+    const scope = services
+      ? buildProgress(services, realized.get(projectId) ?? new Map())
+      : { hasScope: false, progressPct: null, services: [] };
+    const manual = manualById.get(projectId) ?? null;
+    const useManual = scope.progressPct == null && manual != null;
+    result.set(projectId, {
+      ...scope,
+      progressPct: scope.progressPct ?? (useManual ? manual : null),
+      progressMethod: scope.progressPct != null ? 'RDO' : (useManual ? 'MANUAL' : null)
+    });
   }
   return result;
 }
@@ -179,5 +195,5 @@ export async function computeProjectProgress(projectId) {
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
   if (!project) throw new Error('Projeto não encontrado.');
   const map = await computeProgressForProjects([projectId]);
-  return map.get(projectId) ?? { hasScope: false, progressPct: null, services: [] };
+  return map.get(projectId) ?? { hasScope: false, progressPct: null, progressMethod: null, services: [] };
 }

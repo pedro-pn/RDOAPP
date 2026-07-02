@@ -297,6 +297,7 @@ model Project {
   commercialProposalCode String?          // = cod_prop do Access; reconciliação proposta↔projeto
   mobilizationDate     DateTime?           // data de mobilização (manual, gestor/coordenador)
   startDate            DateTime?           // início real da execução (manual, gestor/coordenador)
+  manualProgressPct    Decimal?  @db.Decimal(5, 2) // avanço informado à mão (fallback quando não há escopo)
   createdAt            DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   deletedAt             DateTime?

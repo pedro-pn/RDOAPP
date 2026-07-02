@@ -30,6 +30,7 @@ export interface ProjectRevisions {
   mobilizationLeadDays?: number | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  manualProgressPct?: string | number | null;
   revisions: CommercialRevision[];
 }
 
@@ -37,6 +38,14 @@ export interface ProjectSchedulePayload {
   approvedAt?: string | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  manualProgressPct?: number | null;
+}
+
+export type ProgressMethod = 'RDO' | 'MANUAL';
+export interface ProjectAlert {
+  code: string;
+  level: 'danger' | 'warn';
+  label: string;
 }
 
 export async function getProjectRevisions(projectId: string): Promise<ProjectRevisions> {
@@ -84,6 +93,7 @@ export interface DashboardRow {
   realizedCost?: string | number | null;
   realizedPaid?: string | number | null;
   progressPct?: number | null;
+  progressMethod?: ProgressMethod | null;
 }
 
 export async function getCommercialDashboard(categoryCode?: string): Promise<DashboardRow[]> {
@@ -213,10 +223,12 @@ export interface ProjectCard {
   totalDays: number | null;
   daysConsumedPct: number | null;
   progressPct: number | null;
+  progressMethod?: ProgressMethod | null;
   lastDay: { date: string | null; status: LastDayStatus };
   collaboratorsCount: number;
   startDate: string | null;
   expectedEndDate: string | null;
+  alerts: ProjectAlert[];
 }
 
 export async function getProjectCards(): Promise<ProjectCard[]> {
@@ -236,6 +248,8 @@ export interface ProjectDetail {
     lastRdoDate: string | null;
     segment: string | null;
   };
+  alerts: ProjectAlert[];
+  avancoMethod?: ProgressMethod | null;
   diasCorridos: { elapsed: number | null; planned: number | null; pct: number | null };
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
   consumo: { gasto: number; previsto: number | null; pct: number | null };

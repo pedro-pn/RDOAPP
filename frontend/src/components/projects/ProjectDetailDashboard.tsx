@@ -115,6 +115,11 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
 
       <div className="page-card acp-det-header">
         <h2>{headerBits.join('  ·  ')}</h2>
+        {data.alerts.length > 0 ? (
+          <div className="acp-alerts">
+            {data.alerts.map((a, i) => <span key={i} className={`acp-alert ${a.level}`}>⚠ {a.label}</span>)}
+          </div>
+        ) : null}
       </div>
 
       <div className="acp-det-cols">
@@ -161,7 +166,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           <div className="page-card acp-det-block">
             <div className="acp-det-avanco">
               <div className="acp-det-metric-top">
-                <HelpTip help="Quanto do escopo vendido já foi executado: cruza o realizado dos RDOs (metros de tubulação, litros de óleo) com o previsto, ponderado pelo peso de cada serviço.">Avanço do escopo</HelpTip>
+                <HelpTip help="Quanto do escopo vendido já foi executado: cruza o realizado dos RDOs (metros de tubulação, litros de óleo) com o previsto, ponderado pelo peso de cada serviço. Sem escopo cadastrado, usa o avanço manual informado no cronograma.">Avanço do escopo{data.avancoMethod === 'MANUAL' ? ' (manual)' : ''}</HelpTip>
                 <span className="acp-det-metric-val">{fmtPct(data.avancoPct)}</span>
               </div>
               <Bar value={data.avancoPct} />

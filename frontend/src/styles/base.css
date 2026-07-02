@@ -1765,6 +1765,15 @@ a {
 .acp-progress-meta { font-weight: 400; color: var(--mu); font-size: 12px; }
 .acp-progress-sys { margin: 4px 0 0; padding-left: 16px; color: var(--mu); font-size: 12px; }
 
+/* Sinais de risco (alertas) — badges */
+.acp-alerts { display: flex; flex-wrap: wrap; gap: 6px; }
+.acp-alert {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.acp-alert.danger { color: #b3261e; background: #fdecea; border-color: #f5c2c0; }
+.acp-alert.warn { color: #8a5a00; background: #fef3c7; border-color: #f3d891; }
+
 /* Aba Projetos — cards */
 .acp-pcards-wrap { display: flex; flex-direction: column; gap: 12px; }
 .acp-pcards-grid {

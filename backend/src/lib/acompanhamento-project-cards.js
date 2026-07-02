@@ -7,6 +7,7 @@
  */
 
 import { listCommercialDashboard } from './acompanhamento-access-import.js';
+import { computeAlerts } from './acompanhamento-alerts.js';
 import prisma from './prisma.js';
 
 function toNum(value) {
@@ -104,6 +105,16 @@ export async function listProjectCards() {
     const daysConsumedPct = totalDays && totalDays > 0 ? Math.round((workedDays / totalDays) * 100) : null;
     const plannedDays = toNum(row.plannedDays);
     const expectedEndDate = row.startDate && plannedDays ? addCalendarDays(row.startDate, plannedDays) : null;
+    const lastDay = lastDayStatus(a.lastReport, projById.get(row.projectId));
+    const alerts = computeAlerts({
+      startDate: row.startDate ?? null,
+      plannedDays,
+      gasto: toNum(row.realizedCost), // Omie total, salário já excluído no dashboard
+      plannedCost: toNum(row.plannedTotalCost),
+      lastRdoDate: lastDay.date,
+      lastDayStatus: lastDay.status,
+      progressPct: row.progressPct ?? null
+    });
 
     return {
       projectId: row.projectId,
@@ -114,10 +125,12 @@ export async function listProjectCards() {
       totalDays,
       daysConsumedPct,
       progressPct: row.progressPct ?? null,
-      lastDay: lastDayStatus(a.lastReport, projById.get(row.projectId)),
+      progressMethod: row.progressMethod ?? null,
+      lastDay,
       collaboratorsCount: a.collabs.size,
       startDate: row.startDate ?? null,
-      expectedEndDate
+      expectedEndDate,
+      alerts
     };
   });
 }

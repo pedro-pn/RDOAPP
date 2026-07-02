@@ -41,6 +41,12 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
       </div>
       {card.clientName ? <div className="acp-pcard-client">{card.clientName}</div> : null}
 
+      {card.alerts.length > 0 ? (
+        <div className="acp-alerts">
+          {card.alerts.map((a, i) => <span key={i} className={`acp-alert ${a.level}`}>⚠ {a.label}</span>)}
+        </div>
+      ) : null}
+
       <div className="acp-pcard-metric">
         <div className="acp-pcard-metric-top">
           <span>Dias trabalhados</span>
@@ -53,7 +59,7 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
 
       <div className="acp-pcard-metric">
         <div className="acp-pcard-metric-top">
-          <span>Avanço de escopo</span>
+          <span>Avanço de escopo{card.progressMethod === 'MANUAL' ? ' (manual)' : ''}</span>
           <span className="acp-pcard-metric-val">{pct(card.progressPct)}</span>
         </div>
         <Bar value={card.progressPct} />

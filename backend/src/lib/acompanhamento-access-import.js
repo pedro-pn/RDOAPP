@@ -192,12 +192,12 @@ async function upsertBudget(client, projectId, proposal) {
 export async function listProjectRevisions(projectId) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, commercialProposalCode: true, contractCode: true, code: true, startDate: true, mobilizationDate: true }
+    select: { id: true, commercialProposalCode: true, contractCode: true, code: true, startDate: true, mobilizationDate: true, manualProgressPct: true }
   });
   if (!project) throw new Error('Projeto não encontrado.');
   const codProp = projectProposalCode(project);
   if (!Number.isInteger(codProp)) {
-    return { proposalCode: null, currentCodBd: null, resolved: false, startDate: project.startDate ?? null, mobilizationDate: project.mobilizationDate ?? null, revisions: [] };
+    return { proposalCode: null, currentCodBd: null, resolved: false, startDate: project.startDate ?? null, mobilizationDate: project.mobilizationDate ?? null, manualProgressPct: project.manualProgressPct ?? null, revisions: [] };
   }
   const [revisions, budget] = await Promise.all([
     prisma.commercialProposal.findMany({
@@ -224,13 +224,14 @@ export async function listProjectRevisions(projectId) {
     mobilizationLeadDays: budget?.mobilizationLeadDays ?? null,
     startDate: project.startDate ?? null,
     mobilizationDate: project.mobilizationDate ?? null,
+    manualProgressPct: project.manualProgressPct ?? null,
     revisions
   };
 }
 
 // Edita o cronograma: data de aprovação do contrato (no orçamento) e início real (no projeto).
 // Cada campo é opcional; passar null limpa. approvedAt exige um orçamento já escolhido.
-export async function setProjectSchedule(projectId, { approvedAt, startDate, mobilizationDate } = {}) {
+export async function setProjectSchedule(projectId, { approvedAt, startDate, mobilizationDate, manualProgressPct } = {}) {
   return prisma.$transaction(async (tx) => {
     if (approvedAt !== undefined) {
       const budget = await tx.projectBudget.findUnique({
@@ -246,6 +247,7 @@ export async function setProjectSchedule(projectId, { approvedAt, startDate, mob
     const projectData = {};
     if (startDate !== undefined) projectData.startDate = startDate ? new Date(startDate) : null;
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
+    if (manualProgressPct !== undefined) projectData.manualProgressPct = manualProgressPct == null ? null : manualProgressPct;
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
     }
@@ -357,14 +359,17 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       rdoCount: rdoByProject.get(project.id) ?? 0,
       realizedCost: realizedByProject.get(project.id) ?? null,
       realizedPaid: realizedPaidByProject.get(project.id) ?? null,
-      progressPct: null
+      progressPct: null,
+      progressMethod: null
     });
   }
 
-  // Avanço físico (RDO ponderado por serviço) dos projetos exibidos, em lote.
+  // Avanço físico (RDO ponderado por serviço; ou manual como fallback) dos projetos exibidos, em lote.
   const progressByProject = await computeProgressForProjects(rows.map(r => r.projectId));
   for (const row of rows) {
-    row.progressPct = progressByProject.get(row.projectId)?.progressPct ?? null;
+    const p = progressByProject.get(row.projectId);
+    row.progressPct = p?.progressPct ?? null;
+    row.progressMethod = p?.progressMethod ?? null;
   }
 
   rows.sort((a, b) => Number(a.resolved) - Number(b.resolved) || a.code.localeCompare(b.code));

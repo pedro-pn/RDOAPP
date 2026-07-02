@@ -10,6 +10,7 @@
  */
 
 import { listCommercialDashboard } from './acompanhamento-access-import.js';
+import { computeAlerts } from './acompanhamento-alerts.js';
 import { isSalaryCategory } from './acompanhamento-salary.js';
 import prisma from './prisma.js';
 
@@ -170,6 +171,16 @@ export async function getProjectDetail(projectId) {
     ? addCalendarDays(row.startDate, elapsedCorridos * (100 / avancoPct))
     : null;
 
+  const alerts = computeAlerts({
+    startDate: row.startDate ?? null,
+    plannedDays,
+    gasto,
+    plannedCost: previstoCusto,
+    lastRdoDate,
+    lastDayStatus: ultimosDias.length ? ultimosDias[ultimosDias.length - 1].status : null,
+    progressPct: avancoPct
+  });
+
   return {
     header: {
       code: row.code,
@@ -178,6 +189,7 @@ export async function getProjectDetail(projectId) {
       lastRdoDate,
       segment: project?.clientSegment ?? null
     },
+    alerts,
     diasCorridos,
     diasTrabalhados,
     consumo: {
@@ -187,6 +199,7 @@ export async function getProjectDetail(projectId) {
     },
     maioresGastos,
     avancoPct,
+    avancoMethod: row.progressMethod ?? null,
     standby: { count: standbyCount, minutes: standbyMinutesTotal },
     ultimosDias,
     overtimeMinutes: overtimeMinutesTotal,

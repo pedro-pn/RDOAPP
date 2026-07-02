@@ -59,16 +59,18 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const [approvalEdit, setApprovalEdit] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [mobEdit, setMobEdit] = useState<string | null>(null);
+  const [manualEdit, setManualEdit] = useState<string | null>(null);
   const [scopeDirty, setScopeDirty] = useState(false);
   const scopeRef = useRef<ScopeEditorHandle>(null);
 
   const scheduleMutation = useMutation({
-    mutationFn: (payload: { approvedAt?: string | null; startDate?: string | null; mobilizationDate?: string | null }) => setProjectSchedule(projectId, payload),
+    mutationFn: (payload: { approvedAt?: string | null; startDate?: string | null; mobilizationDate?: string | null; manualProgressPct?: number | null }) => setProjectSchedule(projectId, payload),
     onSuccess: () => {
       showToast('Cronograma atualizado.');
       setApprovalEdit(null);
       setStartEdit(null);
       setMobEdit(null);
+      setManualEdit(null);
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['project-cards'] });
@@ -81,15 +83,26 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const approvalValue = approvalEdit ?? toDateInput(data?.approvedAt);
   const startValue = startEdit ?? toDateInput(data?.startDate);
   const mobValue = mobEdit ?? toDateInput(data?.mobilizationDate);
+  const baseManual = data?.manualProgressPct == null ? '' : String(data.manualProgressPct);
+  const manualValue = manualEdit ?? baseManual;
   const scheduleDirty = approvalValue !== toDateInput(data?.approvedAt)
     || startValue !== toDateInput(data?.startDate)
-    || mobValue !== toDateInput(data?.mobilizationDate);
+    || mobValue !== toDateInput(data?.mobilizationDate)
+    || manualValue !== baseManual;
   const dirty = scheduleDirty || scopeDirty;
 
   // Salvar único: grava o cronograma (se mudou) e o escopo (se mudou), via ref do editor de escopo.
   const runSave = useRef<() => void>(() => {});
   runSave.current = () => {
-    if (scheduleDirty) scheduleMutation.mutate({ approvedAt: isoOrNull(approvalValue), startDate: isoOrNull(startValue), mobilizationDate: isoOrNull(mobValue) });
+    if (scheduleDirty) {
+      const manualNum = manualValue.trim() === '' ? null : Number(manualValue.replace(',', '.'));
+      scheduleMutation.mutate({
+        approvedAt: isoOrNull(approvalValue),
+        startDate: isoOrNull(startValue),
+        mobilizationDate: isoOrNull(mobValue),
+        manualProgressPct: manualNum != null && Number.isFinite(manualNum) ? Math.min(100, Math.max(0, manualNum)) : null
+      });
+    }
     if (scopeDirty) scopeRef.current?.save();
   };
   useImperativeHandle(ref, () => ({ save: () => runSave.current() }), []);
@@ -135,6 +148,20 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
           <input id={`acp-inicio-${projectId}`} type="date" value={startValue} onChange={e => setStartEdit(e.target.value)} />
         </div>
       </div>
+      <div className="admin-inline-grid" style={{ marginTop: 8 }}>
+        <div className="field-group acp-svc-weight-fg">
+          <label>Avanço manual <HelpTip icon help="Avanço informado à mão, em %. É usado só como fallback quando o projeto NÃO tem escopo previsto cadastrado (aí o avanço não pode vir dos RDOs). Se houver escopo, este valor é ignorado." /></label>
+          <div className="acp-pct-field">
+            <input
+              type="number" min="0" max="100" step="1" inputMode="numeric" placeholder="—"
+              value={manualValue}
+              onChange={e => setManualEdit(e.target.value)}
+            />
+            <span className="acp-pct-suffix">%</span>
+          </div>
+        </div>
+      </div>
+
       <div className="det-row" style={{ marginTop: 8 }}><span className="det-label">Mobilização / prazo</span>
         <span className="det-val">
           {leadDays != null ? `${leadDays} dia(s) p/ iniciar${deadline ? ` · até ${formatDatePt(deadline)}` : ''}` : 'Sem prazo de mobilização'}
