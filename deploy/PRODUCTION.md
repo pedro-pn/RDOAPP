@@ -84,23 +84,38 @@ Isso remove o bloqueio principal que existia para o `P3`.
    - Em homologação/teste com banco de produção, definir `SEND_CLIENT_EMAILS=false` para bloquear todos os envios operacionais do sistema.
    - Para observabilidade operacional, configurar `OPERATIONS_BACKUP_STATUS_FILE`,
      `OPERATIONS_RESTORE_STATUS_FILE`, `OPERATIONS_REQUIRE_BACKUP_STATUS=true`,
-     `OPERATIONS_REQUIRE_RESTORE_STATUS=true`, `OPERATIONS_ALERT_WEBHOOK_URL` e
-     `ERROR_TRACKING_WEBHOOK_URL` quando esses recursos estiverem ativos.
+     `OPERATIONS_ALERT_WEBHOOK_URL` e `ERROR_TRACKING_WEBHOOK_URL` quando esses
+     recursos estiverem ativos. Use `OPERATIONS_REQUIRE_RESTORE_STATUS=false` no
+     deploy inicial e altere para `true` depois que o restore periódico estiver
+     agendado e publicando `restore-latest.json`.
+   - Para rastreamento de erro do frontend em Docker, configurar
+     `VITE_ERROR_TRACKING_ENABLED` e, se necessário, `VITE_ERROR_TRACKING_ENDPOINT`
+     antes do build da imagem `nginx`.
 2. Garantir que o Compose receba `POSTGRES_PASSWORD`. Use `--env-file backend/.env.production` nos comandos abaixo ou mantenha um `.env` na raiz do projeto no servidor com essa variável.
-3. Buildar as imagens sem iniciar o backend. O comando de start do backend aplica
+3. Garantir que o diretório de status operacional exista no host:
+
+```bash
+mkdir -p /root/backups/filtrovali/status
+```
+
+O `docker-compose.prod.yml` monta esse diretório em `/ops-status:ro` no backend
+por padrão. Para usar outro caminho no host, defina `OPERATIONS_STATUS_DIR` no
+env-file usado pelo Compose.
+
+4. Buildar as imagens sem iniciar o backend. O comando de start do backend aplica
    migrations automaticamente, então ele não deve subir antes do preflight dos índices:
 
 ```bash
 docker compose --env-file backend/.env.production -f docker-compose.prod.yml build backend nginx
 ```
 
-4. Subir somente o Postgres:
+5. Subir somente o Postgres:
 
 ```bash
 docker compose --env-file backend/.env.production -f docker-compose.prod.yml up -d postgres
 ```
 
-5. Antes de iniciar o backend, criar os índices de produção de forma
+6. Antes de iniciar o backend, criar os índices de produção de forma
    concorrente para evitar bloqueio de escrita em tabelas ativas:
 
 ```bash
@@ -114,7 +129,7 @@ arquivo via Prisma. Depois que os índices existirem, as migrations com
 `CREATE INDEX IF NOT EXISTS` passam a ser no-op para esses índices e não seguram
 writes de produção durante o deploy.
 
-6. Subir backend e Nginx. Neste momento o `CMD` do backend roda
+7. Subir backend e Nginx. Neste momento o `CMD` do backend roda
    `npx prisma migrate deploy` automaticamente e inicia a API:
 
 ```bash
@@ -182,7 +197,7 @@ Configuração recomendada em produção:
 OPERATIONS_BACKUP_STATUS_FILE=/ops-status/backup-latest.json
 OPERATIONS_RESTORE_STATUS_FILE=/ops-status/restore-latest.json
 OPERATIONS_REQUIRE_BACKUP_STATUS=true
-OPERATIONS_REQUIRE_RESTORE_STATUS=true
+OPERATIONS_REQUIRE_RESTORE_STATUS=false
 OPERATIONS_BACKUP_MAX_AGE_HOURS=26
 OPERATIONS_RESTORE_MAX_AGE_DAYS=30
 OPERATIONS_ALERT_JOB_ENABLED=true
@@ -190,7 +205,12 @@ OPERATIONS_ALERT_INTERVAL_MS=3600000
 OPERATIONS_ALERT_WEBHOOK_URL=https://seu-monitoramento.example/webhook
 ERROR_TRACKING_PROVIDER=webhook
 ERROR_TRACKING_WEBHOOK_URL=https://seu-monitoramento.example/errors
+VITE_ERROR_TRACKING_ENABLED=true
+VITE_ERROR_TRACKING_ENDPOINT=
 ```
+
+Depois que o restore periódico estiver agendado e validado, altere
+`OPERATIONS_REQUIRE_RESTORE_STATUS=true`.
 
 O frontend também pode enviar erros não tratados para o backend:
 
@@ -202,8 +222,10 @@ Se o endpoint padrão `/api/operations/client-errors` não for usado, defina
 `VITE_ERROR_TRACKING_ENDPOINT`.
 
 Os scripts `deploy/backup-prod.sh` e `deploy/restore-prod.sh` escrevem os arquivos
-de status. O compose/deploy deve montar o diretório desses arquivos no backend em
-modo somente leitura.
+de status. O compose de produção já monta
+`${OPERATIONS_STATUS_DIR:-/root/backups/filtrovali/status}` no backend em
+`/ops-status:ro`; a tarefa manual é criar esse diretório no host e preencher as
+variáveis no env-file de produção.
 
 ## Certificado
 

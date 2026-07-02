@@ -96,8 +96,10 @@ Ao final de cada backup, ou quando ocorre falha, o script atualiza um JSON em
 }
 ```
 
-Para o endpoint administrativo `GET /api/operations/status` monitorar isso, monte
-o arquivo no container backend como leitura e configure:
+Para o endpoint administrativo `GET /api/operations/status` monitorar isso, o
+compose de produção já monta por padrão
+`/root/backups/filtrovali/status:/ops-status:ro` no backend. Crie o diretório no
+host e configure:
 
 ```env
 OPERATIONS_BACKUP_STATUS_FILE=/ops-status/backup-latest.json

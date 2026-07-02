@@ -74,6 +74,37 @@ STAGING_ADMIN_PASSWORD=outra-senha-forte
 Confirme que `SEND_CLIENT_EMAILS=false` está presente. Nunca altere para `true`
 em homologação — o banco contém dados reais de clientes.
 
+Para observabilidade operacional, crie o diretório de status no host:
+
+```bash
+mkdir -p /root/backups/filtrovali-staging/status
+```
+
+O `docker-compose.staging.yml` monta esse diretório em `/ops-status:ro` no backend
+por padrão. Para usar outro caminho no host, defina `STAGING_OPERATIONS_STATUS_DIR`
+no env-file usado pelo Compose.
+
+Configuração inicial recomendada:
+
+```env
+OPERATIONS_BACKUP_STATUS_FILE=/ops-status/backup-latest.json
+OPERATIONS_RESTORE_STATUS_FILE=/ops-status/restore-latest.json
+OPERATIONS_REQUIRE_BACKUP_STATUS=false
+OPERATIONS_REQUIRE_RESTORE_STATUS=false
+OPERATIONS_BACKUP_MAX_AGE_HOURS=26
+OPERATIONS_RESTORE_MAX_AGE_DAYS=30
+OPERATIONS_ALERT_JOB_ENABLED=true
+OPERATIONS_ALERT_INTERVAL_MS=3600000
+OPERATIONS_ALERT_WEBHOOK_URL=https://seu-monitoramento.example/webhook
+ERROR_TRACKING_PROVIDER=webhook
+ERROR_TRACKING_WEBHOOK_URL=https://seu-monitoramento.example/errors
+VITE_ERROR_TRACKING_ENABLED=true
+VITE_ERROR_TRACKING_ENDPOINT=
+```
+
+Depois que o restore periódico de staging estiver agendado e escrevendo
+`restore-latest.json`, altere `OPERATIONS_REQUIRE_RESTORE_STATUS=true`.
+
 Se o volume `filtrovali_staging_pgdata` for removido, o Postgres inicializa do zero
 e exige `STAGING_POSTGRES_PASSWORD` preenchido. O script de sync aborta antes de subir
 o container se essa variável estiver vazia.
