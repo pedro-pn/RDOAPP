@@ -1661,7 +1661,7 @@ a {
 .acp-table td { padding: 7px 10px; border-bottom: 1px solid #f1f3f2; white-space: nowrap; }
 .acp-table tbody tr:hover { background: #f7faf8; }
 
-.modal-card.acp-manage-card { width: min(96vw, 1160px); max-width: 1160px; }
+.modal-card.acp-manage-card { width: min(94vw, 980px); max-width: 980px; }
 .acp-manage { display: flex; flex-direction: column; gap: 10px; }
 .acp-manage .det-row { flex-wrap: wrap; }
 .acp-manage .det-val { text-align: left; }
@@ -1698,9 +1698,10 @@ a {
 .acp-weight-sum.ok { color: var(--mu); }
 .acp-weight-sum.warn { color: #92400e; }
 
-/* Campo de porcentagem com o "%" embutido no próprio input */
+/* Campo de porcentagem com o "%" embutido no próprio input.
+   Especificidade extra (.field-group ...) p/ vencer o padding do .field-group input. */
 .acp-pct-field { position: relative; }
-.acp-pct-field input { padding-right: 24px; text-align: right; }
+.field-group .acp-pct-field input { padding-right: 26px; text-align: right; }
 .acp-pct-field .acp-pct-suffix {
   position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
   color: var(--mu); font-size: 13px; pointer-events: none;
@@ -1792,30 +1793,16 @@ a {
 }
 .help-tip-icon:hover .help-tip-mark,
 .help-tip-icon:focus-visible .help-tip-mark { color: var(--g); border-color: var(--g); }
-.help-tip-balloon {
-  position: absolute; bottom: calc(100% + 8px); left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  width: max-content; max-width: 240px; white-space: normal; text-align: left;
+/* Balão renderizado em portal (posição fixa) — nunca é cortado por overflow de modais/containers */
+.help-tip-portal {
+  position: fixed; z-index: 9999;
+  max-width: min(260px, 90vw); white-space: normal; text-align: left;
   background: var(--wh); color: var(--tx); border: 1px solid var(--br); border-radius: var(--rs);
   box-shadow: var(--shadow); padding: 8px 10px; font-size: 12px; font-weight: 400; line-height: 1.45;
-  z-index: 50; opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity .09s ease, transform .09s ease;
+  pointer-events: none;
 }
-.help-tip:hover .help-tip-balloon,
-.help-tip:focus-visible .help-tip-balloon {
-  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
-}
-.help-tip-balloon::after {
-  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-  border: 6px solid transparent; border-top-color: var(--wh);
-}
-/* Variante: balão para baixo (evita corte em cabeçalhos dentro de containers com overflow) */
-.help-tip-below .help-tip-balloon { bottom: auto; top: calc(100% + 8px); transform: translateX(-50%) translateY(-4px); }
-.help-tip-below:hover .help-tip-balloon,
-.help-tip-below:focus-visible .help-tip-balloon { transform: translateX(-50%) translateY(0); }
-.help-tip-below .help-tip-balloon::after {
-  top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--wh);
-}
+.help-tip-portal.above { transform: translate(-50%, -100%); }
+.help-tip-portal.below { transform: translate(-50%, 0); }
 
 /* Dashboard detalhado do projeto */
 .acp-det { width: 100%; display: flex; flex-direction: column; gap: 12px; }

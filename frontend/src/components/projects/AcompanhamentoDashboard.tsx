@@ -202,14 +202,14 @@ export function AcompanhamentoDashboard() {
               <tr>
                 <th>Missão</th>
                 <th>Cliente</th>
-                <th><HelpTip below help="Número da proposta comercial vinculada à missão (pela 1ª parte do contrato).">Contrato</HelpTip></th>
-                <th><HelpTip below help="Preço de venda previsto no comercial (revisão vigente).">Venda</HelpTip></th>
-                <th><HelpTip below help="Custo total previsto no comercial (inclui mão de obra).">Custo prev.</HelpTip></th>
-                <th><HelpTip below help="Total pago no Omie (títulos com status PAGO) vinculados à missão.">Realizado</HelpTip></th>
-                <th><HelpTip below help="Margem prevista no comercial (revisão vigente).">Margem</HelpTip></th>
-                <th><HelpTip below help="Dias previstos: corridos / trabalhados, do comercial.">Dias (prev/trab)</HelpTip></th>
-                <th><HelpTip below help="Nº de RDOs registrados = dias trabalhados realizados.">RDOs</HelpTip></th>
-                <th><HelpTip below help="Avanço físico do escopo: realizado dos RDOs (metros/litros) x previsto, ponderado pelo peso de cada serviço.">Avanço</HelpTip></th>
+                <th><HelpTip help="Número da proposta comercial vinculada à missão (pela 1ª parte do contrato).">Contrato</HelpTip></th>
+                <th><HelpTip help="Preço de venda previsto no comercial (revisão vigente).">Venda</HelpTip></th>
+                <th><HelpTip help="Custo total previsto no comercial (inclui mão de obra).">Custo prev.</HelpTip></th>
+                <th><HelpTip help="Total pago no Omie (títulos com status PAGO) vinculados à missão.">Realizado</HelpTip></th>
+                <th><HelpTip help="Margem prevista no comercial (revisão vigente).">Margem</HelpTip></th>
+                <th><HelpTip help="Dias previstos: corridos / trabalhados, do comercial.">Dias (prev/trab)</HelpTip></th>
+                <th><HelpTip help="Nº de RDOs registrados = dias trabalhados realizados.">RDOs</HelpTip></th>
+                <th><HelpTip help="Avanço físico do escopo: realizado dos RDOs (metros/litros) x previsto, ponderado pelo peso de cada serviço.">Avanço</HelpTip></th>
                 <th></th>
               </tr>
             </thead>
