@@ -197,7 +197,7 @@ export function AcompanhamentoDashboard() {
 
       {/* Tabela */}
       <div className="page-card">
-        <div className="sec">Projetos ({filtered.length})</div>
+        <div className="sec">Projetos ({filtered.length}) <span className="acp-table-hint">· clique numa linha para abrir o cronograma</span></div>
         <div className="acp-table-wrap">
           <table className="acp-table">
             <thead>
@@ -212,12 +212,16 @@ export function AcompanhamentoDashboard() {
                 <th><HelpTip help="Dias previstos: corridos / trabalhados, do comercial.">Dias (prev/trab)</HelpTip></th>
                 <th><HelpTip help="Nº de RDOs registrados = dias trabalhados realizados.">RDOs</HelpTip></th>
                 <th><HelpTip help="Avanço físico do escopo: realizado dos RDOs (metros/litros) x previsto, ponderado pelo peso de cada serviço.">Avanço</HelpTip></th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(row => (
-                <tr key={row.projectId}>
+                <tr
+                  key={row.projectId}
+                  className="acp-table-row"
+                  onClick={() => setManaged(row)}
+                  title="Abrir cronograma"
+                >
                   <td>{row.code}{row.name ? ` — ${row.name}` : ''}</td>
                   <td>{row.clientName || '—'}</td>
                   <td>{row.proposalCode}</td>
@@ -233,7 +237,6 @@ export function AcompanhamentoDashboard() {
                       <span className="acp-prog-val">{pct(row.progressPct)}</span>
                     </div>
                   )}</td>
-                  <td><button type="button" className="mini-btn" onClick={() => setManaged(row)}>Cronograma</button></td>
                 </tr>
               ))}
             </tbody>
