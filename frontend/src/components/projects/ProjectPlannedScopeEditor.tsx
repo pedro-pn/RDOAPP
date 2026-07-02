@@ -9,6 +9,7 @@ import {
   type PlannedSystemType
 } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
+import { HelpTip } from '../ui/HelpTip';
 import { useToast } from '../ui/ToastContext';
 
 // Tipos de serviço conhecidos (alinhados ao backend) + rótulos exibidos.
@@ -81,7 +82,7 @@ function fromScope(scope: PlannedScope): { services: ServiceRow[]; overtime: Ove
       return {
         key: nextKey(),
         serviceType,
-        weight: s.weight === null || s.weight === undefined ? '1' : toStr(s.weight),
+        weight: s.weight === null || s.weight === undefined ? '' : toStr(s.weight),
         systems: (s.systems ?? [])
           .filter(sys => allowed.includes(sys.systemType))
           .map(sys => ({ key: nextKey(), systemType: sys.systemType, quantity: toStr(sys.quantity) }))
@@ -146,7 +147,7 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
     const payload: PlannedScope = {
       services: services.map(s => ({
         serviceType: s.serviceType,
-        weight: toNum(s.weight) ?? 1,
+        weight: toNum(s.weight) ?? 0,
         systems: s.systems.map(sys => ({
           systemType: sys.systemType,
           quantity: toNum(sys.quantity),
@@ -197,6 +198,8 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
 
   if (isLoading) return <div className="placeholder-copy">Carregando escopo…</div>;
 
+  const weightSum = services.reduce((sum, s) => sum + (toNum(s.weight) ?? 0), 0);
+
   return (
     <div className="acp-scope">
       <div className="sec" style={{ marginTop: 4 }}>Serviços previstos (vendido)</div>
@@ -212,18 +215,21 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
             <div className="acp-svc-card" key={svc.key}>
               <div className="acp-svc-head">
                 <div className="field-group acp-svc-type-fg">
-                  <label>Serviço</label>
+                  <label>Serviço <HelpTip icon help="Tipo de serviço vendido nesta obra (limpeza química, teste de pressão, flushing, filtragem)." /></label>
                   <select value={svc.serviceType} onChange={e => changeServiceType(svc.key, e.target.value)}>
                     {SERVICE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div className="field-group acp-svc-weight-fg">
-                  <label title="Peso deste serviço no avanço do projeto">Peso (avanço)</label>
-                  <input
-                    type="number" min="0" step="any" inputMode="decimal" placeholder="1"
-                    value={svc.weight}
-                    onChange={e => updateRow(setServices, svc.key, { weight: e.target.value })}
-                  />
+                  <label>Peso <HelpTip icon help="Quanto este serviço representa do avanço da obra, em % (o ideal é os pesos somarem 100%). Ex.: limpeza química 90%, filtragem 10%." /></label>
+                  <div className="num-unit">
+                    <input
+                      type="number" min="0" max="100" step="any" inputMode="decimal" placeholder="0"
+                      value={svc.weight}
+                      onChange={e => updateRow(setServices, svc.key, { weight: e.target.value })}
+                    />
+                    <span className="acp-unit-tag">%</span>
+                  </div>
                 </div>
                 <button type="button" className="mini-btn alt" onClick={() => setServices(prev => prev.filter(s => s.key !== svc.key))}>
                   Remover serviço
@@ -237,7 +243,7 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
                   {svc.systems.map(sys => (
                     <div className="acp-sys-row" key={sys.key}>
                       <div className="field-group">
-                        <label>Sistema</label>
+                        <label>Sistema <HelpTip icon help="O que será medido neste serviço: tubulação (em metros) ou óleo (em litros)." /></label>
                         <select
                           value={sys.systemType}
                           onChange={e => changeSystem(svc.key, sys.key, { systemType: e.target.value as PlannedSystemType })}
@@ -246,7 +252,7 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
                         </select>
                       </div>
                       <div className="field-group">
-                        <label>Quantidade ({UNIT_LABELS[SYSTEM_UNIT[sys.systemType]]})</label>
+                        <label>Quantidade ({UNIT_LABELS[SYSTEM_UNIT[sys.systemType]]}) <HelpTip icon help="Quantitativo vendido/previsto deste sistema. É o denominador do avanço (realizado ÷ previsto)." /></label>
                         <div className="num-unit">
                           <input
                             type="number" min="0" step="any" inputMode="decimal" placeholder="0"
@@ -273,10 +279,16 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
         type="button"
         className="mini-btn"
         style={{ marginTop: 8 }}
-        onClick={() => setServices(prev => [...prev, { key: nextKey(), serviceType: 'LIMPEZA_QUIMICA', weight: '1', systems: [] }])}
+        onClick={() => setServices(prev => [...prev, { key: nextKey(), serviceType: 'LIMPEZA_QUIMICA', weight: '', systems: [] }])}
       >
         + Adicionar serviço
       </button>
+      {services.length > 0 ? (
+        <div className={`acp-weight-sum ${Math.round(weightSum) === 100 ? 'ok' : 'warn'}`}>
+          Soma dos pesos: {weightSum.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+          {Math.round(weightSum) !== 100 ? ' — o ideal é somar 100%' : ''}
+        </div>
+      ) : null}
 
       <div className="sec" style={{ marginTop: 18 }}>Previsão de hora extra</div>
       <p className="placeholder-copy" style={{ margin: '2px 0 8px' }}>
@@ -290,14 +302,14 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
           {overtime.map(row => (
             <div className="acp-ot-row" key={row.key}>
               <div className="field-group acp-ot-role">
-                <label>Cargo</label>
+                <label>Cargo <HelpTip icon help="Cargo previsto para as horas extras vendidas." /></label>
                 <select value={row.jobRoleId} onChange={e => updateRow(setOvertime, row.key, { jobRoleId: e.target.value })}>
                   <option value="">— selecione —</option>
                   {(roles ?? []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
               <div className="field-group">
-                <label>Colaboradores</label>
+                <label>Colaboradores <HelpTip icon help="Quantos colaboradores desse cargo estão previstos para a hora extra." /></label>
                 <input
                   type="number" min="1" step="1" inputMode="numeric" placeholder="1"
                   value={row.collaboratorCount}
@@ -305,7 +317,7 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
                 />
               </div>
               <div className="field-group">
-                <label>Horas previstas</label>
+                <label>Horas previstas <HelpTip icon help="Total de horas extras previstas (vendidas) para esse cargo." /></label>
                 <input
                   type="number" min="0" step="any" inputMode="decimal" placeholder="0"
                   value={row.hours}

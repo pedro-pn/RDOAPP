@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getProjectRevisions, setProjectSchedule, type CommercialRevision } from '../../api/acompanhamentoComercial';
 import { useToast } from '../ui/ToastContext';
+import { HelpTip } from '../ui/HelpTip';
 import { ProjectPlannedScopeEditor } from './ProjectPlannedScopeEditor';
 import { ProjectProgressBreakdown } from './ProjectProgressBreakdown';
 import { RealizedCategoryBreakdown } from './RealizedCategoryBreakdown';
@@ -103,15 +104,15 @@ export function ProjectScheduleEditor({ projectId }: { projectId: string }) {
 
       <div className="admin-inline-grid" style={{ marginTop: 8 }}>
         <div className="field-group">
-          <label htmlFor={`acp-aprov-${projectId}`}>Aprovação do contrato</label>
+          <label htmlFor={`acp-aprov-${projectId}`}>Aprovação do contrato <HelpTip icon help="Data em que o contrato/proposta foi aprovado pelo cliente. Base para o prazo de mobilização." /></label>
           <input id={`acp-aprov-${projectId}`} type="date" value={approvalValue} onChange={e => setApprovalEdit(e.target.value)} />
         </div>
         <div className="field-group">
-          <label htmlFor={`acp-mob-${projectId}`}>Mobilização</label>
+          <label htmlFor={`acp-mob-${projectId}`}>Mobilização <HelpTip icon help="Data em que a equipe/equipamento foram mobilizados para a obra. Exibida no rodapé do dashboard do projeto." /></label>
           <input id={`acp-mob-${projectId}`} type="date" value={mobValue} onChange={e => setMobEdit(e.target.value)} />
         </div>
         <div className="field-group">
-          <label htmlFor={`acp-inicio-${projectId}`}>Início real</label>
+          <label htmlFor={`acp-inicio-${projectId}`}>Início real <HelpTip icon help="Data em que a execução começou de fato. Ponto de partida dos dias corridos e da previsão de término." /></label>
           <input id={`acp-inicio-${projectId}`} type="date" value={startValue} onChange={e => setStartEdit(e.target.value)} />
         </div>
       </div>

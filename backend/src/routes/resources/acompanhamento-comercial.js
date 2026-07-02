@@ -223,7 +223,7 @@ const plannedSystemSchema = z.object({
 
 const plannedServiceSchema = z.object({
   serviceType: z.string().trim().min(1).max(60),
-  weight: z.number().nonnegative().max(9999).optional(),
+  weight: z.number().nonnegative().max(100).optional(), // peso do serviço no avanço, em % (0–100)
   note: z.string().max(300).nullable().optional(),
   systems: z.array(plannedSystemSchema).max(20).default([])
 });

@@ -39,7 +39,7 @@ export function ProjectProgressBreakdown({ projectId }: { projectId: string }) {
           <div className="acp-progress-svc" key={i}>
             <div className="acp-progress-svc-head">
               <span>{SERVICE_LABELS[svc.serviceType] ?? svc.serviceType}</span>
-              <span className="acp-progress-meta">peso {svc.weight.toLocaleString('pt-BR')} · {fmtPct(svc.executionPct)}</span>
+              <span className="acp-progress-meta">peso {svc.weight.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% · {fmtPct(svc.executionPct)}</span>
             </div>
             <ul className="acp-progress-sys">
               {svc.systems.map((sys, j) => <li key={j}>{systemLine(sys)}</li>)}

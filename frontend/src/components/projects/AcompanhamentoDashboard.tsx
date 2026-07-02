@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getCommercialDashboard, getRealizedByCategory, type DashboardRow } from '../../api/acompanhamentoComercial';
+import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { ProjectScheduleEditor } from './ProjectScheduleEditor';
 import { RealizedCategoryBreakdown } from './RealizedCategoryBreakdown';
@@ -201,14 +202,14 @@ export function AcompanhamentoDashboard() {
               <tr>
                 <th>Missão</th>
                 <th>Cliente</th>
-                <th>Contrato</th>
-                <th>Venda</th>
-                <th>Custo prev.</th>
-                <th>Realizado</th>
-                <th>Margem</th>
-                <th>Dias (prev/trab)</th>
-                <th>RDOs</th>
-                <th>Avanço</th>
+                <th><HelpTip below help="Número da proposta comercial vinculada à missão (pela 1ª parte do contrato).">Contrato</HelpTip></th>
+                <th><HelpTip below help="Preço de venda previsto no comercial (revisão vigente).">Venda</HelpTip></th>
+                <th><HelpTip below help="Custo total previsto no comercial (inclui mão de obra).">Custo prev.</HelpTip></th>
+                <th><HelpTip below help="Total pago no Omie (títulos com status PAGO) vinculados à missão.">Realizado</HelpTip></th>
+                <th><HelpTip below help="Margem prevista no comercial (revisão vigente).">Margem</HelpTip></th>
+                <th><HelpTip below help="Dias previstos: corridos / trabalhados, do comercial.">Dias (prev/trab)</HelpTip></th>
+                <th><HelpTip below help="Nº de RDOs registrados = dias trabalhados realizados.">RDOs</HelpTip></th>
+                <th><HelpTip below help="Avanço físico do escopo: realizado dos RDOs (metros/litros) x previsto, ponderado pelo peso de cada serviço.">Avanço</HelpTip></th>
                 <th></th>
               </tr>
             </thead>

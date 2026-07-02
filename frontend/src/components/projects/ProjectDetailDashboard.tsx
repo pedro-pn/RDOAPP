@@ -6,6 +6,7 @@ import {
   type DayStatus,
   type PlannedScope
 } from '../../api/acompanhamentoComercial';
+import { HelpTip } from '../ui/HelpTip';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -46,11 +47,11 @@ function Bar({ value, tone }: { value: number | null; tone?: 'cost' }) {
   );
 }
 
-function MetricBar({ label, value, caption, tone }: { label: string; value: number | null; caption: string; tone?: 'cost' }) {
+function MetricBar({ label, value, caption, tone, help }: { label: string; value: number | null; caption: string; tone?: 'cost'; help: string }) {
   return (
     <div className="acp-det-metric">
       <div className="acp-det-metric-top">
-        <span>{label}</span>
+        <HelpTip help={help}>{label}</HelpTip>
         <span className="acp-det-metric-val">{caption}</span>
       </div>
       <Bar value={value} tone={tone} />
@@ -68,7 +69,7 @@ function PlannedScopeView({ scope }: { scope?: PlannedScope }) {
         <div className="acp-det-scope-svc" key={i}>
           <div className="acp-det-scope-head">
             <span>{SERVICE_LABELS[svc.serviceType] ?? svc.serviceType}</span>
-            <span className="acp-det-scope-weight">peso {Number(svc.weight ?? 1).toLocaleString('pt-BR')}</span>
+            <span className="acp-det-scope-weight">peso {Number(svc.weight ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>
           </div>
           <ul>
             {svc.systems.map((sys, j) => (
@@ -122,11 +123,13 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           <div className="page-card acp-det-block">
             <MetricBar
               label="Dias corridos"
+              help="Dias de calendário desde o início da obra até hoje, sobre os dias corridos previstos no comercial."
               value={data.diasCorridos.pct}
               caption={`${data.diasCorridos.elapsed ?? '—'}/${data.diasCorridos.planned ?? '—'}${data.diasCorridos.pct != null ? ` · ${data.diasCorridos.pct}%` : ''}`}
             />
             <MetricBar
               label="Dias trabalhados"
+              help="Dias com RDO registrado, sobre os dias trabalhados previstos no comercial."
               value={data.diasTrabalhados.pct}
               caption={`${data.diasTrabalhados.worked}/${data.diasTrabalhados.planned ?? '—'}${data.diasTrabalhados.pct != null ? ` · ${data.diasTrabalhados.pct}%` : ''}`}
             />
@@ -135,11 +138,12 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           <div className="page-card acp-det-block">
             <MetricBar
               label="Consumo de gastos"
+              help="Total gasto no Omie (pago + a pagar, sem salários) sobre o custo previsto no comercial. A mão de obra será calculada à parte na integração do ponto."
               value={data.consumo.pct}
               tone="cost"
               caption={`${brl(data.consumo.gasto)} / ${brl(data.consumo.previsto)}${data.consumo.pct != null ? ` · ${data.consumo.pct}%` : ''}`}
             />
-            <div className="acp-det-sub">Maiores gastos (sem salários)</div>
+            <div className="acp-det-sub"><HelpTip help="As 5 categorias de despesa do Omie com maior valor neste projeto (salários excluídos).">Maiores gastos (sem salários)</HelpTip></div>
             {data.maioresGastos.length === 0 ? (
               <div className="placeholder-copy">Sem gastos registrados no Omie.</div>
             ) : (
@@ -156,16 +160,19 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
         <div className="acp-det-col">
           <div className="page-card acp-det-block">
             <div className="acp-det-avanco">
-              <div className="acp-det-metric-top"><span>Avanço do escopo</span><span className="acp-det-metric-val">{fmtPct(data.avancoPct)}</span></div>
+              <div className="acp-det-metric-top">
+                <HelpTip help="Quanto do escopo vendido já foi executado: cruza o realizado dos RDOs (metros de tubulação, litros de óleo) com o previsto, ponderado pelo peso de cada serviço.">Avanço do escopo</HelpTip>
+                <span className="acp-det-metric-val">{fmtPct(data.avancoPct)}</span>
+              </div>
               <Bar value={data.avancoPct} />
             </div>
 
             <div className="acp-det-two">
-              <div><span className="acp-det-kpi-label">Standby</span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
-              <div><span className="acp-det-kpi-label">Hora total parada</span><strong>{fmtHM(data.standby.minutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos RDOs.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas de standby de todos os RDOs do projeto.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
             </div>
 
-            <div className="acp-det-sub">Últimos dias</div>
+            <div className="acp-det-sub"><HelpTip help="Status dos últimos 5 dias com RDO: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
             <div className="acp-det-dots">
               {data.ultimosDias.length === 0 ? (
                 <span className="placeholder-copy">Sem RDOs.</span>
@@ -185,7 +192,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
             </div>
 
             <div className="acp-det-two" style={{ marginTop: 10 }}>
-              <div><span className="acp-det-kpi-label">Horas extras</span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Total de horas extras identificadas nos RDOs do projeto.">Horas extras</HelpTip></span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
             </div>
           </div>
         </div>
@@ -193,7 +200,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
         {/* Coluna 3 */}
         <div className="acp-det-col">
           <div className="page-card acp-det-block">
-            <div className="acp-det-sub">Colaboradores na obra ({data.colaboradores.length})</div>
+            <div className="acp-det-sub"><HelpTip help="Pessoas distintas que aparecem em qualquer RDO do projeto (cada colaborador conta uma vez), com o cargo.">Colaboradores na obra ({data.colaboradores.length})</HelpTip></div>
             {data.colaboradores.length === 0 ? (
               <div className="placeholder-copy">Nenhum colaborador nos RDOs.</div>
             ) : (
@@ -206,17 +213,17 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           </div>
 
           <div className="page-card acp-det-block">
-            <div className="acp-det-sub">Escopo cadastrado</div>
+            <div className="acp-det-sub"><HelpTip help="Escopo vendido informado manualmente (aba Cronograma): serviços, sistemas e quantitativos, com o peso de cada serviço no avanço.">Escopo cadastrado</HelpTip></div>
             <PlannedScopeView scope={scope} />
           </div>
         </div>
       </div>
 
       <div className="page-card acp-det-footer">
-        <div><span>Mobilização</span><strong>{fmtDate(data.footer.mobilizationDate)}</strong></div>
-        <div><span>Início</span><strong>{fmtDate(data.footer.startDate)}</strong></div>
-        <div><span>Previsão de término</span><strong>{fmtDate(data.footer.expectedEndDate)}</strong></div>
-        <div><span>Previsão pelo ritmo</span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
+        <div><span><HelpTip help="Data de mobilização, cadastrada manualmente no cronograma.">Mobilização</HelpTip></span><strong>{fmtDate(data.footer.mobilizationDate)}</strong></div>
+        <div><span><HelpTip help="Data de início real, cadastrada manualmente no cronograma.">Início</HelpTip></span><strong>{fmtDate(data.footer.startDate)}</strong></div>
+        <div><span><HelpTip help="Início + dias corridos previstos no comercial.">Previsão de término</HelpTip></span><strong>{fmtDate(data.footer.expectedEndDate)}</strong></div>
+        <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade atual (avanço acumulado por dia corrido desde o início).">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
     </div>
   );
