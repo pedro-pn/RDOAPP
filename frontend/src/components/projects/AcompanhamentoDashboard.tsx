@@ -222,16 +222,16 @@ export function AcompanhamentoDashboard() {
                   onClick={() => setManaged(row)}
                   title="Abrir cronograma"
                 >
-                  <td>{row.code}{row.name ? ` — ${row.name}` : ''}</td>
-                  <td>{row.clientName || '—'}</td>
-                  <td>{row.proposalCode}</td>
-                  <td>{brl(toNum(row.salePrice))}</td>
-                  <td>{brl(toNum(row.plannedTotalCost))}</td>
-                  <td>{brl(toNum(row.realizedPaid))}</td>
-                  <td>{pct(row.expectedMargin)}</td>
-                  <td>{row.plannedDays ?? '—'} / {row.workedDays ?? '—'}</td>
-                  <td>{row.rdoCount}</td>
-                  <td>{row.progressPct == null ? '—' : (
+                  <td data-label="Missão">{row.code}{row.name ? ` — ${row.name}` : ''}</td>
+                  <td data-label="Cliente">{row.clientName || '—'}</td>
+                  <td data-label="Contrato">{row.proposalCode}</td>
+                  <td data-label="Venda">{brl(toNum(row.salePrice))}</td>
+                  <td data-label="Custo prev.">{brl(toNum(row.plannedTotalCost))}</td>
+                  <td data-label="Realizado">{brl(toNum(row.realizedPaid))}</td>
+                  <td data-label="Margem">{pct(row.expectedMargin)}</td>
+                  <td data-label="Dias (prev/trab)">{row.plannedDays ?? '—'} / {row.workedDays ?? '—'}</td>
+                  <td data-label="RDOs">{row.rdoCount}</td>
+                  <td data-label="Avanço">{row.progressPct == null ? '—' : (
                     <div className="acp-prog" title={`${row.progressPct}% de avanço`}>
                       <div className="acp-prog-bar"><span style={{ width: `${Math.min(row.progressPct, 100)}%` }} /></div>
                       <span className="acp-prog-val">{pct(row.progressPct)}</span>

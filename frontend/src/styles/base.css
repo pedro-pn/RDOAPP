@@ -1669,9 +1669,45 @@ a {
 .acp-table-row { cursor: pointer; }
 .acp-table-row:hover { background: #f5f7f6; }
 .acp-table-hint { font-size: 11px; font-weight: 400; color: var(--mu); }
-/* Sem rolagem horizontal no desktop; só em telas pequenas (mobile) */
+/* Desktop: cabe sem rolagem horizontal */
 .acp-table-wrap { width: 100%; }
-@media (max-width: 760px) { .acp-table-wrap { overflow-x: auto; } }
+
+/* Mobile (≤640px): cada linha vira um "card" empilhado (rótulo: valor) — some a rolagem lateral */
+@media (max-width: 640px) {
+  .acp-table-wrap { overflow-x: visible; }
+  .acp-table { font-size: 13px; }
+  .acp-table thead { display: none; }
+  .acp-table, .acp-table tbody { display: block; width: 100%; }
+  .acp-table tr {
+    display: block; background: var(--wh); border: 1px solid var(--br);
+    border-radius: var(--r); padding: 10px 12px; margin-bottom: 10px;
+  }
+  .acp-table td {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 4px 0; border: none; white-space: normal; text-align: right; min-width: 0;
+  }
+  .acp-table td::before {
+    content: attr(data-label); font-weight: 600; color: var(--mu); text-align: left;
+    flex: 0 0 auto; white-space: nowrap;
+  }
+  /* Missão vira o título do card (sem rótulo, largura toda) */
+  .acp-table td:nth-child(1) {
+    display: block; text-align: left; font-size: 14px; font-weight: 700; color: var(--g);
+    border-bottom: 1px solid var(--br); padding-bottom: 6px; margin-bottom: 6px; min-width: 0;
+  }
+  .acp-table td:nth-child(1)::before { content: none; }
+  .acp-table .acp-prog { min-width: 0; flex: 1 1 auto; max-width: 200px; }
+}
+
+/* Filtros e KPIs em telas estreitas */
+@media (max-width: 560px) {
+  .acp-filters { grid-template-columns: 1fr; }
+  .acp-kpis { grid-template-columns: 1fr 1fr; }
+  .acp-kpi { min-width: 0; }
+  .acp-kpi-value { font-size: 18px; overflow-wrap: anywhere; }
+  .acp-bar-row { grid-template-columns: 76px 1fr auto; gap: 8px; font-size: 12px; }
+  .acp-bar-value { min-width: 68px; }
+}
 .acp-table tbody tr:hover { background: #f7faf8; }
 
 /* Modal do cronograma: cabeçalho e rodapé (Salvar/Cancelar) fixos; só o corpo rola. */
