@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getCommercialDashboard, getRealizedByCategory, type DashboardRow } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
-import { ProjectScheduleEditor } from './ProjectScheduleEditor';
+import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 import { RealizedCategoryBreakdown } from './RealizedCategoryBreakdown';
 
 function toNum(value?: string | number | null) {
@@ -63,6 +63,8 @@ export function AcompanhamentoDashboard() {
   const [category, setCategory] = useState('');
   const [metricKey, setMetricKey] = useState('custo');
   const [managed, setManaged] = useState<DashboardRow | null>(null);
+  const [managedDirty, setManagedDirty] = useState(false);
+  const scheduleRef = useRef<ScheduleEditorHandle>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['commercial-dashboard', category],
@@ -196,7 +198,7 @@ export function AcompanhamentoDashboard() {
       {/* Tabela */}
       <div className="page-card">
         <div className="sec">Projetos ({filtered.length})</div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="acp-table-wrap">
           <table className="acp-table">
             <thead>
               <tr>
@@ -242,11 +244,17 @@ export function AcompanhamentoDashboard() {
       <Modal open={managed !== null} onClose={() => setManaged(null)} ariaLabelledBy="acp-manage-title" panelClassName="modal-card acp-manage-card">
         {managed ? (
           <div className="acp-manage">
-            <div className="admin-toolbar full">
+            <div className="acp-manage-head">
               <div className="sec" id="acp-manage-title">Cronograma — {managed.code}{managed.name ? ` — ${managed.name}` : ''}</div>
-              <button className="mini-btn alt" type="button" onClick={() => setManaged(null)}>Fechar</button>
+              <button className="mini-btn alt" type="button" onClick={() => setManaged(null)} aria-label="Fechar">✕</button>
             </div>
-            <ProjectScheduleEditor projectId={managed.projectId} />
+            <div className="acp-manage-body">
+              <ProjectScheduleEditor key={managed.projectId} ref={scheduleRef} projectId={managed.projectId} onDirtyChange={setManagedDirty} />
+            </div>
+            <div className="acp-manage-foot">
+              <button type="button" className="mini-btn alt" onClick={() => setManaged(null)}>Cancelar</button>
+              <button type="button" className="mini-btn" disabled={!managedDirty} onClick={() => scheduleRef.current?.save()}>Salvar</button>
+            </div>
           </div>
         ) : <div />}
       </Modal>

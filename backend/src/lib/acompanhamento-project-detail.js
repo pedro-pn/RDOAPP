@@ -10,23 +10,8 @@
  */
 
 import { listCommercialDashboard } from './acompanhamento-access-import.js';
+import { isSalaryCategory } from './acompanhamento-salary.js';
 import prisma from './prisma.js';
-
-// Palavras-chave (sem acento, minúsculas) que marcam uma categoria como salário/mão de obra.
-const SALARY_KEYWORDS = [
-  'salario', 'folha', 'pro-labore', 'prolabore', 'pro labore', 'inss', 'fgts',
-  'ferias', 'rescisao', 'adiantamento', 'decimo terceiro', '13o salario', 'vale transporte',
-  'vale alimentacao', 'vale refeicao'
-];
-
-function normalize(text) {
-  return String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-export function isSalaryCategory(descricao) {
-  const key = normalize(descricao);
-  return SALARY_KEYWORDS.some(word => key.includes(word));
-}
 
 function toNum(value) {
   if (value === null || value === undefined || value === '') return null;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -148,9 +148,15 @@ function normalize(services: ServiceRow[], overtime: OvertimeRow[]) {
   });
 }
 
+export interface ScopeEditorHandle { save: () => void }
+
 // Editor do escopo previsto (vendido): serviços com seus sistemas + previsão de hora extra.
-// Preenchimento manual — esses dados ainda não vêm do banco comercial.
-export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) {
+// Preenchimento manual — esses dados ainda não vêm do banco comercial. Sem botão próprio de salvar:
+// expõe save() via ref e reporta dirty; o modal do cronograma tem o único Salvar/Cancelar.
+export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
+  projectId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+}>(function ProjectPlannedScopeEditor({ projectId, onDirtyChange }, ref) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const queryKey = ['planned-scope', projectId];
@@ -175,6 +181,12 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
   }, [data]);
 
   const dirty = useMemo(() => normalize(services, overtime) !== baseline, [services, overtime, baseline]);
+
+  // Handle estável que sempre chama o save mais recente (só quando há mudança).
+  const runSave = useRef<() => void>(() => {});
+  runSave.current = () => { if (dirty) save(); };
+  useImperativeHandle(ref, () => ({ save: () => runSave.current() }), []);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   const mutation = useMutation({
     mutationFn: (payload: PlannedScope) => setPlannedScope(projectId, payload),
@@ -408,15 +420,9 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
       >
         + Adicionar hora extra
       </button>
-
-      <div style={{ marginTop: 16 }}>
-        <button type="button" className="mini-btn" disabled={mutation.isPending || !dirty} onClick={save}>
-          {mutation.isPending ? 'Salvando…' : 'Salvar escopo previsto'}
-        </button>
-      </div>
     </div>
   );
-}
+});
 
 function updateRow<T extends { key: string }>(
   setter: React.Dispatch<React.SetStateAction<T[]>>,

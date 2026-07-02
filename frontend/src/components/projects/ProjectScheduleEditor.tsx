@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getProjectRevisions, setProjectSchedule, type CommercialRevision } from '../../api/acompanhamentoComercial';
 import { useToast } from '../ui/ToastContext';
 import { HelpTip } from '../ui/HelpTip';
-import { ProjectPlannedScopeEditor } from './ProjectPlannedScopeEditor';
+import { ProjectPlannedScopeEditor, type ScopeEditorHandle } from './ProjectPlannedScopeEditor';
 import { ProjectProgressBreakdown } from './ProjectProgressBreakdown';
 import { RealizedCategoryBreakdown } from './RealizedCategoryBreakdown';
+
+export interface ScheduleEditorHandle { save: () => void }
 
 function toNum(value?: string | number | null) {
   if (value === null || value === undefined || value === '') return null;
@@ -45,7 +47,10 @@ function isoOrNull(dateInput: string) {
 
 // Cronograma do projeto, gerido no módulo Acompanhamento (datas de aprovação e início real),
 // junto do resumo do previsto. A escolha da revisão fica no card do projeto (aba Projetos).
-export function ProjectScheduleEditor({ projectId }: { projectId: string }) {
+export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
+  projectId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+}>(function ProjectScheduleEditor({ projectId, onDirtyChange }, ref) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const queryKey = ['commercial-revisions', projectId];
@@ -54,6 +59,8 @@ export function ProjectScheduleEditor({ projectId }: { projectId: string }) {
   const [approvalEdit, setApprovalEdit] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [mobEdit, setMobEdit] = useState<string | null>(null);
+  const [scopeDirty, setScopeDirty] = useState(false);
+  const scopeRef = useRef<ScopeEditorHandle>(null);
 
   const scheduleMutation = useMutation({
     mutationFn: (payload: { approvedAt?: string | null; startDate?: string | null; mobilizationDate?: string | null }) => setProjectSchedule(projectId, payload),
@@ -70,6 +77,24 @@ export function ProjectScheduleEditor({ projectId }: { projectId: string }) {
     onError: () => showToast('Não foi possível atualizar o cronograma.')
   });
 
+  // Valores/dirty calculados no topo (antes dos early returns) p/ o modal saber quando há mudança.
+  const approvalValue = approvalEdit ?? toDateInput(data?.approvedAt);
+  const startValue = startEdit ?? toDateInput(data?.startDate);
+  const mobValue = mobEdit ?? toDateInput(data?.mobilizationDate);
+  const scheduleDirty = approvalValue !== toDateInput(data?.approvedAt)
+    || startValue !== toDateInput(data?.startDate)
+    || mobValue !== toDateInput(data?.mobilizationDate);
+  const dirty = scheduleDirty || scopeDirty;
+
+  // Salvar único: grava o cronograma (se mudou) e o escopo (se mudou), via ref do editor de escopo.
+  const runSave = useRef<() => void>(() => {});
+  runSave.current = () => {
+    if (scheduleDirty) scheduleMutation.mutate({ approvedAt: isoOrNull(approvalValue), startDate: isoOrNull(startValue), mobilizationDate: isoOrNull(mobValue) });
+    if (scopeDirty) scopeRef.current?.save();
+  };
+  useImperativeHandle(ref, () => ({ save: () => runSave.current() }), []);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+
   if (isLoading) return <div className="placeholder-copy">Carregando…</div>;
 
   const current = data?.currentCodBd ?? null;
@@ -80,18 +105,12 @@ export function ProjectScheduleEditor({ projectId }: { projectId: string }) {
     return <div className="placeholder-copy">Aguardando seleção do contrato fechado pela gestão.</div>;
   }
 
-  const approvalValue = approvalEdit ?? toDateInput(data?.approvedAt);
-  const startValue = startEdit ?? toDateInput(data?.startDate);
-  const mobValue = mobEdit ?? toDateInput(data?.mobilizationDate);
   const leadDays = data?.mobilizationLeadDays ?? null;
   const deadline = approvalValue && leadDays != null ? addDays(approvalValue, leadDays) : '';
   const late = Boolean(startValue && deadline && startValue > deadline);
   const plannedDays = currentRevision.plannedDays ?? null;
   const consumed = startValue && plannedDays ? daysBetween(startValue, new Date()) : null;
   const consumedPct = consumed != null && plannedDays ? Math.round((consumed / plannedDays) * 100) : null;
-  const dirty = approvalValue !== toDateInput(data?.approvedAt)
-    || startValue !== toDateInput(data?.startDate)
-    || mobValue !== toDateInput(data?.mobilizationDate);
 
   return (
     <div className="det-section">
@@ -116,17 +135,6 @@ export function ProjectScheduleEditor({ projectId }: { projectId: string }) {
           <input id={`acp-inicio-${projectId}`} type="date" value={startValue} onChange={e => setStartEdit(e.target.value)} />
         </div>
       </div>
-      <div style={{ marginTop: 8 }}>
-        <button
-          type="button"
-          className="mini-btn"
-          disabled={scheduleMutation.isPending || !dirty}
-          onClick={() => scheduleMutation.mutate({ approvedAt: isoOrNull(approvalValue), startDate: isoOrNull(startValue), mobilizationDate: isoOrNull(mobValue) })}
-        >
-          {scheduleMutation.isPending ? 'Salvando…' : 'Salvar cronograma'}
-        </button>
-      </div>
-
       <div className="det-row" style={{ marginTop: 8 }}><span className="det-label">Mobilização / prazo</span>
         <span className="det-val">
           {leadDays != null ? `${leadDays} dia(s) p/ iniciar${deadline ? ` · até ${formatDatePt(deadline)}` : ''}` : 'Sem prazo de mobilização'}
@@ -140,10 +148,10 @@ export function ProjectScheduleEditor({ projectId }: { projectId: string }) {
       <ProjectProgressBreakdown projectId={projectId} />
 
       <div className="acp-scope-divider" />
-      <ProjectPlannedScopeEditor projectId={projectId} />
+      <ProjectPlannedScopeEditor ref={scopeRef} projectId={projectId} onDirtyChange={setScopeDirty} />
 
       <div className="sec" style={{ marginTop: 16 }}>Realizado por categoria (Omie)</div>
       <RealizedCategoryBreakdown projectId={projectId} limit={10} />
     </div>
   );
-}
+});

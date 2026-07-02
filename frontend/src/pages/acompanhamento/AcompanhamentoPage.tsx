@@ -29,7 +29,6 @@ export function AcompanhamentoPage() {
         subtitle="Previsto x realizado, custos e cronograma"
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/modulos')}>Módulos</button>
             <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>Conta</button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>Sair</button>
           </>

@@ -1656,17 +1656,38 @@ a {
 .acp-bar-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #3f6f55, #5c8a6c); }
 .acp-bar-value { font-variant-numeric: tabular-nums; color: #374151; min-width: 90px; text-align: right; }
 
-.acp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.acp-table th { text-align: left; padding: 7px 10px; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-weight: 600; white-space: nowrap; }
-.acp-table td { padding: 7px 10px; border-bottom: 1px solid #f1f3f2; white-space: nowrap; }
+.acp-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+.acp-table th { text-align: left; padding: 7px 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-weight: 600; white-space: nowrap; }
+.acp-table td { padding: 7px 8px; border-bottom: 1px solid #f1f3f2; white-space: nowrap; }
+/* Colunas de texto (Missão, Cliente) podem quebrar, liberando largura p/ a tabela caber sem rolagem */
+.acp-table th:nth-child(1), .acp-table td:nth-child(1),
+.acp-table th:nth-child(2), .acp-table td:nth-child(2) { white-space: normal; }
+.acp-table td:nth-child(1) { min-width: 120px; }
+.acp-table .acp-prog { min-width: 78px; }
+/* Sem rolagem horizontal no desktop; só em telas pequenas (mobile) */
+.acp-table-wrap { width: 100%; }
+@media (max-width: 760px) { .acp-table-wrap { overflow-x: auto; } }
 .acp-table tbody tr:hover { background: #f7faf8; }
 
-.modal-card.acp-manage-card { width: min(94vw, 980px); max-width: 980px; }
-.acp-manage { display: flex; flex-direction: column; gap: 10px; }
+/* Modal do cronograma: cabeçalho e rodapé (Salvar/Cancelar) fixos; só o corpo rola. */
+.modal-card.acp-manage-card {
+  width: min(94vw, 980px); max-width: 980px;
+  display: flex; flex-direction: column; overflow: hidden; padding: 0;
+}
+.acp-manage { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.acp-manage-head {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 16px 18px 10px;
+}
+.acp-manage-body { flex: 1 1 auto; overflow-y: auto; min-height: 0; padding: 2px 18px 10px; display: flex; flex-direction: column; gap: 10px; }
+.acp-manage-foot {
+  flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px; border-top: 1px solid var(--br); background: var(--wh);
+}
 .acp-manage .det-row { flex-wrap: wrap; }
 .acp-manage .det-val { text-align: left; }
-.acp-manage .admin-inline-grid { grid-template-columns: 1fr 1fr; }
-@media (max-width: 520px) { .acp-manage .admin-inline-grid { grid-template-columns: 1fr; } }
+.acp-manage .admin-inline-grid { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 640px) { .acp-manage .admin-inline-grid { grid-template-columns: 1fr; } }
 
 /* Escopo previsto (serviços vendidos + previsão de hora extra) no modal do cronograma */
 .acp-scope-divider { border-top: 1px solid var(--br); margin: 8px 0 2px; }

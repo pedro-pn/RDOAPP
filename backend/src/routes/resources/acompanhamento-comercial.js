@@ -27,6 +27,7 @@ import { getPlannedScope, setPlannedScope } from '../../lib/acompanhamento-plann
 import { computeProjectProgress } from '../../lib/acompanhamento-avanco.js';
 import { listProjectCards } from '../../lib/acompanhamento-project-cards.js';
 import { getProjectDetail } from '../../lib/acompanhamento-project-detail.js';
+import { isSalaryCategory } from '../../lib/acompanhamento-salary.js';
 import prisma from '../../lib/prisma.js';
 import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
@@ -136,6 +137,7 @@ router.get(
       _count: { _all: true }
     });
     const rows = groups
+      .filter(g => !isSalaryCategory(g.categoriaDescricao || g.categoriaCodigo)) // salários nunca contam
       .map(g => ({
         categoriaCodigo: g.categoriaCodigo,
         categoria: g.categoriaDescricao || g.categoriaCodigo || 'Sem categoria',
