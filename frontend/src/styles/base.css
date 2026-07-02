@@ -1661,7 +1661,7 @@ a {
 .acp-table td { padding: 7px 10px; border-bottom: 1px solid #f1f3f2; white-space: nowrap; }
 .acp-table tbody tr:hover { background: #f7faf8; }
 
-.acp-manage-card { width: min(100%, 940px); }
+.acp-manage-card { width: min(96vw, 1160px); }
 .acp-manage { display: flex; flex-direction: column; gap: 10px; }
 .acp-manage .det-row { flex-wrap: wrap; }
 .acp-manage .det-val { text-align: left; }
@@ -1697,6 +1697,17 @@ a {
 .acp-weight-sum { font-size: 12px; margin-top: 6px; }
 .acp-weight-sum.ok { color: var(--mu); }
 .acp-weight-sum.warn { color: #92400e; }
+
+/* Campo de porcentagem com o "%" embutido no próprio input */
+.acp-pct-field { position: relative; }
+.acp-pct-field input { padding-right: 24px; text-align: right; }
+.acp-pct-field .acp-pct-suffix {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--mu); font-size: 13px; pointer-events: none;
+}
+.acp-pct-field input::-webkit-outer-spin-button,
+.acp-pct-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.acp-pct-field input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .acp-unit-tag {
   flex: 0 0 auto;
   align-self: stretch;

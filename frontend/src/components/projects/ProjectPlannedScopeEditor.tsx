@@ -73,21 +73,47 @@ const toNum = (v: string) => {
   const n = Number(v.replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 };
+const clampPct = (v: number) => Math.min(100, Math.max(0, v));
+
+// Distribui inteiros somando exatamente `total`, proporcionais a `weights` (maior resto).
+function roundToSum(weights: number[], total: number): number[] {
+  if (weights.length === 0) return [];
+  const sum = weights.reduce((s, w) => s + w, 0);
+  const raw = sum > 0 ? weights.map(w => (w / sum) * total) : weights.map(() => total / weights.length);
+  const out = raw.map(v => Math.floor(v));
+  let rem = total - out.reduce((s, v) => s + v, 0);
+  const order = raw.map((v, i) => ({ i, frac: v - Math.floor(v) })).sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < order.length && rem > 0; k++) { out[order[k].i] += 1; rem -= 1; }
+  return out;
+}
+
+// Aplica pesos (inteiros, somando 100%) a uma lista de serviços mantendo a proporção atual.
+function withWeights(services: ServiceRow[], ints: number[]): ServiceRow[] {
+  return services.map((s, i) => ({ ...s, weight: String(ints[i]) }));
+}
+// Reequilibra os pesos para somar 100% mantendo a proporção (fallback: igualitário).
+function rescaleTo100(services: ServiceRow[]): ServiceRow[] {
+  if (services.length === 0) return services;
+  const vals = services.map(s => toNum(s.weight) ?? 0);
+  const base = vals.some(v => v > 0) ? vals : services.map(() => 1);
+  return withWeights(services, roundToSum(base, 100));
+}
 
 function fromScope(scope: PlannedScope): { services: ServiceRow[]; overtime: OvertimeRow[] } {
+  const services = scope.services.map(s => {
+    const serviceType = s.serviceType || 'LIMPEZA_QUIMICA';
+    const allowed = allowedSystems(serviceType);
+    return {
+      key: nextKey(),
+      serviceType,
+      weight: s.weight === null || s.weight === undefined ? '' : toStr(s.weight),
+      systems: (s.systems ?? [])
+        .filter(sys => allowed.includes(sys.systemType))
+        .map(sys => ({ key: nextKey(), systemType: sys.systemType, quantity: toStr(sys.quantity) }))
+    };
+  });
   return {
-    services: scope.services.map(s => {
-      const serviceType = s.serviceType || 'LIMPEZA_QUIMICA';
-      const allowed = allowedSystems(serviceType);
-      return {
-        key: nextKey(),
-        serviceType,
-        weight: s.weight === null || s.weight === undefined ? '' : toStr(s.weight),
-        systems: (s.systems ?? [])
-          .filter(sys => allowed.includes(sys.systemType))
-          .map(sys => ({ key: nextKey(), systemType: sys.systemType, quantity: toStr(sys.quantity) }))
-      };
-    }),
+    services: rescaleTo100(services), // garante soma 100% (corrige dados antigos)
     overtime: scope.overtime.map(o => ({
       key: nextKey(),
       jobRoleId: o.jobRoleId || '',
@@ -165,6 +191,38 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
     mutation.mutate(payload);
   }
 
+  // Edita o peso de um serviço e reequilibra os demais para o total voltar a 100%.
+  // O campo editado mantém o texto digitado; os OUTROS são ajustados proporcionalmente entre si,
+  // preservando a razão entre eles (assim dá para digitar cada um sem "brigar" com os demais).
+  function changeWeight(key: string, raw: string) {
+    // Mantém o texto digitado, mas trava fora de 0–100 (o backend exige 0–100).
+    const parsed = toNum(raw);
+    const value = parsed === null ? raw : parsed > 100 ? '100' : parsed < 0 ? '0' : raw;
+    setServices(prev => {
+      const others = prev.filter(s => s.key !== key);
+      if (others.length === 0) return prev.map(s => (s.key === key ? { ...s, weight: value } : s));
+      const remaining = Math.max(0, 100 - clampPct(parsed ?? 0));
+      const otherVals = others.map(o => toNum(o.weight) ?? 0);
+      const base = otherVals.some(v => v > 0) ? otherVals : others.map(() => 1);
+      const ints = roundToSum(base, remaining);
+      let oi = 0;
+      return prev.map(s => (s.key === key ? { ...s, weight: value } : { ...s, weight: String(ints[oi++]) }));
+    });
+  }
+
+  // Adiciona um serviço e divide os pesos igualmente (1→100%, 2→50/50, 3→33/33/34…).
+  function addService() {
+    setServices(prev => {
+      const list = [...prev, { key: nextKey(), serviceType: 'LIMPEZA_QUIMICA', weight: '', systems: [] } as ServiceRow];
+      return withWeights(list, roundToSum(list.map(() => 1), 100));
+    });
+  }
+
+  // Remove um serviço e reequilibra os pesos restantes para somar 100%.
+  function removeService(key: string) {
+    setServices(prev => rescaleTo100(prev.filter(s => s.key !== key)));
+  }
+
   // Troca o serviço: descarta sistemas não permitidos pelo novo tipo.
   function changeServiceType(key: string, serviceType: string) {
     const allowed = allowedSystems(serviceType);
@@ -221,17 +279,17 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
                   </select>
                 </div>
                 <div className="field-group acp-svc-weight-fg">
-                  <label>Peso <HelpTip icon help="Quanto este serviço representa do avanço da obra, em % (o ideal é os pesos somarem 100%). Ex.: limpeza química 90%, filtragem 10%." /></label>
-                  <div className="num-unit">
+                  <label>Peso <HelpTip icon help="Quanto este serviço representa do avanço da obra (%). Os pesos são mantidos somando 100% automaticamente: ao mexer em um, os demais se ajustam. Você também pode digitar cada um manualmente." /></label>
+                  <div className="acp-pct-field">
                     <input
-                      type="number" min="0" max="100" step="any" inputMode="decimal" placeholder="0"
+                      type="number" min="0" max="100" step="1" inputMode="numeric" placeholder="0"
                       value={svc.weight}
-                      onChange={e => updateRow(setServices, svc.key, { weight: e.target.value })}
+                      onChange={e => changeWeight(svc.key, e.target.value)}
                     />
-                    <span className="acp-unit-tag">%</span>
+                    <span className="acp-pct-suffix">%</span>
                   </div>
                 </div>
-                <button type="button" className="mini-btn alt" onClick={() => setServices(prev => prev.filter(s => s.key !== svc.key))}>
+                <button type="button" className="mini-btn alt" onClick={() => removeService(svc.key)}>
                   Remover serviço
                 </button>
               </div>
@@ -279,7 +337,7 @@ export function ProjectPlannedScopeEditor({ projectId }: { projectId: string }) 
         type="button"
         className="mini-btn"
         style={{ marginTop: 8 }}
-        onClick={() => setServices(prev => [...prev, { key: nextKey(), serviceType: 'LIMPEZA_QUIMICA', weight: '', systems: [] }])}
+        onClick={addService}
       >
         + Adicionar serviço
       </button>
