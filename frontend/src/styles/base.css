@@ -1917,6 +1917,19 @@ a {
 .det-inline-actions select,
 .det-inline-actions input {
   max-width: 220px;
+  box-sizing: border-box;
+  min-width: 0;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  padding: 8px 10px;
+  background-color: #fafafa;
+  color: var(--tx);
+}
+.det-inline-actions select:focus,
+.det-inline-actions input:focus {
+  outline: none;
+  border-color: var(--g);
+  background: var(--wh);
 }
 
 .det-row span {
