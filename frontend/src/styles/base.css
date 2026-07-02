@@ -1661,7 +1661,7 @@ a {
 .acp-table td { padding: 7px 10px; border-bottom: 1px solid #f1f3f2; white-space: nowrap; }
 .acp-table tbody tr:hover { background: #f7faf8; }
 
-.acp-manage-card { width: min(96vw, 1160px); }
+.modal-card.acp-manage-card { width: min(96vw, 1160px); max-width: 1160px; }
 .acp-manage { display: flex; flex-direction: column; gap: 10px; }
 .acp-manage .det-row { flex-wrap: wrap; }
 .acp-manage .det-val { text-align: left; }
