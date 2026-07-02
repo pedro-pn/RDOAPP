@@ -170,11 +170,17 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
               {data.ultimosDias.length === 0 ? (
                 <span className="placeholder-copy">Sem RDOs.</span>
               ) : data.ultimosDias.map((d, i) => (
-                <div
-                  key={i}
-                  className={`acp-det-dot ${DAY_META[d.status].cls}`}
-                  title={`${fmtDate(d.date)} — ${DAY_META[d.status].label}. Trabalhado: ${fmtHM(d.workedMinutes)} · Standby: ${fmtHM(d.standbyMinutes)}`}
-                />
+                <div className="acp-det-dot-wrap" key={i} tabIndex={0} aria-label={`${fmtDate(d.date)}: ${DAY_META[d.status].label}`}>
+                  <span className={`acp-det-dot ${DAY_META[d.status].cls}`} />
+                  <div className="acp-det-tip" role="tooltip">
+                    <div className="acp-det-tip-date">{fmtDate(d.date)}</div>
+                    <div className="acp-det-tip-status">
+                      <span className={`acp-det-tip-dot ${DAY_META[d.status].cls}`} />{DAY_META[d.status].label}
+                    </div>
+                    <div className="acp-det-tip-row"><span>Trabalhado</span><strong>{fmtHM(d.workedMinutes)}</strong></div>
+                    <div className="acp-det-tip-row"><span>Standby</span><strong>{fmtHM(d.standbyMinutes)}</strong></div>
+                  </div>
+                </div>
               ))}
             </div>
 

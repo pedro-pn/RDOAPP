@@ -1798,16 +1798,51 @@ a {
 
 .acp-det-dots { position: relative; display: flex; align-items: center; gap: 22px; padding: 6px 4px; }
 .acp-det-dots::before {
-  content: ''; position: absolute; left: 10px; right: 10px; top: 50%; height: 2px;
+  content: ''; position: absolute; left: 12px; right: 12px; top: 50%; height: 2px;
   background: var(--br); z-index: 0;
 }
-.acp-det-dot {
-  position: relative; z-index: 1; width: 16px; height: 16px; border-radius: 50%;
-  border: 2px solid var(--wh); box-shadow: 0 0 0 1px var(--br); cursor: default;
+.acp-det-dot-wrap {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center;
+  outline: none; cursor: default;
 }
+.acp-det-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--wh); box-shadow: 0 0 0 1px var(--br);
+  transition: transform .1s ease;
+}
+.acp-det-dot-wrap:hover .acp-det-dot,
+.acp-det-dot-wrap:focus-visible .acp-det-dot { transform: scale(1.15); }
+.acp-det-dot-wrap:focus-visible .acp-det-dot { box-shadow: 0 0 0 3px rgba(48, 80, 58, 0.25); }
 .acp-det-dot.green { background: #1f9d4d; }
 .acp-det-dot.yellow { background: #e0a400; }
 .acp-det-dot.red { background: #c81519; }
+
+/* Balão (tooltip) das bolinhas — instantâneo, no padrão do app */
+.acp-det-tip {
+  position: absolute; bottom: calc(100% + 10px); left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  min-width: 160px; background: var(--wh); color: var(--tx);
+  border: 1px solid var(--br); border-radius: var(--rs); box-shadow: var(--shadow);
+  padding: 8px 10px; z-index: 40; white-space: nowrap;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .09s ease, transform .09s ease;
+}
+.acp-det-dot-wrap:hover .acp-det-tip,
+.acp-det-dot-wrap:focus-visible .acp-det-tip {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}
+.acp-det-tip::after {
+  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--wh);
+}
+.acp-det-tip-date { font-weight: 700; font-size: 12px; }
+.acp-det-tip-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mu); margin: 3px 0 5px; }
+.acp-det-tip-dot { width: 9px; height: 9px; border-radius: 50%; }
+.acp-det-tip-dot.green { background: #1f9d4d; }
+.acp-det-tip-dot.yellow { background: #e0a400; }
+.acp-det-tip-dot.red { background: #c81519; }
+.acp-det-tip-row { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; }
+.acp-det-tip-row > span { color: var(--mu); }
 
 .acp-det-collabs, .acp-det-scope { list-style: none; margin: 0; padding: 0; }
 .acp-det-collabs { display: flex; flex-direction: column; gap: 5px; }
