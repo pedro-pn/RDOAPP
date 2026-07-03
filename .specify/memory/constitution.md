@@ -1,0 +1,135 @@
+<!--
+Sync Impact Report
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: nenhum renomeado; Governance atualizada (I–V → I–VI)
+- Added sections: Princípio VI — Consistência Visual e Componentes Padrão
+- Removed sections: nenhuma
+- Templates requiring updates:
+  - ✅ .specify/templates/plan-template.md — gate "Constitution Check" é genérico, preenchido por feature; sem alteração necessária
+  - ✅ .specify/templates/spec-template.md — sem referências à constitution; sem alteração necessária
+  - ✅ .specify/templates/tasks-template.md — sem referências à constitution; sem alteração necessária
+- Follow-up TODOs: nenhum
+-->
+
+# Constitution do NewRDO
+
+## Core Principles
+
+### I. Operação de Servidor é Sagrada (INEGOCIÁVEL)
+
+Agentes de IA e desenvolvedores NUNCA executam comandos de servidor, Docker, deploy ou
+manutenção de produção/staging diretamente. Todo comando destinado ao servidor DEVE ser
+apresentado como bloco de código acompanhado da instrução explícita "rode no servidor",
+para execução manual pelo operador humano.
+
+Racional: os ambientes de produção e staging (deploy/PRODUCTION.md, deploy/STAGING.md)
+atendem usuários reais; execução automática de comandos de infraestrutura já causou
+incidentes e foi vetada pela equipe.
+
+### II. UI em pt-BR e Mobile-First
+
+Toda interface visível ao usuário DEVE estar em português (pt-BR). Toda tela nova DEVE
+funcionar em mobile desde a primeira versão, não como ajuste posterior. Regras mínimas:
+
+- Tabelas largas DEVEM ter alternativa empilhada em telas estreitas (padrão: tabela vira cards).
+- Modais DEVEM ter rodapé de ações fixo e corpo rolável.
+- Nenhum elemento pode estourar a borda da viewport (sem scroll horizontal de página).
+
+Racional: a base de usuários acessa majoritariamente por celular em campo; correções
+retroativas de responsividade custam ciclos inteiros de retrabalho.
+
+### III. Validação com Zod nas Duas Pontas
+
+Toda entrada de API DEVE ser validada no backend com schemas Zod antes de tocar em regra
+de negócio ou banco. Formulários no frontend DEVEM usar react-hook-form com resolver Zod.
+Nenhuma rota nova é aceita confiando apenas na validação do cliente.
+
+Racional: validação duplicada e declarada em schema é a única barreira consistente contra
+dados inválidos vindos de clientes desatualizados ou chamadas diretas à API.
+
+### IV. Banco de Dados Só Via Prisma
+
+Toda mudança de schema DEVE ser feita por migration Prisma versionada no repositório —
+nunca SQL manual direto no banco (exceção: índices de performance documentados em
+deploy/, aplicados manualmente pelo operador conforme o Princípio I). Scripts de
+backfill/correção de dados existentes DEVEM ser idempotentes e oferecer modo dry-run
+antes do modo de aplicação.
+
+Racional: o histórico de migrations é a única fonte confiável do estado do schema entre
+dev, staging e produção; backfills sem dry-run já exigiram restauração de backup.
+
+### V. Testes para Lógica de Negócio no Backend
+
+Rotas e serviços novos com regra de negócio DEVEM ganhar testes em `backend/test`,
+seguindo o padrão dos testes existentes (arquivos `*.test.js`, executados via
+`npm test`). Correções de bug em lógica de negócio DEVEM incluir teste que reproduz o
+bug. UI e código puramente apresentacional não têm cobertura obrigatória.
+
+Racional: o backend concentra cálculo, permissão e persistência; é onde regressão causa
+dano real a relatórios e dados de obra.
+
+### VI. Consistência Visual e Componentes Padrão
+
+Nenhuma página, modal ou card pode nascer fora da formatação padrão do app. Regras:
+
+- Modais, botões, diálogos de confirmação, toasts, busca e skeletons DEVEM usar os
+  componentes de `frontend/src/components/ui/` (Modal, Button, ConfirmDialog, Toast,
+  SearchBar, Skeleton, etc.) — é proibido criar variante local de componente que já
+  existe no kit.
+- Cores, raios de borda, sombras e espaçamentos DEVEM vir dos tokens de
+  `frontend/src/styles/variables.css` (`--g`, `--r`, `--rs`, `--shadow`, ...); valores
+  hex/px hardcoded que dupliquem um token existente são vetados.
+- Campos de formulário (`input`, `select`, `textarea`, listas suspensas) DEVEM herdar o
+  estilo global de `frontend/src/styles/base.css`; um campo só pode ter estilo próprio
+  quando o comportamento exigir (ex.: multiselect), e mesmo assim construído sobre os
+  tokens.
+- Página nova DEVE seguir a estrutura visual das páginas existentes do mesmo tipo
+  (cabeçalho, cards, tabela/lista) — copiar o padrão de uma tela análoga em
+  `frontend/src/pages/` antes de inventar layout novo.
+
+Racional: divergências visuais quase nunca são intencionais — surgem quando uma tela é
+construída sem olhar o kit e os tokens existentes, e depois custam passadas inteiras de
+padronização. A regra torna a checagem objetiva em review: componente do kit usado? token
+usado? tela análoga seguida?
+
+## Restrições de Stack
+
+A stack é fixa; introduzir tecnologia fora dela exige emenda a esta constitution:
+
+- **Backend**: Node.js + Express, Prisma + PostgreSQL, validação com Zod.
+- **Frontend**: React + Vite + TypeScript, estado servidor com @tanstack/react-query,
+  estado cliente com zustand, formulários com react-hook-form + Zod.
+- **Processamento de imagens**: exclusivamente no backend, via sharp e heic-convert.
+- **Geração de documentos**: pdf-lib e pipeline DOCX→PDF existentes no backend.
+
+Bibliotecas utilitárias pequenas podem ser adicionadas sem emenda, desde que não
+substituam nem dupliquem papel de item listado acima.
+
+## Workflow de Desenvolvimento
+
+- Features de porte médio ou grande (novo módulo, nova entidade, mudança de fluxo que
+  toca backend + frontend) DEVEM passar pelo fluxo spec-kit:
+  specify → clarify → plan → tasks → implement, com artefatos em `specs/`.
+- Fixes pequenos, ajustes visuais e manutenção seguem o fluxo normal de branch + PR,
+  sem exigência de spec.
+- Todo trabalho ocorre em branch de feature (`feat/...`) ou fix (`fix/...`); `main` é a
+  base de PRs e reflete o que pode ir a produção.
+- Exploração de código DEVE priorizar as ferramentas do grafo (code-review-graph)
+  antes de varredura manual de arquivos, conforme CLAUDE.md.
+
+## Governance
+
+Esta constitution prevalece sobre qualquer outra prática documentada. Em conflito com
+CLAUDE.md ou docs de deploy, a constitution vence; o documento conflitante deve ser
+corrigido.
+
+- **Emendas**: qualquer alteração DEVE ser feita por PR que atualize este arquivo,
+  com justificativa no corpo do PR e aprovação do mantenedor do projeto (Pedro Paulo).
+- **Versionamento**: semântico. MAJOR para remoção/redefinição incompatível de
+  princípio; MINOR para princípio ou seção nova, ou expansão material de orientação;
+  PATCH para clarificação e correção de texto.
+- **Conformidade**: revisões de código e o gate "Constitution Check" do plan-template
+  DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
+  registrada na seção Complexity Tracking do plano da feature.
+
+**Version**: 1.1.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-03
