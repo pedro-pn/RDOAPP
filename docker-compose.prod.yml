@@ -26,6 +26,7 @@ services:
       - postgres
     volumes:
       - filtrovali_relatorios:/data/relatorios
+      - ${OPERATIONS_STATUS_DIR:-/root/backups/filtrovali/status}:/ops-status:ro
     networks:
       - filtrovali-net
 
@@ -33,6 +34,9 @@ services:
     build:
       context: .
       dockerfile: deploy/nginx/Dockerfile
+      args:
+        VITE_ERROR_TRACKING_ENABLED: ${VITE_ERROR_TRACKING_ENABLED:-false}
+        VITE_ERROR_TRACKING_ENDPOINT: ${VITE_ERROR_TRACKING_ENDPOINT:-}
     container_name: filtrovali-nginx
     restart: unless-stopped
     depends_on:
