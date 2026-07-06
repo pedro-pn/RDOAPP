@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
+import { sortJobRolesByName } from '../../lib/job-roles.js';
 import prisma from '../../lib/prisma.js';
 import { RDO_INTERNAL_ROLES, requireAuth, requireManager, requireModuleRole } from '../../middleware/auth.js';
 
@@ -18,9 +19,9 @@ router.get('/', requireAuth, requireRdoInternal, asyncHandler(async (req, res) =
   const includeInactive = req.query.all === 'true';
   const items = await prisma.jobRole.findMany({
     where: includeInactive ? {} : { isActive: true },
-    orderBy: [{ order: 'asc' }, { name: 'asc' }]
+    orderBy: { name: 'asc' }
   });
-  res.json(items);
+  res.json(sortJobRolesByName(items));
 }));
 
 router.post('/', requireAuth, requireRdoInternal, requireManager, asyncHandler(async (req, res) => {
