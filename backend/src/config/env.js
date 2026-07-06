@@ -146,7 +146,13 @@ const rawEnvSchema = z.object({
   OPERATIONS_ALERT_INTERVAL_MS: integerWithDefault('OPERATIONS_ALERT_INTERVAL_MS', 60 * 60 * 1000, { min: 60_000 }),
   OPERATIONS_ALERT_WEBHOOK_URL: stringWithDefault(''),
   ERROR_TRACKING_WEBHOOK_URL: stringWithDefault(''),
-  ERROR_TRACKING_PROVIDER: stringWithDefault('webhook')
+  ERROR_TRACKING_PROVIDER: stringWithDefault('webhook'),
+  COMMERCIAL_IMPORT_TOKEN: stringWithDefault(''),
+  OMIE_APP_KEY: stringWithDefault(''),
+  OMIE_APP_SECRET: stringWithDefault(''),
+  OMIE_SYNC_ENABLED: booleanWithDefault('OMIE_SYNC_ENABLED', false),
+  OMIE_SYNC_INTERVAL_MINUTES: integerWithDefault('OMIE_SYNC_INTERVAL_MINUTES', 360, { min: 1 }),
+  OMIE_SYNC_SINCE_DAYS: integerWithDefault('OMIE_SYNC_SINCE_DAYS', 7, { min: 1 })
 }).passthrough().superRefine((value, ctx) => {
   const trustProxyConfigured = value.TRUST_PROXY !== undefined && String(value.TRUST_PROXY).trim() !== '';
   const trustProxy = parseTrustProxy(value.TRUST_PROXY);
@@ -241,6 +247,12 @@ export function loadEnv(source = process.env) {
     operationsAlertWebhookUrl: raw.OPERATIONS_ALERT_WEBHOOK_URL,
     errorTrackingWebhookUrl: raw.ERROR_TRACKING_WEBHOOK_URL,
     errorTrackingProvider: raw.ERROR_TRACKING_PROVIDER,
+    commercialImportToken: raw.COMMERCIAL_IMPORT_TOKEN,
+    omieAppKey: raw.OMIE_APP_KEY,
+    omieAppSecret: raw.OMIE_APP_SECRET,
+    omieSyncEnabled: raw.OMIE_SYNC_ENABLED,
+    omieSyncIntervalMinutes: raw.OMIE_SYNC_INTERVAL_MINUTES,
+    omieSyncSinceDays: raw.OMIE_SYNC_SINCE_DAYS,
     nodeEnv: raw.NODE_ENV
   };
 }

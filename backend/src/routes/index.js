@@ -1,5 +1,7 @@
 import { Router } from 'express';
 
+import acompanhamentoComercialRouter from './resources/acompanhamento-comercial.js';
+import acompanhamentoCustoRouter from './resources/acompanhamento-custo.js';
 import authRouter from './resources/auth.js';
 import bootstrapRouter from './resources/bootstrap.js';
 import collaboratorsRouter from './resources/collaborators.js';
@@ -9,6 +11,7 @@ import episRouter from './resources/epis.js';
 import equipamentosRouter from './resources/equipamentos.js';
 import equipmentRouter from './resources/equipment.js';
 import inhibitionOptionsRouter from './resources/inhibition-options.js';
+import jobRolesRouter from './resources/job-roles.js';
 import manometersRouter from './resources/manometers.js';
 import operationsRouter from './resources/operations.js';
 import projectSegmentsRouter from './resources/project-segments.js';
@@ -28,6 +31,7 @@ const router = Router();
 function mountRdoRoutes(targetRouter) {
   targetRouter.use('/bootstrap', bootstrapRouter);
   targetRouter.use('/collaborators', collaboratorsRouter);
+  targetRouter.use('/job-roles', jobRolesRouter);
   targetRouter.use('/projects', projectsRouter);
   targetRouter.use('/project-segments', projectSegmentsRouter);
   targetRouter.use('/reports', reportsRouter);
@@ -51,6 +55,8 @@ router.use('/rdo', rdoRouter);
 router.use('/romaneio', romaneiosRouter);
 router.use('/epi', episRouter);
 router.use('/equipamentos', equipamentosRouter);
+router.use('/acompanhamento/comercial', acompanhamentoComercialRouter);
+router.use('/acompanhamento/custo', acompanhamentoCustoRouter);
 router.use('/operations', operationsRouter);
 // module:scaffold mount
 router.use('/admin/accounts', usersRouter);

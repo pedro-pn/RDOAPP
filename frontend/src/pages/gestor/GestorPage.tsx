@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type FormEvent, type KeyboardEvent, type SetStateAction } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { formatCnpj, normalizeCnpjInput } from '../../utils/formatCnpj';
 import { compareReportTypes, sortProjects, sortReportsInGroup } from '../../utils/projectSort';
@@ -10,7 +11,7 @@ import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
 import type { UserRole } from '../../types/auth';
 import { downloadReportDocx, downloadReportPdf, downloadReportsBatch } from '../../api/reports';
-import type { SurveyQuestion, SurveyQuestionType, SurveyResponses } from '../../api/surveys';
+import type { SurveyQuestionType } from '../../api/surveys';
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
@@ -26,6 +27,10 @@ import { ReasonDialog } from '../../components/ui/ReasonDialog';
 import { PdfDropzone } from '../../components/ui/PdfDropzone';
 import { useToast } from '../../components/ui/ToastContext';
 import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
+import { ProjectRevisionPicker } from '../../components/projects/ProjectRevisionPicker';
+import { JobRoleManager } from '../../components/projects/JobRoleManager';
+import { getCommercialPendencias } from '../../api/acompanhamentoComercial';
+import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
 import { useCollaboratorMutations } from '../../hooks/useCollaborators';
 import { useDraftMutations, useDrafts } from '../../hooks/useDrafts';
@@ -56,6 +61,23 @@ import type {
   SatisfactionSurveySummary
 } from '../../types/domain';
 import { downloadBlob } from '../../utils/download';
+import {
+  formatDate,
+  latestSurvey,
+  surveyIsExpired,
+  surveyHistoryBadges,
+  canSendProjectSurvey,
+  surveyStatusLabel,
+  npsResponseRows,
+  npsProjectTitle,
+  npsProjectKey,
+  surveyQuestionToDraft,
+  newSurveyQuestionDraft,
+  draftToSurveyQuestion,
+  surveyDraftOptions,
+  scalePreviewValues,
+  type SurveyQuestionDraft
+} from './gestorSurveyHelpers';
 
 type GestorTab =
   | 'pendentes'
@@ -67,7 +89,6 @@ type GestorTab =
   | 'nps'
   | 'estatisticas';
 
-type SurveyQuestionDraft = Omit<SurveyQuestion, 'order' | 'options'> & { optionsText: string };
 const REPORT_PAGE_SIZE = 50;
 const REPORT_TYPE_PAGE_SIZE = 10;
 
@@ -505,11 +526,6 @@ function userSearchParts(item: InternalUserSummary) {
   ];
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return 'Não informado';
-  return new Date(value).toLocaleDateString('pt-BR');
-}
-
 function formatList(values: string[], fallback = 'Não informado') {
   const cleaned = values.map(value => value.trim()).filter(Boolean);
   return cleaned.length ? cleaned.join(', ') : fallback;
@@ -557,142 +573,6 @@ function projectRegistrationPending(project: Project) {
 function projectTitle(project: Project) {
   const name = String(project.name || '').trim();
   return name ? `${project.code} - ${name}` : `Missão ${project.code}`;
-}
-
-function latestSurvey(project: Project) {
-  return (project.surveys || [])[0] || null;
-}
-
-function surveyIsActive(survey?: SatisfactionSurveySummary | null) {
-  return !!survey && !survey.respondedAt && new Date(survey.expiresAt).getTime() > Date.now();
-}
-
-function surveyIsExpired(survey?: SatisfactionSurveySummary | null) {
-  return !!survey && !survey.respondedAt && new Date(survey.expiresAt).getTime() <= Date.now();
-}
-
-function surveyBadge(survey?: SatisfactionSurveySummary | null) {
-  if (!survey) return { label: 'Pesquisa não enviada', className: 'badge badge-pen' };
-  if (survey.respondedAt) return { label: 'Pesquisa respondida', className: 'badge badge-ok' };
-  if (new Date(survey.expiresAt).getTime() <= Date.now()) return { label: 'Pesquisa expirada', className: 'badge badge-rev' };
-  if (survey.reminderOptOutAt) return { label: 'Lembretes cancelados', className: 'badge badge-pen' };
-  return { label: 'Pesquisa enviada', className: 'badge badge-pen' };
-}
-
-function surveyHistoryBadges(project: Project) {
-  const surveys = project.surveys || [];
-  if (!surveys.length) return [surveyBadge(null)];
-  return surveys.map((survey, index) => {
-    const badge = surveyBadge(survey);
-    const date = formatDate(survey.respondedAt || survey.sentAt || survey.createdAt);
-    return {
-      ...badge,
-      label: surveys.length > 1 ? `${badge.label} #${surveys.length - index} - ${date}` : `${badge.label} - ${date}`
-    };
-  });
-}
-
-function projectChangedAfterSurvey(project: Project, survey: SatisfactionSurveySummary) {
-  const projectUpdatedAt = project.updatedAt ? new Date(project.updatedAt).getTime() : 0;
-  const surveyReferenceAt = new Date(survey.respondedAt || survey.createdAt).getTime();
-  return Boolean(projectUpdatedAt && surveyReferenceAt && projectUpdatedAt > surveyReferenceAt);
-}
-
-function canSendProjectSurvey(project: Project) {
-  if (project.isActive) return false;
-  const survey = latestSurvey(project);
-  if (!survey) return true;
-  if (surveyIsActive(survey)) return false;
-  if (survey.respondedAt) return projectChangedAfterSurvey(project, survey);
-  return true;
-}
-
-function surveyStatusLabel(survey: SatisfactionSurveySummary) {
-  if (survey.respondedAt) return { label: 'Respondida', className: 'status-approved' };
-  if (surveyIsExpired(survey)) return { label: 'Expirada', className: 'status-returned' };
-  return { label: 'Pendente', className: 'status-pending' };
-}
-
-function surveyResponseValue(value: unknown, fallback = 'Não respondido') {
-  if (value === undefined || value === null || value === '') return fallback;
-  return String(value);
-}
-
-const legacyNpsResponseLabels: Record<string, string> = {
-  nps: 'Probabilidade de recomendar a Filtrovali',
-  serviceQuality: 'Qualidade dos serviços prestados',
-  communication: 'Comunicação da equipe durante o projeto',
-  deadlines: 'Cumprimento de prazos',
-  documentation: 'Qualidade da documentação entregue',
-  improvement: 'O que podemos melhorar?',
-  highlight: 'Algo que gostaria de destacar?'
-};
-
-function npsResponseRows(responses?: SurveyResponses | null, questions: SurveyQuestion[] = []) {
-  if (questions.length) {
-    return questions.map(question => [question.label, surveyResponseValue(responses?.[question.id])]);
-  }
-  return Object.keys(responses || {}).map(key => [
-    legacyNpsResponseLabels[key] || key,
-    surveyResponseValue(responses?.[key])
-  ]);
-}
-
-function npsProjectTitle(survey: SatisfactionSurveySummary & { project?: { code?: string; name?: string } | null }) {
-  return [survey.project?.code, survey.project?.name].filter(Boolean).join(' - ') || 'Projeto não informado';
-}
-
-function npsProjectKey(survey: SatisfactionSurveySummary & { project?: { id?: string } | null }) {
-  return survey.project?.id || survey.projectId || survey.id;
-}
-
-function surveyQuestionToDraft(question: SurveyQuestion): SurveyQuestionDraft {
-  return {
-    id: question.id,
-    label: question.label,
-    type: question.type,
-    required: question.required,
-    optionsText: (question.options || []).join('\n')
-  };
-}
-
-function newSurveyQuestionDraft(): SurveyQuestionDraft {
-  return {
-    id: `new-${Date.now()}`,
-    label: '',
-    type: 'TEXT',
-    required: false,
-    optionsText: ''
-  };
-}
-
-function draftToSurveyQuestion(question: SurveyQuestionDraft): Omit<SurveyQuestion, 'order'> {
-  const options = question.type === 'SELECT'
-    ? question.optionsText
-      .split(/\n|,/)
-      .map(option => option.trim())
-      .filter(Boolean)
-    : [];
-  return {
-    id: question.id,
-    label: question.label.trim(),
-    type: question.type,
-    required: question.required,
-    options
-  };
-}
-
-function surveyDraftOptions(question: SurveyQuestionDraft) {
-  return question.optionsText
-    .split(/\n|,/)
-    .map(option => option.trim())
-    .filter(Boolean);
-}
-
-function scalePreviewValues(type: SurveyQuestionType) {
-  if (type === 'NPS') return Array.from({ length: 11 }, (_, index) => index);
-  if (type === 'SCALE') return [1, 2, 3, 4, 5];
-  return [];
 }
 
 function applyProjectVisibilityMode(mode: ProjectVisibilityMode): Pick<ProjectFormState, 'managerOnly' | 'visibleToCollaborators'> {
@@ -1110,6 +990,7 @@ function renderProjectCard(
     surveyPending?: boolean;
     children?: ReactNode;
     segments?: ClientSegment[];
+    commercialPendencia?: { proposalCode: string; revisionCount: number; resolved: boolean } | null;
   }
 ) {
   const survey = latestSurvey(project);
@@ -1139,6 +1020,11 @@ function renderProjectCard(
       {pendingRegistration ? (
         <div className="project-registration-alert">
           Projeto criado automaticamente pelo romaneio. Complete o cadastro antes de usar em relatórios, ou exclua se o código não deve permanecer.
+        </div>
+      ) : null}
+      {options.commercialPendencia && !options.commercialPendencia.resolved ? (
+        <div className="project-registration-alert">
+          Há {options.commercialPendencia.revisionCount} proposta(s) importada(s) do comercial para o contrato {options.commercialPendencia.proposalCode}. Abra os detalhes e escolha a revisão que vale para esta missão.
         </div>
       ) : null}
       {options.children}
@@ -1172,6 +1058,7 @@ function renderProjectCard(
             <span className="det-label">Contrato</span>
             <span className="det-val">{project.contractCode || '-'}</span>
           </div>
+          {options.commercialPendencia ? <ProjectRevisionPicker projectId={project.id} /> : null}
           <div className="det-row">
             <span className="det-label">Operador</span>
             <span className="det-val">{project.operator?.name || '-'}</span>
@@ -1237,6 +1124,7 @@ export function GestorPage() {
   const pageScrollRef = useRef<HTMLDivElement | null>(null);
   const restoredScrollKeysRef = useRef<Set<string>>(new Set());
   const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
+  const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [gestorSearch, setGestorSearch] = usePersistentSearch(`gestor-search:${user?.id || 'anonymous'}:${tab}`);
   // Só o valor enviado às queries é adiado; a filtragem client-side segue instantânea.
@@ -1331,6 +1219,26 @@ export function GestorPage() {
   const draftsQuery = useDrafts();
   const gestorBootstrapQuery = useGestorBootstrap();
   const activeProjectsQuery = { data: gestorBootstrapQuery.data?.activeProjects, isLoading: gestorBootstrapQuery.isLoading };
+  const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
+  const commercialPendenciaByProject = useMemo(() => {
+    const map = new Map<string, { proposalCode: string; revisionCount: number; resolved: boolean }>();
+    for (const pendencia of commercialPendenciasQuery.data || []) {
+      map.set(pendencia.projectId, { proposalCode: pendencia.proposalCode, revisionCount: pendencia.revisionCount, resolved: pendencia.resolved });
+    }
+    return map;
+  }, [commercialPendenciasQuery.data]);
+  const jobRolesQuery = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
+  const jobRoleNames = useMemo(() => (jobRolesQuery.data || []).map(role => role.name), [jobRolesQuery.data]);
+  const renderRoleOptions = (value: string) => {
+    const showCurrent = Boolean(value) && !jobRoleNames.includes(value);
+    return (
+      <>
+        <option value="" disabled>Selecione o cargo</option>
+        {showCurrent ? <option value={value}>{value} (atual)</option> : null}
+        {jobRoleNames.map(name => <option key={name} value={name}>{name}</option>)}
+      </>
+    );
+  };
   const archivedProjectsQuery = { data: gestorBootstrapQuery.data?.archivedProjects, isLoading: gestorBootstrapQuery.isLoading };
   const collaboratorsQuery = { data: gestorBootstrapQuery.data?.collaborators, isLoading: gestorBootstrapQuery.isLoading };
   const internalUsersQuery = useUsers('internal');
@@ -3044,6 +2952,7 @@ export function GestorPage() {
     }
 
     const renderEditableProjectCard = (project: Project) => renderProjectCard(project, {
+      commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
       children: projectEditingId === project.id ? (
         <form className="admin-inline-form admin-inline-grid" onSubmit={handleProjectSubmit}>
             <div className="field-group">
@@ -3392,6 +3301,7 @@ export function GestorPage() {
             {archivedProjectCards.map(({ project, projectReports }) => {
               const projectClosed = closedArchivedProjectIds.includes(project.id);
               return renderProjectCard(project, {
+                commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
                 children: (
                   <>
                     {projectReports.length ? (
@@ -3435,6 +3345,22 @@ export function GestorPage() {
   }
 
   function renderEquipeTab() {
+    return (
+      <>
+        <div className="nav-tabs" role="tablist" aria-label="Seções da equipe" style={{ marginBottom: 12 }}>
+          <button className={`nav-tab ${equipeSubTab === 'colaboradores' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'colaboradores'} onClick={() => setEquipeSubTab('colaboradores')}>
+            Colaboradores
+          </button>
+          <button className={`nav-tab ${equipeSubTab === 'cargos' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'cargos'} onClick={() => setEquipeSubTab('cargos')}>
+            Cargos
+          </button>
+        </div>
+        {equipeSubTab === 'cargos' ? <JobRoleManager /> : renderColaboradoresSubTab()}
+      </>
+    );
+  }
+
+  function renderColaboradoresSubTab() {
     if (collaboratorsQuery.isLoading) {
       return <div className="page-card placeholder-copy">Carregando colaboradores...</div>;
     }
@@ -3476,13 +3402,14 @@ export function GestorPage() {
 	              </div>
 	              <div className="field-group">
 	                <label htmlFor="collaborator-role">Cargo</label>
-	                <input
+	                <select
 	                  id="collaborator-role"
 	                  value={collaboratorForm.role}
-	                  autoComplete="off"
 	                  onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
 	                  required
-	                />
+	                >
+	                  {renderRoleOptions(collaboratorForm.role)}
+	                </select>
 	              </div>
 	              <div className="field-group">
 	                <label htmlFor="collaborator-email">E-mail</label>
@@ -3575,13 +3502,14 @@ export function GestorPage() {
 	                        </div>
 	                        <div className="field-group">
 	                          <label htmlFor={`collaborator-role-${collaborator.id}`}>Cargo</label>
-	                          <input
+	                          <select
 	                            id={`collaborator-role-${collaborator.id}`}
 	                            value={collaboratorForm.role}
-	                            autoComplete="off"
 	                            onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
 	                            required
-	                          />
+	                          >
+	                            {renderRoleOptions(collaboratorForm.role)}
+	                          </select>
 	                        </div>
 	                        <div className="field-group">
 	                          <label htmlFor={`collaborator-email-${collaborator.id}`}>E-mail</label>

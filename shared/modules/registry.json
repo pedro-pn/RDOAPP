@@ -189,6 +189,42 @@
       ]
     },
     {
+      "id": "acompanhamento",
+      "prismaModule": "ACOMPANHAMENTO",
+      "badge": "ACP",
+      "title": "Acompanhamento de Projetos",
+      "copy": "Dashboard de previsto x realizado, custos e cronograma dos projetos.",
+      "hub": {
+        "enabled": true,
+        "roles": ["acompanhamento:manager", "acompanhamento:viewer"],
+        "path": "/acompanhamento"
+      },
+      "pathPrefixes": ["/acompanhamento"],
+      "routes": {
+        "index": "/acompanhamento"
+      },
+      "routeGroups": {
+        "default": {
+          "allowedAccountTypes": ["ADMIN", "INTERNAL"],
+          "allowedModuleRoles": ["acompanhamento:manager", "acompanhamento:viewer"]
+        }
+      },
+      "roles": [
+        {
+          "code": "ACOMPANHAMENTO_MANAGER",
+          "public": "acompanhamento:manager",
+          "label": "Acompanhamento - Gestor",
+          "accountTypes": ["ADMIN", "INTERNAL"]
+        },
+        {
+          "code": "ACOMPANHAMENTO_VIEWER",
+          "public": "acompanhamento:viewer",
+          "label": "Acompanhamento - Visualizador",
+          "accountTypes": ["ADMIN", "INTERNAL"]
+        }
+      ]
+    },
+    {
       "id": "romaneio",
       "prismaModule": "ROMANEIO",
       "badge": "ROM",

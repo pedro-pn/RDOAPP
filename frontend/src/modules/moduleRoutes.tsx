@@ -1,6 +1,7 @@
 import { Route } from 'react-router-dom';
 
 import { RoleRoute } from '../auth/RoleRoute';
+import { AcompanhamentoPage } from '../pages/acompanhamento/AcompanhamentoPage';
 import { AdminAccountsPage } from '../pages/admin/AdminAccountsPage';
 import { EpiPage } from '../pages/epi/EpiPage';
 import { EquipamentosPage } from '../pages/equipamentos/EquipamentosPage';
@@ -15,6 +16,7 @@ const PRIVACY_ACCESS = moduleRouteAccess('privacy');
 const ROMANEIO_ACCESS = moduleRouteAccess('romaneio');
 const EPI_ACCESS = moduleRouteAccess('epi');
 const EQUIPAMENTOS_ACCESS = moduleRouteAccess('equipamentos');
+const ACOMPANHAMENTO_ACCESS = moduleRouteAccess('acompanhamento');
 // module:scaffold access
 
 export const moduleRouteElements = (
@@ -38,6 +40,10 @@ export const moduleRouteElements = (
 
     <Route element={<RoleRoute {...EQUIPAMENTOS_ACCESS} />}>
       <Route path={moduleRoutePath('equipamentos', 'index')} element={<EquipamentosPage />} />
+    </Route>
+
+    <Route element={<RoleRoute {...ACOMPANHAMENTO_ACCESS} />}>
+      <Route path={moduleRoutePath('acompanhamento', 'index')} element={<AcompanhamentoPage />} />
     </Route>
 
     {/* module:scaffold routes */}
