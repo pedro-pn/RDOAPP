@@ -9,6 +9,7 @@ import {
   surveyTokenHash
 } from '../src/lib/survey-token.js';
 import { hashToken } from '../src/lib/auth.js';
+import env from '../src/config/env.js';
 
 test('survey tokens are encrypted and decrypted without storing the raw token', () => {
   const token = createSurveyToken();
@@ -26,4 +27,24 @@ test('surveyTokenData returns token hash and encrypted payload', () => {
   assert.equal(data.tokenHash, hashToken(data.token));
   assert.equal(surveyTokenHash(data.token), data.tokenHash);
   assert.equal(decryptSurveyToken(data), data.token);
+});
+
+test('survey token decryption supports previous survey secrets during rotation', () => {
+  const previousEnv = {
+    surveyTokenSecret: env.surveyTokenSecret,
+    previousSurveyTokenSecrets: env.previousSurveyTokenSecrets
+  };
+  try {
+    env.surveyTokenSecret = 'old-survey-token-secret';
+    env.previousSurveyTokenSecrets = [];
+    const encrypted = encryptSurveyToken('rotating-survey-token');
+
+    env.surveyTokenSecret = 'new-survey-token-secret';
+    env.previousSurveyTokenSecrets = ['old-survey-token-secret'];
+
+    assert.equal(decryptSurveyToken(encrypted), 'rotating-survey-token');
+  } finally {
+    env.surveyTokenSecret = previousEnv.surveyTokenSecret;
+    env.previousSurveyTokenSecrets = previousEnv.previousSurveyTokenSecrets;
+  }
 });

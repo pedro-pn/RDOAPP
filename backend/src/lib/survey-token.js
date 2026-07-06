@@ -9,8 +9,17 @@ function secretMaterial() {
   return env.surveyTokenSecret || env.databaseUrl || 'dev-survey-token-secret';
 }
 
-function key() {
-  return createHash('sha256').update(secretMaterial()).digest();
+function key(material = secretMaterial()) {
+  return createHash('sha256').update(material).digest();
+}
+
+// Materiais aceitos na descriptografia: o atual + os anteriores (SURVEY_TOKEN_SECRET_PREVIOUS),
+// para não perder tokens já gravados quando o segredo é rotacionado. A cifra sempre usa o atual.
+function decryptionSecrets() {
+  return [
+    secretMaterial(),
+    ...(Array.isArray(env.previousSurveyTokenSecrets) ? env.previousSurveyTokenSecrets : [])
+  ].filter(Boolean);
 }
 
 export function createSurveyToken() {
@@ -34,13 +43,21 @@ export function encryptSurveyToken(token) {
 }
 
 export function decryptSurveyToken({ tokenEncrypted, tokenIv, tokenAuthTag }) {
-  const decipher = createDecipheriv(ALGORITHM, key(), Buffer.from(tokenIv, 'base64'));
-  decipher.setAuthTag(Buffer.from(tokenAuthTag, 'base64'));
-  const decrypted = Buffer.concat([
-    decipher.update(Buffer.from(tokenEncrypted, 'base64')),
-    decipher.final()
-  ]);
-  return decrypted.toString('utf8');
+  let lastError = null;
+  for (const material of decryptionSecrets()) {
+    try {
+      const decipher = createDecipheriv(ALGORITHM, key(material), Buffer.from(tokenIv, 'base64'));
+      decipher.setAuthTag(Buffer.from(tokenAuthTag, 'base64'));
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(tokenEncrypted, 'base64')),
+        decipher.final()
+      ]);
+      return decrypted.toString('utf8');
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('Token de pesquisa indecifrável.');
 }
 
 export function surveyTokenData() {
