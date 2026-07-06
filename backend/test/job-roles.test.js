@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { sortJobRolesByName } from '../src/lib/job-roles.js';
+import { sortJobRolesByName } from '../src/lib/job-roles/index.js';
 
 test('sortJobRolesByName orders cargos alphabetically independent of stored order', () => {
   const roles = [

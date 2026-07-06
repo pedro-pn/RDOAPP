@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
-import { sortJobRolesByName } from '../../lib/job-roles.js';
+import { sortJobRolesByName } from '../../lib/job-roles/index.js';
 import prisma from '../../lib/prisma.js';
 import { RDO_INTERNAL_ROLES, requireAuth, requireManager, requireModuleRole } from '../../middleware/auth.js';
 
