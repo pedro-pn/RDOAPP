@@ -301,7 +301,7 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     }),
     prisma.project.findMany({
       where: { deletedAt: null },
-      select: { id: true, code: true, name: true, clientName: true, contractCode: true, commercialProposalCode: true, startDate: true }
+      select: { id: true, code: true, name: true, clientName: true, contractCode: true, commercialProposalCode: true, startDate: true, isActive: true }
     }),
     prisma.projectBudget.findMany({
       where: { version: 1 },
@@ -341,6 +341,7 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       clientName: project.clientName,
       proposalCode: String(codProp),
       resolved,
+      archived: !project.isActive, // segue o status do projeto nos relatórios (isActive=false => arquivado)
       startDate: project.startDate ?? null,
       approvedAt: budget?.approvedAt ?? null,
       mobilizationLeadDays: budget?.mobilizationLeadDays ?? source?.mobilizationLeadDays ?? null,

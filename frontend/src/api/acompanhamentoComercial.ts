@@ -74,6 +74,7 @@ export interface DashboardRow {
   clientName: string;
   proposalCode: string;
   resolved: boolean;
+  archived: boolean;
   startDate?: string | null;
   approvedAt?: string | null;
   mobilizationLeadDays?: number | null;
@@ -219,6 +220,7 @@ export interface ProjectCard {
   code: string;
   name: string;
   clientName: string;
+  archived: boolean;
   workedDays: number;
   totalDays: number | null;
   daysConsumedPct: number | null;

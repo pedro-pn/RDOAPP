@@ -121,6 +121,7 @@ export async function listProjectCards() {
       code: row.code,
       name: row.name,
       clientName: row.clientName,
+      archived: Boolean(row.archived), // arquivado = projeto inativo nos relatórios
       workedDays,
       totalDays,
       daysConsumedPct,

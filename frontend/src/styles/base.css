@@ -1620,11 +1620,56 @@ a {
 
 .acp-filters {
   display: grid;
-  grid-template-columns: 1.8fr 1fr 1.4fr 1.4fr;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   align-items: end;
 }
 @media (max-width: 900px) { .acp-filters { grid-template-columns: 1fr 1fr; } }
+
+/* Segmented control (situação dos projetos na aba Projetos) */
+.acp-seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  align-self: end;
+  width: fit-content;
+}
+.acp-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--mu);
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--rs);
+  cursor: pointer;
+}
+.acp-seg-btn:hover { color: var(--tx); }
+.acp-seg-btn.active {
+  background: var(--wh);
+  color: var(--g);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.acp-seg-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--br);
+  color: var(--tx);
+}
+.acp-seg-btn.active .acp-seg-count { background: var(--g); color: var(--wh); }
 
 .acp-kpis {
   display: grid;

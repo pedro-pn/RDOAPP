@@ -60,6 +60,7 @@ function fmt(value: number | null, unit: Unit) {
 export function AcompanhamentoDashboard() {
   const [search, setSearch] = useState('');
   const [modality, setModality] = useState<'todas' | 'INLOCO' | 'POP_SEDE'>('todas');
+  const [status, setStatus] = useState<'todos' | 'andamento' | 'arquivados'>('todos');
   const [category, setCategory] = useState('');
   const [metricKey, setMetricKey] = useState('custo');
   const [managed, setManaged] = useState<DashboardRow | null>(null);
@@ -79,13 +80,15 @@ export function AcompanhamentoDashboard() {
     const term = search.trim().toLowerCase();
     return rows.filter(row => {
       if (modality !== 'todas' && row.serviceModality !== modality) return false;
+      if (status === 'andamento' && row.archived) return false;
+      if (status === 'arquivados' && !row.archived) return false;
       if (term) {
         const hay = `${row.code} ${row.name} ${row.clientName} ${row.proposalCode}`.toLowerCase();
         if (!hay.includes(term)) return false;
       }
       return true;
     });
-  }, [rows, search, modality]);
+  }, [rows, search, modality, status]);
 
   const chartData = useMemo(() => {
     return filtered
@@ -128,6 +131,14 @@ export function AcompanhamentoDashboard() {
             <option value="todas">Todas</option>
             <option value="INLOCO">In loco</option>
             <option value="POP_SEDE">Na sede</option>
+          </select>
+        </div>
+        <div className="field-group">
+          <label htmlFor="acp-status">Situação</label>
+          <select id="acp-status" value={status} onChange={e => setStatus(e.target.value as typeof status)}>
+            <option value="todos">Todos</option>
+            <option value="andamento">Em andamento</option>
+            <option value="arquivados">Arquivados</option>
           </select>
         </div>
         <div className="field-group">

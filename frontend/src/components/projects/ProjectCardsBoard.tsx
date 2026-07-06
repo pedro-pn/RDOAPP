@@ -86,17 +86,26 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
 }
 
 // Aba "Projetos": um card por projeto com previsto x realizado (dias, avanço, colaboradores, prazos).
+type CardsView = 'andamento' | 'arquivados';
+
 export function ProjectCardsBoard() {
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<CardsView>('andamento');
   const [selected, setSelected] = useState<string | null>(null);
   const { data, isLoading } = useQuery({ queryKey: ['project-cards'], queryFn: () => getProjectCards() });
 
+  // Separa pelo status do projeto nos relatórios: em andamento (ativo) x arquivados (inativo).
+  const counts = useMemo(() => {
+    const list = data ?? [];
+    return { andamento: list.filter(c => !c.archived).length, arquivados: list.filter(c => c.archived).length };
+  }, [data]);
+
   const cards = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const list = data ?? [];
-    if (!term) return list;
-    return list.filter(c => `${c.code} ${c.name} ${c.clientName}`.toLowerCase().includes(term));
-  }, [data, search]);
+    return (data ?? [])
+      .filter(c => (view === 'arquivados' ? c.archived : !c.archived))
+      .filter(c => !term || `${c.code} ${c.name} ${c.clientName}`.toLowerCase().includes(term));
+  }, [data, search, view]);
 
   // Todos os hooks acima; só então a troca para o dashboard do projeto (Rules of Hooks).
   if (selected) {
@@ -117,6 +126,22 @@ export function ProjectCardsBoard() {
   return (
     <div className="acp-pcards-wrap">
       <div className="page-card acp-filters">
+        <div className="acp-seg" role="tablist" aria-label="Situação dos projetos">
+          <button
+            type="button" role="tab" aria-selected={view === 'andamento'}
+            className={`acp-seg-btn${view === 'andamento' ? ' active' : ''}`}
+            onClick={() => setView('andamento')}
+          >
+            Em andamento <span className="acp-seg-count">{counts.andamento}</span>
+          </button>
+          <button
+            type="button" role="tab" aria-selected={view === 'arquivados'}
+            className={`acp-seg-btn${view === 'arquivados' ? ' active' : ''}`}
+            onClick={() => setView('arquivados')}
+          >
+            Arquivados <span className="acp-seg-count">{counts.arquivados}</span>
+          </button>
+        </div>
         <div className="field-group">
           <label htmlFor="acp-pcards-search">Buscar</label>
           <input
@@ -129,9 +154,17 @@ export function ProjectCardsBoard() {
         </div>
       </div>
 
-      <div className="acp-pcards-grid">
-        {cards.map(card => <Card key={card.projectId} card={card} onOpen={() => setSelected(card.projectId)} />)}
-      </div>
+      {cards.length === 0 ? (
+        <div className="page-card placeholder-copy">
+          {search.trim()
+            ? 'Nenhum projeto encontrado para a busca nesta situação.'
+            : view === 'arquivados' ? 'Nenhum projeto arquivado.' : 'Nenhum projeto em andamento.'}
+        </div>
+      ) : (
+        <div className="acp-pcards-grid">
+          {cards.map(card => <Card key={card.projectId} card={card} onOpen={() => setSelected(card.projectId)} />)}
+        </div>
+      )}
     </div>
   );
 }
