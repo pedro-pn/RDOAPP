@@ -415,10 +415,17 @@ export function buildDailyReport(r) {
 
 // ─── Main route ───────────────────────────────────────────────────────────────
 
-function normalizeProjectIds(rawProjectIds) {
-  if (!rawProjectIds || rawProjectIds === 'all') return [];
-  const ids = Array.isArray(rawProjectIds) ? rawProjectIds : [rawProjectIds];
-  return ids.map(id => String(id).trim()).filter(id => id && id !== 'all');
+export function normalizeProjectIds(...rawProjectIdGroups) {
+  const ids = rawProjectIdGroups.flatMap(rawProjectIds => {
+    if (!rawProjectIds || rawProjectIds === 'all') return [];
+    return Array.isArray(rawProjectIds) ? rawProjectIds : [rawProjectIds];
+  });
+  return Array.from(new Set(
+    ids
+      .flatMap(id => String(id).split(','))
+      .map(id => id.trim())
+      .filter(id => id && id !== 'all')
+  ));
 }
 
 function serviceSelect(includeEquipment = false) {
@@ -549,7 +556,7 @@ router.get('/projects', requireAuth, requireRdoStats, asyncHandler(async (req, r
   if (projectStatus === 'archived') projectWhere.isActive = false;
   if (segment) projectWhere.clientSegment = segment;
 
-  const projectIdFilter = normalizeProjectIds(req.query.projectId);
+  const projectIdFilter = normalizeProjectIds(req.query.projectId, req.query['projectId[]']);
   if (projectIdFilter.length) projectWhere.id = { in: projectIdFilter };
 
   const wantsDailyReports = req.query.includeDailyReports === 'true' || projectIdFilter.length > 0;
@@ -750,7 +757,7 @@ router.get('/projects/export', requireAuth, requireRdoStats, asyncHandler(async 
   if (projectStatus === 'archived') projectWhere.isActive = false;
   if (segment) projectWhere.clientSegment = segment;
 
-  const projectIdFilter = normalizeProjectIds(req.query.projectId);
+  const projectIdFilter = normalizeProjectIds(req.query.projectId, req.query['projectId[]']);
   if (projectIdFilter.length) projectWhere.id = { in: projectIdFilter };
 
   const projects = await prisma.project.findMany({
