@@ -22,12 +22,12 @@ import {
   listProjectRevisions,
   setProjectBudgetRevision,
   setProjectSchedule
-} from '../../lib/acompanhamento-access-import.js';
-import { getPlannedScope, setPlannedScope } from '../../lib/acompanhamento-planned-scope.js';
-import { computeProjectProgress } from '../../lib/acompanhamento-avanco.js';
-import { listProjectCards } from '../../lib/acompanhamento-project-cards.js';
-import { getProjectDetail } from '../../lib/acompanhamento-project-detail.js';
-import { isSalaryCategory } from '../../lib/acompanhamento-salary.js';
+} from '../../lib/acompanhamento/access-import.js';
+import { getPlannedScope, setPlannedScope } from '../../lib/acompanhamento/planned-scope.js';
+import { computeProjectProgress } from '../../lib/acompanhamento/avanco.js';
+import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
+import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
+import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
 import prisma from '../../lib/prisma.js';
 import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 

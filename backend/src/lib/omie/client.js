@@ -4,7 +4,7 @@
  * Paginação típica: param.pagina / param.registros_por_pagina; filtro incremental por data.
  */
 
-import env from '../config/env.js';
+import env from '../../config/env.js';
 
 const BASE_URL = 'https://app.omie.com.br/api/v1';
 

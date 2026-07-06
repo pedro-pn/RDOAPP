@@ -6,9 +6,9 @@
  * então as compras são puxadas por projeto (leve).
  */
 
-import env from '../config/env.js';
-import { omieCall, omieConfigured } from './omie-client.js';
-import prisma from './prisma.js';
+import env from '../../config/env.js';
+import { omieCall, omieConfigured } from './client.js';
+import prisma from '../prisma.js';
 
 const PAGE_SIZE = 500;
 

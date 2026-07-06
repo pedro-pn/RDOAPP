@@ -10,9 +10,9 @@ import { createHash } from 'node:crypto';
 
 import MDBReader from 'mdb-reader';
 
-import prisma from './prisma.js';
-import { computeProgressForProjects } from './acompanhamento-avanco.js';
-import { getSalaryCategoryCodes } from './acompanhamento-salary.js';
+import prisma from '../prisma.js';
+import { computeProgressForProjects } from './avanco.js';
+import { getSalaryCategoryCodes } from './salary.js';
 
 const PROPOSAL_TABLE = 'proposta';
 

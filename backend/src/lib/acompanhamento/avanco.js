@@ -14,7 +14,7 @@
  * "em andamento" — ver ongoingServices no front); assim cada atividade conta uma vez, no fechamento.
  */
 
-import prisma from './prisma.js';
+import prisma from '../prisma.js';
 
 // Normaliza o serviceType do RDO (vários formatos: 'limpeza', 'LIMPEZA', 'Limpeza química'...) para
 // o código canônico usado no escopo previsto. Retorna null quando não há equivalente no previsto.

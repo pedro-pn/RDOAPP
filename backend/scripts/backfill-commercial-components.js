@@ -1,5 +1,5 @@
 import prisma from '../src/lib/prisma.js';
-import { componentsFromRow } from '../src/lib/acompanhamento-access-import.js';
+import { componentsFromRow } from '../src/lib/acompanhamento/access-import.js';
 
 const apply = process.argv.includes('--apply');
 

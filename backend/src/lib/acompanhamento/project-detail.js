@@ -9,10 +9,10 @@
  *  - Standby cobrindo a jornada cheia do dia = dia "parado".
  */
 
-import { listCommercialDashboard } from './acompanhamento-access-import.js';
-import { computeAlerts } from './acompanhamento-alerts.js';
-import { isSalaryCategory } from './acompanhamento-salary.js';
-import prisma from './prisma.js';
+import { listCommercialDashboard } from './access-import.js';
+import { computeAlerts } from './alerts.js';
+import { isSalaryCategory } from './salary.js';
+import prisma from '../prisma.js';
 
 function toNum(value) {
   if (value === null || value === undefined || value === '') return null;

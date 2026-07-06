@@ -7,7 +7,7 @@
  * reescreve as linhas do projeto numa transação (mesmo modelo de UX do cronograma — salvar tudo).
  */
 
-import prisma from './prisma.js';
+import prisma from '../prisma.js';
 
 // Tipos de serviço conhecidos (rótulos no front). Texto livre também é aceito.
 export const PLANNED_SERVICE_TYPES = ['LIMPEZA_QUIMICA', 'TESTE_PRESSAO', 'FLUSHING', 'FILTRAGEM'];

@@ -6,9 +6,9 @@
  * último dia (trabalhado / parado por standby de jornada cheia).
  */
 
-import { listCommercialDashboard } from './acompanhamento-access-import.js';
-import { computeAlerts } from './acompanhamento-alerts.js';
-import prisma from './prisma.js';
+import { listCommercialDashboard } from './access-import.js';
+import { computeAlerts } from './alerts.js';
+import prisma from '../prisma.js';
 
 function toNum(value) {
   if (value === null || value === undefined || value === '') return null;

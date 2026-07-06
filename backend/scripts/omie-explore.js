@@ -12,7 +12,7 @@
 
 import { writeFileSync } from 'node:fs';
 
-import { omieCall, omieConfigured } from '../src/lib/omie-client.js';
+import { omieCall, omieConfigured } from '../src/lib/omie/client.js';
 
 const PRESETS = [
   { name: 'projetos', path: '/geral/projetos/', call: 'ListarProjetos', param: { pagina: 1, registros_por_pagina: 50 } },

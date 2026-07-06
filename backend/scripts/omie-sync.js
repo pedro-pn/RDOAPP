@@ -6,8 +6,8 @@
  *   ... node scripts/omie-sync.js projetos | categorias | compras
  */
 
-import { omieConfigured } from '../src/lib/omie-client.js';
-import { syncOmieAll, syncOmieCategories, syncOmiePurchases, syncOmieProjects } from '../src/lib/omie-sync.js';
+import { omieConfigured } from '../src/lib/omie/client.js';
+import { syncOmieAll, syncOmieCategories, syncOmiePurchases, syncOmieProjects } from '../src/lib/omie/sync.js';
 import prisma from '../src/lib/prisma.js';
 
 async function main() {

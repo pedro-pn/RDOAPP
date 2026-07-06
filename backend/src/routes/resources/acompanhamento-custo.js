@@ -9,7 +9,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
-import { computeMonthlyCost } from '../../lib/acompanhamento-cost-engine.js';
+import { computeMonthlyCost } from '../../lib/acompanhamento/cost-engine.js';
 import prisma from '../../lib/prisma.js';
 import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 

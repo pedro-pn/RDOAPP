@@ -6,7 +6,7 @@
  * na descrição da categoria.
  */
 
-import prisma from './prisma.js';
+import prisma from '../prisma.js';
 
 // Palavras-chave (sem acento, minúsculas) que marcam uma categoria como salário/mão de obra.
 const SALARY_KEYWORDS = [
