@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { lastDayStatus } from '../src/lib/acompanhamento-project-cards.js';
+import { lastDayStatus } from '../src/lib/acompanhamento/project-cards.js';
 
 const project = { workdayHours: '09:00', weekendWorkdayHours: '08:00' };
 // Quarta-feira (dia útil, jornada 9h)

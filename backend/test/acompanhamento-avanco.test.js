@@ -6,7 +6,7 @@ import {
   realizedFromExtraData,
   isServiceFinalized,
   buildProgress
-} from '../src/lib/acompanhamento-avanco.js';
+} from '../src/lib/acompanhamento/avanco.js';
 
 test('isServiceFinalized: coluna booleana e campo textual do extraData', () => {
   assert.equal(isServiceFinalized({ finalized: true }), true);

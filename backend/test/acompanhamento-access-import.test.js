@@ -10,7 +10,7 @@ import {
   toInt,
   toNumber,
   toStr
-} from '../src/lib/acompanhamento-access-import.js';
+} from '../src/lib/acompanhamento/access-import.js';
 
 test('contractToProposalCode extrai a primeira parte numérica do contrato', () => {
   assert.equal(contractToProposalCode('4096 - Rev. 1'), 4096);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { computeMonthlyCost } from '../src/lib/acompanhamento-cost-engine.js';
+import { computeMonthlyCost } from '../src/lib/acompanhamento/cost-engine.js';
 
 const OPERADOR_PARAMS = {
   salarioBase: 3080.33,

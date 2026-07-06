@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { computeAlerts } from '../src/lib/acompanhamento-alerts.js';
+import { computeAlerts } from '../src/lib/acompanhamento/alerts.js';
 
 const now = new Date('2026-07-02T00:00:00Z');
 const codes = (alerts) => alerts.map(a => a.code).sort();

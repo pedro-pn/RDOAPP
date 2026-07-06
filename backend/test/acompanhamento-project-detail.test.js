@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { isSalaryCategory } from '../src/lib/acompanhamento-salary.js';
+import { isSalaryCategory } from '../src/lib/acompanhamento/salary.js';
 
 test('isSalaryCategory: reconhece categorias de folha/mão de obra (acentos e caixa)', () => {
   assert.equal(isSalaryCategory('Salários e ordenados'), true);
