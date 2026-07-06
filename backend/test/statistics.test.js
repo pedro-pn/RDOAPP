@@ -9,6 +9,7 @@ import {
   buildServiceExportRows,
   buildServiceStats,
   isServiceFinalized,
+  normalizeProjectIds,
   parseDecimal,
   parseLocalDate,
   statsReportWhere,
@@ -42,6 +43,14 @@ test('statistics project filters exclude manager-only projects', () => {
     deletedAt: null,
     id: { in: ['visible-project'] }
   });
+});
+
+test('statistics project id filters accept repeated, bracketed and comma-separated query values', () => {
+  assert.deepEqual(normalizeProjectIds(undefined), []);
+  assert.deepEqual(normalizeProjectIds('all'), []);
+  assert.deepEqual(normalizeProjectIds(['project-a', 'project-b']), ['project-a', 'project-b']);
+  assert.deepEqual(normalizeProjectIds(undefined, ['project-a', 'project-b']), ['project-a', 'project-b']);
+  assert.deepEqual(normalizeProjectIds('project-a,project-b', ['project-b', 'project-c']), ['project-a', 'project-b', 'project-c']);
 });
 
 test('statistics report filters exclude soft-deleted reports and projects', () => {
