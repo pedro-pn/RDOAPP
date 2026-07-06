@@ -924,6 +924,23 @@ a {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
+/* Selo "Novo" do módulo Acompanhamento (novidade no hub) */
+.hub-card-new {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wh);
+  background: var(--g);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
 .hub-module-card--wide {
   grid-column: 1 / -1;
   flex-direction: row;

@@ -1,9 +1,16 @@
-import { Fragment, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
-import { accountPageStateFromPath, availableHubModulesForUser } from '../auth/moduleNavigation';
+import {
+  accountPageStateFromPath,
+  availableHubModulesForUser,
+  hasSeenAcompanhamentoNovelty,
+  markAcompanhamentoNoveltySeen,
+  userHasAcompanhamentoModule
+} from '../auth/moduleNavigation';
 import { HubTutorial } from '../components/HubTutorial';
+import { AcompanhamentoHubNovelty } from '../components/AcompanhamentoHubNovelty';
 import { roleHomePath } from '../auth/rolePath';
 import { Shell } from '../layout/Shell';
 import { TopBar } from '../layout/TopBar';
@@ -119,6 +126,11 @@ export function HubPage() {
   const availableModules = useMemo(() => availableHubModulesForUser(user), [user]);
   const shouldRedirect = !isAdmin && availableModules.length === 1;
 
+  // Novidade do módulo Acompanhamento: badge "Novo" + destaque no 1º acesso ao hub.
+  const [acompNoveltyActive, setAcompNoveltyActive] = useState(
+    () => userHasAcompanhamentoModule(user) && !hasSeenAcompanhamentoNovelty(user)
+  );
+
   const firstName = user?.name?.split(' ')[0] || 'Usuário';
   const initials = user?.name
     ? user.name.split(' ').filter(Boolean).slice(0, 2).map(n => n[0].toUpperCase()).join('')
@@ -203,8 +215,17 @@ export function HubPage() {
                   data-hub-module-id={module.id}
                   disabled={module.disabled}
                   type="button"
-                  onClick={path ? () => navigate(path) : undefined}
+                  onClick={path ? () => {
+                    if (module.id === 'acompanhamento') {
+                      markAcompanhamentoNoveltySeen(user);
+                      setAcompNoveltyActive(false);
+                    }
+                    navigate(path);
+                  } : undefined}
                 >
+                  {module.id === 'acompanhamento' && acompNoveltyActive && (
+                    <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
+                  )}
                   <div className="hub-card-accent" style={{ background: accent }} />
                   <div className="hub-card-icon">
                     <ModuleIcon id={module.id} />
@@ -233,6 +254,13 @@ export function HubPage() {
           modules={modules}
           ready={!shouldRedirect}
           triggerRef={tutorialTrigger}
+        />
+      )}
+      {user && (
+        <AcompanhamentoHubNovelty
+          user={user}
+          enabled={!shouldRedirect && acompNoveltyActive}
+          onSeen={() => setAcompNoveltyActive(false)}
         />
       )}
     </Shell>
