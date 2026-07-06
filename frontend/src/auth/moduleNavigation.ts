@@ -4,6 +4,7 @@ import type { AuthUser } from '../types/auth';
 
 const LAST_MODULE_KEY_PREFIX = 'filtrovali:last-module:';
 const HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX = 'filtrovali:hub-first-login-tutorial:';
+const ACOMPANHAMENTO_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-novelty:';
 
 function storageKey(user: Pick<AuthUser, 'id'>) {
   return `${LAST_MODULE_KEY_PREFIX}${user.id}`;
@@ -11,6 +12,10 @@ function storageKey(user: Pick<AuthUser, 'id'>) {
 
 function hubFirstLoginTutorialStorageKey(user: Pick<AuthUser, 'id'>) {
   return `${HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX}${user.id}`;
+}
+
+function acompanhamentoNoveltyStorageKey(user: Pick<AuthUser, 'id'>) {
+  return `${ACOMPANHAMENTO_NOVELTY_KEY_PREFIX}${user.id}`;
 }
 
 function safeLocalStorageGet(key: string) {
@@ -49,6 +54,21 @@ export function hasSeenHubFirstLoginTutorial(user: Pick<AuthUser, 'id'> | null |
 export function markHubFirstLoginTutorialSeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(hubFirstLoginTutorialStorageKey(user), '1');
+}
+
+// Novidade do módulo Acompanhamento no hub: destaque único p/ contas com acesso (visualizador/gestor).
+export function userHasAcompanhamentoModule(user: AuthUser | null | undefined) {
+  return availableHubModulesForUser(user).some(module => module.id === 'acompanhamento');
+}
+
+export function hasSeenAcompanhamentoNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return true;
+  return safeLocalStorageGet(acompanhamentoNoveltyStorageKey(user)) === '1';
+}
+
+export function markAcompanhamentoNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(acompanhamentoNoveltyStorageKey(user), '1');
 }
 
 export function shouldOpenHubOnFirstLogin(user: AuthUser | null | undefined) {

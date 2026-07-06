@@ -120,7 +120,7 @@ export function AcompanhamentoDashboard() {
   return (
     <div className="acp-dash">
       {/* Filtros */}
-      <div className="page-card acp-filters">
+      <div className="page-card acp-filters" data-acp-dashboard-filters>
         <div className="field-group">
           <label htmlFor="acp-search">Buscar (missão, cliente, contrato)</label>
           <input id="acp-search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Ex.: 4069 ou nome do cliente" />
@@ -159,7 +159,7 @@ export function AcompanhamentoDashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="acp-kpis">
+      <div className="acp-kpis" data-acp-kpis>
         <div className="acp-kpi">
           <span className="acp-kpi-label">Projetos</span>
           <span className="acp-kpi-value">{totals.count}</span>
@@ -207,7 +207,7 @@ export function AcompanhamentoDashboard() {
       </div>
 
       {/* Tabela */}
-      <div className="page-card">
+      <div className="page-card" data-acp-dashboard-table>
         <div className="sec">Projetos ({filtered.length}) <span className="acp-table-hint">· clique numa linha para abrir o cronograma</span></div>
         <div className="acp-table-wrap">
           <table className="acp-table">

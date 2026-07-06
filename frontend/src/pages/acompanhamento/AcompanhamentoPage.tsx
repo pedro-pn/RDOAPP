@@ -1,21 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthContext';
-import { accountPageStateFromPath } from '../../auth/moduleNavigation';
+import { accountPageStateFromPath, markAcompanhamentoNoveltySeen } from '../../auth/moduleNavigation';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { AcompanhamentoDashboard } from '../../components/projects/AcompanhamentoDashboard';
 import { ProjectCardsBoard } from '../../components/projects/ProjectCardsBoard';
 import { CostEngineManager } from '../../components/projects/CostEngineManager';
+import { AcompanhamentoTutorial } from '../../components/AcompanhamentoTutorial';
 
 type Section = 'dashboard' | 'projetos' | 'custo';
+
+function tutorialUserKey(user: ReturnType<typeof useAuth>['user'], isManager: boolean) {
+  const identity = String(user?.email || user?.username || user?.id || '').trim().toLowerCase();
+  return identity ? `${isManager ? 'manager' : 'viewer'}:${identity}` : '';
+}
 
 export function AcompanhamentoPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [section, setSection] = useState<Section>('dashboard');
+  const tutorialTrigger = useRef<(() => void) | null>(null);
+
+  const isManager = user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('acompanhamento:manager'));
+  const userKey = tutorialUserKey(user, isManager);
+
+  // Ao entrar no módulo, a novidade do hub já foi "consumida".
+  useEffect(() => { if (user) markAcompanhamentoNoveltySeen(user); }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -29,6 +42,7 @@ export function AcompanhamentoPage() {
         subtitle="Previsto x realizado, custos e cronograma"
         actions={
           <>
+            <button className="topbar-chip" type="button" onClick={() => tutorialTrigger.current?.()}>Ver tutorial</button>
             <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>Conta</button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>Sair</button>
           </>
@@ -36,7 +50,7 @@ export function AcompanhamentoPage() {
       />
       <main className="page-scroll equip-page">
         <div className="equip-layout">
-          <nav className="equip-nav" aria-label="Áreas de Acompanhamento">
+          <nav className="equip-nav" aria-label="Áreas de Acompanhamento" data-acp-nav>
             <button className={`equip-nav-item ${section === 'dashboard' ? 'active' : ''}`} type="button" aria-current={section === 'dashboard'} onClick={() => setSection('dashboard')}>
               <span className="equip-nav-ico" aria-hidden="true">◧</span>
               <span className="equip-nav-label">Dashboard</span>
@@ -51,7 +65,7 @@ export function AcompanhamentoPage() {
             </button>
           </nav>
 
-          <div className="equip-mobile-nav">
+          <div className="equip-mobile-nav" data-acp-mobile-nav>
             <label className="equip-mobile-nav-label" htmlFor="acp-section-select">Seção do módulo</label>
             <select
               id="acp-section-select"
@@ -72,6 +86,12 @@ export function AcompanhamentoPage() {
           </section>
         </div>
       </main>
+      <AcompanhamentoTutorial
+        userKey={userKey}
+        ready={section === 'dashboard'}
+        goToSection={setSection}
+        triggerRef={tutorialTrigger}
+      />
     </Shell>
   );
 }

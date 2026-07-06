@@ -124,9 +124,9 @@ export function ProjectCardsBoard() {
   }
 
   return (
-    <div className="acp-pcards-wrap">
+    <div className="acp-pcards-wrap" data-acp-cards>
       <div className="page-card acp-filters">
-        <div className="acp-seg" role="tablist" aria-label="Situação dos projetos">
+        <div className="acp-seg" role="tablist" aria-label="Situação dos projetos" data-acp-cards-seg>
           <button
             type="button" role="tab" aria-selected={view === 'andamento'}
             className={`acp-seg-btn${view === 'andamento' ? ' active' : ''}`}
