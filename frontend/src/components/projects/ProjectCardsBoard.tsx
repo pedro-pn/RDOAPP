@@ -12,6 +12,10 @@ function formatDate(iso?: string | null) {
 function pct(value?: number | null) {
   return value === null || value === undefined ? '—' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
+function brl(value?: number | null) {
+  return value === null || value === undefined ? '—'
+    : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
 
 const STATUS_META: Record<LastDayStatus, { label: string; cls: string }> = {
   TRABALHADO: { label: 'Último dia trabalhado', cls: 'ok' },
@@ -76,6 +80,24 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         <span>Colaboradores em obra</span>
         <span className="acp-pcard-strong">{card.collaboratorsCount}</span>
       </div>
+
+      {card.laborCost != null ? (() => {
+        const hasOffshore = card.laborCostBase != null && Math.round(card.laborCost) !== Math.round(card.laborCostBase);
+        return (
+          <>
+            <div className="acp-pcard-row">
+              <span>Custo MO (HH){hasOffshore ? ' c/ offshore' : ''}<sup title="Do ponto; em validação, ainda não somado ao realizado Omie."> *</sup></span>
+              <span className="acp-pcard-strong">{brl(card.laborCost)}</span>
+            </div>
+            {hasOffshore ? (
+              <div className="acp-pcard-row">
+                <span>Custo MO sem offshore</span>
+                <span className="acp-pcard-strong">{brl(card.laborCostBase)}</span>
+              </div>
+            ) : null}
+          </>
+        );
+      })() : null}
 
       <div className="acp-pcard-dates">
         <div><span>Início</span><strong>{formatDate(card.startDate)}</strong></div>

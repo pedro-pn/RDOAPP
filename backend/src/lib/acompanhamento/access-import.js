@@ -192,12 +192,12 @@ async function upsertBudget(client, projectId, proposal) {
 export async function listProjectRevisions(projectId) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, commercialProposalCode: true, contractCode: true, code: true, startDate: true, mobilizationDate: true, manualProgressPct: true }
+    select: { id: true, commercialProposalCode: true, contractCode: true, code: true, startDate: true, mobilizationDate: true, manualProgressPct: true, offshore: true }
   });
   if (!project) throw new Error('Projeto não encontrado.');
   const codProp = projectProposalCode(project);
   if (!Number.isInteger(codProp)) {
-    return { proposalCode: null, currentCodBd: null, resolved: false, startDate: project.startDate ?? null, mobilizationDate: project.mobilizationDate ?? null, manualProgressPct: project.manualProgressPct ?? null, revisions: [] };
+    return { proposalCode: null, currentCodBd: null, resolved: false, startDate: project.startDate ?? null, mobilizationDate: project.mobilizationDate ?? null, manualProgressPct: project.manualProgressPct ?? null, offshore: project.offshore ?? false, revisions: [] };
   }
   const [revisions, budget] = await Promise.all([
     prisma.commercialProposal.findMany({
@@ -225,13 +225,14 @@ export async function listProjectRevisions(projectId) {
     startDate: project.startDate ?? null,
     mobilizationDate: project.mobilizationDate ?? null,
     manualProgressPct: project.manualProgressPct ?? null,
+    offshore: project.offshore ?? false,
     revisions
   };
 }
 
 // Edita o cronograma: data de aprovação do contrato (no orçamento) e início real (no projeto).
 // Cada campo é opcional; passar null limpa. approvedAt exige um orçamento já escolhido.
-export async function setProjectSchedule(projectId, { approvedAt, startDate, mobilizationDate, manualProgressPct } = {}) {
+export async function setProjectSchedule(projectId, { approvedAt, startDate, mobilizationDate, manualProgressPct, offshore } = {}) {
   return prisma.$transaction(async (tx) => {
     if (approvedAt !== undefined) {
       const budget = await tx.projectBudget.findUnique({
@@ -248,6 +249,7 @@ export async function setProjectSchedule(projectId, { approvedAt, startDate, mob
     if (startDate !== undefined) projectData.startDate = startDate ? new Date(startDate) : null;
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
     if (manualProgressPct !== undefined) projectData.manualProgressPct = manualProgressPct == null ? null : manualProgressPct;
+    if (offshore !== undefined) projectData.offshore = Boolean(offshore);
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
     }

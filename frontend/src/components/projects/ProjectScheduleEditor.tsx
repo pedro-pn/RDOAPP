@@ -60,17 +60,19 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [mobEdit, setMobEdit] = useState<string | null>(null);
   const [manualEdit, setManualEdit] = useState<string | null>(null);
+  const [offshoreEdit, setOffshoreEdit] = useState<boolean | null>(null);
   const [scopeDirty, setScopeDirty] = useState(false);
   const scopeRef = useRef<ScopeEditorHandle>(null);
 
   const scheduleMutation = useMutation({
-    mutationFn: (payload: { approvedAt?: string | null; startDate?: string | null; mobilizationDate?: string | null; manualProgressPct?: number | null }) => setProjectSchedule(projectId, payload),
+    mutationFn: (payload: { approvedAt?: string | null; startDate?: string | null; mobilizationDate?: string | null; manualProgressPct?: number | null; offshore?: boolean }) => setProjectSchedule(projectId, payload),
     onSuccess: () => {
       showToast('Cronograma atualizado.');
       setApprovalEdit(null);
       setStartEdit(null);
       setMobEdit(null);
       setManualEdit(null);
+      setOffshoreEdit(null);
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['project-cards'] });
@@ -85,10 +87,13 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const mobValue = mobEdit ?? toDateInput(data?.mobilizationDate);
   const baseManual = data?.manualProgressPct == null ? '' : String(data.manualProgressPct);
   const manualValue = manualEdit ?? baseManual;
+  const baseOffshore = data?.offshore ?? false;
+  const offshoreValue = offshoreEdit ?? baseOffshore;
   const scheduleDirty = approvalValue !== toDateInput(data?.approvedAt)
     || startValue !== toDateInput(data?.startDate)
     || mobValue !== toDateInput(data?.mobilizationDate)
-    || manualValue !== baseManual;
+    || manualValue !== baseManual
+    || offshoreValue !== baseOffshore;
   const dirty = scheduleDirty || scopeDirty;
 
   // Salvar único: grava o cronograma (se mudou) e o escopo (se mudou), via ref do editor de escopo.
@@ -100,7 +105,8 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
         approvedAt: isoOrNull(approvalValue),
         startDate: isoOrNull(startValue),
         mobilizationDate: isoOrNull(mobValue),
-        manualProgressPct: manualNum != null && Number.isFinite(manualNum) ? Math.min(100, Math.max(0, manualNum)) : null
+        manualProgressPct: manualNum != null && Number.isFinite(manualNum) ? Math.min(100, Math.max(0, manualNum)) : null,
+        offshore: offshoreValue
       });
     }
     if (scopeDirty) scopeRef.current?.save();
@@ -159,6 +165,18 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
             />
             <span className="acp-pct-suffix">%</span>
           </div>
+        </div>
+        <div className="field-group">
+          <label htmlFor={`acp-offshore-${projectId}`}>Projeto offshore <HelpTip icon help="Projetos offshore acrescentam 10 pontos percentuais na transferência/viagem do custo de mão de obra (HH) dos colaboradores alocados, e os dias no projeto passam a contar como embarque." /></label>
+          <label className="acp-checkbox-inline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              id={`acp-offshore-${projectId}`}
+              type="checkbox"
+              checked={offshoreValue}
+              onChange={e => setOffshoreEdit(e.target.checked)}
+            />
+            <span>{offshoreValue ? 'Sim (+10% transferência)' : 'Não'}</span>
+          </label>
         </div>
       </div>
 

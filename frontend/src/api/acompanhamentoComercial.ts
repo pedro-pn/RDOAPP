@@ -31,6 +31,7 @@ export interface ProjectRevisions {
   startDate?: string | null;
   mobilizationDate?: string | null;
   manualProgressPct?: string | number | null;
+  offshore?: boolean;
   revisions: CommercialRevision[];
 }
 
@@ -39,6 +40,7 @@ export interface ProjectSchedulePayload {
   startDate?: string | null;
   mobilizationDate?: string | null;
   manualProgressPct?: number | null;
+  offshore?: boolean;
 }
 
 export type ProgressMethod = 'RDO' | 'MANUAL';
@@ -230,6 +232,8 @@ export interface ProjectCard {
   collaboratorsCount: number;
   startDate: string | null;
   expectedEndDate: string | null;
+  laborCost: number | null; // custo de mão de obra (HH) COM adicional offshore — em validação, não somado ao Omie
+  laborCostBase: number | null; // custo de mão de obra SEM offshore (comparação)
   alerts: ProjectAlert[];
 }
 
@@ -255,6 +259,7 @@ export interface ProjectDetail {
   diasCorridos: { elapsed: number | null; planned: number | null; pct: number | null };
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
   consumo: { gasto: number; previsto: number | null; pct: number | null };
+  maoDeObra: { custo: number | null; custoBase: number | null; horas: number | null; periodStart: string | null; periodEnd: string | null };
   maioresGastos: Array<{ categoria: string; total: number }>;
   avancoPct: number | null;
   standby: { count: number; minutes: number };

@@ -8,6 +8,7 @@
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
+import { laborCostByProject } from './labor-cost.js';
 import prisma from '../prisma.js';
 
 function toNum(value) {
@@ -65,7 +66,7 @@ export async function listProjectCards() {
   const projectIds = rows.map(r => r.projectId);
   if (projectIds.length === 0) return [];
 
-  const [projects, reports, collaborators] = await Promise.all([
+  const [projects, reports, collaborators, labor] = await Promise.all([
     prisma.project.findMany({
       where: { id: { in: projectIds } },
       select: { id: true, workdayHours: true, weekendWorkdayHours: true }
@@ -78,8 +79,10 @@ export async function listProjectCards() {
     prisma.reportCollaborator.findMany({
       where: { report: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null } },
       select: { collaboratorId: true, report: { select: { projectId: true } } }
-    })
+    }),
+    laborCostByProject() // custo de mão de obra (HH) do ponto vigente — separado do realizado Omie
   ]);
+  const laborByProject = labor.byProjectId;
 
   const projById = new Map(projects.map(p => [p.id, p]));
 
@@ -131,6 +134,10 @@ export async function listProjectCards() {
       collaboratorsCount: a.collabs.size,
       startDate: row.startDate ?? null,
       expectedEndDate,
+      // Custo de mão de obra (HH) do ponto vigente — NÃO somado ao realizado Omie (em validação).
+      // laborCost = com adicional offshore; laborCostBase = sem offshore (para comparação).
+      laborCost: laborByProject.get(row.projectId)?.laborCost ?? null,
+      laborCostBase: laborByProject.get(row.projectId)?.laborCostBase ?? null,
       alerts
     };
   });

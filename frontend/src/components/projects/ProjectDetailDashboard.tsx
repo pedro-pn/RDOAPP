@@ -159,6 +159,24 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
                 ))}
               </ul>
             )}
+            {data.maoDeObra?.custo != null ? (() => {
+              const mo = data.maoDeObra;
+              const hasOffshore = mo.custoBase != null && Math.round(mo.custo!) !== Math.round(mo.custoBase);
+              return (
+                <>
+                  <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <HelpTip help="Custo de mão de obra (HH) calculado a partir do ponto do período vigente (horas × custo/hora por cargo), incluindo o adicional offshore quando houver. Em validação — ainda NÃO somado ao gasto Omie acima.">Mão de obra (HH){hasOffshore ? ' c/ offshore' : ''} *</HelpTip>
+                    <strong>{brl(mo.custo)}</strong>
+                  </div>
+                  {hasOffshore ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <span className="placeholder-copy">Mão de obra sem offshore</span>
+                      <span>{brl(mo.custoBase)}</span>
+                    </div>
+                  ) : null}
+                </>
+              );
+            })() : null}
           </div>
         </div>
 

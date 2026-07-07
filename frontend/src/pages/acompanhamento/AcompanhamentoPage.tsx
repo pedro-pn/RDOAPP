@@ -59,9 +59,10 @@ export function AcompanhamentoPage() {
         <div className="acp-cost-notice" role="note">
           <span className="acp-cost-notice-ico" aria-hidden="true">⚠️</span>
           <span>
-            <strong>Custo de mão de obra ainda não incluído.</strong> Os valores realizados consideram
-            apenas as compras (Omie). O custo dos colaboradores (salários/ponto) ainda não entra no cálculo,
-            pois a integração com o ponto (VR Ponto Mais) ainda não foi implementada.
+            <strong>Custo de mão de obra em validação.</strong> Já é possível importar o ponto e ver o
+            custo de mão de obra (HH) por colaborador e por projeto na aba <strong>Custo</strong>. Esse
+            valor ainda <strong>não</strong> é somado ao realizado oficial (compras/Omie) até a validação
+            dos números. A integração automática com o ponto (VR Ponto Mais) segue pendente.
           </span>
         </div>
         <div className="equip-layout">

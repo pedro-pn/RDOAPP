@@ -11,6 +11,7 @@
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
+import { laborCostByProject } from './labor-cost.js';
 import { isSalaryCategory } from './salary.js';
 import prisma from '../prisma.js';
 
@@ -66,7 +67,7 @@ export async function getProjectDetail(projectId) {
   const row = rows.find(r => r.projectId === projectId);
   if (!row) throw new Error('Projeto não encontrado no acompanhamento comercial.');
 
-  const [project, reports, collaborators, costGroups] = await Promise.all([
+  const [project, reports, collaborators, costGroups, labor] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
       select: { clientSegment: true, mobilizationDate: true, workdayHours: true, weekendWorkdayHours: true }
@@ -87,8 +88,19 @@ export async function getProjectDetail(projectId) {
       by: ['categoriaCodigo', 'categoriaDescricao'],
       where: { projectId },
       _sum: { valor: true }
-    })
+    }),
+    laborCostByProject() // custo de mão de obra (HH) do ponto vigente
   ]);
+
+  // Mão de obra (HH) do ponto — mantido SEPARADO do gasto Omie (em validação, não somado).
+  const laborAgg = labor.byProjectId.get(projectId) || null;
+  const maoDeObra = {
+    custo: laborAgg?.laborCost ?? null, // com adicional offshore
+    custoBase: laborAgg?.laborCostBase ?? null, // sem offshore
+    horas: laborAgg?.hours ?? null,
+    periodStart: labor.periodStart ?? null,
+    periodEnd: labor.periodEnd ?? null
+  };
 
   // --- Custos (Omie), excluindo salários ---
   const nonSalary = costGroups
@@ -197,6 +209,7 @@ export async function getProjectDetail(projectId) {
       previsto: previstoCusto,
       pct: previstoCusto && previstoCusto > 0 ? Math.round((gasto / previstoCusto) * 100) : null
     },
+    maoDeObra,
     maioresGastos,
     avancoPct,
     avancoMethod: row.progressMethod ?? null,
