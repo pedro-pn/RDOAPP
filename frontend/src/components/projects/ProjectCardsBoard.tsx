@@ -70,7 +70,7 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
       </div>
 
       <div className="acp-pcard-row">
-        <span>Status dia anterior</span>
+        <span>Status último RDO</span>
         <span className={`acp-pcard-status ${status.cls}`}>
           {status.label}{card.lastDay.date ? ` · ${formatDate(card.lastDay.date)}` : ''}
         </span>
@@ -86,7 +86,7 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         return (
           <>
             <div className="acp-pcard-row">
-              <span>Custo MO{hasOffshore ? ' c/ offshore' : ''}<sup title="Valor gasto com mão de obra (do ponto), já incluído no realizado."> *</sup></span>
+              <span>Custo MO{hasOffshore ? ' c/ offshore' : ''}<sup title="Valor gasto com mão de obra do ponto, rateado para este projeto."> *</sup></span>
               <span className="acp-pcard-strong">{brl(card.laborCost)}</span>
             </div>
             {hasOffshore ? (

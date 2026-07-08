@@ -180,7 +180,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   const today = new Date();
 
   // --- Equipamentos em obra (módulo Equipamentos), mesma lógica do card de projetos ---
-  const equipmentEndDate = row.archived ? (lastRdoDate ? new Date(lastRdoDate) : today) : today;
+  const projectReferenceDate = row.archived && lastRdoDate ? new Date(lastRdoDate) : today;
+  const equipmentEndDate = projectReferenceDate;
   const equipamentos = (equipmentByProject.get(projectId) || [])
     .map(e => {
       const since = new Date(e.sinceDate);
@@ -189,7 +190,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     })
     .sort((a, b) => b.days - a.days);
 
-  const elapsedCorridos = row.startDate ? Math.max(0, diffCalendarDays(row.startDate, today) ?? 0) : null;
+  const elapsedCorridos = row.startDate ? Math.max(0, diffCalendarDays(row.startDate, projectReferenceDate) ?? 0) : null;
   const diasCorridos = {
     elapsed: elapsedCorridos,
     planned: plannedDays,
@@ -214,7 +215,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     plannedCost: previstoCusto,
     lastRdoDate,
     lastDayStatus: ultimosDias.length ? ultimosDias[ultimosDias.length - 1].status : null,
-    progressPct: avancoPct
+    progressPct: avancoPct,
+    now: projectReferenceDate
   });
 
   return {
