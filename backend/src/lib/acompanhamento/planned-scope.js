@@ -18,6 +18,11 @@ function num(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function text(value) {
+  const str = typeof value === 'string' ? value.trim() : '';
+  return str || null;
+}
+
 // Lê o escopo previsto de um projeto (serviços + hora extra), pronto para o front.
 export async function getPlannedScope(projectId) {
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
@@ -44,6 +49,9 @@ export async function getPlannedScope(projectId) {
       note: s.note,
       systems: s.systems.map(sys => ({
         systemType: sys.systemType,
+        description: sys.description,
+        diameter: sys.diameter,
+        diameterUnit: sys.diameterUnit,
         quantity: sys.quantity,
         unit: sys.unit
       }))
@@ -87,6 +95,9 @@ export async function setPlannedScope(projectId, { services = [], overtime = [] 
           systems: {
             create: (s.systems ?? []).map((sys, sysIndex) => ({
               systemType: sys.systemType,
+              description: text(sys.description),
+              diameter: sys.systemType === 'TUBULACAO' ? text(sys.diameter) : null,
+              diameterUnit: sys.systemType === 'TUBULACAO' && ['pol', 'mm'].includes(sys.diameterUnit) ? sys.diameterUnit : null,
               quantity: num(sys.quantity),
               unit: sys.unit ?? null,
               order: sysIndex

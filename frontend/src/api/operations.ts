@@ -4,6 +4,10 @@ export type OperationalProblem = {
   message: string;
   job?: string;
   failed?: number;
+  integration?: string;
+  scope?: string | null;
+  source?: string | null;
+  error?: string | null;
   backup?: OperationalFileStatus;
   restore?: OperationalFileStatus;
 };
@@ -33,6 +37,36 @@ export type OperationalFileStatus = {
   backupSource?: string;
 };
 
+export type OperationalIntegrationRun = {
+  id: string;
+  integration: string;
+  scope: string | null;
+  status: string;
+  recordsRead: number;
+  recordsWritten: number;
+  error: string | null;
+  summary: Record<string, unknown> | null;
+  triggeredBy: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+};
+
+export type OperationalAccessImport = {
+  id: string;
+  fileName: string;
+  source: string;
+  status: string;
+  rowsRead: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  pendingProjectsCreated: number;
+  error: string | null;
+  summary: Record<string, unknown> | null;
+  importedByUserId: string | null;
+  createdAt: string | null;
+};
+
 export type OperationalStatus = {
   ok: boolean;
   generatedAt: string;
@@ -48,6 +82,18 @@ export type OperationalStatus = {
   };
   backup: OperationalFileStatus;
   restore: OperationalFileStatus;
+  omie: {
+    configured: boolean;
+    enabled: boolean;
+    status: string;
+    latestRun: OperationalIntegrationRun | null;
+    scopes: Array<{ scope: string; latestRun: OperationalIntegrationRun | null }>;
+  };
+  commercialImport: {
+    configured: boolean;
+    status: string;
+    latestImport: OperationalAccessImport | null;
+  };
   errorTracking: {
     enabled: boolean;
     provider: string;

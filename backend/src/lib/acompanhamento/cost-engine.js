@@ -49,6 +49,9 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
   const diasCasa = n(inputs.diasCasa);
   const he70Horas = n(inputs.he70Horas);
   const he100Horas = n(inputs.he100Horas);
+  // Dias em projeto offshore: geram transferência com um bônus (pontos percentuais) sobre o pct base.
+  const offshoreDays = n(inputs.offshoreDays);
+  const offshoreBonusPct = n(inputs.offshoreBonusPct);
 
   // A) fixos
   const subtotalFixo = salarioBase + insalubridade;
@@ -57,7 +60,10 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
   const periculosidade = ((salarioBase * periculosidadePct) / DIAS_MES) * diasCliente;
   const produtividade =
     ((salarioBase + insalubridade + salarioBase * periculosidadePct) / DIAS_MES) * diasCasa * produtividadePct;
-  const transferencia = ((salarioBase + insalubridade) / DIAS_MES) * diasFora * transferenciaPct;
+  // Transferência: dias fora (viagem, sem RDO) no pct base + dias offshore no pct + bônus.
+  const transferencia =
+    ((salarioBase + insalubridade) / DIAS_MES) *
+    (diasFora * transferenciaPct + offshoreDays * (transferenciaPct + offshoreBonusPct));
   const valorHora =
     (salarioBase + insalubridade + periculosidade + produtividade + transferencia) / cargaHoraria;
   const he70 = (valorHora + valorHora * he70Pct) * he70Horas;
