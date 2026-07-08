@@ -33,7 +33,18 @@ export interface ProjectRevisions {
   manualProgressPct?: string | number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
+  laborCollaboratorIds?: string[];
+  laborCollaborators?: LaborCollaborator[];
   revisions: CommercialRevision[];
+}
+
+export type LaborCollaboratorSource = 'LEADER' | 'RDO' | 'MANUAL';
+
+export interface LaborCollaborator {
+  id: string;
+  name: string;
+  role: string | null;
+  sources: LaborCollaboratorSource[];
 }
 
 export interface ProjectSchedulePayload {
@@ -43,6 +54,7 @@ export interface ProjectSchedulePayload {
   manualProgressPct?: number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
+  laborCollaboratorIds?: string[];
 }
 
 export type ProgressMethod = 'RDO' | 'MANUAL';

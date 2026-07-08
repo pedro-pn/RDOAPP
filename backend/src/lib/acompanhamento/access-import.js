@@ -186,6 +186,63 @@ function normalizeSleepModeMap(value) {
   return result;
 }
 
+function normalizeCollaboratorIdList(value) {
+  if (!Array.isArray(value)) return [];
+  const ids = [];
+  const seen = new Set();
+  for (const raw of value) {
+    const id = typeof raw === 'string' ? raw.trim() : '';
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function addLaborCollaborator(map, collaborator, source) {
+  if (!collaborator?.id) return;
+  const existing = map.get(collaborator.id);
+  if (existing) {
+    if (!existing.sources.includes(source)) existing.sources.push(source);
+    return;
+  }
+  map.set(collaborator.id, {
+    id: collaborator.id,
+    name: collaborator.name,
+    role: collaborator.role ?? null,
+    sources: [source]
+  });
+}
+
+async function listProjectLaborCollaborators(project, sleepModeMap) {
+  const manualIds = normalizeCollaboratorIdList(project.laborCollaboratorIds);
+  const sleepModeIds = Object.keys(sleepModeMap);
+  const rows = new Map();
+
+  addLaborCollaborator(rows, project.operator, 'LEADER');
+
+  const [rdoCollaborators, manualCollaborators] = await Promise.all([
+    prisma.reportCollaborator.findMany({
+      where: { report: { projectId: project.id, reportType: 'RDO', deletedAt: null } },
+      select: { collaborator: { select: { id: true, name: true, role: true } } },
+      orderBy: { collaborator: { name: 'asc' } }
+    }),
+    prisma.collaborator.findMany({
+      where: { id: { in: [...new Set([...manualIds, ...sleepModeIds])] } },
+      select: { id: true, name: true, role: true }
+    })
+  ]);
+
+  for (const row of rdoCollaborators) addLaborCollaborator(rows, row.collaborator, 'RDO');
+  const manualById = new Map(manualCollaborators.map(collaborator => [collaborator.id, collaborator]));
+  for (const id of [...manualIds, ...sleepModeIds]) addLaborCollaborator(rows, manualById.get(id), 'MANUAL');
+
+  return {
+    laborCollaboratorIds: manualIds.filter(id => manualById.has(id)),
+    laborCollaborators: Array.from(rows.values())
+  };
+}
+
 // Cria/atualiza o orçamento previsto (versão única "1") com os dados da revisão informada.
 // approvedAt é definido no ato da 1ª seleção (editável depois) e preservado ao trocar de revisão.
 // selectionStatus permanece como está (marcação manual da vencedora — P-19).
@@ -211,11 +268,15 @@ export async function listProjectRevisions(projectId) {
       mobilizationDate: true,
       manualProgressPct: true,
       offshore: true,
-      laborSleepModeByCollaborator: true
+      laborSleepModeByCollaborator: true,
+      laborCollaboratorIds: true,
+      operator: { select: { id: true, name: true, role: true } }
     }
   });
   if (!project) throw new Error('Projeto não encontrado.');
   const codProp = projectProposalCode(project);
+  const laborSleepModeByCollaborator = normalizeSleepModeMap(project.laborSleepModeByCollaborator);
+  const labor = await listProjectLaborCollaborators(project, laborSleepModeByCollaborator);
   if (!Number.isInteger(codProp)) {
     return {
       proposalCode: null,
@@ -225,7 +286,9 @@ export async function listProjectRevisions(projectId) {
       mobilizationDate: project.mobilizationDate ?? null,
       manualProgressPct: project.manualProgressPct ?? null,
       offshore: project.offshore ?? false,
-      laborSleepModeByCollaborator: normalizeSleepModeMap(project.laborSleepModeByCollaborator),
+      laborSleepModeByCollaborator,
+      laborCollaboratorIds: labor.laborCollaboratorIds,
+      laborCollaborators: labor.laborCollaborators,
       revisions: []
     };
   }
@@ -256,7 +319,9 @@ export async function listProjectRevisions(projectId) {
     mobilizationDate: project.mobilizationDate ?? null,
     manualProgressPct: project.manualProgressPct ?? null,
     offshore: project.offshore ?? false,
-    laborSleepModeByCollaborator: normalizeSleepModeMap(project.laborSleepModeByCollaborator),
+    laborSleepModeByCollaborator,
+    laborCollaboratorIds: labor.laborCollaboratorIds,
+    laborCollaborators: labor.laborCollaborators,
     revisions
   };
 }
@@ -269,7 +334,8 @@ export async function setProjectSchedule(projectId, {
   mobilizationDate,
   manualProgressPct,
   offshore,
-  laborSleepModeByCollaborator
+  laborSleepModeByCollaborator,
+  laborCollaboratorIds
 } = {}) {
   return prisma.$transaction(async (tx) => {
     if (approvedAt !== undefined) {
@@ -290,6 +356,19 @@ export async function setProjectSchedule(projectId, {
     if (offshore !== undefined) projectData.offshore = Boolean(offshore);
     if (laborSleepModeByCollaborator !== undefined) {
       projectData.laborSleepModeByCollaborator = normalizeSleepModeMap(laborSleepModeByCollaborator);
+    }
+    if (laborCollaboratorIds !== undefined) {
+      const ids = normalizeCollaboratorIdList(laborCollaboratorIds);
+      if (ids.length === 0) {
+        projectData.laborCollaboratorIds = [];
+      } else {
+        const collaborators = await tx.collaborator.findMany({
+          where: { id: { in: ids } },
+          select: { id: true }
+        });
+        const validIds = new Set(collaborators.map(collaborator => collaborator.id));
+        projectData.laborCollaboratorIds = ids.filter(id => validIds.has(id));
+      }
     }
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });

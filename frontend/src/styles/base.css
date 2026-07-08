@@ -1809,10 +1809,18 @@ a {
   white-space: nowrap;
   color: var(--tx);
 }
+.acp-sleep-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 8px;
+}
+.acp-sleep-add .mini-btn { min-height: 38px; }
 .acp-sleep-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .acp-sleep-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, auto);
   align-items: center;
   gap: 10px;
   border: 1px solid var(--br);
@@ -1824,7 +1832,15 @@ a {
 .acp-sleep-name strong,
 .acp-sleep-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acp-sleep-name small { color: var(--mu); font-size: .78rem; }
-.acp-sleep-row select {
+.acp-sleep-source { text-transform: uppercase; }
+.acp-sleep-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.acp-sleep-row select,
+.acp-sleep-add select {
   width: 100%;
   min-width: 0;
   min-height: 38px;
@@ -1835,13 +1851,24 @@ a {
   color: var(--tx);
   font-weight: 600;
 }
-.acp-sleep-row select:focus {
+.acp-sleep-row select:focus,
+.acp-sleep-add select:focus {
   outline: none;
   border-color: var(--g);
   box-shadow: 0 0 0 3px rgba(32, 126, 64, 0.12);
 }
+.acp-sleep-remove {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 9px;
+}
 @media (max-width: 860px) { .acp-sleep-list { grid-template-columns: 1fr; } }
-@media (max-width: 480px) { .acp-sleep-row { grid-template-columns: 1fr; } }
+@media (max-width: 480px) {
+  .acp-sleep-add,
+  .acp-sleep-row { grid-template-columns: 1fr; }
+  .acp-sleep-controls { align-items: stretch; flex-direction: column; }
+  .acp-sleep-remove { width: 100%; }
+}
 
 /* Escopo previsto (serviços vendidos + previsão de hora extra) no modal do cronograma */
 .acp-scope-divider { border-top: 1px solid var(--br); margin: 8px 0 2px; }

@@ -357,6 +357,7 @@ model Project {
   requireServiceReportSignatures Boolean  @default(false)
   offshore              Boolean           @default(false) // projeto offshore: +transferência no custo de MO
   laborSleepModeByCollaborator Json        @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
+  laborCollaboratorIds  Json              @default("[]") // Acompanhamento: colaboradores adicionados manualmente ao cronograma
 
   clientName            String
   clientCnpj            String
