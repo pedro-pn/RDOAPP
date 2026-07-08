@@ -540,57 +540,96 @@ export async function listCommercialPendencias() {
 export async function importCommercialAccess({ buffer, fileName, importedByUserId = null, source = 'SCRIPT' }) {
   const contentHash = hashBuffer(buffer);
 
-  // Reenvio idêntico: pula o trabalho (barato).
-  const duplicate = await prisma.accessImport.findFirst({
-    where: { contentHash, status: 'SUCCESS' },
-    orderBy: { createdAt: 'desc' }
-  });
-  if (duplicate) {
-    return { skippedDuplicate: true, contentHash, previousImportId: duplicate.id };
-  }
-
-  const rawRows = readProposals(buffer);
-  const proposals = rawRows
-    .map(mapProposalRow)
-    .filter(p => Number.isInteger(p.codBd) && Number.isInteger(p.codProp));
-
-  let created = 0;
-  let updated = 0;
-
-  // A importação apenas popula o staging (CommercialProposal). Não cria missões: a maioria das
-  // propostas não fecha. A vinculação a um projeto acontece sob demanda, quando já existe uma
-  // missão cujo contrato bate (ver listCommercialPendencias / setProjectBudgetRevision).
-  const result = await prisma.$transaction(async (tx) => {
-    for (const p of proposals) {
-      const existing = await tx.commercialProposal.findUnique({ where: { codBd: p.codBd } });
-      await tx.commercialProposal.upsert({ where: { codBd: p.codBd }, create: p, update: p });
-      if (existing) updated += 1; else created += 1;
+  try {
+    // Reenvio idêntico: pula o trabalho (barato), mas grava o recebimento para auditoria/status.
+    const duplicate = await prisma.accessImport.findFirst({
+      where: { contentHash, status: 'SUCCESS' },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (duplicate) {
+      const receipt = await prisma.accessImport.create({
+        data: {
+          fileName,
+          contentHash,
+          source,
+          status: 'SUCCESS',
+          rowsRead: 0,
+          created: 0,
+          updated: 0,
+          skipped: 0,
+          pendingProjectsCreated: 0,
+          summary: { skippedDuplicate: true, previousImportId: duplicate.id },
+          importedByUserId
+        }
+      });
+      return { skippedDuplicate: true, contentHash, importId: receipt.id, previousImportId: duplicate.id };
     }
 
-    return tx.accessImport.create({
-      data: {
-        fileName,
-        contentHash,
-        source,
-        status: 'SUCCESS',
-        rowsRead: rawRows.length,
-        created,
-        updated,
-        skipped: rawRows.length - proposals.length,
-        pendingProjectsCreated: 0,
-        summary: { proposals: proposals.length, distinctProposals: new Set(proposals.map(p => p.codProp)).size },
-        importedByUserId
-      }
-    });
-  }, { timeout: 120000 });
+    const rawRows = readProposals(buffer);
+    const proposals = rawRows
+      .map(mapProposalRow)
+      .filter(p => Number.isInteger(p.codBd) && Number.isInteger(p.codProp));
 
-  return {
-    importId: result.id,
-    status: result.status,
-    rowsRead: rawRows.length,
-    created,
-    updated,
-    skipped: rawRows.length - proposals.length,
-    distinctProposals: new Set(proposals.map(p => p.codProp)).size
-  };
+    let created = 0;
+    let updated = 0;
+
+    // A importação apenas popula o staging (CommercialProposal). Não cria missões: a maioria das
+    // propostas não fecha. A vinculação a um projeto acontece sob demanda, quando já existe uma
+    // missão cujo contrato bate (ver listCommercialPendencias / setProjectBudgetRevision).
+    const result = await prisma.$transaction(async (tx) => {
+      for (const p of proposals) {
+        const existing = await tx.commercialProposal.findUnique({ where: { codBd: p.codBd } });
+        await tx.commercialProposal.upsert({ where: { codBd: p.codBd }, create: p, update: p });
+        if (existing) updated += 1; else created += 1;
+      }
+
+      return tx.accessImport.create({
+        data: {
+          fileName,
+          contentHash,
+          source,
+          status: 'SUCCESS',
+          rowsRead: rawRows.length,
+          created,
+          updated,
+          skipped: rawRows.length - proposals.length,
+          pendingProjectsCreated: 0,
+          summary: { proposals: proposals.length, distinctProposals: new Set(proposals.map(p => p.codProp)).size },
+          importedByUserId
+        }
+      });
+    }, { timeout: 120000 });
+
+    return {
+      importId: result.id,
+      status: result.status,
+      rowsRead: rawRows.length,
+      created,
+      updated,
+      skipped: rawRows.length - proposals.length,
+      distinctProposals: new Set(proposals.map(p => p.codProp)).size
+    };
+  } catch (error) {
+    try {
+      await prisma.accessImport.create({
+        data: {
+          fileName,
+          contentHash,
+          source,
+          status: 'ERROR',
+          rowsRead: 0,
+          created: 0,
+          updated: 0,
+          skipped: 0,
+          pendingProjectsCreated: 0,
+          error: error.message,
+          summary: { errorName: error.name || null },
+          importedByUserId
+        }
+      });
+    } catch (logError) {
+      console.warn('[commercial-import] falha ao registrar erro de importação:', logError.message);
+    }
+    throw error;
+  }
 }
