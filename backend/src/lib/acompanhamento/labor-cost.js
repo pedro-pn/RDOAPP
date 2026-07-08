@@ -6,13 +6,14 @@
  *
  * FOLHA (custo mensal do colaborador, por mês):
  *  - dias trabalhados = horas normais do ponto ÷ 8,8 (HORAS_POR_DIA).
- *  - diasCliente (periculosidade) = dias COM projeto (RDO); diasFora (viagem) = dias com projeto
- *    (não-offshore + offshoreDays); diasCasa (produtividade) = dias SEM projeto. HE 70/100 do ponto.
+ *  - diasCliente (periculosidade) = dias COM projeto (RDO). Em projeto não-offshore, a configuração
+ *    manual por colaborador define se o dia entra como diasFora (dorme fora) ou diasCasa (dorme em
+ *    casa/gratificação). Dia com ponto e sem RDO não alimenta verbas variáveis.
  *  - Dia de semana sem ponto = folga: 8,8h zerados (só no denominador do HH).
  *  - HH = folha ÷ (horas do ponto + horas de folga).
  *
- * CUSTO POR PROJETO: recalcula o motor com as horas do projeto (RDO + viagem aproximada) para os
- * adicionais/HE (composição), e rateia o FIXO (base do motor sem dias + EPI, proporcional no mês
+ * CUSTO POR PROJETO: recalcula o motor com as horas de RDO do projeto para os adicionais/HE
+ * (composição), e rateia o FIXO (base do motor sem dias + EPI, proporcional no mês
  * parcial) pelas horas. SOBRA = folha − Σ projetos, quebrada em SEDE (ponto batido não alocado) e
  * FOLGA (dia de semana sem ponto). Prova real: Σ projetos + sede + folga = folha.
  */
@@ -23,18 +24,41 @@ import { getEpiAnnualCost } from './settings.js';
 
 const HORAS_POR_DIA = 8.8;
 const OFFSHORE_TRANSFERENCIA_BONUS_PCT = 0.10; // +10 pontos percentuais na transferência (offshore)
-const TRAVEL_WINDOW_DAYS = 3; // dia sem RDO até N dias de um RDO = viagem daquela obra; além disso, ocioso
 
 function dateKeyUTC(value) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
-function dayDiff(a, b) {
-  return Math.abs((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000);
-}
-
 function endExclusive(date) {
   return new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000);
+}
+
+function sleepModeFor(project, collaboratorId) {
+  const map = project?.laborSleepModeByCollaborator;
+  if (map && typeof map === 'object' && !Array.isArray(map) && map[collaboratorId] === 'HOME') return 'HOME';
+  return 'AWAY';
+}
+
+function projectHours(p) {
+  const rdoDaysHours = p.rdoDaysHours || 0;
+  const explicitSleepHours = p.awayDaysHours != null || p.homeDaysHours != null || p.offshoreDaysHours != null;
+  if (!explicitSleepHours) {
+    return {
+      clientHours: rdoDaysHours,
+      awayHours: p.offshore ? 0 : rdoDaysHours,
+      homeHours: 0,
+      offshoreHours: p.offshore ? rdoDaysHours : 0
+    };
+  }
+  const awayHours = p.awayDaysHours || 0;
+  const homeHours = p.homeDaysHours || 0;
+  const offshoreHours = p.offshoreDaysHours || 0;
+  return {
+    clientHours: rdoDaysHours || awayHours + homeHours + offshoreHours,
+    awayHours,
+    homeHours,
+    offshoreHours
+  };
 }
 
 // Dias de semana (seg–sex) no intervalo que não estão no ponto = folga.
@@ -98,7 +122,7 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
       reportDate: true,
       daytimeWorkedMinutes: true,
       nighttimeWorkedMinutes: true,
-      project: { select: { offshore: true } },
+      project: { select: { offshore: true, laborSleepModeByCollaborator: true } },
       collaborators: { select: { collaboratorId: true } }
     }
   });
@@ -108,35 +132,37 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
     const workedHours = (report.daytimeWorkedMinutes + report.nighttimeWorkedMinutes) / 60;
     const offshore = Boolean(report.project?.offshore);
     for (const link of report.collaborators) {
+      const sleepMode = sleepModeFor(report.project, link.collaboratorId);
       let c = map.get(link.collaboratorId);
       if (!c) { c = { byProject: new Map(), dayProject: new Map() }; map.set(link.collaboratorId, c); }
       let p = c.byProject.get(report.projectId);
-      if (!p) { p = { offshore }; c.byProject.set(report.projectId, p); }
+      if (!p) { p = { offshore, sleepMode }; c.byProject.set(report.projectId, p); }
       const existing = c.dayProject.get(dk);
-      if (!existing || workedHours > existing.hours) c.dayProject.set(dk, { projectId: report.projectId, hours: workedHours });
+      if (!existing || workedHours > existing.hours) {
+        c.dayProject.set(dk, { projectId: report.projectId, hours: workedHours, offshore, sleepMode });
+      }
     }
   }
   return map;
 }
 
-// Classifica dias trabalhados em: RDO (obra), viagem (obra do RDO mais próximo ≤ janela) ou sede.
+// Classifica só dias com RDO. Dia com ponto e sem RDO fica como sede/sobra, sem verbas variáveis.
 function classifyDays(workedDates, rdo) {
-  const rdoDates = [...rdo.dayProject.keys()].sort();
-  const projNormalDays = new Map();
-  const projTravelDays = new Map();
+  const projAwayDays = new Map();
+  const projHomeDays = new Map();
+  const projOffshoreDays = new Map();
   for (const d of workedDates) {
     const dp = rdo.dayProject.get(d);
-    if (dp) { projNormalDays.set(dp.projectId, (projNormalDays.get(dp.projectId) || 0) + 1); continue; }
-    let best = null;
-    let bestDist = Infinity;
-    for (const rd of rdoDates) { const dist = dayDiff(d, rd); if (dist < bestDist) { bestDist = dist; best = rd; } }
-    if (best && bestDist <= TRAVEL_WINDOW_DAYS) {
-      const pid = rdo.dayProject.get(best).projectId;
-      projTravelDays.set(pid, (projTravelDays.get(pid) || 0) + 1);
+    if (!dp) continue;
+    if (dp.offshore) {
+      projOffshoreDays.set(dp.projectId, (projOffshoreDays.get(dp.projectId) || 0) + 1);
+    } else if (dp.sleepMode === 'HOME') {
+      projHomeDays.set(dp.projectId, (projHomeDays.get(dp.projectId) || 0) + 1);
+    } else {
+      projAwayDays.set(dp.projectId, (projAwayDays.get(dp.projectId) || 0) + 1);
     }
-    // dias sem RDO fora da janela ficam como "sede" (sobra), não entram em projeto.
   }
-  return { projNormalDays, projTravelDays };
+  return { projAwayDays, projHomeDays, projOffshoreDays };
 }
 
 // Fração do mês coberta pelo arquivo (para proporcionalizar o fixo no mês parcial).
@@ -187,31 +213,33 @@ function monthsOf(period, cap) {
 
 /*
  * Função pura (testável): folha + custo por projeto + sobra (sede/folga) de um colaborador num mês.
- *   projects: [{ pid, rdoDaysHours, travelHours, rdoWorkedHours, offshore }]
+ *   projects: [{ pid, rdoDaysHours, awayDaysHours, homeDaysHours, offshoreDaysHours, rdoWorkedHours, offshore }]
  *   fixedCoverage: fração do mês coberta (1 = mês cheio; <1 no mês parcial → fixo proporcional).
  * Garante: Σ projetos + sede + folga = folha.
  */
 export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Horas, he100Horas, folgaHours, projects, fixedCoverage = 1 }) {
   const dpd = HORAS_POR_DIA;
-  const projectDaysHours = projects.reduce((s, p) => s + p.rdoDaysHours, 0);
-  const offshoreDaysHours = projects.reduce((s, p) => s + (p.offshore ? p.rdoDaysHours : 0), 0);
-  const nonProjectHours = Math.max(0, normalHours - projectDaysHours);
+  const hourGroups = projects.map(projectHours);
+  const projectDaysHours = hourGroups.reduce((s, p) => s + p.clientHours, 0);
+  const awayDaysHours = hourGroups.reduce((s, p) => s + p.awayHours, 0);
+  const homeDaysHours = hourGroups.reduce((s, p) => s + p.homeHours, 0);
+  const offshoreDaysHours = hourGroups.reduce((s, p) => s + p.offshoreHours, 0);
   const totalRdoWorked = projects.reduce((s, p) => s + p.rdoWorkedHours, 0);
   const totalHours = normalHours + he70Horas + he100Horas + folgaHours;
 
   const folhaInputs = {
     diasCliente: projectDaysHours / dpd,
-    diasFora: (projectDaysHours - offshoreDaysHours) / dpd,
+    diasFora: awayDaysHours / dpd,
     offshoreDays: offshoreDaysHours / dpd,
     offshoreBonusPct: OFFSHORE_TRANSFERENCIA_BONUS_PCT,
-    diasCasa: nonProjectHours / dpd,
+    diasCasa: homeDaysHours / dpd,
     he70Horas,
     he100Horas
   };
   const fixedBaseFull = totalCost(params, {}, epiMensal); // base + encargos + benefícios + EPI (mês cheio)
   const fixedBase = fixedBaseFull * fixedCoverage;         // proporcional no mês parcial
   const variavelMensal = totalCost(params, folhaInputs, epiMensal) - fixedBaseFull;
-  const variavelMensalBase = totalCost(params, { ...folhaInputs, diasFora: projectDaysHours / dpd, offshoreDays: 0 }, epiMensal) - fixedBaseFull;
+  const variavelMensalBase = totalCost(params, { ...folhaInputs, diasFora: (awayDaysHours + offshoreDaysHours) / dpd, offshoreDays: 0 }, epiMensal) - fixedBaseFull;
   const folha = fixedBase + variavelMensal;
   const folhaBase = fixedBase + variavelMensalBase;
 
@@ -223,20 +251,20 @@ export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Ho
   for (const p of projects) {
     const he70P = totalRdoWorked > 0 ? he70Horas * (p.rdoWorkedHours / totalRdoWorked) : 0;
     const he100P = totalRdoWorked > 0 ? he100Horas * (p.rdoWorkedHours / totalRdoWorked) : 0;
-    const projectHours = p.rdoDaysHours + p.travelHours;
-    const diasP = projectHours / dpd;
+    const hours = projectHours(p);
+    const projectHoursTotal = hours.clientHours;
     const inputsP = {
-      diasCliente: diasP,
-      diasFora: p.offshore ? 0 : diasP,
-      offshoreDays: p.offshore ? diasP : 0,
+      diasCliente: hours.clientHours / dpd,
+      diasFora: hours.awayHours / dpd,
+      offshoreDays: hours.offshoreHours / dpd,
       offshoreBonusPct: OFFSHORE_TRANSFERENCIA_BONUS_PCT,
-      diasCasa: 0,
+      diasCasa: hours.homeHours / dpd,
       he70Horas: he70P,
       he100Horas: he100P
     };
     const variavelP = computeMonthlyCost(params, inputsP).totalMensal - zeroNoEpi;
-    const variavelPBase = computeMonthlyCost(params, { ...inputsP, diasFora: diasP, offshoreDays: 0 }).totalMensal - zeroNoEpi;
-    const hoursForProration = projectHours + he70P + he100P;
+    const variavelPBase = computeMonthlyCost(params, { ...inputsP, diasFora: (hours.awayHours + hours.offshoreHours) / dpd, offshoreDays: 0 }).totalMensal - zeroNoEpi;
+    const hoursForProration = projectHoursTotal + he70P + he100P;
     const fixoP = totalHours > 0 ? fixedBase * (hoursForProration / totalHours) : 0;
     byProject[p.pid] = { cost: fixoP + variavelP, costBase: fixoP + variavelPBase, hours: hoursForProration };
     sumCost += fixoP + variavelP;
@@ -342,14 +370,16 @@ export async function computeCollaboratorRates(importId = null) {
         const cov = monthCoverage(mk, fileStart, fileEnd);
         const folgaM = countFolgaWeekdays(cov.start, cov.end, workedSet) * HORAS_POR_DIA;
 
-        const { projNormalDays, projTravelDays } = classifyDays(datesM, rdo);
+        const { projAwayDays, projHomeDays, projOffshoreDays } = classifyDays(datesM, rdo);
         const rdoWorkedByPidM = new Map();
         for (const d of datesM) { const dp = rdo.dayProject.get(d); if (dp) rdoWorkedByPidM.set(dp.projectId, (rdoWorkedByPidM.get(dp.projectId) || 0) + dp.hours); }
-        const projectIds = [...new Set([...projNormalDays.keys(), ...projTravelDays.keys()])];
+        const projectIds = [...new Set([...projAwayDays.keys(), ...projHomeDays.keys(), ...projOffshoreDays.keys()])];
         const projects = projectIds.map(pid => ({
           pid,
-          rdoDaysHours: (projNormalDays.get(pid) || 0) * hoursPerDayM,
-          travelHours: (projTravelDays.get(pid) || 0) * hoursPerDayM,
+          rdoDaysHours: ((projAwayDays.get(pid) || 0) + (projHomeDays.get(pid) || 0) + (projOffshoreDays.get(pid) || 0)) * hoursPerDayM,
+          awayDaysHours: (projAwayDays.get(pid) || 0) * hoursPerDayM,
+          homeDaysHours: (projHomeDays.get(pid) || 0) * hoursPerDayM,
+          offshoreDaysHours: (projOffshoreDays.get(pid) || 0) * hoursPerDayM,
           rdoWorkedHours: rdoWorkedByPidM.get(pid) || 0,
           offshore: Boolean(rdo.byProject.get(pid)?.offshore)
         }));
@@ -442,22 +472,28 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   const cov = monthCoverage(monthKey, pontoImport.periodStart, pontoImport.periodEnd);
   const folgaHours = countFolgaWeekdays(cov.start, cov.end, new Set(period.workedDates || [])) * HORAS_POR_DIA;
 
-  const { projNormalDays } = classifyDays(datesM, rdo);
+  const { projAwayDays, projHomeDays, projOffshoreDays } = classifyDays(datesM, rdo);
   let projectDaysHours = 0;
+  let awayDaysHours = 0;
+  let homeDaysHours = 0;
   let offshoreDaysHours = 0;
-  for (const [pid, count] of projNormalDays) {
-    const h = count * hoursPerDayM;
-    projectDaysHours += h;
-    if (rdo.byProject.get(pid)?.offshore) offshoreDaysHours += h;
+  const projectIds = [...new Set([...projAwayDays.keys(), ...projHomeDays.keys(), ...projOffshoreDays.keys()])];
+  for (const pid of projectIds) {
+    const away = (projAwayDays.get(pid) || 0) * hoursPerDayM;
+    const home = (projHomeDays.get(pid) || 0) * hoursPerDayM;
+    const offshore = (projOffshoreDays.get(pid) || 0) * hoursPerDayM;
+    awayDaysHours += away;
+    homeDaysHours += home;
+    offshoreDaysHours += offshore;
+    projectDaysHours += away + home + offshore;
   }
-  const nonProjectHours = Math.max(0, normalHoursM - projectDaysHours);
 
   const inputs = {
     diasCliente: projectDaysHours / HORAS_POR_DIA,
-    diasFora: (projectDaysHours - offshoreDaysHours) / HORAS_POR_DIA,
+    diasFora: awayDaysHours / HORAS_POR_DIA,
     offshoreDays: offshoreDaysHours / HORAS_POR_DIA,
     offshoreBonusPct: OFFSHORE_TRANSFERENCIA_BONUS_PCT,
-    diasCasa: nonProjectHours / HORAS_POR_DIA,
+    diasCasa: homeDaysHours / HORAS_POR_DIA,
     he70Horas: he70M,
     he100Horas: he100M
   };

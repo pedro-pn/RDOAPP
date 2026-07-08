@@ -356,6 +356,7 @@ model Project {
   inhibitionServiceEnabled Boolean        @default(false)
   requireServiceReportSignatures Boolean  @default(false)
   offshore              Boolean           @default(false) // projeto offshore: +transferência no custo de MO
+  laborSleepModeByCollaborator Json        @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
 
   clientName            String
   clientCnpj            String

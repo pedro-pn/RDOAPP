@@ -176,6 +176,16 @@ function budgetFieldsFromProposal(proposal) {
   };
 }
 
+function normalizeSleepModeMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const result = {};
+  for (const [collaboratorId, mode] of Object.entries(value)) {
+    if (typeof collaboratorId !== 'string' || !collaboratorId.trim()) continue;
+    if (mode === 'HOME' || mode === 'AWAY') result[collaboratorId] = mode;
+  }
+  return result;
+}
+
 // Cria/atualiza o orçamento previsto (versão única "1") com os dados da revisão informada.
 // approvedAt é definido no ato da 1ª seleção (editável depois) e preservado ao trocar de revisão.
 // selectionStatus permanece como está (marcação manual da vencedora — P-19).
@@ -192,12 +202,32 @@ async function upsertBudget(client, projectId, proposal) {
 export async function listProjectRevisions(projectId) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, commercialProposalCode: true, contractCode: true, code: true, startDate: true, mobilizationDate: true, manualProgressPct: true, offshore: true }
+    select: {
+      id: true,
+      commercialProposalCode: true,
+      contractCode: true,
+      code: true,
+      startDate: true,
+      mobilizationDate: true,
+      manualProgressPct: true,
+      offshore: true,
+      laborSleepModeByCollaborator: true
+    }
   });
   if (!project) throw new Error('Projeto não encontrado.');
   const codProp = projectProposalCode(project);
   if (!Number.isInteger(codProp)) {
-    return { proposalCode: null, currentCodBd: null, resolved: false, startDate: project.startDate ?? null, mobilizationDate: project.mobilizationDate ?? null, manualProgressPct: project.manualProgressPct ?? null, offshore: project.offshore ?? false, revisions: [] };
+    return {
+      proposalCode: null,
+      currentCodBd: null,
+      resolved: false,
+      startDate: project.startDate ?? null,
+      mobilizationDate: project.mobilizationDate ?? null,
+      manualProgressPct: project.manualProgressPct ?? null,
+      offshore: project.offshore ?? false,
+      laborSleepModeByCollaborator: normalizeSleepModeMap(project.laborSleepModeByCollaborator),
+      revisions: []
+    };
   }
   const [revisions, budget] = await Promise.all([
     prisma.commercialProposal.findMany({
@@ -226,13 +256,21 @@ export async function listProjectRevisions(projectId) {
     mobilizationDate: project.mobilizationDate ?? null,
     manualProgressPct: project.manualProgressPct ?? null,
     offshore: project.offshore ?? false,
+    laborSleepModeByCollaborator: normalizeSleepModeMap(project.laborSleepModeByCollaborator),
     revisions
   };
 }
 
 // Edita o cronograma: data de aprovação do contrato (no orçamento) e início real (no projeto).
 // Cada campo é opcional; passar null limpa. approvedAt exige um orçamento já escolhido.
-export async function setProjectSchedule(projectId, { approvedAt, startDate, mobilizationDate, manualProgressPct, offshore } = {}) {
+export async function setProjectSchedule(projectId, {
+  approvedAt,
+  startDate,
+  mobilizationDate,
+  manualProgressPct,
+  offshore,
+  laborSleepModeByCollaborator
+} = {}) {
   return prisma.$transaction(async (tx) => {
     if (approvedAt !== undefined) {
       const budget = await tx.projectBudget.findUnique({
@@ -250,6 +288,9 @@ export async function setProjectSchedule(projectId, { approvedAt, startDate, mob
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
     if (manualProgressPct !== undefined) projectData.manualProgressPct = manualProgressPct == null ? null : manualProgressPct;
     if (offshore !== undefined) projectData.offshore = Boolean(offshore);
+    if (laborSleepModeByCollaborator !== undefined) {
+      projectData.laborSleepModeByCollaborator = normalizeSleepModeMap(laborSleepModeByCollaborator);
+    }
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
     }

@@ -84,7 +84,7 @@ export function AcompanhamentoPage() {
           <section className="equip-content">
             {section === 'projetos' ? <ProjectCardsBoard />
               : section === 'custo' && isManager ? <CostEngineManager />
-              : <AcompanhamentoDashboard />}
+              : <AcompanhamentoDashboard isManager={isManager} />}
           </section>
         </div>
       </main>

@@ -30,8 +30,8 @@ test('prova real: Σ projetos + sede + folga = folha', () => {
     params: PARAMS, epiMensal: 5000 / 12,
     normalHours: 176, he70Horas: 20, he100Horas: 4, folgaHours: 8.8 * 3,
     projects: [
-      { pid: 'A', rdoDaysHours: 88, travelHours: 8.8, rdoWorkedHours: 90, offshore: false },
-      { pid: 'B', rdoDaysHours: 44, travelHours: 0, rdoWorkedHours: 45, offshore: false }
+      { pid: 'A', rdoDaysHours: 88, awayDaysHours: 88, rdoWorkedHours: 90, offshore: false },
+      { pid: 'B', rdoDaysHours: 44, awayDaysHours: 44, rdoWorkedHours: 45, offshore: false }
     ]
   });
   const somaProjetos = Object.values(r.byProject).reduce((s, p) => s + p.cost, 0);
@@ -43,7 +43,7 @@ test('prova real: Σ projetos + sede + folga = folha', () => {
 test('mês parcial: fixo proporcional à cobertura', () => {
   const base = {
     params: PARAMS, epiMensal: 0, normalHours: 44, he70Horas: 0, he100Horas: 0, folgaHours: 0,
-    projects: [{ pid: 'A', rdoDaysHours: 44, travelHours: 0, rdoWorkedHours: 44, offshore: false }]
+    projects: [{ pid: 'A', rdoDaysHours: 44, awayDaysHours: 44, rdoWorkedHours: 44, offshore: false }]
   };
   const cheio = computeCollaboratorCost({ ...base, fixedCoverage: 1 });
   const parcial = computeCollaboratorCost({ ...base, fixedCoverage: 7 / 31 });
@@ -61,4 +61,30 @@ test('sem projeto: tudo vira sobra (sede/folga) e fecha a folha', () => {
   assert.equal(Object.keys(r.byProject).length, 0);
   assert.ok(near(sedeMaisFolga(r.idle), r.folha));
   assert.ok(near(r.idle.folga.hours, 8.8 * 2));
+});
+
+test('ponto sem RDO não gera gratificação nem outras verbas variáveis', () => {
+  const noRdo = computeCollaboratorCost({
+    params: PARAMS, epiMensal: 0, normalHours: 88, he70Horas: 0, he100Horas: 0, folgaHours: 0,
+    projects: []
+  });
+  const noHours = computeCollaboratorCost({
+    params: PARAMS, epiMensal: 0, normalHours: 0, he70Horas: 0, he100Horas: 0, folgaHours: 0,
+    projects: []
+  });
+  assert.ok(near(noRdo.folha, noHours.folha));
+  assert.ok(near(noRdo.variavelMensal, 0));
+});
+
+test('RDO não-offshore usa hospedagem manual: fora = transferência, casa = gratificação', () => {
+  const away = computeCollaboratorCost({
+    params: PARAMS, epiMensal: 0, normalHours: 44, he70Horas: 0, he100Horas: 0, folgaHours: 0,
+    projects: [{ pid: 'A', rdoDaysHours: 44, awayDaysHours: 44, rdoWorkedHours: 44, offshore: false }]
+  });
+  const home = computeCollaboratorCost({
+    params: PARAMS, epiMensal: 0, normalHours: 44, he70Horas: 0, he100Horas: 0, folgaHours: 0,
+    projects: [{ pid: 'A', rdoDaysHours: 44, homeDaysHours: 44, rdoWorkedHours: 44, offshore: false }]
+  });
+  assert.notEqual(home.folha, away.folha);
+  assert.notEqual(home.variavelMensal, away.variavelMensal);
 });

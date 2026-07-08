@@ -32,6 +32,7 @@ export interface ProjectRevisions {
   mobilizationDate?: string | null;
   manualProgressPct?: string | number | null;
   offshore?: boolean;
+  laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
   revisions: CommercialRevision[];
 }
 
@@ -41,6 +42,7 @@ export interface ProjectSchedulePayload {
   mobilizationDate?: string | null;
   manualProgressPct?: number | null;
   offshore?: boolean;
+  laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
 }
 
 export type ProgressMethod = 'RDO' | 'MANUAL';
