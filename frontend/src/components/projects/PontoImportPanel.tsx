@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  deletePontoImport,
   getActiveCollaborators,
   getPontoColaboradores,
   getPontoImports,
@@ -50,6 +51,12 @@ export function PontoImportPanel() {
     mutationFn: (payload: { normalizedName: string; collaboratorId: string }) => linkPontoName(payload),
     onSuccess: () => { showToast('Nome vinculado.'); invalidate(); },
     onError: () => showToast('Não foi possível vincular o nome.')
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deletePontoImport(id),
+    onSuccess: () => { showToast('Importação excluída.'); invalidate(); },
+    onError: () => showToast('Não foi possível excluir a importação.')
   });
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,7 +125,7 @@ export function PontoImportPanel() {
         <div className="acp-table-wrap" style={{ marginTop: 8 }}>
           <table className="acp-table">
             <thead>
-              <tr><th>Arquivo</th><th>Período</th><th>Colab.</th><th>Linhas</th><th>Enviado</th></tr>
+              <tr><th>Arquivo</th><th>Período</th><th>Colab.</th><th>Linhas</th><th>Enviado</th>{isManager ? <th /> : null}</tr>
             </thead>
             <tbody>
               {imports.map(im => (
@@ -128,6 +135,22 @@ export function PontoImportPanel() {
                   <td>{im.collaboratorsMatched}/{im.collaboratorsTotal}</td>
                   <td>{im.rowsRead}</td>
                   <td>{fmtDate(im.createdAt)}</td>
+                  {isManager ? (
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button
+                        className="mini-btn danger"
+                        type="button"
+                        disabled={deleteMutation.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Excluir a importação "${im.fileName}"? Os dados de ponto desse envio (custo de mão de obra) serão removidos.`)) {
+                            deleteMutation.mutate(im.id);
+                          }
+                        }}
+                      >
+                        Excluir
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

@@ -307,6 +307,7 @@ model PontoPeriodSummary {
   he100Minutes   Int          @default(0)
   nightMinutes   Int          @default(0)
   workedDates    String[]     @default([]) // ["YYYY-MM-DD", ...] dias com horas normais > 0
+  monthly        Json?        // { "YYYY-MM": { normalMinutes, extrasMinutes, nightMinutes, workedDates[] } }
   createdAt      DateTime     @default(now())
   import         PontoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
   collaborator   Collaborator? @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)

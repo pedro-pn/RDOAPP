@@ -62,7 +62,7 @@ function dayStatus(standbyMin, journeyMin) {
   return 'TRABALHADO';
 }
 
-export async function getProjectDetail(projectId) {
+export async function getProjectDetail(projectId, { includeCollaboratorCosts = false } = {}) {
   const rows = await listCommercialDashboard();
   const row = rows.find(r => r.projectId === projectId);
   if (!row) throw new Error('Projeto não encontrado no acompanhamento comercial.');
@@ -151,11 +151,23 @@ export async function getProjectDetail(projectId) {
       standbyMinutes: d.standbyMin
     }));
 
-  // --- Colaboradores distintos (nome + cargo) ---
+  // --- Colaboradores distintos (nome + cargo + custo/hora do ponto vigente) ---
+  const ratesById = labor.byCollaboratorId || new Map();
   const collabMap = new Map();
   for (const c of collaborators) {
     if (!collabMap.has(c.collaboratorId)) {
-      collabMap.set(c.collaboratorId, { name: c.collaborator?.name || '—', role: c.collaborator?.role || '—' });
+      const rate = ratesById.get(c.collaboratorId) || null;
+      const alloc = rate?.byProject?.[projectId] || null;
+      // Valor gasto com o colaborador NESTA obra (rateado) e o custo/hora dele na obra.
+      const custo = alloc?.cost ?? null;
+      const custoHora = alloc && alloc.hours > 0 ? alloc.cost / alloc.hours : null;
+      collabMap.set(c.collaboratorId, {
+        name: c.collaborator?.name || '—',
+        role: c.collaborator?.role || '—',
+        // Custo é dado sensível (salário): só para gestores.
+        custo: includeCollaboratorCosts ? custo : null,
+        custoHora: includeCollaboratorCosts ? custoHora : null
+      });
     }
   }
   const colaboradores = [...collabMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
@@ -186,7 +198,7 @@ export async function getProjectDetail(projectId) {
   const alerts = computeAlerts({
     startDate: row.startDate ?? null,
     plannedDays,
-    gasto,
+    gasto: gasto + (maoDeObra.custo ?? 0), // realizado total = compras Omie + mão de obra
     plannedCost: previstoCusto,
     lastRdoDate,
     lastDayStatus: ultimosDias.length ? ultimosDias[ultimosDias.length - 1].status : null,

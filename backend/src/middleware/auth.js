@@ -167,3 +167,9 @@ export function requireAcompanhamentoManager(req, res, next) {
 
   next();
 }
+
+// Gestor do módulo Acompanhamento? (ADMIN ou papel acompanhamento:manager) — para gate de dados
+// sensíveis (custo/salário) em endpoints acessíveis a visualizadores.
+export function isAcompanhamentoManager(user) {
+  return Boolean(user) && (user.accountType === 'ADMIN' || hasModuleRole(user, 'acompanhamento:manager'));
+}

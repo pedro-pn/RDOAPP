@@ -49,22 +49,6 @@ export function AcompanhamentoPage() {
         }
       />
       <main className="page-scroll equip-page">
-        {/*
-          AVISO TEMPORÁRIO — TODO(vr-ponto-mais): remover este banner (e a regra `.acp-cost-notice`
-          em frontend/src/styles/base.css) quando a integração com o ponto (VR Ponto Mais) para o
-          custo de mão de obra for implementada. Enquanto isso, o realizado do módulo considera só as
-          compras (Omie), sem o custo dos colaboradores. Ref.: PLANO_MODULO_ACOMPANHAMENTO_PROJETOS.md
-          §16 ("Falta — depende de VR Ponto Mais").
-        */}
-        <div className="acp-cost-notice" role="note">
-          <span className="acp-cost-notice-ico" aria-hidden="true">⚠️</span>
-          <span>
-            <strong>Custo de mão de obra em validação.</strong> Já é possível importar o ponto e ver o
-            custo de mão de obra (HH) por colaborador e por projeto na aba <strong>Custo</strong>. Esse
-            valor ainda <strong>não</strong> é somado ao realizado oficial (compras/Omie) até a validação
-            dos números. A integração automática com o ponto (VR Ponto Mais) segue pendente.
-          </span>
-        </div>
         <div className="equip-layout">
           <nav className="equip-nav" aria-label="Áreas de Acompanhamento" data-acp-nav>
             <button className={`equip-nav-item ${section === 'dashboard' ? 'active' : ''}`} type="button" aria-current={section === 'dashboard'} onClick={() => setSection('dashboard')}>

@@ -25,6 +25,20 @@ function hashBuffer(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+// Agrega os dias do ponto por mês (para dividir a folha por mês e aplicar o teto de HE por mês).
+function buildMonthly(days = []) {
+  const monthly = {};
+  for (const day of days) {
+    const mk = day.date.slice(0, 7);
+    if (!monthly[mk]) monthly[mk] = { normalMinutes: 0, extrasMinutes: 0, nightMinutes: 0, workedDates: [] };
+    monthly[mk].normalMinutes += day.workedMinutes;
+    monthly[mk].extrasMinutes += day.extrasMinutes;
+    monthly[mk].nightMinutes += day.nightMinutes;
+    if (day.workedMinutes > 0) monthly[mk].workedDates.push(day.date);
+  }
+  return monthly;
+}
+
 // Constrói o resolvedor nome-normalizado -> collaboratorId (aliases têm prioridade sobre o nome).
 async function buildNameResolver() {
   const [collaborators, aliases] = await Promise.all([
@@ -65,7 +79,8 @@ export async function importPonto({ buffer, fileName, importedByUserId = null })
       he70Minutes: block.he70Minutes,
       he100Minutes: block.he100Minutes,
       nightMinutes: block.nightMinutes,
-      workedDates: block.workedDays
+      workedDates: block.workedDays,
+      monthly: buildMonthly(block.days)
     };
   });
 

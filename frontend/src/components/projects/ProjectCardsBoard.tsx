@@ -86,7 +86,7 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         return (
           <>
             <div className="acp-pcard-row">
-              <span>Custo MO (HH){hasOffshore ? ' c/ offshore' : ''}<sup title="Do ponto; em validação, ainda não somado ao realizado Omie."> *</sup></span>
+              <span>Custo MO{hasOffshore ? ' c/ offshore' : ''}<sup title="Valor gasto com mão de obra (do ponto), já incluído no realizado."> *</sup></span>
               <span className="acp-pcard-strong">{brl(card.laborCost)}</span>
             </div>
             {hasOffshore ? (

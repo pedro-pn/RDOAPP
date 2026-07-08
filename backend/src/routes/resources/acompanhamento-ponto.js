@@ -61,6 +61,21 @@ router.get(
   })
 );
 
+// Exclui um import do ponto (e seus resumos, via cascade). Gestor.
+router.delete(
+  '/imports/:id',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    try {
+      await prisma.pontoImport.delete({ where: { id: req.params.id } });
+      res.json({ ok: true });
+    } catch {
+      res.status(404).json({ error: 'Importação não encontrada.' });
+    }
+  })
+);
+
 router.get(
   '/colaboradores',
   requireAuth,

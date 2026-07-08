@@ -232,7 +232,7 @@ export interface ProjectCard {
   collaboratorsCount: number;
   startDate: string | null;
   expectedEndDate: string | null;
-  laborCost: number | null; // custo de mão de obra (HH) COM adicional offshore — em validação, não somado ao Omie
+  laborCost: number | null; // custo de mão de obra COM adicional offshore (do ponto), somado ao realizado
   laborCostBase: number | null; // custo de mão de obra SEM offshore (comparação)
   equipment: Array<{ name: string; days: number; since: string }>; // equipamentos (módulo Equipamentos) em obra
   alerts: ProjectAlert[];
@@ -266,7 +266,7 @@ export interface ProjectDetail {
   standby: { count: number; minutes: number };
   ultimosDias: Array<{ date: string; status: DayStatus; workedMinutes: number; standbyMinutes: number }>;
   overtimeMinutes: number;
-  colaboradores: Array<{ name: string; role: string }>;
+  colaboradores: Array<{ name: string; role: string; custo: number | null; custoHora: number | null }>;
   footer: {
     mobilizationDate: string | null;
     startDate: string | null;

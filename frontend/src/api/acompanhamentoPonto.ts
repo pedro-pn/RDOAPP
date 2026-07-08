@@ -17,20 +17,47 @@ export interface UnmatchedPontoName {
   normalizedName: string;
 }
 
+export interface IdleBucket {
+  cost: number;
+  costBase: number;
+  hours: number;
+}
+
+export interface CollaboratorMonthRate {
+  month: string; // YYYY-MM
+  normalHoras: number;
+  he70Horas: number;
+  he100Horas: number;
+  totalMensal: number;
+  totalMensalBase: number;
+  fixoMensal: number;
+  variavelMensal: number;
+  custoHora: number;
+  custoHoraBase: number;
+  idle: { sede: IdleBucket; folga: IdleBucket };
+}
+
 export interface CollaboratorRate {
   collaboratorId: string;
   name: string;
   role: string | null;
   hasCostProfile: boolean;
-  totalHoras: number;
+  normalHoras: number;  // horas normais do ponto (somado)
   he70Horas: number;
   he100Horas: number;
-  diasFora: number;
-  offshoreDays: number;
-  totalMensalBase: number | null;
-  totalMensal: number | null;
+  totalHoras: number;   // horas do ponto (normais + HE)
+  folgaHours: number;
+  totalMensalBase: number | null; // folha sem offshore
+  totalMensal: number | null;     // folha (com offshore), somando a divisão mensal
+  fixoMensal: number | null;      // base do motor sem dias + EPI (proporcional no mês parcial)
+  variavelMensal: number | null;  // folha − fixo
   custoHoraBase: number | null;
-  custoHora: number | null;
+  custoHora: number | null;       // HH = folha ÷ (horas do ponto + folga)
+  idle: {
+    sede: IdleBucket;   // ponto batido, não alocado a nenhuma obra
+    folga: IdleBucket;  // dia de semana sem ponto (8,8h)
+  };
+  months: CollaboratorMonthRate[]; // detalhe por mês (para o filtro)
 }
 
 export interface PontoColaboradores {
@@ -55,6 +82,10 @@ export interface PontoImportResult {
 export async function getPontoImports(): Promise<PontoImportRow[]> {
   const { data } = await apiClient.get<PontoImportRow[]>('/acompanhamento/ponto/imports');
   return data;
+}
+
+export async function deletePontoImport(id: string): Promise<void> {
+  await apiClient.delete(`/acompanhamento/ponto/imports/${id}`);
 }
 
 export async function getPontoColaboradores(): Promise<PontoColaboradores> {

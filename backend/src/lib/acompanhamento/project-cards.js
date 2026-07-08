@@ -124,10 +124,13 @@ export async function listProjectCards() {
       })
       .sort((x, y) => y.days - x.days);
 
+    // Realizado total = compras Omie (sem salário) + mão de obra do ponto.
+    const laborCost = laborByProject.get(row.projectId)?.laborCost ?? null;
+    const gastoTotal = (toNum(row.realizedCost) ?? 0) + (laborCost ?? 0);
     const alerts = computeAlerts({
       startDate: row.startDate ?? null,
       plannedDays,
-      gasto: toNum(row.realizedCost), // Omie total, salário já excluído no dashboard
+      gasto: gastoTotal,
       plannedCost: toNum(row.plannedTotalCost),
       lastRdoDate: lastDay.date,
       lastDayStatus: lastDay.status,
@@ -151,7 +154,7 @@ export async function listProjectCards() {
       expectedEndDate,
       // Custo de mão de obra (HH) do ponto vigente — NÃO somado ao realizado Omie (em validação).
       // laborCost = com adicional offshore; laborCostBase = sem offshore (para comparação).
-      laborCost: laborByProject.get(row.projectId)?.laborCost ?? null,
+      laborCost,
       laborCostBase: laborByProject.get(row.projectId)?.laborCostBase ?? null,
       equipment, // equipamentos (módulo Equipamentos) em obra: { name, days, since }
       alerts

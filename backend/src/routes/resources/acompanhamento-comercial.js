@@ -29,7 +29,7 @@ import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
 import prisma from '../../lib/prisma.js';
-import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
+import { isAcompanhamentoManager, requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -280,7 +280,8 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     try {
-      const detail = await getProjectDetail(req.params.projectId);
+      const includeCollaboratorCosts = isAcompanhamentoManager(req.auth?.user);
+      const detail = await getProjectDetail(req.params.projectId, { includeCollaboratorCosts });
       res.json(detail);
     } catch (error) {
       res.status(404).json({ error: error.message });
