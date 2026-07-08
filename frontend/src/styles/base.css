@@ -2079,7 +2079,33 @@ a {
 .acp-det-collabs-summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--mu); letter-spacing: .02em; list-style: none; user-select: none; }
 .acp-det-collabs-summary::-webkit-details-marker { display: none; }
 .acp-det-collabs-summary::before { content: '▸'; display: inline-block; margin-right: 6px; transition: transform .15s; }
-.acp-det-collabs-details[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
+.acp-det-collabs-details[open] > .acp-det-collabs-summary::before,
+.acp-det-equips-details[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
+.acp-det-equips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.acp-det-equip-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  align-items: baseline;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  padding: 8px 10px;
+  background: var(--bg);
+}
+.acp-det-equip-item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--tx);
+}
+.acp-det-equip-item > strong { font-size: 13px; white-space: nowrap; }
+.acp-det-equip-item > small { grid-column: 1 / -1; color: var(--mu); font-size: 11px; }
 .acp-det-scope { display: flex; flex-direction: column; gap: 8px; }
 .acp-det-scope-svc { border: 1px solid var(--br); border-radius: var(--rs); padding: 8px 10px; background: var(--bg); }
 .acp-det-scope-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 13px; }
