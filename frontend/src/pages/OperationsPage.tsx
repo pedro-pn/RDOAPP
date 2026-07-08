@@ -28,12 +28,25 @@ function duration(value?: number | null) {
 
 function statusClass(status: string) {
   if (['SUCCESS', 'COMPLETED', 'SKIPPED', 'ATIVO'].includes(status)) return 'is-ok';
-  if (['NOT_CONFIGURED', 'RUNNING', 'SEM_EXECUCAO'].includes(status)) return 'is-muted';
+  if (['NOT_CONFIGURED', 'RUNNING', 'SEM_EXECUCAO', 'SEM_RECEBIMENTO'].includes(status)) return 'is-muted';
   return 'is-bad';
 }
 
 function StatusPill({ status }: { status: string }) {
   return <span className={`ops-pill ${statusClass(status)}`}>{status}</span>;
+}
+
+function DetailRows({ rows }: { rows: Array<{ label: string; value: string }> }) {
+  return (
+    <dl className="ops-detail-list">
+      {rows.map(row => (
+        <div className="ops-detail-row" key={row.label}>
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 function FileStatusCard({ title, item }: { title: string; item: OperationalFileStatus }) {
@@ -59,6 +72,49 @@ function FileStatusCard({ title, item }: { title: string; item: OperationalFileS
       </div>
       {(item.runDir || item.backupSource || item.message) && (
         <p className="ops-note">{item.runDir || item.backupSource || item.message}</p>
+      )}
+    </section>
+  );
+}
+
+function OmieStatusCard({ item }: { item: OperationalStatus['omie'] }) {
+  const run = item.latestRun;
+  return (
+    <section className="ops-panel">
+      <div className="ops-panel-head">
+        <h2>Omie</h2>
+        <StatusPill status={item.status} />
+      </div>
+      <DetailRows rows={[
+        { label: 'Última sincronização', value: dateTime(run?.finishedAt || run?.startedAt) },
+        { label: 'Escopo', value: run?.scope || '—' },
+        { label: 'Lidos / gravados', value: run ? `${run.recordsRead} / ${run.recordsWritten}` : '—' }
+      ]} />
+      {(run?.error || run?.triggeredBy || !item.configured) && (
+        <p className="ops-note">{run?.error || (item.configured ? `Origem: ${run?.triggeredBy || '—'}` : 'Credenciais Omie não configuradas.')}</p>
+      )}
+    </section>
+  );
+}
+
+function CommercialImportCard({ item }: { item: OperationalStatus['commercialImport'] }) {
+  const lastImport = item.latestImport;
+  const duplicate = lastImport?.summary?.skippedDuplicate === true;
+  return (
+    <section className="ops-panel">
+      <div className="ops-panel-head">
+        <h2>Banco comercial</h2>
+        <StatusPill status={item.status} />
+      </div>
+      <DetailRows rows={[
+        { label: 'Último recebimento', value: dateTime(lastImport?.createdAt) },
+        { label: 'Arquivo', value: lastImport?.fileName || '—' },
+        { label: 'Lidas / alteradas', value: lastImport ? `${lastImport.rowsRead} / ${lastImport.created + lastImport.updated}` : '—' }
+      ]} />
+      {(lastImport?.error || duplicate || !item.configured) && (
+        <p className="ops-note">
+          {lastImport?.error || (duplicate ? 'Arquivo recebido novamente sem reprocessar propostas.' : 'Token de recebimento não configurado.')}
+        </p>
       )}
     </section>
   );
@@ -104,9 +160,6 @@ export function OperationsPage() {
             <button className="topbar-chip" type="button" onClick={() => refetch()} disabled={isFetching}>
               Atualizar
             </button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/modulos')}>
-              Módulos
-            </button>
             <button className="topbar-chip" type="button" onClick={async () => { await logout(); navigate('/login', { replace: true }); }}>
               Sair
             </button>
@@ -143,6 +196,8 @@ export function OperationsPage() {
             <div className="ops-grid">
               <FileStatusCard title="Backup" item={data.backup} />
               <FileStatusCard title="Restore" item={data.restore} />
+              <OmieStatusCard item={data.omie} />
+              <CommercialImportCard item={data.commercialImport} />
               <section className="ops-panel">
                 <div className="ops-panel-head">
                   <h2>Alertas</h2>

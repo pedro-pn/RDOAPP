@@ -12,6 +12,10 @@ function formatDate(iso?: string | null) {
 function pct(value?: number | null) {
   return value === null || value === undefined ? '—' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
+function brl(value?: number | null) {
+  return value === null || value === undefined ? '—'
+    : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
 
 const STATUS_META: Record<LastDayStatus, { label: string; cls: string }> = {
   TRABALHADO: { label: 'Último dia trabalhado', cls: 'ok' },
@@ -66,7 +70,7 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
       </div>
 
       <div className="acp-pcard-row">
-        <span>Status dia anterior</span>
+        <span>Status último RDO</span>
         <span className={`acp-pcard-status ${status.cls}`}>
           {status.label}{card.lastDay.date ? ` · ${formatDate(card.lastDay.date)}` : ''}
         </span>
@@ -76,6 +80,45 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         <span>Colaboradores em obra</span>
         <span className="acp-pcard-strong">{card.collaboratorsCount}</span>
       </div>
+
+      {card.laborCost != null ? (() => {
+        const hasOffshore = card.laborCostBase != null && Math.round(card.laborCost) !== Math.round(card.laborCostBase);
+        return (
+          <>
+            <div className="acp-pcard-row">
+              <span>Custo MO{hasOffshore ? ' c/ offshore' : ''}<sup title="Valor gasto com mão de obra do ponto, rateado para este projeto."> *</sup></span>
+              <span className="acp-pcard-strong">{brl(card.laborCost)}</span>
+            </div>
+            {hasOffshore ? (
+              <div className="acp-pcard-row">
+                <span>Custo MO sem offshore</span>
+                <span className="acp-pcard-strong">{brl(card.laborCostBase)}</span>
+              </div>
+            ) : null}
+          </>
+        );
+      })() : null}
+
+      {card.equipment.length ? (
+        <div className="acp-pcard-equip">
+          <div className="acp-pcard-row acp-pcard-equip-head">
+            <span>Equipamentos em obra</span>
+            <span className="acp-pcard-strong">{card.equipment.length}</span>
+          </div>
+          {card.equipment.slice(0, 6).map((e, i) => (
+            <div className="acp-pcard-row acp-pcard-equip-item" key={i}>
+              <span>{e.name}</span>
+              <span>{e.days} dia{e.days === 1 ? '' : 's'}</span>
+            </div>
+          ))}
+          {card.equipment.length > 6 ? (
+            <div className="acp-pcard-row acp-pcard-equip-item">
+              <span className="placeholder-copy">+{card.equipment.length - 6} equipamento(s)</span>
+              <span />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="acp-pcard-dates">
         <div><span>Início</span><strong>{formatDate(card.startDate)}</strong></div>
@@ -88,7 +131,7 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
 // Aba "Projetos": um card por projeto com previsto x realizado (dias, avanço, colaboradores, prazos).
 type CardsView = 'andamento' | 'arquivados';
 
-export function ProjectCardsBoard() {
+export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }) {
   const [search, setSearch] = useState('');
   const [view, setView] = useState<CardsView>('andamento');
   const [selected, setSelected] = useState<string | null>(null);
@@ -109,7 +152,7 @@ export function ProjectCardsBoard() {
 
   // Todos os hooks acima; só então a troca para o dashboard do projeto (Rules of Hooks).
   if (selected) {
-    return <ProjectDetailDashboard projectId={selected} onBack={() => setSelected(null)} />;
+    return <ProjectDetailDashboard projectId={selected} canManage={canManage} onBack={() => setSelected(null)} />;
   }
 
   if (isLoading) return <div className="page-card placeholder-copy">Carregando projetos…</div>;

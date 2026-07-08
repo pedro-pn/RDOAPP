@@ -29,7 +29,7 @@ import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
 import prisma from '../../lib/prisma.js';
-import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
+import { canViewAcompanhamentoLaborCosts, requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -196,13 +196,16 @@ const scheduleSchema = z.object({
   approvedAt: z.string().datetime().nullable().optional(),
   startDate: z.string().datetime().nullable().optional(),
   mobilizationDate: z.string().datetime().nullable().optional(),
-  manualProgressPct: z.number().min(0).max(100).nullable().optional()
+  manualProgressPct: z.number().min(0).max(100).nullable().optional(),
+  offshore: z.boolean().optional(),
+  laborSleepModeByCollaborator: z.record(z.enum(['HOME', 'AWAY'])).optional(),
+  laborCollaboratorIds: z.array(z.string()).optional()
 });
 
 router.patch(
   '/projetos/:projectId/cronograma',
   requireAuth,
-  requireAcompanhamentoManager,
+  requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const data = scheduleSchema.parse(req.body);
     try {
@@ -220,6 +223,9 @@ router.patch(
 // previsto poder entrar no cálculo de avanço. Tanques e peso (kg/t) não têm fonte no RDO.
 const plannedSystemSchema = z.object({
   systemType: z.enum(['TUBULACAO', 'OLEO']),
+  description: z.string().trim().max(180).nullable().optional(),
+  diameter: z.string().trim().max(40).nullable().optional(),
+  diameterUnit: z.enum(['pol', 'mm']).nullable().optional(),
   quantity: z.number().nonnegative().nullable().optional(),
   unit: z.enum(['M', 'L']).nullable().optional()
 });
@@ -260,7 +266,7 @@ router.get(
 router.put(
   '/projetos/:projectId/escopo-previsto',
   requireAuth,
-  requireAcompanhamentoManager,
+  requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const data = plannedScopeSchema.parse(req.body);
     try {
@@ -279,7 +285,8 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     try {
-      const detail = await getProjectDetail(req.params.projectId);
+      const includeCollaboratorCosts = canViewAcompanhamentoLaborCosts(req.auth?.user);
+      const detail = await getProjectDetail(req.params.projectId, { includeCollaboratorCosts });
       res.json(detail);
     } catch (error) {
       res.status(404).json({ error: error.message });

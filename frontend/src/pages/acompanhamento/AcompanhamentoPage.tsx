@@ -25,6 +25,8 @@ export function AcompanhamentoPage() {
   const tutorialTrigger = useRef<(() => void) | null>(null);
 
   const isManager = user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('acompanhamento:manager'));
+  const hasAcompanhamentoAccess = user?.accountType === 'ADMIN'
+    || Boolean(user?.moduleRoles?.some(role => role === 'acompanhamento:manager' || role === 'acompanhamento:viewer'));
   const userKey = tutorialUserKey(user, isManager);
 
   // Ao entrar no módulo, a novidade do hub já foi "consumida".
@@ -49,21 +51,6 @@ export function AcompanhamentoPage() {
         }
       />
       <main className="page-scroll equip-page">
-        {/*
-          AVISO TEMPORÁRIO — TODO(vr-ponto-mais): remover este banner (e a regra `.acp-cost-notice`
-          em frontend/src/styles/base.css) quando a integração com o ponto (VR Ponto Mais) para o
-          custo de mão de obra for implementada. Enquanto isso, o realizado do módulo considera só as
-          compras (Omie), sem o custo dos colaboradores. Ref.: PLANO_MODULO_ACOMPANHAMENTO_PROJETOS.md
-          §16 ("Falta — depende de VR Ponto Mais").
-        */}
-        <div className="acp-cost-notice" role="note">
-          <span className="acp-cost-notice-ico" aria-hidden="true">⚠️</span>
-          <span>
-            <strong>Custo de mão de obra ainda não incluído.</strong> Os valores realizados consideram
-            apenas as compras (Omie). O custo dos colaboradores (salários/ponto) ainda não entra no cálculo,
-            pois a integração com o ponto (VR Ponto Mais) ainda não foi implementada.
-          </span>
-        </div>
         <div className="equip-layout">
           <nav className="equip-nav" aria-label="Áreas de Acompanhamento" data-acp-nav>
             <button className={`equip-nav-item ${section === 'dashboard' ? 'active' : ''}`} type="button" aria-current={section === 'dashboard'} onClick={() => setSection('dashboard')}>
@@ -74,10 +61,12 @@ export function AcompanhamentoPage() {
               <span className="equip-nav-ico" aria-hidden="true">▦</span>
               <span className="equip-nav-label">Projetos</span>
             </button>
-            <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
-              <span className="equip-nav-ico" aria-hidden="true">$</span>
-              <span className="equip-nav-label">Custo</span>
-            </button>
+            {hasAcompanhamentoAccess ? (
+              <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
+                <span className="equip-nav-ico" aria-hidden="true">$</span>
+                <span className="equip-nav-label">Custo</span>
+              </button>
+            ) : null}
           </nav>
 
           <div className="equip-mobile-nav" data-acp-mobile-nav>
@@ -90,14 +79,14 @@ export function AcompanhamentoPage() {
             >
               <option value="dashboard">Dashboard</option>
               <option value="projetos">Projetos</option>
-              <option value="custo">Custo</option>
+              {hasAcompanhamentoAccess ? <option value="custo">Custo</option> : null}
             </select>
           </div>
 
           <section className="equip-content">
-            {section === 'dashboard' ? <AcompanhamentoDashboard />
-              : section === 'projetos' ? <ProjectCardsBoard />
-              : <CostEngineManager />}
+            {section === 'projetos' ? <ProjectCardsBoard canManage={hasAcompanhamentoAccess} />
+              : section === 'custo' && hasAcompanhamentoAccess ? <CostEngineManager canManageCosts={isManager} />
+              : <AcompanhamentoDashboard canManage={hasAcompanhamentoAccess} />}
           </section>
         </div>
       </main>

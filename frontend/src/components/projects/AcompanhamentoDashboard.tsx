@@ -57,7 +57,7 @@ function fmt(value: number | null, unit: Unit) {
   return value.toLocaleString('pt-BR');
 }
 
-export function AcompanhamentoDashboard() {
+export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boolean }) {
   const [search, setSearch] = useState('');
   const [modality, setModality] = useState<'todas' | 'INLOCO' | 'POP_SEDE'>('todas');
   const [status, setStatus] = useState<'todos' | 'andamento' | 'arquivados'>('todos');
@@ -263,11 +263,11 @@ export function AcompanhamentoDashboard() {
               <button className="mini-btn alt" type="button" onClick={() => setManaged(null)} aria-label="Fechar">✕</button>
             </div>
             <div className="acp-manage-body">
-              <ProjectScheduleEditor key={managed.projectId} ref={scheduleRef} projectId={managed.projectId} onDirtyChange={setManagedDirty} />
+              <ProjectScheduleEditor key={managed.projectId} ref={scheduleRef} projectId={managed.projectId} canManage={canManage} onDirtyChange={setManagedDirty} />
             </div>
             <div className="acp-manage-foot">
               <button type="button" className="mini-btn alt" onClick={() => setManaged(null)}>Cancelar</button>
-              <button type="button" className="mini-btn" disabled={!managedDirty} onClick={() => scheduleRef.current?.save()}>Salvar</button>
+              {canManage ? <button type="button" className="mini-btn" disabled={!managedDirty} onClick={() => scheduleRef.current?.save()}>Salvar</button> : null}
             </div>
           </div>
         ) : <div />}

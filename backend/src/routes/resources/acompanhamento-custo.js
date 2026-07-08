@@ -10,8 +10,9 @@ import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
 import { computeMonthlyCost } from '../../lib/acompanhamento/cost-engine.js';
+import { getEpiAnnualCost, setEpiAnnualCost } from '../../lib/acompanhamento/settings.js';
 import prisma from '../../lib/prisma.js';
-import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
+import { requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -24,9 +25,10 @@ async function latestParams(key) {
   return { profile, set: profile.parameterSets[0] ?? null };
 }
 
-router.get('/perfis', requireAuth, requireAcompanhamentoAccess, asyncHandler(async (_req, res) => {
+router.get('/perfis', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
+  // Apenas os perfis-modelo (planilhas base). Perfis por cargo (jobRoleId != null) ficam em /cargos.
   const profiles = await prisma.costProfile.findMany({
-    where: { isActive: true },
+    where: { isActive: true, jobRoleId: null },
     orderBy: { label: 'asc' },
     include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } }
   });
@@ -65,7 +67,7 @@ const simulateSchema = z.object({
   inputs: z.record(z.any()).default({})
 });
 
-router.post('/simular', requireAuth, requireAcompanhamentoAccess, asyncHandler(async (req, res) => {
+router.post('/simular', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
   const { profileKey, params, inputs } = simulateSchema.parse(req.body);
   let effectiveParams = params;
   if (!effectiveParams && profileKey) {
@@ -75,6 +77,63 @@ router.post('/simular', requireAuth, requireAcompanhamentoAccess, asyncHandler(a
   }
   if (!effectiveParams) return res.status(400).json({ error: 'Informe profileKey ou params.' });
   res.json(computeMonthlyCost(effectiveParams, inputs));
+}));
+
+// === Perfil de custo por cargo (um CostProfile por JobRole, criado sob demanda) ===
+
+router.get('/cargos', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
+  const roles = await prisma.jobRole.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' },
+    include: { costProfile: { include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } } } }
+  });
+  res.json(roles.map(role => ({
+    jobRoleId: role.id,
+    name: role.name,
+    profileId: role.costProfile?.id ?? null,
+    version: role.costProfile?.parameterSets?.[0]?.version ?? null,
+    params: role.costProfile?.parameterSets?.[0]?.params ?? null,
+    updatedAt: role.costProfile?.parameterSets?.[0]?.createdAt ?? role.costProfile?.updatedAt ?? null
+  })));
+}));
+
+router.put('/cargos/:jobRoleId/parametros', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
+  const { params, note } = paramsSchema.parse(req.body);
+  const role = await prisma.jobRole.findUnique({
+    where: { id: req.params.jobRoleId },
+    include: { costProfile: { include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } } } }
+  });
+  if (!role) return res.status(404).json({ error: 'Cargo não encontrado.' });
+
+  let profile = role.costProfile;
+  if (!profile) {
+    profile = await prisma.costProfile.create({ data: { key: `role:${role.id}`, label: role.name, jobRoleId: role.id } });
+  }
+  const currentVersion = role.costProfile?.parameterSets?.[0]?.version ?? 0;
+  const created = await prisma.costParameterSet.create({
+    data: {
+      costProfileId: profile.id,
+      version: currentVersion + 1,
+      params,
+      note: note ?? null,
+      createdByUserId: req.auth?.user?.id ?? null
+    }
+  });
+  res.status(201).json({ jobRoleId: role.id, profileId: profile.id, version: created.version, params: created.params });
+}));
+
+// === Configuração global de custo (EPI por colaborador) ===
+
+router.get('/config', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
+  res.json({ epiAnnualCost: await getEpiAnnualCost() });
+}));
+
+const configSchema = z.object({ epiAnnualCost: z.number().min(0).max(1000000) });
+
+router.put('/config', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
+  const { epiAnnualCost } = configSchema.parse(req.body);
+  const value = await setEpiAnnualCost(epiAnnualCost, req.auth?.user?.id ?? null);
+  res.json({ epiAnnualCost: value });
 }));
 
 export default router;
