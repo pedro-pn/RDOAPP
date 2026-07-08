@@ -173,3 +173,9 @@ export function requireAcompanhamentoManager(req, res, next) {
 export function isAcompanhamentoManager(user) {
   return Boolean(user) && (user.accountType === 'ADMIN' || hasModuleRole(user, 'acompanhamento:manager'));
 }
+
+// Usuário que pode ver os custos de mão de obra calculados no Acompanhamento.
+// Configuração de parâmetros continua restrita ao gestor; esta permissão é só leitura operacional.
+export function canViewAcompanhamentoLaborCosts(user) {
+  return Boolean(user) && (user.accountType === 'ADMIN' || hasModuleRole(user, ACOMPANHAMENTO_ACCESS_ROLES));
+}

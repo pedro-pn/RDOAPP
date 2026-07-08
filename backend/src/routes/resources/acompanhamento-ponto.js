@@ -16,7 +16,7 @@ import asyncHandler from '../../lib/async-handler.js';
 import { importPonto, linkPontoName } from '../../lib/acompanhamento/ponto-import.js';
 import { computeCollaboratorRates } from '../../lib/acompanhamento/labor-cost.js';
 import prisma from '../../lib/prisma.js';
-import { requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
+import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -79,7 +79,7 @@ router.delete(
 router.get(
   '/colaboradores',
   requireAuth,
-  requireAcompanhamentoManager,
+  requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const { pontoImport, rates } = await computeCollaboratorRates();
     const unmatched = pontoImport?.summary?.unmatched ?? [];
@@ -98,7 +98,7 @@ router.get(
 router.get(
   '/colaboradores-ativos',
   requireAuth,
-  requireAcompanhamentoManager,
+  requireAcompanhamentoAccess,
   asyncHandler(async (_req, res) => {
     const collaborators = await prisma.collaborator.findMany({
       where: { isActive: true },

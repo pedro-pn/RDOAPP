@@ -130,7 +130,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           <div className="page-card acp-det-block">
             <MetricBar
               label="Dias corridos"
-              help="Dias de calendário desde o início da obra até hoje, sobre os dias corridos previstos no comercial."
+              help="Dias de calendário desde o início da obra até a data de referência: hoje para projetos em andamento; último RDO para projetos arquivados."
               value={data.diasCorridos.pct}
               caption={`${data.diasCorridos.elapsed ?? '—'}/${data.diasCorridos.planned ?? '—'}${data.diasCorridos.pct != null ? ` · ${data.diasCorridos.pct}%` : ''}`}
             />
@@ -307,7 +307,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
         <div><span><HelpTip help="Data de mobilização, cadastrada manualmente no cronograma.">Mobilização</HelpTip></span><strong>{fmtDate(data.footer.mobilizationDate)}</strong></div>
         <div><span><HelpTip help="Data de início real, cadastrada manualmente no cronograma.">Início</HelpTip></span><strong>{fmtDate(data.footer.startDate)}</strong></div>
         <div><span><HelpTip help="Início + dias corridos previstos no comercial.">Previsão de término</HelpTip></span><strong>{fmtDate(data.footer.expectedEndDate)}</strong></div>
-        <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade atual (avanço acumulado por dia corrido desde o início).">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
+        <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade de avanço acumulada até a data de referência dos dias corridos.">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
     </div>
   );

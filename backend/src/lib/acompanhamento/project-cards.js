@@ -112,10 +112,11 @@ export async function listProjectCards() {
     const plannedDays = toNum(row.plannedDays);
     const expectedEndDate = row.startDate && plannedDays ? addCalendarDays(row.startDate, plannedDays) : null;
     const lastDay = lastDayStatus(a.lastReport, projById.get(row.projectId));
+    const projectReferenceDate = row.archived && lastDay.date ? new Date(lastDay.date) : now;
 
     // Tempo de cada equipamento na obra: da saída até o "final do projeto"
     // (arquivado → último RDO; em andamento → hoje). Só equipamentos do módulo Equipamentos.
-    const equipEndDate = row.archived ? (lastDay.date ? new Date(lastDay.date) : now) : now;
+    const equipEndDate = projectReferenceDate;
     const equipment = (equipmentByProject.get(row.projectId) || [])
       .map(e => {
         const since = new Date(e.sinceDate);
@@ -134,7 +135,8 @@ export async function listProjectCards() {
       plannedCost: toNum(row.plannedTotalCost),
       lastRdoDate: lastDay.date,
       lastDayStatus: lastDay.status,
-      progressPct: row.progressPct ?? null
+      progressPct: row.progressPct ?? null,
+      now: projectReferenceDate
     });
 
     return {

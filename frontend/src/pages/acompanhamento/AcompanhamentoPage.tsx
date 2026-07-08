@@ -25,6 +25,8 @@ export function AcompanhamentoPage() {
   const tutorialTrigger = useRef<(() => void) | null>(null);
 
   const isManager = user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('acompanhamento:manager'));
+  const hasAcompanhamentoAccess = user?.accountType === 'ADMIN'
+    || Boolean(user?.moduleRoles?.some(role => role === 'acompanhamento:manager' || role === 'acompanhamento:viewer'));
   const userKey = tutorialUserKey(user, isManager);
 
   // Ao entrar no módulo, a novidade do hub já foi "consumida".
@@ -59,7 +61,7 @@ export function AcompanhamentoPage() {
               <span className="equip-nav-ico" aria-hidden="true">▦</span>
               <span className="equip-nav-label">Projetos</span>
             </button>
-            {isManager ? (
+            {hasAcompanhamentoAccess ? (
               <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
                 <span className="equip-nav-ico" aria-hidden="true">$</span>
                 <span className="equip-nav-label">Custo</span>
@@ -77,14 +79,14 @@ export function AcompanhamentoPage() {
             >
               <option value="dashboard">Dashboard</option>
               <option value="projetos">Projetos</option>
-              {isManager ? <option value="custo">Custo</option> : null}
+              {hasAcompanhamentoAccess ? <option value="custo">Custo</option> : null}
             </select>
           </div>
 
           <section className="equip-content">
             {section === 'projetos' ? <ProjectCardsBoard />
-              : section === 'custo' && isManager ? <CostEngineManager />
-              : <AcompanhamentoDashboard isManager={isManager} />}
+              : section === 'custo' && hasAcompanhamentoAccess ? <CostEngineManager canManageCosts={isManager} />
+              : <AcompanhamentoDashboard canManage={hasAcompanhamentoAccess} />}
           </section>
         </div>
       </main>

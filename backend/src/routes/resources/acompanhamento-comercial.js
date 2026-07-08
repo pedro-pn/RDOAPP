@@ -29,7 +29,7 @@ import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
 import prisma from '../../lib/prisma.js';
-import { isAcompanhamentoManager, requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
+import { canViewAcompanhamentoLaborCosts, requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -205,7 +205,7 @@ const scheduleSchema = z.object({
 router.patch(
   '/projetos/:projectId/cronograma',
   requireAuth,
-  requireAcompanhamentoManager,
+  requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const data = scheduleSchema.parse(req.body);
     try {
@@ -266,7 +266,7 @@ router.get(
 router.put(
   '/projetos/:projectId/escopo-previsto',
   requireAuth,
-  requireAcompanhamentoManager,
+  requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const data = plannedScopeSchema.parse(req.body);
     try {
@@ -285,7 +285,7 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     try {
-      const includeCollaboratorCosts = isAcompanhamentoManager(req.auth?.user);
+      const includeCollaboratorCosts = canViewAcompanhamentoLaborCosts(req.auth?.user);
       const detail = await getProjectDetail(req.params.projectId, { includeCollaboratorCosts });
       res.json(detail);
     } catch (error) {
