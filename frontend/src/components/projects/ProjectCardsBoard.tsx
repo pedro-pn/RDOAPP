@@ -131,7 +131,7 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
 // Aba "Projetos": um card por projeto com previsto x realizado (dias, avanço, colaboradores, prazos).
 type CardsView = 'andamento' | 'arquivados';
 
-export function ProjectCardsBoard() {
+export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }) {
   const [search, setSearch] = useState('');
   const [view, setView] = useState<CardsView>('andamento');
   const [selected, setSelected] = useState<string | null>(null);
@@ -152,7 +152,7 @@ export function ProjectCardsBoard() {
 
   // Todos os hooks acima; só então a troca para o dashboard do projeto (Rules of Hooks).
   if (selected) {
-    return <ProjectDetailDashboard projectId={selected} onBack={() => setSelected(null)} />;
+    return <ProjectDetailDashboard projectId={selected} canManage={canManage} onBack={() => setSelected(null)} />;
   }
 
   if (isLoading) return <div className="page-card placeholder-copy">Carregando projetos…</div>;

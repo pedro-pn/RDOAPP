@@ -2045,7 +2045,7 @@ a {
 
 /* Dashboard detalhado do projeto */
 .acp-det { width: 100%; display: flex; flex-direction: column; gap: 12px; }
-.acp-det-bar { display: flex; }
+.acp-det-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .acp-det-header h2 { margin: 0; font-size: 16px; line-height: 1.5; }
 .acp-det-cols {
   display: grid;
