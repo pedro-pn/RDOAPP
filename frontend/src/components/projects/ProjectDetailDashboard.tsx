@@ -100,6 +100,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
   }
 
   const h = data.header;
+  const equipamentos = data.equipamentos ?? [];
   const headerBits = [
     `Missão ${h.code}`,
     h.clientName,
@@ -242,6 +243,27 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
             <PlannedScopeView scope={scope} />
           </div>
         </div>
+      </div>
+
+      <div className="page-card acp-det-block">
+        <details className="acp-det-equips-details" open>
+          <summary className="acp-det-collabs-summary">
+            Equipamentos na obra ({equipamentos.length})
+          </summary>
+          {equipamentos.length === 0 ? (
+            <div className="placeholder-copy" style={{ marginTop: 8 }}>Nenhum equipamento em obra.</div>
+          ) : (
+            <div className="acp-det-equips-grid" style={{ marginTop: 8 }}>
+              {equipamentos.map((e, i) => (
+                <div className="acp-det-equip-item" key={`${e.name}-${i}`}>
+                  <span>{e.name}</span>
+                  <strong>{e.days} dia{e.days === 1 ? '' : 's'}</strong>
+                  <small>desde {fmtDate(e.since)}</small>
+                </div>
+              ))}
+            </div>
+          )}
+        </details>
       </div>
 
       {/* Colaboradores em largura total, tabela retrátil: nome · cargo · valor gasto (custo/hora). */}

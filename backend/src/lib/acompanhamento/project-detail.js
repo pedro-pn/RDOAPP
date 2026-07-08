@@ -11,6 +11,7 @@
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
+import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { laborCostByProject } from './labor-cost.js';
 import { isSalaryCategory } from './salary.js';
 import prisma from '../prisma.js';
@@ -67,7 +68,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   const row = rows.find(r => r.projectId === projectId);
   if (!row) throw new Error('Projeto não encontrado no acompanhamento comercial.');
 
-  const [project, reports, collaborators, costGroups, labor] = await Promise.all([
+  const [project, reports, collaborators, costGroups, labor, equipmentByProject] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
       select: { clientSegment: true, mobilizationDate: true, workdayHours: true, weekendWorkdayHours: true }
@@ -89,7 +90,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       where: { projectId },
       _sum: { valor: true }
     }),
-    laborCostByProject() // custo de mão de obra (HH) do ponto vigente
+    laborCostByProject(), // custo de mão de obra (HH) do ponto vigente
+    getEquipmentUsageByProject([projectId])
   ]);
 
   // Mão de obra (HH) do ponto — mantido SEPARADO do gasto Omie (em validação, não somado).
@@ -177,6 +179,16 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   const plannedWorkedDays = toNum(row.workedDays) ?? plannedDays;
   const today = new Date();
 
+  // --- Equipamentos em obra (módulo Equipamentos), mesma lógica do card de projetos ---
+  const equipmentEndDate = row.archived ? (lastRdoDate ? new Date(lastRdoDate) : today) : today;
+  const equipamentos = (equipmentByProject.get(projectId) || [])
+    .map(e => {
+      const since = new Date(e.sinceDate);
+      const days = Math.max(0, Math.round((equipmentEndDate.getTime() - since.getTime()) / 86400000));
+      return { name: e.name, days, since: e.sinceDate };
+    })
+    .sort((a, b) => b.days - a.days);
+
   const elapsedCorridos = row.startDate ? Math.max(0, diffCalendarDays(row.startDate, today) ?? 0) : null;
   const diasCorridos = {
     elapsed: elapsedCorridos,
@@ -229,6 +241,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     ultimosDias,
     overtimeMinutes: overtimeMinutesTotal,
     colaboradores,
+    equipamentos,
     footer: {
       mobilizationDate: project?.mobilizationDate ?? null,
       startDate: row.startDate ?? null,
