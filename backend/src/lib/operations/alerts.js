@@ -5,6 +5,9 @@ import { getOperationalStatus } from './status.js';
 function problemLine(problem) {
   const parts = [problem.message];
   if (problem.job) parts.push(`job=${problem.job}`);
+  if (problem.integration) parts.push(`integration=${problem.integration}`);
+  if (problem.scope) parts.push(`scope=${problem.scope}`);
+  if (problem.source) parts.push(`source=${problem.source}`);
   if (problem.backup?.status) parts.push(`backup=${problem.backup.status}`);
   if (problem.restore?.status) parts.push(`restore=${problem.restore.status}`);
   return `- ${parts.join(' ')}`;

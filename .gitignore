@@ -39,10 +39,12 @@ PLANO_*.md
 ANALISE_*.md
 DIAGNOSTICO_ARQUITETURA_MODULAR.md
 
-# Dados locais sensíveis (clientes/salários) — nunca versionar
+# Dados locais sensíveis (clientes/salários/ponto) — nunca versionar
 *.accdb
 *.mdb
 custo_*.xlsx
+Ponto*.xlsx
+Pontomais*.xlsx
 *:Zone.Identifier
 
 # Saída da descoberta da API Omie (pode conter dados financeiros)

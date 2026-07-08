@@ -44,3 +44,46 @@ export async function simulateCost(payload: { profileKey?: string; params?: Cost
   const { data } = await apiClient.post<CostResult>('/acompanhamento/custo/simular', payload);
   return data;
 }
+
+// --- Perfil de custo por cargo (base viva: herda do modelo, sobrescreve salário/insalubridade) ---
+
+export interface CargoCostOverride {
+  baseModel?: string; // 'operador' | 'auxiliar' (Modelo 1 / Modelo 2)
+  salarioBase?: number;
+  insalubridade?: number;
+}
+
+export interface CargoCostProfile {
+  jobRoleId: string;
+  name: string;
+  profileId: string | null;
+  version: number | null;
+  params: CargoCostOverride | null;
+  updatedAt: string | null;
+}
+
+export async function getCargoCostProfiles(): Promise<CargoCostProfile[]> {
+  const { data } = await apiClient.get<CargoCostProfile[]>('/acompanhamento/custo/cargos');
+  return data;
+}
+
+export async function saveCargoCostParams(jobRoleId: string, params: CargoCostOverride, note?: string) {
+  const { data } = await apiClient.put(`/acompanhamento/custo/cargos/${jobRoleId}/parametros`, { params, note });
+  return data;
+}
+
+// --- Configuração global de custo (EPI por colaborador) ---
+
+export interface CostConfig {
+  epiAnnualCost: number;
+}
+
+export async function getCostConfig(): Promise<CostConfig> {
+  const { data } = await apiClient.get<CostConfig>('/acompanhamento/custo/config');
+  return data;
+}
+
+export async function saveCostConfig(epiAnnualCost: number): Promise<CostConfig> {
+  const { data } = await apiClient.put<CostConfig>('/acompanhamento/custo/config', { epiAnnualCost });
+  return data;
+}

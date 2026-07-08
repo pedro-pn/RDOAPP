@@ -176,6 +176,73 @@ function budgetFieldsFromProposal(proposal) {
   };
 }
 
+function normalizeSleepModeMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const result = {};
+  for (const [collaboratorId, mode] of Object.entries(value)) {
+    if (typeof collaboratorId !== 'string' || !collaboratorId.trim()) continue;
+    if (mode === 'HOME' || mode === 'AWAY') result[collaboratorId] = mode;
+  }
+  return result;
+}
+
+function normalizeCollaboratorIdList(value) {
+  if (!Array.isArray(value)) return [];
+  const ids = [];
+  const seen = new Set();
+  for (const raw of value) {
+    const id = typeof raw === 'string' ? raw.trim() : '';
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function addLaborCollaborator(map, collaborator, source) {
+  if (!collaborator?.id) return;
+  const existing = map.get(collaborator.id);
+  if (existing) {
+    if (!existing.sources.includes(source)) existing.sources.push(source);
+    return;
+  }
+  map.set(collaborator.id, {
+    id: collaborator.id,
+    name: collaborator.name,
+    role: collaborator.role ?? null,
+    sources: [source]
+  });
+}
+
+async function listProjectLaborCollaborators(project, sleepModeMap) {
+  const manualIds = normalizeCollaboratorIdList(project.laborCollaboratorIds);
+  const sleepModeIds = Object.keys(sleepModeMap);
+  const rows = new Map();
+
+  addLaborCollaborator(rows, project.operator, 'LEADER');
+
+  const [rdoCollaborators, manualCollaborators] = await Promise.all([
+    prisma.reportCollaborator.findMany({
+      where: { report: { projectId: project.id, reportType: 'RDO', deletedAt: null } },
+      select: { collaborator: { select: { id: true, name: true, role: true } } },
+      orderBy: { collaborator: { name: 'asc' } }
+    }),
+    prisma.collaborator.findMany({
+      where: { id: { in: [...new Set([...manualIds, ...sleepModeIds])] } },
+      select: { id: true, name: true, role: true }
+    })
+  ]);
+
+  for (const row of rdoCollaborators) addLaborCollaborator(rows, row.collaborator, 'RDO');
+  const manualById = new Map(manualCollaborators.map(collaborator => [collaborator.id, collaborator]));
+  for (const id of [...manualIds, ...sleepModeIds]) addLaborCollaborator(rows, manualById.get(id), 'MANUAL');
+
+  return {
+    laborCollaboratorIds: manualIds.filter(id => manualById.has(id)),
+    laborCollaborators: Array.from(rows.values())
+  };
+}
+
 // Cria/atualiza o orçamento previsto (versão única "1") com os dados da revisão informada.
 // approvedAt é definido no ato da 1ª seleção (editável depois) e preservado ao trocar de revisão.
 // selectionStatus permanece como está (marcação manual da vencedora — P-19).
@@ -192,12 +259,38 @@ async function upsertBudget(client, projectId, proposal) {
 export async function listProjectRevisions(projectId) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, commercialProposalCode: true, contractCode: true, code: true, startDate: true, mobilizationDate: true, manualProgressPct: true }
+    select: {
+      id: true,
+      commercialProposalCode: true,
+      contractCode: true,
+      code: true,
+      startDate: true,
+      mobilizationDate: true,
+      manualProgressPct: true,
+      offshore: true,
+      laborSleepModeByCollaborator: true,
+      laborCollaboratorIds: true,
+      operator: { select: { id: true, name: true, role: true } }
+    }
   });
   if (!project) throw new Error('Projeto não encontrado.');
   const codProp = projectProposalCode(project);
+  const laborSleepModeByCollaborator = normalizeSleepModeMap(project.laborSleepModeByCollaborator);
+  const labor = await listProjectLaborCollaborators(project, laborSleepModeByCollaborator);
   if (!Number.isInteger(codProp)) {
-    return { proposalCode: null, currentCodBd: null, resolved: false, startDate: project.startDate ?? null, mobilizationDate: project.mobilizationDate ?? null, manualProgressPct: project.manualProgressPct ?? null, revisions: [] };
+    return {
+      proposalCode: null,
+      currentCodBd: null,
+      resolved: false,
+      startDate: project.startDate ?? null,
+      mobilizationDate: project.mobilizationDate ?? null,
+      manualProgressPct: project.manualProgressPct ?? null,
+      offshore: project.offshore ?? false,
+      laborSleepModeByCollaborator,
+      laborCollaboratorIds: labor.laborCollaboratorIds,
+      laborCollaborators: labor.laborCollaborators,
+      revisions: []
+    };
   }
   const [revisions, budget] = await Promise.all([
     prisma.commercialProposal.findMany({
@@ -225,13 +318,25 @@ export async function listProjectRevisions(projectId) {
     startDate: project.startDate ?? null,
     mobilizationDate: project.mobilizationDate ?? null,
     manualProgressPct: project.manualProgressPct ?? null,
+    offshore: project.offshore ?? false,
+    laborSleepModeByCollaborator,
+    laborCollaboratorIds: labor.laborCollaboratorIds,
+    laborCollaborators: labor.laborCollaborators,
     revisions
   };
 }
 
 // Edita o cronograma: data de aprovação do contrato (no orçamento) e início real (no projeto).
 // Cada campo é opcional; passar null limpa. approvedAt exige um orçamento já escolhido.
-export async function setProjectSchedule(projectId, { approvedAt, startDate, mobilizationDate, manualProgressPct } = {}) {
+export async function setProjectSchedule(projectId, {
+  approvedAt,
+  startDate,
+  mobilizationDate,
+  manualProgressPct,
+  offshore,
+  laborSleepModeByCollaborator,
+  laborCollaboratorIds
+} = {}) {
   return prisma.$transaction(async (tx) => {
     if (approvedAt !== undefined) {
       const budget = await tx.projectBudget.findUnique({
@@ -248,6 +353,23 @@ export async function setProjectSchedule(projectId, { approvedAt, startDate, mob
     if (startDate !== undefined) projectData.startDate = startDate ? new Date(startDate) : null;
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
     if (manualProgressPct !== undefined) projectData.manualProgressPct = manualProgressPct == null ? null : manualProgressPct;
+    if (offshore !== undefined) projectData.offshore = Boolean(offshore);
+    if (laborSleepModeByCollaborator !== undefined) {
+      projectData.laborSleepModeByCollaborator = normalizeSleepModeMap(laborSleepModeByCollaborator);
+    }
+    if (laborCollaboratorIds !== undefined) {
+      const ids = normalizeCollaboratorIdList(laborCollaboratorIds);
+      if (ids.length === 0) {
+        projectData.laborCollaboratorIds = [];
+      } else {
+        const collaborators = await tx.collaborator.findMany({
+          where: { id: { in: ids } },
+          select: { id: true }
+        });
+        const validIds = new Set(collaborators.map(collaborator => collaborator.id));
+        projectData.laborCollaboratorIds = ids.filter(id => validIds.has(id));
+      }
+    }
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
     }
@@ -418,57 +540,96 @@ export async function listCommercialPendencias() {
 export async function importCommercialAccess({ buffer, fileName, importedByUserId = null, source = 'SCRIPT' }) {
   const contentHash = hashBuffer(buffer);
 
-  // Reenvio idêntico: pula o trabalho (barato).
-  const duplicate = await prisma.accessImport.findFirst({
-    where: { contentHash, status: 'SUCCESS' },
-    orderBy: { createdAt: 'desc' }
-  });
-  if (duplicate) {
-    return { skippedDuplicate: true, contentHash, previousImportId: duplicate.id };
-  }
-
-  const rawRows = readProposals(buffer);
-  const proposals = rawRows
-    .map(mapProposalRow)
-    .filter(p => Number.isInteger(p.codBd) && Number.isInteger(p.codProp));
-
-  let created = 0;
-  let updated = 0;
-
-  // A importação apenas popula o staging (CommercialProposal). Não cria missões: a maioria das
-  // propostas não fecha. A vinculação a um projeto acontece sob demanda, quando já existe uma
-  // missão cujo contrato bate (ver listCommercialPendencias / setProjectBudgetRevision).
-  const result = await prisma.$transaction(async (tx) => {
-    for (const p of proposals) {
-      const existing = await tx.commercialProposal.findUnique({ where: { codBd: p.codBd } });
-      await tx.commercialProposal.upsert({ where: { codBd: p.codBd }, create: p, update: p });
-      if (existing) updated += 1; else created += 1;
+  try {
+    // Reenvio idêntico: pula o trabalho (barato), mas grava o recebimento para auditoria/status.
+    const duplicate = await prisma.accessImport.findFirst({
+      where: { contentHash, status: 'SUCCESS' },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (duplicate) {
+      const receipt = await prisma.accessImport.create({
+        data: {
+          fileName,
+          contentHash,
+          source,
+          status: 'SUCCESS',
+          rowsRead: 0,
+          created: 0,
+          updated: 0,
+          skipped: 0,
+          pendingProjectsCreated: 0,
+          summary: { skippedDuplicate: true, previousImportId: duplicate.id },
+          importedByUserId
+        }
+      });
+      return { skippedDuplicate: true, contentHash, importId: receipt.id, previousImportId: duplicate.id };
     }
 
-    return tx.accessImport.create({
-      data: {
-        fileName,
-        contentHash,
-        source,
-        status: 'SUCCESS',
-        rowsRead: rawRows.length,
-        created,
-        updated,
-        skipped: rawRows.length - proposals.length,
-        pendingProjectsCreated: 0,
-        summary: { proposals: proposals.length, distinctProposals: new Set(proposals.map(p => p.codProp)).size },
-        importedByUserId
-      }
-    });
-  }, { timeout: 120000 });
+    const rawRows = readProposals(buffer);
+    const proposals = rawRows
+      .map(mapProposalRow)
+      .filter(p => Number.isInteger(p.codBd) && Number.isInteger(p.codProp));
 
-  return {
-    importId: result.id,
-    status: result.status,
-    rowsRead: rawRows.length,
-    created,
-    updated,
-    skipped: rawRows.length - proposals.length,
-    distinctProposals: new Set(proposals.map(p => p.codProp)).size
-  };
+    let created = 0;
+    let updated = 0;
+
+    // A importação apenas popula o staging (CommercialProposal). Não cria missões: a maioria das
+    // propostas não fecha. A vinculação a um projeto acontece sob demanda, quando já existe uma
+    // missão cujo contrato bate (ver listCommercialPendencias / setProjectBudgetRevision).
+    const result = await prisma.$transaction(async (tx) => {
+      for (const p of proposals) {
+        const existing = await tx.commercialProposal.findUnique({ where: { codBd: p.codBd } });
+        await tx.commercialProposal.upsert({ where: { codBd: p.codBd }, create: p, update: p });
+        if (existing) updated += 1; else created += 1;
+      }
+
+      return tx.accessImport.create({
+        data: {
+          fileName,
+          contentHash,
+          source,
+          status: 'SUCCESS',
+          rowsRead: rawRows.length,
+          created,
+          updated,
+          skipped: rawRows.length - proposals.length,
+          pendingProjectsCreated: 0,
+          summary: { proposals: proposals.length, distinctProposals: new Set(proposals.map(p => p.codProp)).size },
+          importedByUserId
+        }
+      });
+    }, { timeout: 120000 });
+
+    return {
+      importId: result.id,
+      status: result.status,
+      rowsRead: rawRows.length,
+      created,
+      updated,
+      skipped: rawRows.length - proposals.length,
+      distinctProposals: new Set(proposals.map(p => p.codProp)).size
+    };
+  } catch (error) {
+    try {
+      await prisma.accessImport.create({
+        data: {
+          fileName,
+          contentHash,
+          source,
+          status: 'ERROR',
+          rowsRead: 0,
+          created: 0,
+          updated: 0,
+          skipped: 0,
+          pendingProjectsCreated: 0,
+          error: error.message,
+          summary: { errorName: error.name || null },
+          importedByUserId
+        }
+      });
+    } catch (logError) {
+      console.warn('[commercial-import] falha ao registrar erro de importação:', logError.message);
+    }
+    throw error;
+  }
 }

@@ -8,6 +8,8 @@
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
+import { laborCostByProject } from './labor-cost.js';
+import { getEquipmentUsageByProject } from './equipment-usage.js';
 import prisma from '../prisma.js';
 
 function toNum(value) {
@@ -65,7 +67,7 @@ export async function listProjectCards() {
   const projectIds = rows.map(r => r.projectId);
   if (projectIds.length === 0) return [];
 
-  const [projects, reports, collaborators] = await Promise.all([
+  const [projects, reports, collaborators, labor] = await Promise.all([
     prisma.project.findMany({
       where: { id: { in: projectIds } },
       select: { id: true, workdayHours: true, weekendWorkdayHours: true }
@@ -78,8 +80,12 @@ export async function listProjectCards() {
     prisma.reportCollaborator.findMany({
       where: { report: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null } },
       select: { collaboratorId: true, report: { select: { projectId: true } } }
-    })
+    }),
+    laborCostByProject() // custo de mão de obra (HH) do ponto vigente — separado do realizado Omie
   ]);
+  const laborByProject = labor.byProjectId;
+  const equipmentByProject = await getEquipmentUsageByProject(projectIds);
+  const now = new Date();
 
   const projById = new Map(projects.map(p => [p.id, p]));
 
@@ -106,14 +112,31 @@ export async function listProjectCards() {
     const plannedDays = toNum(row.plannedDays);
     const expectedEndDate = row.startDate && plannedDays ? addCalendarDays(row.startDate, plannedDays) : null;
     const lastDay = lastDayStatus(a.lastReport, projById.get(row.projectId));
+    const projectReferenceDate = row.archived && lastDay.date ? new Date(lastDay.date) : now;
+
+    // Tempo de cada equipamento na obra: da saída até o "final do projeto"
+    // (arquivado → último RDO; em andamento → hoje). Só equipamentos do módulo Equipamentos.
+    const equipEndDate = projectReferenceDate;
+    const equipment = (equipmentByProject.get(row.projectId) || [])
+      .map(e => {
+        const since = new Date(e.sinceDate);
+        const days = Math.max(0, Math.round((equipEndDate.getTime() - since.getTime()) / 86400000));
+        return { name: e.name, days, since: e.sinceDate };
+      })
+      .sort((x, y) => y.days - x.days);
+
+    // Realizado total = compras Omie (sem salário) + mão de obra do ponto.
+    const laborCost = laborByProject.get(row.projectId)?.laborCost ?? null;
+    const gastoTotal = (toNum(row.realizedCost) ?? 0) + (laborCost ?? 0);
     const alerts = computeAlerts({
       startDate: row.startDate ?? null,
       plannedDays,
-      gasto: toNum(row.realizedCost), // Omie total, salário já excluído no dashboard
+      gasto: gastoTotal,
       plannedCost: toNum(row.plannedTotalCost),
       lastRdoDate: lastDay.date,
       lastDayStatus: lastDay.status,
-      progressPct: row.progressPct ?? null
+      progressPct: row.progressPct ?? null,
+      now: projectReferenceDate
     });
 
     return {
@@ -131,6 +154,11 @@ export async function listProjectCards() {
       collaboratorsCount: a.collabs.size,
       startDate: row.startDate ?? null,
       expectedEndDate,
+      // Custo de mão de obra (HH) do ponto vigente — NÃO somado ao realizado Omie (em validação).
+      // laborCost = com adicional offshore; laborCostBase = sem offshore (para comparação).
+      laborCost,
+      laborCostBase: laborByProject.get(row.projectId)?.laborCostBase ?? null,
+      equipment, // equipamentos (módulo Equipamentos) em obra: { name, days, since }
       alerts
     };
   });
