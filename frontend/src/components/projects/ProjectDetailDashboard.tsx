@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
@@ -7,7 +8,9 @@ import {
   type PlannedScope
 } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
+import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
+import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -86,9 +89,17 @@ function PlannedScopeView({ scope }: { scope?: PlannedScope }) {
 }
 
 // Dashboard detalhado de um projeto (aberto ao clicar num card da aba Projetos).
-export function ProjectDetailDashboard({ projectId, onBack }: { projectId: string; onBack: () => void }) {
+export function ProjectDetailDashboard({ projectId, canManage = false, onBack }: { projectId: string; canManage?: boolean; onBack: () => void }) {
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDirty, setScheduleDirty] = useState(false);
+  const scheduleRef = useRef<ScheduleEditorHandle>(null);
   const { data, isLoading } = useQuery({ queryKey: ['project-detail', projectId], queryFn: () => getProjectDetail(projectId) });
   const { data: scope } = useQuery({ queryKey: ['planned-scope', projectId], queryFn: () => getPlannedScope(projectId) });
+
+  function closeSchedule() {
+    setScheduleOpen(false);
+    setScheduleDirty(false);
+  }
 
   if (isLoading || !data) {
     return (
@@ -113,6 +124,11 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
     <div className="acp-det">
       <div className="acp-det-bar">
         <button type="button" className="mini-btn alt" onClick={onBack}>← Voltar</button>
+        {canManage ? (
+          <button type="button" className="mini-btn" onClick={() => setScheduleOpen(true)}>
+            Editar cronograma
+          </button>
+        ) : null}
       </div>
 
       <div className="page-card acp-det-header">
@@ -309,6 +325,28 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
         <div><span><HelpTip help="Início + dias corridos previstos no comercial.">Previsão de término</HelpTip></span><strong>{fmtDate(data.footer.expectedEndDate)}</strong></div>
         <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade de avanço acumulada até a data de referência dos dias corridos.">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
+
+      <Modal open={scheduleOpen} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
+        <div className="acp-manage">
+          <div className="acp-manage-head">
+            <div className="sec" id="acp-detail-schedule-title">Cronograma — Missão {h.code}</div>
+            <button className="mini-btn alt" type="button" onClick={closeSchedule} aria-label="Fechar">✕</button>
+          </div>
+          <div className="acp-manage-body">
+            <ProjectScheduleEditor
+              key={projectId}
+              ref={scheduleRef}
+              projectId={projectId}
+              canManage={canManage}
+              onDirtyChange={setScheduleDirty}
+            />
+          </div>
+          <div className="acp-manage-foot">
+            <button type="button" className="mini-btn alt" onClick={closeSchedule}>Cancelar</button>
+            <button type="button" className="mini-btn" disabled={!scheduleDirty} onClick={() => scheduleRef.current?.save()}>Salvar</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
