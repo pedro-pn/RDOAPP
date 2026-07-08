@@ -10,8 +10,9 @@ import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
 import { computeMonthlyCost } from '../../lib/acompanhamento/cost-engine.js';
+import { getEpiAnnualCost, setEpiAnnualCost } from '../../lib/acompanhamento/settings.js';
 import prisma from '../../lib/prisma.js';
-import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
+import { requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -24,7 +25,7 @@ async function latestParams(key) {
   return { profile, set: profile.parameterSets[0] ?? null };
 }
 
-router.get('/perfis', requireAuth, requireAcompanhamentoAccess, asyncHandler(async (_req, res) => {
+router.get('/perfis', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
   // Apenas os perfis-modelo (planilhas base). Perfis por cargo (jobRoleId != null) ficam em /cargos.
   const profiles = await prisma.costProfile.findMany({
     where: { isActive: true, jobRoleId: null },
@@ -66,7 +67,7 @@ const simulateSchema = z.object({
   inputs: z.record(z.any()).default({})
 });
 
-router.post('/simular', requireAuth, requireAcompanhamentoAccess, asyncHandler(async (req, res) => {
+router.post('/simular', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
   const { profileKey, params, inputs } = simulateSchema.parse(req.body);
   let effectiveParams = params;
   if (!effectiveParams && profileKey) {
@@ -80,7 +81,7 @@ router.post('/simular', requireAuth, requireAcompanhamentoAccess, asyncHandler(a
 
 // === Perfil de custo por cargo (um CostProfile por JobRole, criado sob demanda) ===
 
-router.get('/cargos', requireAuth, requireAcompanhamentoAccess, asyncHandler(async (_req, res) => {
+router.get('/cargos', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
   const roles = await prisma.jobRole.findMany({
     where: { isActive: true },
     orderBy: { name: 'asc' },
@@ -119,6 +120,20 @@ router.put('/cargos/:jobRoleId/parametros', requireAuth, requireAcompanhamentoMa
     }
   });
   res.status(201).json({ jobRoleId: role.id, profileId: profile.id, version: created.version, params: created.params });
+}));
+
+// === Configuração global de custo (EPI por colaborador) ===
+
+router.get('/config', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
+  res.json({ epiAnnualCost: await getEpiAnnualCost() });
+}));
+
+const configSchema = z.object({ epiAnnualCost: z.number().min(0).max(1000000) });
+
+router.put('/config', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
+  const { epiAnnualCost } = configSchema.parse(req.body);
+  const value = await setEpiAnnualCost(epiAnnualCost, req.auth?.user?.id ?? null);
+  res.json({ epiAnnualCost: value });
 }));
 
 export default router;

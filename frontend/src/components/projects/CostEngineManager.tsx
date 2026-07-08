@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { CargoProfilesPanel } from './CargoProfilesPanel';
 import { CostSimulatorPanel } from './CostSimulatorPanel';
+import { EpiConfigCard } from './EpiConfigCard';
 import { LaborRateTable } from './LaborRateTable';
 import { PontoImportPanel } from './PontoImportPanel';
 
@@ -34,7 +35,7 @@ export function CostEngineManager() {
         ))}
       </div>
 
-      {tab === 'cargos' ? <CargoProfilesPanel />
+      {tab === 'cargos' ? <><EpiConfigCard /><CargoProfilesPanel /></>
         : tab === 'ponto' ? <PontoImportPanel />
         : tab === 'rates' ? <LaborRateTable />
         : <CostSimulatorPanel />}

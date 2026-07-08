@@ -99,6 +99,27 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         );
       })() : null}
 
+      {card.equipment.length ? (
+        <div className="acp-pcard-equip">
+          <div className="acp-pcard-row acp-pcard-equip-head">
+            <span>Equipamentos em obra</span>
+            <span className="acp-pcard-strong">{card.equipment.length}</span>
+          </div>
+          {card.equipment.slice(0, 6).map((e, i) => (
+            <div className="acp-pcard-row acp-pcard-equip-item" key={i}>
+              <span>{e.name}</span>
+              <span>{e.days} dia{e.days === 1 ? '' : 's'}</span>
+            </div>
+          ))}
+          {card.equipment.length > 6 ? (
+            <div className="acp-pcard-row acp-pcard-equip-item">
+              <span className="placeholder-copy">+{card.equipment.length - 6} equipamento(s)</span>
+              <span />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="acp-pcard-dates">
         <div><span>Início</span><strong>{formatDate(card.startDate)}</strong></div>
         <div><span>Previsão de término</span><strong>{formatDate(card.expectedEndDate)}</strong></div>

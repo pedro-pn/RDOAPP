@@ -9,6 +9,7 @@
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
 import { laborCostByProject } from './labor-cost.js';
+import { getEquipmentUsageByProject } from './equipment-usage.js';
 import prisma from '../prisma.js';
 
 function toNum(value) {
@@ -83,6 +84,8 @@ export async function listProjectCards() {
     laborCostByProject() // custo de mão de obra (HH) do ponto vigente — separado do realizado Omie
   ]);
   const laborByProject = labor.byProjectId;
+  const equipmentByProject = await getEquipmentUsageByProject(projectIds);
+  const now = new Date();
 
   const projById = new Map(projects.map(p => [p.id, p]));
 
@@ -109,6 +112,18 @@ export async function listProjectCards() {
     const plannedDays = toNum(row.plannedDays);
     const expectedEndDate = row.startDate && plannedDays ? addCalendarDays(row.startDate, plannedDays) : null;
     const lastDay = lastDayStatus(a.lastReport, projById.get(row.projectId));
+
+    // Tempo de cada equipamento na obra: da saída até o "final do projeto"
+    // (arquivado → último RDO; em andamento → hoje). Só equipamentos do módulo Equipamentos.
+    const equipEndDate = row.archived ? (lastDay.date ? new Date(lastDay.date) : now) : now;
+    const equipment = (equipmentByProject.get(row.projectId) || [])
+      .map(e => {
+        const since = new Date(e.sinceDate);
+        const days = Math.max(0, Math.round((equipEndDate.getTime() - since.getTime()) / 86400000));
+        return { name: e.name, days, since: e.sinceDate };
+      })
+      .sort((x, y) => y.days - x.days);
+
     const alerts = computeAlerts({
       startDate: row.startDate ?? null,
       plannedDays,
@@ -138,6 +153,7 @@ export async function listProjectCards() {
       // laborCost = com adicional offshore; laborCostBase = sem offshore (para comparação).
       laborCost: laborByProject.get(row.projectId)?.laborCost ?? null,
       laborCostBase: laborByProject.get(row.projectId)?.laborCostBase ?? null,
+      equipment, // equipamentos (módulo Equipamentos) em obra: { name, days, since }
       alerts
     };
   });

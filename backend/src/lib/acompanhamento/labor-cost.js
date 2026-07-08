@@ -14,6 +14,7 @@
 
 import prisma from '../prisma.js';
 import { computeMonthlyCost } from './cost-engine.js';
+import { getEpiAnnualCost } from './settings.js';
 
 const DIAS_CLIENTE_INTEGRAL = 30; // torna a periculosidade integral no motor de custo
 const OFFSHORE_TRANSFERENCIA_BONUS_PCT = 0.10; // +10 pontos percentuais na transferência (projeto offshore)
@@ -99,14 +100,16 @@ export async function computeCollaboratorRates(importId = null) {
   if (!pontoImport) return { pontoImport: null, rates: [], byCollaboratorId: new Map() };
 
   const periodEndExclusive = endExclusive(pontoImport.periodEnd);
-  const [periods, roleParams, rdoDates] = await Promise.all([
+  const [periods, roleParams, rdoDates, epiAnnualCost] = await Promise.all([
     prisma.pontoPeriodSummary.findMany({
       where: { importId: pontoImport.id, collaboratorId: { not: null } },
       include: { collaborator: { select: { id: true, name: true, role: true } } }
     }),
     getRoleParamsMap(),
-    getRdoDatesByCollaborator(pontoImport.periodStart, periodEndExclusive)
+    getRdoDatesByCollaborator(pontoImport.periodStart, periodEndExclusive),
+    getEpiAnnualCost()
   ]);
+  const epiMensal = epiAnnualCost / 12; // custo de EPI mensal por colaborador (média fixa)
 
   const rates = [];
   const byCollaboratorId = new Map();
@@ -135,8 +138,9 @@ export async function computeCollaboratorRates(importId = null) {
         offshoreDays,
         offshoreBonusPct: OFFSHORE_TRANSFERENCIA_BONUS_PCT
       });
-      totalMensalBase = costBase.totalMensal;
-      totalMensal = cost.totalMensal;
+      // EPI é uma média fixa por colaborador, independente de cargo/offshore → entra nos dois totais.
+      totalMensalBase = costBase.totalMensal + epiMensal;
+      totalMensal = cost.totalMensal + epiMensal;
       custoHoraBase = totalHoras > 0 ? totalMensalBase / totalHoras : 0;
       custoHora = totalHoras > 0 ? totalMensal / totalHoras : 0;
     }

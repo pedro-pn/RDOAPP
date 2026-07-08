@@ -261,6 +261,14 @@ model CostParameterSet {
   @@index([costProfileId])
 }
 
+// Configurações globais do módulo Acompanhamento (chave/valor). Ex.: custo de EPI por colaborador.
+model AcompanhamentoSetting {
+  key             String   @id
+  numberValue     Float?
+  updatedByUserId String?
+  updatedAt       DateTime @default(now()) @updatedAt
+}
+
 // === Ponto (jornada) importado do Pontomais — base do custo de mão de obra (HH) ===
 // Enquanto não há integração automática com o VR Ponto Mais, a planilha de jornada é enviada
 // manualmente (semanal). Cada import guarda auditoria + um resumo por colaborador no período.

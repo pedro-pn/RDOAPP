@@ -1920,6 +1920,9 @@ a {
 .acp-pcard-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; align-items: center; }
 .acp-pcard-row > span:first-child { color: var(--mu); }
 .acp-pcard-strong { font-weight: 700; }
+.acp-pcard-equip { display: flex; flex-direction: column; gap: 3px; }
+.acp-pcard-equip-item { font-size: 12px; padding-left: 8px; }
+.acp-pcard-equip-item > span:last-child { white-space: nowrap; }
 .acp-pcard-status { font-weight: 600; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
 .acp-pcard-status.ok { color: #1f7a3d; background: #e6f4ea; }
 .acp-pcard-status.warn { color: #92400e; background: #fef3c7; }

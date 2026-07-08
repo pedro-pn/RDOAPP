@@ -75,10 +75,12 @@ export function AcompanhamentoPage() {
               <span className="equip-nav-ico" aria-hidden="true">▦</span>
               <span className="equip-nav-label">Projetos</span>
             </button>
-            <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
-              <span className="equip-nav-ico" aria-hidden="true">$</span>
-              <span className="equip-nav-label">Custo</span>
-            </button>
+            {isManager ? (
+              <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
+                <span className="equip-nav-ico" aria-hidden="true">$</span>
+                <span className="equip-nav-label">Custo</span>
+              </button>
+            ) : null}
           </nav>
 
           <div className="equip-mobile-nav" data-acp-mobile-nav>
@@ -91,14 +93,14 @@ export function AcompanhamentoPage() {
             >
               <option value="dashboard">Dashboard</option>
               <option value="projetos">Projetos</option>
-              <option value="custo">Custo</option>
+              {isManager ? <option value="custo">Custo</option> : null}
             </select>
           </div>
 
           <section className="equip-content">
-            {section === 'dashboard' ? <AcompanhamentoDashboard />
-              : section === 'projetos' ? <ProjectCardsBoard />
-              : <CostEngineManager />}
+            {section === 'projetos' ? <ProjectCardsBoard />
+              : section === 'custo' && isManager ? <CostEngineManager />
+              : <AcompanhamentoDashboard />}
           </section>
         </div>
       </main>
