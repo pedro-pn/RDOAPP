@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
@@ -7,7 +8,9 @@ import {
   type PlannedScope
 } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
+import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
+import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -86,9 +89,17 @@ function PlannedScopeView({ scope }: { scope?: PlannedScope }) {
 }
 
 // Dashboard detalhado de um projeto (aberto ao clicar num card da aba Projetos).
-export function ProjectDetailDashboard({ projectId, onBack }: { projectId: string; onBack: () => void }) {
+export function ProjectDetailDashboard({ projectId, canManage = false, onBack }: { projectId: string; canManage?: boolean; onBack: () => void }) {
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDirty, setScheduleDirty] = useState(false);
+  const scheduleRef = useRef<ScheduleEditorHandle>(null);
   const { data, isLoading } = useQuery({ queryKey: ['project-detail', projectId], queryFn: () => getProjectDetail(projectId) });
   const { data: scope } = useQuery({ queryKey: ['planned-scope', projectId], queryFn: () => getPlannedScope(projectId) });
+
+  function closeSchedule() {
+    setScheduleOpen(false);
+    setScheduleDirty(false);
+  }
 
   if (isLoading || !data) {
     return (
@@ -100,6 +111,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
   }
 
   const h = data.header;
+  const equipamentos = data.equipamentos ?? [];
   const headerBits = [
     `Missão ${h.code}`,
     h.clientName,
@@ -112,6 +124,11 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
     <div className="acp-det">
       <div className="acp-det-bar">
         <button type="button" className="mini-btn alt" onClick={onBack}>← Voltar</button>
+        {canManage ? (
+          <button type="button" className="mini-btn" onClick={() => setScheduleOpen(true)}>
+            Editar cronograma
+          </button>
+        ) : null}
       </div>
 
       <div className="page-card acp-det-header">
@@ -129,7 +146,7 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           <div className="page-card acp-det-block">
             <MetricBar
               label="Dias corridos"
-              help="Dias de calendário desde o início da obra até hoje, sobre os dias corridos previstos no comercial."
+              help="Dias de calendário desde o início da obra até a data de referência: hoje para projetos em andamento; último RDO para projetos arquivados."
               value={data.diasCorridos.pct}
               caption={`${data.diasCorridos.elapsed ?? '—'}/${data.diasCorridos.planned ?? '—'}${data.diasCorridos.pct != null ? ` · ${data.diasCorridos.pct}%` : ''}`}
             />
@@ -142,23 +159,49 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           </div>
 
           <div className="page-card acp-det-block">
-            <MetricBar
-              label="Consumo de gastos"
-              help="Total gasto no Omie (pago + a pagar, sem salários) sobre o custo previsto no comercial. A mão de obra será calculada à parte na integração do ponto."
-              value={data.consumo.pct}
-              tone="cost"
-              caption={`${brl(data.consumo.gasto)} / ${brl(data.consumo.previsto)}${data.consumo.pct != null ? ` · ${data.consumo.pct}%` : ''}`}
-            />
-            <div className="acp-det-sub"><HelpTip help="As 5 categorias de despesa do Omie com maior valor neste projeto (salários excluídos).">Maiores gastos (sem salários)</HelpTip></div>
-            {data.maioresGastos.length === 0 ? (
-              <div className="placeholder-copy">Sem gastos registrados no Omie.</div>
-            ) : (
-              <ul className="acp-det-rank">
-                {data.maioresGastos.map((g, i) => (
-                  <li key={i}><span className="acp-det-rank-cat">{g.categoria}</span><span className="acp-det-rank-val">{brl(g.total)}</span></li>
-                ))}
-              </ul>
-            )}
+            {(() => {
+              const mo = data.maoDeObra;
+              const moCusto = mo?.custo ?? null;
+              const totalRealizado = data.consumo.gasto + (moCusto ?? 0);
+              const previsto = data.consumo.previsto;
+              const totalPct = previsto && previsto > 0 ? Math.round((totalRealizado / previsto) * 100) : null;
+              const rowStyle = { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 } as const;
+              const hasOffshore = moCusto != null && mo.custoBase != null && Math.round(moCusto) !== Math.round(mo.custoBase);
+              return (
+                <>
+                  <MetricBar
+                    label="Consumo de gastos"
+                    help="Total realizado (compras do Omie, sem salários, + mão de obra do ponto) sobre o custo previsto no comercial."
+                    value={totalPct}
+                    tone="cost"
+                    caption={`${brl(totalRealizado)} / ${brl(previsto)}${totalPct != null ? ` · ${totalPct}%` : ''}`}
+                  />
+                  <div style={{ margin: '8px 0' }}>
+                    <div style={rowStyle}><span className="placeholder-copy">Compras (Omie)</span><span>{brl(data.consumo.gasto)}</span></div>
+                    {moCusto != null ? (
+                      <div style={rowStyle}>
+                        <HelpTip help="Valor gasto com mão de obra deste projeto, calculado a partir do ponto (custo rateado por colaborador), incluindo o adicional offshore quando houver.">Mão de obra{hasOffshore ? ' c/ offshore' : ''}</HelpTip>
+                        <span>{brl(moCusto)}</span>
+                      </div>
+                    ) : null}
+                    {moCusto != null && hasOffshore ? (
+                      <div style={rowStyle}><span className="placeholder-copy">Mão de obra sem offshore</span><span>{brl(mo.custoBase)}</span></div>
+                    ) : null}
+                    <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}><strong>Total realizado</strong><strong>{brl(totalRealizado)}</strong></div>
+                  </div>
+                  <div className="acp-det-sub"><HelpTip help="As 5 categorias de despesa do Omie com maior valor neste projeto (salários excluídos).">Maiores gastos (compras Omie)</HelpTip></div>
+                  {data.maioresGastos.length === 0 ? (
+                    <div className="placeholder-copy">Sem gastos registrados no Omie.</div>
+                  ) : (
+                    <ul className="acp-det-rank">
+                      {data.maioresGastos.map((g, i) => (
+                        <li key={i}><span className="acp-det-rank-cat">{g.categoria}</span><span className="acp-det-rank-val">{brl(g.total)}</span></li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -212,31 +255,98 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
         {/* Coluna 3 */}
         <div className="acp-det-col">
           <div className="page-card acp-det-block">
-            <div className="acp-det-sub"><HelpTip help="Pessoas distintas que aparecem em qualquer RDO do projeto (cada colaborador conta uma vez), com o cargo.">Colaboradores na obra ({data.colaboradores.length})</HelpTip></div>
-            {data.colaboradores.length === 0 ? (
-              <div className="placeholder-copy">Nenhum colaborador nos RDOs.</div>
-            ) : (
-              <ul className="acp-det-collabs">
-                {data.colaboradores.map((c, i) => (
-                  <li key={i}><span>{c.name}</span><span className="acp-det-collab-role">{c.role}</span></li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="page-card acp-det-block">
             <div className="acp-det-sub"><HelpTip help="Escopo vendido informado manualmente (aba Cronograma): serviços, sistemas e quantitativos, com o peso de cada serviço no avanço.">Escopo cadastrado</HelpTip></div>
             <PlannedScopeView scope={scope} />
           </div>
         </div>
       </div>
 
+      <div className="page-card acp-det-block">
+        <details className="acp-det-equips-details" open>
+          <summary className="acp-det-collabs-summary">
+            Equipamentos na obra ({equipamentos.length})
+          </summary>
+          {equipamentos.length === 0 ? (
+            <div className="placeholder-copy" style={{ marginTop: 8 }}>Nenhum equipamento em obra.</div>
+          ) : (
+            <div className="acp-det-equips-grid" style={{ marginTop: 8 }}>
+              {equipamentos.map((e, i) => (
+                <div className="acp-det-equip-item" key={`${e.name}-${i}`}>
+                  <span>{e.name}</span>
+                  <strong>{e.days} dia{e.days === 1 ? '' : 's'}</strong>
+                  <small>desde {fmtDate(e.since)}</small>
+                </div>
+              ))}
+            </div>
+          )}
+        </details>
+      </div>
+
+      {/* Colaboradores em largura total, tabela retrátil: nome · cargo · valor gasto (custo/hora). */}
+      <div className="page-card acp-det-block">
+        <details className="acp-det-collabs-details" open>
+          <summary className="acp-det-collabs-summary">
+            Colaboradores na obra ({data.colaboradores.length})
+          </summary>
+          {data.colaboradores.length === 0 ? (
+            <div className="placeholder-copy" style={{ marginTop: 8 }}>Nenhum colaborador nos RDOs.</div>
+          ) : (
+            <div className="acp-table-wrap" style={{ marginTop: 8 }}>
+              <table className="acp-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Cargo</th>
+                    <th style={{ textAlign: 'right' }}>Custo (HH)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.colaboradores.map((c, i) => (
+                    <tr key={i}>
+                      <td>{c.name}</td>
+                      <td>{c.role}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {c.custo != null ? (
+                          <>{brl(c.custo)}<span className="acp-det-collab-rate">{c.custoHora != null ? ` (${brl(c.custoHora)}/h)` : ''}</span></>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </details>
+      </div>
+
       <div className="page-card acp-det-footer">
         <div><span><HelpTip help="Data de mobilização, cadastrada manualmente no cronograma.">Mobilização</HelpTip></span><strong>{fmtDate(data.footer.mobilizationDate)}</strong></div>
         <div><span><HelpTip help="Data de início real, cadastrada manualmente no cronograma.">Início</HelpTip></span><strong>{fmtDate(data.footer.startDate)}</strong></div>
         <div><span><HelpTip help="Início + dias corridos previstos no comercial.">Previsão de término</HelpTip></span><strong>{fmtDate(data.footer.expectedEndDate)}</strong></div>
-        <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade atual (avanço acumulado por dia corrido desde o início).">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
+        <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade de avanço acumulada até a data de referência dos dias corridos.">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
+
+      <Modal open={scheduleOpen} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
+        <div className="acp-manage">
+          <div className="acp-manage-head">
+            <div className="sec" id="acp-detail-schedule-title">Cronograma — Missão {h.code}</div>
+            <button className="mini-btn alt" type="button" onClick={closeSchedule} aria-label="Fechar">✕</button>
+          </div>
+          <div className="acp-manage-body">
+            <ProjectScheduleEditor
+              key={projectId}
+              ref={scheduleRef}
+              projectId={projectId}
+              canManage={canManage}
+              onDirtyChange={setScheduleDirty}
+            />
+          </div>
+          <div className="acp-manage-foot">
+            <button type="button" className="mini-btn alt" onClick={closeSchedule}>Cancelar</button>
+            <button type="button" className="mini-btn" disabled={!scheduleDirty} onClick={() => scheduleRef.current?.save()}>Salvar</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

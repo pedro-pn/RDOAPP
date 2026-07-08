@@ -104,6 +104,44 @@ test('getOperationalStatus summarizes job failures, locks and queues', async () 
           }
         ];
       }
+    },
+    integrationSyncRun: {
+      async findMany() {
+        return [
+          {
+            id: 'omie-1',
+            integration: 'OMIE',
+            scope: 'purchases',
+            status: 'SUCCESS',
+            recordsRead: 10,
+            recordsWritten: 8,
+            error: null,
+            summary: { linkedProjects: 2 },
+            triggeredBy: 'SCHEDULE',
+            startedAt: new Date('2026-07-02T08:00:00.000Z'),
+            finishedAt: new Date('2026-07-02T08:00:10.000Z')
+          }
+        ];
+      }
+    },
+    accessImport: {
+      async findFirst() {
+        return {
+          id: 'access-1',
+          fileName: 'propostas_bd.accdb',
+          source: 'SCRIPT',
+          status: 'SUCCESS',
+          rowsRead: 50,
+          created: 2,
+          updated: 48,
+          skipped: 0,
+          pendingProjectsCreated: 0,
+          error: null,
+          summary: { proposals: 50 },
+          importedByUserId: null,
+          createdAt: new Date('2026-07-02T07:00:00.000Z')
+        };
+      }
     }
   };
 
@@ -121,7 +159,11 @@ test('getOperationalStatus summarizes job failures, locks and queues', async () 
       operationsAlertWebhookUrl: '',
       operationsAlertIntervalMs: 60 * 60 * 1000,
       errorTrackingWebhookUrl: '',
-      errorTrackingProvider: 'webhook'
+      errorTrackingProvider: 'webhook',
+      commercialImportToken: 'token',
+      omieAppKey: 'key',
+      omieAppSecret: 'secret',
+      omieSyncEnabled: true
     },
     readFile: async filePath => files.get(filePath)
   });
@@ -134,6 +176,8 @@ test('getOperationalStatus summarizes job failures, locks and queues', async () 
   assert.equal(status.jobs.activeLocks[0].name, 'signature-reminders');
   assert.equal(status.backup.status, 'STALE');
   assert.equal(status.restore.status, 'FAILURE');
+  assert.equal(status.omie.status, 'SUCCESS');
+  assert.equal(status.commercialImport.status, 'SUCCESS');
   assert.equal(status.problems.length, 5);
   assert.equal(status.errorTracking.enabled, false);
 });
@@ -146,7 +190,9 @@ test('getOperationalStatus flags required status files without configured paths'
       async groupBy() { return []; },
       async findFirst() { return null; }
     },
-    jobLock: { async findMany() { return []; } }
+    jobLock: { async findMany() { return []; } },
+    integrationSyncRun: { async findMany() { return []; } },
+    accessImport: { async findFirst() { return null; } }
   };
 
   const status = await getOperationalStatus({
@@ -163,7 +209,11 @@ test('getOperationalStatus flags required status files without configured paths'
       operationsAlertWebhookUrl: '',
       operationsAlertIntervalMs: 60 * 60 * 1000,
       errorTrackingWebhookUrl: '',
-      errorTrackingProvider: 'webhook'
+      errorTrackingProvider: 'webhook',
+      commercialImportToken: '',
+      omieAppKey: '',
+      omieAppSecret: '',
+      omieSyncEnabled: false
     }
   });
 
@@ -173,5 +223,86 @@ test('getOperationalStatus flags required status files without configured paths'
   assert.deepEqual(status.problems.map(item => item.message), [
     'Status de backup obrigatório não está configurado.',
     'Status de restore obrigatório não está configurado.'
+  ]);
+});
+
+test('getOperationalStatus flags Omie and commercial import failures', async () => {
+  const now = new Date('2026-07-02T12:00:00.000Z');
+  const client = {
+    jobRun: { async findMany() { return []; } },
+    dataRetentionRun: { async findFirst() { return null; } },
+    reportApprovalPostProcessingJob: {
+      async groupBy() { return []; },
+      async findFirst() { return null; }
+    },
+    jobLock: { async findMany() { return []; } },
+    integrationSyncRun: {
+      async findMany() {
+        return [
+          {
+            id: 'omie-error',
+            integration: 'OMIE',
+            scope: 'purchases',
+            status: 'ERROR',
+            recordsRead: 20,
+            recordsWritten: 10,
+            error: 'omie unavailable',
+            summary: null,
+            triggeredBy: 'SCHEDULE',
+            startedAt: new Date('2026-07-02T11:00:00.000Z'),
+            finishedAt: new Date('2026-07-02T11:00:20.000Z')
+          }
+        ];
+      }
+    },
+    accessImport: {
+      async findFirst() {
+        return {
+          id: 'access-error',
+          fileName: 'propostas_bd.accdb',
+          source: 'SCRIPT',
+          status: 'ERROR',
+          rowsRead: 0,
+          created: 0,
+          updated: 0,
+          skipped: 0,
+          pendingProjectsCreated: 0,
+          error: 'invalid access file',
+          summary: { errorName: 'Error' },
+          importedByUserId: null,
+          createdAt: new Date('2026-07-02T10:00:00.000Z')
+        };
+      }
+    }
+  };
+
+  const status = await getOperationalStatus({
+    prismaClient: client,
+    now,
+    config: {
+      operationsBackupStatusFile: '',
+      operationsRestoreStatusFile: '',
+      operationsRequireBackupStatus: false,
+      operationsRequireRestoreStatus: false,
+      operationsBackupMaxAgeHours: 24,
+      operationsRestoreMaxAgeDays: 30,
+      operationsAlertJobEnabled: false,
+      operationsAlertWebhookUrl: '',
+      operationsAlertIntervalMs: 60 * 60 * 1000,
+      errorTrackingWebhookUrl: '',
+      errorTrackingProvider: 'webhook',
+      commercialImportToken: 'token',
+      omieAppKey: 'key',
+      omieAppSecret: 'secret',
+      omieSyncEnabled: true
+    }
+  });
+
+  assert.equal(status.ok, false);
+  assert.equal(status.omie.status, 'ERROR');
+  assert.equal(status.commercialImport.status, 'ERROR');
+  assert.deepEqual(status.problems.map(item => item.message), [
+    'Sincronização Omie falhou na última execução.',
+    'Recebimento do banco comercial falhou na última execução.'
   ]);
 });

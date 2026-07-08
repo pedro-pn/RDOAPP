@@ -43,6 +43,42 @@ function publicJobRun(run) {
   };
 }
 
+function publicIntegrationSyncRun(run) {
+  if (!run) return null;
+  return {
+    id: run.id,
+    integration: run.integration,
+    scope: run.scope || null,
+    status: run.status,
+    recordsRead: run.recordsRead,
+    recordsWritten: run.recordsWritten,
+    error: run.error || null,
+    summary: run.summary || null,
+    triggeredBy: run.triggeredBy || null,
+    startedAt: dateToIso(run.startedAt),
+    finishedAt: dateToIso(run.finishedAt)
+  };
+}
+
+function publicAccessImport(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    fileName: row.fileName,
+    source: row.source,
+    status: row.status,
+    rowsRead: row.rowsRead,
+    created: row.created,
+    updated: row.updated,
+    skipped: row.skipped,
+    pendingProjectsCreated: row.pendingProjectsCreated,
+    error: row.error || null,
+    summary: row.summary || null,
+    importedByUserId: row.importedByUserId || null,
+    createdAt: dateToIso(row.createdAt)
+  };
+}
+
 function publicJobLock(lock) {
   return {
     name: lock.name,
@@ -159,6 +195,43 @@ async function activeJobLocks(prismaClient, now) {
   return locks.map(publicJobLock);
 }
 
+async function omieSyncStatus(prismaClient, config) {
+  const rows = await prismaClient.integrationSyncRun.findMany({
+    where: { integration: 'OMIE' },
+    orderBy: { startedAt: 'desc' },
+    take: 20
+  });
+  const latestRun = rows[0] || null;
+  const latestByScope = new Map();
+  for (const row of rows) {
+    const scope = row.scope || 'unknown';
+    if (!latestByScope.has(scope)) latestByScope.set(scope, row);
+  }
+  const configured = Boolean(config.omieAppKey && config.omieAppSecret);
+  return {
+    configured,
+    enabled: Boolean(config.omieSyncEnabled),
+    status: latestRun?.status || (configured ? 'SEM_EXECUCAO' : 'NOT_CONFIGURED'),
+    latestRun: publicIntegrationSyncRun(latestRun),
+    scopes: Array.from(latestByScope.entries()).map(([scope, run]) => ({
+      scope,
+      latestRun: publicIntegrationSyncRun(run)
+    }))
+  };
+}
+
+async function commercialImportStatus(prismaClient, config) {
+  const latestImport = await prismaClient.accessImport.findFirst({
+    orderBy: { createdAt: 'desc' }
+  });
+  const configured = Boolean(config.commercialImportToken);
+  return {
+    configured,
+    status: latestImport?.status || (configured ? 'SEM_RECEBIMENTO' : 'NOT_CONFIGURED'),
+    latestImport: publicAccessImport(latestImport)
+  };
+}
+
 async function readStatusFile(filePath, { readFile = fs.readFile } = {}) {
   if (!filePath) return { configured: false, status: 'NOT_CONFIGURED' };
   try {
@@ -217,7 +290,17 @@ async function restoreStatus({ config, now, readFile }) {
   });
 }
 
-function collectProblems({ recurringJobs, dataRetention, reportApprovalQueue, backup, restore, config, now }) {
+function collectProblems({
+  recurringJobs,
+  dataRetention,
+  reportApprovalQueue,
+  backup,
+  restore,
+  omie,
+  commercialImport,
+  config,
+  now
+}) {
   const problems = [];
   for (const job of recurringJobs) {
     if (job.latestRun?.status === 'FAILED') {
@@ -283,6 +366,27 @@ function collectProblems({ recurringJobs, dataRetention, reportApprovalQueue, ba
   if (restore.status === 'INVALID') {
     problems.push(problem('Status de restore está inválido.', { restore }));
   }
+  if (omie.latestRun?.status === 'ERROR') {
+    problems.push(problem('Sincronização Omie falhou na última execução.', {
+      job: 'omie-sync',
+      integration: 'OMIE',
+      scope: omie.latestRun.scope,
+      error: omie.latestRun.error
+    }));
+  }
+  if (commercialImport.latestImport?.status === 'ERROR') {
+    problems.push(problem('Recebimento do banco comercial falhou na última execução.', {
+      job: 'commercial-access-import',
+      source: commercialImport.latestImport.source,
+      error: commercialImport.latestImport.error
+    }));
+  }
+  if (commercialImport.latestImport?.status === 'PARTIAL') {
+    problems.push(problem('Recebimento do banco comercial ficou parcial na última execução.', {
+      job: 'commercial-access-import',
+      source: commercialImport.latestImport.source
+    }));
+  }
   return problems;
 }
 
@@ -298,14 +402,18 @@ export async function getOperationalStatus({
     reportApprovalQueue,
     jobLocks,
     backup,
-    restore
+    restore,
+    omie,
+    commercialImport
   ] = await Promise.all([
     latestRecurringJobRuns(prismaClient),
     dataRetentionStatus(prismaClient),
     reportApprovalQueueStatus(prismaClient),
     activeJobLocks(prismaClient, now),
     backupStatus({ config, now, readFile }),
-    restoreStatus({ config, now, readFile })
+    restoreStatus({ config, now, readFile }),
+    omieSyncStatus(prismaClient, config),
+    commercialImportStatus(prismaClient, config)
   ]);
 
   const problems = collectProblems({
@@ -314,6 +422,8 @@ export async function getOperationalStatus({
     reportApprovalQueue,
     backup,
     restore,
+    omie,
+    commercialImport,
     config,
     now
   });
@@ -330,6 +440,8 @@ export async function getOperationalStatus({
     },
     backup,
     restore,
+    omie,
+    commercialImport,
     errorTracking: errorTrackingStatus(config),
     alerting: {
       enabled: config.operationsAlertJobEnabled,
