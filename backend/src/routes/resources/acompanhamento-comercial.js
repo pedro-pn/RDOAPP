@@ -198,7 +198,8 @@ const scheduleSchema = z.object({
   mobilizationDate: z.string().datetime().nullable().optional(),
   manualProgressPct: z.number().min(0).max(100).nullable().optional(),
   offshore: z.boolean().optional(),
-  laborSleepModeByCollaborator: z.record(z.enum(['HOME', 'AWAY'])).optional()
+  laborSleepModeByCollaborator: z.record(z.enum(['HOME', 'AWAY'])).optional(),
+  laborCollaboratorIds: z.array(z.string()).optional()
 });
 
 router.patch(

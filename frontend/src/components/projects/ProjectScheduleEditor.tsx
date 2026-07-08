@@ -1,7 +1,14 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getProjectRevisions, setProjectSchedule, type CommercialRevision, type ProjectSchedulePayload } from '../../api/acompanhamentoComercial';
+import {
+  getProjectRevisions,
+  setProjectSchedule,
+  type CommercialRevision,
+  type LaborCollaborator,
+  type LaborCollaboratorSource,
+  type ProjectSchedulePayload
+} from '../../api/acompanhamentoComercial';
 import { getActiveCollaborators } from '../../api/acompanhamentoPonto';
 import { useToast } from '../ui/ToastContext';
 import { HelpTip } from '../ui/HelpTip';
@@ -47,6 +54,11 @@ function isoOrNull(dateInput: string) {
 }
 
 type LaborSleepMode = 'HOME' | 'AWAY';
+const LABOR_SOURCE_LABELS: Record<LaborCollaboratorSource, string> = {
+  LEADER: 'Líder',
+  RDO: 'RDO',
+  MANUAL: 'Manual'
+};
 
 function normalizeSleepModeMap(value?: Record<string, LaborSleepMode> | null): Record<string, LaborSleepMode> {
   const result: Record<string, LaborSleepMode> = {};
@@ -62,6 +74,22 @@ function sleepModeMapKey(value: Record<string, LaborSleepMode>) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([collaboratorId, mode]) => `${collaboratorId}:${mode}`)
     .join('|');
+}
+
+function normalizeCollaboratorIds(value?: string[] | null) {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of value ?? []) {
+    const id = typeof raw === 'string' ? raw.trim() : '';
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function collaboratorIdListKey(value: string[]) {
+  return normalizeCollaboratorIds(value).sort((a, b) => a.localeCompare(b)).join('|');
 }
 
 // Cronograma do projeto, gerido no módulo Acompanhamento (datas de aprovação e início real),
@@ -87,6 +115,8 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const [manualEdit, setManualEdit] = useState<string | null>(null);
   const [offshoreEdit, setOffshoreEdit] = useState<boolean | null>(null);
   const [sleepModeEdit, setSleepModeEdit] = useState<Record<string, LaborSleepMode> | null>(null);
+  const [manualLaborIdsEdit, setManualLaborIdsEdit] = useState<string[] | null>(null);
+  const [manualLaborAddId, setManualLaborAddId] = useState('');
   const [scopeDirty, setScopeDirty] = useState(false);
   const scopeRef = useRef<ScopeEditorHandle>(null);
 
@@ -100,6 +130,8 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       setManualEdit(null);
       setOffshoreEdit(null);
       setSleepModeEdit(null);
+      setManualLaborIdsEdit(null);
+      setManualLaborAddId('');
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['project-cards'] });
@@ -119,18 +151,34 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const offshoreValue = offshoreEdit ?? baseOffshore;
   const baseSleepModeMap = normalizeSleepModeMap(data?.laborSleepModeByCollaborator);
   const sleepModeValue = sleepModeEdit ?? baseSleepModeMap;
+  const baseManualLaborIds = normalizeCollaboratorIds(data?.laborCollaboratorIds);
+  const manualLaborIdsValue = manualLaborIdsEdit ?? baseManualLaborIds;
   const scheduleDirty = approvalValue !== toDateInput(data?.approvedAt)
     || startValue !== toDateInput(data?.startDate)
     || mobValue !== toDateInput(data?.mobilizationDate)
     || manualValue !== baseManual
     || offshoreValue !== baseOffshore
-    || sleepModeMapKey(sleepModeValue) !== sleepModeMapKey(baseSleepModeMap);
+    || sleepModeMapKey(sleepModeValue) !== sleepModeMapKey(baseSleepModeMap)
+    || collaboratorIdListKey(manualLaborIdsValue) !== collaboratorIdListKey(baseManualLaborIds);
   const dirty = scheduleDirty || scopeDirty;
 
   function setCollaboratorSleepMode(collaboratorId: string, mode: LaborSleepMode) {
     const next = { ...sleepModeValue };
     if (mode === 'HOME') next[collaboratorId] = 'HOME';
     else delete next[collaboratorId];
+    setSleepModeEdit(next);
+  }
+
+  function addManualLaborCollaborator() {
+    if (!manualLaborAddId) return;
+    setManualLaborIdsEdit(prev => normalizeCollaboratorIds([...(prev ?? baseManualLaborIds), manualLaborAddId]));
+    setManualLaborAddId('');
+  }
+
+  function removeManualLaborCollaborator(collaboratorId: string) {
+    setManualLaborIdsEdit(prev => normalizeCollaboratorIds((prev ?? baseManualLaborIds).filter(id => id !== collaboratorId)));
+    const next = { ...sleepModeValue };
+    delete next[collaboratorId];
     setSleepModeEdit(next);
   }
 
@@ -145,7 +193,8 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
         mobilizationDate: isoOrNull(mobValue),
         manualProgressPct: manualNum != null && Number.isFinite(manualNum) ? Math.min(100, Math.max(0, manualNum)) : null,
         offshore: offshoreValue,
-        laborSleepModeByCollaborator: normalizeSleepModeMap(sleepModeValue)
+        laborSleepModeByCollaborator: normalizeSleepModeMap(sleepModeValue),
+        laborCollaboratorIds: manualLaborIdsValue
       });
     }
     if (scopeDirty) scopeRef.current?.save();
@@ -169,6 +218,108 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const plannedDays = currentRevision.plannedDays ?? null;
   const consumed = startValue && plannedDays ? daysBetween(startValue, new Date()) : null;
   const consumedPct = consumed != null && plannedDays ? Math.round((consumed / plannedDays) * 100) : null;
+  const activeCollaborators = activeCollaboratorsQuery.data ?? [];
+  const activeById = new Map(activeCollaborators.map(collaborator => [collaborator.id, collaborator]));
+  const laborRowsById = new Map<string, LaborCollaborator>();
+  const laborRows: LaborCollaborator[] = [];
+  const pushLaborRow = (collaborator: LaborCollaborator, fallbackSources: LaborCollaboratorSource[] = ['MANUAL']) => {
+    const existing = laborRowsById.get(collaborator.id);
+    const sources = collaborator.sources?.length ? collaborator.sources : fallbackSources;
+    if (existing) {
+      for (const source of sources) {
+        if (!existing.sources.includes(source)) existing.sources.push(source);
+      }
+      return;
+    }
+    const row = { ...collaborator, role: collaborator.role ?? null, sources: [...sources] };
+    laborRowsById.set(row.id, row);
+    laborRows.push(row);
+  };
+  for (const collaborator of data?.laborCollaborators ?? []) pushLaborRow(collaborator);
+  for (const collaboratorId of manualLaborIdsValue) {
+    const active = activeById.get(collaboratorId);
+    if (active) pushLaborRow({ id: active.id, name: active.name, role: active.role, sources: ['MANUAL'] });
+  }
+  const visibleLaborIds = new Set(laborRows.map(collaborator => collaborator.id));
+  const manualLaborOptions = activeCollaborators
+    .filter(collaborator => !visibleLaborIds.has(collaborator.id))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const manualLaborIdSet = new Set(manualLaborIdsValue);
+  const collaboratorSleepSection = canManage ? (
+    <>
+      <div className="acp-scope-divider" />
+      <div className="sec" style={{ marginTop: 4 }}>Colaboradores e hospedagem</div>
+      <div className="acp-sleep-add">
+        <div className="field-group">
+          <label htmlFor={`acp-labor-add-${projectId}`}>Adicionar colaborador manualmente</label>
+          <select
+            id={`acp-labor-add-${projectId}`}
+            value={manualLaborAddId}
+            disabled={activeCollaboratorsQuery.isLoading || manualLaborOptions.length === 0}
+            onChange={e => setManualLaborAddId(e.target.value)}
+          >
+            <option value="">
+              {activeCollaboratorsQuery.isLoading
+                ? 'Carregando colaboradores...'
+                : manualLaborOptions.length === 0 ? 'Nenhum colaborador disponível' : 'Selecione'}
+            </option>
+            {manualLaborOptions.map(collaborator => (
+              <option key={collaborator.id} value={collaborator.id}>
+                {collaborator.name}{collaborator.role ? ` — ${collaborator.role}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="button" className="mini-btn" onClick={addManualLaborCollaborator} disabled={!manualLaborAddId}>
+          Adicionar
+        </button>
+      </div>
+      {activeCollaboratorsQuery.isLoading && laborRows.length === 0 ? (
+        <div className="placeholder-copy">Carregando colaboradores…</div>
+      ) : laborRows.length === 0 ? (
+        <div className="placeholder-copy">Nenhum colaborador encontrado nos RDOs deste projeto.</div>
+      ) : (
+        <div className="acp-sleep-list">
+          {laborRows.map(collaborator => {
+            const mode = sleepModeValue[collaborator.id] ?? 'AWAY';
+            const canRemoveManual = manualLaborIdSet.has(collaborator.id);
+            return (
+              <div className="acp-sleep-row" key={collaborator.id}>
+                <span className="acp-sleep-name">
+                  <strong>{collaborator.name}</strong>
+                  {collaborator.role ? <small>{collaborator.role}</small> : null}
+                  <small className="acp-sleep-source">
+                    {collaborator.sources.map(source => LABOR_SOURCE_LABELS[source]).join(' · ')}
+                  </small>
+                </span>
+                <div className="acp-sleep-controls">
+                  <select
+                    id={`acp-sleep-${projectId}-${collaborator.id}`}
+                    value={mode}
+                    onChange={e => setCollaboratorSleepMode(collaborator.id, e.target.value as LaborSleepMode)}
+                    aria-label={`Hospedagem de ${collaborator.name}`}
+                  >
+                    <option value="AWAY">Dorme fora</option>
+                    <option value="HOME">Dorme em casa</option>
+                  </select>
+                  {canRemoveManual ? (
+                    <button
+                      type="button"
+                      className="mini-btn alt acp-sleep-remove"
+                      onClick={() => removeManualLaborCollaborator(collaborator.id)}
+                      aria-label={`Remover inclusão manual de ${collaborator.name}`}
+                    >
+                      Remover
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  ) : null;
 
   return (
     <div className="det-section">
@@ -218,38 +369,6 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
           </label>
         </div>
       </div>
-      {canManage ? (
-        <>
-          <div className="acp-scope-divider" />
-          <div className="sec" style={{ marginTop: 4 }}>Hospedagem dos colaboradores</div>
-          {activeCollaboratorsQuery.isLoading ? (
-            <div className="placeholder-copy">Carregando colaboradores…</div>
-          ) : (
-            <div className="acp-sleep-list">
-              {(activeCollaboratorsQuery.data ?? []).map(collaborator => {
-                const mode = sleepModeValue[collaborator.id] ?? 'AWAY';
-                return (
-                  <label className="acp-sleep-row" key={collaborator.id} htmlFor={`acp-sleep-${projectId}-${collaborator.id}`}>
-                    <span className="acp-sleep-name">
-                      <strong>{collaborator.name}</strong>
-                      {collaborator.role ? <small>{collaborator.role}</small> : null}
-                    </span>
-                    <select
-                      id={`acp-sleep-${projectId}-${collaborator.id}`}
-                      value={mode}
-                      onChange={e => setCollaboratorSleepMode(collaborator.id, e.target.value as LaborSleepMode)}
-                    >
-                      <option value="AWAY">Dorme fora</option>
-                      <option value="HOME">Dorme em casa</option>
-                    </select>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </>
-      ) : null}
-
       <div className="det-row" style={{ marginTop: 8 }}><span className="det-label">Mobilização / prazo</span>
         <span className="det-val">
           {leadDays != null ? `${leadDays} dia(s) p/ iniciar${deadline ? ` · até ${formatDatePt(deadline)}` : ''}` : 'Sem prazo de mobilização'}
@@ -263,7 +382,12 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       <ProjectProgressBreakdown projectId={projectId} />
 
       <div className="acp-scope-divider" />
-      <ProjectPlannedScopeEditor ref={scopeRef} projectId={projectId} onDirtyChange={setScopeDirty} />
+      <ProjectPlannedScopeEditor
+        ref={scopeRef}
+        projectId={projectId}
+        onDirtyChange={setScopeDirty}
+        beforeOvertime={collaboratorSleepSection}
+      />
 
       <div className="sec" style={{ marginTop: 16 }}>Realizado por categoria (Omie)</div>
       <RealizedCategoryBreakdown projectId={projectId} limit={10} />

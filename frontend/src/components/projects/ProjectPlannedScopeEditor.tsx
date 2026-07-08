@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, type ReactNode, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -199,7 +199,8 @@ export interface ScopeEditorHandle { save: () => void }
 export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
   projectId: string;
   onDirtyChange?: (dirty: boolean) => void;
-}>(function ProjectPlannedScopeEditor({ projectId, onDirtyChange }, ref) {
+  beforeOvertime?: ReactNode;
+}>(function ProjectPlannedScopeEditor({ projectId, onDirtyChange, beforeOvertime }, ref) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const queryKey = ['planned-scope', projectId];
@@ -497,6 +498,8 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
           {Math.round(weightSum) !== 100 ? ' — o ideal é somar 100%' : ''}
         </div>
       ) : null}
+
+      {beforeOvertime}
 
       <div className="sec" style={{ marginTop: 18 }}>Previsão de hora extra</div>
       <p className="placeholder-copy" style={{ margin: '2px 0 8px' }}>
