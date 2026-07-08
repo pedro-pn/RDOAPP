@@ -142,9 +142,13 @@ export async function setProjectSchedule(projectId: string, payload: ProjectSche
 
 export type PlannedMeasureUnit = 'M' | 'KG' | 'T' | 'UN' | 'L';
 export type PlannedSystemType = 'TUBULACAO' | 'OLEO';
+export type PlannedDiameterUnit = 'pol' | 'mm';
 
 export interface PlannedServiceSystem {
   systemType: PlannedSystemType;
+  description?: string | null;
+  diameter?: string | null;
+  diameterUnit?: PlannedDiameterUnit | null;
   quantity?: string | number | null;
   unit?: PlannedMeasureUnit | null;
 }

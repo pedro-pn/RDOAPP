@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getPlannedScope,
   setPlannedScope,
+  type PlannedDiameterUnit,
   type PlannedMeasureUnit,
   type PlannedScope,
   type PlannedSystemType
@@ -33,6 +34,31 @@ const SYSTEM_UNIT: Record<PlannedSystemType, PlannedMeasureUnit> = {
   OLEO: 'L'
 };
 const UNIT_LABELS: Record<PlannedMeasureUnit, string> = { M: 'm', KG: 'kg', T: 't', UN: 'un', L: 'L' };
+const DIAMETER_UNIT_LABELS: Record<PlannedDiameterUnit, string> = { pol: 'pol', mm: 'mm' };
+const COMMON_INCH_DIAMETERS = [
+  '1/8',
+  '1/4',
+  '3/8',
+  '1/2',
+  '3/4',
+  '1',
+  '1 1/4',
+  '1 1/2',
+  '2',
+  '2 1/2',
+  '3',
+  '3 1/2',
+  '4',
+  '5',
+  '6',
+  '8',
+  '10',
+  '12',
+  '14',
+  '16',
+  '18',
+  '20'
+];
 
 // Tipos de sistema permitidos por serviço (alinhados ao que cada serviço registra no RDO).
 const SERVICE_SYSTEMS: Record<string, PlannedSystemType[]> = {
@@ -50,6 +76,9 @@ const allowedSystems = (serviceType: string) => SERVICE_SYSTEMS[serviceType] ?? 
 interface SystemRow {
   key: string;
   systemType: PlannedSystemType;
+  description: string;
+  diameter: string;
+  diameterUnit: PlannedDiameterUnit;
   quantity: string;
 }
 interface ServiceRow {
@@ -73,6 +102,7 @@ const toNum = (v: string) => {
   const n = Number(v.replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 };
+const toDiameterUnit = (v?: PlannedDiameterUnit | null): PlannedDiameterUnit => (v === 'mm' ? 'mm' : 'pol');
 // Distribui inteiros somando exatamente `total`, proporcionais a `weights` (maior resto).
 function roundToSum(weights: number[], total: number): number[] {
   if (weights.length === 0) return [];
@@ -123,7 +153,14 @@ function fromScope(scope: PlannedScope): { services: ServiceRow[]; overtime: Ove
       weight: s.weight === null || s.weight === undefined ? '' : toStr(s.weight),
       systems: (s.systems ?? [])
         .filter(sys => allowed.includes(sys.systemType))
-        .map(sys => ({ key: nextKey(), systemType: sys.systemType, quantity: toStr(sys.quantity) }))
+        .map(sys => ({
+          key: nextKey(),
+          systemType: sys.systemType,
+          description: toStr(sys.description),
+          diameter: sys.systemType === 'TUBULACAO' ? toStr(sys.diameter) : '',
+          diameterUnit: toDiameterUnit(sys.diameterUnit),
+          quantity: toStr(sys.quantity)
+        }))
     };
   });
   return {
@@ -142,7 +179,13 @@ function normalize(services: ServiceRow[], overtime: OvertimeRow[]) {
     services: services.map(s => ({
       serviceType: s.serviceType,
       weight: s.weight,
-      systems: s.systems.map(sys => ({ systemType: sys.systemType, quantity: sys.quantity }))
+      systems: s.systems.map(sys => ({
+        systemType: sys.systemType,
+        description: sys.description.trim(),
+        diameter: sys.systemType === 'TUBULACAO' ? sys.diameter.trim() : '',
+        diameterUnit: sys.systemType === 'TUBULACAO' ? sys.diameterUnit : null,
+        quantity: sys.quantity
+      }))
     })),
     overtime: overtime.map(o => ({ jobRoleId: o.jobRoleId, collaboratorCount: o.collaboratorCount, hours: o.hours }))
   });
@@ -206,6 +249,9 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
         weight: toNum(s.weight) ?? 0,
         systems: s.systems.map(sys => ({
           systemType: sys.systemType,
+          description: sys.description.trim() || null,
+          diameter: sys.systemType === 'TUBULACAO' ? (sys.diameter.trim() || null) : null,
+          diameterUnit: sys.systemType === 'TUBULACAO' ? sys.diameterUnit : null,
           quantity: toNum(sys.quantity),
           unit: SYSTEM_UNIT[sys.systemType]
         }))
@@ -261,8 +307,34 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
       if (s.key !== serviceKey) return s;
       const used = new Set(s.systems.map(sys => sys.systemType));
       const next = allowedSystems(s.serviceType).find(t => !used.has(t)) ?? allowedSystems(s.serviceType)[0];
-      return { ...s, systems: [...s.systems, { key: nextKey(), systemType: next, quantity: '' }] };
+      return {
+        ...s,
+        systems: [
+          ...s.systems,
+          { key: nextKey(), systemType: next, description: '', diameter: '', diameterUnit: 'pol', quantity: '' }
+        ]
+      };
     }));
+  }
+
+  function changeSystemType(serviceKey: string, sysKey: string, systemType: PlannedSystemType) {
+    setServices(prev => prev.map(s => (
+      s.key === serviceKey
+        ? {
+            ...s,
+            systems: s.systems.map(sys => (
+              sys.key === sysKey
+                ? {
+                    ...sys,
+                    systemType,
+                    diameter: systemType === 'TUBULACAO' ? sys.diameter : '',
+                    diameterUnit: systemType === 'TUBULACAO' && sys.diameterUnit === 'mm' ? 'mm' : 'pol'
+                  }
+                : sys
+            ))
+          }
+        : s
+    )));
   }
 
   function changeSystem(serviceKey: string, sysKey: string, patch: Partial<SystemRow>) {
@@ -323,31 +395,84 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
                 <div className="placeholder-copy" style={{ margin: '4px 0' }}>Nenhum sistema adicionado.</div>
               ) : (
                 <div className="acp-sys-list">
-                  {svc.systems.map(sys => (
-                    <div className="acp-sys-row" key={sys.key}>
-                      <div className="field-group">
-                        <label>Sistema <HelpTip icon help="O que será medido neste serviço: tubulação (em metros) ou óleo (em litros)." /></label>
-                        <select
-                          value={sys.systemType}
-                          onChange={e => changeSystem(svc.key, sys.key, { systemType: e.target.value as PlannedSystemType })}
-                        >
-                          {allowedSystems(svc.serviceType).map(t => <option key={t} value={t}>{SYSTEM_LABELS[t]}</option>)}
-                        </select>
-                      </div>
-                      <div className="field-group">
-                        <label>Quantidade ({UNIT_LABELS[SYSTEM_UNIT[sys.systemType]]}) <HelpTip icon help="Quantitativo vendido/previsto deste sistema. É o denominador do avanço (realizado ÷ previsto)." /></label>
-                        <div className="num-unit">
-                          <input
-                            type="number" min="0" step="any" inputMode="decimal" placeholder="0"
-                            value={sys.quantity}
-                            onChange={e => changeSystem(svc.key, sys.key, { quantity: e.target.value })}
-                          />
-                          <span className="acp-unit-tag">{UNIT_LABELS[SYSTEM_UNIT[sys.systemType]]}</span>
+                  {svc.systems.map(sys => {
+                    const isTube = sys.systemType === 'TUBULACAO';
+                    const inchDiameters = sys.diameter && !COMMON_INCH_DIAMETERS.includes(sys.diameter)
+                      ? [sys.diameter, ...COMMON_INCH_DIAMETERS]
+                      : COMMON_INCH_DIAMETERS;
+                    return (
+                      <div className={`acp-sys-row ${isTube ? 'tube' : 'oil'}`} key={sys.key}>
+                        <div className="field-group">
+                          <label>Sistema <HelpTip icon help="O que será medido neste serviço: tubulação (em metros) ou óleo (em litros)." /></label>
+                          <select
+                            value={sys.systemType}
+                            onChange={e => changeSystemType(svc.key, sys.key, e.target.value as PlannedSystemType)}
+                          >
+                            {allowedSystems(svc.serviceType).map(t => <option key={t} value={t}>{SYSTEM_LABELS[t]}</option>)}
+                          </select>
                         </div>
+                        <div className="field-group acp-sys-desc">
+                          <label>Descrição do sistema</label>
+                          <input
+                            type="text"
+                            maxLength={180}
+                            value={sys.description}
+                            onChange={e => changeSystem(svc.key, sys.key, { description: e.target.value })}
+                          />
+                        </div>
+                        {isTube ? (
+                          <div className="field-group acp-sys-diameter">
+                            <label>Diâmetro <HelpTip icon help="Mesmo padrão do RDO: polegadas por seleção comum ou milímetros digitados." /></label>
+                            <div className="num-unit acp-diameter-field">
+                              {sys.diameterUnit === 'pol' ? (
+                                <select
+                                  value={sys.diameter}
+                                  onChange={e => changeSystem(svc.key, sys.key, { diameter: e.target.value })}
+                                  aria-label="Diâmetro em polegadas"
+                                >
+                                  <option value="">—</option>
+                                  {inchDiameters.map(value => <option key={value} value={value}>{value}</option>)}
+                                </select>
+                              ) : (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  inputMode="decimal"
+                                  placeholder="0"
+                                  value={sys.diameter}
+                                  onChange={e => changeSystem(svc.key, sys.key, { diameter: e.target.value })}
+                                />
+                              )}
+                              <select
+                                value={sys.diameterUnit}
+                                onChange={e => changeSystem(svc.key, sys.key, { diameterUnit: e.target.value as PlannedDiameterUnit, diameter: '' })}
+                                aria-label="Unidade do diâmetro"
+                              >
+                                {Object.entries(DIAMETER_UNIT_LABELS).map(([value, label]) => (
+                                  <option key={value} value={value}>{label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        ) : null}
+                        <div className="field-group">
+                          <label>
+                            {isTube ? 'Comprimento (m)' : 'Litros de óleo (L)'} <HelpTip icon help="Quantitativo vendido/previsto deste sistema. É o denominador do avanço (realizado ÷ previsto)." />
+                          </label>
+                          <div className="num-unit">
+                            <input
+                              type="number" min="0" step="any" inputMode="decimal" placeholder="0"
+                              value={sys.quantity}
+                              onChange={e => changeSystem(svc.key, sys.key, { quantity: e.target.value })}
+                            />
+                            <span className="acp-unit-tag">{UNIT_LABELS[SYSTEM_UNIT[sys.systemType]]}</span>
+                          </div>
+                        </div>
+                        <button type="button" className="mini-btn alt acp-sys-del" onClick={() => removeSystem(svc.key, sys.key)} aria-label="Remover sistema">✕</button>
                       </div>
-                      <button type="button" className="mini-btn alt acp-sys-del" onClick={() => removeSystem(svc.key, sys.key)} aria-label="Remover sistema">✕</button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

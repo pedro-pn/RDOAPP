@@ -222,6 +222,9 @@ router.patch(
 // previsto poder entrar no cálculo de avanço. Tanques e peso (kg/t) não têm fonte no RDO.
 const plannedSystemSchema = z.object({
   systemType: z.enum(['TUBULACAO', 'OLEO']),
+  description: z.string().trim().max(180).nullable().optional(),
+  diameter: z.string().trim().max(40).nullable().optional(),
+  diameterUnit: z.enum(['pol', 'mm']).nullable().optional(),
   quantity: z.number().nonnegative().nullable().optional(),
   unit: z.enum(['M', 'L']).nullable().optional()
 });

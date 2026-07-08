@@ -1483,13 +1483,16 @@ model ProjectPlannedService {
 
 // Sistema/quantitativo de um serviço previsto: tubulações (m) ou óleo (L).
 model ProjectPlannedServiceSystem {
-  id         String                @id @default(cuid())
-  serviceId  String
-  systemType String                // TUBULACAO | OLEO
-  quantity   Decimal?              @db.Decimal(14, 2)
-  unit       PlannedMeasureUnit?   // unidade do sistema (TUBULACAO=M, OLEO=L)
-  order      Int                   @default(0)
-  service    ProjectPlannedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  id           String                @id @default(cuid())
+  serviceId    String
+  systemType   String                // TUBULACAO | OLEO
+  description  String?
+  diameter     String?
+  diameterUnit String?
+  quantity     Decimal?              @db.Decimal(14, 2)
+  unit         PlannedMeasureUnit?   // unidade do sistema (TUBULACAO=M, OLEO=L)
+  order        Int                   @default(0)
+  service      ProjectPlannedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@index([serviceId])
 }
