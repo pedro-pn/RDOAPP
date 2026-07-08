@@ -68,9 +68,17 @@ a {
   overflow-x: hidden;
 }
 
+.app-shell:has(.ops-page) {
+  max-width: none;
+}
+
 @media (min-width: 640px) {
   .app-shell {
     max-width: 540px;
+  }
+
+  .app-shell:has(.ops-page) {
+    max-width: none;
   }
 }
 
@@ -10389,7 +10397,7 @@ input.app-search-input::-webkit-search-cancel-button {
 
 /* Painel operacional */
 .ops-page {
-  width: min(1360px, calc(100% - 32px));
+  width: min(1520px, calc(100% - 32px));
   margin: 0 auto;
   padding: 18px 0 40px;
 }
@@ -10490,7 +10498,7 @@ input.app-search-input::-webkit-search-cancel-button {
 
 .ops-metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
 
@@ -10498,6 +10506,47 @@ input.app-search-input::-webkit-search-cancel-button {
   display: block;
   margin-top: 3px;
   font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.ops-detail-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.ops-detail-row {
+  display: grid;
+  grid-template-columns: minmax(136px, 0.42fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #eef2f7;
+}
+
+.ops-detail-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.ops-detail-row:last-child {
+  padding-bottom: 0;
+}
+
+.ops-detail-row dt {
+  margin: 0;
+  color: var(--mu);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ops-detail-row dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -10553,7 +10602,7 @@ input.app-search-input::-webkit-search-cancel-button {
 
 @media (max-width: 760px) {
   .ops-page {
-    width: min(100% - 20px, 1360px);
+    width: min(100% - 20px, 1520px);
   }
 
   .ops-summary,
@@ -10573,6 +10622,15 @@ input.app-search-input::-webkit-search-cancel-button {
   }
 
   .ops-row > span:nth-child(3) {
+    text-align: left;
+  }
+
+  .ops-detail-row {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .ops-detail-row dd {
     text-align: left;
   }
 }
