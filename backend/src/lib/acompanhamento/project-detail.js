@@ -11,6 +11,8 @@
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
+import { getEquipmentUsageByProject } from './equipment-usage.js';
+import { laborCostByProject } from './labor-cost.js';
 import { isSalaryCategory } from './salary.js';
 import prisma from '../prisma.js';
 
@@ -61,12 +63,12 @@ function dayStatus(standbyMin, journeyMin) {
   return 'TRABALHADO';
 }
 
-export async function getProjectDetail(projectId) {
+export async function getProjectDetail(projectId, { includeCollaboratorCosts = false } = {}) {
   const rows = await listCommercialDashboard();
   const row = rows.find(r => r.projectId === projectId);
   if (!row) throw new Error('Projeto não encontrado no acompanhamento comercial.');
 
-  const [project, reports, collaborators, costGroups] = await Promise.all([
+  const [project, reports, collaborators, costGroups, labor, equipmentByProject] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
       select: { clientSegment: true, mobilizationDate: true, workdayHours: true, weekendWorkdayHours: true }
@@ -87,8 +89,20 @@ export async function getProjectDetail(projectId) {
       by: ['categoriaCodigo', 'categoriaDescricao'],
       where: { projectId },
       _sum: { valor: true }
-    })
+    }),
+    laborCostByProject(), // custo de mão de obra (HH) do ponto vigente
+    getEquipmentUsageByProject([projectId])
   ]);
+
+  // Mão de obra (HH) do ponto — mantido SEPARADO do gasto Omie (em validação, não somado).
+  const laborAgg = labor.byProjectId.get(projectId) || null;
+  const maoDeObra = {
+    custo: laborAgg?.laborCost ?? null, // com adicional offshore
+    custoBase: laborAgg?.laborCostBase ?? null, // sem offshore
+    horas: laborAgg?.hours ?? null,
+    periodStart: labor.periodStart ?? null,
+    periodEnd: labor.periodEnd ?? null
+  };
 
   // --- Custos (Omie), excluindo salários ---
   const nonSalary = costGroups
@@ -139,11 +153,23 @@ export async function getProjectDetail(projectId) {
       standbyMinutes: d.standbyMin
     }));
 
-  // --- Colaboradores distintos (nome + cargo) ---
+  // --- Colaboradores distintos (nome + cargo + custo/hora do ponto vigente) ---
+  const ratesById = labor.byCollaboratorId || new Map();
   const collabMap = new Map();
   for (const c of collaborators) {
     if (!collabMap.has(c.collaboratorId)) {
-      collabMap.set(c.collaboratorId, { name: c.collaborator?.name || '—', role: c.collaborator?.role || '—' });
+      const rate = ratesById.get(c.collaboratorId) || null;
+      const alloc = rate?.byProject?.[projectId] || null;
+      // Valor gasto com o colaborador NESTA obra (rateado) e o custo/hora dele na obra.
+      const custo = alloc?.cost ?? null;
+      const custoHora = alloc && alloc.hours > 0 ? alloc.cost / alloc.hours : null;
+      collabMap.set(c.collaboratorId, {
+        name: c.collaborator?.name || '—',
+        role: c.collaborator?.role || '—',
+        // Custo é dado sensível (salário): só para gestores.
+        custo: includeCollaboratorCosts ? custo : null,
+        custoHora: includeCollaboratorCosts ? custoHora : null
+      });
     }
   }
   const colaboradores = [...collabMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
@@ -153,7 +179,18 @@ export async function getProjectDetail(projectId) {
   const plannedWorkedDays = toNum(row.workedDays) ?? plannedDays;
   const today = new Date();
 
-  const elapsedCorridos = row.startDate ? Math.max(0, diffCalendarDays(row.startDate, today) ?? 0) : null;
+  // --- Equipamentos em obra (módulo Equipamentos), mesma lógica do card de projetos ---
+  const projectReferenceDate = row.archived && lastRdoDate ? new Date(lastRdoDate) : today;
+  const equipmentEndDate = projectReferenceDate;
+  const equipamentos = (equipmentByProject.get(projectId) || [])
+    .map(e => {
+      const since = new Date(e.sinceDate);
+      const days = Math.max(0, Math.round((equipmentEndDate.getTime() - since.getTime()) / 86400000));
+      return { name: e.name, days, since: e.sinceDate };
+    })
+    .sort((a, b) => b.days - a.days);
+
+  const elapsedCorridos = row.startDate ? Math.max(0, diffCalendarDays(row.startDate, projectReferenceDate) ?? 0) : null;
   const diasCorridos = {
     elapsed: elapsedCorridos,
     planned: plannedDays,
@@ -174,11 +211,12 @@ export async function getProjectDetail(projectId) {
   const alerts = computeAlerts({
     startDate: row.startDate ?? null,
     plannedDays,
-    gasto,
+    gasto: gasto + (maoDeObra.custo ?? 0), // realizado total = compras Omie + mão de obra
     plannedCost: previstoCusto,
     lastRdoDate,
     lastDayStatus: ultimosDias.length ? ultimosDias[ultimosDias.length - 1].status : null,
-    progressPct: avancoPct
+    progressPct: avancoPct,
+    now: projectReferenceDate
   });
 
   return {
@@ -197,6 +235,7 @@ export async function getProjectDetail(projectId) {
       previsto: previstoCusto,
       pct: previstoCusto && previstoCusto > 0 ? Math.round((gasto / previstoCusto) * 100) : null
     },
+    maoDeObra,
     maioresGastos,
     avancoPct,
     avancoMethod: row.progressMethod ?? null,
@@ -204,6 +243,7 @@ export async function getProjectDetail(projectId) {
     ultimosDias,
     overtimeMinutes: overtimeMinutesTotal,
     colaboradores,
+    equipamentos,
     footer: {
       mobilizationDate: project?.mobilizationDate ?? null,
       startDate: row.startDate ?? null,

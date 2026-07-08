@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import acompanhamentoComercialRouter from './resources/acompanhamento-comercial.js';
 import acompanhamentoCustoRouter from './resources/acompanhamento-custo.js';
+import acompanhamentoPontoRouter from './resources/acompanhamento-ponto.js';
 import authRouter from './resources/auth.js';
 import bootstrapRouter from './resources/bootstrap.js';
 import collaboratorsRouter from './resources/collaborators.js';
@@ -57,6 +58,7 @@ router.use('/epi', episRouter);
 router.use('/equipamentos', equipamentosRouter);
 router.use('/acompanhamento/comercial', acompanhamentoComercialRouter);
 router.use('/acompanhamento/custo', acompanhamentoCustoRouter);
+router.use('/acompanhamento/ponto', acompanhamentoPontoRouter);
 router.use('/operations', operationsRouter);
 // module:scaffold mount
 router.use('/admin/accounts', usersRouter);
