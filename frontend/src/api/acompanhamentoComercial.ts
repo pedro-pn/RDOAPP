@@ -31,6 +31,8 @@ export interface ProjectRevisions {
   startDate?: string | null;
   mobilizationDate?: string | null;
   manualProgressPct?: string | number | null;
+  offshore?: boolean;
+  laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
   revisions: CommercialRevision[];
 }
 
@@ -39,6 +41,8 @@ export interface ProjectSchedulePayload {
   startDate?: string | null;
   mobilizationDate?: string | null;
   manualProgressPct?: number | null;
+  offshore?: boolean;
+  laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
 }
 
 export type ProgressMethod = 'RDO' | 'MANUAL';
@@ -138,9 +142,13 @@ export async function setProjectSchedule(projectId: string, payload: ProjectSche
 
 export type PlannedMeasureUnit = 'M' | 'KG' | 'T' | 'UN' | 'L';
 export type PlannedSystemType = 'TUBULACAO' | 'OLEO';
+export type PlannedDiameterUnit = 'pol' | 'mm';
 
 export interface PlannedServiceSystem {
   systemType: PlannedSystemType;
+  description?: string | null;
+  diameter?: string | null;
+  diameterUnit?: PlannedDiameterUnit | null;
   quantity?: string | number | null;
   unit?: PlannedMeasureUnit | null;
 }
@@ -230,6 +238,9 @@ export interface ProjectCard {
   collaboratorsCount: number;
   startDate: string | null;
   expectedEndDate: string | null;
+  laborCost: number | null; // custo de mão de obra COM adicional offshore (do ponto), somado ao realizado
+  laborCostBase: number | null; // custo de mão de obra SEM offshore (comparação)
+  equipment: Array<{ name: string; days: number; since: string }>; // equipamentos (módulo Equipamentos) em obra
   alerts: ProjectAlert[];
 }
 
@@ -255,12 +266,13 @@ export interface ProjectDetail {
   diasCorridos: { elapsed: number | null; planned: number | null; pct: number | null };
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
   consumo: { gasto: number; previsto: number | null; pct: number | null };
+  maoDeObra: { custo: number | null; custoBase: number | null; horas: number | null; periodStart: string | null; periodEnd: string | null };
   maioresGastos: Array<{ categoria: string; total: number }>;
   avancoPct: number | null;
   standby: { count: number; minutes: number };
   ultimosDias: Array<{ date: string; status: DayStatus; workedMinutes: number; standbyMinutes: number }>;
   overtimeMinutes: number;
-  colaboradores: Array<{ name: string; role: string }>;
+  colaboradores: Array<{ name: string; role: string; custo: number | null; custoHora: number | null }>;
   footer: {
     mobilizationDate: string | null;
     startDate: string | null;

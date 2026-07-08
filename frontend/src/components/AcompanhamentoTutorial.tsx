@@ -53,7 +53,7 @@ export function AcompanhamentoTutorial({ userKey, ready, goToSection, triggerRef
       element: navSelector,
       popover: {
         title: 'Abas do módulo',
-        description: 'Alterne entre Dashboard (visão geral), Projetos (cards de cada obra) e Custo (motor de custo operacional).',
+        description: 'Alterne entre Dashboard (visão geral) e Projetos (cards de cada obra). Gestores também têm a aba Custo (motor de custo operacional).',
         side: 'right',
         align: 'start',
         // Sem dashboard (ainda carregando/sem dados): já pula direto para a aba Projetos.

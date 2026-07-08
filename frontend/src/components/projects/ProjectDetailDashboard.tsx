@@ -142,23 +142,49 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
           </div>
 
           <div className="page-card acp-det-block">
-            <MetricBar
-              label="Consumo de gastos"
-              help="Total gasto no Omie (pago + a pagar, sem salários) sobre o custo previsto no comercial. A mão de obra será calculada à parte na integração do ponto."
-              value={data.consumo.pct}
-              tone="cost"
-              caption={`${brl(data.consumo.gasto)} / ${brl(data.consumo.previsto)}${data.consumo.pct != null ? ` · ${data.consumo.pct}%` : ''}`}
-            />
-            <div className="acp-det-sub"><HelpTip help="As 5 categorias de despesa do Omie com maior valor neste projeto (salários excluídos).">Maiores gastos (sem salários)</HelpTip></div>
-            {data.maioresGastos.length === 0 ? (
-              <div className="placeholder-copy">Sem gastos registrados no Omie.</div>
-            ) : (
-              <ul className="acp-det-rank">
-                {data.maioresGastos.map((g, i) => (
-                  <li key={i}><span className="acp-det-rank-cat">{g.categoria}</span><span className="acp-det-rank-val">{brl(g.total)}</span></li>
-                ))}
-              </ul>
-            )}
+            {(() => {
+              const mo = data.maoDeObra;
+              const moCusto = mo?.custo ?? null;
+              const totalRealizado = data.consumo.gasto + (moCusto ?? 0);
+              const previsto = data.consumo.previsto;
+              const totalPct = previsto && previsto > 0 ? Math.round((totalRealizado / previsto) * 100) : null;
+              const rowStyle = { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 } as const;
+              const hasOffshore = moCusto != null && mo.custoBase != null && Math.round(moCusto) !== Math.round(mo.custoBase);
+              return (
+                <>
+                  <MetricBar
+                    label="Consumo de gastos"
+                    help="Total realizado (compras do Omie, sem salários, + mão de obra do ponto) sobre o custo previsto no comercial."
+                    value={totalPct}
+                    tone="cost"
+                    caption={`${brl(totalRealizado)} / ${brl(previsto)}${totalPct != null ? ` · ${totalPct}%` : ''}`}
+                  />
+                  <div style={{ margin: '8px 0' }}>
+                    <div style={rowStyle}><span className="placeholder-copy">Compras (Omie)</span><span>{brl(data.consumo.gasto)}</span></div>
+                    {moCusto != null ? (
+                      <div style={rowStyle}>
+                        <HelpTip help="Valor gasto com mão de obra deste projeto, calculado a partir do ponto (custo rateado por colaborador), incluindo o adicional offshore quando houver.">Mão de obra{hasOffshore ? ' c/ offshore' : ''}</HelpTip>
+                        <span>{brl(moCusto)}</span>
+                      </div>
+                    ) : null}
+                    {moCusto != null && hasOffshore ? (
+                      <div style={rowStyle}><span className="placeholder-copy">Mão de obra sem offshore</span><span>{brl(mo.custoBase)}</span></div>
+                    ) : null}
+                    <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}><strong>Total realizado</strong><strong>{brl(totalRealizado)}</strong></div>
+                  </div>
+                  <div className="acp-det-sub"><HelpTip help="As 5 categorias de despesa do Omie com maior valor neste projeto (salários excluídos).">Maiores gastos (compras Omie)</HelpTip></div>
+                  {data.maioresGastos.length === 0 ? (
+                    <div className="placeholder-copy">Sem gastos registrados no Omie.</div>
+                  ) : (
+                    <ul className="acp-det-rank">
+                      {data.maioresGastos.map((g, i) => (
+                        <li key={i}><span className="acp-det-rank-cat">{g.categoria}</span><span className="acp-det-rank-val">{brl(g.total)}</span></li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -212,23 +238,47 @@ export function ProjectDetailDashboard({ projectId, onBack }: { projectId: strin
         {/* Coluna 3 */}
         <div className="acp-det-col">
           <div className="page-card acp-det-block">
-            <div className="acp-det-sub"><HelpTip help="Pessoas distintas que aparecem em qualquer RDO do projeto (cada colaborador conta uma vez), com o cargo.">Colaboradores na obra ({data.colaboradores.length})</HelpTip></div>
-            {data.colaboradores.length === 0 ? (
-              <div className="placeholder-copy">Nenhum colaborador nos RDOs.</div>
-            ) : (
-              <ul className="acp-det-collabs">
-                {data.colaboradores.map((c, i) => (
-                  <li key={i}><span>{c.name}</span><span className="acp-det-collab-role">{c.role}</span></li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="page-card acp-det-block">
             <div className="acp-det-sub"><HelpTip help="Escopo vendido informado manualmente (aba Cronograma): serviços, sistemas e quantitativos, com o peso de cada serviço no avanço.">Escopo cadastrado</HelpTip></div>
             <PlannedScopeView scope={scope} />
           </div>
         </div>
+      </div>
+
+      {/* Colaboradores em largura total, tabela retrátil: nome · cargo · valor gasto (custo/hora). */}
+      <div className="page-card acp-det-block">
+        <details className="acp-det-collabs-details" open>
+          <summary className="acp-det-collabs-summary">
+            Colaboradores na obra ({data.colaboradores.length})
+          </summary>
+          {data.colaboradores.length === 0 ? (
+            <div className="placeholder-copy" style={{ marginTop: 8 }}>Nenhum colaborador nos RDOs.</div>
+          ) : (
+            <div className="acp-table-wrap" style={{ marginTop: 8 }}>
+              <table className="acp-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Cargo</th>
+                    <th style={{ textAlign: 'right' }}>Custo (HH)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.colaboradores.map((c, i) => (
+                    <tr key={i}>
+                      <td>{c.name}</td>
+                      <td>{c.role}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {c.custo != null ? (
+                          <>{brl(c.custo)}<span className="acp-det-collab-rate">{c.custoHora != null ? ` (${brl(c.custoHora)}/h)` : ''}</span></>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </details>
       </div>
 
       <div className="page-card acp-det-footer">

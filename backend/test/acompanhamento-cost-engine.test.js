@@ -56,3 +56,21 @@ test('auxiliar usa gratificação 5% e viagem 10% no mesmo motor', () => {
   const op = computeMonthlyCost(OPERADOR_PARAMS, OPERADOR_INPUTS);
   assert.ok(r.produtividade < op.produtividade);
 });
+
+test('dias offshore geram transferência com bônus em pontos percentuais', () => {
+  const inputs = { diasCliente: 30, diasFora: 0, diasCasa: 0, he70Horas: 0, he100Horas: 0 };
+  const base = computeMonthlyCost(OPERADOR_PARAMS, inputs);
+  assert.equal(base.transferencia, 0); // sem dias fora nem offshore
+  const off = computeMonthlyCost(OPERADOR_PARAMS, { ...inputs, offshoreDays: 5, offshoreBonusPct: 0.1 });
+  // (salarioBase + insalubridade)/30 * 5 * (0.3 + 0.1)
+  const esperado = ((3080.33 + 324.2) / 30) * 5 * 0.4;
+  assert.ok(Math.abs(off.transferencia - esperado) < 0.01);
+  assert.ok(off.totalMensal > base.totalMensal); // cascata em bruta/HE/encargos
+});
+
+test('offshoreDays sem bônus equivale a dias fora normais', () => {
+  const inputs = { diasCliente: 30, he70Horas: 0, he100Horas: 0 };
+  const fora = computeMonthlyCost(OPERADOR_PARAMS, { ...inputs, diasFora: 5, offshoreDays: 0, offshoreBonusPct: 0 });
+  const off = computeMonthlyCost(OPERADOR_PARAMS, { ...inputs, diasFora: 0, offshoreDays: 5, offshoreBonusPct: 0 });
+  assert.ok(Math.abs(fora.transferencia - off.transferencia) < 0.0001);
+});

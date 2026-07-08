@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getProjectRevisions, setProjectSchedule, type CommercialRevision } from '../../api/acompanhamentoComercial';
+import { getProjectRevisions, setProjectSchedule, type CommercialRevision, type ProjectSchedulePayload } from '../../api/acompanhamentoComercial';
+import { getActiveCollaborators } from '../../api/acompanhamentoPonto';
 import { useToast } from '../ui/ToastContext';
 import { HelpTip } from '../ui/HelpTip';
 import { ProjectPlannedScopeEditor, type ScopeEditorHandle } from './ProjectPlannedScopeEditor';
@@ -45,36 +46,65 @@ function isoOrNull(dateInput: string) {
   return dateInput ? new Date(`${dateInput}T00:00:00`).toISOString() : null;
 }
 
+type LaborSleepMode = 'HOME' | 'AWAY';
+
+function normalizeSleepModeMap(value?: Record<string, LaborSleepMode> | null): Record<string, LaborSleepMode> {
+  const result: Record<string, LaborSleepMode> = {};
+  if (!value) return result;
+  for (const [collaboratorId, mode] of Object.entries(value)) {
+    if (mode === 'HOME') result[collaboratorId] = mode;
+  }
+  return result;
+}
+
+function sleepModeMapKey(value: Record<string, LaborSleepMode>) {
+  return Object.entries(normalizeSleepModeMap(value))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([collaboratorId, mode]) => `${collaboratorId}:${mode}`)
+    .join('|');
+}
+
 // Cronograma do projeto, gerido no módulo Acompanhamento (datas de aprovação e início real),
 // junto do resumo do previsto. A escolha da revisão fica no card do projeto (aba Projetos).
 export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   projectId: string;
+  canManage?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
-}>(function ProjectScheduleEditor({ projectId, onDirtyChange }, ref) {
+}>(function ProjectScheduleEditor({ projectId, canManage = true, onDirtyChange }, ref) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const queryKey = ['commercial-revisions', projectId];
 
   const { data, isLoading } = useQuery({ queryKey, queryFn: () => getProjectRevisions(projectId) });
+  const activeCollaboratorsQuery = useQuery({
+    queryKey: ['ponto-collaborators-active'],
+    queryFn: getActiveCollaborators,
+    enabled: canManage
+  });
   const [approvalEdit, setApprovalEdit] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [mobEdit, setMobEdit] = useState<string | null>(null);
   const [manualEdit, setManualEdit] = useState<string | null>(null);
+  const [offshoreEdit, setOffshoreEdit] = useState<boolean | null>(null);
+  const [sleepModeEdit, setSleepModeEdit] = useState<Record<string, LaborSleepMode> | null>(null);
   const [scopeDirty, setScopeDirty] = useState(false);
   const scopeRef = useRef<ScopeEditorHandle>(null);
 
   const scheduleMutation = useMutation({
-    mutationFn: (payload: { approvedAt?: string | null; startDate?: string | null; mobilizationDate?: string | null; manualProgressPct?: number | null }) => setProjectSchedule(projectId, payload),
+    mutationFn: (payload: ProjectSchedulePayload) => setProjectSchedule(projectId, payload),
     onSuccess: () => {
       showToast('Cronograma atualizado.');
       setApprovalEdit(null);
       setStartEdit(null);
       setMobEdit(null);
       setManualEdit(null);
+      setOffshoreEdit(null);
+      setSleepModeEdit(null);
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['project-cards'] });
       queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['ponto-colaboradores'] });
     },
     onError: () => showToast('Não foi possível atualizar o cronograma.')
   });
@@ -85,11 +115,24 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const mobValue = mobEdit ?? toDateInput(data?.mobilizationDate);
   const baseManual = data?.manualProgressPct == null ? '' : String(data.manualProgressPct);
   const manualValue = manualEdit ?? baseManual;
+  const baseOffshore = data?.offshore ?? false;
+  const offshoreValue = offshoreEdit ?? baseOffshore;
+  const baseSleepModeMap = normalizeSleepModeMap(data?.laborSleepModeByCollaborator);
+  const sleepModeValue = sleepModeEdit ?? baseSleepModeMap;
   const scheduleDirty = approvalValue !== toDateInput(data?.approvedAt)
     || startValue !== toDateInput(data?.startDate)
     || mobValue !== toDateInput(data?.mobilizationDate)
-    || manualValue !== baseManual;
+    || manualValue !== baseManual
+    || offshoreValue !== baseOffshore
+    || sleepModeMapKey(sleepModeValue) !== sleepModeMapKey(baseSleepModeMap);
   const dirty = scheduleDirty || scopeDirty;
+
+  function setCollaboratorSleepMode(collaboratorId: string, mode: LaborSleepMode) {
+    const next = { ...sleepModeValue };
+    if (mode === 'HOME') next[collaboratorId] = 'HOME';
+    else delete next[collaboratorId];
+    setSleepModeEdit(next);
+  }
 
   // Salvar único: grava o cronograma (se mudou) e o escopo (se mudou), via ref do editor de escopo.
   const runSave = useRef<() => void>(() => {});
@@ -100,7 +143,9 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
         approvedAt: isoOrNull(approvalValue),
         startDate: isoOrNull(startValue),
         mobilizationDate: isoOrNull(mobValue),
-        manualProgressPct: manualNum != null && Number.isFinite(manualNum) ? Math.min(100, Math.max(0, manualNum)) : null
+        manualProgressPct: manualNum != null && Number.isFinite(manualNum) ? Math.min(100, Math.max(0, manualNum)) : null,
+        offshore: offshoreValue,
+        laborSleepModeByCollaborator: normalizeSleepModeMap(sleepModeValue)
       });
     }
     if (scopeDirty) scopeRef.current?.save();
@@ -160,7 +205,50 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
             <span className="acp-pct-suffix">%</span>
           </div>
         </div>
+        <div className="field-group">
+          <label htmlFor={`acp-offshore-${projectId}`}>Projeto offshore <HelpTip icon help="Projetos offshore acrescentam 10 pontos percentuais na transferência/viagem do custo de mão de obra (HH) dos colaboradores alocados, e os dias no projeto passam a contar como embarque." /></label>
+          <label className="acp-checkbox-inline">
+            <input
+              id={`acp-offshore-${projectId}`}
+              type="checkbox"
+              checked={offshoreValue}
+              onChange={e => setOffshoreEdit(e.target.checked)}
+            />
+            <span>{offshoreValue ? 'Sim (+10% transferência)' : 'Não'}</span>
+          </label>
+        </div>
       </div>
+      {canManage ? (
+        <>
+          <div className="acp-scope-divider" />
+          <div className="sec" style={{ marginTop: 4 }}>Hospedagem dos colaboradores</div>
+          {activeCollaboratorsQuery.isLoading ? (
+            <div className="placeholder-copy">Carregando colaboradores…</div>
+          ) : (
+            <div className="acp-sleep-list">
+              {(activeCollaboratorsQuery.data ?? []).map(collaborator => {
+                const mode = sleepModeValue[collaborator.id] ?? 'AWAY';
+                return (
+                  <label className="acp-sleep-row" key={collaborator.id} htmlFor={`acp-sleep-${projectId}-${collaborator.id}`}>
+                    <span className="acp-sleep-name">
+                      <strong>{collaborator.name}</strong>
+                      {collaborator.role ? <small>{collaborator.role}</small> : null}
+                    </span>
+                    <select
+                      id={`acp-sleep-${projectId}-${collaborator.id}`}
+                      value={mode}
+                      onChange={e => setCollaboratorSleepMode(collaborator.id, e.target.value as LaborSleepMode)}
+                    >
+                      <option value="AWAY">Dorme fora</option>
+                      <option value="HOME">Dorme em casa</option>
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : null}
 
       <div className="det-row" style={{ marginTop: 8 }}><span className="det-label">Mobilização / prazo</span>
         <span className="det-val">

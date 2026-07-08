@@ -205,6 +205,8 @@ model Collaborator {
   epiRecords       EpiRecord[]
   epiSignatureRequests EpiSignatureRequest[]
   signatureNoticeLogs CollaboratorSignatureNoticeLog[]
+  pontoPeriods     PontoPeriodSummary[]
+  pontoNameAliases PontoNameAlias[]
 }
 
 model CollaboratorSignatureNoticeLog {
@@ -232,14 +234,17 @@ model ClientSegment {
 }
 
 // Motor de custo (planilhas operador/auxiliar): perfil + parâmetros versionados.
+// Um perfil pode ser vinculado a um cargo (JobRole) — nesse caso é o custo daquele cargo.
 model CostProfile {
   id            String             @id @default(cuid())
-  key           String             @unique // operador, auxiliar
+  key           String             @unique // operador, auxiliar, role:<jobRoleId>
   label         String
+  jobRoleId     String?            @unique // quando setado, é o perfil de custo de um cargo
   isActive      Boolean            @default(true)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   parameterSets CostParameterSet[]
+  jobRole       JobRole?           @relation(fields: [jobRoleId], references: [id], onDelete: SetNull)
 }
 
 model CostParameterSet {
@@ -256,6 +261,76 @@ model CostParameterSet {
   @@index([costProfileId])
 }
 
+// Configurações globais do módulo Acompanhamento (chave/valor). Ex.: custo de EPI por colaborador.
+model AcompanhamentoSetting {
+  key             String   @id
+  numberValue     Float?
+  updatedByUserId String?
+  updatedAt       DateTime @default(now()) @updatedAt
+}
+
+// === Ponto (jornada) importado do Pontomais — base do custo de mão de obra (HH) ===
+// Enquanto não há integração automática com o VR Ponto Mais, a planilha de jornada é enviada
+// manualmente (semanal). Cada import guarda auditoria + um resumo por colaborador no período.
+
+model PontoImport {
+  id                   String   @id @default(cuid())
+  fileName             String
+  contentHash          String   // sha256 hex do arquivo (idempotência)
+  periodStart          DateTime @db.Date
+  periodEnd            DateTime @db.Date
+  rowsRead             Int      @default(0)
+  collaboratorsTotal   Int      @default(0)
+  collaboratorsMatched Int      @default(0)
+  summary              Json?
+  status               String   @default("OK")
+  importedByUserId     String?
+  createdAt            DateTime @default(now())
+  periods              PontoPeriodSummary[]
+
+  @@index([createdAt])
+  @@index([contentHash])
+}
+
+// Resumo por colaborador × import: horas normais + split HE70/HE100 (só existe no "Resumo" da
+// planilha) + dias trabalhados (para cruzar com RDO e derivar dias de viagem).
+model PontoPeriodSummary {
+  id             String       @id @default(cuid())
+  importId       String
+  collaboratorId String?      // null até o nome ser vinculado a um Collaborator
+  rawName        String
+  normalizedName String
+  periodStart    DateTime     @db.Date
+  periodEnd      DateTime     @db.Date
+  workedMinutes  Int          @default(0)
+  he70Minutes    Int          @default(0)
+  he100Minutes   Int          @default(0)
+  nightMinutes   Int          @default(0)
+  workedDates    String[]     @default([]) // ["YYYY-MM-DD", ...] dias com horas normais > 0
+  monthly        Json?        // { "YYYY-MM": { normalMinutes, extrasMinutes, nightMinutes, workedDates[] } }
+  createdAt      DateTime     @default(now())
+  import         PontoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
+  collaborator   Collaborator? @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
+
+  @@unique([importId, normalizedName])
+  @@index([collaboratorId])
+  @@index([importId])
+}
+
+// Lembra vínculos manuais nome-do-ponto → colaborador (variações de caixa/apelido entre imports).
+model PontoNameAlias {
+  id              String       @id @default(cuid())
+  normalizedName  String       @unique
+  rawName         String
+  collaboratorId  String
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  collaborator    Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@index([collaboratorId])
+}
+
 // Lista gerenciável de cargos (substitui o texto livre em Collaborator.role).
 model JobRole {
   id        String   @id @default(cuid())
@@ -265,6 +340,7 @@ model JobRole {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   plannedOvertime ProjectPlannedOvertime[]
+  costProfile     CostProfile?
 
   @@index([isActive, order])
 }
@@ -279,6 +355,9 @@ model Project {
   registrationPending   Boolean           @default(false)
   inhibitionServiceEnabled Boolean        @default(false)
   requireServiceReportSignatures Boolean  @default(false)
+  offshore              Boolean           @default(false) // projeto offshore: +transferência no custo de MO
+  laborSleepModeByCollaborator Json        @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
+
   clientName            String
   clientCnpj            String
   clientEmailPrimary    String            @default("")
@@ -1404,13 +1483,16 @@ model ProjectPlannedService {
 
 // Sistema/quantitativo de um serviço previsto: tubulações (m) ou óleo (L).
 model ProjectPlannedServiceSystem {
-  id         String                @id @default(cuid())
-  serviceId  String
-  systemType String                // TUBULACAO | OLEO
-  quantity   Decimal?              @db.Decimal(14, 2)
-  unit       PlannedMeasureUnit?   // unidade do sistema (TUBULACAO=M, OLEO=L)
-  order      Int                   @default(0)
-  service    ProjectPlannedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  id           String                @id @default(cuid())
+  serviceId    String
+  systemType   String                // TUBULACAO | OLEO
+  description  String?
+  diameter     String?
+  diameterUnit String?
+  quantity     Decimal?              @db.Decimal(14, 2)
+  unit         PlannedMeasureUnit?   // unidade do sistema (TUBULACAO=M, OLEO=L)
+  order        Int                   @default(0)
+  service      ProjectPlannedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@index([serviceId])
 }

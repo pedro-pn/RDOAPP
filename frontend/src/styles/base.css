@@ -1643,27 +1643,6 @@ a {
 }
 @media (max-width: 900px) { .acp-filters { grid-template-columns: 1fr 1fr; } }
 
-/* AVISO TEMPORÁRIO — TODO(vr-ponto-mais): remover junto com o banner em AcompanhamentoPage.tsx
-   quando a integração de ponto (custo de mão de obra) for implementada. */
-.acp-cost-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border: 1px solid #f0c98a;
-  border-left: 4px solid #e0a53a;
-  border-radius: var(--r);
-  background: #fdf6e8;
-  color: #6b4e16;
-  font-size: 13px;
-  line-height: 1.45;
-}
-.acp-cost-notice-ico { font-size: 15px; line-height: 1.3; }
-@media (prefers-color-scheme: dark) {
-  .acp-cost-notice { background: #3a3115; border-color: #7a5f22; border-left-color: #e0a53a; color: #f3e3bf; }
-}
-
 /* Segmented control (situação dos projetos na aba Projetos) */
 .acp-seg {
   display: inline-flex;
@@ -1812,6 +1791,57 @@ a {
 .acp-manage .det-val { text-align: left; }
 .acp-manage .admin-inline-grid { grid-template-columns: 1fr 1fr 1fr; }
 @media (max-width: 640px) { .acp-manage .admin-inline-grid { grid-template-columns: 1fr; } }
+.acp-checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: 100%;
+  min-height: 38px;
+}
+.field-group .acp-checkbox-inline input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  flex: 0 0 auto;
+}
+.acp-checkbox-inline span {
+  white-space: nowrap;
+  color: var(--tx);
+}
+.acp-sleep-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.acp-sleep-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--br);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+}
+.acp-sleep-name { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.acp-sleep-name strong,
+.acp-sleep-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acp-sleep-name small { color: var(--mu); font-size: .78rem; }
+.acp-sleep-row select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  padding: 8px 10px;
+  background-color: #fafafa;
+  color: var(--tx);
+  font-weight: 600;
+}
+.acp-sleep-row select:focus {
+  outline: none;
+  border-color: var(--g);
+  box-shadow: 0 0 0 3px rgba(32, 126, 64, 0.12);
+}
+@media (max-width: 860px) { .acp-sleep-list { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .acp-sleep-row { grid-template-columns: 1fr; } }
 
 /* Escopo previsto (serviços vendidos + previsão de hora extra) no modal do cronograma */
 .acp-scope-divider { border-top: 1px solid var(--br); margin: 8px 0 2px; }
@@ -1832,10 +1862,18 @@ a {
 .acp-sys-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .acp-sys-row {
   display: grid;
-  grid-template-columns: 1fr 1.2fr auto;
+  grid-template-columns: minmax(130px, .8fr) minmax(180px, 1.2fr) minmax(150px, .85fr) minmax(150px, .85fr) auto;
   gap: 10px;
   align-items: end;
 }
+.acp-sys-row.oil {
+  grid-template-columns: minmax(130px, .8fr) minmax(240px, 1.4fr) minmax(150px, .75fr) auto;
+}
+.acp-sys-row .field-group { min-width: 0; }
+.acp-diameter-field { gap: 6px; }
+.acp-diameter-field > select:first-child,
+.acp-diameter-field > input:first-child { flex: 1 1 auto; min-width: 0; }
+.acp-diameter-field > select:last-child { flex: 0 0 68px; }
 .acp-sys-del, .acp-svc-head .mini-btn { align-self: end; }
 .acp-sys-del { padding: 6px 10px; }
 .acp-add-sys { margin-top: 8px; }
@@ -1865,6 +1903,15 @@ a {
   background: var(--wh);
   border: 1px solid var(--br);
   border-radius: var(--rs);
+}
+@media (max-width: 860px) {
+  .acp-sys-row,
+  .acp-sys-row.oil { grid-template-columns: 1fr 1fr; }
+  .acp-sys-del { justify-self: start; }
+}
+@media (max-width: 560px) {
+  .acp-sys-row,
+  .acp-sys-row.oil { grid-template-columns: 1fr; }
 }
 
 /* Barra de avanço (tabela + modal) */
@@ -1920,6 +1967,9 @@ a {
 .acp-pcard-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; align-items: center; }
 .acp-pcard-row > span:first-child { color: var(--mu); }
 .acp-pcard-strong { font-weight: 700; }
+.acp-pcard-equip { display: flex; flex-direction: column; gap: 3px; }
+.acp-pcard-equip-item { font-size: 12px; padding-left: 8px; }
+.acp-pcard-equip-item > span:last-child { white-space: nowrap; }
 .acp-pcard-status { font-weight: 600; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
 .acp-pcard-status.ok { color: #1f7a3d; background: #e6f4ea; }
 .acp-pcard-status.warn { color: #92400e; background: #fef3c7; }
@@ -2021,8 +2071,15 @@ a {
 
 .acp-det-collabs, .acp-det-scope { list-style: none; margin: 0; padding: 0; }
 .acp-det-collabs { display: flex; flex-direction: column; gap: 5px; }
-.acp-det-collabs li { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.acp-det-collabs li { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; align-items: baseline; }
+.acp-det-collab-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acp-det-collab-role { color: var(--mu); font-size: 12px; flex: 0 0 auto; }
+.acp-det-collab-rate { color: var(--mu); font-weight: 500; }
+/* Bloco de colaboradores retrátil (nome · cargo · valor gasto). */
+.acp-det-collabs-summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--mu); letter-spacing: .02em; list-style: none; user-select: none; }
+.acp-det-collabs-summary::-webkit-details-marker { display: none; }
+.acp-det-collabs-summary::before { content: '▸'; display: inline-block; margin-right: 6px; transition: transform .15s; }
+.acp-det-collabs-details[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
 .acp-det-scope { display: flex; flex-direction: column; gap: 8px; }
 .acp-det-scope-svc { border: 1px solid var(--br); border-radius: var(--rs); padding: 8px 10px; background: var(--bg); }
 .acp-det-scope-head { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 13px; }
@@ -8451,14 +8508,14 @@ select {
   gap: 14px;
 }
 
-/* Módulo mais largo no desktop (tabela do dashboard sem rolagem horizontal) */
+/* Módulo mais largo no desktop (dashboard/detalhe com mais colunas sem rolagem horizontal) */
 .app-shell:has(.equip-page) {
-  max-width: 1180px;
+  max-width: 1320px;
 }
 
 @media (min-width: 1280px) {
   .app-shell:has(.equip-page) {
-    max-width: 1240px;
+    max-width: 1440px;
   }
 }
 
