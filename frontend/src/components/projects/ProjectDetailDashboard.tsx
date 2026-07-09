@@ -30,6 +30,8 @@ const brl = (n?: number | null) =>
   n === null || n === undefined ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (n?: number | null) =>
   n === null || n === undefined ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+const fmtHours = (n?: number | null) =>
+  n === null || n === undefined ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h`;
 function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -42,11 +44,26 @@ function fmtHM(minutes?: number | null) {
   return m ? `${h}h ${m}min` : `${h}h`;
 }
 
+function clampPct(value?: number | null, max = 100) {
+  return Math.min(Math.max(value ?? 0, 0), max);
+}
+
 function Bar({ value, tone }: { value: number | null; tone?: 'cost' }) {
-  const clamped = Math.min(Math.max(value ?? 0, 0), 100);
+  const clamped = clampPct(value);
   return (
     <div className={`acp-prog-bar big ${tone === 'cost' && (value ?? 0) > 100 ? 'over' : ''}`}>
       <span style={{ width: `${clamped}%` }} />
+    </div>
+  );
+}
+
+function HoursBar({ normalPct, overtimePct }: { normalPct: number | null; overtimePct: number | null }) {
+  const normalWidth = clampPct(normalPct);
+  const overtimeWidth = clampPct(overtimePct, 100 - normalWidth);
+  return (
+    <div className="acp-prog-bar big acp-hours-bar">
+      {normalWidth > 0 ? <span className="normal" style={{ width: `${normalWidth}%` }} /> : null}
+      {overtimeWidth > 0 ? <span className="overtime" style={{ width: `${overtimeWidth}%` }} /> : null}
     </div>
   );
 }
@@ -59,6 +76,53 @@ function MetricBar({ label, value, caption, tone, help }: { label: string; value
         <span className="acp-det-metric-val">{caption}</span>
       </div>
       <Bar value={value} tone={tone} />
+    </div>
+  );
+}
+
+function WorkedHoursMetric({ data }: {
+  data: {
+    normalWorkedHours: number;
+    overtimeWorkedHours: number;
+    totalWorkedHours: number;
+    plannedTotalHours: number | null;
+    normalPct: number | null;
+    overtimePct: number | null;
+    totalPct: number | null;
+    roleCounts?: Array<{ roleName: string; collaboratorCount: number; usedHours: number; pctOfPlannedTotal: number | null }>;
+  };
+}) {
+  const roleCounts = data.roleCounts ?? [];
+  return (
+    <div className="acp-det-metric">
+      <div className="acp-det-metric-top">
+        <HelpTip help="Soma das horas trabalhadas dos RDOs, separando horas normais e horas extras, sobre o total previsto no cronograma. As horas previstas já incluem todos os colaboradores.">Horas trabalhadas</HelpTip>
+        <span className="acp-det-metric-val">
+          {fmtHours(data.totalWorkedHours)} / {fmtHours(data.plannedTotalHours)}
+          {data.totalPct != null ? ` · ${data.totalPct}%` : ''}
+        </span>
+      </div>
+      <HoursBar normalPct={data.normalPct} overtimePct={data.overtimePct} />
+      <div className="acp-hours-split">
+        <span>
+          <i className="acp-hours-dot normal" />Normais {fmtHours(data.normalWorkedHours)}
+          {data.normalPct != null ? ` · ${data.normalPct}%` : ''}
+        </span>
+        <span>
+          <i className="acp-hours-dot overtime" />HE {fmtHours(data.overtimeWorkedHours)}
+          {data.overtimePct != null ? ` · ${data.overtimePct}%` : ''}
+        </span>
+      </div>
+      {roleCounts.length > 0 ? (
+        <div className="acp-hours-roles" aria-label="Colaboradores por cargo previsto">
+          {roleCounts.map(item => (
+            <span key={item.roleName}>
+              {item.roleName}: {item.collaboratorCount} colab. · {fmtHours(item.usedHours)}
+              {item.pctOfPlannedTotal != null ? ` · ${fmtPct(item.pctOfPlannedTotal)}` : ''}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -112,6 +176,16 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
 
   const h = data.header;
   const equipamentos = data.equipamentos ?? [];
+  const workedHours = data.workedHours ?? {
+    normalWorkedHours: 0,
+    overtimeWorkedHours: 0,
+    totalWorkedHours: 0,
+    plannedTotalHours: null,
+    normalPct: null,
+    overtimePct: null,
+    totalPct: null,
+    roleCounts: []
+  };
   const headerBits = [
     `Missão ${h.code}`,
     h.clientName,
@@ -156,6 +230,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
               value={data.diasTrabalhados.pct}
               caption={`${data.diasTrabalhados.worked}/${data.diasTrabalhados.planned ?? '—'}${data.diasTrabalhados.pct != null ? ` · ${data.diasTrabalhados.pct}%` : ''}`}
             />
+            <WorkedHoursMetric data={workedHours} />
           </div>
 
           <div className="page-card acp-det-block">

@@ -2044,6 +2044,13 @@ a {
 .acp-prog-bar { flex: 1 1 auto; height: 8px; background: var(--br); border-radius: 999px; overflow: hidden; }
 .acp-prog-bar.big { height: 12px; }
 .acp-prog-bar > span { display: block; height: 100%; background: var(--g); border-radius: 999px; }
+.acp-hours-bar { display: flex; }
+.acp-hours-bar > span { flex: 0 0 auto; border-radius: 0; }
+.acp-hours-bar > span:first-child { border-radius: 999px 0 0 999px; }
+.acp-hours-bar > span:last-child { border-radius: 0 999px 999px 0; }
+.acp-hours-bar > span:only-child { border-radius: 999px; }
+.acp-hours-bar > .normal { background: var(--g); }
+.acp-hours-bar > .overtime { background: #b7791f; }
 .acp-prog-val { flex: 0 0 auto; font-size: 12px; color: var(--mu); min-width: 42px; text-align: right; }
 
 .acp-progress { display: flex; flex-direction: column; gap: 8px; }
@@ -2089,6 +2096,20 @@ a {
 .acp-pcard-metric { display: flex; flex-direction: column; gap: 4px; }
 .acp-pcard-metric-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
 .acp-pcard-metric-val { color: var(--mu); font-size: 12px; text-align: right; }
+.acp-hours-split { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; color: var(--mu); font-size: 11px; }
+.acp-hours-split > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.acp-hours-dot { width: 7px; height: 7px; border-radius: 999px; flex: 0 0 auto; background: var(--g); }
+.acp-hours-dot.overtime { background: #b7791f; }
+.acp-hours-roles { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.acp-hours-roles > span {
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  padding: 1px 7px;
+  color: var(--mu);
+  background: var(--bg);
+  font-size: 11px;
+  line-height: 1.5;
+}
 .acp-pcard-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; align-items: center; }
 .acp-pcard-row > span:first-child { color: var(--mu); }
 .acp-pcard-strong { font-weight: 700; }
@@ -2246,7 +2267,7 @@ a {
 .acp-ot-list { display: flex; flex-direction: column; gap: 8px; }
 .acp-ot-row {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr auto;
+  grid-template-columns: 1.6fr 1fr auto;
   gap: 10px;
   align-items: end;
 }

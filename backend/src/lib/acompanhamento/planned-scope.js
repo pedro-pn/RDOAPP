@@ -1,9 +1,9 @@
 /*
- * Escopo previsto do projeto (módulo Acompanhamento) — quantitativo de serviços vendidos e
- * previsão de hora extra. Hoje é preenchido manualmente no cronograma; idealmente viria do banco
- * comercial, que ainda não carrega esses campos.
+ * Escopo previsto do projeto (módulo Acompanhamento) — quantitativo de serviços vendidos,
+ * previsão de horas normais e previsão de hora extra. Hoje é preenchido manualmente no cronograma;
+ * idealmente viria do banco comercial, que ainda não carrega esses campos.
  *
- * A edição é "substituição total": o front envia o conjunto completo de serviços e de HE; o backend
+ * A edição é "substituição total": o front envia o conjunto completo de serviços e de horas; o backend
  * reescreve as linhas do projeto numa transação (mesmo modelo de UX do cronograma — salvar tudo).
  */
 
@@ -23,16 +23,21 @@ function text(value) {
   return str || null;
 }
 
-// Lê o escopo previsto de um projeto (serviços + hora extra), pronto para o front.
+// Lê o escopo previsto de um projeto (serviços + horas normais + hora extra), pronto para o front.
 export async function getPlannedScope(projectId) {
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
   if (!project) throw new Error('Projeto não encontrado.');
 
-  const [services, overtime] = await Promise.all([
+  const [services, normalHours, overtime] = await Promise.all([
     prisma.projectPlannedService.findMany({
       where: { projectId },
       orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
       include: { systems: { orderBy: [{ order: 'asc' }] } }
+    }),
+    prisma.projectPlannedNormalHours.findMany({
+      where: { projectId },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+      include: { jobRole: { select: { id: true, name: true } } }
     }),
     prisma.projectPlannedOvertime.findMany({
       where: { projectId },
@@ -56,6 +61,13 @@ export async function getPlannedScope(projectId) {
         unit: sys.unit
       }))
     })),
+    normalHours: normalHours.map(o => ({
+      id: o.id,
+      jobRoleId: o.jobRoleId,
+      roleName: o.roleName ?? o.jobRole?.name ?? null,
+      collaboratorCount: o.collaboratorCount,
+      hours: o.hours
+    })),
     overtime: overtime.map(o => ({
       id: o.id,
       jobRoleId: o.jobRoleId,
@@ -67,21 +79,22 @@ export async function getPlannedScope(projectId) {
 }
 
 // Substitui todo o escopo previsto do projeto pelos conjuntos informados (já validados pela rota).
-export async function setPlannedScope(projectId, { services = [], overtime = [] } = {}) {
+export async function setPlannedScope(projectId, { services = [], normalHours = [], overtime = [] } = {}) {
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
   if (!project) throw new Error('Projeto não encontrado.');
 
-  // Resolve o rótulo do cargo a partir do jobRoleId (snapshot em roleName), para a HE não depender
-  // de o cargo continuar existindo depois.
-  const roleIds = [...new Set(overtime.map(o => o.jobRoleId).filter(Boolean))];
+  // Resolve o rótulo do cargo a partir do jobRoleId (snapshot em roleName), para as horas não
+  // dependerem de o cargo continuar existindo depois.
+  const roleIds = [...new Set([...normalHours, ...overtime].map(o => o.jobRoleId).filter(Boolean))];
   const roles = roleIds.length
     ? await prisma.jobRole.findMany({ where: { id: { in: roleIds } }, select: { id: true, name: true } })
     : [];
   const roleNameById = new Map(roles.map(r => [r.id, r.name]));
 
   await prisma.$transaction(async (tx) => {
-    // Apaga os serviços (cascata derruba os sistemas) e a HE, depois recria tudo.
+    // Apaga os serviços (cascata derruba os sistemas) e as horas, depois recria tudo.
     await tx.projectPlannedService.deleteMany({ where: { projectId } });
+    await tx.projectPlannedNormalHours.deleteMany({ where: { projectId } });
     await tx.projectPlannedOvertime.deleteMany({ where: { projectId } });
 
     for (const [index, s] of services.entries()) {
@@ -104,6 +117,22 @@ export async function setPlannedScope(projectId, { services = [], overtime = [] 
             }))
           }
         }
+      });
+    }
+
+    if (normalHours.length) {
+      await tx.projectPlannedNormalHours.createMany({
+        data: normalHours.map((o, index) => {
+          const jobRoleId = o.jobRoleId && roleNameById.has(o.jobRoleId) ? o.jobRoleId : null;
+          return {
+            projectId,
+            jobRoleId,
+            roleName: jobRoleId ? roleNameById.get(jobRoleId) : (o.roleName?.trim() || null),
+            collaboratorCount: o.collaboratorCount ?? 1,
+            hours: num(o.hours) ?? 0,
+            order: index
+          };
+        })
       });
     }
 
