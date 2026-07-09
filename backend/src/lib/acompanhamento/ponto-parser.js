@@ -5,7 +5,7 @@
  * adicionar SheetJS. Layout do arquivo (uma aba, blocos por colaborador):
  *
  *   Colaborador | <nome>
- *   Data | 1ª Entrada | ... | Horas normais(K) | Horas extras acumulativas(L) | ... | Adic. noturno(N) | Motivo(O)
+ *   Data | 1ª Entrada | ... | Horas normais | Horas extras acumulativas | ... | Adic. noturno | Motivo
  *   Seg, 01/06/2026 | ... valores diários ...
  *   ...
  *   TOTAIS | ...
@@ -36,6 +36,29 @@ function columnOf(ref) {
 function rowOf(ref) {
   const match = ref.match(/\d+$/);
   return match ? Number(match[0]) : 0;
+}
+
+function normalizeHeader(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildHeaderMap(cells) {
+  const header = { dateCol: null, normalCol: null, extrasCol: null, nightCol: null, reasonCol: null };
+  for (const [col, value] of Object.entries(cells)) {
+    const name = normalizeHeader(value);
+    if (name === 'data') header.dateCol = col;
+    else if (name === 'horas normais') header.normalCol = col;
+    else if (name === 'horas extras acumulativas') header.extrasCol = col;
+    else if (name === 'adicional noturno' || name === 'adic noturno') header.nightCol = col;
+    else if (name.startsWith('motivo')) header.reasonCol = col;
+  }
+  return header;
 }
 
 function parseSharedStrings(xml) {
@@ -110,6 +133,7 @@ export function parsePonto(buffer) {
   const sortedRowNums = [...rows.keys()].sort((a, b) => a - b);
   const blocks = [];
   let current = null;
+  let currentHeader = null;
   let rowsRead = 0;
 
   for (const rowNum of sortedRowNums) {
@@ -119,24 +143,37 @@ export function parsePonto(buffer) {
 
     if (a === 'Colaborador') {
       current = { rawName: b, days: [], he70Minutes: 0, he100Minutes: 0 };
+      currentHeader = null;
       blocks.push(current);
       continue;
     }
     if (!current) continue;
-    if (a === 'Data' || a === 'TOTAIS' || a === 'Resumo') continue;
+    const header = buildHeaderMap(cells);
+    if (header.dateCol) {
+      if (!header.normalCol) {
+        throw new Error(`Cabeçalho "Horas normais" não encontrado na linha ${rowNum} da planilha do ponto.`);
+      }
+      currentHeader = header;
+      continue;
+    }
+    if (a === 'TOTAIS' || a === 'Resumo') continue;
     if (/^Horas extras acumuladas 70%/i.test(a)) { current.he70Minutes = hmToMinutes(b); continue; }
     if (/^Horas extras acumuladas 100%/i.test(a)) { current.he100Minutes = hmToMinutes(b); continue; }
 
-    const dateMatch = a.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    const dateValue = currentHeader?.dateCol ? cells[currentHeader.dateCol] : a;
+    const dateMatch = String(dateValue ?? '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
     if (!dateMatch) continue;
+    if (!currentHeader?.normalCol) {
+      throw new Error(`Cabeçalho "Horas normais" não encontrado antes da linha ${rowNum} da planilha do ponto.`);
+    }
     const [, dd, mm, yyyy] = dateMatch;
     rowsRead += 1;
     current.days.push({
       date: `${yyyy}-${mm}-${dd}`,
-      workedMinutes: hmToMinutes(cells.K),
-      extrasMinutes: hmToMinutes(cells.L),
-      nightMinutes: hmToMinutes(cells.N),
-      motivo: (cells.O || '').trim() || null
+      workedMinutes: hmToMinutes(cells[currentHeader.normalCol]),
+      extrasMinutes: hmToMinutes(currentHeader.extrasCol ? cells[currentHeader.extrasCol] : null),
+      nightMinutes: hmToMinutes(currentHeader.nightCol ? cells[currentHeader.nightCol] : null),
+      motivo: currentHeader.reasonCol ? (cells[currentHeader.reasonCol] || '').trim() || null : null
     });
   }
 
