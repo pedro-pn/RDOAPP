@@ -177,12 +177,13 @@ export interface PlannedOvertime {
   id?: string;
   jobRoleId?: string | null;
   roleName?: string | null;
-  collaboratorCount: number;
+  collaboratorCount?: number;
   hours: string | number;
 }
 
 export interface PlannedScope {
   services: PlannedService[];
+  normalHours: PlannedOvertime[];
   overtime: PlannedOvertime[];
 }
 
@@ -235,6 +236,19 @@ export async function getProjectProgress(projectId: string): Promise<ProjectProg
 
 export type LastDayStatus = 'TRABALHADO' | 'PARADO' | 'SEM_RDO';
 
+export interface WorkedHoursProgress {
+  normalWorkedHours: number;
+  overtimeWorkedHours: number;
+  totalWorkedHours: number;
+  plannedNormalHours: number;
+  plannedOvertimeHours: number;
+  plannedTotalHours: number | null;
+  normalPct: number | null;
+  overtimePct: number | null;
+  totalPct: number | null;
+  roleCounts?: Array<{ roleName: string; collaboratorCount: number; usedHours: number; pctOfPlannedTotal: number | null }>;
+}
+
 export interface ProjectCard {
   projectId: string;
   code: string;
@@ -244,6 +258,7 @@ export interface ProjectCard {
   workedDays: number;
   totalDays: number | null;
   daysConsumedPct: number | null;
+  workedHours: WorkedHoursProgress;
   progressPct: number | null;
   progressMethod?: ProgressMethod | null;
   lastDay: { date: string | null; status: LastDayStatus };
@@ -279,6 +294,7 @@ export interface ProjectDetail {
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
   consumo: { gasto: number; previsto: number | null; pct: number | null };
   maoDeObra: { custo: number | null; custoBase: number | null; horas: number | null; periodStart: string | null; periodEnd: string | null };
+  workedHours: WorkedHoursProgress;
   maioresGastos: Array<{ categoria: string; total: number }>;
   avancoPct: number | null;
   standby: { count: number; minutes: number };

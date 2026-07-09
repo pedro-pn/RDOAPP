@@ -16,6 +16,13 @@ function brl(value?: number | null) {
   return value === null || value === undefined ? '—'
     : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 }
+function fmtHours(value?: number | null) {
+  return value === null || value === undefined ? '—'
+    : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h`;
+}
+function clampPct(value?: number | null, max = 100) {
+  return Math.min(Math.max(value ?? 0, 0), max);
+}
 
 const STATUS_META: Record<LastDayStatus, { label: string; cls: string }> = {
   TRABALHADO: { label: 'Último dia trabalhado', cls: 'ok' },
@@ -25,12 +32,34 @@ const STATUS_META: Record<LastDayStatus, { label: string; cls: string }> = {
 
 function Bar({ value }: { value: number | null }) {
   return (
-    <div className="acp-prog-bar"><span style={{ width: `${Math.min(Math.max(value ?? 0, 0), 100)}%` }} /></div>
+    <div className="acp-prog-bar"><span style={{ width: `${clampPct(value)}%` }} /></div>
+  );
+}
+
+function HoursBar({ normalPct, overtimePct }: { normalPct: number | null; overtimePct: number | null }) {
+  const normalWidth = clampPct(normalPct);
+  const overtimeWidth = clampPct(overtimePct, 100 - normalWidth);
+  return (
+    <div className="acp-prog-bar acp-hours-bar">
+      {normalWidth > 0 ? <span className="normal" style={{ width: `${normalWidth}%` }} /> : null}
+      {overtimeWidth > 0 ? <span className="overtime" style={{ width: `${overtimeWidth}%` }} /> : null}
+    </div>
   );
 }
 
 function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
   const status = STATUS_META[card.lastDay.status];
+  const workedHours = card.workedHours ?? {
+    normalWorkedHours: 0,
+    overtimeWorkedHours: 0,
+    totalWorkedHours: 0,
+    plannedNormalHours: 0,
+    plannedOvertimeHours: 0,
+    plannedTotalHours: null,
+    normalPct: null,
+    overtimePct: null,
+    totalPct: null
+  };
   return (
     <div
       className="acp-pcard acp-pcard-click"
@@ -59,6 +88,27 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
           </span>
         </div>
         <Bar value={card.daysConsumedPct} />
+      </div>
+
+      <div className="acp-pcard-metric">
+        <div className="acp-pcard-metric-top">
+          <span>Horas trabalhadas</span>
+          <span className="acp-pcard-metric-val">
+            {fmtHours(workedHours.totalWorkedHours)}/{fmtHours(workedHours.plannedTotalHours)}
+            {workedHours.totalPct != null ? ` · ${workedHours.totalPct}% consumido` : ''}
+          </span>
+        </div>
+        <HoursBar normalPct={workedHours.normalPct} overtimePct={workedHours.overtimePct} />
+        <div className="acp-hours-split">
+          <span>
+            <i className="acp-hours-dot normal" />Normais {fmtHours(workedHours.normalWorkedHours)}
+            {workedHours.normalPct != null ? ` · ${workedHours.normalPct}%` : ''}
+          </span>
+          <span>
+            <i className="acp-hours-dot overtime" />HE {fmtHours(workedHours.overtimeWorkedHours)}
+            {workedHours.overtimePct != null ? ` · ${workedHours.overtimePct}%` : ''}
+          </span>
+        </div>
       </div>
 
       <div className="acp-pcard-metric">

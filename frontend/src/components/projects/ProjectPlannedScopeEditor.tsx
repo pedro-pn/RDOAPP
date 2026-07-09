@@ -87,10 +87,9 @@ interface ServiceRow {
   weight: string;
   systems: SystemRow[];
 }
-interface OvertimeRow {
+interface HoursRow {
   key: string;
   jobRoleId: string;
-  collaboratorCount: string;
   hours: string;
 }
 
@@ -143,7 +142,7 @@ function rescaleTo100(services: ServiceRow[]): ServiceRow[] {
   return withWeights(services, roundToSum(base, 100));
 }
 
-function fromScope(scope: PlannedScope): { services: ServiceRow[]; overtime: OvertimeRow[] } {
+function fromScope(scope: PlannedScope): { services: ServiceRow[]; normalHours: HoursRow[]; overtime: HoursRow[] } {
   const services = scope.services.map(s => {
     const serviceType = s.serviceType || 'LIMPEZA_QUIMICA';
     const allowed = allowedSystems(serviceType);
@@ -165,16 +164,20 @@ function fromScope(scope: PlannedScope): { services: ServiceRow[]; overtime: Ove
   });
   return {
     services: rescaleTo100(services), // garante soma 100% (corrige dados antigos)
-    overtime: scope.overtime.map(o => ({
+    normalHours: (scope.normalHours ?? []).map(o => ({
       key: nextKey(),
       jobRoleId: o.jobRoleId || '',
-      collaboratorCount: toStr(o.collaboratorCount),
+      hours: toStr(o.hours)
+    })),
+    overtime: (scope.overtime ?? []).map(o => ({
+      key: nextKey(),
+      jobRoleId: o.jobRoleId || '',
       hours: toStr(o.hours)
     }))
   };
 }
 
-function normalize(services: ServiceRow[], overtime: OvertimeRow[]) {
+function normalize(services: ServiceRow[], normalHours: HoursRow[], overtime: HoursRow[]) {
   return JSON.stringify({
     services: services.map(s => ({
       serviceType: s.serviceType,
@@ -187,13 +190,14 @@ function normalize(services: ServiceRow[], overtime: OvertimeRow[]) {
         quantity: sys.quantity
       }))
     })),
-    overtime: overtime.map(o => ({ jobRoleId: o.jobRoleId, collaboratorCount: o.collaboratorCount, hours: o.hours }))
+    normalHours: normalHours.map(o => ({ jobRoleId: o.jobRoleId, hours: o.hours })),
+    overtime: overtime.map(o => ({ jobRoleId: o.jobRoleId, hours: o.hours }))
   });
 }
 
 export interface ScopeEditorHandle { save: () => void }
 
-// Editor do escopo previsto (vendido): serviços com seus sistemas + previsão de hora extra.
+// Editor do escopo previsto (vendido): serviços com seus sistemas + previsão de horas.
 // Preenchimento manual — esses dados ainda não vêm do banco comercial. Sem botão próprio de salvar:
 // expõe save() via ref e reporta dirty; o modal do cronograma tem o único Salvar/Cancelar.
 export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
@@ -209,7 +213,8 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
   const { data: roles } = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
 
   const [services, setServices] = useState<ServiceRow[]>([]);
-  const [overtime, setOvertime] = useState<OvertimeRow[]>([]);
+  const [normalHours, setNormalHours] = useState<HoursRow[]>([]);
+  const [overtime, setOvertime] = useState<HoursRow[]>([]);
   const [baseline, setBaseline] = useState('');
   // Serviços cujo peso o usuário já editou manualmente (ficam fixos no reequilíbrio).
   const touchedWeights = useRef<Set<string>>(new Set());
@@ -218,13 +223,14 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
     if (!data) return;
     const next = fromScope(data);
     setServices(next.services);
+    setNormalHours(next.normalHours);
     setOvertime(next.overtime);
-    setBaseline(normalize(next.services, next.overtime));
+    setBaseline(normalize(next.services, next.normalHours, next.overtime));
     // Dados carregados já têm pesos definidos: trata como fixos (edição livre, sem "brigar").
     touchedWeights.current = new Set(next.services.map(s => s.key));
   }, [data]);
 
-  const dirty = useMemo(() => normalize(services, overtime) !== baseline, [services, overtime, baseline]);
+  const dirty = useMemo(() => normalize(services, normalHours, overtime) !== baseline, [services, normalHours, overtime, baseline]);
 
   // Handle estável que sempre chama o save mais recente (só quando há mudança).
   const runSave = useRef<() => void>(() => {});
@@ -238,6 +244,8 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
       showToast('Escopo previsto salvo.');
       queryClient.setQueryData(queryKey, saved);
       queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['project-cards'] });
+      queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-progress', projectId] });
     },
     onError: () => showToast('Não foi possível salvar o escopo previsto.')
@@ -257,11 +265,16 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
           unit: SYSTEM_UNIT[sys.systemType]
         }))
       })),
+      normalHours: normalHours
+        .filter(o => o.jobRoleId || toNum(o.hours))
+        .map(o => ({
+          jobRoleId: o.jobRoleId || null,
+          hours: toNum(o.hours) ?? 0
+        })),
       overtime: overtime
         .filter(o => o.jobRoleId || toNum(o.hours))
         .map(o => ({
           jobRoleId: o.jobRoleId || null,
-          collaboratorCount: Math.max(1, Math.trunc(toNum(o.collaboratorCount) ?? 1)),
           hours: toNum(o.hours) ?? 0
         }))
     };
@@ -501,9 +514,49 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
 
       {beforeOvertime}
 
+      <div className="sec" style={{ marginTop: 18 }}>Previsão de horas normais</div>
+      <p className="placeholder-copy" style={{ margin: '2px 0 8px' }}>
+        Informe o total de horas normais previstas. O valor já deve incluir todos os colaboradores; se houver mais de uma linha, elas são somadas.
+      </p>
+
+      {normalHours.length === 0 ? (
+        <div className="placeholder-copy">Nenhuma hora normal prevista.</div>
+      ) : (
+        <div className="acp-ot-list">
+          {normalHours.map(row => (
+            <div className="acp-ot-row" key={row.key}>
+              <div className="field-group acp-ot-role">
+                <label>Cargo (opcional) <HelpTip icon help="Use apenas se quiser quebrar o total previsto por cargo. O cálculo soma todas as linhas." /></label>
+                <select value={row.jobRoleId} onChange={e => updateRow(setNormalHours, row.key, { jobRoleId: e.target.value })}>
+                  <option value="">— selecione —</option>
+                  {(roles ?? []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+              <div className="field-group">
+                <label>Horas previstas <HelpTip icon help="Total de horas normais previstas (vendidas). Não multiplica por colaborador." /></label>
+                <input
+                  type="number" min="0" step="any" inputMode="decimal" placeholder="0"
+                  value={row.hours}
+                  onChange={e => updateRow(setNormalHours, row.key, { hours: e.target.value })}
+                />
+              </div>
+              <button type="button" className="mini-btn alt acp-sys-del" onClick={() => removeRow(setNormalHours, row.key)} aria-label="Remover horas normais">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        className="mini-btn"
+        style={{ marginTop: 8 }}
+        onClick={() => setNormalHours(prev => [...prev, { key: nextKey(), jobRoleId: '', hours: '' }])}
+      >
+        + Adicionar horas normais
+      </button>
+
       <div className="sec" style={{ marginTop: 18 }}>Previsão de hora extra</div>
       <p className="placeholder-copy" style={{ margin: '2px 0 8px' }}>
-        Por cargo, nº de colaboradores e total de horas previstas.
+        Informe o total de horas extras previstas. O valor já deve incluir todos os colaboradores; se houver mais de uma linha, elas são somadas.
       </p>
 
       {overtime.length === 0 ? (
@@ -513,22 +566,14 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
           {overtime.map(row => (
             <div className="acp-ot-row" key={row.key}>
               <div className="field-group acp-ot-role">
-                <label>Cargo <HelpTip icon help="Cargo previsto para as horas extras vendidas." /></label>
+                <label>Cargo (opcional) <HelpTip icon help="Use apenas se quiser quebrar o total previsto por cargo. O cálculo soma todas as linhas." /></label>
                 <select value={row.jobRoleId} onChange={e => updateRow(setOvertime, row.key, { jobRoleId: e.target.value })}>
                   <option value="">— selecione —</option>
                   {(roles ?? []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
               <div className="field-group">
-                <label>Colaboradores <HelpTip icon help="Quantos colaboradores desse cargo estão previstos para a hora extra." /></label>
-                <input
-                  type="number" min="1" step="1" inputMode="numeric" placeholder="1"
-                  value={row.collaboratorCount}
-                  onChange={e => updateRow(setOvertime, row.key, { collaboratorCount: e.target.value })}
-                />
-              </div>
-              <div className="field-group">
-                <label>Horas previstas <HelpTip icon help="Total de horas extras previstas (vendidas) para esse cargo." /></label>
+                <label>Horas previstas <HelpTip icon help="Total de horas extras previstas (vendidas). Não multiplica por colaborador." /></label>
                 <input
                   type="number" min="0" step="any" inputMode="decimal" placeholder="0"
                   value={row.hours}
@@ -544,7 +589,7 @@ export const ProjectPlannedScopeEditor = forwardRef<ScopeEditorHandle, {
         type="button"
         className="mini-btn"
         style={{ marginTop: 8 }}
-        onClick={() => setOvertime(prev => [...prev, { key: nextKey(), jobRoleId: '', collaboratorCount: '1', hours: '' }])}
+        onClick={() => setOvertime(prev => [...prev, { key: nextKey(), jobRoleId: '', hours: '' }])}
       >
         + Adicionar hora extra
       </button>

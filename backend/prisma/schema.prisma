@@ -339,6 +339,7 @@ model JobRole {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  plannedNormalHours ProjectPlannedNormalHours[]
   plannedOvertime ProjectPlannedOvertime[]
   costProfile     CostProfile?
 
@@ -392,6 +393,7 @@ model Project {
   omieProjects          OmieProject[]
   omiePurchases         OmiePurchase[]
   plannedServices       ProjectPlannedService[]
+  plannedNormalHours    ProjectPlannedNormalHours[]
   plannedOvertime       ProjectPlannedOvertime[]
 
   @@index([deletedAt])
@@ -1498,13 +1500,32 @@ model ProjectPlannedServiceSystem {
   @@index([serviceId])
 }
 
-// Previsão de hora extra vendida: por cargo, nº de colaboradores e horas previstas.
+// Previsão de horas normais vendidas: por cargo e total de horas previstas.
+model ProjectPlannedNormalHours {
+  id                String   @id @default(cuid())
+  projectId         String
+  jobRoleId         String?
+  roleName          String?  // rótulo do cargo (snapshot/fallback quando sem jobRoleId)
+  collaboratorCount Int      @default(1) // legado: horas previstas já são totais, não por colaborador
+  hours             Decimal  @default(0) @db.Decimal(10, 2)
+  note              String?
+  order             Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobRole           JobRole? @relation(fields: [jobRoleId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([jobRoleId])
+}
+
+// Previsão de hora extra vendida: por cargo e total de horas previstas.
 model ProjectPlannedOvertime {
   id                String   @id @default(cuid())
   projectId         String
   jobRoleId         String?
   roleName          String?  // rótulo do cargo (snapshot/fallback quando sem jobRoleId)
-  collaboratorCount Int      @default(1)
+  collaboratorCount Int      @default(1) // legado: horas previstas já são totais, não por colaborador
   hours             Decimal  @default(0) @db.Decimal(10, 2)
   note              String?
   order             Int      @default(0)
