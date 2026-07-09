@@ -1,13 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
-- Modified principles: nenhum renomeado; Governance atualizada (I–V → I–VI)
-- Added sections: Princípio VI — Consistência Visual e Componentes Padrão
+- Version change: 1.1.0 → 1.2.0
+- Modified principles: Princípio VI expandido para dropdowns/selects e largura desktop
+- Added sections: nenhuma
 - Removed sections: nenhuma
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — gate "Constitution Check" é genérico, preenchido por feature; sem alteração necessária
+  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir dropdowns padronizados e largura desktop adequada
   - ✅ .specify/templates/spec-template.md — sem referências à constitution; sem alteração necessária
-  - ✅ .specify/templates/tasks-template.md — sem referências à constitution; sem alteração necessária
+  - ✅ .specify/templates/tasks-template.md — polish inclui verificação visual de selects/dropdowns e largura desktop
+  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para módulos largos e campos selecionáveis
 - Follow-up TODOs: nenhum
 -->
 
@@ -79,10 +80,18 @@ Nenhuma página, modal ou card pode nascer fora da formatação padrão do app. 
 - Cores, raios de borda, sombras e espaçamentos DEVEM vir dos tokens de
   `frontend/src/styles/variables.css` (`--g`, `--r`, `--rs`, `--shadow`, ...); valores
   hex/px hardcoded que dupliquem um token existente são vetados.
-- Campos de formulário (`input`, `select`, `textarea`, listas suspensas) DEVEM herdar o
-  estilo global de `frontend/src/styles/base.css`; um campo só pode ter estilo próprio
-  quando o comportamento exigir (ex.: multiselect), e mesmo assim construído sobre os
-  tokens.
+- Campos de formulário (`input`, `select`, `textarea`) DEVEM herdar o estilo global de
+  `frontend/src/styles/base.css`. `select` nativo e listas suspensas customizadas
+  DEVEM aparecer formatados com borda, raio, padding, foco e indicador visual de
+  abertura consistentes com o app; dropdown com aparência padrão crua do navegador é
+  violação bloqueante.
+- Listas suspensas customizadas (combobox, multiselect, filtros com menu) DEVEM usar
+  componente existente do kit ou uma classe compartilhada baseada nos tokens. É
+  proibido criar dropdown local sem estados de foco, disabled, erro e mobile definidos.
+- Módulo novo com dashboard, tabelas/cards ou formulários de múltiplas colunas DEVE
+  optar por um shell largo no desktop, seguindo o padrão de Equipamentos e
+  Acompanhamento (`.equip-page` ou classe equivalente documentada). Campos não podem
+  ficar comprimidos em 420/540px quando houver largura disponível.
 - Página nova DEVE seguir a estrutura visual das páginas existentes do mesmo tipo
   (cabeçalho, cards, tabela/lista) — copiar o padrão de uma tela análoga em
   `frontend/src/pages/` antes de inventar layout novo.
@@ -132,4 +141,4 @@ corrigido.
   DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
   registrada na seção Complexity Tracking do plano da feature.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-03
+**Version**: 1.2.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-09
