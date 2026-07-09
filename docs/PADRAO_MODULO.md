@@ -69,6 +69,15 @@ frontend/test/<modulo>.test.mjs
 Telas novas devem comecar pequenas. Se uma pagina passar de 700 a 900 linhas, o
 modulo deve ser dividido antes de acumular mais fluxo na mesma tela.
 
+Modulo com dashboard, tabelas, cards em grade ou formulario de multiplas colunas deve
+usar o shell largo de desktop, seguindo o padrao de Equipamentos/Acompanhamento
+(`.equip-page` ou equivalente documentado). Nao comprimir modulos operacionais no
+container padrao de 420/540px quando houver largura disponivel.
+
+Campos selecionaveis (`select`, combobox, multiselect e dropdown de filtro) devem usar
+o estilo compartilhado do app: borda, raio, padding, foco, disabled, erro e mobile
+consistentes. Select nativo com aparencia crua do navegador e bloqueante em review.
+
 Evitar misturar no mesmo arquivo:
 
 - provider e hook compartilhado;

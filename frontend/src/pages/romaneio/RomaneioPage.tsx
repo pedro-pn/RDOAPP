@@ -35,7 +35,7 @@ import { defaultRomaneioUnit, romaneioMeasureLabel } from '../../utils/romaneioM
 type Tab = 'romaneios' | 'equipamentos' | 'notificacoes';
 const NEW_CATEGORY_VALUE = '__new_category__';
 
-const rdoOwnedCatalogSources = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS']);
+const managedCatalogSources = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK']);
 
 function formatDate(value: string) {
   if (!value) return '';
@@ -83,7 +83,16 @@ function catalogEmpty(): RomaneioCatalogPayload {
 }
 
 function isRdoOwnedCatalogItem(item: RomaneioCatalogItem) {
-  return rdoOwnedCatalogSources.has(item.sourceType);
+  return managedCatalogSources.has(item.sourceType);
+}
+
+function catalogItemTypeLabel(item: RomaneioCatalogItem) {
+  if (item.sourceType === 'STOCK') return 'Estoque';
+  return item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento';
+}
+
+function managedCatalogSourceLabel(item: RomaneioCatalogItem) {
+  return item.sourceType === 'STOCK' ? 'Gerenciado pelo módulo Estoque' : 'Gerenciado pelo módulo Equipamentos';
 }
 
 function normalizeSearch(value: unknown) {
@@ -221,7 +230,7 @@ export function RomaneioPage() {
         item.code,
         item.name,
         item.categoryName,
-        item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento',
+        catalogItemTypeLabel(item),
         item.defaultUnitLabel,
         romaneioMeasureLabel(item.measureType)
       ].filter(Boolean).join(' '));
@@ -582,7 +591,7 @@ export function RomaneioPage() {
                               <div className="romaneio-catalog-row-main">
                                 <div>
                                   <strong>{[item.code, item.name].filter(Boolean).join(' - ')}</strong>
-                                  <div className="rel-meta">{item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento'} · {romaneioMeasureLabel(item.measureType)}</div>
+                                  <div className="rel-meta">{catalogItemTypeLabel(item)} · {romaneioMeasureLabel(item.measureType)}</div>
                                 </div>
                                 {isManager && !isRdoOwnedCatalogItem(item) ? (
                                   <div className="report-card-actions">
@@ -590,7 +599,7 @@ export function RomaneioPage() {
                                     <button className="mini-btn danger" type="button" onClick={() => removeCatalogMutation.mutate(item.id)}>Remover</button>
                                   </div>
                                 ) : isManager && isRdoOwnedCatalogItem(item) ? (
-                                  <div className="rel-meta">Gerenciado pelo módulo Equipamentos</div>
+                                  <div className="rel-meta">{managedCatalogSourceLabel(item)}</div>
                                 ) : null}
                               </div>
                               {isManager && editingCatalogId === item.id && (

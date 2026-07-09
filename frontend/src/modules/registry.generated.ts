@@ -222,6 +222,59 @@ export const moduleRegistry = [
     ]
   },
   {
+    "id": "estoque",
+    "prismaModule": "ESTOQUE",
+    "badge": "STQ",
+    "title": "Estoque",
+    "copy": "Controle de filtros, produtos químicos, lotes e movimentações.",
+    "hub": {
+      "enabled": true,
+      "roles": [
+        "estoque:manager",
+        "estoque:viewer"
+      ],
+      "path": "/estoque"
+    },
+    "pathPrefixes": [
+      "/estoque"
+    ],
+    "routes": {
+      "index": "/estoque"
+    },
+    "routeGroups": {
+      "default": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "estoque:manager",
+          "estoque:viewer"
+        ]
+      }
+    },
+    "roles": [
+      {
+        "code": "ESTOQUE_MANAGER",
+        "public": "estoque:manager",
+        "label": "Estoque - Gestor",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      },
+      {
+        "code": "ESTOQUE_VIEWER",
+        "public": "estoque:viewer",
+        "label": "Estoque - Visualizador",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      }
+    ]
+  },
+  {
     "id": "acompanhamento",
     "prismaModule": "ACOMPANHAMENTO",
     "badge": "ACP",

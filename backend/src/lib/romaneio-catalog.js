@@ -19,9 +19,16 @@ const EQUIPMENT_FILE_CANDIDATES = [
   '/workspace/equipamentos.txt',
   '/workspace/equipamentos'
 ].filter(Boolean);
-const RDO_OWNED_CATALOG_SOURCES = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS']);
+const MANAGED_CATALOG_SOURCES = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK']);
 const ROMANEIO_CATALOG_SYNC_TTL_MS = 60_000;
 const ROMANEIO_CATALOG_SYNC_STATE_ID = 'default';
+const ROMANEIO_CATALOG_SYNC_VERSION = 2;
+const LEGACY_CHEMICAL_CATEGORY_NAMES = [
+  'Produtos Químicos',
+  'Produtos Quimicos',
+  'PRODUTOS QUÍMICOS',
+  'PRODUTOS QUIMICOS'
+];
 let lastSuccessfulCatalogSyncAt = 0;
 let catalogSyncInFlight = null;
 
@@ -209,11 +216,30 @@ function buildEquipmentCatalogRows(equipmentList) {
   });
 }
 
-function catalogRowsHash({ fileRows, equipmentRows }) {
+export function buildStockCatalogRows(stockItems) {
+  return stockItems
+    .filter(item => item.type === 'FILTRO' || (item.type === 'PRODUTO_QUIMICO' && item.unitLabel === 'kg'))
+    .map(item => ({
+      sourceType: 'STOCK',
+      sourceId: item.id,
+      code: item.code,
+      name: normalizeSpaces(item.name),
+      categoryName: item.type === 'FILTRO' ? 'Filtros' : 'Produtos químicos',
+      kind: 'EQUIPMENT',
+      measureType: item.type === 'PRODUTO_QUIMICO' ? 'WEIGHT' : 'UNIT',
+      defaultUnitLabel: item.type === 'PRODUTO_QUIMICO' ? 'kg' : 'un',
+      isSerialized: false,
+      isActive: item.isActive
+    }));
+}
+
+function catalogRowsHash({ fileRows, equipmentRows, stockRows }) {
   const payload = {
+    version: ROMANEIO_CATALOG_SYNC_VERSION,
     filePresent: Array.isArray(fileRows),
     fileRows: fileRows || [],
-    equipmentRows
+    equipmentRows,
+    stockRows
   };
   return crypto
     .createHash('sha256')
@@ -244,7 +270,7 @@ async function upsertCatalogRow(tx, row) {
         delete data.defaultUnitLabel;
         delete data.isSerialized;
       }
-      if (RDO_OWNED_CATALOG_SOURCES.has(existingSource.sourceType)) {
+      if (MANAGED_CATALOG_SOURCES.has(existingSource.sourceType)) {
         data.isActive = row.isActive !== false;
         data.hiddenInRomaneioAt = null;
       }
@@ -292,7 +318,7 @@ function dataForExistingCatalogRow(existing, row) {
     delete data.isSerialized;
   }
 
-  if (RDO_OWNED_CATALOG_SOURCES.has(existing.sourceType)) {
+  if (MANAGED_CATALOG_SOURCES.has(existing.sourceType)) {
     data.isActive = row.isActive !== false;
     data.hiddenInRomaneioAt = null;
   }
@@ -394,8 +420,8 @@ export async function syncCatalogRows(tx, rows) {
         select: { id: true, sourceType: true }
       });
       if (conflict) {
-        const currentIsOwned = RDO_OWNED_CATALOG_SOURCES.has(existing.sourceType);
-        const conflictIsOwned = RDO_OWNED_CATALOG_SOURCES.has(conflict.sourceType);
+        const currentIsOwned = MANAGED_CATALOG_SOURCES.has(existing.sourceType);
+        const conflictIsOwned = MANAGED_CATALOG_SOURCES.has(conflict.sourceType);
         if (currentIsOwned && !conflictIsOwned) {
           await tx.romaneioCatalogItem.delete({ where: { id: conflict.id } });
         } else {
@@ -414,7 +440,7 @@ export async function syncCatalogRows(tx, rows) {
 
   if (!rowsWithoutSourceMatch.length) return stats;
 
-  const existingByNaturalKey = new Set();
+  const existingByNaturalKey = new Map();
   const naturalConditions = rowsWithoutSourceMatch.map(row => ({
     categoryName: row.categoryName,
     code: row.code,
@@ -426,10 +452,10 @@ export async function syncCatalogRows(tx, rows) {
     // impedir a criação da nova linha gerenciada (sourceType EQUIPAMENTOS).
     const existingNaturalRows = await tx.romaneioCatalogItem.findMany({
       where: { isActive: true, OR: naturalConditions },
-      select: { categoryName: true, code: true, name: true }
+      select: { id: true, sourceType: true, categoryName: true, code: true, name: true }
     });
     for (const existing of existingNaturalRows) {
-      existingByNaturalKey.add(catalogNaturalKey(existing));
+      existingByNaturalKey.set(catalogNaturalKey(existing), existing);
     }
   }
 
@@ -437,9 +463,17 @@ export async function syncCatalogRows(tx, rows) {
   const seenNewRows = new Set();
   for (const row of rowsWithoutSourceMatch) {
     const key = catalogNaturalKey(row);
-    if (existingByNaturalKey.has(key)) {
-      stats.skippedExistingNaturalKey += 1;
-      continue;
+    const existingNatural = existingByNaturalKey.get(key);
+    if (existingNatural) {
+      const rowIsManaged = MANAGED_CATALOG_SOURCES.has(row.sourceType);
+      const existingIsManaged = MANAGED_CATALOG_SOURCES.has(existingNatural.sourceType);
+      if (rowIsManaged && !existingIsManaged && typeof tx.romaneioCatalogItem.delete === 'function') {
+        await tx.romaneioCatalogItem.delete({ where: { id: existingNatural.id } });
+        existingByNaturalKey.delete(key);
+      } else {
+        stats.skippedExistingNaturalKey += 1;
+        continue;
+      }
     }
     if (seenNewRows.has(key)) {
       stats.skippedDuplicateInput += 1;
@@ -493,6 +527,28 @@ export async function syncEquipmentCatalogRows(tx, rows) {
   return stats;
 }
 
+export async function syncStockCatalogRows(tx, rows) {
+  const stats = await syncCatalogRows(tx, rows);
+  if (typeof tx.romaneioCatalogItem.updateMany !== 'function') return stats;
+  const currentSourceIds = rows.map(row => row.sourceId).filter(Boolean);
+  const where = currentSourceIds.length
+    ? { sourceType: 'STOCK', sourceId: { notIn: currentSourceIds }, isActive: true }
+    : { sourceType: 'STOCK', isActive: true };
+  await tx.romaneioCatalogItem.updateMany({ where, data: { isActive: false } });
+  await tx.romaneioCatalogItem.updateMany({
+    where: {
+      sourceType: 'FILE',
+      isActive: true,
+      hiddenInRomaneioAt: null,
+      OR: LEGACY_CHEMICAL_CATEGORY_NAMES.map(categoryName => ({
+        categoryName: { equals: categoryName, mode: 'insensitive' }
+      }))
+    },
+    data: { isActive: false }
+  });
+  return stats;
+}
+
 function mergeCatalogSyncStats(...items) {
   return items.reduce((acc, item) => {
     acc.input += item?.input || 0;
@@ -519,8 +575,21 @@ async function runRomaneioCatalogSync() {
       where: { isActive: true, category: { is: { syncToRomaneio: true } } },
       include: { category: true }
     });
+    const stockItems = typeof tx.stockItem?.findMany === 'function'
+      ? await tx.stockItem.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { type: 'FILTRO' },
+              { type: 'PRODUTO_QUIMICO', unitLabel: 'kg' }
+            ]
+          },
+          orderBy: [{ code: 'asc' }, { name: 'asc' }]
+        })
+      : [];
     const equipmentRows = buildEquipmentCatalogRows(equipmentList);
-    const sourceHash = catalogRowsHash({ fileRows, equipmentRows });
+    const stockRows = buildStockCatalogRows(stockItems);
+    const sourceHash = catalogRowsHash({ fileRows, equipmentRows, stockRows });
 
     if (tx.romaneioCatalogSyncState) {
       const state = await tx.romaneioCatalogSyncState.findUnique({
@@ -532,7 +601,8 @@ async function runRomaneioCatalogSync() {
 
     const stats = mergeCatalogSyncStats(
       await syncFileCatalogRows(tx, fileRows),
-      await syncEquipmentCatalogRows(tx, equipmentRows)
+      await syncEquipmentCatalogRows(tx, equipmentRows),
+      await syncStockCatalogRows(tx, stockRows)
     );
     logCatalogSyncStats(stats);
 

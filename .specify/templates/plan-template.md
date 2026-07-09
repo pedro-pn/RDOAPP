@@ -40,7 +40,18 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Server operations/deploy commands are not executed by the agent; any such command is
+  documented for the human operator to run on the server.
+- UI is pt-BR and mobile-first: wide tables have mobile alternatives, modals have fixed
+  action footers and no page-level horizontal scroll.
+- Forms and APIs use Zod-compatible validation on frontend and backend.
+- Schema changes are represented by Prisma migrations and never by ad hoc database edits.
+- Backend business logic has tests in `backend/test` when the feature adds or changes
+  rules.
+- Visual consistency uses `frontend/src/components/ui/` and design tokens. Native
+  `select` fields, custom dropdowns/comboboxes and multiselects must match the app
+  standard states (default, focus, disabled, error, mobile), and desktop modules with
+  dashboards/tables/forms must use the wide module shell pattern.
 
 ## Project Structure
 

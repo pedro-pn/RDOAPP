@@ -1227,6 +1227,95 @@ a {
   margin-left: auto;
 }
 
+.stock-movement-filters {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.25fr)
+    minmax(136px, 0.72fr)
+    minmax(170px, 0.9fr)
+    minmax(220px, 1.25fr)
+    minmax(138px, 0.64fr)
+    minmax(138px, 0.64fr);
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.stock-movement-filters > * {
+  min-width: 0;
+}
+
+.stock-date-filter label {
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .stock-movement-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .stock-movement-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .stock-filter-item,
+  .stock-filter-project {
+    grid-column: 1 / -1;
+  }
+
+  .stock-movement-filters select,
+  .stock-date-filter input {
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .stock-date-filter {
+    gap: 4px;
+  }
+
+  .stock-date-filter label {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+}
+
+.stock-movements-table-wrap {
+  margin-top: 10px;
+}
+
+.stock-movements-table {
+  min-width: 1180px;
+}
+
+.stock-movements-table td {
+  vertical-align: top;
+}
+
+.stock-table-muted {
+  display: block;
+  margin-top: 2px;
+  color: var(--mu);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stock-table-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.stock-table-action {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
 .nps-tab-content {
   display: flex;
   flex-direction: column;
@@ -5498,7 +5587,10 @@ textarea {
 select {
   -webkit-appearance: none;
   appearance: none;
-  padding-right: 30px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  padding: 8px 30px 8px 10px;
+  background-color: #fafafa;
   background-image:
     linear-gradient(45deg, transparent 50%, var(--mu) 50%),
     linear-gradient(135deg, var(--mu) 50%, transparent 50%);
@@ -5509,6 +5601,24 @@ select {
     6px 6px,
     6px 6px;
   background-repeat: no-repeat;
+  color: var(--tx);
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--g);
+  background-color: var(--wh);
+}
+
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.field-group select,
+.equip-dashboard-filters select,
+.nps-tab-toolbar select {
+  padding-right: 30px;
 }
 
 .num-unit select {
@@ -8583,23 +8693,28 @@ select {
   }
 }
 
-/* ── Módulo Equipamentos ── */
-.equip-page {
+/* ── Módulos operacionais largos ── */
+.equip-page,
+.stock-page {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
 /* Módulo mais largo no desktop (dashboard/detalhe com mais colunas sem rolagem horizontal) */
-.app-shell:has(.equip-page) {
+.app-shell:has(.equip-page),
+.app-shell:has(.stock-page) {
   max-width: 1320px;
 }
 
 @media (min-width: 1280px) {
-  .app-shell:has(.equip-page) {
+  .app-shell:has(.equip-page),
+  .app-shell:has(.stock-page) {
     max-width: 1440px;
   }
 }
+
+/* ── Módulo Equipamentos ── */
 
 /* Layout com rail lateral de navegação (sem abas com rolagem horizontal) */
 .equip-layout {
@@ -8721,7 +8836,7 @@ select {
   box-sizing: border-box;
   border: 1px solid var(--br);
   border-radius: var(--rs);
-  padding: 11px 14px;
+  padding: 11px 34px 11px 14px;
   background: var(--wh);
   color: var(--tx);
   font-size: 14px;
@@ -9249,6 +9364,10 @@ select {
   position: relative;
 }
 
+.stock-modal {
+  width: min(100%, 760px);
+}
+
 /* X de fechar fixo no canto: fica sobre a área que rola e não some com a rolagem.
    Alinhado ao padding do modal (18px) e à linha do título para não destoar. */
 .equip-modal-close-float {
@@ -9433,6 +9552,15 @@ select {
 
 .equip-toggle-fields .field-group {
   flex: 1 1 160px;
+}
+
+.equip-toggle-fields .stock-unit-field {
+  flex: 0 1 120px;
+}
+
+.stock-unit-field select {
+  font-weight: 700;
+  text-align: center;
 }
 
 .equip-flags {
@@ -10413,6 +10541,64 @@ input.app-search-input::-webkit-search-cancel-button {
   }
   .equip-table td[colspan]::before {
     content: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .stock-movements-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--br);
+  }
+
+  .stock-movements-table {
+    display: table;
+    width: 100%;
+    min-width: 1180px;
+  }
+
+  .stock-movements-table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+  }
+
+  .stock-movements-table tbody {
+    display: table-row-group;
+    width: auto;
+  }
+
+  .stock-movements-table tr {
+    display: table-row;
+    border: 0;
+    border-radius: 0;
+    margin-bottom: 0;
+    overflow: visible;
+    background: transparent;
+  }
+
+  .stock-movements-table th,
+  .stock-movements-table td {
+    display: table-cell;
+    width: auto;
+    text-align: left;
+  }
+
+  .stock-movements-table td {
+    border-bottom: 1px solid var(--br);
+    padding: 10px 12px;
+  }
+
+  .stock-movements-table td::before,
+  .stock-movements-table td:first-child::before {
+    content: none;
+  }
+
+  .stock-movements-table td:first-child {
+    background: transparent;
+    font-size: 13px;
+    font-weight: 400;
   }
 }
 
