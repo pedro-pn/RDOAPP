@@ -217,7 +217,7 @@ router.patch(
   })
 );
 
-// === Escopo previsto: quantitativo de serviços vendidos + previsão de hora extra (manual) ===
+// === Escopo previsto: quantitativo de serviços vendidos + previsão de horas (manual) ===
 
 // Só tubulação (m) e óleo (L): são os quantitativos que o RDO registra como realizado, para o
 // previsto poder entrar no cálculo de avanço. Tanques e peso (kg/t) não têm fonte no RDO.
@@ -237,16 +237,17 @@ const plannedServiceSchema = z.object({
   systems: z.array(plannedSystemSchema).max(20).default([])
 });
 
-const plannedOvertimeSchema = z.object({
+const plannedHoursSchema = z.object({
   jobRoleId: z.string().nullable().optional(),
   roleName: z.string().max(80).nullable().optional(),
-  collaboratorCount: z.number().int().positive().max(999),
+  collaboratorCount: z.number().int().positive().max(999).optional().default(1),
   hours: z.number().nonnegative().max(100000)
 });
 
 const plannedScopeSchema = z.object({
   services: z.array(plannedServiceSchema).max(50).default([]),
-  overtime: z.array(plannedOvertimeSchema).max(50).default([])
+  normalHours: z.array(plannedHoursSchema).max(50).default([]),
+  overtime: z.array(plannedHoursSchema).max(50).default([])
 });
 
 router.get(
