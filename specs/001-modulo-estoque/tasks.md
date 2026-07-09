@@ -167,6 +167,15 @@
 - [ ] T034 [P] Executar o roteiro manual completo de `specs/001-modulo-estoque/quickstart.md` (14 passos) e registrar resultado no próprio arquivo
 - [X] T035 [P] Atualizar `PLANO_MODULO_ESTOQUE.md` (status Fase 1 implementada) e revisar textos pt-BR de erros/labels (mensagens do contrato)
 
+## Phase 10: Convergence — Integração Romaneio x Estoque
+
+- [X] T036 [US7] Adicionar fonte gerenciada `STOCK` ao catálogo de Romaneio em `backend/prisma/schema.prisma` e criar migration para `RomaneioCatalogSource`.
+- [X] T037 [US7] Sincronizar itens ativos de `StockItem` para `RomaneioCatalogItem` em `backend/src/lib/romaneio-catalog.js`, com filtros como unidade e produtos químicos kg como peso, desativando órfãos `STOCK`.
+- [X] T038 [US7] Vincular `StockMovement` a `Romaneio` e implementar movimentações automáticas por FEFO em `backend/src/lib/estoque/stock-movements.js`.
+- [X] T039 [US7] Integrar criação/edição de romaneios em `backend/src/routes/resources/romaneios.js`, gerando saídas `USO_EM_PROJETO`, entradas `DEVOLUCAO_OBRA` e estornos ao editar romaneios com estoque.
+- [X] T040 [P] [US7] Atualizar tipos/rótulos de catálogo `STOCK` no frontend em `frontend/src/api/romaneio.ts`, `frontend/src/pages/romaneio/NewRomaneioPage.tsx` e `frontend/src/pages/romaneio/RomaneioPage.tsx`.
+- [X] T041 [P] [US7] Cobrir integração com testes backend em `backend/test/romaneio-stock-integration.test.js` e atualizar testes existentes de fontes gerenciadas.
+
 ---
 
 ## Dependencies & Execution Order

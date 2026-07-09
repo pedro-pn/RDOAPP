@@ -3,7 +3,7 @@ import type { Project, ReportDraft } from '../types/domain';
 
 export type RomaneioItemKind = 'EQUIPMENT' | 'CONNECTION';
 export type RomaneioMeasureType = 'UNIT' | 'LENGTH' | 'WEIGHT';
-export type RomaneioCatalogSource = 'FILE' | 'MANUAL' | 'UNIT' | 'PARTICLE_COUNTER' | 'EQUIPAMENTOS';
+export type RomaneioCatalogSource = 'FILE' | 'MANUAL' | 'UNIT' | 'PARTICLE_COUNTER' | 'EQUIPAMENTOS' | 'STOCK';
 export type RomaneioType = 'OUTBOUND' | 'INBOUND';
 
 export interface RomaneioCatalogItem {

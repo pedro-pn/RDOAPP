@@ -1227,62 +1227,61 @@ a {
   margin-left: auto;
 }
 
-.stock-movements-toolbar {
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.stock-movements-toolbar .nps-tab-toolbar-left,
-.stock-movements-toolbar .nps-tab-toolbar-right {
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-
-.stock-movements-toolbar .nps-tab-toolbar-left {
-  flex: 1 1 520px;
-}
-
-.stock-movements-toolbar .nps-tab-toolbar-right {
-  flex: 1 1 520px;
-  justify-content: flex-end;
-  margin-left: 0;
-}
-
-.stock-movements-toolbar select {
-  flex: 1 1 170px;
-  min-width: 150px;
-}
-
-.stock-movements-toolbar .nps-tab-toolbar-left select:first-child {
-  flex-basis: 260px;
-}
-
-.stock-period-filters {
-  display: flex;
-  align-items: flex-end;
-  flex: 1 1 330px;
-  flex-wrap: wrap;
+.stock-movement-filters {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.25fr)
+    minmax(136px, 0.72fr)
+    minmax(170px, 0.9fr)
+    minmax(220px, 1.25fr)
+    minmax(138px, 0.64fr)
+    minmax(138px, 0.64fr);
+  align-items: end;
   gap: 8px;
+  margin-bottom: 12px;
   min-width: 0;
 }
 
-.stock-period-title {
-  flex: 0 0 100%;
-  color: var(--mu);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.stock-date-filter {
-  flex: 1 1 144px;
+.stock-movement-filters > * {
   min-width: 0;
 }
 
 .stock-date-filter label {
   white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .stock-movement-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .stock-movement-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .stock-filter-item,
+  .stock-filter-project {
+    grid-column: 1 / -1;
+  }
+
+  .stock-movement-filters select,
+  .stock-date-filter input {
+    min-height: 36px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .stock-date-filter {
+    gap: 4px;
+  }
+
+  .stock-date-filter label {
+    font-size: 10px;
+    line-height: 1.1;
+  }
 }
 
 .stock-movements-table-wrap {
@@ -10546,20 +10545,6 @@ input.app-search-input::-webkit-search-cancel-button {
 }
 
 @media (max-width: 700px) {
-  .stock-movements-toolbar .nps-tab-toolbar-left,
-  .stock-movements-toolbar .nps-tab-toolbar-right {
-    align-items: stretch;
-    justify-content: flex-start;
-  }
-
-  .stock-movements-toolbar select,
-  .stock-period-filters,
-  .stock-date-filter {
-    flex: 1 1 100%;
-    width: 100%;
-    min-width: 0;
-  }
-
   .stock-movements-table-wrap {
     overflow-x: auto;
     border: 1px solid var(--br);

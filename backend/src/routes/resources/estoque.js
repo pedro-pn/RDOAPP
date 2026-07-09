@@ -11,6 +11,7 @@ import {
 import { createMovement, reverseMovement } from '../../lib/estoque/stock-movements.js';
 import { decimalBalanceString, getBatchBalances, getItemBalances } from '../../lib/estoque/stock-balance.js';
 import prisma from '../../lib/prisma.js';
+import { syncRomaneioCatalog } from '../../lib/romaneio-catalog.js';
 import { makeEstoqueSchemas } from '../../../../shared/schemas/estoque.js';
 import {
   requireAuth,
@@ -301,6 +302,13 @@ async function stockCodeExists(code, ignoreId) {
   return Boolean(existing && existing.id !== ignoreId);
 }
 
+function syncRomaneioCatalogAfterStockChange() {
+  if (process.env.NODE_ENV === 'test' || process.env.npm_lifecycle_event === 'test') return;
+  syncRomaneioCatalog().catch(error => {
+    console.warn('Falha ao sincronizar catálogo de romaneio após alteração no estoque.', error);
+  });
+}
+
 router.get('/itens', asyncHandler(async (req, res) => {
   const includeInactive = parseBoolean(req.query.includeInactive);
   const type = String(req.query.type || '').trim();
@@ -340,6 +348,7 @@ router.post('/itens', requireEstoqueManager, asyncHandler(async (req, res) => {
       data: itemDataFromPayload(data, fispqToken),
       include: itemWithMovementCount
     });
+    syncRomaneioCatalogAfterStockChange();
     res.status(201).json(serializeStockItem(item));
   } catch (error) {
     if (fispqToken) await removeStockFispqAttachment(fispqToken);
@@ -386,6 +395,7 @@ router.put('/itens/:id', requireEstoqueManager, asyncHandler(async (req, res) =>
       include: itemWithMovementCount
     });
     if (tokenToRemove) await removeStockFispqAttachment(tokenToRemove);
+    syncRomaneioCatalogAfterStockChange();
     res.json(serializeStockItem(item));
   } catch (error) {
     if (fispqToken && fispqToken !== current.fispqToken) await removeStockFispqAttachment(fispqToken);
@@ -403,6 +413,7 @@ router.patch('/itens/:id/ativo', requireEstoqueManager, asyncHandler(async (req,
     data: { isActive: data.isActive },
     include: itemWithMovementCount
   });
+  syncRomaneioCatalogAfterStockChange();
   res.json(serializeStockItem(item));
 }));
 
@@ -418,6 +429,7 @@ router.delete('/itens/:id', requireEstoqueManager, asyncHandler(async (req, res)
 
   await prisma.stockItem.delete({ where: { id: current.id } });
   if (current.fispqToken) await removeStockFispqAttachment(current.fispqToken);
+  syncRomaneioCatalogAfterStockChange();
   res.status(204).end();
 }));
 

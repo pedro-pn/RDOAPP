@@ -54,6 +54,11 @@ function itemLabel(item: RomaneioCatalogItem) {
   return [item.code, item.name].filter(Boolean).join(' - ');
 }
 
+function catalogItemTypeLabel(item: RomaneioCatalogItem) {
+  if (item.sourceType === 'STOCK') return 'Estoque';
+  return item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento';
+}
+
 function projectLabel(project: { code: string; name?: string | null }) {
   const name = String(project.name || '').trim();
   return name ? `Missão ${project.code} - ${name}` : `Missão ${project.code}`;
@@ -823,7 +828,7 @@ export function NewRomaneioPage() {
                             <div className="romaneio-catalog-row" key={item.id}>
                               <div>
                                 <strong>{itemLabel(item)}</strong>
-                                <div className="rel-meta">{item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento'} · {romaneioMeasureLabel(item.measureType)}</div>
+                                <div className="rel-meta">{catalogItemTypeLabel(item)} · {romaneioMeasureLabel(item.measureType)}</div>
                               </div>
                               <div className="romaneio-add-control">
                                 {showQuantityInput && (

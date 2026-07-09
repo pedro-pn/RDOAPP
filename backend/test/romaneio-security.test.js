@@ -1016,7 +1016,7 @@ test('Romaneio catalog category rename updates every item in the category', asyn
   assert.deepEqual(calls[0], ['romaneioCatalogItem.count', {
     where: {
       categoryName: 'Mangueiras',
-      sourceType: { in: ['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS'] }
+      sourceType: { in: ['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK'] }
     }
   }]);
   assert.deepEqual(calls[1], ['romaneioCatalogItem.updateMany', {

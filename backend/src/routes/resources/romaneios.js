@@ -7,6 +7,10 @@ import { z } from 'zod';
 import env from '../../config/env.js';
 import asyncHandler from '../../lib/async-handler.js';
 import { buildRomaneioCreatedEmailTemplate } from '../../lib/email-templates.js';
+import {
+  createAutomaticRomaneioStockMovementsInTransaction,
+  reverseMovementInTransaction
+} from '../../lib/estoque/stock-movements.js';
 import { getMissingMailerConfig, sendMail } from '../../lib/mailer.js';
 import { hasModuleRole } from '../../lib/module-roles.js';
 import prisma from '../../lib/prisma.js';
@@ -135,7 +139,7 @@ const returnItemsQuerySchema = z.object({
   }
 });
 
-const RDO_OWNED_CATALOG_SOURCES = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS']);
+const MANAGED_CATALOG_SOURCES = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK']);
 const romaneioProjectSelect = {
   id: true,
   code: true,
@@ -680,6 +684,60 @@ export function romaneioEmailFailureResult(error) {
   };
 }
 
+function authUserLabel(user) {
+  return String(user?.name || user?.email || user?.username || 'Conta autenticada').trim();
+}
+
+function stockMovementNoteForRomaneio(romaneio) {
+  return `Movimentação automática do romaneio ${romaneioTypeLabel(romaneio.type).toLowerCase()} ${romaneio.id}.`;
+}
+
+async function createRomaneioStockMovements(tx, romaneio, authUser) {
+  const stockItems = (romaneio.items || []).filter(item => item.catalogItem?.sourceType === 'STOCK');
+  if (!stockItems.length) return [];
+
+  const movements = [];
+  for (const item of stockItems) {
+    const created = await createAutomaticRomaneioStockMovementsInTransaction(tx, {
+      romaneioType: romaneio.type,
+      itemId: item.catalogItem.sourceId,
+      quantity: item.quantity,
+      date: romaneio.romaneioDate,
+      projectId: romaneio.projectId,
+      requestedBy: authUserLabel(authUser),
+      notes: stockMovementNoteForRomaneio(romaneio),
+      createdById: authUser.id,
+      romaneioId: romaneio.id
+    });
+    movements.push(...created);
+  }
+  return movements;
+}
+
+async function reverseRomaneioStockMovements(tx, romaneioId, createdById) {
+  if (typeof tx.stockMovement?.findMany !== 'function') return [];
+  const movements = await tx.stockMovement.findMany({
+    where: {
+      romaneioId,
+      reason: { not: 'ESTORNO' }
+    },
+    include: {
+      reversedBy: { select: { id: true } }
+    },
+    orderBy: { createdAt: 'asc' }
+  });
+  const reversed = [];
+  for (const movement of movements) {
+    if (movement.reversedBy) continue;
+    reversed.push(await reverseMovementInTransaction(tx, {
+      movementId: movement.id,
+      notes: `Estorno automático por edição do romaneio ${romaneioId}.`,
+      createdById
+    }));
+  }
+  return reversed;
+}
+
 export async function cleanupFailedRomaneioCreate({
   romaneioId,
   files,
@@ -852,11 +910,11 @@ router.put('/catalog/categories', requireAuth, requireRomaneioAccess, requireRom
     const rdoOwnedCount = await tx.romaneioCatalogItem.count({
       where: {
         categoryName: data.currentName,
-        sourceType: { in: Array.from(RDO_OWNED_CATALOG_SOURCES) }
+        sourceType: { in: Array.from(MANAGED_CATALOG_SOURCES) }
       }
     });
     if (rdoOwnedCount) {
-      const error = new Error('Categorias com itens sincronizados do RDO devem ser alteradas no módulo RDO.');
+      const error = new Error('Categorias com itens sincronizados devem ser alteradas no módulo de origem.');
       error.statusCode = 409;
       throw error;
     }
@@ -874,8 +932,8 @@ router.put('/catalog/:id', requireAuth, requireRomaneioAccess, requireRomaneioMa
   const data = catalogSchema.partial().parse(req.body);
   const item = await prisma.$transaction(async tx => {
     const existing = await tx.romaneioCatalogItem.findUniqueOrThrow({ where: { id: req.params.id } });
-    if (RDO_OWNED_CATALOG_SOURCES.has(existing.sourceType)) {
-      const error = new Error('Itens sincronizados do RDO devem ser alterados no módulo RDO.');
+    if (MANAGED_CATALOG_SOURCES.has(existing.sourceType)) {
+      const error = new Error('Itens sincronizados devem ser alterados no módulo de origem.');
       error.statusCode = 409;
       throw error;
     }
@@ -895,8 +953,8 @@ router.put('/catalog/:id', requireAuth, requireRomaneioAccess, requireRomaneioMa
 router.delete('/catalog/:id', requireAuth, requireRomaneioAccess, requireRomaneioManager, asyncHandler(async (req, res) => {
   await prisma.$transaction(async tx => {
     const existing = await tx.romaneioCatalogItem.findUniqueOrThrow({ where: { id: req.params.id } });
-    if (RDO_OWNED_CATALOG_SOURCES.has(existing.sourceType)) {
-      const error = new Error('Itens sincronizados do RDO devem ser removidos no módulo RDO.');
+    if (MANAGED_CATALOG_SOURCES.has(existing.sourceType)) {
+      const error = new Error('Itens sincronizados devem ser removidos no módulo de origem.');
       error.statusCode = 409;
       throw error;
     }
@@ -1026,36 +1084,50 @@ router.post('/', requireAuth, requireRomaneioAccess, asyncHandler(async (req, re
   if (itemData.some(item => !item.itemName || !item.categoryName)) {
     return res.status(400).json({ error: 'Todos os itens precisam de nome e categoria.' });
   }
+  const romaneioDate = parseDateOnly(payload.romaneioDate);
+  const previewProject = await prisma.project.findUniqueOrThrow({
+    where: { id: resolvedProjectId },
+    select: romaneioDocumentProjectSelect
+  });
+  const preview = {
+    id: 'preview',
+    projectId: resolvedProjectId,
+    project: previewProject,
+    createdByUserId: req.auth.user.id,
+    type: payload.type,
+    romaneioDate,
+    driverName: payload.driverName,
+    vehiclePlate: payload.vehiclePlate.toUpperCase(),
+    ...romaneioCargoWeightData(payload),
+    items: itemData
+  };
 
   let created = null;
   let files = null;
   let completed = false;
   let filesPersisted = false;
   try {
-    created = await prisma.romaneio.create({
-      data: {
-        projectId: resolvedProjectId,
-        createdByUserId: req.auth.user.id,
-        type: payload.type,
-        romaneioDate: parseDateOnly(payload.romaneioDate),
-        driverName: payload.driverName,
-        vehiclePlate: payload.vehiclePlate.toUpperCase(),
-        ...romaneioCargoWeightData(payload),
-        items: { create: itemData }
-      },
-      ...selectedFields()
-    });
-
-    files = await saveRomaneioPdf(created);
-    created = await prisma.romaneio.update({
-      where: { id: created.id },
-      data: {
-        docxUrl: files.docx.publicUrl,
-        pdfUrl: files.pdf.publicUrl,
-        emailStatus: ROMANEIO_EMAIL_PENDING_STATUS,
-        emailError: null
-      },
-      ...selectedFields()
+    files = await saveRomaneioPdf(preview);
+    created = await prisma.$transaction(async tx => {
+      const romaneio = await tx.romaneio.create({
+        data: {
+          projectId: resolvedProjectId,
+          createdByUserId: req.auth.user.id,
+          type: payload.type,
+          romaneioDate,
+          driverName: payload.driverName,
+          vehiclePlate: payload.vehiclePlate.toUpperCase(),
+          ...romaneioCargoWeightData(payload),
+          docxUrl: files.docx.publicUrl,
+          pdfUrl: files.pdf.publicUrl,
+          emailStatus: ROMANEIO_EMAIL_PENDING_STATUS,
+          emailError: null,
+          items: { create: itemData }
+        },
+        ...selectedFields()
+      });
+      await createRomaneioStockMovements(tx, romaneio, req.auth.user);
+      return romaneio;
     });
     filesPersisted = true;
 
@@ -1138,8 +1210,9 @@ router.put('/:id', requireAuth, requireRomaneioAccess, requireRomaneioEditor, as
   try {
     files = await saveRomaneioPdf(preview);
     const updated = await prisma.$transaction(async tx => {
+      await reverseRomaneioStockMovements(tx, existing.id, req.auth.user.id);
       await tx.romaneioItem.deleteMany({ where: { romaneioId: existing.id } });
-      return tx.romaneio.update({
+      const romaneio = await tx.romaneio.update({
         where: { id: existing.id },
         data: {
           projectId: resolvedProjectId,
@@ -1154,6 +1227,8 @@ router.put('/:id', requireAuth, requireRomaneioAccess, requireRomaneioEditor, as
         },
         ...selectedFields()
       });
+      await createRomaneioStockMovements(tx, romaneio, req.auth.user);
+      return romaneio;
     });
 
     await Promise.all([

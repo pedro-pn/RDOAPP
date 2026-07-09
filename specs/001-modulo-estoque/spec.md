@@ -110,6 +110,22 @@ Movimentações registradas são **imutáveis**; um lançamento errado é corrig
 
 ---
 
+### User Story 7 - Integrar estoque ao romaneio (Priority: P2)
+
+Ao montar um romaneio, o operador seleciona filtros e produtos químicos gerenciados pelo módulo Estoque diretamente no catálogo do Romaneio. Saídas de romaneio baixam automaticamente o estoque por FEFO e entradas de romaneio registram devolução de obra, sem o usuário escolher lote manualmente.
+
+**Why this priority**: o Romaneio é o fluxo operacional real de envio e retorno de materiais; sem essa integração o estoque exige retrabalho manual e pode divergir do que foi enviado para a missão.
+
+**Independent Test**: criar um romaneio de saída com filtro e produto químico vindos do estoque e verificar a criação das movimentações de saída; depois criar o romaneio de entrada da mesma missão e verificar a devolução de obra no histórico do estoque.
+
+**Acceptance Scenarios**:
+
+1. **Given** filtros e produtos químicos ativos no estoque, **When** o operador abre o catálogo do Romaneio de saída, **Then** esses itens aparecem em categorias gerenciadas pelo Estoque, com filtros em unidade e produtos químicos em kg.
+2. **Given** um romaneio de saída com item de estoque, **When** o romaneio é salvo, **Then** o sistema registra automaticamente uma movimentação `USO_EM_PROJETO` com data do romaneio, projeto da missão, solicitante igual à conta autenticada e lote escolhido por FEFO.
+3. **Given** um romaneio de entrada com item de estoque retornando da missão, **When** o romaneio é salvo, **Then** o sistema registra automaticamente uma movimentação `DEVOLUCAO_OBRA` para o projeto da missão usando lote automático.
+4. **Given** um item sincronizado do Estoque no catálogo do Romaneio, **When** um gestor tenta editar/remover esse item pelo Romaneio, **Then** o sistema bloqueia e orienta que a alteração deve ser feita no módulo Estoque.
+5. **Given** um romaneio com movimentações de estoque vinculadas, **When** o romaneio é editado, **Then** o sistema estorna as movimentações anteriores e cria novas movimentações conforme os itens atuais, mantendo o estoque imutável e auditável.
+
 ### Edge Cases
 
 - Saída com quantidade exatamente igual ao saldo: permitida (saldo zera).
@@ -119,6 +135,9 @@ Movimentações registradas são **imutáveis**; um lançamento errado é corrig
 - Projeto encerrado/inativo: não aparece como destino de novas saídas, mas o histórico antigo permanece.
 - Quantidades: filtros aceitam apenas inteiros; produtos químicos aceitam até 3 casas decimais.
 - Dois lotes com a mesma validade: sugestão de saída escolhe o mais antigo (data de entrada).
+- Romaneio de saída com item de estoque sem saldo suficiente: o romaneio deve falhar antes de ser gravado e informar saldo insuficiente.
+- Produto químico cadastrado em unidade diferente de kg não entra no catálogo do Romaneio até que a unidade seja ajustada no Estoque.
+- Entrada de romaneio para item de estoque sem lote conhecido: o sistema usa lote automático de devolução, pois o Romaneio ainda não controla lote preciso.
 
 ## Requirements *(mandatory)*
 
@@ -141,12 +160,18 @@ Movimentações registradas são **imutáveis**; um lançamento errado é corrig
 - **FR-015**: A movimentação de saída DEVE permitir registrar o solicitante/responsável pelo material (opcional) e observações livres.
 - **FR-016**: A movimentação de entrada DEVE permitir registrar fornecedor (opcional) e custo unitário (opcional, sem cálculo de relatórios nesta entrega).
 - **FR-017**: Itens e movimentações DEVEM permanecer consultáveis mesmo após inativação do item ou encerramento do projeto relacionado.
+- **FR-018**: Itens ativos do Estoque DEVEM alimentar o catálogo do Romaneio como fonte gerenciada, substituindo a categoria legada de produtos químicos do Romaneio; filtros aparecem como unidade e produtos químicos aparecem como kg.
+- **FR-019**: Itens sincronizados do Estoque NÃO DEVEM ser editáveis/removíveis pelo módulo Romaneio; alterações de cadastro e ativação devem ocorrer no módulo Estoque.
+- **FR-020**: Ao salvar romaneio de saída com item de Estoque, o sistema DEVE registrar movimentação automática de saída `USO_EM_PROJETO`, com data do romaneio, projeto da missão, solicitante igual à conta autenticada e lote definido por FEFO.
+- **FR-021**: Ao salvar romaneio de entrada com item de Estoque, o sistema DEVE registrar movimentação automática de entrada `DEVOLUCAO_OBRA`, com data do romaneio, projeto da missão e lote automático.
+- **FR-022**: Ao editar romaneio com movimentações automáticas de Estoque, o sistema DEVE preservar imutabilidade estornando as movimentações antigas e criando novas movimentações conforme o romaneio atualizado.
 
 ### Key Entities
 
 - **Item de Estoque**: material controlado (filtro ou produto químico); código único, nome, tipo, unidade de medida, estoque mínimo, campos específicos por tipo (incluindo CAS para químico), situação ativo/inativo.
 - **Lote**: agrupamento de quantidade de um item recebido com mesma identificação de lote; carrega validade, NF e fornecedor de origem; pertence a um item.
 - **Movimentação**: registro imutável de entrada, saída ou acerto; quantidade, data, tipo/motivo, lote, projeto relacionado (destino na saída, origem na devolução), NF, autor do registro, observações; pertence a um item e a um lote.
+- **Vínculo Romaneio-Estoque**: associação opcional de movimentações automáticas ao romaneio que as originou; permite estornar lançamentos anteriores quando um romaneio é editado.
 - **Projeto** (existente): destino das saídas e origem das devoluções; reutilizado do cadastro atual de projetos.
 
 ## Success Criteria *(mandatory)*
@@ -159,6 +184,7 @@ Movimentações registradas são **imutáveis**; um lançamento errado é corrig
 - **SC-004**: Nenhuma movimentação consegue deixar saldo negativo, mesmo com dois usuários registrando ao mesmo tempo.
 - **SC-005**: Um usuário encontra qualquer movimentação dos últimos 12 meses em menos de 30 segundos usando os filtros do histórico.
 - **SC-006**: O módulo é utilizável integralmente em celular (todas as ações de cadastro, movimentação e consulta) sem scroll horizontal.
+- **SC-007**: 100% dos romaneios salvos com itens de estoque geram movimentações vinculadas no histórico do Estoque sem lançamento manual duplicado.
 
 ## Assumptions
 
@@ -166,6 +192,6 @@ Movimentações registradas são **imutáveis**; um lançamento errado é corrig
 - **Correção de erros**: o mecanismo padrão é estorno (não edição/exclusão de movimentação), por ser mais seguro para auditoria.
 - **Custo unitário**: campo opcional na entrada desde já, mas valorização de estoque e relatórios de custo ficam fora desta entrega.
 - **Alertas por e-mail** (estoque mínimo, validade próxima): fora desta entrega; o Resumo já exibe os destaques visuais e o modelo de dados (estoque mínimo, validade por lote) já suporta os alertas futuros.
-- **Integrações futuras** (baixa automática via Romaneio, custo por projeto no Acompanhamento): fora de escopo; nada nesta entrega pode impedi-las.
+- **Integração com Romaneio**: a baixa/devolução automática via Romaneio faz parte desta entrega; custo por projeto no Acompanhamento permanece fora de escopo.
 - **Usuários e projetos existentes são reutilizados**: o módulo usa o cadastro de projetos e o sistema de contas/papéis já existentes no app.
 - **Volume**: estoque de dezenas a poucas centenas de itens e milhares de movimentações/ano — sem exigência de otimizações especiais além dos padrões do app.

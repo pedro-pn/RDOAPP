@@ -4,10 +4,10 @@ Guia de validação end-to-end. Referências: [data-model.md](./data-model.md), 
 
 ## Pré-requisitos
 
-- Migration aplicada e client gerado (dev local):
+- Migrations aplicadas e client gerado (dev local):
   ```bash
   cd backend
-  npm run prisma:migrate   # cria/aplica a migration estoque_module
+  npm run prisma:migrate   # aplica estoque_module e romaneio_stock_integration
   npm run prisma:generate
   ```
 - Registry do frontend regenerado após editar `shared/modules/registry.json`:
@@ -24,13 +24,13 @@ cd backend
 npm test           # inclui estoque-balance / estoque-movements / estoque-access
 ```
 
-Esperado: suíte inteira verde (os testes novos cobrem saldo, saldo negativo bloqueado, FEFO, obrigatoriedade condicional NF/lote/validade, estorno, inventário e permissões).
+Esperado: suíte inteira verde (os testes novos cobrem saldo, saldo negativo bloqueado, FEFO, obrigatoriedade condicional NF/lote/validade, estorno, inventário, permissões e integração Romaneio x Estoque).
 
 Resultado da implementação em 2026-07-09:
 
 - `backend`: `npx prisma validate`, `npm run prisma:generate` e `npm test` concluídos com sucesso.
-- `frontend`: `npx tsc --noEmit` e `npm run build` concluídos com sucesso.
-- `npm run prisma:migrate` não foi executado com sucesso nesta sessão porque o PostgreSQL local `postgres:5432` não estava acessível. A migration foi criada em `backend/prisma/migrations/20260709100000_estoque_module/` e ainda precisa ser aplicada em ambiente com banco disponível.
+- `frontend`: `npx tsc --noEmit`, `npm run lint`, `npm test` e `npm run build` concluídos com sucesso.
+- `npm run prisma:migrate` não foi executado nesta sessão porque depende de banco PostgreSQL local acessível. As migrations foram criadas em `backend/prisma/migrations/20260709100000_estoque_module/` e `backend/prisma/migrations/20260709130000_romaneio_stock_integration/`; devem ser aplicadas em ambiente com banco disponível.
 - O roteiro manual abaixo não foi executado nesta sessão pelo mesmo bloqueio de banco/autenticação local.
 
 ## Roteiro manual (navegador)
@@ -48,14 +48,17 @@ Resultado da implementação em 2026-07-09:
 11. **Histórico (US5)**: aba Movimentações → filtrar por projeto e período → só as movimentações esperadas; cada linha mostra autor.
 12. **Viewer (US4)**: logar com o visualizador → vê Resumo e histórico; sem botões de movimentar/cadastrar; POST direto na API retorna 403.
 13. **Alertas visuais**: definir estoque mínimo do `PQ-001` acima do saldo → badge "abaixo do mínimo" no Resumo; lote com validade próxima exibe destaque.
-14. **Mobile**: repetir passos 2–5 em viewport de celular (DevTools) → sem scroll horizontal; tabelas viram cards; modais com rodapé fixo.
+14. **Romaneio saída (US7)**: abrir `/romaneio/novo`, criar romaneio de saída para o mesmo projeto e adicionar `PQ-001`/`FL-010` vindos do catálogo do Estoque. Salvar → histórico do Estoque mostra `USO_EM_PROJETO` automático, solicitante igual à conta logada, projeto preenchido e lote por FEFO.
+15. **Romaneio entrada (US7)**: criar romaneio de entrada para o projeto com parte dos itens retornando. Salvar → histórico do Estoque mostra `DEVOLUCAO_OBRA` automática vinculada ao romaneio.
+16. **Mobile**: repetir passos 2–5 e 14 em viewport de celular (DevTools) → sem scroll horizontal; tabelas viram cards; modais com rodapé fixo.
 
 ## Critérios de aceite (da spec)
 
 - SC-001: movimentação completa registrável em < 1 min a partir do Resumo.
 - SC-003: todo saldo exibido = soma das movimentações (conferir passos 3–10).
 - SC-004: saldo nunca negativo (passos 6 e 10).
-- SC-006: fluxo integral utilizável em celular (passo 14).
+- SC-006: fluxo integral utilizável em celular (passo 16).
+- SC-007: romaneios com itens de estoque geram movimentações vinculadas sem lançamento manual duplicado (passos 14–15).
 
 ## Deploy (produção — **rode no servidor**, nunca pelo agente)
 

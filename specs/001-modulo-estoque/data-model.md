@@ -93,6 +93,7 @@ Relações: `item StockItem`, `movements StockMovement[]`.
 | id | String cuid PK | |
 | itemId | String FK → StockItem | |
 | batchId | String FK → StockBatch | sempre presente (avulso quando não informado) |
+| romaneioId | String? FK → Romaneio | preenchido para movimentações automáticas originadas por romaneio |
 | type | StockMovementType | |
 | reason | StockMovementReason | combinação válida com type (tabela acima) |
 | quantity | Decimal(12,3) | > 0 sempre; inteira quando item é filtro |
@@ -108,9 +109,9 @@ Relações: `item StockItem`, `movements StockMovement[]`.
 | createdById | String FK → User | automático (usuário autenticado) |
 | createdAt | DateTime | automático |
 
-Constraints/índices: `@@index([itemId, date])`, `@@index([batchId])`, `@@index([projectId])`, `@@index([type])`, `@@unique` implícito de `reversalOfId` (1 estorno por movimentação).
+Constraints/índices: `@@index([itemId, date])`, `@@index([batchId])`, `@@index([projectId])`, `@@index([romaneioId])`, `@@index([type])`, `@@unique` implícito de `reversalOfId` (1 estorno por movimentação).
 
-Relações: `item`, `batch`, `project?`, `createdBy`, `reversalOf?`/`reversedBy?` (auto-relação 1:1).
+Relações: `item`, `batch`, `project?`, `romaneio?`, `createdBy`, `reversalOf?`/`reversedBy?` (auto-relação 1:1).
 
 ## Saldo (derivado — nunca persistido)
 
@@ -125,6 +126,7 @@ Invariantes garantidos pelo service (`lib/estoque/stock-movements.js`), dentro d
 2. `quantity > 0`; inteira para filtro; ≤ 3 casas decimais para químico.
 3. Estorno replica item/lote/quantidade da original com type invertido, `reason: ESTORNO`, `reversalOfId` preenchido; sujeito ao invariante 1 (estorno de entrada já consumida falha com mensagem clara).
 4. Item inativo ou projeto soft-deleted (`deletedAt`) não aceitam novas movimentações (histórico preservado).
+5. Movimentações automáticas de romaneio usam FEFO sem seleção manual de lote; edição de romaneio estorna lançamentos vinculados e cria novos lançamentos.
 
 ## Transições de estado
 
@@ -138,5 +140,7 @@ Invariantes garantidos pelo service (`lib/estoque/stock-movements.js`), dentro d
 - `enum ModuleRoleCode`: + `ESTOQUE_MANAGER`, `ESTOQUE_VIEWER`.
 - `Project`: + relação inversa `stockMovements StockMovement[]` (sem coluna nova).
 - `User`: + relação inversa `stockMovements StockMovement[]` (sem coluna nova).
+- `RomaneioCatalogSource`: + `STOCK` para itens gerenciados pelo módulo Estoque.
+- `Romaneio`: + relação inversa `stockMovements StockMovement[]` (sem coluna nova).
 
-Tudo em **uma migration** (`estoque_module`). Sem backfill — não há dados legados.
+Base do módulo em `estoque_module`; integração de romaneio em migration incremental `romaneio_stock_integration`. Sem backfill obrigatório — o catálogo do Romaneio é sincronizado a partir dos itens ativos do Estoque.

@@ -166,7 +166,7 @@ test('createMovement handles return, inventory and loss note requirements', asyn
     }
   });
   assert.equal(returned.movement.type, 'ENTRADA');
-  assert.equal(returned.movement.nfNumber, undefined);
+  assert.equal(returned.movement.nfNumber, null);
 
   await assert.rejects(
     () => createMovement(client, {

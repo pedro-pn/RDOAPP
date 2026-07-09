@@ -185,58 +185,61 @@ export function StockMovementsTab({ isManager }: Props) {
         </button>
       </div>
 
-      <div className="nps-tab-toolbar stock-movements-toolbar">
-        <div className="nps-tab-toolbar-left">
-          <select aria-label="Filtrar item" value={itemId} onChange={event => resetPage(() => setItemId(event.target.value))}>
-            <option value="">Todos os itens</option>
-            {(itemsQuery.data || []).map(item => (
-              <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
-            ))}
-          </select>
-          <select aria-label="Filtrar tipo" value={type} onChange={event => resetPage(() => setType(event.target.value as StockMovementType | ''))}>
-            <option value="">Entrada e saída</option>
-            <option value="ENTRADA">Entrada</option>
-            <option value="SAIDA">Saída</option>
-          </select>
-          <select aria-label="Filtrar motivo" value={reason} onChange={event => resetPage(() => setReason(event.target.value as StockMovementReason | ''))}>
-            <option value="">Todos os motivos</option>
-            <option value="COMPRA">Compra</option>
-            <option value="USO_EM_PROJETO">Uso em projeto</option>
-            <option value="DEVOLUCAO_OBRA">Devolução de obra</option>
-            <option value="INVENTARIO">Inventário</option>
-            <option value="PERDA">Perda</option>
-            <option value="DESCARTE_VALIDADE">Descarte por validade</option>
-            <option value="ESTORNO">Estorno</option>
-          </select>
+      <div className="stock-movement-filters">
+        <select
+          className="stock-filter-item"
+          aria-label="Filtrar item"
+          value={itemId}
+          onChange={event => resetPage(() => setItemId(event.target.value))}
+        >
+          <option value="">Todos os itens</option>
+          {(itemsQuery.data || []).map(item => (
+            <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
+          ))}
+        </select>
+        <select aria-label="Filtrar tipo" value={type} onChange={event => resetPage(() => setType(event.target.value as StockMovementType | ''))}>
+          <option value="">Entrada e saída</option>
+          <option value="ENTRADA">Entrada</option>
+          <option value="SAIDA">Saída</option>
+        </select>
+        <select aria-label="Filtrar motivo" value={reason} onChange={event => resetPage(() => setReason(event.target.value as StockMovementReason | ''))}>
+          <option value="">Todos os motivos</option>
+          <option value="COMPRA">Compra</option>
+          <option value="USO_EM_PROJETO">Uso em projeto</option>
+          <option value="DEVOLUCAO_OBRA">Devolução de obra</option>
+          <option value="INVENTARIO">Inventário</option>
+          <option value="PERDA">Perda</option>
+          <option value="DESCARTE_VALIDADE">Descarte por validade</option>
+          <option value="ESTORNO">Estorno</option>
+        </select>
+        <select
+          className="stock-filter-project"
+          aria-label="Filtrar projeto"
+          value={projectId}
+          onChange={event => resetPage(() => setProjectId(event.target.value))}
+        >
+          <option value="">Todos os projetos</option>
+          {(projectsQuery.data || []).map(project => (
+            <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
+          ))}
+        </select>
+        <div className="field-group stock-date-filter">
+          <label htmlFor="stock-movements-from">Data inicial</label>
+          <input
+            id="stock-movements-from"
+            type="date"
+            value={from}
+            onChange={event => resetPage(() => setFrom(event.target.value))}
+          />
         </div>
-        <div className="nps-tab-toolbar-right">
-          <select aria-label="Filtrar projeto" value={projectId} onChange={event => resetPage(() => setProjectId(event.target.value))}>
-            <option value="">Todos os projetos</option>
-            {(projectsQuery.data || []).map(project => (
-              <option key={project.id} value={project.id}>{project.code} — {project.name}</option>
-            ))}
-          </select>
-          <div className="stock-period-filters" role="group" aria-label="Período das movimentações">
-            <span className="stock-period-title">Período</span>
-            <div className="field-group stock-date-filter">
-              <label htmlFor="stock-movements-from">Data inicial</label>
-              <input
-                id="stock-movements-from"
-                type="date"
-                value={from}
-                onChange={event => resetPage(() => setFrom(event.target.value))}
-              />
-            </div>
-            <div className="field-group stock-date-filter">
-              <label htmlFor="stock-movements-to">Data final</label>
-              <input
-                id="stock-movements-to"
-                type="date"
-                value={to}
-                onChange={event => resetPage(() => setTo(event.target.value))}
-              />
-            </div>
-          </div>
+        <div className="field-group stock-date-filter">
+          <label htmlFor="stock-movements-to">Data final</label>
+          <input
+            id="stock-movements-to"
+            type="date"
+            value={to}
+            onChange={event => resetPage(() => setTo(event.target.value))}
+          />
         </div>
       </div>
 
