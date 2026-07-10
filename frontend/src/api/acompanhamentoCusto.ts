@@ -87,3 +87,28 @@ export async function saveCostConfig(epiAnnualCost: number): Promise<CostConfig>
   const { data } = await apiClient.put<CostConfig>('/acompanhamento/custo/config', { epiAnnualCost });
   return data;
 }
+
+// --- Categorias Omie incluídas nos cálculos do acompanhamento ---
+
+export interface OmieCostCategory {
+  id: string;
+  codigo: string;
+  descricao: string | null;
+  includeInAcompanhamentoCosts: boolean;
+  syncedAt?: string;
+  purchasesCount: number;
+  purchasesTotal: string | number | null;
+}
+
+export async function getOmieCostCategories(): Promise<OmieCostCategory[]> {
+  const { data } = await apiClient.get<OmieCostCategory[]>('/acompanhamento/custo/categorias-omie');
+  return data;
+}
+
+export async function setOmieCostCategoryIncluded(codigo: string, includeInAcompanhamentoCosts: boolean): Promise<OmieCostCategory> {
+  const { data } = await apiClient.put<OmieCostCategory>(
+    `/acompanhamento/custo/categorias-omie/${encodeURIComponent(codigo)}`,
+    { includeInAcompanhamentoCosts }
+  );
+  return data;
+}

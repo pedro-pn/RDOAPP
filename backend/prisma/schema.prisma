@@ -1712,10 +1712,11 @@ model OmieProject {
 }
 
 model OmieCategory {
-  id        String   @id @default(cuid())
-  codigo    String   @unique // codigo_categoria (ex.: 2.04.92)
-  descricao String?
-  syncedAt  DateTime @default(now())
+  id                              String   @id @default(cuid())
+  codigo                          String   @unique // codigo_categoria (ex.: 2.04.92)
+  descricao                       String?
+  includeInAcompanhamentoCosts    Boolean  @default(true)
+  syncedAt                        DateTime @default(now())
 }
 
 // Título a pagar do Omie = gasto realizado vinculado a um projeto.

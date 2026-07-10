@@ -3,6 +3,8 @@
  *   GET  /api/acompanhamento/custo/perfis                 lista perfis + parâmetros vigentes
  *   PUT  /api/acompanhamento/custo/perfis/:key/parametros nova versão de parâmetros (gestor)
  *   POST /api/acompanhamento/custo/simular                { profileKey|params, inputs } -> custo
+ *   GET  /api/acompanhamento/custo/categorias-omie        lista categorias Omie do cálculo
+ *   PUT  /api/acompanhamento/custo/categorias-omie/:codigo inclui/remove categoria do cálculo
  */
 
 import { Router } from 'express';
@@ -134,6 +136,53 @@ router.put('/config', requireAuth, requireAcompanhamentoManager, asyncHandler(as
   const { epiAnnualCost } = configSchema.parse(req.body);
   const value = await setEpiAnnualCost(epiAnnualCost, req.auth?.user?.id ?? null);
   res.json({ epiAnnualCost: value });
+}));
+
+// === Categorias Omie consideradas nos cálculos do acompanhamento ===
+
+router.get('/categorias-omie', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
+  const [categories, purchaseStats] = await Promise.all([
+    prisma.omieCategory.findMany({
+      orderBy: [{ descricao: 'asc' }, { codigo: 'asc' }]
+    }),
+    prisma.omiePurchase.groupBy({
+      by: ['categoriaCodigo'],
+      _sum: { valor: true },
+      _count: { _all: true }
+    })
+  ]);
+  const statsByCode = new Map(purchaseStats.map(stat => [stat.categoriaCodigo, stat]));
+  res.json(categories.map(category => {
+    const stats = statsByCode.get(category.codigo);
+    return {
+      id: category.id,
+      codigo: category.codigo,
+      descricao: category.descricao,
+      includeInAcompanhamentoCosts: category.includeInAcompanhamentoCosts,
+      syncedAt: category.syncedAt,
+      purchasesCount: stats?._count?._all ?? 0,
+      purchasesTotal: stats?._sum?.valor ?? 0
+    };
+  }));
+}));
+
+const omieCategorySchema = z.object({ includeInAcompanhamentoCosts: z.boolean() });
+
+router.put('/categorias-omie/:codigo', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
+  const { includeInAcompanhamentoCosts } = omieCategorySchema.parse(req.body);
+  const current = await prisma.omieCategory.findUnique({ where: { codigo: req.params.codigo } });
+  if (!current) return res.status(404).json({ error: 'Categoria Omie não encontrada.' });
+  const category = await prisma.omieCategory.update({
+    where: { codigo: req.params.codigo },
+    data: { includeInAcompanhamentoCosts }
+  });
+  res.json({
+    id: category.id,
+    codigo: category.codigo,
+    descricao: category.descricao,
+    includeInAcompanhamentoCosts: category.includeInAcompanhamentoCosts,
+    syncedAt: category.syncedAt
+  });
 }));
 
 export default router;

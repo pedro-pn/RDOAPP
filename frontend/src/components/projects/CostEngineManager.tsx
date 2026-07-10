@@ -4,14 +4,16 @@ import { CargoProfilesPanel } from './CargoProfilesPanel';
 import { CostSimulatorPanel } from './CostSimulatorPanel';
 import { EpiConfigCard } from './EpiConfigCard';
 import { LaborRateTable } from './LaborRateTable';
+import { OmieCostCategoriesPanel } from './OmieCostCategoriesPanel';
 import { PontoImportPanel } from './PontoImportPanel';
 
-type CostTab = 'cargos' | 'ponto' | 'rates' | 'simulador';
+type CostTab = 'cargos' | 'ponto' | 'rates' | 'categorias' | 'simulador';
 
 const TABS: Array<[CostTab, string]> = [
   ['cargos', 'Cargos'],
   ['ponto', 'Ponto'],
   ['rates', 'Custo/hora'],
+  ['categorias', 'Categorias Omie'],
   ['simulador', 'Simulador']
 ];
 
@@ -44,6 +46,7 @@ export function CostEngineManager({ canManageCosts = true }: { canManageCosts?: 
       {canManageCosts && activeTab === 'cargos' ? <><EpiConfigCard /><CargoProfilesPanel /></>
         : activeTab === 'ponto' ? <PontoImportPanel />
         : activeTab === 'rates' ? <LaborRateTable />
+        : canManageCosts && activeTab === 'categorias' ? <OmieCostCategoriesPanel />
         : <CostSimulatorPanel />}
     </div>
   );

@@ -12,7 +12,7 @@ import MDBReader from 'mdb-reader';
 
 import prisma from '../prisma.js';
 import { computeProgressForProjects } from './avanco.js';
-import { getSalaryCategoryCodes } from './salary.js';
+import { buildOmieCostCategoryWhere } from './cost-categories.js';
 
 const PROPOSAL_TABLE = 'proposta';
 
@@ -404,13 +404,10 @@ export async function setProjectBudgetRevision(projectId, codBd) {
 // previsto (orçamento/revisão) e o realizado parcial (nº de RDOs = dias trabalhados, % prazo).
 export async function listCommercialDashboard({ categoryCode = null } = {}) {
   // Salários do Omie nunca entram no realizado (serão calculados no app via ponto).
-  const salaryCodes = categoryCode ? [] : await getSalaryCategoryCodes();
-  const notSalary = salaryCodes.length
-    ? { OR: [{ categoriaCodigo: null }, { categoriaCodigo: { notIn: salaryCodes } }] }
-    : {};
+  const categoryWhere = await buildOmieCostCategoryWhere({ categoryCode });
   const realizedWhere = {
     projectId: { not: null },
-    ...(categoryCode ? { categoriaCodigo: categoryCode } : notSalary)
+    ...categoryWhere
   };
   const [proposals, projects, budgets, rdoGroups, omieTotals, omiePaid] = await Promise.all([
     prisma.commercialProposal.findMany({
