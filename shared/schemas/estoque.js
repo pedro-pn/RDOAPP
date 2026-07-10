@@ -1,6 +1,8 @@
 const ITEM_TYPES = ['FILTRO', 'PRODUTO_QUIMICO'];
 const MOVEMENT_TYPES = ['ENTRADA', 'SAIDA'];
 const CHEMICAL_UNITS = ['kg', 'L'];
+const MAX_CHECKLIST_ITEMS = 100;
+const MAX_CHECKLIST_ITEM_LENGTH = 300;
 
 function optionalText(z, max) {
   let schema = z.string().trim();
@@ -69,8 +71,13 @@ function pdfDataUrlSchema(z) {
   });
 }
 
+function checklistItemsSchema(z) {
+  return z.array(z.string().trim().min(1).max(MAX_CHECKLIST_ITEM_LENGTH)).max(MAX_CHECKLIST_ITEMS).optional().nullable();
+}
+
 function itemBaseSchema(z) {
   return {
+    categoryId: optionalText(z, 80),
     code: requiredText(z, 60),
     name: requiredText(z, 180),
     manufacturer: optionalText(z, 180),
@@ -102,7 +109,9 @@ function stockItemCreateSchema(z) {
     unitLabel: optionalText(z, 20),
     unNumber: optionalText(z, 80),
     casNumber: optionalText(z, 80),
-    fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional()
+    fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
+    checklistEnabled: z.boolean().optional(),
+    checklistItems: checklistItemsSchema(z)
   });
 
   const chemical = z.object({
@@ -114,7 +123,9 @@ function stockItemCreateSchema(z) {
     fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
     filterModel: optionalText(z, 180),
     filterKind: optionalText(z, 120),
-    filterMicron: optionalText(z, 60)
+    filterMicron: optionalText(z, 60),
+    checklistEnabled: z.boolean().optional(),
+    checklistItems: checklistItemsSchema(z)
   });
 
   return z.discriminatedUnion('type', [filter, chemical])
@@ -132,7 +143,9 @@ function stockItemCreateSchema(z) {
           unitLabel: 'un',
           unNumber: null,
           casNumber: null,
-          fispq: null
+          fispq: null,
+          checklistEnabled: Boolean(data.checklistEnabled),
+          checklistItems: data.checklistItems === undefined ? null : data.checklistItems
         };
       }
       return {
@@ -141,7 +154,9 @@ function stockItemCreateSchema(z) {
         filterKind: null,
         filterMicron: null,
         casNumber: data.casNumber,
-        fispq: data.fispq ?? null
+        fispq: data.fispq ?? null,
+        checklistEnabled: Boolean(data.checklistEnabled),
+        checklistItems: data.checklistItems === undefined ? null : data.checklistItems
       };
     });
 }
@@ -158,7 +173,9 @@ function stockItemUpdateSchema(z, type) {
       unitLabel: optionalText(z, 20),
       unNumber: optionalText(z, 80),
       casNumber: optionalText(z, 80),
-      fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional()
+      fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
+      checklistEnabled: z.boolean().optional(),
+      checklistItems: checklistItemsSchema(z)
     }).superRefine((data, ctx) => {
       forbidFields(data, ['unitLabel', 'unNumber', 'casNumber', 'fispq'], ctx);
     }).transform(data => ({
@@ -166,7 +183,9 @@ function stockItemUpdateSchema(z, type) {
       unitLabel: 'un',
       unNumber: null,
       casNumber: null,
-      fispq: null
+      fispq: null,
+      checklistEnabled: Boolean(data.checklistEnabled),
+      checklistItems: data.checklistItems === undefined ? null : data.checklistItems
     }));
   }
 
@@ -179,7 +198,9 @@ function stockItemUpdateSchema(z, type) {
       fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
       filterModel: optionalText(z, 180),
       filterKind: optionalText(z, 120),
-      filterMicron: optionalText(z, 60)
+      filterMicron: optionalText(z, 60),
+      checklistEnabled: z.boolean().optional(),
+      checklistItems: checklistItemsSchema(z)
     }).superRefine((data, ctx) => {
       forbidFields(data, ['filterModel', 'filterKind', 'filterMicron'], ctx);
     }).transform(data => ({
@@ -188,7 +209,9 @@ function stockItemUpdateSchema(z, type) {
       filterKind: null,
       filterMicron: null,
       casNumber: data.casNumber,
-      fispq: data.fispq ?? undefined
+      fispq: data.fispq ?? undefined,
+      checklistEnabled: Boolean(data.checklistEnabled),
+      checklistItems: data.checklistItems === undefined ? null : data.checklistItems
     }));
   }
 

@@ -1,0 +1,105 @@
+Mapeamento checklist
+
+GERAL
+
+<<projeto>> - [codigo do projeto] - [nome do projeto] ; se não houver nome do projeto (casos que ainda não foi cadastrado) pode deixar somente o codigo. Depois que for cadastrado o nome, ai o pdf deve ser atualizado para o nome do projeto em novos downloads do arquivo
+<<data>> - data da inspeção - mesma do romaneio
+
+
+Para cada tipo de equipamento, a segunda tabela é preenchida com os seguintes dados:
+<<categoria>> - nome da categoria do equipamento
+<<nomeoutag>> - para equipamentos substitui pela TAG, para produtos consumiveis substitui pelo nome
+<<item>> o nome do item de acordo com o JSON abaixo
+<<status>> - VERIFICADO ou NÃO VERIFICADO dependendo se foi marcado ou não o checkbox referente ao item.
+Colorir VERIFICADO com verde e NÃO VERIFICADO COM VERMELHO.
+
+  UFI: [
+        "Drenagem e limpeza das carcaças dos filtros",
+        "Limpeza da válvula de retenção",
+        "Aperto dos parafusos do motor",
+        "Aperto das conexões",
+        "Aperto dos parafusos das válvulas",
+        "Verificação do medidor de saturação dos filtros",
+        "Troca do filtro de ar do painel",
+        "Reaperto dos fios do painel",
+        "Verificação dos rodízios do skid",
+        "Verificação do varão",
+        "Verificação das mangueiras hidráulicas",
+        "Pintura",
+        "Teste",
+    ],
+    UTH: [
+        "Verificação do plug de alimentação",
+        "Verfiicação do manômetro",
+        "Verificação da correia (apenas UTH 008)",
+        "Verificação da vávlula agulha",
+        "Condições das mangueiras",
+        "Verificação das polias (apenas UTH 008)",
+        "Verificação da pintura",
+        "Verificação dos rodízios",
+        "Teste"
+    ],
+    UTO: [
+        "Limpeza da carcaça do filtro",
+        "Limpeza do Filtro Y",
+        "Verificação das borrachas de vedação das câmaras de vácuo",
+        "Verificação do acrílico das câmaras de vácuo",
+        "Verificação das fiações do painel",
+        "Verificação dos manômetros",
+        "Verificação do filtro de ar",
+        "Verificação do conduíte da fiação de alimentação",
+        "Verificação da resistência",
+        "Verificação das mangueiras",
+        "Verificação de vazamentos",
+        "Verificação da iluminação",
+        "Verificação dos rodízios",
+        "Abastecimento de óleo Lubrax AC 100",
+        "Pintura",
+        "Teste",
+    ],
+    UBP: [
+        "Conferir engate rápido de ar",
+        "Conferir o diafragma",
+        "Apertar os parafusos",
+        "Conferir as vedações",
+        "Testar com água"
+    ],
+    ULQ: [
+        "Verificação do sentido do giro do motor (roda sentido horário)",
+        "Limpeza do tanque de alimentação",
+        "Verificação do conduíte da fiação de alimentação",
+        "Verificação da fiação do painel",
+        "Verificação do manômetro e selo",
+        "Verificação da mangueira do nível do tanque",
+        "Verificação da conexão de inox e vazamentos",
+        "Verificação do nível de óleo do motor e filtro do combustível",
+        "Verificação de vazamentos no caracol",
+        "Verificar o nível de óleo Diesel",
+        "Verificar o cabo de bateria",
+        "Verificar o aditivo do radiador e o filtro",
+        "Limpeza",
+        "Teste",
+    ],
+    UFP: [
+        "Drenagem e limpeza das carcaças dos filtros",
+        "Limpeza da válvula de retenção",
+        "Aperto dos parafusos da bucha de expansão",
+        "Aperto dos parafusos das válvulas",
+        "Aperto das conexões",
+        "Limpeza do medidor de vazão",
+        "Troca do filtro de ar do painel",
+        "Verificação das mangueiras de calibração dos pneus",
+        "Pintura",
+        "Teste"
+    ],
+    TRO: [
+        "Revisar a tensão (voltagem)",
+        "Revisar plug de alimentação",
+        "Revisar os cabos",
+        "Limpeza",
+        "Teste"
+    ],
+
+Final do arquivo: 
+<<assinatura>> do responsável pelo romaneio
+<<responsavel>> - nome do responsavel

@@ -31,6 +31,8 @@ function stockItem(overrides = {}) {
   return {
     id: 'stock-item-1',
     type: 'PRODUTO_QUIMICO',
+    categoryId: 'stock-category-1',
+    category: stockCategory(),
     code: 'PQ-001',
     name: 'Produto Quimico',
     manufacturer: null,
@@ -44,10 +46,27 @@ function stockItem(overrides = {}) {
     unNumber: null,
     casNumber: null,
     fispqToken: null,
+    checklistEnabled: false,
+    checklistItems: null,
     isActive: true,
     createdAt: new Date('2026-07-09T12:00:00.000Z'),
     updatedAt: new Date('2026-07-09T12:00:00.000Z'),
     _count: { movements: 0 },
+    ...overrides
+  };
+}
+
+function stockCategory(overrides = {}) {
+  return {
+    id: 'stock-category-1',
+    type: 'PRODUTO_QUIMICO',
+    name: 'Produtos químicos',
+    checklistEnabled: false,
+    checklistItems: [],
+    isActive: true,
+    createdAt: new Date('2026-07-09T12:00:00.000Z'),
+    updatedAt: new Date('2026-07-09T12:00:00.000Z'),
+    _count: { items: 0 },
     ...overrides
   };
 }
@@ -135,6 +154,29 @@ function stubStockItemModel(t, overrides = {}) {
   });
 }
 
+function stubStockCategoryModel(t, overrides = {}) {
+  const originals = {
+    findUnique: prisma.stockCategory.findUnique,
+    findFirst: prisma.stockCategory.findFirst,
+    findMany: prisma.stockCategory.findMany,
+    create: prisma.stockCategory.create,
+    update: prisma.stockCategory.update,
+    delete: prisma.stockCategory.delete
+  };
+  Object.assign(prisma.stockCategory, {
+    findUnique: async args => stockCategory({ id: args.where.id }),
+    findFirst: async args => stockCategory({ id: args.where.id || 'stock-category-1', type: args.where.type || 'PRODUTO_QUIMICO' }),
+    findMany: async () => [],
+    create: async args => stockCategory(args.data),
+    update: async args => stockCategory({ id: args.where.id, ...args.data }),
+    delete: async args => stockCategory({ id: args.where.id }),
+    ...overrides
+  });
+  t.after(() => {
+    Object.assign(prisma.stockCategory, originals);
+  });
+}
+
 test('estoque item schemas enforce fields by type and movement quantity rules', () => {
   const schemas = makeEstoqueSchemas(z);
 
@@ -142,6 +184,18 @@ test('estoque item schemas enforce fields by type and movement quantity rules', 
   assert.throws(
     () => schemas.itemCreate.parse({ type: 'FILTRO', code: 'FL-010', name: 'Filtro', unitLabel: 'kg', casNumber: '67-56-1' }),
     /Campo incompatível/
+  );
+  assert.equal(
+    schemas.itemCreate.parse({
+      type: 'PRODUTO_QUIMICO',
+      code: 'PQ-001',
+      name: 'Produto',
+      unitLabel: 'kg',
+      casNumber: '67-56-1',
+      checklistEnabled: true,
+      checklistItems: [' Validade conferida ']
+    }).checklistItems[0],
+    'Validade conferida'
   );
   assert.equal(
     schemas.itemCreate.parse({
@@ -174,6 +228,7 @@ test('POST /estoque/itens rejects duplicated code with 409', async t => {
   stubStockItemModel(t, {
     findUnique: async args => (args.where.code === 'PQ-001' ? { id: 'existing-item' } : null)
   });
+  stubStockCategoryModel(t);
 
   const response = await dispatchApp('POST', '/api/estoque/itens', {
     type: 'PRODUTO_QUIMICO',
@@ -194,6 +249,7 @@ test('PUT /estoque/itens/:id blocks unit changes after movements', async t => {
       return null;
     }
   });
+  stubStockCategoryModel(t);
 
   const response = await dispatchApp('PUT', '/api/estoque/itens/stock-item-1', {
     code: 'PQ-001',
@@ -210,6 +266,7 @@ test('PATCH /estoque/itens/:id/ativo toggles active state', async t => {
   stubStockItemModel(t, {
     update: async args => stockItem({ id: args.where.id, isActive: args.data.isActive })
   });
+  stubStockCategoryModel(t);
 
   const response = await dispatchApp('PATCH', '/api/estoque/itens/stock-item-1/ativo', { isActive: false });
 
@@ -228,6 +285,7 @@ test('DELETE /estoque/itens/:id blocks items with movements and removes unused i
       return stockItem();
     }
   });
+  stubStockCategoryModel(t);
 
   const blocked = await dispatchApp('DELETE', '/api/estoque/itens/stock-item-1', undefined);
   assert.equal(blocked.statusCode, 409);

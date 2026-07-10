@@ -5,17 +5,19 @@ import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
+import { StockCategoriesTab } from './StockCategoriesTab';
 import { StockItemsTab } from './StockItemsTab';
 import { StockMovementFormModal } from './StockMovementFormModal';
 import { StockMovementsTab } from './StockMovementsTab';
 import { StockSummaryTab } from './StockSummaryTab';
 
-type EstoqueTab = 'resumo' | 'movimentacoes' | 'itens';
+type EstoqueTab = 'resumo' | 'movimentacoes' | 'itens' | 'categorias';
 
 const TABS: Array<{ key: EstoqueTab; label: string }> = [
   { key: 'resumo', label: 'Resumo' },
   { key: 'movimentacoes', label: 'Movimentações' },
-  { key: 'itens', label: 'Itens' }
+  { key: 'itens', label: 'Itens' },
+  { key: 'categorias', label: 'Categorias' }
 ];
 
 export function EstoquePage() {
@@ -64,6 +66,7 @@ export function EstoquePage() {
         {tab === 'resumo' && <StockSummaryTab isManager={isManager} onRegisterMovement={() => setMovementModalOpen(true)} />}
         {tab === 'movimentacoes' && <StockMovementsTab isManager={isManager} />}
         {tab === 'itens' && <StockItemsTab isManager={isManager} />}
+        {tab === 'categorias' && <StockCategoriesTab isManager={isManager} />}
       </main>
       {movementModalOpen ? (
         <StockMovementFormModal
