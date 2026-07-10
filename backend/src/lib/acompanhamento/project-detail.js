@@ -11,6 +11,7 @@
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
+import { buildOmieCostCategoryWhere } from './cost-categories.js';
 import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { laborCostByProject } from './labor-cost.js';
 import { buildWorkedHoursProgress } from './project-cards.js';
@@ -114,6 +115,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   const rows = await listCommercialDashboard();
   const row = rows.find(r => r.projectId === projectId);
   if (!row) throw new Error('Projeto não encontrado no acompanhamento comercial.');
+  const categoryWhere = await buildOmieCostCategoryWhere();
 
   const [
     project,
@@ -147,7 +149,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     }),
     prisma.omiePurchase.groupBy({
       by: ['categoriaCodigo', 'categoriaDescricao'],
-      where: { projectId },
+      where: { projectId, ...categoryWhere },
       _sum: { valor: true }
     }),
     laborCostByProject(), // custo de mão de obra (HH) do ponto vigente

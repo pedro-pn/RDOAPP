@@ -25,6 +25,7 @@ import {
 } from '../../lib/acompanhamento/access-import.js';
 import { getPlannedScope, setPlannedScope } from '../../lib/acompanhamento/planned-scope.js';
 import { computeProjectProgress } from '../../lib/acompanhamento/avanco.js';
+import { buildOmieCostCategoryWhere } from '../../lib/acompanhamento/cost-categories.js';
 import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
@@ -129,7 +130,11 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const projectId = typeof req.query.projectId === 'string' && req.query.projectId ? req.query.projectId : null;
-    const where = projectId ? { projectId } : { projectId: { not: null } };
+    const categoryWhere = await buildOmieCostCategoryWhere();
+    const where = {
+      ...(projectId ? { projectId } : { projectId: { not: null } }),
+      ...categoryWhere
+    };
     const groups = await prisma.omiePurchase.groupBy({
       by: ['categoriaCodigo', 'categoriaDescricao'],
       where,
