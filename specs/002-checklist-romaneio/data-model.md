@@ -16,7 +16,7 @@ Uma migration Prisma cobre a base da feature: campos de checklist em `EquipmentC
 
 Regras:
 - Desligar `checklistEnabled` NÃO limpa `checklistItems` (preservado para reativação).
-- Normalização no backend (`equipment-checklist.js`): trim, remove vazios, mantém ordem, limita tamanho do item (ex. 300 chars) e da lista (ex. 100 itens).
+- Normalização no backend (`backend/src/lib/equipamentos/equipment-checklist.js`): trim, remove vazios, mantém ordem, limita tamanho do item (ex. 300 chars) e da lista (ex. 100 itens).
 - `checklistDisplayMode=AUTO`: equipamentos/itens por unidade usam tag/código; consumíveis/produtos usam nome. `TAG` e `NAME` forçam o comportamento quando a categoria for ambígua.
 
 ### CompanyEquipment (alterado)

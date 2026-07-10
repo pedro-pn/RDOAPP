@@ -17,7 +17,7 @@ import {
 import { generateTechnicalDatasheetPdf } from '../../lib/equipment-technical-docx.js';
 import { notifyCalibrationUpdatedSafely } from '../../lib/calibration-reminders.js';
 import { normalizeFieldSchema, normalizeTechnicalSchema, slugifySystemKey } from '../../lib/equipment-categories.js';
-import { normalizeChecklistDisplayMode, normalizeChecklistItems } from '../../lib/equipment-checklist.js';
+import { normalizeChecklistDisplayMode, normalizeChecklistItems } from '../../lib/equipamentos/equipment-checklist.js';
 import {
   getEquipmentNotificationConfig,
   listEquipmentNotificationRecipients,

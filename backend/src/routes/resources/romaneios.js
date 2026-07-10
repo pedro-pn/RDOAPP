@@ -23,14 +23,14 @@ import {
   resolveChecklistCategoryName,
   resolveChecklistDisplayName,
   resolveEffectiveChecklist
-} from '../../lib/equipment-checklist.js';
+} from '../../lib/equipamentos/equipment-checklist.js';
 import { normalizeSignatureValue } from '../../lib/signature-image.js';
 import { ensureRomaneioCatalogSynced } from '../../lib/romaneio-catalog.js';
 import { buildRomaneioCatalogPdf } from '../../lib/romaneio-catalog-pdf.js';
 import {
   saveRomaneioChecklistPdf,
   shouldRegenerateChecklistPdf
-} from '../../lib/romaneio-checklist-docx.js';
+} from '../../lib/romaneio/romaneio-checklist-docx.js';
 import { saveRomaneioDocx } from '../../lib/romaneio-docx.js';
 import { convertDocxToPdf } from '../../lib/report-pdf-from-docx.js';
 import { requireAuth, requireModuleRole } from '../../middleware/auth.js';

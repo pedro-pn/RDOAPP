@@ -10,7 +10,7 @@ import {
 } from '../../lib/estoque/stock-attachments.js';
 import { createMovement, reverseMovement } from '../../lib/estoque/stock-movements.js';
 import { decimalBalanceString, getBatchBalances, getItemBalances } from '../../lib/estoque/stock-balance.js';
-import { normalizeChecklistItems } from '../../lib/equipment-checklist.js';
+import { normalizeChecklistItems } from '../../lib/equipamentos/equipment-checklist.js';
 import prisma from '../../lib/prisma.js';
 import { syncRomaneioCatalog } from '../../lib/romaneio-catalog.js';
 import { makeEstoqueSchemas } from '../../../../shared/schemas/estoque.js';

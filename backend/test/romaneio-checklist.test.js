@@ -8,13 +8,13 @@ import {
   normalizeChecklistItems,
   resolveChecklistDisplayName,
   resolveEffectiveChecklist
-} from '../src/lib/equipment-checklist.js';
+} from '../src/lib/equipamentos/equipment-checklist.js';
 import {
   buildRomaneioChecklistDocx,
   buildChecklistFileName,
   buildChecklistProjectLabel,
   shouldRegenerateChecklistPdf
-} from '../src/lib/romaneio-checklist-docx.js';
+} from '../src/lib/romaneio/romaneio-checklist-docx.js';
 import {
   buildRomaneioChecklistMap,
   buildRomaneioChecklistSnapshots,

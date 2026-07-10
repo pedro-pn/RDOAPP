@@ -1,5 +1,5 @@
 import prisma from '../src/lib/prisma.js';
-import { normalizeChecklistItems } from '../src/lib/equipment-checklist.js';
+import { normalizeChecklistItems } from '../src/lib/equipamentos/equipment-checklist.js';
 
 export const CHECKLIST_ITEMS_BY_PREFIX = {
   UFI: [

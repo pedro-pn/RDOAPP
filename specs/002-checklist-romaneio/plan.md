@@ -66,8 +66,10 @@ backend/
 │   └── migrations/<ts>_romaneio_checklist/ # migration Prisma
 ├── src/
 │   ├── lib/
-│   │   ├── equipment-checklist.js          # NOVO: normalização + resolução da lista efetiva (categoria vs override)
-│   │   ├── romaneio-checklist-docx.js      # NOVO: geração DOCX→PDF consolidado do checklist (modelo + mapa)
+│   │   ├── equipamentos/
+│   │   │   └── equipment-checklist.js      # NOVO: normalização + resolução da lista efetiva (categoria vs override)
+│   │   ├── romaneio/
+│   │   │   └── romaneio-checklist-docx.js  # NOVO: geração DOCX→PDF consolidado do checklist (modelo + mapa)
 │   │   ├── romaneio-docx.js                # referência de padrão (inalterado)
 │   │   └── mailer.js / email-templates.js  # anexos extras no e-mail existente
 │   └── routes/resources/

@@ -5,14 +5,14 @@ import { fileURLToPath } from 'node:url';
 import AdmZip from 'adm-zip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
-import env from '../config/env.js';
-import { checklistItemStatusFromSnapshot } from './equipment-checklist.js';
-import { convertDocxToPdf } from './report-pdf-from-docx.js';
-import { parseSignatureImageDataUrl } from './signatures/common.js';
+import env from '../../config/env.js';
+import { checklistItemStatusFromSnapshot } from '../equipamentos/equipment-checklist.js';
+import { convertDocxToPdf } from '../report-pdf-from-docx.js';
+import { parseSignatureImageDataUrl } from '../signatures/common.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const templatePath = path.resolve(__dirname, '../../../Modelos/definitivos/Checklist.docx');
+const templatePath = path.resolve(__dirname, '../../../../Modelos/definitivos/Checklist.docx');
 const CHECKLIST_STATUS_LABELS = {
   CONFORME: 'CONFORME',
   NAO_CONFORME: 'NÃO CONFORME',
