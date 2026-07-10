@@ -46,8 +46,9 @@ Ao clicar em enviar e abrir o resumo/revisão do romaneio, se houver item com ch
 
 1. **Given** usuário logado SEM assinatura cadastrada e romaneio com item com checklist, **When** o resumo de envio é aberto, **Then** o campo de assinatura (desenho/upload) aparece ao final do resumo.
 2. **Given** usuário logado vinculado a colaborador COM assinatura cadastrada, **When** o resumo de envio é aberto, **Then** o campo de assinatura é omitido e a assinatura cadastrada é usada no PDF consolidado.
-3. **Given** um romaneio SEM itens com checklist, **When** o resumo de envio é aberto, **Then** nenhum campo de assinatura é exibido (comportamento atual inalterado).
-4. **Given** o PDF consolidado de checklist gerado, **When** aberto, **Then** o final do documento exibe a imagem da assinatura e o nome do responsável pelo romaneio.
+3. **Given** usuário logado SEM assinatura cadastrada e romaneio com item com checklist, **When** tenta confirmar o envio sem desenhar/enviar assinatura, **Then** o sistema bloqueia a confirmação e mantém o resumo aberto para assinatura.
+4. **Given** um romaneio SEM itens com checklist, **When** o resumo de envio é aberto, **Then** nenhum campo de assinatura é exibido (comportamento atual inalterado).
+5. **Given** o PDF consolidado de checklist gerado, **When** aberto, **Then** o final do documento exibe a imagem da assinatura e o nome do responsável pelo romaneio.
 
 ---
 
@@ -126,7 +127,7 @@ Gerente ou coordenador edita um romaneio já enviado e ajusta as marcações de 
 - Rascunho de romaneio: as marcações de checklist feitas até então são preservadas no rascunho e restauradas ao retomá-lo.
 - Falha na geração do PDF consolidado de checklist no envio: o envio do romaneio não pode ficar em estado parcial silencioso — o erro é tratado da mesma forma que a falha de geração do PDF do romaneio hoje (envio falha por inteiro e nada é persistido pela metade).
 - Falha no e-mail: o romaneio permanece criado com status de e-mail de erro (comportamento atual), incluindo os checklists no card.
-- Assinatura: usuário sem colaborador vinculado e que não desenha/envia assinatura no resumo — o envio é permitido e o PDF sai com espaço de assinatura em branco, apenas com o nome do responsável.
+- Assinatura: usuário sem assinatura cadastrada e que não desenha/envia assinatura no resumo — o envio é bloqueado; romaneios com checklist sempre exigem assinatura resolvida (payload, assinatura existente do romaneio em edição ou assinatura cadastrada do colaborador).
 - Quantidade > 1 do mesmo equipamento serializado numa linha do romaneio: o checklist é único por linha de equipamento (uma tabela no PDF consolidado por item distinto, não por unidade de quantidade).
 - Consumível/produto sem tag: `<<nomeoutag>>` usa o nome do produto. Equipamento/unidade com tag: `<<nomeoutag>>` usa a tag. Se a classificação ficar ambígua, o cadastro da categoria pode forçar o modo de exibição no checklist.
 - Template Checklist.docx ausente no servidor: o envio de romaneio com itens com checklist falha com mensagem clara; romaneios sem checklist não são afetados.
@@ -143,7 +144,7 @@ Gerente ou coordenador edita um romaneio já enviado e ajusta as marcações de 
 - **FR-005**: Em romaneios de SAÍDA, ao adicionar um item do catálogo cuja lista efetiva de checklist não é vazia, o sistema DEVE exibir a etapa de checklist daquele item com todos os pontos iniciando como "Conforme".
 - **FR-006**: O colaborador DEVE poder classificar cada ponto como "Conforme", "Não conforme" ou "Não aplicável" livremente e prosseguir com o romaneio, sem bloqueio nem aviso adicional.
 - **FR-007**: Romaneios de ENTRADA não exibem checklist nem geram documentos de checklist.
-- **FR-008**: No resumo de envio do romaneio, quando houver ao menos um item com checklist, o sistema DEVE exibir ao final um campo de assinatura do responsável (desenho ou upload de imagem, no mesmo padrão das assinaturas de RDO/EPI); o campo DEVE ser omitido quando o colaborador vinculado ao usuário logado já possui assinatura cadastrada, usando-a automaticamente.
+- **FR-008**: No resumo de envio do romaneio, quando houver ao menos um item com checklist, o sistema DEVE exibir ao final um campo de assinatura do responsável (desenho ou upload de imagem, no mesmo padrão das assinaturas de RDO/EPI) quando o colaborador vinculado ao usuário logado não possui assinatura cadastrada; o campo DEVE ser omitido quando já há assinatura cadastrada, usando-a automaticamente. A confirmação do envio DEVE ser bloqueada quando houver checklist sem assinatura resolvida.
 - **FR-009**: A assinatura desenhada/enviada no resumo NÃO altera a assinatura cadastrada do colaborador; vale apenas para os documentos daquele romaneio.
 - **FR-010**: Ao enviar o romaneio, o sistema DEVE gerar um único documento PDF consolidado de checklist por romaneio, a partir do modelo `Modelos/definitivos/Checklist.docx`, preenchendo: identificação do projeto (código e nome da missão), data do romaneio, uma tabela de checklist por item com checklist, uma linha por ponto com status "CONFORME" (verde), "NÃO CONFORME" (vermelho) ou "NÃO APLICÁVEL" (cinza), e ao final a assinatura (imagem) e o nome do responsável.
 - **FR-019**: Quando o projeto ainda não tem nome (missão criada como cadastro pendente pelo próprio romaneio), o documento sai apenas com o código do projeto; depois que o nome for cadastrado, novos downloads do PDF de checklist DEVEM trazer o documento atualizado com o nome do projeto (sem reenvio de e-mail).

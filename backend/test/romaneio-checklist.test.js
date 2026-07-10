@@ -19,6 +19,7 @@ import {
   buildRomaneioChecklistMap,
   buildRomaneioChecklistSnapshots,
   buildRomaneioChecklistUpdateSnapshots,
+  resolveRequiredChecklistSignatureImage,
   resolveChecklistSignatureImage
 } from '../src/routes/resources/romaneios.js';
 import {
@@ -354,6 +355,36 @@ test('resolveChecklistSignatureImage falls back to collaborator signature withou
     where: { id: 'col-1' },
     select: { signatureImage: true }
   }]]);
+});
+
+test('resolveRequiredChecklistSignatureImage reuses existing romaneio signature', async () => {
+  const signature = 'data:image/png;base64,existing';
+  const client = {
+    collaborator: {
+      findUnique: async () => {
+        throw new Error('collaborator lookup should not run');
+      }
+    }
+  };
+
+  assert.equal(await resolveRequiredChecklistSignatureImage({ collaboratorId: 'col-1' }, null, signature, client), signature);
+});
+
+test('resolveRequiredChecklistSignatureImage rejects checklist without any signature', async () => {
+  const client = {
+    collaborator: {
+      findUnique: async () => ({ signatureImage: null })
+    }
+  };
+
+  await assert.rejects(
+    () => resolveRequiredChecklistSignatureImage({ collaboratorId: 'col-1' }, null, null, client),
+    error => {
+      assert.equal(error.statusCode, 400);
+      assert.match(error.message, /Assinatura do responsável é obrigatória/);
+      return true;
+    }
+  );
 });
 
 test('resolveCategoryForPrefix uses equipment code prefix before name fallback', () => {

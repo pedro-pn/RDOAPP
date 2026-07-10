@@ -354,13 +354,9 @@ export async function buildRomaneioChecklistDocx(romaneio, checklists = romaneio
   const entry = zip.getEntry('word/document.xml');
   const doc = new DOMParser().parseFromString(zip.readAsText(entry), 'application/xml');
   const snapshots = checklistSnapshots(checklists);
-  const displayValues = snapshots.map(checklistDisplayValue).filter(Boolean);
-  const equipmentNames = snapshots.map(item => safeText(item?.equipmentName).trim()).filter(Boolean);
 
   replacePlaceholders(doc, {
     projeto: buildChecklistProjectLabel(romaneio),
-    equipamento: snapshots.length === 1 ? equipmentNames[0] || '' : (snapshots.length ? `${snapshots.length} itens com checklist` : ''),
-    tag: displayValues.join(', '),
     data: formatDatePt(romaneio.romaneioDate),
     responsavel: romaneio.checklistResponsibleName || ''
   });

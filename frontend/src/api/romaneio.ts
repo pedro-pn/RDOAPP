@@ -88,6 +88,7 @@ export interface Romaneio {
   emailStatus?: string | null;
   emailError?: string | null;
   checklistResponsibleName?: string | null;
+  checklistSignatureImage?: string | null;
   checklists?: RomaneioChecklist[];
   createdAt: string;
   updatedAt: string;

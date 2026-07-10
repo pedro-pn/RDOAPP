@@ -704,6 +704,12 @@ export function NewRomaneioPage() {
       });
   }
 
+  function hasChecklistSignatureForSubmit() {
+    return Boolean(checklistSignatureImage)
+      || Boolean(isEditing && editQuery.data?.checklistSignatureImage)
+      || checklistMapQuery.data?.hasSavedSignature === true;
+  }
+
   function canSubmitRomaneio() {
     if (!projectId && !typedProjectCode) {
       showToast('Selecione o projeto ou informe o código da missão.');
@@ -749,6 +755,12 @@ export function NewRomaneioPage() {
   async function confirmSubmit() {
     if (saveMutation.isPending || isSubmittingRef.current) return;
     if (!canSubmitRomaneio()) return;
+    const checklistPayload = checklistsPayload();
+    if (checklistPayload.length && !hasChecklistSignatureForSubmit()) {
+      showToast('Adicione a assinatura do responsável para gerar o checklist.');
+      setChecklistSignatureOpen(true);
+      return;
+    }
     setReviewOpen(false);
     isSubmittingRef.current = true;
     if (draftSaveTimerRef.current) {
@@ -766,7 +778,7 @@ export function NewRomaneioPage() {
         vehiclePlate,
         cargoWeight: cargoWeight ? Number(cargoWeight) : null,
         cargoWeightUnit,
-        checklists: checklistsPayload(),
+        checklists: checklistPayload,
         checklistSignatureImage: checklistSignatureImage || null,
         items: selectedItemsPayload()
       });
@@ -800,7 +812,9 @@ export function NewRomaneioPage() {
 
   const activeChecklistInfo = activeChecklistItem ? checklistInfoForItem(activeChecklistItem) : null;
   const selectedChecklistPayload = checklistsPayload();
-  const needsChecklistSignature = !isEditing && selectedChecklistPayload.length > 0 && checklistMapQuery.data?.hasSavedSignature === false;
+  const existingChecklistSignatureImage = isEditing ? editQuery.data?.checklistSignatureImage || '' : '';
+  const reviewChecklistSignatureImage = checklistSignatureImage || existingChecklistSignatureImage;
+  const needsChecklistSignature = selectedChecklistPayload.length > 0 && checklistMapQuery.data?.hasSavedSignature === false;
 
   return (
     <Shell>
@@ -1112,11 +1126,11 @@ export function NewRomaneioPage() {
           <div className="romaneio-signature-summary">
             <div>
               <strong>Assinatura do responsável</strong>
-              <div className="rel-meta">{checklistSignatureImage ? 'Assinatura adicionada ao checklist.' : 'Checklist sem assinatura cadastrada.'}</div>
+              <div className="rel-meta">{reviewChecklistSignatureImage ? 'Assinatura adicionada ao checklist.' : 'Checklist sem assinatura cadastrada.'}</div>
             </div>
-            {checklistSignatureImage ? <img src={checklistSignatureImage} alt="Assinatura do responsável" /> : null}
+            {reviewChecklistSignatureImage ? <img src={reviewChecklistSignatureImage} alt="Assinatura do responsável" /> : null}
             <button className="secondary-button" type="button" onClick={() => setChecklistSignatureOpen(true)}>
-              {checklistSignatureImage ? 'Alterar assinatura' : 'Adicionar assinatura'}
+              {reviewChecklistSignatureImage ? 'Alterar assinatura' : 'Adicionar assinatura'}
             </button>
           </div>
         )}

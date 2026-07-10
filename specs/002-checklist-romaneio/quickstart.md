@@ -28,7 +28,7 @@
 1. Novo romaneio de SAÍDA → adicionar equipamento da categoria com checklist → modal de checklist abre com itens iniciando como conforme.
 2. Marcar parte dos itens, fechar, adicionar um item SEM checklist (nenhum modal) e um segundo equipamento COM checklist.
 3. Salvar rascunho, sair, retomar → marcações restauradas.
-4. Enviar → no resumo: campo de assinatura aparece (conta sem assinatura cadastrada) ou é omitido (conta vinculada a colaborador com assinatura).
+4. Enviar → o resumo abre; nele o campo de assinatura aparece quando a conta não tem assinatura cadastrada e a confirmação fica bloqueada até assinar. Em conta vinculada a colaborador com assinatura, o campo é omitido e a assinatura salva é usada automaticamente.
 5. Após envio, conferir:
    - Card do romaneio com 1 botão de download do checklist consolidado + PDF/DOCX do romaneio.
    - Nome do arquivo: `Checklist - Missão <código> - <dd-mm-yyyy>.pdf`.

@@ -38,6 +38,7 @@ import { requireAuth, requireModuleRole } from '../../middleware/auth.js';
 const router = Router();
 const ROMANEIO_DRAFT_MODULE = 'romaneio';
 const ROMANEIO_EMAIL_PENDING_STATUS = 'pendente';
+const CHECKLIST_SIGNATURE_REQUIRED_MESSAGE = 'Assinatura do responsável é obrigatória para romaneios com checklist.';
 const requireRomaneioAccess = requireModuleRole('romaneio:manager', 'romaneio:operator');
 const cargoWeightUnits = ['kg', 'ton'];
 export const ROMANEIO_TYPES = ['OUTBOUND', 'INBOUND'];
@@ -667,6 +668,18 @@ export async function resolveChecklistSignatureImage(authUser, payloadSignatureI
     select: { signatureImage: true }
   });
   return normalizeSignatureValue(collaborator?.signatureImage || null);
+}
+
+export async function resolveRequiredChecklistSignatureImage(authUser, payloadSignatureImage, fallbackSignatureImage = null, client = prisma) {
+  if (payloadSignatureImage) return payloadSignatureImage;
+  const fallbackSignature = await normalizeSignatureValue(fallbackSignatureImage || null);
+  if (fallbackSignature) return fallbackSignature;
+  const savedSignature = await resolveChecklistSignatureImage(authUser, null, client);
+  if (savedSignature) return savedSignature;
+
+  const error = new Error(CHECKLIST_SIGNATURE_REQUIRED_MESSAGE);
+  error.statusCode = 400;
+  throw error;
 }
 
 export async function buildRomaneioChecklistMap(client = prisma) {
@@ -1377,7 +1390,7 @@ router.post('/', requireAuth, requireRomaneioAccess, asyncHandler(async (req, re
     : [];
   if (checklistSnapshots.length) {
     preview.checklistResponsibleName = authUserLabel(req.auth.user);
-    preview.checklistSignatureImage = await resolveChecklistSignatureImage(req.auth.user, payload.checklistSignatureImage);
+    preview.checklistSignatureImage = await resolveRequiredChecklistSignatureImage(req.auth.user, payload.checklistSignatureImage);
     preview.checklists = checklistSnapshots;
   }
 
@@ -1510,9 +1523,11 @@ router.put('/:id', requireAuth, requireRomaneioAccess, requireRomaneioEditor, as
     : [];
   if (checklistSnapshots.length) {
     preview.checklistResponsibleName = existing.checklistResponsibleName || authUserLabel(req.auth.user);
-    preview.checklistSignatureImage = payload.checklistSignatureImage
-      ? await resolveChecklistSignatureImage(req.auth.user, payload.checklistSignatureImage)
-      : existing.checklistSignatureImage || null;
+    preview.checklistSignatureImage = await resolveRequiredChecklistSignatureImage(
+      req.auth.user,
+      payload.checklistSignatureImage,
+      existing.checklistSignatureImage
+    );
     preview.checklists = checklistSnapshots;
   } else {
     preview.checklistResponsibleName = null;

@@ -3,8 +3,6 @@ Mapeamento checklist
 GERAL
 
 <<projeto>> - [codigo do projeto] - [nome do projeto] ; se não houver nome do projeto (casos que ainda não foi cadastrado) pode deixar somente o codigo. Depois que for cadastrado o nome, ai o pdf deve ser atualizado para o nome do projeto em novos downloads do arquivo
-<<equipamento>> - nome do equipamento
-<<tag>> - código do equipamento ex. UFP 001
 <<data>> - data da inspeção - mesma do romaneio
 
 

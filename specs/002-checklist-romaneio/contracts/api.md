@@ -89,7 +89,7 @@ Comportamento:
 - Para cada item do romaneio com checklist efetivo (via `checklist-map` do servidor), o servidor monta o snapshot `[{ text, status, checked }]`, aceitando `status = CONFORME | NAO_CONFORME | NAO_APLICAVEL`; entrada `checklists` sem catalogItem correspondente no romaneio é ignorada; item com checklist sem entrada em `checklists` → todos os pontos ficam `CONFORME`. `checkedTexts` permanece aceito apenas como compatibilidade legada.
 - Gera 1 PDF consolidado por romaneio a partir de `Modelos/definitivos/Checklist.docx`; nome `Checklist - Missão <código projeto> - <dd-mm-yyyy>.pdf`; salvo junto aos arquivos do romaneio. Placeholder `<<projeto>>` = `<código> - <nome>` (só o código quando a missão ainda não tem nome); o rótulo estampado fica gravado em `Romaneio.checklistProjectLabel`.
 - Dentro do documento, a tabela que contém `<<categoria>>`, `<<nomeoutag>>`, `<<item>>` e `<<status>>` é duplicada para cada snapshot, respeitando a ordem do romaneio. `<<categoria>>` usa `categoryName`; `<<nomeoutag>>` usa `displayNameOrTag`; `<<status>>` imprime `CONFORME`, `NÃO CONFORME` ou `NÃO APLICÁVEL`.
-- `checklistResponsibleName` = nome do usuário autenticado; assinatura = payload ?? `Collaborator.signatureImage` ?? em branco.
+- `checklistResponsibleName` = nome do usuário autenticado; assinatura = payload ?? assinatura existente do romaneio em edição ?? `Collaborator.signatureImage`. Se houver checklist e nenhuma assinatura puder ser resolvida, a API retorna `400` e não salva o romaneio.
 - Falha na geração do PDF consolidado → envio falha por inteiro (mesma semântica de limpeza atual).
 - E-mail de notificação existente anexa também o PDF consolidado de checklist.
 
@@ -135,7 +135,7 @@ Durante a migração do frontend, pode permanecer como compatibilidade. Deve ser
 ## Frontend (contratos de UI)
 
 - `NewRomaneioPage`: ao adicionar item presente no `checklist-map` (romaneio OUTBOUND), abre `RomaneioChecklistModal` com controles "Conforme", "Não conforme" e "Não aplicável", iniciando em "Conforme"; item selecionado exibe indicador/botão para reabrir e editar status; status persistem no rascunho (payload do draft) e são restaurados.
-- Resumo de envio: se houver checklist e `hasSavedSignature=false`, seção de assinatura (desenho/upload — padrão `SignatureDialog`); envio permitido sem assinatura (documento sai com espaço em branco).
+- Resumo de envio: se houver checklist e `hasSavedSignature=false`, seção de assinatura (desenho/upload — padrão `SignatureDialog`) aparece dentro do modal de revisão; a confirmação fica bloqueada até haver assinatura. Se `hasSavedSignature=true`, a seção é omitida e a assinatura cadastrada é usada automaticamente.
 - `RomaneioPage` (card): um botão de download do checklist consolidado (`Checklist` ou `Checklist do romaneio`), junto a PDF/DOCX.
 - Edição: status carregados de `romaneio.checklists` (snapshot), não do `checklist-map`.
 
