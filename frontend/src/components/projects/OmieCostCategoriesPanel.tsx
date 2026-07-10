@@ -27,6 +27,7 @@ export function OmieCostCategoriesPanel() {
   const showToast = useToast();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'todas' | 'incluidas' | 'ignoradas'>('todas');
+  const [showZeroCost, setShowZeroCost] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['omie-cost-categories'],
@@ -51,16 +52,18 @@ export function OmieCostCategoriesPanel() {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return categories.filter(category => {
+      if (!showZeroCost && toNum(category.purchasesTotal) <= 0) return false;
       if (status === 'incluidas' && !category.includeInAcompanhamentoCosts) return false;
       if (status === 'ignoradas' && category.includeInAcompanhamentoCosts) return false;
       if (!term) return true;
       const hay = `${category.codigo} ${category.descricao ?? ''}`.toLowerCase();
       return hay.includes(term);
     });
-  }, [categories, search, status]);
+  }, [categories, search, showZeroCost, status]);
 
   const includedCount = categories.filter(category => category.includeInAcompanhamentoCosts).length;
   const ignoredCount = categories.length - includedCount;
+  const zeroCostCount = categories.filter(category => toNum(category.purchasesTotal) <= 0).length;
 
   if (isLoading) return <div className="page-card placeholder-copy">Carregando categorias Omie…</div>;
 
@@ -91,6 +94,17 @@ export function OmieCostCategoriesPanel() {
           <div className="det-val" style={{ minHeight: 38, display: 'flex', alignItems: 'center' }}>
             {includedCount} incluídas · {ignoredCount} ignoradas
           </div>
+        </div>
+        <div className="field-group">
+          <label>Categorias sem custo</label>
+          <label className="equip-toggle" style={{ minHeight: 38 }}>
+            <input
+              type="checkbox"
+              checked={showZeroCost}
+              onChange={event => setShowZeroCost(event.target.checked)}
+            />
+            Mostrar R$0,00 ({zeroCostCount})
+          </label>
         </div>
       </div>
 
