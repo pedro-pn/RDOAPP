@@ -13,6 +13,7 @@ import MDBReader from 'mdb-reader';
 import prisma from '../prisma.js';
 import { computeProgressForProjects } from './avanco.js';
 import { buildOmieCostCategoryWhere } from './cost-categories.js';
+import { getStockConsumptionCostByProject } from './stock-cost.js';
 
 const PROPOSAL_TABLE = 'proposta';
 
@@ -174,6 +175,17 @@ function budgetFieldsFromProposal(proposal) {
     mobilizationLeadDays: proposal.mobilizationLeadDays ?? null,
     isComplete: proposal.isComplete ?? false
   };
+}
+
+export function applyStockCostsToDashboardRows(rows, stockCosts) {
+  for (const row of rows) {
+    const stockCost = stockCosts.get(row.projectId)?.total ?? 0;
+    row.stockCost = stockCost;
+    if (stockCost > 0) {
+      row.realizedCost = (toNumber(row.realizedOmieCost) ?? 0) + stockCost;
+    }
+  }
+  return rows;
 }
 
 function normalizeSleepModeMap(value) {
@@ -477,11 +489,18 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       serviceModality: source?.serviceModality ?? null,
       components: source?.components ?? {},
       rdoCount: rdoByProject.get(project.id) ?? 0,
+      realizedOmieCost: realizedByProject.get(project.id) ?? null,
       realizedCost: realizedByProject.get(project.id) ?? null,
       realizedPaid: realizedPaidByProject.get(project.id) ?? null,
+      stockCost: 0,
       progressPct: null,
       progressMethod: null
     });
+  }
+
+  if (!categoryCode && rows.length > 0) {
+    const stockCosts = await getStockConsumptionCostByProject(rows.map(row => row.projectId));
+    applyStockCostsToDashboardRows(rows, stockCosts);
   }
 
   // Avanço físico (RDO ponderado por serviço; ou manual como fallback) dos projetos exibidos, em lote.

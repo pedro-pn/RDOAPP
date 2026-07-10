@@ -107,8 +107,10 @@ export interface DashboardRow {
   serviceModality?: 'INLOCO' | 'POP_SEDE' | null;
   components?: Record<string, number | null>;
   rdoCount: number;
+  realizedOmieCost?: string | number | null;
   realizedCost?: string | number | null;
   realizedPaid?: string | number | null;
+  stockCost?: string | number | null;
   progressPct?: number | null;
   progressMethod?: ProgressMethod | null;
 }
@@ -267,6 +269,7 @@ export interface ProjectCard {
   expectedEndDate: string | null;
   laborCost: number | null; // custo de mão de obra COM adicional offshore (do ponto), somado ao realizado
   laborCostBase: number | null; // custo de mão de obra SEM offshore (comparação)
+  stockCost: number; // consumo líquido de produtos químicos/filtros via romaneio
   equipment: Array<{ name: string; days: number; since: string }>; // equipamentos (módulo Equipamentos) em obra
   alerts: ProjectAlert[];
 }
@@ -292,7 +295,7 @@ export interface ProjectDetail {
   avancoMethod?: ProgressMethod | null;
   diasCorridos: { elapsed: number | null; planned: number | null; pct: number | null };
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
-  consumo: { gasto: number; previsto: number | null; pct: number | null };
+  consumo: { gasto: number; omie: number; estoque: number; previsto: number | null; pct: number | null };
   maoDeObra: { custo: number | null; custoBase: number | null; horas: number | null; periodStart: string | null; periodEnd: string | null };
   workedHours: WorkedHoursProgress;
   maioresGastos: Array<{ categoria: string; total: number }>;
