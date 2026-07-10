@@ -10,6 +10,7 @@ import {
 } from '../../lib/estoque/stock-attachments.js';
 import { createMovement, reverseMovement } from '../../lib/estoque/stock-movements.js';
 import { decimalBalanceString, getBatchBalances, getItemBalances } from '../../lib/estoque/stock-balance.js';
+import { normalizeChecklistItems } from '../../lib/equipment-checklist.js';
 import prisma from '../../lib/prisma.js';
 import { syncRomaneioCatalog } from '../../lib/romaneio-catalog.js';
 import { makeEstoqueSchemas } from '../../../../shared/schemas/estoque.js';
@@ -21,6 +22,20 @@ import {
 
 const router = Router();
 const estoqueSchemas = makeEstoqueSchemas(z);
+const STOCK_ITEM_TYPES = ['FILTRO', 'PRODUTO_QUIMICO'];
+
+const stockCategoryCreateSchema = z.object({
+  type: z.enum(STOCK_ITEM_TYPES),
+  name: z.string().trim().min(1, 'Campo obrigatório.').max(180),
+  checklistEnabled: z.boolean().optional(),
+  checklistItems: z.array(z.string().trim().min(1).max(300)).max(100).optional()
+});
+
+const stockCategoryUpdateSchema = z.object({
+  name: z.string().trim().min(1, 'Campo obrigatório.').max(180),
+  checklistEnabled: z.boolean().optional(),
+  checklistItems: z.array(z.string().trim().min(1).max(300)).max(100).optional()
+});
 
 router.use(requireAuth);
 router.use(requireEstoqueAccess);
@@ -79,11 +94,28 @@ function isExpiringSoon(expiryDate, now) {
   return diffDays <= 30;
 }
 
+export function serializeStockCategory(category) {
+  if (!category) return null;
+  return {
+    id: category.id,
+    type: category.type,
+    name: category.name,
+    checklistEnabled: Boolean(category.checklistEnabled),
+    checklistItems: Array.isArray(category.checklistItems) ? normalizeChecklistItems(category.checklistItems) : [],
+    isActive: category.isActive,
+    itemCount: category?._count?.items ?? category.itemCount ?? 0,
+    createdAt: category.createdAt,
+    updatedAt: category.updatedAt
+  };
+}
+
 export function serializeStockItem(item) {
   const movementCount = item?._count?.movements ?? item?.movementsCount ?? 0;
   return {
     id: item.id,
     type: item.type,
+    categoryId: item.categoryId || null,
+    category: serializeStockCategory(item.category),
     code: item.code,
     name: item.name,
     manufacturer: item.manufacturer,
@@ -97,6 +129,8 @@ export function serializeStockItem(item) {
     unNumber: item.unNumber,
     casNumber: item.casNumber,
     fispqUrl: item.fispqToken ? publicStockAttachmentUrl(item.fispqToken) : null,
+    checklistEnabled: Boolean(item.checklistEnabled),
+    checklistItems: item.checklistItems == null ? null : normalizeChecklistItems(item.checklistItems),
     isActive: item.isActive,
     hasMovements: movementCount > 0,
     createdAt: item.createdAt,
@@ -253,12 +287,46 @@ export async function listStockMovements(client, query) {
 }
 
 const itemWithMovementCount = {
+  category: true,
   _count: { select: { movements: true } }
 };
+
+const categoryWithItemCount = {
+  _count: { select: { items: true } }
+};
+
+function stockCategoryDataFromPayload(data) {
+  return {
+    name: data.name,
+    checklistEnabled: Boolean(data.checklistEnabled),
+    checklistItems: normalizeChecklistItems(data.checklistItems)
+  };
+}
+
+async function resolveStockCategoryIdForType(type, categoryId) {
+  const requestedId = String(categoryId || '').trim();
+  if (requestedId) {
+    const category = await prisma.stockCategory.findFirst({
+      where: { id: requestedId, type },
+      select: { id: true, isActive: true }
+    });
+    if (!category) return { error: 'Categoria de estoque inválida para este tipo de item.' };
+    if (!category.isActive) return { error: 'Categoria de estoque inativa.' };
+    return { id: category.id };
+  }
+
+  const category = await prisma.stockCategory.findFirst({
+    where: { type, isActive: true },
+    orderBy: [{ name: 'asc' }],
+    select: { id: true }
+  });
+  return { id: category?.id || null };
+}
 
 function itemDataFromPayload(data, fispqToken) {
   return {
     type: data.type,
+    categoryId: data.categoryId,
     code: data.code,
     name: data.name,
     manufacturer: data.manufacturer,
@@ -271,12 +339,15 @@ function itemDataFromPayload(data, fispqToken) {
     filterMicron: data.filterMicron,
     unNumber: data.unNumber,
     casNumber: data.casNumber,
+    checklistEnabled: data.checklistEnabled,
+    checklistItems: data.checklistItems,
     fispqToken
   };
 }
 
 function itemUpdateDataFromPayload(data, fispqToken) {
   return {
+    categoryId: data.categoryId,
     code: data.code,
     name: data.name,
     manufacturer: data.manufacturer,
@@ -289,6 +360,8 @@ function itemUpdateDataFromPayload(data, fispqToken) {
     filterMicron: data.filterMicron,
     unNumber: data.unNumber,
     casNumber: data.casNumber,
+    checklistEnabled: data.checklistEnabled,
+    checklistItems: data.checklistItems,
     fispqToken
   };
 }
@@ -308,6 +381,93 @@ function syncRomaneioCatalogAfterStockChange() {
     console.warn('Falha ao sincronizar catálogo de romaneio após alteração no estoque.', error);
   });
 }
+
+router.get('/categorias', asyncHandler(async (req, res) => {
+  const includeInactive = parseBoolean(req.query.includeInactive);
+  const type = String(req.query.type || '').trim();
+  if (type && !STOCK_ITEM_TYPES.includes(type)) {
+    return res.status(400).json({ error: 'Tipo de categoria inválido.' });
+  }
+  const categories = await prisma.stockCategory.findMany({
+    where: {
+      ...(includeInactive ? {} : { isActive: true }),
+      ...(type ? { type } : {})
+    },
+    include: categoryWithItemCount,
+    orderBy: [{ type: 'asc' }, { name: 'asc' }]
+  });
+  res.json({ categories: categories.map(serializeStockCategory) });
+}));
+
+router.post('/categorias', requireEstoqueManager, asyncHandler(async (req, res) => {
+  const data = stockCategoryCreateSchema.parse(req.body);
+  try {
+    const category = await prisma.stockCategory.create({
+      data: {
+        type: data.type,
+        ...stockCategoryDataFromPayload(data)
+      },
+      include: categoryWithItemCount
+    });
+    syncRomaneioCatalogAfterStockChange();
+    res.status(201).json(serializeStockCategory(category));
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return res.status(409).json({ error: 'Categoria de estoque já cadastrada para este tipo.' });
+    }
+    throw error;
+  }
+}));
+
+router.put('/categorias/:id', requireEstoqueManager, asyncHandler(async (req, res) => {
+  const current = await prisma.stockCategory.findUnique({
+    where: { id: req.params.id },
+    include: categoryWithItemCount
+  });
+  if (!current) return res.status(404).json({ error: 'Categoria de estoque não encontrada.' });
+
+  const data = stockCategoryUpdateSchema.parse(req.body);
+  try {
+    const category = await prisma.stockCategory.update({
+      where: { id: current.id },
+      data: stockCategoryDataFromPayload(data),
+      include: categoryWithItemCount
+    });
+    syncRomaneioCatalogAfterStockChange();
+    res.json(serializeStockCategory(category));
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return res.status(409).json({ error: 'Categoria de estoque já cadastrada para este tipo.' });
+    }
+    throw error;
+  }
+}));
+
+router.patch('/categorias/:id/ativo', requireEstoqueManager, asyncHandler(async (req, res) => {
+  const data = estoqueSchemas.activePatch.parse(req.body);
+  const category = await prisma.stockCategory.update({
+    where: { id: req.params.id },
+    data: { isActive: data.isActive },
+    include: categoryWithItemCount
+  });
+  syncRomaneioCatalogAfterStockChange();
+  res.json(serializeStockCategory(category));
+}));
+
+router.delete('/categorias/:id', requireEstoqueManager, asyncHandler(async (req, res) => {
+  const current = await prisma.stockCategory.findUnique({
+    where: { id: req.params.id },
+    include: categoryWithItemCount
+  });
+  if (!current) return res.status(404).json({ error: 'Categoria de estoque não encontrada.' });
+  if ((current._count?.items || 0) > 0) {
+    return res.status(409).json({ error: 'Categoria possui itens vinculados — inative-a ou mova os itens antes de excluir.' });
+  }
+
+  await prisma.stockCategory.delete({ where: { id: current.id } });
+  syncRomaneioCatalogAfterStockChange();
+  res.status(204).end();
+}));
 
 router.get('/itens', asyncHandler(async (req, res) => {
   const includeInactive = parseBoolean(req.query.includeInactive);
@@ -339,13 +499,16 @@ router.post('/itens', requireEstoqueManager, asyncHandler(async (req, res) => {
   if (await stockCodeExists(data.code)) {
     return res.status(409).json({ error: 'Código de estoque já cadastrado.' });
   }
+  const resolvedCategory = await resolveStockCategoryIdForType(data.type, data.categoryId);
+  if (resolvedCategory.error) return res.status(400).json({ error: resolvedCategory.error });
+  const payloadData = { ...data, categoryId: resolvedCategory.id };
   const fispqToken = data.type === 'PRODUTO_QUIMICO' && data.fispq
     ? await createStockFispqAttachment({ upload: data.fispq })
     : null;
 
   try {
     const item = await prisma.stockItem.create({
-      data: itemDataFromPayload(data, fispqToken),
+      data: itemDataFromPayload(payloadData, fispqToken),
       include: itemWithMovementCount
     });
     syncRomaneioCatalogAfterStockChange();
@@ -367,6 +530,9 @@ router.put('/itens/:id', requireEstoqueManager, asyncHandler(async (req, res) =>
   if (!current) return res.status(404).json({ error: 'Item de estoque não encontrado.' });
 
   const data = estoqueSchemas.itemUpdateForType(current.type).parse(req.body);
+  const resolvedCategory = await resolveStockCategoryIdForType(current.type, data.categoryId);
+  if (resolvedCategory.error) return res.status(400).json({ error: resolvedCategory.error });
+  const payloadData = { ...data, categoryId: resolvedCategory.id };
   const hasMovements = (current._count?.movements || 0) > 0;
   if (hasMovements && data.unitLabel !== current.unitLabel) {
     return res.status(400).json({ error: 'A unidade não pode ser alterada após movimentações.' });
@@ -391,7 +557,7 @@ router.put('/itens/:id', requireEstoqueManager, asyncHandler(async (req, res) =>
   try {
     const item = await prisma.stockItem.update({
       where: { id: current.id },
-      data: itemUpdateDataFromPayload(data, fispqToken),
+      data: itemUpdateDataFromPayload(payloadData, fispqToken),
       include: itemWithMovementCount
     });
     if (tokenToRemove) await removeStockFispqAttachment(tokenToRemove);

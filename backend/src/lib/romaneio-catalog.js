@@ -224,7 +224,7 @@ export function buildStockCatalogRows(stockItems) {
       sourceId: item.id,
       code: item.code,
       name: normalizeSpaces(item.name),
-      categoryName: item.type === 'FILTRO' ? 'Filtros' : 'Produtos químicos',
+      categoryName: normalizeSpaces(item.category?.name) || (item.type === 'FILTRO' ? 'Filtros' : 'Produtos químicos'),
       kind: 'EQUIPMENT',
       measureType: item.type === 'PRODUTO_QUIMICO' ? 'WEIGHT' : 'UNIT',
       defaultUnitLabel: item.type === 'PRODUTO_QUIMICO' ? 'kg' : 'un',
@@ -584,6 +584,7 @@ async function runRomaneioCatalogSync() {
               { type: 'PRODUTO_QUIMICO', unitLabel: 'kg' }
             ]
           },
+          include: { category: true },
           orderBy: [{ code: 'asc' }, { name: 'asc' }]
         })
       : [];

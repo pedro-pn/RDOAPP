@@ -16,9 +16,32 @@ export interface PdfUpload {
   dataUrl: string;
 }
 
+export interface StockCategory {
+  id: string;
+  type: StockItemType;
+  name: string;
+  checklistEnabled: boolean;
+  checklistItems: string[];
+  isActive: boolean;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockCategoryPayload {
+  type: StockItemType;
+  name: string;
+  checklistEnabled?: boolean;
+  checklistItems?: string[];
+}
+
+export type StockCategoryUpdatePayload = Omit<StockCategoryPayload, 'type'>;
+
 export interface StockItem {
   id: string;
   type: StockItemType;
+  categoryId: string | null;
+  category: StockCategory | null;
   code: string;
   name: string;
   manufacturer: string | null;
@@ -32,6 +55,8 @@ export interface StockItem {
   unNumber: string | null;
   casNumber: string | null;
   fispqUrl: string | null;
+  checklistEnabled: boolean;
+  checklistItems: string[] | null;
   isActive: boolean;
   hasMovements: boolean;
   createdAt: string;
@@ -40,6 +65,7 @@ export interface StockItem {
 
 export interface StockItemPayload {
   type: StockItemType;
+  categoryId?: string | null;
   code: string;
   name: string;
   manufacturer?: string | null;
@@ -53,6 +79,8 @@ export interface StockItemPayload {
   unNumber?: string | null;
   casNumber?: string | null;
   fispq?: PdfUpload | null;
+  checklistEnabled?: boolean;
+  checklistItems?: string[] | null;
 }
 
 export type StockItemUpdatePayload = Omit<StockItemPayload, 'type'>;
@@ -127,6 +155,30 @@ export interface StockMovementListParams {
 export async function listStockItems(params?: { type?: StockItemType; search?: string; includeInactive?: boolean }) {
   const response = await apiClient.get<{ items: StockItem[] }>(estoqueApiPath('/itens'), { params });
   return response.data.items;
+}
+
+export async function listStockCategories(params?: { type?: StockItemType; includeInactive?: boolean }) {
+  const response = await apiClient.get<{ categories: StockCategory[] }>(estoqueApiPath('/categorias'), { params });
+  return response.data.categories;
+}
+
+export async function createStockCategory(payload: StockCategoryPayload) {
+  const response = await apiClient.post<StockCategory>(estoqueApiPath('/categorias'), payload);
+  return response.data;
+}
+
+export async function updateStockCategory(id: string, payload: StockCategoryUpdatePayload) {
+  const response = await apiClient.put<StockCategory>(estoqueApiPath(`/categorias/${id}`), payload);
+  return response.data;
+}
+
+export async function setStockCategoryActive(id: string, isActive: boolean) {
+  const response = await apiClient.patch<StockCategory>(estoqueApiPath(`/categorias/${id}/ativo`), { isActive });
+  return response.data;
+}
+
+export async function removeStockCategory(id: string) {
+  await apiClient.delete(estoqueApiPath(`/categorias/${id}`));
 }
 
 export async function createStockItem(payload: StockItemPayload) {

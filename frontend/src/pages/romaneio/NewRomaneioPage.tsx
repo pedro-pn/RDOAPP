@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createRomaneio,
   createRomaneioDraft,
+  fetchRomaneioChecklistMap,
   getRomaneio,
   listRomaneioCatalog,
   listRomaneioDrafts,
@@ -15,6 +16,8 @@ import {
   updateRomaneioDraft,
   type Romaneio,
   type RomaneioCatalogItem,
+  type RomaneioChecklistInfo,
+  type RomaneioChecklistItemStatus,
   type RomaneioCreatePayload,
   type RomaneioDraftPayload,
   type RomaneioItemKind,
@@ -25,6 +28,7 @@ import {
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
+import { SignatureDialog } from '../../components/reports/SignatureDialog';
 import { useToast } from '../../components/ui/ToastContext';
 import { Modal } from '../../components/ui/Modal';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -32,6 +36,7 @@ import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { autosaveDraftTargetId } from '../../utils/draftAutosave';
 import { defaultRomaneioUnit, romaneioMeasureLabel, romaneioUsesVariableQuantity } from '../../utils/romaneioMeasure';
+import { RomaneioChecklistModal } from './RomaneioChecklistModal';
 
 interface SelectedItem {
   key: string;
@@ -49,6 +54,11 @@ interface SelectedItem {
 
 const today = new Date().toISOString().slice(0, 10);
 const MANUAL_PROJECT_OPTION = '__manual_project__';
+const DEFAULT_CHECKLIST_STATUS: RomaneioChecklistItemStatus = 'CONFORME';
+const CHECKLIST_STATUS_VALUES: RomaneioChecklistItemStatus[] = ['CONFORME', 'NAO_CONFORME', 'NAO_APLICAVEL'];
+
+type ChecklistStatusMap = Record<string, RomaneioChecklistItemStatus>;
+type ChecklistStatusesByCatalogItem = Record<string, ChecklistStatusMap>;
 
 function itemLabel(item: RomaneioCatalogItem) {
   return [item.code, item.name].filter(Boolean).join(' - ');
@@ -100,6 +110,57 @@ function romaneioItemsToSelectedItems(romaneio: Romaneio): SelectedItem[] {
   }));
 }
 
+function normalizeChecklistItemStatus(value: unknown): RomaneioChecklistItemStatus {
+  return CHECKLIST_STATUS_VALUES.includes(value as RomaneioChecklistItemStatus)
+    ? value as RomaneioChecklistItemStatus
+    : DEFAULT_CHECKLIST_STATUS;
+}
+
+function checklistStatusFromSnapshotItem(item: { checked?: boolean; status?: RomaneioChecklistItemStatus | null }): RomaneioChecklistItemStatus {
+  if (item.status) return normalizeChecklistItemStatus(item.status);
+  if (typeof item.checked === 'boolean') return item.checked ? 'CONFORME' : 'NAO_CONFORME';
+  return DEFAULT_CHECKLIST_STATUS;
+}
+
+function checklistStatusesFromRomaneio(romaneio: Romaneio): ChecklistStatusesByCatalogItem {
+  const statuses: ChecklistStatusesByCatalogItem = {};
+  (romaneio.checklists || []).forEach(checklist => {
+    if (!checklist.catalogItemId) return;
+    statuses[checklist.catalogItemId] = checklist.items.reduce<ChecklistStatusMap>((acc, item) => {
+      acc[item.text] = checklistStatusFromSnapshotItem(item);
+      return acc;
+    }, {});
+  });
+  return statuses;
+}
+
+function coerceChecklistStatusesPayload(value: unknown): ChecklistStatusesByCatalogItem {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const statuses: ChecklistStatusesByCatalogItem = {};
+  Object.entries(value as Record<string, unknown>).forEach(([catalogItemId, rawStatusMap]) => {
+    if (!rawStatusMap || typeof rawStatusMap !== 'object' || Array.isArray(rawStatusMap)) return;
+    statuses[catalogItemId] = Object.entries(rawStatusMap as Record<string, unknown>)
+      .reduce<ChecklistStatusMap>((acc, [text, status]) => {
+        acc[text] = normalizeChecklistItemStatus(status);
+        return acc;
+      }, {});
+  });
+  return statuses;
+}
+
+function legacyChecklistSelectionsToStatuses(value: unknown): ChecklistStatusesByCatalogItem {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const statuses: ChecklistStatusesByCatalogItem = {};
+  Object.entries(value as Record<string, unknown>).forEach(([catalogItemId, checkedTexts]) => {
+    if (!Array.isArray(checkedTexts)) return;
+    statuses[catalogItemId] = checkedTexts.reduce<ChecklistStatusMap>((acc, text) => {
+      acc[String(text)] = 'CONFORME';
+      return acc;
+    }, {});
+  });
+  return statuses;
+}
+
 function returnItemsToSelectedItems(items: RomaneioReturnItem[]): SelectedItem[] {
   return (items || []).map(item => {
     const maxQuantity = Number(item.maxQuantity);
@@ -136,7 +197,7 @@ function draftProjectDateKey(draft: { projectId?: string | null; reportDate?: st
 export function NewRomaneioPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const showToast = useToast();
   const queryClient = useQueryClient();
   const draftSaveTimerRef = useRef<number | null>(null);
@@ -157,6 +218,10 @@ export function NewRomaneioPage() {
   const [catalogSearch, setCatalogSearch] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => new Set());
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [checklistStatuses, setChecklistStatuses] = useState<ChecklistStatusesByCatalogItem>({});
+  const [activeChecklistItem, setActiveChecklistItem] = useState<SelectedItem | null>(null);
+  const [checklistSignatureImage, setChecklistSignatureImage] = useState('');
+  const [checklistSignatureOpen, setChecklistSignatureOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState({
@@ -173,6 +238,11 @@ export function NewRomaneioPage() {
   const isEditing = Boolean(editId);
   const projectsQuery = useQuery({ queryKey: ['romaneio-projects'], queryFn: () => listRomaneioProjects(true) });
   const catalogQuery = useQuery({ queryKey: ['romaneio-catalog'], queryFn: listRomaneioCatalog, enabled: romaneioType === 'OUTBOUND' });
+  const checklistMapQuery = useQuery({
+    queryKey: ['romaneio-checklist-map'],
+    queryFn: fetchRomaneioChecklistMap,
+    enabled: romaneioType === 'OUTBOUND'
+  });
   const draftsQuery = useQuery({ queryKey: ['romaneio-drafts'], queryFn: listRomaneioDrafts, enabled: !isEditing });
   const editQuery = useQuery({
     queryKey: ['romaneio', editId],
@@ -232,6 +302,8 @@ export function NewRomaneioPage() {
   function clearSelectedItemsForContextChange() {
     setSelectedItems([]);
     setQuantities({});
+    setChecklistStatuses({});
+    setActiveChecklistItem(null);
     hydratedReturnItemsKeyRef.current = '';
   }
 
@@ -285,6 +357,9 @@ export function NewRomaneioPage() {
       );
     });
     setQuantities(current => ({ ...current, [item.id]: '' }));
+    if (checklistMapQuery.data?.map[item.id]) {
+      setActiveChecklistItem(next);
+    }
   }
 
   function addCustomItem() {
@@ -311,6 +386,58 @@ export function NewRomaneioPage() {
       quantity: '1',
       unitLabel: 'unidade'
     });
+  }
+
+  function removeSelectedItem(key: string) {
+    const item = selectedItems.find(selected => selected.key === key);
+    setSelectedItems(current => current.filter(selected => selected.key !== key));
+    if (item?.catalogItemId) {
+      setChecklistStatuses(current => {
+        const next = { ...current };
+        delete next[item.catalogItemId || ''];
+        return next;
+      });
+    }
+  }
+
+  function liveChecklistInfo(item: SelectedItem): RomaneioChecklistInfo | null {
+    return item.catalogItemId ? checklistMapQuery.data?.map[item.catalogItemId] || null : null;
+  }
+
+  function snapshotChecklistInfo(item: SelectedItem): RomaneioChecklistInfo | null {
+    if (!isEditing || !item.catalogItemId) return null;
+    const checklist = (editQuery.data?.checklists || []).find(entry => entry.catalogItemId === item.catalogItemId);
+    if (!checklist) return null;
+    return {
+      equipmentId: checklist.equipmentId || '',
+      equipmentCode: checklist.equipmentCode,
+      equipmentName: checklist.equipmentName,
+      categoryName: checklist.categoryName || '',
+      displayNameOrTag: checklist.displayNameOrTag || checklist.equipmentCode || checklist.equipmentName,
+      displayMode: checklist.displayMode || 'AUTO',
+      items: checklist.items.map(entry => entry.text)
+    };
+  }
+
+  function checklistInfoForItem(item: SelectedItem): RomaneioChecklistInfo | null {
+    return snapshotChecklistInfo(item) || liveChecklistInfo(item);
+  }
+
+  function statusesForItem(item: SelectedItem): ChecklistStatusMap {
+    if (!item.catalogItemId) return {};
+    const currentStatuses = checklistStatuses[item.catalogItemId] || {};
+    const checklistInfo = checklistInfoForItem(item);
+    if (!checklistInfo?.items?.length) return currentStatuses;
+    return checklistInfo.items.reduce<ChecklistStatusMap>((acc, text) => {
+      acc[text] = normalizeChecklistItemStatus(currentStatuses[text]);
+      return acc;
+    }, {});
+  }
+
+  function saveChecklist(item: SelectedItem, statuses: ChecklistStatusMap) {
+    if (!item.catalogItemId) return;
+    setChecklistStatuses(current => ({ ...current, [item.catalogItemId || '']: statuses }));
+    setActiveChecklistItem(null);
   }
 
   function toggleCategory(category: string) {
@@ -357,6 +484,8 @@ export function NewRomaneioPage() {
         cargoWeight,
         cargoWeightUnit,
         selectedItems,
+        checklistStatuses,
+        checklistSignatureImage,
         quantities,
         custom
       }
@@ -371,6 +500,8 @@ export function NewRomaneioPage() {
     romaneioDate,
     romaneioType,
     selectedItems,
+    checklistStatuses,
+    checklistSignatureImage,
     selectedProject,
     typedProjectCode,
     vehiclePlate
@@ -398,6 +529,10 @@ export function NewRomaneioPage() {
     setCargoWeight(typeof payload.cargoWeight === 'string' || typeof payload.cargoWeight === 'number' ? String(payload.cargoWeight) : '');
     setCargoWeightUnit(payload.cargoWeightUnit === 'ton' ? 'ton' : 'kg');
     setSelectedItems(Array.isArray(payload.selectedItems) ? payload.selectedItems as SelectedItem[] : []);
+    setChecklistStatuses(Object.keys(coerceChecklistStatusesPayload(payload.checklistStatuses)).length
+      ? coerceChecklistStatusesPayload(payload.checklistStatuses)
+      : legacyChecklistSelectionsToStatuses(payload.checklistSelections));
+    setChecklistSignatureImage(typeof payload.checklistSignatureImage === 'string' ? payload.checklistSignatureImage : '');
     setQuantities(
       payload.quantities && typeof payload.quantities === 'object' && !Array.isArray(payload.quantities)
         ? payload.quantities as Record<string, string>
@@ -434,6 +569,8 @@ export function NewRomaneioPage() {
     setCargoWeight(romaneio.cargoWeight == null ? '' : String(romaneio.cargoWeight));
     setCargoWeightUnit(romaneio.cargoWeightUnit === 'ton' ? 'ton' : 'kg');
     setSelectedItems(romaneioItemsToSelectedItems(romaneio));
+    setChecklistStatuses(checklistStatusesFromRomaneio(romaneio));
+    setChecklistSignatureImage('');
     setDraftId(null);
   }, [editQuery.data, isEditing]);
 
@@ -523,6 +660,8 @@ export function NewRomaneioPage() {
     cargoWeight,
     cargoWeightUnit,
     selectedItems,
+    checklistStatuses,
+    checklistSignatureImage,
     quantities,
     custom,
     selectedProject,
@@ -546,6 +685,23 @@ export function NewRomaneioPage() {
       unitLabel: item.unitLabel,
       isCustom: item.isCustom
     }));
+  }
+
+  function checklistsPayload() {
+    if (romaneioType !== 'OUTBOUND') return [];
+    return selectedItems
+      .flatMap(item => {
+        const checklistInfo = checklistInfoForItem(item);
+        if (!item.catalogItemId || !checklistInfo?.items.length) return [];
+        const statuses = statusesForItem(item);
+        return [{
+          catalogItemId: item.catalogItemId,
+          statuses: checklistInfo.items.map(text => ({
+            text,
+            status: normalizeChecklistItemStatus(statuses[text])
+          }))
+        }];
+      });
   }
 
   function canSubmitRomaneio() {
@@ -610,6 +766,8 @@ export function NewRomaneioPage() {
         vehiclePlate,
         cargoWeight: cargoWeight ? Number(cargoWeight) : null,
         cargoWeightUnit,
+        checklists: checklistsPayload(),
+        checklistSignatureImage: checklistSignatureImage || null,
         items: selectedItemsPayload()
       });
       if (!isEditing) {
@@ -639,6 +797,10 @@ export function NewRomaneioPage() {
     await logout();
     navigate('/login', { replace: true });
   }
+
+  const activeChecklistInfo = activeChecklistItem ? checklistInfoForItem(activeChecklistItem) : null;
+  const selectedChecklistPayload = checklistsPayload();
+  const needsChecklistSignature = !isEditing && selectedChecklistPayload.length > 0 && checklistMapQuery.data?.hasSavedSignature === false;
 
   return (
     <Shell>
@@ -760,30 +922,41 @@ export function NewRomaneioPage() {
             </div>
           )}
           <div className="romaneio-selected-list">
-            {selectedItems.map(item => (
-              <div className="romaneio-selected-row" key={item.key}>
-                <div>
-                  <strong>{[item.itemCode, item.itemName].filter(Boolean).join(' - ')}</strong>
-                  <div className="rel-meta">
-                    {item.categoryName} · {item.quantity} {item.unitLabel}
-                    {romaneioType === 'INBOUND' && item.returnMaxQuantity != null ? ` de ${item.returnMaxQuantity} ${item.unitLabel}` : ''}
+            {selectedItems.map(item => {
+              const checklistInfo = checklistInfoForItem(item);
+              const statusMap = checklistInfo ? statusesForItem(item) : {};
+              const conformeCount = checklistInfo ? checklistInfo.items.filter(text => statusMap[text] === 'CONFORME').length : 0;
+              const naoConformeCount = checklistInfo ? checklistInfo.items.filter(text => statusMap[text] === 'NAO_CONFORME').length : 0;
+              return (
+                <div className="romaneio-selected-row" key={item.key}>
+                  <div>
+                    <strong>{[item.itemCode, item.itemName].filter(Boolean).join(' - ')}</strong>
+                    <div className="rel-meta">
+                      {item.categoryName} · {item.quantity} {item.unitLabel}
+                      {romaneioType === 'INBOUND' && item.returnMaxQuantity != null ? ` de ${item.returnMaxQuantity} ${item.unitLabel}` : ''}
+                    </div>
+                    {checklistInfo && (
+                      <button className="mini-btn alt romaneio-checklist-chip" type="button" onClick={() => setActiveChecklistItem(item)}>
+                        Checklist {conformeCount}/{checklistInfo.items.length}{naoConformeCount ? ` · ${naoConformeCount} não conf.` : ''}
+                      </button>
+                    )}
+                  </div>
+                  <div className="romaneio-selected-actions">
+                    {romaneioType === 'INBOUND' && (
+                      <input
+                        type="number"
+                        min="0"
+                        max={item.returnMaxQuantity}
+                        step={romaneioUsesVariableQuantity(item.measureType) ? '0.1' : '1'}
+                        value={item.quantity}
+                        onChange={event => updateSelectedItemQuantity(item.key, event.target.value)}
+                      />
+                    )}
+                    <button className="mini-btn danger" type="button" onClick={() => removeSelectedItem(item.key)}>Remover</button>
                   </div>
                 </div>
-                <div className="romaneio-selected-actions">
-                  {romaneioType === 'INBOUND' && (
-                    <input
-                      type="number"
-                      min="0"
-                      max={item.returnMaxQuantity}
-                      step={romaneioUsesVariableQuantity(item.measureType) ? '0.1' : '1'}
-                      value={item.quantity}
-                      onChange={event => updateSelectedItemQuantity(item.key, event.target.value)}
-                    />
-                  )}
-                  <button className="mini-btn danger" type="button" onClick={() => setSelectedItems(current => current.filter(selected => selected.key !== item.key))}>Remover</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -935,6 +1108,18 @@ export function NewRomaneioPage() {
             </div>
           ))}
         </div>
+        {needsChecklistSignature && (
+          <div className="romaneio-signature-summary">
+            <div>
+              <strong>Assinatura do responsável</strong>
+              <div className="rel-meta">{checklistSignatureImage ? 'Assinatura adicionada ao checklist.' : 'Checklist sem assinatura cadastrada.'}</div>
+            </div>
+            {checklistSignatureImage ? <img src={checklistSignatureImage} alt="Assinatura do responsável" /> : null}
+            <button className="secondary-button" type="button" onClick={() => setChecklistSignatureOpen(true)}>
+              {checklistSignatureImage ? 'Alterar assinatura' : 'Adicionar assinatura'}
+            </button>
+          </div>
+        )}
         <div className="admin-form-actions">
           <button className="secondary-button" type="button" onClick={() => setReviewOpen(false)}>
             Cancelar
@@ -944,6 +1129,31 @@ export function NewRomaneioPage() {
           </button>
         </div>
       </Modal>
+      {activeChecklistItem && activeChecklistInfo && (
+        <RomaneioChecklistModal
+          open={Boolean(activeChecklistItem)}
+          title={[
+            activeChecklistInfo.categoryName,
+            activeChecklistInfo.displayNameOrTag || activeChecklistInfo.equipmentCode,
+            activeChecklistInfo.equipmentName
+          ].filter(Boolean).join(' - ')}
+          items={activeChecklistInfo.items}
+          statuses={statusesForItem(activeChecklistItem)}
+          onClose={() => setActiveChecklistItem(null)}
+          onSave={statuses => saveChecklist(activeChecklistItem, statuses)}
+        />
+      )}
+      <SignatureDialog
+        open={checklistSignatureOpen}
+        title="Assinatura do responsável"
+        initialSignerName={user?.name || ''}
+        allowCachedSignerName={false}
+        onCancel={() => setChecklistSignatureOpen(false)}
+        onConfirm={payload => {
+          setChecklistSignatureImage(payload.signatureImageDataUrl);
+          setChecklistSignatureOpen(false);
+        }}
+      />
     </Shell>
   );
 }

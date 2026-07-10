@@ -1,22 +1,27 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 
-import type { PdfUpload, StockItem, StockItemPayload, StockItemType, StockItemUpdatePayload } from '../../api/estoque';
+import type { PdfUpload, StockCategory, StockItem, StockItemPayload, StockItemType, StockItemUpdatePayload } from '../../api/estoque';
 import { Modal } from '../../components/ui/Modal';
 import { PdfDropzone } from '../../components/ui/PdfDropzone';
+import { ChecklistItemsEditor } from '../equipamentos/ChecklistItemsEditor';
 import { makeEstoqueSchemas } from '../../../../shared/schemas/estoque.js';
 
 interface Props {
   open: boolean;
   item: StockItem | null;
+  categories: StockCategory[];
   saving: boolean;
   onClose: () => void;
   onSubmit: (payload: StockItemPayload | StockItemUpdatePayload) => void;
 }
 
+type ChecklistMode = 'INHERIT' | 'CUSTOM' | 'DISABLED';
+
 interface StockItemFormValues {
   type: StockItemType;
+  categoryId: string;
   code: string;
   name: string;
   manufacturer: string;
@@ -41,6 +46,7 @@ function optionalValue(value: string) {
 function formValuesToPayload(values: StockItemFormValues): StockItemPayload | StockItemUpdatePayload {
   const base = {
     code: values.code,
+    categoryId: optionalValue(values.categoryId),
     name: values.name,
     manufacturer: optionalValue(values.manufacturer),
     description: optionalValue(values.description),
@@ -104,12 +110,47 @@ async function pdfUpload(file: File | null): Promise<PdfUpload | undefined> {
   return { fileName: file.name, dataUrl: await fileToDataUrl(file) };
 }
 
-export function StockItemFormModal({ open, item, saving, onClose, onSubmit }: Props) {
+function checklistModeFor(item: StockItem | null): ChecklistMode {
+  if (!item || item.checklistItems == null) return 'INHERIT';
+  return item.checklistEnabled ? 'CUSTOM' : 'DISABLED';
+}
+
+function checklistPayloadFor(mode: ChecklistMode, checklistItems: string[]) {
+  if (mode === 'CUSTOM') {
+    return {
+      checklistEnabled: true,
+      checklistItems: checklistItems.map(checklistItem => checklistItem.trim()).filter(Boolean)
+    };
+  }
+  if (mode === 'DISABLED') {
+    return {
+      checklistEnabled: false,
+      checklistItems: []
+    };
+  }
+  return {
+    checklistEnabled: false,
+    checklistItems: null
+  };
+}
+
+function checklistModeLabel(mode: ChecklistMode, category: StockCategory | null) {
+  if (mode === 'CUSTOM') return 'Lista própria do item';
+  if (mode === 'DISABLED') return 'Não gera checklist no romaneio';
+  return category?.checklistEnabled ? 'Herdado da categoria' : 'Categoria sem checklist ativo';
+}
+
+export function StockItemFormModal({ open, item, categories, saving, onClose, onSubmit }: Props) {
   const [fispqFile, setFispqFile] = useState<File | null>(null);
   const [removeFispq, setRemoveFispq] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [checklistMode, setChecklistMode] = useState<ChecklistMode>(checklistModeFor(item));
+  const [checklistItems, setChecklistItems] = useState<string[]>(
+    item?.checklistItems != null ? item.checklistItems : item?.category?.checklistItems || []
+  );
   const defaultValues = useMemo<StockItemFormValues>(() => ({
     type: item?.type || 'FILTRO',
+    categoryId: item?.categoryId || '',
     code: item?.code || '',
     name: item?.name || '',
     manufacturer: item?.manufacturer || '',
@@ -124,16 +165,33 @@ export function StockItemFormModal({ open, item, saving, onClose, onSubmit }: Pr
     casNumber: item?.casNumber || ''
   }), [item]);
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<StockItemFormValues>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<StockItemFormValues>({
     defaultValues,
     resolver: resolverFor(item)
   });
   const type = watch('type');
+  const categoryId = watch('categoryId');
+  const availableCategories = useMemo(
+    () => categories.filter(category => category.type === type && (category.isActive || category.id === item?.categoryId)),
+    [categories, item?.categoryId, type]
+  );
+  const selectedCategory = availableCategories.find(category => category.id === categoryId) || null;
+  const visibleChecklistItems = checklistMode === 'DISABLED'
+    ? []
+    : checklistMode === 'CUSTOM' ? checklistItems : selectedCategory?.checklistItems || [];
+  const checklistDisabled = saving || checklistMode === 'DISABLED' || (Boolean(selectedCategory) && !selectedCategory?.checklistEnabled);
+
+  useEffect(() => {
+    if (availableCategories.some(category => category.id === categoryId)) return;
+    const fallback = availableCategories.find(category => category.isActive) || availableCategories[0];
+    setValue('categoryId', fallback?.id || '', { shouldValidate: true });
+  }, [availableCategories, categoryId, setValue]);
 
   async function submit(values: StockItemFormValues) {
     setSubmitError(null);
     try {
       const payload = formValuesToPayload(values);
+      Object.assign(payload, checklistPayloadFor(checklistMode, checklistItems));
       if (values.type === 'PRODUTO_QUIMICO') {
         const fispq = await pdfUpload(fispqFile);
         if (fispq) {
@@ -177,6 +235,18 @@ export function StockItemFormModal({ open, item, saving, onClose, onSubmit }: Pr
           <select id="stock-item-type" disabled={!!item || saving} {...register('type')}>
             <option value="FILTRO">Filtro</option>
             <option value="PRODUTO_QUIMICO">Produto químico</option>
+          </select>
+        </div>
+
+        <div className="field-group">
+          <label htmlFor="stock-item-category">Categoria</label>
+          <select id="stock-item-category" disabled={saving} {...register('categoryId')}>
+            <option value="">Sem categoria</option>
+            {availableCategories.map(category => (
+              <option key={category.id} value={category.id}>
+                {category.name}{category.isActive ? '' : ' (inativa)'}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -262,6 +332,44 @@ export function StockItemFormModal({ open, item, saving, onClose, onSubmit }: Pr
             />
           </>
         )}
+
+        <div className="equip-toggle-block">
+          <div className="admin-toolbar">
+            <div>
+              <div className="sec">Checklist</div>
+              <div className="rel-meta">{checklistModeLabel(checklistMode, selectedCategory)}</div>
+            </div>
+            <div className="admin-form-actions">
+              <button
+                className="mini-btn alt"
+                type="button"
+                disabled={saving || checklistMode === 'INHERIT'}
+                onClick={() => {
+                  setChecklistMode('INHERIT');
+                  setChecklistItems(selectedCategory?.checklistItems || []);
+                }}
+              >
+                Restaurar padrão
+              </button>
+              <button
+                className="mini-btn alt"
+                type="button"
+                disabled={saving || checklistMode === 'DISABLED'}
+                onClick={() => setChecklistMode('DISABLED')}
+              >
+                Não gerar
+              </button>
+            </div>
+          </div>
+          <ChecklistItemsEditor
+            value={visibleChecklistItems}
+            disabled={checklistDisabled}
+            onChange={items => {
+              setChecklistMode('CUSTOM');
+              setChecklistItems(items);
+            }}
+          />
+        </div>
 
         {submitError ? <p className="equip-form-error">{submitError}</p> : null}
         {errors.form ? <p className="equip-form-error">{errors.form.message}</p> : null}

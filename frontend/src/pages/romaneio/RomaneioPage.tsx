@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   createRomaneioCatalogItem,
+  downloadRomaneioChecklistPdf,
   downloadRomaneioCatalogPdf,
   downloadRomaneioFile,
   listRomaneioCatalog,
@@ -301,6 +302,16 @@ export function RomaneioPage() {
     }
   }
 
+  async function downloadChecklistFile(item: Romaneio, sourceUrl?: string | null) {
+    try {
+      const blob = await downloadRomaneioChecklistPdf(item.id);
+      const fileName = decodeURIComponent(sourceUrl?.split('/').pop() || 'checklist.pdf');
+      downloadBlob(blob, fileName);
+    } catch {
+      showToast('Não foi possível baixar o checklist.');
+    }
+  }
+
   async function downloadCatalogPdf() {
     setIsDownloadingCatalogPdf(true);
     try {
@@ -462,6 +473,11 @@ export function RomaneioPage() {
                           )}
                           {item.pdfUrl && <button className="secondary-button" type="button" onClick={() => downloadFile(item.id, 'pdf', item.pdfUrl)}>PDF</button>}
                           {item.docxUrl && <button className="secondary-button" type="button" onClick={() => downloadFile(item.id, 'docx', item.docxUrl)}>DOCX</button>}
+                          {item.checklistPdfUrl && (
+                            <button className="secondary-button" type="button" onClick={() => downloadChecklistFile(item, item.checklistPdfUrl)}>
+                              Checklist
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="rel-meta">{item.items.slice(0, 4).map(part => [part.itemCode, part.itemName].filter(Boolean).join(' - ')).join(' · ')}</div>

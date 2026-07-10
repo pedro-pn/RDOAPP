@@ -3739,6 +3739,10 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   background: var(--wh);
 }
 
+.romaneio-checklist-chip {
+  margin-top: 8px;
+}
+
 @media (max-width: 640px) {
   .romaneio-selected-row {
     align-items: stretch;
@@ -3977,6 +3981,224 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.romaneio-signature-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: #fafafa;
+  min-width: 0;
+}
+
+.romaneio-signature-summary strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.romaneio-signature-summary img {
+  width: 112px;
+  height: 42px;
+  object-fit: contain;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--wh);
+}
+
+@media (max-width: 640px) {
+  .romaneio-signature-summary {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .romaneio-signature-summary img {
+    width: 100%;
+    max-width: 180px;
+  }
+}
+
+.romaneio-checklist-modal {
+  width: min(100%, 640px);
+  max-height: calc(100dvh - 36px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.romaneio-checklist-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.romaneio-checklist-body {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.romaneio-checklist-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: #fafafa;
+  color: var(--tx);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.romaneio-checklist-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.romaneio-checklist-status-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.romaneio-checklist-status {
+  min-width: 0;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--wh);
+  color: var(--mut);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  padding: 8px 7px;
+  text-align: center;
+}
+
+.romaneio-checklist-status.active {
+  color: var(--tx);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.romaneio-checklist-status.status-conforme.active {
+  border-color: rgba(21, 128, 61, 0.35);
+  background: rgba(22, 163, 74, 0.12);
+  color: #166534;
+}
+
+.romaneio-checklist-status.status-nao-conforme.active {
+  border-color: rgba(185, 28, 28, 0.35);
+  background: rgba(220, 38, 38, 0.1);
+  color: #991b1b;
+}
+
+.romaneio-checklist-status.status-nao-aplicavel.active {
+  border-color: rgba(75, 85, 99, 0.35);
+  background: rgba(107, 114, 128, 0.12);
+  color: #374151;
+}
+
+.romaneio-checklist-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--br);
+  padding-top: 12px;
+}
+
+.checklist-items-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.checklist-item-editor-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--wh);
+  min-width: 0;
+}
+
+.checklist-item-editor-main {
+  min-width: 0;
+}
+
+.checklist-item-editor-index {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: #f7f8f7;
+  color: var(--mu);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.checklist-item-editor-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checklist-item-editor-action {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.checklist-item-editor-add {
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  .romaneio-checklist-status-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .romaneio-checklist-actions {
+    flex-direction: column-reverse;
+  }
+
+  .romaneio-checklist-actions .primary-button,
+  .romaneio-checklist-actions .secondary-button {
+    width: 100%;
+  }
+
+  .checklist-item-editor-main {
+    flex-wrap: wrap;
+  }
+
+  .checklist-item-editor-main > input[type='text'] {
+    flex-basis: calc(100% - 36px);
+  }
+
+  .checklist-item-editor-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 .survey-question-editor-modal {

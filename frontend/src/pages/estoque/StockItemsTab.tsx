@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   createStockItem,
+  listStockCategories,
   listStockItems,
   removeStockItem,
   setStockItemActive,
@@ -61,9 +62,14 @@ export function StockItemsTab({ isManager }: Props) {
     queryKey: ['estoque', 'itens', { search, type, includeInactive }],
     queryFn: () => listStockItems({ search, type: type || undefined, includeInactive })
   });
+  const categoriesQuery = useQuery({
+    queryKey: ['estoque', 'categorias', { includeInactive: true }],
+    queryFn: () => listStockCategories({ includeInactive: true })
+  });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['estoque', 'itens'] });
+    queryClient.invalidateQueries({ queryKey: ['estoque', 'categorias'] });
     queryClient.invalidateQueries({ queryKey: ['estoque', 'resumo'] });
   };
 
@@ -103,6 +109,7 @@ export function StockItemsTab({ isManager }: Props) {
   });
 
   const items = useMemo(() => itemsQuery.data || [], [itemsQuery.data]);
+  const categories = useMemo(() => categoriesQuery.data || [], [categoriesQuery.data]);
   const saving = createMutation.isPending || updateMutation.isPending;
 
   function handleSubmit(payload: StockItemPayload | StockItemUpdatePayload) {
@@ -178,7 +185,7 @@ export function StockItemsTab({ isManager }: Props) {
                 <strong>{item.name}</strong>
                 <p className="rel-meta">{itemSubtitle(item) || typeLabel(item.type)}</p>
               </div>
-              <span className="badge">{typeLabel(item.type)}</span>
+              <span className="badge">{item.category?.name || typeLabel(item.type)}</span>
             </div>
             <p className="rel-meta">
               Unidade: <strong>{item.unitLabel}</strong>
@@ -206,6 +213,7 @@ export function StockItemsTab({ isManager }: Props) {
         <StockItemFormModal
           open
           item={formItem}
+          categories={categories}
           saving={saving}
           onClose={() => setFormItem(undefined)}
           onSubmit={handleSubmit}

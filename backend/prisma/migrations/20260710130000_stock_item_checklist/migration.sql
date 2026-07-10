@@ -1,0 +1,2 @@
+ALTER TABLE "StockItem" ADD COLUMN "checklistEnabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "StockItem" ADD COLUMN "checklistItems" JSONB NOT NULL DEFAULT '[]';
