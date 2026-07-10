@@ -149,6 +149,13 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         );
       })() : null}
 
+      {card.stockCost > 0 ? (
+        <div className="acp-pcard-row">
+          <span>Estoque quím./filtros</span>
+          <span className="acp-pcard-strong">{brl(card.stockCost)}</span>
+        </div>
+      ) : null}
+
       {card.equipment.length ? (
         <div className="acp-pcard-equip">
           <div className="acp-pcard-row acp-pcard-equip-head">

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  applyStockCostsToDashboardRows,
   contractToProposalCode,
   deriveSale,
   mapProposalRow,
@@ -110,4 +111,21 @@ test('mapProposalRow marca isComplete=false quando sem valor de venda', () => {
   assert.equal(mapped.isComplete, false);
   assert.equal(mapped.salePrice, null);
   assert.equal(mapped.serviceModality, null);
+});
+
+test('applyStockCostsToDashboardRows soma estoque ao realizado total preservando Omie separado', () => {
+  const rows = [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: '100.50', stockCost: 0 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: null, stockCost: 0 }
+  ];
+
+  applyStockCostsToDashboardRows(rows, new Map([
+    ['project-1', { total: 25.25 }],
+    ['project-2', { total: 12 }]
+  ]));
+
+  assert.deepEqual(rows, [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 125.75, stockCost: 25.25 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: 12, stockCost: 12 }
+  ]);
 });

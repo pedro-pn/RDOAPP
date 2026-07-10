@@ -16,6 +16,7 @@ import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { laborCostByProject } from './labor-cost.js';
 import { buildWorkedHoursProgress } from './project-cards.js';
 import { isSalaryCategory } from './salary.js';
+import { getStockConsumptionCostByProject } from './stock-cost.js';
 import prisma from '../prisma.js';
 
 function toNum(value) {
@@ -124,6 +125,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     costGroups,
     labor,
     equipmentByProject,
+    stockCosts,
     plannedNormalHours,
     plannedOvertime
   ] = await Promise.all([
@@ -154,6 +156,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     }),
     laborCostByProject(), // custo de mão de obra (HH) do ponto vigente
     getEquipmentUsageByProject([projectId]),
+    getStockConsumptionCostByProject([projectId]),
     prisma.projectPlannedNormalHours.findMany({
       where: { projectId },
       select: { hours: true, roleName: true, jobRole: { select: { name: true } } }
@@ -183,9 +186,14 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     }))
     .filter(g => g.total > 0)
     .sort((a, b) => b.total - a.total);
-  const gasto = nonSalary.reduce((sum, g) => sum + g.total, 0);
+  const omieGasto = nonSalary.reduce((sum, g) => sum + g.total, 0);
+  const stockCost = stockCosts.get(projectId) || { total: 0, categories: [] };
+  const gasto = omieGasto + stockCost.total;
   const previstoCusto = toNum(row.plannedTotalCost);
-  const maioresGastos = nonSalary.slice(0, 5);
+  const maioresGastos = [...nonSalary, ...stockCost.categories]
+    .filter(g => g.total > 0)
+    .sort((a, b) => b.total - a.total || a.categoria.localeCompare(b.categoria, 'pt-BR'))
+    .slice(0, 5);
 
   // --- Agregação dos RDOs (por dia) ---
   const byDay = new Map(); // dateKey -> { standbyMin, workedMin, overtimeMin, reportDate }
@@ -321,6 +329,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     diasTrabalhados,
     consumo: {
       gasto,
+      omie: omieGasto,
+      estoque: stockCost.total,
       previsto: previstoCusto,
       pct: previstoCusto && previstoCusto > 0 ? Math.round((gasto / previstoCusto) * 100) : null
     },

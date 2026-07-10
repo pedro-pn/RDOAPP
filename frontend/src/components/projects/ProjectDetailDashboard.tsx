@@ -240,19 +240,24 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
               const totalRealizado = data.consumo.gasto + (moCusto ?? 0);
               const previsto = data.consumo.previsto;
               const totalPct = previsto && previsto > 0 ? Math.round((totalRealizado / previsto) * 100) : null;
+              const omieCost = data.consumo.omie ?? Math.max(0, data.consumo.gasto - (data.consumo.estoque ?? 0));
+              const stockCost = data.consumo.estoque ?? 0;
               const rowStyle = { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 } as const;
               const hasOffshore = moCusto != null && mo.custoBase != null && Math.round(moCusto) !== Math.round(mo.custoBase);
               return (
                 <>
                   <MetricBar
                     label="Consumo de gastos"
-                    help="Total realizado (compras do Omie, sem salários, + mão de obra do ponto) sobre o custo previsto no comercial."
+                    help="Total realizado (compras do Omie sem salários, consumo de químicos/filtros do estoque, + mão de obra do ponto) sobre o custo previsto no comercial."
                     value={totalPct}
                     tone="cost"
                     caption={`${brl(totalRealizado)} / ${brl(previsto)}${totalPct != null ? ` · ${totalPct}%` : ''}`}
                   />
                   <div style={{ margin: '8px 0' }}>
-                    <div style={rowStyle}><span className="placeholder-copy">Compras (Omie)</span><span>{brl(data.consumo.gasto)}</span></div>
+                    <div style={rowStyle}><span className="placeholder-copy">Compras (Omie)</span><span>{brl(omieCost)}</span></div>
+                    {stockCost > 0 ? (
+                      <div style={rowStyle}><span className="placeholder-copy">Estoque (químicos/filtros)</span><span>{brl(stockCost)}</span></div>
+                    ) : null}
                     {moCusto != null ? (
                       <div style={rowStyle}>
                         <HelpTip help="Valor gasto com mão de obra deste projeto, calculado a partir do ponto (custo rateado por colaborador), incluindo o adicional offshore quando houver.">Mão de obra{hasOffshore ? ' c/ offshore' : ''}</HelpTip>
@@ -264,9 +269,9 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     ) : null}
                     <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}><strong>Total realizado</strong><strong>{brl(totalRealizado)}</strong></div>
                   </div>
-                  <div className="acp-det-sub"><HelpTip help="As 5 categorias de despesa do Omie com maior valor neste projeto (salários excluídos).">Maiores gastos (compras Omie)</HelpTip></div>
+                  <div className="acp-det-sub"><HelpTip help="As 5 maiores categorias de despesa do projeto, somando Omie sem salários e consumo líquido de químicos/filtros do estoque.">Maiores gastos (Omie + estoque)</HelpTip></div>
                   {data.maioresGastos.length === 0 ? (
-                    <div className="placeholder-copy">Sem gastos registrados no Omie.</div>
+                    <div className="placeholder-copy">Sem gastos registrados.</div>
                   ) : (
                     <ul className="acp-det-rank">
                       {data.maioresGastos.map((g, i) => (
