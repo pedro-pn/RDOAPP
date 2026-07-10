@@ -6,7 +6,7 @@ import 'driver.js/dist/driver.css';
 
 const STORAGE_KEY_PREFIX = 'filtrovali-acompanhamento-tutorial-done';
 
-type Section = 'dashboard' | 'projetos' | 'custo';
+type Section = 'dashboard' | 'projetos' | 'sede' | 'custo';
 
 function storageKey(identity: string) {
   return `${STORAGE_KEY_PREFIX}:${identity}`;
@@ -53,7 +53,7 @@ export function AcompanhamentoTutorial({ userKey, ready, goToSection, triggerRef
       element: navSelector,
       popover: {
         title: 'Abas do módulo',
-        description: 'Alterne entre Dashboard (visão geral) e Projetos (cards de cada obra). Gestores também têm a aba Custo (motor de custo operacional).',
+        description: 'Alterne entre Dashboard, Projetos e Sede. Gestores também têm a aba Custo (motor de custo operacional).',
         side: 'right',
         align: 'start',
         // Sem dashboard (ainda carregando/sem dados): já pula direto para a aba Projetos.

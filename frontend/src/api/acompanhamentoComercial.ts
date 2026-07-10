@@ -136,6 +136,54 @@ export async function getRealizedByCategory(projectId?: string): Promise<Realize
   return data;
 }
 
+export interface SedeMonthlyCost {
+  month: string;
+  label: string;
+  total: number;
+  paidTotal: number;
+  openTotal: number;
+  count: number;
+}
+
+export interface SedeCostCategory {
+  categoria: string;
+  total: number;
+  count: number;
+}
+
+export interface SedeCostCard {
+  code: string;
+  label: string;
+  shortLabel: string;
+  total: number;
+  paidTotal: number;
+  openTotal: number;
+  currentMonthTotal: number;
+  count: number;
+  lastPurchaseDate?: string | null;
+  monthly: SedeMonthlyCost[];
+  topCategories: SedeCostCategory[];
+}
+
+export interface SedeCostsResponse {
+  codes: string[];
+  currentMonth: string;
+  currentMonthLabel: string;
+  summary: {
+    total: number;
+    paidTotal: number;
+    openTotal: number;
+    currentMonthTotal: number;
+    count: number;
+  };
+  cards: SedeCostCard[];
+}
+
+export async function getSedeCosts(): Promise<SedeCostsResponse> {
+  const { data } = await apiClient.get<SedeCostsResponse>('/acompanhamento/comercial/sede');
+  return data;
+}
+
 export async function setProjectRevision(projectId: string, codBd: number) {
   const { data } = await apiClient.post(
     `/acompanhamento/comercial/projetos/${projectId}/revisao`,
