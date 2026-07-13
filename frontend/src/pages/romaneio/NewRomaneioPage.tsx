@@ -1223,37 +1223,39 @@ export function NewRomaneioPage() {
                   <span>{selectedExtraCategory}</span>
                   <span>{extraCategoryItems.length}</span>
                 </div>
-                {extraCategoryItems.map(item => {
-                  const variableQuantity = romaneioUsesVariableQuantity(item.measureType);
-                  const showQuantityInput = variableQuantity || !item.isSerialized;
-                  const quantityKey = extraQuantityKey(item.id);
-                  return (
-                    <div className="romaneio-catalog-row" key={item.id}>
-                      <div>
-                        <strong>{itemLabel(item)}</strong>
-                        <div className="rel-meta">{catalogItemTypeLabel(item)} · {romaneioMeasureLabel(item.measureType)}</div>
+                <div className="romaneio-extra-items">
+                  {extraCategoryItems.map(item => {
+                    const variableQuantity = romaneioUsesVariableQuantity(item.measureType);
+                    const showQuantityInput = variableQuantity || !item.isSerialized;
+                    const quantityKey = extraQuantityKey(item.id);
+                    return (
+                      <div className="romaneio-catalog-row" key={item.id}>
+                        <div>
+                          <strong>{itemLabel(item)}</strong>
+                          <div className="rel-meta">{catalogItemTypeLabel(item)} · {romaneioMeasureLabel(item.measureType)}</div>
+                        </div>
+                        <div className="romaneio-add-control">
+                          {showQuantityInput ? (
+                            <input
+                              type="number"
+                              min="0"
+                              step={variableQuantity ? '0.1' : '1'}
+                              value={quantities[quantityKey] || ''}
+                              onChange={event => setQuantities(current => ({ ...current, [quantityKey]: event.target.value }))}
+                              placeholder={item.defaultUnitLabel || defaultRomaneioUnit(item.measureType)}
+                            />
+                          ) : null}
+                          {showQuantityInput ? (
+                            <span className="rel-meta">{item.defaultUnitLabel || defaultRomaneioUnit(item.measureType)}</span>
+                          ) : null}
+                          <button className="mini-btn" type="button" onClick={() => addExtraCatalogItem(item)}>
+                            Adicionar
+                          </button>
+                        </div>
                       </div>
-                      <div className="romaneio-add-control">
-                        {showQuantityInput ? (
-                          <input
-                            type="number"
-                            min="0"
-                            step={variableQuantity ? '0.1' : '1'}
-                            value={quantities[quantityKey] || ''}
-                            onChange={event => setQuantities(current => ({ ...current, [quantityKey]: event.target.value }))}
-                            placeholder={item.defaultUnitLabel || defaultRomaneioUnit(item.measureType)}
-                          />
-                        ) : null}
-                        {showQuantityInput ? (
-                          <span className="rel-meta">{item.defaultUnitLabel || defaultRomaneioUnit(item.measureType)}</span>
-                        ) : null}
-                        <button className="mini-btn" type="button" onClick={() => addExtraCatalogItem(item)}>
-                          Adicionar
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
