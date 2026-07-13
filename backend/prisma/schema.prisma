@@ -942,6 +942,7 @@ model StockMovement {
   requestedBy       String?
   notes             String?
   nfAttachmentToken String?
+  excludeFromProjectCost Boolean        @default(false)
   reversalOfId      String?             @unique
   createdById       String
   createdAt         DateTime            @default(now())
@@ -1162,6 +1163,7 @@ model RomaneioItem {
   quantity      Decimal              @db.Decimal(12, 3)
   unitLabel     String
   isCustom      Boolean              @default(false)
+  isExtra       Boolean              @default(false)
   sortOrder     Int                  @default(0)
   romaneio      Romaneio             @relation(fields: [romaneioId], references: [id], onDelete: Cascade)
   catalogItem   RomaneioCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)

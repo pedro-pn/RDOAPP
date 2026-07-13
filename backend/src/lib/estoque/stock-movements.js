@@ -166,6 +166,7 @@ async function createMovementRow(tx, {
   unitCost = null,
   requestedBy = null,
   notes = null,
+  excludeFromProjectCost = false,
   reversalOfId = null,
   createdById,
   romaneioId = null
@@ -185,6 +186,7 @@ async function createMovementRow(tx, {
       unitCost: unitCost === null || unitCost === undefined ? null : decimal(unitCost),
       requestedBy,
       notes,
+      excludeFromProjectCost,
       reversalOfId,
       createdById
     },
@@ -332,6 +334,7 @@ export async function createAutomaticRomaneioStockMovementsInTransaction(tx, {
   projectId,
   requestedBy = null,
   notes = null,
+  excludeFromProjectCost = false,
   createdById,
   romaneioId
 }) {
@@ -374,6 +377,7 @@ export async function createAutomaticRomaneioStockMovementsInTransaction(tx, {
       projectId,
       requestedBy,
       notes,
+      excludeFromProjectCost,
       createdById,
       romaneioId
     })];
@@ -415,6 +419,7 @@ export async function reverseMovementInTransaction(tx, { movementId, notes = nul
     date: new Date(),
     projectId: original.projectId,
     notes,
+    excludeFromProjectCost: original.excludeFromProjectCost,
     reversalOfId: original.id,
     createdById,
     romaneioId: original.romaneioId

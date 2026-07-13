@@ -54,6 +54,25 @@ test('aggregateStockConsumptionMovements soma saída e abate retorno de produto 
   });
 });
 
+test('aggregateStockConsumptionMovements ignora entrada extra que não deve abater custo', () => {
+  const costs = new Map([['batch-1', 10]]);
+  const result = aggregateStockConsumptionMovements([
+    stockMovement({ batchId: 'batch-1', quantity: 5 }),
+    stockMovement({
+      batchId: 'batch-1',
+      type: 'ENTRADA',
+      reason: 'DEVOLUCAO_OBRA',
+      quantity: 2,
+      excludeFromProjectCost: true
+    })
+  ], costs);
+
+  assert.deepEqual(result.get('project-1'), {
+    total: 50,
+    categories: [{ categoria: 'Produtos químicos (estoque)', total: 50 }]
+  });
+});
+
 test('aggregateStockConsumptionMovements considera filtros e unitCost da própria movimentação', () => {
   const result = aggregateStockConsumptionMovements([
     stockMovement({ itemType: 'FILTRO', quantity: 3, unitCost: 90 }),
