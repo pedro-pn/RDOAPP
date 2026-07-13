@@ -343,7 +343,15 @@ export interface ProjectDetail {
   avancoMethod?: ProgressMethod | null;
   diasCorridos: { elapsed: number | null; planned: number | null; pct: number | null };
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
-  consumo: { gasto: number; omie: number; estoque: number; previsto: number | null; pct: number | null };
+  consumo: {
+    gasto: number;
+    omie: number;
+    pago: number;
+    previstoPagar: number;
+    estoque: number;
+    previsto: number | null;
+    pct: number | null;
+  };
   maoDeObra: { custo: number | null; custoBase: number | null; horas: number | null; periodStart: string | null; periodEnd: string | null };
   workedHours: WorkedHoursProgress;
   maioresGastos: Array<{ categoria: string; total: number }>;

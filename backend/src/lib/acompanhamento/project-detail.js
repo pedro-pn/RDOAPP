@@ -105,6 +105,32 @@ export function buildPlannedRoleCounts(plannedRows = [], collaborators = [], pla
     .sort((a, b) => a.roleName.localeCompare(b.roleName, 'pt-BR'));
 }
 
+function isPaidTitle(status) {
+  return String(status || '').trim().toUpperCase() === 'PAGO';
+}
+
+function roundMoney(value) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function buildOmieCostPaymentSummary(groups = []) {
+  let paid = 0;
+  let pending = 0;
+
+  for (const group of groups) {
+    if (isSalaryCategory(group.categoriaDescricao || group.categoriaCodigo)) continue;
+    const value = toNum(group._sum?.valor) ?? 0;
+    if (value <= 0) continue;
+    if (isPaidTitle(group.statusTitulo)) paid += value;
+    else pending += value;
+  }
+
+  return {
+    pago: roundMoney(paid),
+    previstoPagar: roundMoney(pending)
+  };
+}
+
 // Status do dia a partir do standby agregado vs jornada cheia.
 function dayStatus(standbyMin, journeyMin) {
   if (standbyMin > 0 && journeyMin > 0 && standbyMin >= journeyMin) return 'PARADO';
@@ -123,6 +149,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     reports,
     collaborators,
     costGroups,
+    costStatusGroups,
     labor,
     equipmentByProject,
     stockCosts,
@@ -151,6 +178,11 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     }),
     prisma.omiePurchase.groupBy({
       by: ['categoriaCodigo', 'categoriaDescricao'],
+      where: { projectId, ...categoryWhere },
+      _sum: { valor: true }
+    }),
+    prisma.omiePurchase.groupBy({
+      by: ['statusTitulo', 'categoriaCodigo', 'categoriaDescricao'],
       where: { projectId, ...categoryWhere },
       _sum: { valor: true }
     }),
@@ -187,6 +219,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     .filter(g => g.total > 0)
     .sort((a, b) => b.total - a.total);
   const omieGasto = nonSalary.reduce((sum, g) => sum + g.total, 0);
+  const omiePayment = buildOmieCostPaymentSummary(costStatusGroups);
   const stockCost = stockCosts.get(projectId) || { total: 0, categories: [] };
   const gasto = omieGasto + stockCost.total;
   const previstoCusto = toNum(row.plannedTotalCost);
@@ -330,6 +363,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     consumo: {
       gasto,
       omie: omieGasto,
+      pago: omiePayment.pago,
+      previstoPagar: omiePayment.previstoPagar,
       estoque: stockCost.total,
       previsto: previstoCusto,
       pct: previstoCusto && previstoCusto > 0 ? Math.round((gasto / previstoCusto) * 100) : null

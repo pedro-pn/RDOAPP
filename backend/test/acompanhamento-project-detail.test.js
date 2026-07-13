@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildPlannedRoleCounts } from '../src/lib/acompanhamento/project-detail.js';
+import { buildOmieCostPaymentSummary, buildPlannedRoleCounts } from '../src/lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../src/lib/acompanhamento/salary.js';
 
 test('isSalaryCategory: reconhece categorias de folha/mão de obra (acentos e caixa)', () => {
@@ -51,4 +51,15 @@ test('buildPlannedRoleCounts omite cargos previstos sem colaborador corresponden
   );
 
   assert.deepEqual(out, []);
+});
+
+test('buildOmieCostPaymentSummary separa pago de títulos previstos a pagar', () => {
+  const out = buildOmieCostPaymentSummary([
+    { statusTitulo: 'PAGO', categoriaDescricao: 'Projeto - Hospedagem', _sum: { valor: 150.25 } },
+    { statusTitulo: 'A VENCER', categoriaDescricao: 'Projeto - Alimentação', _sum: { valor: 200 } },
+    { statusTitulo: 'ATRASADO', categoriaDescricao: 'Projeto - Combustível', _sum: { valor: 50.5 } },
+    { statusTitulo: 'PAGO', categoriaDescricao: 'Salários - Operação', _sum: { valor: 9999 } }
+  ]);
+
+  assert.deepEqual(out, { pago: 150.25, previstoPagar: 250.5 });
 });
