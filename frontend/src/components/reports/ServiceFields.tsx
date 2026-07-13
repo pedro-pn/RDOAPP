@@ -309,6 +309,8 @@ interface ServiceFieldsProps {
   projectId?: string | null;
   invalidKey?: string | null;
   hideFinalization?: boolean;
+  hideUploads?: boolean;
+  hideNotes?: boolean;
 }
 
 // Opções de um slot a partir do mapeamento configurável (categoryIds). Une os
@@ -973,11 +975,14 @@ export function ServiceFields({
   groupKey,
   projectId,
   invalidKey,
-  hideFinalization = false
+  hideFinalization = false,
+  hideUploads = false,
+  hideNotes = false
 }: ServiceFieldsProps) {
   const normalizedType = normalizeServiceType(serviceType);
   const slotOptions = (slotKey: string) => slotOptionsFrom(equipments, rdoSlotMap, slotKey);
   function upload(label: string) {
+    if (hideUploads) return null;
     return (
       <UploadField
         label={label}
@@ -1058,7 +1063,9 @@ export function ServiceFields({
         </div>
         {upload('Imagens — corpo de prova')}
         {upload('Imagens — tubulação')}
-        <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        {hideNotes ? null : (
+          <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        )}
       </>
     );
   }
@@ -1167,7 +1174,9 @@ export function ServiceFields({
         </div>
         {upload('Fotos do manômetro')}
         {upload('Fotos do sistema')}
-        <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        {hideNotes ? null : (
+          <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        )}
       </>
     );
   }
@@ -1226,7 +1235,9 @@ export function ServiceFields({
         <EtapasSection serviceType={serviceType} data={data} onChange={onChange} disabled={disabled} invalidKey={invalidKey} />
         <ParticulasBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} invalidKey={invalidKey} counters={counters} counterOptions={slotOptions('flushing.particulas')} upload={upload} />
         <DesidratacaoBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} units={units} unitOptions={slotOptions('flushing.desidratacao')} invalidKey={invalidKey} upload={upload} />
-        <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        {hideNotes ? null : (
+          <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        )}
       </>
     );
   }
@@ -1246,7 +1257,9 @@ export function ServiceFields({
         <EtapasSection serviceType={serviceType} data={data} onChange={onChange} disabled={disabled} invalidKey={invalidKey} />
         <ParticulasBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} invalidKey={invalidKey} counters={counters} counterOptions={slotOptions('filtragem.particulas')} upload={upload} />
         <DesidratacaoBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} units={units} unitOptions={slotOptions('filtragem.desidratacao')} invalidKey={invalidKey} upload={upload} />
-        <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        {hideNotes ? null : (
+          <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        )}
       </>
     );
   }
@@ -1260,7 +1273,9 @@ export function ServiceFields({
         )}
         <EtapasSection serviceType={serviceType} data={data} onChange={onChange} disabled={disabled} invalidKey={invalidKey} />
         {upload('Imagens da limpeza')}
-        <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        {hideNotes ? null : (
+          <DrawingsObsBlock data={data} onChange={onChange} disabled={disabled} groupKey={groupKey} />
+        )}
       </>
     );
   }
@@ -1337,10 +1352,12 @@ export function ServiceFields({
         </div>
         {upload('Fotos do filtro')}
         {upload('Fotos das plaquetas')}
-        <div className={`${fieldClass(invalidKey, 'notes')} fg-r2`}>
-          <label htmlFor={fieldId(groupKey, 'notes')}>Observações</label>
-          <textarea id={fieldId(groupKey, 'notes')} value={getString(data.notes)} disabled={disabled} onChange={event => onChange({ notes: event.target.value })} />
-        </div>
+        {hideNotes ? null : (
+          <div className={`${fieldClass(invalidKey, 'notes')} fg-r2`}>
+            <label htmlFor={fieldId(groupKey, 'notes')}>Observações</label>
+            <textarea id={fieldId(groupKey, 'notes')} value={getString(data.notes)} disabled={disabled} onChange={event => onChange({ notes: event.target.value })} />
+          </div>
+        )}
       </>
     );
   }

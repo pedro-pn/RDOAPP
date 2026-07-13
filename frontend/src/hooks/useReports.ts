@@ -14,11 +14,13 @@ import {
   listReportsPage,
   replaceManualReportPdf,
   requestReportSignature,
+  updateManualReportData,
   updateReport,
   updateReportSequence,
   updateReportStatus,
   uploadManualReport,
   type ManualReportPdfReplacePayload,
+  type ManualReportOperationalData,
   type ManualReportUploadPayload,
   type PaginatedReports,
   type ReportCountQuery,
@@ -64,6 +66,13 @@ interface AccumulatedReportsSnapshot {
 const ACCUMULATED_REPORTS_STORAGE_VERSION = 1;
 const ACCUMULATED_REPORTS_STORAGE_TTL_MS = 30 * 60 * 1000;
 const accumulatedReportsSnapshots = new Map<string, AccumulatedReportsSnapshot>();
+const ACOMPANHAMENTO_REPORT_QUERY_KEYS = [
+  ['ponto-colaboradores'],
+  ['project-cards'],
+  ['commercial-dashboard'],
+  ['project-detail'],
+  ['project-progress']
+] as const;
 
 // Hooks montados de useAccumulatedReportsPage assinam aqui para re-sincronizar seus
 // itens quando uma mutação altera o snapshot (ex.: aprovar um relatório direto da lista,
@@ -655,6 +664,12 @@ function removeReportFromCaches(
   });
 }
 
+function invalidateAcompanhamentoReportCaches(queryClient: ReturnType<typeof useQueryClient>) {
+  ACOMPANHAMENTO_REPORT_QUERY_KEYS.forEach(queryKey => {
+    queryClient.invalidateQueries({ queryKey });
+  });
+}
+
 export function useReportAudit(reportId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.reportAudit(reportId),
@@ -676,6 +691,7 @@ export function useReportMutations() {
       queryClient.setQueryData(['report', report.id], report);
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+      invalidateAcompanhamentoReportCaches(queryClient);
     }
   });
 
@@ -686,6 +702,7 @@ export function useReportMutations() {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       reports.forEach(report => queryClient.invalidateQueries({ queryKey: ['report', report.id] }));
+      invalidateAcompanhamentoReportCaches(queryClient);
     }
   });
 
@@ -696,6 +713,7 @@ export function useReportMutations() {
       queryClient.setQueryData(['report', report.id], report);
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+      invalidateAcompanhamentoReportCaches(queryClient);
     }
   });
 
@@ -711,6 +729,19 @@ export function useReportMutations() {
     }
   });
 
+  const updateManualReportDataMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ManualReportOperationalData }) =>
+      updateManualReportData(id, payload),
+    onSuccess: report => {
+      updateAccumulatedReportsCache(report);
+      updateReportCaches(queryClient, report);
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['report', report.id] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+      invalidateAcompanhamentoReportCaches(queryClient);
+    }
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Omit<ReportPayload, 'createdByUserId' | 'status'> }) =>
       updateReport(id, payload),
@@ -719,6 +750,7 @@ export function useReportMutations() {
       updateReportCaches(queryClient, report);
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['report', report.id] });
+      invalidateAcompanhamentoReportCaches(queryClient);
     }
   });
 
@@ -794,6 +826,7 @@ export function useReportMutations() {
       removeReportFromCaches(queryClient, reportId);
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+      invalidateAcompanhamentoReportCaches(queryClient);
     }
   });
 
@@ -805,6 +838,7 @@ export function useReportMutations() {
       updateReportCaches(queryClient, report);
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['report', report.id] });
+      invalidateAcompanhamentoReportCaches(queryClient);
     }
   });
 
@@ -813,6 +847,7 @@ export function useReportMutations() {
     createServiceOnlyReports: createServiceOnlyMutation,
     uploadManualReport: uploadManualReportMutation,
     replaceManualReportPdf: replaceManualReportPdfMutation,
+    updateManualReportData: updateManualReportDataMutation,
     updateReport: updateMutation,
     updateStatus: updateStatusMutation,
     updateSequence: updateSequenceMutation,

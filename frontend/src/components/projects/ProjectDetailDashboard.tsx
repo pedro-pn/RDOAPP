@@ -11,6 +11,7 @@ import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -157,7 +158,11 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDirty, setScheduleDirty] = useState(false);
   const scheduleRef = useRef<ScheduleEditorHandle>(null);
-  const { data, isLoading } = useQuery({ queryKey: ['project-detail', projectId], queryFn: () => getProjectDetail(projectId) });
+  const { data, isLoading } = useQuery({
+    queryKey: ['project-detail', projectId],
+    queryFn: () => getProjectDetail(projectId),
+    ...acompanhamentoRefreshQueryOptions
+  });
   const { data: scope } = useQuery({ queryKey: ['planned-scope', projectId], queryFn: () => getPlannedScope(projectId) });
 
   function closeSchedule() {

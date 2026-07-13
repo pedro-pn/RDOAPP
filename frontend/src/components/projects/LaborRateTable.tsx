@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getPontoColaboradores, type CollaboratorRate, type IdleBucket } from '../../api/acompanhamentoPonto';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import { brl } from './costFields';
 
 const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -41,7 +42,11 @@ function viewFor(r: CollaboratorRate, month: string): RateView | null {
 }
 
 export function LaborRateTable() {
-  const { data, isLoading } = useQuery({ queryKey: ['ponto-colaboradores'], queryFn: getPontoColaboradores });
+  const { data, isLoading } = useQuery({
+    queryKey: ['ponto-colaboradores'],
+    queryFn: getPontoColaboradores,
+    ...acompanhamentoRefreshQueryOptions
+  });
   const [month, setMonth] = useState('todos');
 
   const rates = useMemo(() => [...(data?.rates ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), [data]);

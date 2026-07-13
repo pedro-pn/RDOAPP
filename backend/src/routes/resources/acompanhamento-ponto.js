@@ -81,15 +81,22 @@ router.get(
   requireAuth,
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
-    const { pontoImport, rates } = await computeCollaboratorRates();
-    const unmatched = pontoImport?.summary?.unmatched ?? [];
+    const { pontoImport, pontoImports = [], periodStart, periodEnd, fileName, rates } = await computeCollaboratorRates();
+    const unmatchedByName = new Map();
+    for (const item of pontoImports) {
+      const unmatched = item.summary?.unmatched ?? [];
+      for (const row of unmatched) {
+        if (!row?.normalizedName) continue;
+        unmatchedByName.set(row.normalizedName, row);
+      }
+    }
     res.json({
       importId: pontoImport?.id ?? null,
-      periodStart: pontoImport?.periodStart ?? null,
-      periodEnd: pontoImport?.periodEnd ?? null,
-      fileName: pontoImport?.fileName ?? null,
+      periodStart: periodStart ?? null,
+      periodEnd: periodEnd ?? null,
+      fileName: fileName ?? pontoImport?.fileName ?? null,
       rates,
-      unmatched
+      unmatched: [...unmatchedByName.values()]
     });
   })
 );

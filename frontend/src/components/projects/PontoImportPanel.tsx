@@ -11,6 +11,7 @@ import {
 } from '../../api/acompanhamentoPonto';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../ui/ToastContext';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -25,8 +26,16 @@ export function PontoImportPanel() {
   const { user } = useAuth();
   const isManager = user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('acompanhamento:manager'));
 
-  const { data: imports } = useQuery({ queryKey: ['ponto-imports'], queryFn: getPontoImports });
-  const { data: colaboradores } = useQuery({ queryKey: ['ponto-colaboradores'], queryFn: getPontoColaboradores });
+  const { data: imports } = useQuery({
+    queryKey: ['ponto-imports'],
+    queryFn: getPontoImports,
+    ...acompanhamentoRefreshQueryOptions
+  });
+  const { data: colaboradores } = useQuery({
+    queryKey: ['ponto-colaboradores'],
+    queryFn: getPontoColaboradores,
+    ...acompanhamentoRefreshQueryOptions
+  });
   const { data: activeCollaborators } = useQuery({ queryKey: ['ponto-collaborators-active'], queryFn: getActiveCollaborators, enabled: isManager });
 
   const [links, setLinks] = useState<Record<string, string>>({});

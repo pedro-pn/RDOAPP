@@ -6,6 +6,7 @@ import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 import { RealizedCategoryBreakdown } from './RealizedCategoryBreakdown';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
 function toNum(value?: string | number | null) {
   if (value === null || value === undefined || value === '') return null;
@@ -69,9 +70,14 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
 
   const { data, isLoading } = useQuery({
     queryKey: ['commercial-dashboard', category],
-    queryFn: () => getCommercialDashboard(category || undefined)
+    queryFn: () => getCommercialDashboard(category || undefined),
+    ...acompanhamentoRefreshQueryOptions
   });
-  const categoriesQuery = useQuery({ queryKey: ['realized-categories', 'all'], queryFn: () => getRealizedByCategory() });
+  const categoriesQuery = useQuery({
+    queryKey: ['realized-categories', 'all'],
+    queryFn: () => getRealizedByCategory(),
+    ...acompanhamentoRefreshQueryOptions
+  });
 
   const rows = useMemo(() => data ?? [], [data]);
   const metric = METRICS.find(m => m.key === metricKey) ?? METRICS[0];

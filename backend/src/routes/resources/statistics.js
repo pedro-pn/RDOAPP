@@ -317,6 +317,11 @@ function summarize(reports) {
 
   for (const r of reports) {
     summary.reportCount += 1;
+    const sc = r.specialConditions || {};
+    if (sc.standby === true) {
+      summary.standbyCount += 1;
+      summary.standbyMinutes += parseMinutes(sc.standbyDetails?.total);
+    }
     if (isManualUploadedReport(r)) continue;
 
     operationalReportCount += 1;
@@ -325,12 +330,6 @@ function summarize(reports) {
     summary.nighttimeWorkedMinutes += r.nighttimeWorkedMinutes || 0;
     summary.daytimeOvertimeMinutes += r.daytimeOvertimeMinutes || 0;
     summary.nighttimeOvertimeMinutes += r.nighttimeOvertimeMinutes || 0;
-
-    const sc = r.specialConditions || {};
-    if (sc.standby === true) {
-      summary.standbyCount += 1;
-      summary.standbyMinutes += parseMinutes(sc.standbyDetails?.total);
-    }
 
     daytimeColTotal += r.daytimeCount || 0;
     const noturnoIds = sc.noturnoDetails?.collaboratorIds;
@@ -349,7 +348,7 @@ export function buildDailyReport(r) {
   const sc = r.specialConditions || {};
   const manualUpload = isManualUploadedReport(r);
   const noturnoIds = sc.noturnoDetails?.collaboratorIds;
-  const isStandby = !manualUpload && sc.standby === true;
+  const isStandby = sc.standby === true;
 
   const servicesByType = {};
   const ignoredRows = { volumeOleo: 0, tubulacao: 0 };

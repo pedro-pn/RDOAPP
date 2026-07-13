@@ -278,7 +278,7 @@ test('daily report summary includes per-service measurements and standby minutes
   }]);
 });
 
-test('manual uploaded reports keep only simple report stats in daily detail and service exports', () => {
+test('manual uploaded reports keep service exports simple but expose standby in daily detail', () => {
   const manualReport = {
     id: 'manual-rdo-1',
     reportDate: new Date('2026-05-13T00:00:00.000Z'),
@@ -314,7 +314,8 @@ test('manual uploaded reports keep only simple report stats in daily detail and 
   assert.equal(daily.nighttimeOvertimeMinutes, 0);
   assert.equal(daily.daytimeCollaborators, 0);
   assert.equal(daily.nighttimeCollaborators, 0);
-  assert.equal(daily.standby, false);
+  assert.equal(daily.standby, true);
+  assert.equal(daily.standbyMinutes, 150);
   assert.deepEqual(daily.services, {});
   assert.deepEqual(buildServiceExportRows(manualReport, { code: 'PRJ-1' }), []);
 });

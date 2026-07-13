@@ -55,6 +55,12 @@ backend/omie-*.json
 
 # Configurações locais do IDE/ferramentas (não compartilhar entre máquinas)
 .claude/settings.local.json
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
 
 # Relatórios gerados podem ser recriados a partir do banco/modelos
 backend/Relatórios/**

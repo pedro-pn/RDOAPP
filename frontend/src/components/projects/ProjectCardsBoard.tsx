@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getProjectCards, type LastDayStatus, type ProjectCard } from '../../api/acompanhamentoComercial';
 import { ProjectDetailDashboard } from './ProjectDetailDashboard';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
 function formatDate(iso?: string | null) {
   if (!iso) return '—';
@@ -192,7 +193,11 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
   const [search, setSearch] = useState('');
   const [view, setView] = useState<CardsView>('andamento');
   const [selected, setSelected] = useState<string | null>(null);
-  const { data, isLoading } = useQuery({ queryKey: ['project-cards'], queryFn: () => getProjectCards() });
+  const { data, isLoading } = useQuery({
+    queryKey: ['project-cards'],
+    queryFn: () => getProjectCards(),
+    ...acompanhamentoRefreshQueryOptions
+  });
 
   // Separa pelo status do projeto nos relatórios: em andamento (ativo) x arquivados (inativo).
   const counts = useMemo(() => {

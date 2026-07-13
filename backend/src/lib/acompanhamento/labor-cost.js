@@ -29,6 +29,43 @@ function dateKeyUTC(value) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function parseHm(value) {
+  if (!value || typeof value !== 'string') return null;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+export function serviceIntervalsWorkedMinutes(services = []) {
+  const intervals = (services || [])
+    .map(service => {
+      const start = parseHm(service?.startTime);
+      const rawEnd = parseHm(service?.endTime);
+      if (start == null || rawEnd == null) return null;
+      const end = rawEnd < start ? rawEnd + 24 * 60 : rawEnd;
+      return { start, end };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.start - right.start);
+
+  let total = 0;
+  let current = null;
+  for (const interval of intervals) {
+    if (!current) {
+      current = { ...interval };
+      continue;
+    }
+    if (interval.start <= current.end) {
+      current.end = Math.max(current.end, interval.end);
+      continue;
+    }
+    total += current.end - current.start;
+    current = { ...interval };
+  }
+  if (current) total += current.end - current.start;
+  return Math.max(0, total);
+}
+
 function endExclusive(date) {
   return new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000);
 }
@@ -76,9 +113,167 @@ function totalCost(params, inputs, epiMensal) {
   return computeMonthlyCost(params, inputs).totalMensal + epiMensal;
 }
 
-async function getLatestPontoImport(importId) {
-  if (importId) return prisma.pontoImport.findUnique({ where: { id: importId } });
-  return prisma.pontoImport.findFirst({ orderBy: { createdAt: 'desc' } });
+function dateFromYmd(value) {
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
+function pontoImportScopeFromRows(imports) {
+  if (!imports.length) return null;
+  const latest = [...imports].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  const periodStart = imports.reduce((min, item) => (
+    !min || new Date(item.periodStart) < new Date(min) ? item.periodStart : min
+  ), null);
+  const periodEnd = imports.reduce((max, item) => (
+    !max || new Date(item.periodEnd) > new Date(max) ? item.periodEnd : max
+  ), null);
+  return {
+    pontoImport: latest,
+    pontoImports: imports,
+    periodStart,
+    periodEnd,
+    fileName: imports.length === 1 ? latest.fileName : `${imports.length} planilhas importadas`
+  };
+}
+
+async function getPontoImportScope(importId) {
+  if (importId) {
+    const item = await prisma.pontoImport.findUnique({ where: { id: importId } });
+    return item ? pontoImportScopeFromRows([item]) : null;
+  }
+  const imports = await prisma.pontoImport.findMany({ orderBy: { createdAt: 'asc' } });
+  return pontoImportScopeFromRows(imports);
+}
+
+function numberValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function dayRowsFromPeriod(period) {
+  const rows = [];
+  const sourceCreatedAt = period.import?.createdAt || period.createdAt || new Date(0);
+  const monthly = period.monthly && typeof period.monthly === 'object' && !Array.isArray(period.monthly)
+    ? period.monthly
+    : null;
+
+  if (monthly) {
+    for (const [monthKey, monthData] of Object.entries(monthly)) {
+      const month = monthData && typeof monthData === 'object' && !Array.isArray(monthData) ? monthData : {};
+      if (Array.isArray(month.days) && month.days.length) {
+        for (const day of month.days) {
+          if (!day?.date) continue;
+          rows.push({
+            date: String(day.date),
+            workedMinutes: numberValue(day.workedMinutes),
+            extrasMinutes: numberValue(day.extrasMinutes),
+            nightMinutes: numberValue(day.nightMinutes),
+            sourceCreatedAt
+          });
+        }
+        continue;
+      }
+
+      const workedDates = Array.isArray(month.workedDates) ? month.workedDates : [];
+      if (!workedDates.length) continue;
+      const normalPerDay = numberValue(month.normalMinutes) / workedDates.length;
+      const extrasPerDay = numberValue(month.extrasMinutes) / workedDates.length;
+      const nightPerDay = numberValue(month.nightMinutes) / workedDates.length;
+      for (const date of workedDates) {
+        rows.push({
+          date: String(date || monthKey),
+          workedMinutes: normalPerDay,
+          extrasMinutes: extrasPerDay,
+          nightMinutes: nightPerDay,
+          sourceCreatedAt
+        });
+      }
+    }
+    if (rows.length) return rows;
+  }
+
+  const workedDates = Array.isArray(period.workedDates) ? period.workedDates : [];
+  if (!workedDates.length) return rows;
+  const normalPerDay = numberValue(period.workedMinutes) / workedDates.length;
+  const extrasPerDay = (numberValue(period.he70Minutes) + numberValue(period.he100Minutes)) / workedDates.length;
+  const nightPerDay = numberValue(period.nightMinutes) / workedDates.length;
+  for (const date of workedDates) {
+    rows.push({
+      date: String(date),
+      workedMinutes: normalPerDay,
+      extrasMinutes: extrasPerDay,
+      nightMinutes: nightPerDay,
+      sourceCreatedAt
+    });
+  }
+  return rows;
+}
+
+export function mergePontoPeriods(periods = []) {
+  const byCollaborator = new Map();
+  const sorted = [...periods].sort((left, right) => (
+    new Date(left.import?.createdAt || left.createdAt || 0).getTime()
+    - new Date(right.import?.createdAt || right.createdAt || 0).getTime()
+  ));
+
+  for (const period of sorted) {
+    if (!period.collaboratorId) continue;
+    let entry = byCollaborator.get(period.collaboratorId);
+    if (!entry) {
+      entry = {
+        collaboratorId: period.collaboratorId,
+        rawName: period.rawName,
+        normalizedName: period.normalizedName,
+        collaborator: period.collaborator || null,
+        dayMap: new Map()
+      };
+      byCollaborator.set(period.collaboratorId, entry);
+    }
+    entry.rawName = period.rawName || entry.rawName;
+    entry.normalizedName = period.normalizedName || entry.normalizedName;
+    entry.collaborator = period.collaborator || entry.collaborator;
+    for (const row of dayRowsFromPeriod(period)) {
+      if (!row.date) continue;
+      entry.dayMap.set(row.date, row);
+    }
+  }
+
+  return [...byCollaborator.values()].map(entry => {
+    const days = [...entry.dayMap.values()].sort((a, b) => a.date.localeCompare(b.date));
+    const monthly = {};
+    for (const day of days) {
+      const monthKey = day.date.slice(0, 7);
+      if (!monthly[monthKey]) monthly[monthKey] = { normalMinutes: 0, extrasMinutes: 0, nightMinutes: 0, workedDates: [], days: [] };
+      monthly[monthKey].normalMinutes += day.workedMinutes;
+      monthly[monthKey].extrasMinutes += day.extrasMinutes;
+      monthly[monthKey].nightMinutes += day.nightMinutes;
+      if (day.workedMinutes > 0) monthly[monthKey].workedDates.push(day.date);
+      monthly[monthKey].days.push({
+        date: day.date,
+        workedMinutes: day.workedMinutes,
+        extrasMinutes: day.extrasMinutes,
+        nightMinutes: day.nightMinutes
+      });
+    }
+    const workedDates = days.filter(day => day.workedMinutes > 0).map(day => day.date);
+    const workedMinutes = days.reduce((sum, day) => sum + day.workedMinutes, 0);
+    const extrasMinutes = days.reduce((sum, day) => sum + day.extrasMinutes, 0);
+    const nightMinutes = days.reduce((sum, day) => sum + day.nightMinutes, 0);
+    const dates = days.map(day => day.date);
+    return {
+      collaboratorId: entry.collaboratorId,
+      rawName: entry.rawName,
+      normalizedName: entry.normalizedName,
+      collaborator: entry.collaborator,
+      periodStart: dates[0] ? dateFromYmd(dates[0]) : null,
+      periodEnd: dates[dates.length - 1] ? dateFromYmd(dates[dates.length - 1]) : null,
+      workedMinutes,
+      he70Minutes: extrasMinutes,
+      he100Minutes: 0,
+      nightMinutes,
+      workedDates,
+      monthly
+    };
+  });
 }
 
 // Cargo (JobRole.name = Collaborator.role) -> parâmetros efetivos ("base viva": herda do modelo,
@@ -113,25 +308,21 @@ async function getRoleParamsMap() {
   return map;
 }
 
-// RDO por colaborador: por projeto (offshore) e o projeto/horas de cada dia.
-async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
-  const reports = await prisma.report.findMany({
-    where: { reportType: 'RDO', deletedAt: null, reportDate: { gte: periodStart, lt: periodEndExclusive } },
-    select: {
-      projectId: true,
-      reportDate: true,
-      daytimeWorkedMinutes: true,
-      nighttimeWorkedMinutes: true,
-      project: { select: { offshore: true, laborSleepModeByCollaborator: true } },
-      collaborators: { select: { collaboratorId: true } }
-    }
-  });
+function reportWorkedMinutes(report) {
+  const recorded = (Number(report.daytimeWorkedMinutes) || 0) + (Number(report.nighttimeWorkedMinutes) || 0);
+  if (recorded > 0 || report.reportType === 'RDO') return recorded;
+  return serviceIntervalsWorkedMinutes(report.services || []);
+}
+
+export function rdoDataByCollaboratorFromReports(reports) {
   const map = new Map();
   for (const report of reports) {
+    const workedMinutes = reportWorkedMinutes(report);
+    if (report.reportType !== 'RDO' && workedMinutes <= 0) continue;
     const dk = dateKeyUTC(report.reportDate);
-    const workedHours = (report.daytimeWorkedMinutes + report.nighttimeWorkedMinutes) / 60;
+    const workedHours = workedMinutes / 60;
     const offshore = Boolean(report.project?.offshore);
-    for (const link of report.collaborators) {
+    for (const link of report.collaborators || []) {
       const sleepMode = sleepModeFor(report.project, link.collaboratorId);
       let c = map.get(link.collaboratorId);
       if (!c) { c = { byProject: new Map(), dayProject: new Map() }; map.set(link.collaboratorId, c); }
@@ -144,6 +335,33 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
     }
   }
   return map;
+}
+
+// RDO por colaborador: por projeto (offshore) e o projeto/horas de cada dia.
+async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
+  const reports = await prisma.report.findMany({
+    where: {
+      deletedAt: null,
+      reportDate: { gte: periodStart, lt: periodEndExclusive },
+      OR: [
+        { reportType: 'RDO' },
+        { daytimeWorkedMinutes: { gt: 0 } },
+        { nighttimeWorkedMinutes: { gt: 0 } },
+        { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
+      ]
+    },
+    select: {
+      reportType: true,
+      projectId: true,
+      reportDate: true,
+      daytimeWorkedMinutes: true,
+      nighttimeWorkedMinutes: true,
+      project: { select: { offshore: true, laborSleepModeByCollaborator: true } },
+      collaborators: { select: { collaboratorId: true } },
+      services: { select: { startTime: true, endTime: true } }
+    }
+  });
+  return rdoDataByCollaboratorFromReports(reports);
 }
 
 // Classifica só dias com RDO. Dia com ponto e sem RDO fica como sede/sobra, sem verbas variáveis.
@@ -298,21 +516,26 @@ export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Ho
 // Custo/hora e rateio por obra de cada colaborador para o ponto vigente (ou o import indicado),
 // somando a divisão mensal.
 export async function computeCollaboratorRates(importId = null) {
-  const pontoImport = await getLatestPontoImport(importId);
-  if (!pontoImport) return { pontoImport: null, rates: [], byCollaboratorId: new Map() };
+  const pontoScope = await getPontoImportScope(importId);
+  if (!pontoScope) return { pontoImport: null, pontoImports: [], periodStart: null, periodEnd: null, fileName: null, rates: [], byCollaboratorId: new Map() };
 
-  const periodEndExclusive = endExclusive(pontoImport.periodEnd);
-  const fileStart = pontoImport.periodStart;
-  const fileEnd = pontoImport.periodEnd;
-  const [periods, roleParams, rdoData, epiAnnualCost] = await Promise.all([
+  const importIds = pontoScope.pontoImports.map(item => item.id);
+  const periodEndExclusive = endExclusive(pontoScope.periodEnd);
+  const fileStart = pontoScope.periodStart;
+  const fileEnd = pontoScope.periodEnd;
+  const [periodRows, roleParams, rdoData, epiAnnualCost] = await Promise.all([
     prisma.pontoPeriodSummary.findMany({
-      where: { importId: pontoImport.id, collaboratorId: { not: null } },
-      include: { collaborator: { select: { id: true, name: true, role: true } } }
+      where: { importId: { in: importIds }, collaboratorId: { not: null } },
+      include: {
+        collaborator: { select: { id: true, name: true, role: true } },
+        import: { select: { createdAt: true } }
+      }
     }),
     getRoleParamsMap(),
-    getRdoDataByCollaborator(pontoImport.periodStart, periodEndExclusive),
+    getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
     getEpiAnnualCost()
   ]);
+  const periods = mergePontoPeriods(periodRows);
   const epiMensal = epiAnnualCost / 12;
 
   const rates = [];
@@ -435,24 +658,40 @@ export async function computeCollaboratorRates(importId = null) {
     rates.push(entry);
     byCollaboratorId.set(period.collaboratorId, entry);
   }
-  return { pontoImport, rates, byCollaboratorId };
+  return {
+    pontoImport: pontoScope.pontoImport,
+    pontoImports: pontoScope.pontoImports,
+    periodStart: pontoScope.periodStart,
+    periodEnd: pontoScope.periodEnd,
+    fileName: pontoScope.fileName,
+    rates,
+    byCollaboratorId
+  };
 }
 
 // Diagnóstico: mostra os parâmetros (campos amarelos) e os inputs do motor (Simulador) usados para
 // calcular a folha de um colaborador num mês, além do detalhamento do motor. Uso via script.
 export async function debugCollaboratorMonth(nameQuery, monthKey, importId = null) {
-  const pontoImport = await getLatestPontoImport(importId);
-  if (!pontoImport) throw new Error('Sem import de ponto.');
-  const periodEndExclusive = endExclusive(pontoImport.periodEnd);
-  const [roleParams, rdoData, epiAnnualCost] = await Promise.all([
+  const pontoScope = await getPontoImportScope(importId);
+  if (!pontoScope) throw new Error('Sem import de ponto.');
+  const importIds = pontoScope.pontoImports.map(item => item.id);
+  const periodEndExclusive = endExclusive(pontoScope.periodEnd);
+  const [periodRows, roleParams, rdoData, epiAnnualCost] = await Promise.all([
+    prisma.pontoPeriodSummary.findMany({
+      where: { importId: { in: importIds }, collaboratorId: { not: null } },
+      include: {
+        collaborator: { select: { id: true, name: true, role: true } },
+        import: { select: { createdAt: true } }
+      }
+    }),
     getRoleParamsMap(),
-    getRdoDataByCollaborator(pontoImport.periodStart, periodEndExclusive),
+    getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
     getEpiAnnualCost()
   ]);
-  const period = await prisma.pontoPeriodSummary.findFirst({
-    where: { importId: pontoImport.id, collaborator: { name: { contains: nameQuery, mode: 'insensitive' } } },
-    include: { collaborator: { select: { id: true, name: true, role: true } } }
-  });
+  const query = String(nameQuery || '').trim().toLowerCase();
+  const period = mergePontoPeriods(periodRows).find(item => (
+    String(item.collaborator?.name || item.rawName || '').toLowerCase().includes(query)
+  ));
   if (!period) throw new Error(`Colaborador "${nameQuery}" não encontrado no ponto vigente.`);
 
   const role = period.collaborator.role;
@@ -469,7 +708,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   const he100M = mrec.he100Horas;
   const hoursPerDayM = datesM.length > 0 ? normalHoursM / datesM.length : 0;
 
-  const cov = monthCoverage(monthKey, pontoImport.periodStart, pontoImport.periodEnd);
+  const cov = monthCoverage(monthKey, pontoScope.periodStart, pontoScope.periodEnd);
   const folgaHours = countFolgaWeekdays(cov.start, cov.end, new Set(period.workedDates || [])) * HORAS_POR_DIA;
 
   const { projAwayDays, projHomeDays, projOffshoreDays } = classifyDays(datesM, rdo);
@@ -514,7 +753,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
 
 // Custo de mão de obra por projeto (mapa projectId -> { laborCost, laborCostBase, hours }) + sobra total.
 export async function laborCostByProject(importId = null) {
-  const { pontoImport, byCollaboratorId } = await computeCollaboratorRates(importId);
+  const { pontoImport, periodStart, periodEnd, byCollaboratorId } = await computeCollaboratorRates(importId);
   if (!pontoImport) {
     return { pontoImport: null, periodStart: null, periodEnd: null, byProjectId: new Map(), idle: { cost: 0, costBase: 0, hours: 0 }, byCollaboratorId: new Map() };
   }
@@ -532,5 +771,5 @@ export async function laborCostByProject(importId = null) {
     idle.costBase += entry.idle.sede.costBase + entry.idle.folga.costBase;
     idle.hours += entry.idle.sede.hours + entry.idle.folga.hours;
   }
-  return { pontoImport, periodStart: pontoImport.periodStart, periodEnd: pontoImport.periodEnd, byProjectId, idle, byCollaboratorId };
+  return { pontoImport, periodStart, periodEnd, byProjectId, idle, byCollaboratorId };
 }

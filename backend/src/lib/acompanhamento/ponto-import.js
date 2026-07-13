@@ -30,11 +30,17 @@ function buildMonthly(days = []) {
   const monthly = {};
   for (const day of days) {
     const mk = day.date.slice(0, 7);
-    if (!monthly[mk]) monthly[mk] = { normalMinutes: 0, extrasMinutes: 0, nightMinutes: 0, workedDates: [] };
+    if (!monthly[mk]) monthly[mk] = { normalMinutes: 0, extrasMinutes: 0, nightMinutes: 0, workedDates: [], days: [] };
     monthly[mk].normalMinutes += day.workedMinutes;
     monthly[mk].extrasMinutes += day.extrasMinutes;
     monthly[mk].nightMinutes += day.nightMinutes;
     if (day.workedMinutes > 0) monthly[mk].workedDates.push(day.date);
+    monthly[mk].days.push({
+      date: day.date,
+      workedMinutes: day.workedMinutes,
+      extrasMinutes: day.extrasMinutes,
+      nightMinutes: day.nightMinutes
+    });
   }
   return monthly;
 }

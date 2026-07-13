@@ -10,13 +10,14 @@ import { matchesSearch, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
 import type { UserRole } from '../../types/auth';
-import { downloadReportDocx, downloadReportPdf, downloadReportsBatch } from '../../api/reports';
+import { downloadReportDocx, downloadReportPdf, downloadReportsBatch, type ManualReportOperationalData } from '../../api/reports';
 import type { SurveyQuestionType } from '../../api/surveys';
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { rdoPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
+import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
 import { ImageDropzone } from '../../components/ui/ImageDropzone';
@@ -200,7 +201,7 @@ interface ProjectReportSequenceFormState {
   nextNumber: string;
 }
 
-interface ManualReportUploadFileState {
+interface ManualReportUploadFileState extends ManualReportOperationalFieldsValue {
   id: string;
   fileName: string;
   pdfDataUrl: string;
@@ -210,7 +211,7 @@ interface ManualReportUploadFileState {
   serviceSystem: string;
 }
 
-interface ManualReportFormState {
+interface ManualReportFormState extends ManualReportOperationalFieldsValue {
   projectId: string;
   reportType: ReportType;
   sequenceNumber: string;
@@ -292,6 +293,23 @@ const emptyProjectForm: ProjectFormState = {
   reportSequences: projectReportSequencesToForm()
 };
 
+function emptyManualReportOperationalFields(): ManualReportOperationalFieldsValue {
+  return {
+    arrivalTime: '',
+    departureTime: '',
+    lunchBreak: '01:00:00',
+    collaboratorIds: [],
+    noturno: false,
+    noturnoStart: '',
+    noturnoEnd: '',
+    noturnoInterval: '01:00:00',
+    noturnoCollaboratorIds: [],
+    standby: false,
+    standbyDuration: '',
+    standbyMotivo: ''
+  };
+}
+
 const emptyManualReportForm: ManualReportFormState = {
   projectId: '',
   reportType: 'RDO',
@@ -302,6 +320,7 @@ const emptyManualReportForm: ManualReportFormState = {
   serviceSystem: '',
   fileName: '',
   pdfDataUrl: '',
+  ...emptyManualReportOperationalFields(),
   files: []
 };
 
@@ -1241,6 +1260,10 @@ export function GestorPage() {
   };
   const archivedProjectsQuery = { data: gestorBootstrapQuery.data?.archivedProjects, isLoading: gestorBootstrapQuery.isLoading };
   const collaboratorsQuery = { data: gestorBootstrapQuery.data?.collaborators, isLoading: gestorBootstrapQuery.isLoading };
+  const activeManualReportCollaborators = useMemo(
+    () => (collaboratorsQuery.data || []).filter(collaborator => collaborator.isActive !== false),
+    [collaboratorsQuery.data]
+  );
   const internalUsersQuery = useUsers('internal');
   const clientUsersQuery = useUsers('client');
   const surveysQuery = { data: gestorBootstrapQuery.data?.surveys, isLoading: gestorBootstrapQuery.isLoading };
@@ -2079,6 +2102,7 @@ export function GestorPage() {
       serviceSystem: manualReportServiceField(report, ['Sistema']),
       fileName: '',
       pdfDataUrl: '',
+      ...emptyManualReportOperationalFields(),
       files: []
     });
     setManualReportModalOpen(true);
@@ -2136,7 +2160,8 @@ export function GestorPage() {
         sequenceNumber: '',
         reportDate: baseDate,
         serviceEquipment,
-        serviceSystem
+        serviceSystem,
+        ...emptyManualReportOperationalFields()
       })));
       setManualReportForm(current => ({
         ...current,
@@ -2159,6 +2184,59 @@ export function GestorPage() {
       ...current,
       files: current.files.filter(file => file.id !== id)
     }));
+  }
+
+  function manualOperationalValidationMessage(fields: ManualReportOperationalFieldsValue, label: string) {
+    const hasArrival = Boolean(fields.arrivalTime.trim());
+    const hasDeparture = Boolean(fields.departureTime.trim());
+    if (hasArrival !== hasDeparture) {
+      return `Informe entrada e saída em ${label}.`;
+    }
+    if (fields.noturno && (!fields.noturnoStart.trim() || !fields.noturnoEnd.trim())) {
+      return `Informe início e término do turno noturno em ${label}.`;
+    }
+    if (fields.standby && (!fields.standbyDuration.trim() || !fields.standbyMotivo.trim())) {
+      return `Informe tempo total e motivo do stand-by em ${label}.`;
+    }
+    return null;
+  }
+
+  function manualOperationalData(fields: ManualReportOperationalFieldsValue, reportType: ReportType): ManualReportOperationalData | undefined {
+    const arrivalTime = fields.arrivalTime.trim();
+    const departureTime = fields.departureTime.trim();
+    const lunchBreak = fields.lunchBreak.trim();
+    const collaboratorIds = Array.from(new Set(fields.collaboratorIds));
+    const hasDayData = Boolean(arrivalTime || departureTime || collaboratorIds.length);
+    const hasNightData = fields.noturno;
+    const hasStandbyData = reportType === 'RDO' && fields.standby;
+    if (!hasDayData && !hasNightData && !hasStandbyData) return undefined;
+
+    return {
+      ...(arrivalTime ? { arrivalTime } : {}),
+      ...(departureTime ? { departureTime } : {}),
+      ...(hasDayData && (arrivalTime || departureTime || lunchBreak) ? { lunchBreak: lunchBreak || '01:00:00' } : {}),
+      ...(collaboratorIds.length ? { collaboratorIds } : {}),
+      ...(fields.noturno
+        ? {
+            noturno: {
+              enabled: true,
+              inicio: fields.noturnoStart.trim(),
+              termino: fields.noturnoEnd.trim(),
+              intervalo: fields.noturnoInterval.trim() || '01:00:00',
+              collaboratorIds: Array.from(new Set(fields.noturnoCollaboratorIds))
+            }
+          }
+        : {}),
+      ...(hasStandbyData
+        ? {
+            standby: {
+              enabled: true,
+              total: fields.standbyDuration.trim(),
+              motivo: fields.standbyMotivo.trim()
+            }
+          }
+        : {})
+    };
   }
 
   async function handleManualReportSubmit(event: FormEvent<HTMLFormElement>) {
@@ -2203,6 +2281,15 @@ export function GestorPage() {
       showToast('Informe numerações maiores que zero.', 'error');
       return;
     }
+    if (!manualReportTarget) {
+      const invalidOperationalData = uploadFiles
+        .map((file, index) => manualOperationalValidationMessage(file, `PDF ${index + 1}`))
+        .find(Boolean);
+      if (invalidOperationalData) {
+        showToast(invalidOperationalData, 'error');
+        return;
+      }
+    }
 
     setManualReportSubmitting(true);
     const uploadedFileIds: string[] = [];
@@ -2226,6 +2313,7 @@ export function GestorPage() {
                 serviceSystem: file.serviceSystem.trim()
               }
             : {};
+          const operationalData = manualOperationalData(file, manualReportForm.reportType);
           await reportMutations.uploadManualReport.mutateAsync({
             projectId: manualReportForm.projectId,
             reportType: manualReportForm.reportType,
@@ -2234,7 +2322,8 @@ export function GestorPage() {
             fileName: file.fileName,
             ...serviceMetadata,
             pdfDataUrl: file.pdfDataUrl,
-            signatureMode: manualReportForm.signatureMode
+            signatureMode: manualReportForm.signatureMode,
+            ...(operationalData ? { operationalData } : {})
           });
           uploadedFileIds.push(file.id);
         }
@@ -2756,6 +2845,14 @@ export function GestorPage() {
                         </>
                       ) : null}
                     </div>
+                    <ManualReportOperationalFields
+                      value={file}
+                      collaborators={activeManualReportCollaborators}
+                      disabled={submitting}
+                      showNightShift
+                      showStandby={manualReportForm.reportType === 'RDO'}
+                      onChange={patch => updateManualReportUploadFile(file.id, patch)}
+                    />
                   </div>
                 );
               })}

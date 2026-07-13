@@ -172,6 +172,8 @@ export function ReportSummaryCard({
   const owner = report.createdBy?.collaborator?.name || report.createdBy?.name || '—';
   const manualUpload = isManualUploadedReport(report);
   const services = manualUpload ? 'Relatório adicionado manualmente' : summarizeServices(report.services) || 'Sem serviços';
+  const hasWorkTimes = Boolean(report.arrivalTime || report.departureTime)
+    && (report.arrivalTime !== '00:00' || report.departureTime !== '00:00');
 
   function handleOpenDetail() {
     navigate(rdoReportDetailPath(user, report.id));
@@ -194,7 +196,7 @@ export function ReportSummaryCard({
             {owner} · {formatDate(report.reportDate)}
             <br />
             {services}
-            {!manualUpload && (report.arrivalTime || report.departureTime) ? (
+            {hasWorkTimes ? (
               <>
                 <br />
                 {report.arrivalTime} às {report.departureTime}
