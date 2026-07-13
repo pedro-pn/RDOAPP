@@ -241,6 +241,8 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
               const previsto = data.consumo.previsto;
               const totalPct = previsto && previsto > 0 ? Math.round((totalRealizado / previsto) * 100) : null;
               const omieCost = data.consumo.omie ?? Math.max(0, data.consumo.gasto - (data.consumo.estoque ?? 0));
+              const paidOmieCost = data.consumo.pago ?? 0;
+              const pendingOmieCost = data.consumo.previstoPagar ?? 0;
               const stockCost = data.consumo.estoque ?? 0;
               const rowStyle = { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 } as const;
               const hasOffshore = moCusto != null && mo.custoBase != null && Math.round(moCusto) !== Math.round(mo.custoBase);
@@ -253,6 +255,16 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     tone="cost"
                     caption={`${brl(totalRealizado)} / ${brl(previsto)}${totalPct != null ? ` · ${totalPct}%` : ''}`}
                   />
+                  <div className="acp-cost-status">
+                    <div>
+                      <span>Pago no Omie</span>
+                      <strong>{brl(paidOmieCost)}</strong>
+                    </div>
+                    <div>
+                      <span>Previsto a pagar</span>
+                      <strong>{brl(pendingOmieCost)}</strong>
+                    </div>
+                  </div>
                   <div style={{ margin: '8px 0' }}>
                     <div style={rowStyle}><span className="placeholder-copy">Compras (Omie)</span><span>{brl(omieCost)}</span></div>
                     {stockCost > 0 ? (
