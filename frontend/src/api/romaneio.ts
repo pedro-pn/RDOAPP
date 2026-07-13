@@ -34,6 +34,7 @@ export interface RomaneioItem {
   quantity: string | number;
   unitLabel: string;
   isCustom: boolean;
+  isExtra: boolean;
   sortOrder: number;
   catalogItem?: RomaneioCatalogItem | null;
 }
@@ -131,6 +132,7 @@ export interface RomaneioCreatePayload {
     quantity: number;
     unitLabel?: string;
     isCustom?: boolean;
+    isExtra?: boolean;
   }>;
 }
 

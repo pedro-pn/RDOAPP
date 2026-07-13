@@ -49,6 +49,7 @@ export function aggregateStockConsumptionMovements(movements = [], unitCostByBat
 
   for (const movement of movements) {
     if (!movement?.projectId || !PROJECT_STOCK_REASONS.includes(movement.reason)) continue;
+    if (movement.excludeFromProjectCost) continue;
     const quantity = toNum(movement.quantity);
     if (!quantity || quantity <= 0) continue;
     const ownUnitCost = toNum(movement.unitCost);
@@ -93,6 +94,7 @@ export async function getStockConsumptionCostByProject(projectIds = null, client
       reason: true,
       quantity: true,
       unitCost: true,
+      excludeFromProjectCost: true,
       item: { select: { type: true } }
     }
   });

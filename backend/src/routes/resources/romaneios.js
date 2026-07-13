@@ -87,7 +87,8 @@ const itemSchema = z.object({
   measureType: z.nativeEnum(RomaneioMeasureType).default('UNIT'),
   quantity: z.coerce.number().positive(),
   unitLabel: z.string().trim().optional(),
-  isCustom: z.boolean().default(false)
+  isCustom: z.boolean().default(false),
+  isExtra: z.boolean().default(false)
 });
 
 const checklistPayloadSchema = z.object({
@@ -404,6 +405,7 @@ function itemSnapshot(item, key, sortOrder) {
     maxQuantity: 0,
     unitLabel: item.unitLabel,
     isCustom: Boolean(item.isCustom),
+    isExtra: false,
     sortOrder
   };
 }
@@ -416,6 +418,7 @@ export function aggregateReturnableRomaneioItems(romaneios, { excludeRomaneioId 
     if (excludeRomaneioId && romaneio.id === excludeRomaneioId) return;
     const multiplier = (romaneio.type || 'OUTBOUND') === 'INBOUND' ? -1 : 1;
     (romaneio.items || []).forEach(item => {
+      if (item.isExtra) return;
       const quantity = numericQuantity(item.quantity);
       if (quantity <= 0) return;
       const key = romaneioItemReturnKey(item);
@@ -452,8 +455,32 @@ export function aggregateReturnableRomaneioItems(romaneios, { excludeRomaneioId 
 export function buildInboundRomaneioItems(inputItems, availableItems) {
   const availableByKey = new Map((availableItems || []).map(item => [romaneioItemReturnKey(item), item]));
   const requestedByKey = new Map();
+  const extraItems = [];
 
-  (inputItems || []).forEach(input => {
+  (inputItems || []).forEach((input, inputIndex) => {
+    const quantity = numericQuantity(input.quantity);
+    if (input.isExtra) {
+      if (quantity <= 0) {
+        const error = new Error('Quantidade de entrada inválida.');
+        error.statusCode = 400;
+        throw error;
+      }
+      extraItems.push({
+        catalogItemId: input.catalogItemId || null,
+        itemName: input.itemName,
+        itemCode: input.itemCode || null,
+        categoryName: input.categoryName,
+        kind: input.kind || 'EQUIPMENT',
+        measureType: input.measureType || 'UNIT',
+        quantity: Number(quantity.toFixed(3)),
+        unitLabel: input.unitLabel,
+        isCustom: Boolean(input.isCustom),
+        isExtra: true,
+        sortOrder: inputIndex
+      });
+      return;
+    }
+
     const key = romaneioItemReturnKey(input);
     const available = availableByKey.get(key);
     if (!available) {
@@ -461,39 +488,44 @@ export function buildInboundRomaneioItems(inputItems, availableItems) {
       error.statusCode = 400;
       throw error;
     }
-    const quantity = numericQuantity(input.quantity);
     const current = requestedByKey.get(key);
     if (current) {
       current.quantity += quantity;
       return;
     }
-    requestedByKey.set(key, { available, quantity });
+    requestedByKey.set(key, { available, quantity, sortOrder: inputIndex });
   });
 
-  return Array.from(requestedByKey.values()).map(({ available, quantity }, index) => {
-    if (quantity <= 0) {
-      const error = new Error('Quantidade de entrada inválida.');
-      error.statusCode = 400;
-      throw error;
-    }
-    if (quantity - numericQuantity(available.maxQuantity) > ROMANEIO_QUANTITY_EPSILON) {
-      const error = new Error('Quantidade de entrada maior que a quantidade disponível na saída.');
-      error.statusCode = 400;
-      throw error;
-    }
-    return {
-      catalogItemId: available.catalogItemId || null,
-      itemName: available.itemName,
-      itemCode: available.itemCode || null,
-      categoryName: available.categoryName,
-      kind: available.kind,
-      measureType: available.measureType,
-      quantity: Number(quantity.toFixed(3)),
-      unitLabel: available.unitLabel,
-      isCustom: available.isCustom,
-      sortOrder: index
-    };
-  });
+  return [
+    ...Array.from(requestedByKey.values()).map(({ available, quantity, sortOrder }) => {
+      if (quantity <= 0) {
+        const error = new Error('Quantidade de entrada inválida.');
+        error.statusCode = 400;
+        throw error;
+      }
+      if (quantity - numericQuantity(available.maxQuantity) > ROMANEIO_QUANTITY_EPSILON) {
+        const error = new Error('Quantidade de entrada maior que a quantidade disponível na saída.');
+        error.statusCode = 400;
+        throw error;
+      }
+      return {
+        catalogItemId: available.catalogItemId || null,
+        itemName: available.itemName,
+        itemCode: available.itemCode || null,
+        categoryName: available.categoryName,
+        kind: available.kind,
+        measureType: available.measureType,
+        quantity: Number(quantity.toFixed(3)),
+        unitLabel: available.unitLabel,
+        isCustom: available.isCustom,
+        isExtra: false,
+        sortOrder
+      };
+    }),
+    ...extraItems
+  ]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((item, index) => ({ ...item, sortOrder: index }));
 }
 
 export async function getReturnableRomaneioItemsForProject(projectId, authUser, { excludeRomaneioId = null } = {}) {
@@ -646,6 +678,7 @@ export async function buildRomaneioItems(inputItems, { allowedInactiveCatalogIte
       quantity: input.quantity,
       unitLabel,
       isCustom: !catalog || input.isCustom,
+      isExtra: Boolean(input.isExtra),
       sortOrder: index
     };
   });
@@ -923,6 +956,7 @@ async function createRomaneioStockMovements(tx, romaneio, authUser) {
       projectId: romaneio.projectId,
       requestedBy: authUserLabel(authUser),
       notes: stockMovementNoteForRomaneio(romaneio),
+      excludeFromProjectCost: romaneio.type === 'INBOUND' && item.isExtra,
       createdById: authUser.id,
       romaneioId: romaneio.id
     });
@@ -1345,6 +1379,9 @@ router.get('/:id', requireAuth, requireRomaneioAccess, asyncHandler(async (req, 
 router.post('/', requireAuth, requireRomaneioAccess, asyncHandler(async (req, res) => {
   await ensureRomaneioCatalogSynced();
   const payload = createRomaneioSchema.parse(req.body);
+  if (payload.type !== 'INBOUND' && payload.items.some(item => item.isExtra)) {
+    return res.status(400).json({ error: 'Item extra só é permitido em romaneio de entrada.' });
+  }
 
   const project = await resolveRomaneioProjectReference(payload, req.auth.user, prisma, {
     createPending: payload.type !== 'INBOUND',
@@ -1472,6 +1509,9 @@ router.post('/', requireAuth, requireRomaneioAccess, asyncHandler(async (req, re
 router.put('/:id', requireAuth, requireRomaneioAccess, requireRomaneioEditor, asyncHandler(async (req, res) => {
   await ensureRomaneioCatalogSynced();
   const payload = createRomaneioSchema.parse(req.body);
+  if (payload.type !== 'INBOUND' && payload.items.some(item => item.isExtra)) {
+    return res.status(400).json({ error: 'Item extra só é permitido em romaneio de entrada.' });
+  }
   const existing = await prisma.romaneio.findFirstOrThrow({
     where: visibleRomaneioWhere({ id: req.params.id }, req.auth.user),
     ...selectedFields()

@@ -45,6 +45,7 @@ function movement(overrides = {}) {
     projectId: overrides.projectId ?? null,
     requestedBy: overrides.requestedBy || null,
     notes: overrides.notes || null,
+    excludeFromProjectCost: overrides.excludeFromProjectCost || false,
     reversalOfId: overrides.reversalOfId || null,
     createdById: overrides.createdById || 'user-1',
     createdAt: overrides.createdAt || new Date('2026-07-01T12:00:00.000Z')
@@ -296,6 +297,7 @@ test('automatic inbound romaneio stock movement creates return batch when none e
     projectId: 'project-1',
     requestedBy: 'Operador Romaneio',
     notes: 'Romaneio retorno',
+    excludeFromProjectCost: true,
     createdById: 'user-1',
     romaneioId: 'romaneio-2'
   });
@@ -304,14 +306,23 @@ test('automatic inbound romaneio stock movement creates return batch when none e
   assert.equal(tx.state.batches[0].lotNumber, 'ROMANEIO');
   assert.equal(created[0].type, 'ENTRADA');
   assert.equal(created[0].reason, 'DEVOLUCAO_OBRA');
+  assert.equal(created[0].excludeFromProjectCost, true);
   assert.equal(created[0].romaneioId, 'romaneio-2');
 });
 
-test('romaneio-linked stock reversal preserves romaneioId', async () => {
+test('romaneio-linked stock reversal preserves romaneioId and project cost exclusion', async () => {
   const tx = fakeTx({
     movements: [
       movement({ id: 'entry-1', quantity: 5 }),
-      movement({ id: 'romaneio-exit', type: 'SAIDA', reason: 'USO_EM_PROJETO', quantity: 2, projectId: 'project-1', romaneioId: 'romaneio-1' })
+      movement({
+        id: 'romaneio-exit',
+        type: 'SAIDA',
+        reason: 'USO_EM_PROJETO',
+        quantity: 2,
+        projectId: 'project-1',
+        romaneioId: 'romaneio-1',
+        excludeFromProjectCost: true
+      })
     ]
   });
 
@@ -324,5 +335,6 @@ test('romaneio-linked stock reversal preserves romaneioId', async () => {
   assert.equal(reversed.movement.type, 'ENTRADA');
   assert.equal(reversed.movement.reason, 'ESTORNO');
   assert.equal(reversed.movement.romaneioId, 'romaneio-1');
+  assert.equal(reversed.movement.excludeFromProjectCost, true);
   assert.equal(reversed.movement.reversalOfId, 'romaneio-exit');
 });
