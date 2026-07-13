@@ -78,6 +78,13 @@ import {
   reportApprovalJobErrorText,
   scheduleReportApprovalPostProcessing
 } from '../../lib/reports/jobs.js';
+import {
+  MANUAL_REPORT_UPLOAD_KEY,
+  buildManualReportOperationalFields,
+  enrichNightCollaboratorsInSpecialConditions,
+  manualReportOperationalDataSchema,
+  updateManualReportOperationalData
+} from '../../lib/reports/manual-operational-data.js';
 import { RDO_ACCESS_ROLES, requireAuth, requireModuleRole } from '../../middleware/auth.js';
 
 const router = Router();
@@ -87,7 +94,6 @@ const REPORT_LIST_DEFAULT_PAGE_SIZE = 50;
 const REPORT_LIST_MAX_PAGE_SIZE = 100;
 const COLLABORATOR_EDIT_NOTE = 'Editado pelo colaborador';
 const CLIENT_REJECTION_KEY = '__clientRejectedAt';
-const MANUAL_REPORT_UPLOAD_KEY = '__manualUpload';
 export const MANUAL_DERIVED_SERVICE_REPORT_EDIT_KEY = '__manualDerivedServiceReportEdit';
 const MANUAL_REPORT_MAX_PDF_BYTES = 20 * 1024 * 1024;
 const DERIVED_SERVICE_REPORT_TYPES = new Set([
@@ -3663,7 +3669,8 @@ const manualReportUploadSchema = z.object({
   serviceEquipment: z.string().trim().max(180).optional(),
   serviceSystem: z.string().trim().max(180).optional(),
   pdfDataUrl: z.string().trim().min(1).max(30_000_000),
-  signatureMode: manualReportSignatureModeSchema.default('APPROVED')
+  signatureMode: manualReportSignatureModeSchema.default('APPROVED'),
+  operationalData: manualReportOperationalDataSchema.optional()
 });
 const manualReportPdfReplaceSchema = z.object({
   fileName: z.string().trim().max(240).optional(),
@@ -3683,53 +3690,6 @@ function cloneJson(value) {
 
 function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-}
-
-function textValue(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function nightCollaboratorInput(value) {
-  if (typeof value === 'string') return { name: value.trim(), role: '' };
-  const record = plainObject(value);
-  return {
-    id: textValue(record.id),
-    name: textValue(record.name),
-    role: textValue(record.role)
-  };
-}
-
-export async function enrichNightCollaboratorsInSpecialConditions(tx, specialConditions) {
-  const next = cloneJson(plainObject(specialConditions));
-  const noturnoDetails = plainObject(next.noturnoDetails);
-  const collaboratorIds = Array.isArray(noturnoDetails.collaboratorIds)
-    ? uniqueIds(noturnoDetails.collaboratorIds.filter(id => typeof id === 'string'))
-    : [];
-  if (!collaboratorIds.length) return next;
-
-  const collaborators = await tx.collaborator.findMany({
-    where: { id: { in: collaboratorIds } },
-    select: { id: true, name: true, role: true }
-  });
-  const byId = new Map(collaborators.map(collaborator => [collaborator.id, collaborator]));
-  const existing = Array.isArray(noturnoDetails.colaboradores)
-    ? noturnoDetails.colaboradores.map(nightCollaboratorInput)
-    : [];
-
-  next.noturnoDetails = {
-    ...noturnoDetails,
-    collaboratorIds,
-    colaboradores: collaboratorIds.map((id, index) => {
-      const current = existing[index] || {};
-      const collaborator = byId.get(id);
-      return {
-        id,
-        name: current.name || collaborator?.name || id,
-        role: current.role || collaborator?.role || ''
-      };
-    })
-  };
-  return next;
 }
 
 export async function assertRenderableReportSignatureImageDataUrl(value) {
@@ -6069,6 +6029,11 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
         }
       }
 
+      const operationalFields = await buildManualReportOperationalFields(tx, project, reportDate, data.operationalData, data.reportType);
+      const storedSpecialConditions = {
+        ...manualSpecialConditions,
+        ...operationalFields.specialConditions
+      };
       const created = await tx.report.create({
         data: {
           projectId: data.projectId,
@@ -6078,18 +6043,17 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
           sequenceNumber,
           status: signed ? ReportStatus.SIGNED : ReportStatus.APPROVED,
           reportDate,
-          arrivalTime: '00:00',
-          departureTime: '00:00',
-          lunchBreak: '00:00:00',
-          daytimeCount: 0,
-          daytimeWorkedMinutes: 0,
-          nighttimeWorkedMinutes: 0,
-          daytimeOvertimeMinutes: 0,
-          nighttimeOvertimeMinutes: 0,
-          totalOvertimeMinutes: 0,
+          ...operationalFields.data,
           approvedAt: new Date(),
-          specialConditions: manualSpecialConditions,
-          pendingDerivedTypes: []
+          specialConditions: storedSpecialConditions,
+          pendingDerivedTypes: [],
+          ...(operationalFields.collaboratorIds.length
+            ? {
+                collaborators: {
+                  create: operationalFields.collaboratorIds.map(collaboratorId => ({ collaboratorId }))
+                }
+              }
+            : {})
         },
         include
       });
@@ -6118,6 +6082,23 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
   }
   statisticsProjectsCache.clear();
   res.status(201).json(reportWithSignatureEmailDelivery(item, signaturePreparation));
+}));
+
+router.put('/:id/manual-data', requireAuth, requireRdoManager, asyncHandler(async (req, res) => {
+  const result = await updateManualReportOperationalData({
+    prisma,
+    reportId: req.params.id,
+    body: req.body,
+    userId: req.auth.user.id,
+    include,
+    isReportUnavailable,
+    isManualUploaded: report => Boolean(manualReportUploadMeta(report).uploadedAt),
+    assertUniqueReportDate
+  });
+  if (result.status) return res.status(result.status).json(result.body);
+
+  statisticsProjectsCache.clear();
+  res.json(result.item);
 }));
 
 router.put('/:id/manual-pdf', requireAuth, requireRdoManager, asyncHandler(async (req, res) => {

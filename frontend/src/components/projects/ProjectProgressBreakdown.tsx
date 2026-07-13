@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { getProjectProgress, type ProgressSystem } from '../../api/acompanhamentoComercial';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -21,7 +22,11 @@ function systemLine(sys: ProgressSystem) {
 
 // Avanço físico do projeto (RDO ponderado por serviço) — realizado dos RDOs × escopo previsto.
 export function ProjectProgressBreakdown({ projectId }: { projectId: string }) {
-  const { data, isLoading } = useQuery({ queryKey: ['project-progress', projectId], queryFn: () => getProjectProgress(projectId) });
+  const { data, isLoading } = useQuery({
+    queryKey: ['project-progress', projectId],
+    queryFn: () => getProjectProgress(projectId),
+    ...acompanhamentoRefreshQueryOptions
+  });
 
   if (isLoading) return <div className="placeholder-copy">Calculando avanço…</div>;
   if (!data || !data.hasScope) {
