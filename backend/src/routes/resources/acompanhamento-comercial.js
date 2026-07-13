@@ -29,6 +29,7 @@ import { buildOmieCostCategoryWhere } from '../../lib/acompanhamento/cost-catego
 import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
+import { listSedeCosts } from '../../lib/acompanhamento/sede-costs.js';
 import prisma from '../../lib/prisma.js';
 import { canViewAcompanhamentoLaborCosts, requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
@@ -151,6 +152,17 @@ router.get(
       }))
       .sort((a, b) => Number(b.total ?? 0) - Number(a.total ?? 0));
     res.json(rows);
+  })
+);
+
+// Custos administrativos por códigos fixos do Omie, sem cadastrar esses códigos como Project.
+router.get(
+  '/sede',
+  requireAuth,
+  requireAcompanhamentoAccess,
+  asyncHandler(async (_req, res) => {
+    const data = await listSedeCosts();
+    res.json(data);
   })
 );
 

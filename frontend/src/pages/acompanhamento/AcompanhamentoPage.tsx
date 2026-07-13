@@ -7,10 +7,11 @@ import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { AcompanhamentoDashboard } from '../../components/projects/AcompanhamentoDashboard';
 import { ProjectCardsBoard } from '../../components/projects/ProjectCardsBoard';
+import { SedeCostsBoard } from '../../components/projects/SedeCostsBoard';
 import { CostEngineManager } from '../../components/projects/CostEngineManager';
 import { AcompanhamentoTutorial } from '../../components/AcompanhamentoTutorial';
 
-type Section = 'dashboard' | 'projetos' | 'custo';
+type Section = 'dashboard' | 'projetos' | 'sede' | 'custo';
 
 function tutorialUserKey(user: ReturnType<typeof useAuth>['user'], isManager: boolean) {
   const identity = String(user?.email || user?.username || user?.id || '').trim().toLowerCase();
@@ -61,6 +62,10 @@ export function AcompanhamentoPage() {
               <span className="equip-nav-ico" aria-hidden="true">▦</span>
               <span className="equip-nav-label">Projetos</span>
             </button>
+            <button className={`equip-nav-item ${section === 'sede' ? 'active' : ''}`} type="button" aria-current={section === 'sede'} onClick={() => setSection('sede')}>
+              <span className="equip-nav-ico" aria-hidden="true">⌂</span>
+              <span className="equip-nav-label">Sede</span>
+            </button>
             {hasAcompanhamentoAccess ? (
               <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
                 <span className="equip-nav-ico" aria-hidden="true">$</span>
@@ -79,12 +84,14 @@ export function AcompanhamentoPage() {
             >
               <option value="dashboard">Dashboard</option>
               <option value="projetos">Projetos</option>
+              <option value="sede">Sede</option>
               {hasAcompanhamentoAccess ? <option value="custo">Custo</option> : null}
             </select>
           </div>
 
           <section className="equip-content">
             {section === 'projetos' ? <ProjectCardsBoard canManage={hasAcompanhamentoAccess} />
+              : section === 'sede' ? <SedeCostsBoard />
               : section === 'custo' && hasAcompanhamentoAccess ? <CostEngineManager canManageCosts={isManager} />
               : <AcompanhamentoDashboard canManage={hasAcompanhamentoAccess} />}
           </section>

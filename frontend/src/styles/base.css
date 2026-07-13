@@ -2130,6 +2130,74 @@ a {
 .acp-pcard-click:hover { box-shadow: 0 14px 34px rgba(20, 20, 20, 0.12); transform: translateY(-1px); }
 .acp-pcard-click:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
 
+/* Aba Sede — centros de custo fixos do Omie */
+.acp-sede-wrap { min-width: 0; }
+.acp-sede-grid { align-items: start; }
+.acp-sede-card { min-width: 0; }
+.acp-sede-total {
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--g);
+}
+.acp-sede-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-top: 1px solid var(--br);
+  padding-top: 9px;
+}
+.acp-sede-block-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mu);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.acp-sede-months,
+.acp-sede-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.acp-sede-month {
+  display: grid;
+  grid-template-columns: 72px minmax(80px, 1fr) minmax(86px, auto);
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.acp-sede-month-label {
+  color: var(--mu);
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+.acp-sede-month-value {
+  text-align: right;
+  font-weight: 700;
+  color: var(--tx);
+  white-space: nowrap;
+}
+.acp-sede-cat {
+  align-items: flex-start;
+  font-size: 12px;
+}
+.acp-sede-cat > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 420px) {
+  .acp-sede-month {
+    grid-template-columns: 66px 1fr;
+  }
+  .acp-sede-month-value {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+
 /* Balão de ajuda reutilizável (ícone "?" em campos, ou label pontilhado em dashboards) */
 .help-tip { position: relative; display: inline-flex; align-items: center; gap: 4px; outline: none; vertical-align: middle; }
 .help-tip-underline .help-tip-target { border-bottom: 1px dotted var(--mu); cursor: help; }
