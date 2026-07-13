@@ -4136,17 +4136,18 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 }
 
 .romaneio-extra-list {
-  display: grid;
-  gap: 12px;
-  align-content: start;
-  overflow-y: auto;
+  display: block;
+  height: 100%;
+  overflow-y: hidden;
   overflow-x: hidden;
   padding-right: 4px;
 }
 
 .romaneio-extra-category {
   display: grid;
-  gap: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
   border: 1px solid var(--br);
   border-radius: var(--rs);
   background: var(--wh);
@@ -4182,6 +4183,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   padding: 1px 7px;
   text-align: center;
   font-size: 11px;
+}
+
+.romaneio-extra-items {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .romaneio-extra-category .romaneio-catalog-row {
