@@ -10,7 +10,7 @@ import { matchesSearch, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
 import type { UserRole } from '../../types/auth';
-import { downloadReportDocx, downloadReportPdf, downloadReportsBatch, type ManualReportOperationalData } from '../../api/reports';
+import { downloadReportDocx, downloadReportPdf, downloadReportsBatch } from '../../api/reports';
 import type { SurveyQuestionType } from '../../api/surveys';
 
 import { useAuth } from '../../auth/AuthContext';
@@ -18,6 +18,11 @@ import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { rdoPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
+import {
+  buildManualReportOperationalData,
+  emptyManualReportOperationalFields,
+  validateManualReportOperationalFields
+} from '../../components/reports/manualReportOperationalData';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
 import { ImageDropzone } from '../../components/ui/ImageDropzone';
@@ -292,23 +297,6 @@ const emptyProjectForm: ProjectFormState = {
   includesSunday: false,
   reportSequences: projectReportSequencesToForm()
 };
-
-function emptyManualReportOperationalFields(): ManualReportOperationalFieldsValue {
-  return {
-    arrivalTime: '',
-    departureTime: '',
-    lunchBreak: '01:00:00',
-    collaboratorIds: [],
-    noturno: false,
-    noturnoStart: '',
-    noturnoEnd: '',
-    noturnoInterval: '01:00:00',
-    noturnoCollaboratorIds: [],
-    standby: false,
-    standbyDuration: '',
-    standbyMotivo: ''
-  };
-}
 
 const emptyManualReportForm: ManualReportFormState = {
   projectId: '',
@@ -2186,59 +2174,6 @@ export function GestorPage() {
     }));
   }
 
-  function manualOperationalValidationMessage(fields: ManualReportOperationalFieldsValue, label: string) {
-    const hasArrival = Boolean(fields.arrivalTime.trim());
-    const hasDeparture = Boolean(fields.departureTime.trim());
-    if (hasArrival !== hasDeparture) {
-      return `Informe entrada e saída em ${label}.`;
-    }
-    if (fields.noturno && (!fields.noturnoStart.trim() || !fields.noturnoEnd.trim())) {
-      return `Informe início e término do turno noturno em ${label}.`;
-    }
-    if (fields.standby && (!fields.standbyDuration.trim() || !fields.standbyMotivo.trim())) {
-      return `Informe tempo total e motivo do stand-by em ${label}.`;
-    }
-    return null;
-  }
-
-  function manualOperationalData(fields: ManualReportOperationalFieldsValue, reportType: ReportType): ManualReportOperationalData | undefined {
-    const arrivalTime = fields.arrivalTime.trim();
-    const departureTime = fields.departureTime.trim();
-    const lunchBreak = fields.lunchBreak.trim();
-    const collaboratorIds = Array.from(new Set(fields.collaboratorIds));
-    const hasDayData = Boolean(arrivalTime || departureTime || collaboratorIds.length);
-    const hasNightData = fields.noturno;
-    const hasStandbyData = reportType === 'RDO' && fields.standby;
-    if (!hasDayData && !hasNightData && !hasStandbyData) return undefined;
-
-    return {
-      ...(arrivalTime ? { arrivalTime } : {}),
-      ...(departureTime ? { departureTime } : {}),
-      ...(hasDayData && (arrivalTime || departureTime || lunchBreak) ? { lunchBreak: lunchBreak || '01:00:00' } : {}),
-      ...(collaboratorIds.length ? { collaboratorIds } : {}),
-      ...(fields.noturno
-        ? {
-            noturno: {
-              enabled: true,
-              inicio: fields.noturnoStart.trim(),
-              termino: fields.noturnoEnd.trim(),
-              intervalo: fields.noturnoInterval.trim() || '01:00:00',
-              collaboratorIds: Array.from(new Set(fields.noturnoCollaboratorIds))
-            }
-          }
-        : {}),
-      ...(hasStandbyData
-        ? {
-            standby: {
-              enabled: true,
-              total: fields.standbyDuration.trim(),
-              motivo: fields.standbyMotivo.trim()
-            }
-          }
-        : {})
-    };
-  }
-
   async function handleManualReportSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (manualReportSubmitting) return;
@@ -2283,7 +2218,10 @@ export function GestorPage() {
     }
     if (!manualReportTarget) {
       const invalidOperationalData = uploadFiles
-        .map((file, index) => manualOperationalValidationMessage(file, `PDF ${index + 1}`))
+        .map((file, index) => validateManualReportOperationalFields(file, {
+          reportType: manualReportForm.reportType,
+          label: `PDF ${index + 1}`
+        }))
         .find(Boolean);
       if (invalidOperationalData) {
         showToast(invalidOperationalData, 'error');
@@ -2313,7 +2251,7 @@ export function GestorPage() {
                 serviceSystem: file.serviceSystem.trim()
               }
             : {};
-          const operationalData = manualOperationalData(file, manualReportForm.reportType);
+          const operationalData = buildManualReportOperationalData(file, manualReportForm.reportType);
           await reportMutations.uploadManualReport.mutateAsync({
             projectId: manualReportForm.projectId,
             reportType: manualReportForm.reportType,

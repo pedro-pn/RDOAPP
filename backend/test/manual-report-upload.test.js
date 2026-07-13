@@ -7,7 +7,7 @@ import {
   buildManualReportOperationalFields,
   manualReportOperationalDataSchema,
   manualReportOperationalSpecialConditions
-} from '../src/routes/resources/reports.js';
+} from '../src/lib/reports/manual-operational-data.js';
 
 const project = {
   workdayHours: '09:00',

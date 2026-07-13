@@ -20,8 +20,10 @@ interface ManualReportOperationalFieldsProps {
   collaborators: Collaborator[];
   disabled?: boolean;
   defaultOpen?: boolean;
+  embedded?: boolean;
   showNightShift?: boolean;
   showStandby?: boolean;
+  summaryLabel?: string;
   onChange: (patch: Partial<ManualReportOperationalFieldsValue>) => void;
 }
 
@@ -40,8 +42,10 @@ export function ManualReportOperationalFields({
   collaborators,
   disabled = false,
   defaultOpen = false,
+  embedded = false,
   showNightShift = false,
   showStandby = false,
+  summaryLabel = 'Dados operacionais (opcional)',
   onChange
 }: ManualReportOperationalFieldsProps) {
   function renderSelected(ids: string[], field: 'collaboratorIds' | 'noturnoCollaboratorIds') {
@@ -94,10 +98,8 @@ export function ManualReportOperationalFields({
     );
   }
 
-  return (
-    <details className="manual-operational-fields" {...(defaultOpen ? { open: true } : {})}>
-      <summary>Dados operacionais (opcional)</summary>
-      <div className="manual-operational-body">
+  const body = (
+    <div className="manual-operational-body">
         <div className="manual-operational-grid">
           <div className="field-group">
             <label>Entrada</label>
@@ -219,6 +221,16 @@ export function ManualReportOperationalFields({
           </div>
         ) : null}
       </div>
+  );
+
+  if (embedded) {
+    return <div className="manual-operational-fields manual-operational-fields-embedded">{body}</div>;
+  }
+
+  return (
+    <details className="manual-operational-fields" {...(defaultOpen ? { open: true } : {})}>
+      <summary>{summaryLabel}</summary>
+      {body}
     </details>
   );
 }
