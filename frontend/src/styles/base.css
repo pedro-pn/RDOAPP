@@ -5266,95 +5266,38 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.manual-operational-fields {
+.manual-operational-sections {
   grid-column: 1 / -1;
-  border: 1px solid var(--br);
-  border-radius: var(--r);
-  background: var(--bg);
-  overflow: hidden;
-}
-
-.manual-operational-fields > summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--tx);
-  background: var(--wh);
-}
-
-.manual-operational-fields > summary::-webkit-details-marker {
-  display: none;
-}
-
-.manual-operational-fields > summary::after {
-  content: "▾";
-  float: right;
-  color: var(--mu);
-}
-
-.manual-operational-fields:not([open]) > summary::after {
-  content: "▸";
-}
-
-.manual-operational-body {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  min-width: 0;
+}
+
+.manual-operational-fields-embedded {
+  grid-column: auto;
+}
+
+.manual-operational-section {
+  min-width: 0;
+}
+
+.manual-operational-section + .manual-operational-section {
+  padding-top: 12px;
   border-top: 1px solid var(--br);
 }
 
-.manual-operational-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.manual-operational-lunch {
+  margin-top: 10px;
 }
 
-.manual-operational-team-label {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--tx);
-}
-
-.manual-operational-add {
-  margin-top: 6px;
-}
-
-.manual-operational-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--tx);
-}
-
-.manual-operational-toggle input {
-  width: 18px;
-  height: 18px;
-}
-
-.manual-operational-night-fields,
-.manual-operational-standby-fields {
-  margin-top: 4px;
-}
-
-.manual-operational-wide {
-  grid-column: span 2;
+.manual-operational-subtitle {
+  margin-top: 14px;
 }
 
 @media (max-width: 760px) {
   .manual-report-file-fields,
-  .manual-report-file-fields.with-service,
-  .manual-operational-grid {
+  .manual-report-file-fields.with-service {
     grid-template-columns: 1fr;
-  }
-
-  .manual-operational-wide {
-    grid-column: auto;
   }
 }
 

@@ -41,7 +41,6 @@ export function ManualReportOperationalFields({
   value,
   collaborators,
   disabled = false,
-  defaultOpen = false,
   embedded = false,
   showNightShift = false,
   showStandby = false,
@@ -60,27 +59,29 @@ export function ManualReportOperationalFields({
           onClick={() => onChange({ [field]: ids.filter(item => item !== id) })}
           aria-label="Remover colaborador"
         >
-          x
+          ×
         </button>
       </span>
     ));
   }
 
-  function renderPicker(ids: string[], field: 'collaboratorIds' | 'noturnoCollaboratorIds', label: string) {
+  function renderPicker(
+    ids: string[],
+    field: 'collaboratorIds' | 'noturnoCollaboratorIds'
+  ) {
     return (
       <>
-        <div className="manual-operational-team-label">{label}</div>
         <div className="colab-list">
           {renderSelected(ids, field)}
         </div>
-        <div className="cadd manual-operational-add">
+        <div className="cadd">
           <select
             value=""
             disabled={disabled}
             onChange={event => {
-              const id = event.target.value;
-              if (!id) return;
-              onChange({ [field]: unique([...ids, id]) });
+              const selectedId = event.target.value;
+              if (!selectedId) return;
+              onChange({ [field]: unique([...ids, selectedId]) });
             }}
           >
             <option value="">Adicionar...</option>
@@ -99,10 +100,12 @@ export function ManualReportOperationalFields({
   }
 
   const body = (
-    <div className="manual-operational-body">
-        <div className="manual-operational-grid">
+    <>
+      <section className="manual-operational-section">
+        <div className="section-title">Horários</div>
+        <div className="fg-r2">
           <div className="field-group">
-            <label>Entrada</label>
+            <label>Chegada</label>
             <input
               type="time"
               value={value.arrivalTime}
@@ -119,53 +122,107 @@ export function ManualReportOperationalFields({
               onChange={event => onChange({ departureTime: event.target.value })}
             />
           </div>
-          <div className="field-group">
-            <label>Intervalo de almoço</label>
-            <input
-              type="time"
-              step={1}
-              value={value.lunchBreak}
-              disabled={disabled}
-              onChange={event => onChange({ lunchBreak: event.target.value })}
-            />
-          </div>
         </div>
+        <div className="field-group manual-operational-lunch">
+          <label>Intervalo de almoço</label>
+          <input
+            type="time"
+            step={1}
+            value={value.lunchBreak}
+            disabled={disabled}
+            onChange={event => onChange({ lunchBreak: event.target.value })}
+          />
+        </div>
+      </section>
 
-        {renderPicker(value.collaboratorIds, 'collaboratorIds', 'Equipe diurna')}
+      <section className="manual-operational-section">
+        <div className="section-title">Equipe diurna</div>
+        {renderPicker(value.collaboratorIds, 'collaboratorIds')}
+      </section>
 
-        {showNightShift ? (
-          <div className="manual-operational-night">
-            <label className="manual-operational-toggle">
-              <span>Turno noturno</span>
-              <input
-                type="checkbox"
-                checked={value.noturno}
-                disabled={disabled}
-                onChange={event => onChange({ noturno: event.target.checked })}
-              />
-            </label>
-            {value.noturno ? (
-              <div className="collapse-section manual-operational-night-fields">
-                <div className="manual-operational-grid">
-                  <div className="field-group">
-                    <label>Início</label>
-                    <input
-                      type="time"
-                      value={value.noturnoStart}
-                      disabled={disabled}
-                      onChange={event => onChange({ noturnoStart: event.target.value })}
-                    />
+      {showNightShift || showStandby ? (
+        <section className="manual-operational-section">
+          <div className="section-title">Condições especiais</div>
+
+          {showStandby ? (
+            <>
+              <div className="tog-row">
+                <span className="tog-lbl">Houve standby?</span>
+                <label className="tog">
+                  <input
+                    type="checkbox"
+                    checked={value.standby}
+                    disabled={disabled}
+                    onChange={event => onChange({ standby: event.target.checked })}
+                  />
+                  <span className="tog-sl" />
+                </label>
+              </div>
+              {value.standby ? (
+                <div className="collapse-section">
+                  <div className="fg-r2">
+                    <div className="field-group">
+                      <label>Tempo total</label>
+                      <input
+                        type="time"
+                        step={1}
+                        value={value.standbyDuration}
+                        disabled={disabled}
+                        onChange={event => onChange({ standbyDuration: event.target.value })}
+                      />
+                    </div>
+                    <div className="field-group">
+                      <label>Motivo</label>
+                      <input
+                        value={value.standbyMotivo}
+                        disabled={disabled}
+                        onChange={event => onChange({ standbyMotivo: event.target.value })}
+                        placeholder="Motivo do stand-by"
+                      />
+                    </div>
                   </div>
-                  <div className="field-group">
-                    <label>Término</label>
-                    <input
-                      type="time"
-                      value={value.noturnoEnd}
-                      disabled={disabled}
-                      onChange={event => onChange({ noturnoEnd: event.target.value })}
-                    />
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {showNightShift ? (
+            <>
+              <div className="tog-row">
+                <span className="tog-lbl">Houve turno noturno?</span>
+                <label className="tog">
+                  <input
+                    type="checkbox"
+                    checked={value.noturno}
+                    disabled={disabled}
+                    onChange={event => onChange({ noturno: event.target.checked })}
+                  />
+                  <span className="tog-sl" />
+                </label>
+              </div>
+              {value.noturno ? (
+                <div className="collapse-section noturno-section">
+                  <div className="fg-r2 night-time-grid">
+                    <div className="field-group">
+                      <label>Início</label>
+                      <input
+                        type="time"
+                        value={value.noturnoStart}
+                        disabled={disabled}
+                        onChange={event => onChange({ noturnoStart: event.target.value })}
+                      />
+                    </div>
+                    <div className="field-group">
+                      <label>Término</label>
+                      <input
+                        type="time"
+                        value={value.noturnoEnd}
+                        disabled={disabled}
+                        onChange={event => onChange({ noturnoEnd: event.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div className="field-group">
+                  <div className="field-group manual-operational-lunch">
                     <label>Intervalo noturno</label>
                     <input
                       type="time"
@@ -175,62 +232,23 @@ export function ManualReportOperationalFields({
                       onChange={event => onChange({ noturnoInterval: event.target.value })}
                     />
                   </div>
+                  <div className="section-title manual-operational-subtitle">Equipe noturna</div>
+                  {renderPicker(value.noturnoCollaboratorIds, 'noturnoCollaboratorIds')}
                 </div>
-                {renderPicker(value.noturnoCollaboratorIds, 'noturnoCollaboratorIds', 'Equipe noturna')}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {showStandby ? (
-          <div className="manual-operational-standby">
-            <label className="manual-operational-toggle">
-              <span>Stand-by</span>
-              <input
-                type="checkbox"
-                checked={value.standby}
-                disabled={disabled}
-                onChange={event => onChange({ standby: event.target.checked })}
-              />
-            </label>
-            {value.standby ? (
-              <div className="collapse-section manual-operational-standby-fields">
-                <div className="manual-operational-grid">
-                  <div className="field-group">
-                    <label>Tempo total</label>
-                    <input
-                      type="time"
-                      step={1}
-                      value={value.standbyDuration}
-                      disabled={disabled}
-                      onChange={event => onChange({ standbyDuration: event.target.value })}
-                    />
-                  </div>
-                  <div className="field-group manual-operational-wide">
-                    <label>Motivo</label>
-                    <input
-                      value={value.standbyMotivo}
-                      disabled={disabled}
-                      onChange={event => onChange({ standbyMotivo: event.target.value })}
-                      placeholder="Motivo do stand-by"
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+              ) : null}
+            </>
+          ) : null}
+        </section>
+      ) : null}
+    </>
   );
 
-  if (embedded) {
-    return <div className="manual-operational-fields manual-operational-fields-embedded">{body}</div>;
-  }
-
   return (
-    <details className="manual-operational-fields" {...(defaultOpen ? { open: true } : {})}>
-      <summary>{summaryLabel}</summary>
+    <div
+      className={`manual-operational-sections ${embedded ? 'manual-operational-fields-embedded' : ''}`}
+      aria-label={summaryLabel}
+    >
       {body}
-    </details>
+    </div>
   );
 }
