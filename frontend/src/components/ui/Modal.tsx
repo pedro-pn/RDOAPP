@@ -28,7 +28,7 @@ export function Modal({
   onClose,
   ariaLabelledBy,
   ariaDescribedBy,
-  closeOnBackdrop = true,
+  closeOnBackdrop = false,
   closeOnEscape = true,
   backdropClassName = 'modal-backdrop',
   panelClassName = 'modal-card'
