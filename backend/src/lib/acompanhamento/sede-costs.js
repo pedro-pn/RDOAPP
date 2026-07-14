@@ -70,9 +70,11 @@ function compareMonthDesc(a, b) {
 export function buildSedeCostCards(purchases = [], {
   centers = SEDE_COST_CENTERS,
   now = new Date(),
-  monthsLimit = 12
+  monthsLimit = null,
+  range = null
 } = {}) {
   const currentKey = currentMonthKey(now);
+  const availableMonths = new Set();
   const cards = new Map(centers.map(center => [center.code, {
     ...emptyCenter(center),
     monthlyMap: new Map(),
@@ -87,6 +89,9 @@ export function buildSedeCostCards(purchases = [], {
     const value = toNumber(row.valor);
     const date = purchaseDate(row);
     const key = monthKey(date);
+    if (key !== 'sem-data') availableMonths.add(key);
+    if (range && (key === 'sem-data' || key < range.fromMonth || key > range.toMonth)) continue;
+
     const paid = isPaid(row.statusTitulo);
     const category = row.categoriaDescricao || row.categoriaCodigo || 'Sem categoria';
 
@@ -113,9 +118,11 @@ export function buildSedeCostCards(purchases = [], {
   }
 
   const resultCards = [...cards.values()].map(card => {
-    const monthly = [...card.monthlyMap.values()]
-      .sort(compareMonthDesc)
-      .slice(0, monthsLimit)
+    const monthlyItems = [...card.monthlyMap.values()].sort(compareMonthDesc);
+    const visibleMonthlyItems = Number.isInteger(monthsLimit) && monthsLimit > 0
+      ? monthlyItems.slice(0, monthsLimit)
+      : monthlyItems;
+    const monthly = visibleMonthlyItems
       .map(item => ({
         ...item,
         total: roundMoney(item.total),
@@ -155,6 +162,7 @@ export function buildSedeCostCards(purchases = [], {
     codes: SEDE_OMIE_CODES,
     currentMonth: currentKey,
     currentMonthLabel: monthLabel(currentKey),
+    availableMonths: [...availableMonths].sort(),
     summary: {
       total: roundMoney(summary.total),
       paidTotal: roundMoney(summary.paidTotal),
@@ -166,7 +174,7 @@ export function buildSedeCostCards(purchases = [], {
   };
 }
 
-export async function listSedeCosts({ monthsLimit = 12 } = {}) {
+export async function listSedeCosts({ monthsLimit = null, range = null } = {}) {
   const categoryWhere = await buildOmieCostCategoryWhere();
   const omieProjects = await prisma.omieProject.findMany({
     where: {
@@ -205,5 +213,5 @@ export async function listSedeCosts({ monthsLimit = 12 } = {}) {
       { syncedAt: 'desc' }
     ]
   });
-  return buildSedeCostCards(purchases, { monthsLimit });
+  return buildSedeCostCards(purchases, { monthsLimit, range });
 }

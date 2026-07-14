@@ -14,7 +14,12 @@ function toNum(value?: string | number | null) {
   return Number.isFinite(n) ? n : null;
 }
 function brl(value?: number | null) {
-  return value === null || value === undefined ? '—' : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value === null || value === undefined ? '—' : value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 function pct(value?: string | number | null) {
   const n = toNum(value);

@@ -28,7 +28,12 @@ const DAY_META: Record<DayStatus, { cls: string; label: string }> = {
 };
 
 const brl = (n?: number | null) =>
-  n === null || n === undefined ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  n === null || n === undefined ? '—' : n.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 const fmtPct = (n?: number | null) =>
   n === null || n === undefined ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 const fmtHours = (n?: number | null) =>

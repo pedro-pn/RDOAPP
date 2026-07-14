@@ -1785,6 +1785,16 @@ a {
 }
 .acp-seg-btn.active .acp-seg-count { background: var(--g); color: var(--wh); }
 
+[data-acp-sede-filters] .acp-seg {
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+[data-acp-sede-filters] .acp-seg-btn {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
 .acp-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

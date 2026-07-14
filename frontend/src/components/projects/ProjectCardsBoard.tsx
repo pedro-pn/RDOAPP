@@ -15,7 +15,12 @@ function pct(value?: number | null) {
 }
 function brl(value?: number | null) {
   return value === null || value === undefined ? '—'
-    : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    : value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
 }
 function fmtHours(value?: number | null) {
   return value === null || value === undefined ? '—'

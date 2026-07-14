@@ -169,6 +169,7 @@ export interface SedeCostsResponse {
   codes: string[];
   currentMonth: string;
   currentMonthLabel: string;
+  availableMonths: string[];
   summary: {
     total: number;
     paidTotal: number;
@@ -179,8 +180,10 @@ export interface SedeCostsResponse {
   cards: SedeCostCard[];
 }
 
-export async function getSedeCosts(): Promise<SedeCostsResponse> {
-  const { data } = await apiClient.get<SedeCostsResponse>('/acompanhamento/comercial/sede');
+export async function getSedeCosts(params?: { from: string; to: string }): Promise<SedeCostsResponse> {
+  const { data } = await apiClient.get<SedeCostsResponse>('/acompanhamento/comercial/sede', {
+    params: params ? { from: params.from, to: params.to } : undefined
+  });
   return data;
 }
 
