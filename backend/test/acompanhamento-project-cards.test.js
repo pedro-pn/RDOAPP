@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildWorkedHoursProgress, lastDayStatus } from '../src/lib/acompanhamento/project-cards.js';
+import {
+  buildWorkedHoursProgress,
+  deriveProjectCardCategory,
+  lastDayStatus
+} from '../src/lib/acompanhamento/project-cards.js';
 
 const project = { workdayHours: '09:00', weekendWorkdayHours: '08:00' };
 // Quarta-feira (dia útil, jornada 9h)
@@ -60,4 +64,43 @@ test('buildWorkedHoursProgress sem previsto não calcula percentuais', () => {
   assert.equal(out.normalPct, null);
   assert.equal(out.overtimePct, null);
   assert.equal(out.totalPct, null);
+});
+
+test('deriveProjectCardCategory: arquivado sempre fica em arquivados', () => {
+  assert.equal(deriveProjectCardCategory({
+    archived: true,
+    workedDays: 0,
+    workedHours: { totalWorkedHours: 0 },
+    progressPct: 0
+  }), 'ARQUIVADO');
+});
+
+test('deriveProjectCardCategory: ativo sem dias, horas e avanço fica em futuros', () => {
+  assert.equal(deriveProjectCardCategory({
+    archived: false,
+    workedDays: 0,
+    workedHours: { totalWorkedHours: 0 },
+    progressPct: null
+  }), 'FUTURO');
+});
+
+test('deriveProjectCardCategory: dias, horas ou avanço tiram de futuros', () => {
+  assert.equal(deriveProjectCardCategory({
+    archived: false,
+    workedDays: 1,
+    workedHours: { totalWorkedHours: 0 },
+    progressPct: 0
+  }), 'ANDAMENTO');
+  assert.equal(deriveProjectCardCategory({
+    archived: false,
+    workedDays: 0,
+    workedHours: { totalWorkedHours: 0.5 },
+    progressPct: 0
+  }), 'ANDAMENTO');
+  assert.equal(deriveProjectCardCategory({
+    archived: false,
+    workedDays: 0,
+    workedHours: { totalWorkedHours: 0 },
+    progressPct: 0.1
+  }), 'ANDAMENTO');
 });

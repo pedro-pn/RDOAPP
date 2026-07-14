@@ -288,6 +288,7 @@ export async function getProjectProgress(projectId: string): Promise<ProjectProg
 // --- Cards da aba Projetos ---
 
 export type LastDayStatus = 'TRABALHADO' | 'PARADO' | 'SEM_RDO';
+export type ProjectCardCategory = 'ANDAMENTO' | 'FUTURO' | 'ARQUIVADO';
 
 export interface WorkedHoursProgress {
   normalWorkedHours: number;
@@ -308,6 +309,7 @@ export interface ProjectCard {
   name: string;
   clientName: string;
   archived: boolean;
+  category: ProjectCardCategory;
   workedDays: number;
   totalDays: number | null;
   daysConsumedPct: number | null;
