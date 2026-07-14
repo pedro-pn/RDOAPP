@@ -38,6 +38,11 @@ const fmtPct = (n?: number | null) =>
   n === null || n === undefined ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 const fmtHours = (n?: number | null) =>
   n === null || n === undefined ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}h`;
+const toNum = (value?: string | number | null) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+};
 function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -305,6 +310,56 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
               );
             })()}
           </div>
+
+          {data.presumedProfitTaxes ? (() => {
+            const taxes = data.presumedProfitTaxes;
+            const expectedRevenue = toNum(data.faturamento.previsto);
+            const invoicedRevenue = toNum(data.faturamento.realizado);
+            const hasOmieInvoice = taxes.basisSource === 'OMIE_INVOICED';
+            const rowStyle = { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 } as const;
+            return (
+              <div className="page-card acp-det-block">
+                <details className="acp-det-tax-details">
+                  <summary className="acp-det-collabs-summary">
+                    Impostos do projeto
+                    <span className="acp-det-tax-summary-value">{brl(taxes.outOfInvoiceTaxTotal)}</span>
+                  </summary>
+                  <div className="acp-det-tax-body">
+                    <div style={rowStyle}>
+                      <HelpTip help={hasOmieInvoice ? 'Projeto com faturamento sincronizado no Omie. O cálculo de IRPJ/CSLL usa o valor real faturado, não a venda prevista.' : 'Projeto ainda sem faturamento sincronizado no Omie. O cálculo usa a venda prevista do comercial.'}>Base dos impostos</HelpTip>
+                      <span>{brl(taxes.basisAmount)}</span>
+                    </div>
+                    <div style={rowStyle}><span className="placeholder-copy">Venda prevista</span><span>{brl(expectedRevenue)}</span></div>
+                    {hasOmieInvoice ? (
+                      <>
+                        <div style={rowStyle}><span className="placeholder-copy">Faturado Omie ({data.faturamento.notas} NF)</span><span>{brl(invoicedRevenue)}</span></div>
+                        {taxes.omieIss != null ? (
+                          <div style={rowStyle}><span className="placeholder-copy">ISS Omie</span><span>{brl(taxes.omieIss)}</span></div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <div style={rowStyle}>
+                          <HelpTip help="Previsão da planilha para ISS, PIS e COFINS enquanto não houver NF sincronizada no Omie. Esses valores não são somados aos gastos do projeto.">Impostos previstos na NF</HelpTip>
+                          <span>{brl(taxes.invoiceTaxTotal)}</span>
+                        </div>
+                        <div style={rowStyle}><span className="placeholder-copy">ISS previsto</span><span>{brl(taxes.iss)}</span></div>
+                        <div style={rowStyle}><span className="placeholder-copy">PIS previsto</span><span>{brl(taxes.pis)}</span></div>
+                        <div style={rowStyle}><span className="placeholder-copy">COFINS previsto</span><span>{brl(taxes.cofins)}</span></div>
+                      </>
+                    )}
+                    <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}>
+                      <HelpTip help={hasOmieInvoice ? 'Cálculo gerencial feito sobre o faturamento real do Omie. O cliente paga o valor faturado; este valor é o imposto estimado a pagar pela empresa.' : 'Previsão gerencial feita sobre a venda prevista. O cliente paga a venda prevista; este valor é o imposto estimado a pagar pela empresa.'}>IRPJ/CSLL fora da NF</HelpTip>
+                      <strong>{brl(taxes.outOfInvoiceTaxTotal)}</strong>
+                    </div>
+                    <div style={rowStyle}><span className="placeholder-copy">IRPJ básico</span><span>{brl(taxes.irpjBasic)}</span></div>
+                    <div style={rowStyle}><span className="placeholder-copy">CSLL</span><span>{brl(taxes.csll)}</span></div>
+                    <div style={rowStyle}><span className="placeholder-copy">Adic. IRPJ</span><span>{brl(taxes.additionalIrpjEstimated)}</span></div>
+                  </div>
+                </details>
+              </div>
+            );
+          })() : null}
         </div>
 
         {/* Coluna 2 */}

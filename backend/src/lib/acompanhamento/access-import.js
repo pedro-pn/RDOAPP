@@ -13,6 +13,7 @@ import MDBReader from 'mdb-reader';
 import prisma from '../prisma.js';
 import { computeProgressForProjects } from './avanco.js';
 import { buildOmieCostCategoryWhere } from './cost-categories.js';
+import { buildPresumedProfitTaxEstimate } from './presumed-profit-taxes.js';
 import { getStockConsumptionCostByProject } from './stock-cost.js';
 
 const PROPOSAL_TABLE = 'proposta';
@@ -421,7 +422,16 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     projectId: { not: null },
     ...categoryWhere
   };
-  const [proposals, projects, budgets, rdoGroups, omieTotals, omiePaid] = await Promise.all([
+  const invoicedWhere = {
+    projectId: { not: null },
+    valor: { not: null },
+    NOT: [{ statusTitulo: 'CANCELADO' }],
+    OR: [
+      { codigoTipoDocumento: 'NFS' },
+      { AND: [{ numeroDocumentoFiscal: { not: null } }, { numeroDocumentoFiscal: { not: '' } }] }
+    ]
+  };
+  const [proposals, projects, budgets, rdoGroups, omieTotals, omiePaid, omieReceivables] = await Promise.all([
     prisma.commercialProposal.findMany({
       select: {
         codBd: true, codProp: true, nRev: true, salePrice: true, plannedCost: true,
@@ -443,7 +453,8 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     }),
     prisma.report.groupBy({ by: ['projectId'], where: { reportType: 'RDO', deletedAt: null }, _count: { _all: true } }),
     prisma.omiePurchase.groupBy({ by: ['projectId'], where: realizedWhere, _sum: { valor: true } }),
-    prisma.omiePurchase.groupBy({ by: ['projectId'], where: { ...realizedWhere, statusTitulo: 'PAGO' }, _sum: { valor: true } })
+    prisma.omiePurchase.groupBy({ by: ['projectId'], where: { ...realizedWhere, statusTitulo: 'PAGO' }, _sum: { valor: true } }),
+    prisma.omieReceivable.groupBy({ by: ['projectId'], where: invoicedWhere, _sum: { valor: true, valorIss: true }, _count: { _all: true } })
   ]);
 
   const latestByProp = new Map();
@@ -457,6 +468,11 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
   const rdoByProject = new Map(rdoGroups.map(g => [g.projectId, g._count._all]));
   const realizedByProject = new Map(omieTotals.map(g => [g.projectId, g._sum.valor]));
   const realizedPaidByProject = new Map(omiePaid.map(g => [g.projectId, g._sum.valor]));
+  const invoicedByProject = new Map(omieReceivables.map(g => [g.projectId, {
+    total: g._sum.valor,
+    iss: g._sum.valorIss,
+    count: g._count._all
+  }]));
 
   const rows = [];
   for (const project of projects) {
@@ -465,6 +481,8 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     const budget = budgetByProject.get(project.id) || null;
     const resolved = Boolean(project.commercialProposalCode) && Boolean(budget);
     const source = (budget && byCodBd.get(budget.sourceProposalCodBd)) || latestByProp.get(codProp);
+    const salePrice = budget?.salePrice ?? source?.salePrice ?? null;
+    const invoiced = invoicedByProject.get(project.id) ?? null;
     rows.push({
       projectId: project.id,
       code: project.code,
@@ -476,7 +494,15 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       startDate: project.startDate ?? null,
       approvedAt: budget?.approvedAt ?? null,
       mobilizationLeadDays: budget?.mobilizationLeadDays ?? source?.mobilizationLeadDays ?? null,
-      salePrice: budget?.salePrice ?? source?.salePrice ?? null,
+      salePrice,
+      invoicedRevenue: invoiced?.total ?? null,
+      invoicedIss: invoiced?.iss ?? null,
+      invoiceCount: invoiced?.count ?? 0,
+      presumedProfitTaxes: buildPresumedProfitTaxEstimate(salePrice, {
+        components: source?.components ?? null,
+        invoicedAmount: invoiced?.total ?? null,
+        invoiceIss: invoiced?.iss ?? null
+      }),
       plannedTotalCost: budget?.plannedTotalCost ?? source?.plannedCost ?? null,
       expectedProfit: budget?.expectedProfit ?? source?.expectedProfit ?? null,
       expectedMargin: budget?.expectedMargin ?? source?.expectedMargin ?? null,

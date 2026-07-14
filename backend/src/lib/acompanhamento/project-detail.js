@@ -369,6 +369,12 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       previsto: previstoCusto,
       pct: previstoCusto && previstoCusto > 0 ? Math.round((gasto / previstoCusto) * 100) : null
     },
+    faturamento: {
+      previsto: row.salePrice ?? null,
+      realizado: row.invoicedRevenue ?? null,
+      notas: row.invoiceCount ?? 0
+    },
+    presumedProfitTaxes: row.presumedProfitTaxes ?? null,
     maoDeObra,
     workedHours,
     maioresGastos,

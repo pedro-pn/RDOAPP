@@ -416,6 +416,7 @@ model Project {
   budgets                ProjectBudget[]
   omieProjects           OmieProject[]
   omiePurchases          OmiePurchase[]
+  omieReceivables        OmieReceivable[]
   plannedServices        ProjectPlannedService[]
   plannedNormalHours     ProjectPlannedNormalHours[]
   plannedOvertime        ProjectPlannedOvertime[]
@@ -1748,6 +1749,44 @@ model OmiePurchase {
   @@index([codigoProjeto])
   @@index([categoriaCodigo])
   @@index([statusTitulo])
+}
+
+// Título a receber do Omie = faturamento/receita real vinculada a um projeto.
+model OmieReceivable {
+  id                    String    @id @default(cuid())
+  omieId                String    @unique // codigo_lancamento_omie
+  codigoProjeto         String? // codigo interno do Omie
+  projectId             String?
+  osNumber              String?
+  valor                 Decimal?  @db.Decimal(14, 2) // valor_documento
+  valorIss              Decimal?  @db.Decimal(14, 2) // valor_iss informado na NF/conta a receber
+  statusTitulo          String? // RECEBIDO, A RECEBER, ATRASADO, ...
+  categoriaCodigo       String?
+  categoriaDescricao    String?
+  clienteCodigo         String?
+  numeroDocumento       String?
+  numeroDocumentoFiscal String?
+  numeroPedido          String?
+  codigoTipoDocumento   String? // NFS, etc.
+  origem                String? // id_origem (VENR, etc.)
+  dataEmissao           DateTime?
+  dataVencimento        DateTime?
+  dataPrevisao          DateTime?
+  dataRegistro          DateTime?
+  retemIss              Boolean?
+  retemPis              Boolean?
+  retemCofins           Boolean?
+  retemCsll             Boolean?
+  retemIr               Boolean?
+  rawPayload            Json
+  syncedAt              DateTime  @default(now())
+  project               Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([codigoProjeto])
+  @@index([codigoTipoDocumento])
+  @@index([statusTitulo])
+  @@index([dataEmissao])
 }
 
 model IntegrationSyncRun {

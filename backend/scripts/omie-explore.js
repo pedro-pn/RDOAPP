@@ -17,7 +17,8 @@ import { omieCall, omieConfigured } from '../src/lib/omie/client.js';
 const PRESETS = [
   { name: 'projetos', path: '/geral/projetos/', call: 'ListarProjetos', param: { pagina: 1, registros_por_pagina: 50 } },
   { name: 'categorias', path: '/geral/categorias/', call: 'ListarCategorias', param: { pagina: 1, registros_por_pagina: 50 } },
-  { name: 'contas-pagar', path: '/financas/contapagar/', call: 'ListarContasPagar', param: { pagina: 1, registros_por_pagina: 20, apenas_importado_api: 'N' } }
+  { name: 'contas-pagar', path: '/financas/contapagar/', call: 'ListarContasPagar', param: { pagina: 1, registros_por_pagina: 20, apenas_importado_api: 'N' } },
+  { name: 'contas-receber', path: '/financas/contareceber/', call: 'ListarContasReceber', param: { pagina: 1, registros_por_pagina: 20, apenas_importado_api: 'N' } }
 ];
 // Pedido de compra: confirmado que NÃO é necessário (contas a pagar já engloba tudo).
 

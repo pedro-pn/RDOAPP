@@ -1,5 +1,6 @@
 /*
- * Sincronização Omie: projetos (cache codigo→OS), categorias e compras (contas a pagar).
+ * Sincronização Omie: projetos (cache codigo→OS), categorias, compras (contas a pagar)
+ * e receitas/faturamento (contas a receber).
  *
  * Ligação (confirmada): ContaPagar.codigo_projeto -> Projeto.codigo (Omie) -> nº da OS no nome
  * do projeto -> Project.code no app. O filtro por codigo_projeto em ListarContasPagar funciona,
@@ -33,6 +34,12 @@ export function osNumberFromName(nome) {
 function num(value) {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function boolFlag(value) {
+  if (value === 'S') return true;
+  if (value === 'N') return false;
+  return null;
 }
 
 async function startRun(scope, triggeredBy) {
@@ -195,11 +202,86 @@ export async function syncOmiePurchases({ triggeredBy = 'SCRIPT', sinceDays = nu
   }
 }
 
+// Receitas/faturamento dos projetos do Omie que casam com um Project do app.
+// Usado no acompanhamento para trocar a base prevista pela venda realmente faturada no Omie.
+export async function syncOmieReceivables({ triggeredBy = 'SCRIPT', sinceDays = null } = {}) {
+  const run = await startRun('receivables', triggeredBy);
+  try {
+    const categories = await prisma.omieCategory.findMany({ select: { codigo: true, descricao: true } });
+    const categoryName = new Map(categories.map(c => [c.codigo, c.descricao]));
+
+    const linked = await prisma.omieProject.findMany({
+      where: { projectId: { not: null } },
+      select: { codigo: true, osNumber: true, projectId: true }
+    });
+    const linkedByCodigo = new Map(linked.map(op => [op.codigo, op]));
+    if (linkedByCodigo.size === 0) {
+      await finishRun(run.id, 'SUCCESS', { recordsRead: 0, recordsWritten: 0, summary: { note: 'Nenhum projeto Omie vinculado; rode omie:sync projetos.' } });
+      return { read: 0, written: 0, projects: 0 };
+    }
+
+    const baseParam = { apenas_importado_api: 'N' };
+    if (sinceDays && Number(sinceDays) > 0) {
+      baseParam.filtrar_apenas_alteracao = 'S';
+      baseParam.filtrar_por_data_de = omieDateStr(new Date(Date.now() - Number(sinceDays) * 86400000));
+    }
+
+    let written = 0;
+    const read = await paginate('/financas/contareceber/', 'ListarContasReceber', baseParam, 'conta_receber_cadastro', async (records) => {
+      for (const r of records) {
+        const codigoProjeto = r.codigo_projeto != null ? String(r.codigo_projeto) : null;
+        const op = codigoProjeto ? linkedByCodigo.get(codigoProjeto) : null;
+        if (!op) continue;
+        const omieId = String(r.codigo_lancamento_omie);
+        const categoriaCodigo = r.codigo_categoria ?? null;
+        const data = {
+          omieId,
+          codigoProjeto,
+          projectId: op.projectId ?? null,
+          osNumber: op.osNumber,
+          valor: num(r.valor_documento),
+          valorIss: num(r.valor_iss),
+          statusTitulo: r.status_titulo ?? null,
+          categoriaCodigo,
+          categoriaDescricao: categoriaCodigo ? categoryName.get(categoriaCodigo) ?? null : null,
+          clienteCodigo: r.codigo_cliente_fornecedor ? String(r.codigo_cliente_fornecedor) : null,
+          numeroDocumento: r.numero_documento ?? null,
+          numeroDocumentoFiscal: r.numero_documento_fiscal ?? null,
+          numeroPedido: r.numero_pedido ?? null,
+          codigoTipoDocumento: r.codigo_tipo_documento ?? null,
+          origem: r.id_origem ?? null,
+          dataEmissao: parseOmieDate(r.data_emissao),
+          dataVencimento: parseOmieDate(r.data_vencimento),
+          dataPrevisao: parseOmieDate(r.data_previsao),
+          dataRegistro: parseOmieDate(r.data_registro),
+          retemIss: boolFlag(r.retem_iss),
+          retemPis: boolFlag(r.retem_pis),
+          retemCofins: boolFlag(r.retem_cofins),
+          retemCsll: boolFlag(r.retem_csll),
+          retemIr: boolFlag(r.retem_ir),
+          rawPayload: r,
+          syncedAt: new Date()
+        };
+        // eslint-disable-next-line no-await-in-loop
+        await prisma.omieReceivable.upsert({ where: { omieId }, create: data, update: data });
+        written += 1;
+      }
+    });
+
+    await finishRun(run.id, 'SUCCESS', { recordsRead: read, recordsWritten: written, summary: { linkedProjects: linkedByCodigo.size, incremental: Boolean(sinceDays) } });
+    return { read, written, projects: linkedByCodigo.size };
+  } catch (error) {
+    await finishRun(run.id, 'ERROR', { error: error.message });
+    throw error;
+  }
+}
+
 export async function syncOmieAll({ triggeredBy = 'SCRIPT', sinceDays = null } = {}) {
   const projects = await syncOmieProjects({ triggeredBy });
   const categories = await syncOmieCategories({ triggeredBy });
   const purchases = await syncOmiePurchases({ triggeredBy, sinceDays });
-  return { projects, categories, purchases };
+  const receivables = await syncOmieReceivables({ triggeredBy, sinceDays });
+  return { projects, categories, purchases, receivables };
 }
 
 // === Job agendado (in-process, padrão do app) ===
