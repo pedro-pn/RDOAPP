@@ -202,12 +202,14 @@ export async function listProjectCards() {
     // Realizado total = compras Omie (sem salário) + consumo do estoque + mão de obra do ponto.
     const laborCost = laborByProject.get(row.projectId)?.laborCost ?? null;
     const stockCost = toNum(row.stockCost) ?? 0;
+    const plannedCost = toNum(row.plannedTotalCost);
     const gastoTotal = (toNum(row.realizedCost) ?? 0) + (laborCost ?? 0);
+    const costConsumedPct = plannedCost && plannedCost > 0 ? Math.round((gastoTotal / plannedCost) * 100) : null;
     const alerts = computeAlerts({
       startDate: row.startDate ?? null,
       plannedDays,
       gasto: gastoTotal,
-      plannedCost: toNum(row.plannedTotalCost),
+      plannedCost,
       lastRdoDate: lastDay.date,
       lastDayStatus: lastDay.status,
       progressPct: row.progressPct ?? null,
@@ -231,6 +233,9 @@ export async function listProjectCards() {
       }),
       progressPct: row.progressPct ?? null,
       progressMethod: row.progressMethod ?? null,
+      plannedCost,
+      realizedCost: gastoTotal,
+      costConsumedPct,
       lastDay,
       collaboratorsCount: a.collabs.size,
       startDate: row.startDate ?? null,

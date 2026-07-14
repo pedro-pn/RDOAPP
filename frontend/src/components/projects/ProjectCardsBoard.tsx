@@ -88,6 +88,25 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
 
       <div className="acp-pcard-metric">
         <div className="acp-pcard-metric-top">
+          <span>Avanço de escopo{card.progressMethod === 'MANUAL' ? ' (manual)' : ''}</span>
+          <span className="acp-pcard-metric-val">{pct(card.progressPct)}</span>
+        </div>
+        <Bar value={card.progressPct} />
+      </div>
+
+      <div className="acp-pcard-metric">
+        <div className="acp-pcard-metric-top">
+          <span>Custo previsto/realizado</span>
+          <span className="acp-pcard-metric-val">
+            {brl(card.realizedCost)}/{brl(card.plannedCost)}
+            {card.costConsumedPct != null ? ` · ${card.costConsumedPct}% consumido` : ''}
+          </span>
+        </div>
+        <Bar value={card.costConsumedPct} />
+      </div>
+
+      <div className="acp-pcard-metric">
+        <div className="acp-pcard-metric-top">
           <span>Dias trabalhados</span>
           <span className="acp-pcard-metric-val">
             {card.workedDays}/{card.totalDays ?? '—'}{card.daysConsumedPct != null ? ` · ${card.daysConsumedPct}% consumido` : ''}
@@ -115,14 +134,6 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
             {workedHours.overtimePct != null ? ` · ${workedHours.overtimePct}%` : ''}
           </span>
         </div>
-      </div>
-
-      <div className="acp-pcard-metric">
-        <div className="acp-pcard-metric-top">
-          <span>Avanço de escopo{card.progressMethod === 'MANUAL' ? ' (manual)' : ''}</span>
-          <span className="acp-pcard-metric-val">{pct(card.progressPct)}</span>
-        </div>
-        <Bar value={card.progressPct} />
       </div>
 
       <div className="acp-pcard-row">

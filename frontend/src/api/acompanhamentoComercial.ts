@@ -314,6 +314,9 @@ export interface ProjectCard {
   workedHours: WorkedHoursProgress;
   progressPct: number | null;
   progressMethod?: ProgressMethod | null;
+  plannedCost: number | null;
+  realizedCost: number;
+  costConsumedPct: number | null;
   lastDay: { date: string | null; status: LastDayStatus };
   collaboratorsCount: number;
   startDate: string | null;
