@@ -2322,7 +2322,10 @@ a {
 .acp-det-collabs-summary::-webkit-details-marker { display: none; }
 .acp-det-collabs-summary::before { content: '▸'; display: inline-block; margin-right: 6px; transition: transform .15s; }
 .acp-det-collabs-details[open] > .acp-det-collabs-summary::before,
-.acp-det-equips-details[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
+.acp-det-equips-details[open] > .acp-det-collabs-summary::before,
+.acp-det-tax-details[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
+.acp-det-tax-body { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.acp-det-tax-summary-value { float: right; color: var(--tx); font-size: 13px; letter-spacing: 0; }
 .acp-det-equips-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

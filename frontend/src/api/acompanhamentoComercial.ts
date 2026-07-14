@@ -64,6 +64,59 @@ export interface ProjectAlert {
   label: string;
 }
 
+export interface PresumedProfitTaxEstimate {
+  method: 'COMMERCIAL_TAX_SPREADSHEET_2026';
+  defaultServiceTaxCode: string;
+  supportedServiceTaxCodes: string[];
+  projectCostBasis: 'IRPJ_CSLL_OUTSIDE_INVOICE';
+  serviceTaxCode: '14.01' | '7.05' | '7.02';
+  equivalentServiceTaxCode: string | null;
+  spreadsheetBlock: string;
+  basisSource: 'EXPECTED_SALE' | 'OMIE_INVOICED';
+  basisAmount: number;
+  expectedSalePrice: number | null;
+  invoicedAmount: number | null;
+  salePrice: number;
+  iss: number;
+  omieIss: number | null;
+  issDelta: number | null;
+  pis: number;
+  cofins: number;
+  invoiceTaxTotal: number;
+  irpjPresumedBasis: number;
+  csllPresumedBasis: number;
+  presumedBasis: number;
+  irpjPresumptionPct: number;
+  csllPresumptionPct: number;
+  presumptionPct: number;
+  issRatePct: number;
+  pisRatePct: number;
+  cofinsRatePct: number;
+  irpjRatePct: number;
+  csllRatePct: number;
+  additionalIrpjRatePct: number;
+  additionalIrpjThreshold: number;
+  minimumEffectivePct: number;
+  probableEffectivePct: number;
+  effectiveTaxPct: number;
+  invoiceTaxEffectivePct: number;
+  irpjCsllEffectivePct: number;
+  irpjBasic: number;
+  csll: number;
+  additionalIrpjEstimated: number;
+  irpjTotal: number;
+  irpjCsllTotal: number;
+  outOfInvoiceTaxTotal: number;
+  estimatedProjectTaxCost: number;
+  totalTax: number;
+  netAfterTaxes: number;
+  netAfterOutOfInvoiceTaxes: number;
+  minimumOutOfInvoiceTaxTotal: number;
+  minimumTotal: number;
+  probableTotal: number;
+  source: string;
+}
+
 export async function getProjectRevisions(projectId: string): Promise<ProjectRevisions> {
   const { data } = await apiClient.get<ProjectRevisions>(
     `/acompanhamento/comercial/projetos/${projectId}/revisoes`
@@ -95,6 +148,9 @@ export interface DashboardRow {
   approvedAt?: string | null;
   mobilizationLeadDays?: number | null;
   salePrice?: string | number | null;
+  invoicedRevenue?: string | number | null;
+  invoicedIss?: string | number | null;
+  invoiceCount?: number | null;
   plannedTotalCost?: string | number | null;
   expectedProfit?: string | number | null;
   expectedMargin?: string | number | null;
@@ -111,6 +167,7 @@ export interface DashboardRow {
   realizedCost?: string | number | null;
   realizedPaid?: string | number | null;
   stockCost?: string | number | null;
+  presumedProfitTaxes?: PresumedProfitTaxEstimate | null;
   progressPct?: number | null;
   progressMethod?: ProgressMethod | null;
 }
@@ -317,6 +374,9 @@ export interface ProjectCard {
   progressPct: number | null;
   progressMethod?: ProgressMethod | null;
   plannedCost: number | null;
+  invoicedRevenue: number | null;
+  invoiceCount: number;
+  presumedProfitTaxes: PresumedProfitTaxEstimate | null;
   realizedCost: number;
   costConsumedPct: number | null;
   lastDay: { date: string | null; status: LastDayStatus };
@@ -360,7 +420,9 @@ export interface ProjectDetail {
     previsto: number | null;
     pct: number | null;
   };
+  faturamento: { previsto: string | number | null; realizado: string | number | null; notas: number };
   maoDeObra: { custo: number | null; custoBase: number | null; horas: number | null; periodStart: string | null; periodEnd: string | null };
+  presumedProfitTaxes: PresumedProfitTaxEstimate | null;
   workedHours: WorkedHoursProgress;
   maioresGastos: Array<{ categoria: string; total: number }>;
   avancoPct: number | null;

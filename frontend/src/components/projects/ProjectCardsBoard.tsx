@@ -148,6 +148,16 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         <span className="acp-pcard-strong">{card.collaboratorsCount}</span>
       </div>
 
+      {card.presumedProfitTaxes ? (
+        <div className="acp-pcard-row">
+          <span>
+            IRPJ/CSLL fora da NF
+            <sup title={`${card.presumedProfitTaxes.basisSource === 'OMIE_INVOICED' ? `Base: faturamento real do Omie. ISS Omie: ${brl(card.presumedProfitTaxes.omieIss)}.` : `Base: venda prevista. ISS/PIS/COFINS previstos na NF: ${brl(card.presumedProfitTaxes.invoiceTaxTotal)}.`} Código ${card.presumedProfitTaxes.serviceTaxCode}${card.presumedProfitTaxes.equivalentServiceTaxCode ? ` (regra ${card.presumedProfitTaxes.equivalentServiceTaxCode})` : ''}.`}> *</sup>
+          </span>
+          <span className="acp-pcard-strong">{brl(card.presumedProfitTaxes.outOfInvoiceTaxTotal)}</span>
+        </div>
+      ) : null}
+
       {card.laborCost != null ? (() => {
         const hasOffshore = card.laborCostBase != null && Math.round(card.laborCost) !== Math.round(card.laborCostBase);
         return (

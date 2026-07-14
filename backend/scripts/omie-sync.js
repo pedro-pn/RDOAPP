@@ -1,13 +1,13 @@
 /*
- * Sincroniza dados do Omie para o banco do app (projetos, categorias e compras/contas a pagar).
+ * Sincroniza dados do Omie para o banco do app (projetos, categorias, compras e receitas).
  *
  * Uso (com credenciais no ambiente):
  *   OMIE_APP_KEY=... OMIE_APP_SECRET=... npm run omie:sync
- *   ... node scripts/omie-sync.js projetos | categorias | compras
+ *   ... node scripts/omie-sync.js projetos | categorias | compras | receitas
  */
 
 import { omieConfigured } from '../src/lib/omie/client.js';
-import { syncOmieAll, syncOmieCategories, syncOmiePurchases, syncOmieProjects } from '../src/lib/omie/sync.js';
+import { syncOmieAll, syncOmieCategories, syncOmiePurchases, syncOmieProjects, syncOmieReceivables } from '../src/lib/omie/sync.js';
 import prisma from '../src/lib/prisma.js';
 
 async function main() {
@@ -20,6 +20,7 @@ async function main() {
   if (only === 'projetos') console.log('projetos:', await syncOmieProjects());
   else if (only === 'categorias') console.log('categorias:', await syncOmieCategories());
   else if (only === 'compras') console.log('compras:', await syncOmiePurchases({ sinceDays }));
+  else if (only === 'receitas') console.log('receitas:', await syncOmieReceivables({ sinceDays }));
   else console.log('tudo:', JSON.stringify(await syncOmieAll(), null, 2));
 }
 
