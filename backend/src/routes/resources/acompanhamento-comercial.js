@@ -36,6 +36,30 @@ import { canViewAcompanhamentoLaborCosts, requireAcompanhamentoAccess, requireAc
 const router = Router();
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB (arquivo real ~1 MB)
+const monthParamSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Mês inválido. Use o formato YYYY-MM.');
+const sedeCostRangeQuerySchema = z.object({
+  from: monthParamSchema.optional(),
+  to: monthParamSchema.optional()
+}).superRefine((value, ctx) => {
+  if (Boolean(value.from) !== Boolean(value.to)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Informe mês inicial e final para filtrar a Sede.'
+    });
+  }
+  if (value.from && value.to && value.from > value.to) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['to'],
+      message: 'Período inválido: mês final anterior ao inicial.'
+    });
+  }
+});
+
+export function parseSedeCostRangeQuery(query) {
+  const { from, to } = sedeCostRangeQuerySchema.parse(query ?? {});
+  return from && to ? { fromMonth: from, toMonth: to } : null;
+}
 
 function sha256(value) {
   return createHash('sha256').update(String(value)).digest();
@@ -160,8 +184,8 @@ router.get(
   '/sede',
   requireAuth,
   requireAcompanhamentoAccess,
-  asyncHandler(async (_req, res) => {
-    const data = await listSedeCosts();
+  asyncHandler(async (req, res) => {
+    const data = await listSedeCosts({ range: parseSedeCostRangeQuery(req.query) });
     res.json(data);
   })
 );

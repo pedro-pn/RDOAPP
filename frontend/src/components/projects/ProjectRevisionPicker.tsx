@@ -8,7 +8,12 @@ function formatBRL(value?: string | number | null) {
   if (value === null || value === undefined || value === '') return '—';
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return '—';
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return n.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 // No card do projeto fica APENAS a escolha da revisão da proposta. As datas de aprovação/início e

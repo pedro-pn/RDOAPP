@@ -33,7 +33,12 @@ export const INPUT_FIELDS: Array<[string, string]> = [
 
 export function brl(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 // Numeração dos modelos base (planilhas): Modelo 1 = Operador, Modelo 2 = Auxiliar.

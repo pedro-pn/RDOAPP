@@ -25,7 +25,12 @@ function toNum(value?: string | number | null) {
 }
 function brl(value?: string | number | null) {
   const n = toNum(value);
-  return n === null ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return n === null ? '—' : n.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 function pct(value?: string | number | null) {
   const n = toNum(value);
