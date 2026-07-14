@@ -1743,6 +1743,7 @@ a {
 /* Segmented control (situação dos projetos na aba Projetos) */
 .acp-seg {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
   background: var(--bg);
@@ -1750,6 +1751,7 @@ a {
   border-radius: var(--r);
   align-self: end;
   width: fit-content;
+  max-width: 100%;
 }
 .acp-seg-btn {
   display: inline-flex;

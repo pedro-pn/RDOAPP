@@ -79,6 +79,24 @@ export function buildWorkedHoursProgress({
   };
 }
 
+export const PROJECT_CARD_CATEGORIES = {
+  IN_PROGRESS: 'ANDAMENTO',
+  FUTURE: 'FUTURO',
+  ARCHIVED: 'ARQUIVADO'
+};
+
+export function deriveProjectCardCategory({ archived = false, workedDays = 0, workedHours = null, progressPct = null } = {}) {
+  if (archived) return PROJECT_CARD_CATEGORIES.ARCHIVED;
+
+  const days = toNum(workedDays) ?? 0;
+  const hours = toNum(workedHours?.totalWorkedHours) ?? 0;
+  const progress = toNum(progressPct) ?? 0;
+
+  return days <= 0 && hours <= 0 && progress <= 0
+    ? PROJECT_CARD_CATEGORIES.FUTURE
+    : PROJECT_CARD_CATEGORIES.IN_PROGRESS;
+}
+
 // Status do último RDO: parado quando houve standby cobrindo a jornada cheia; senão trabalhado.
 export function lastDayStatus(lastReport, project) {
   if (!lastReport) return { date: null, status: 'SEM_RDO' };
@@ -215,22 +233,30 @@ export async function listProjectCards() {
       progressPct: row.progressPct ?? null,
       now: projectReferenceDate
     });
+    const workedHours = buildWorkedHoursProgress({
+      normalWorkedMinutes: a.normalWorkedMinutes,
+      overtimeWorkedMinutes: a.overtimeWorkedMinutes,
+      plannedNormalHours: plannedNormalByProject.get(row.projectId) || 0,
+      plannedOvertimeHours: plannedOvertimeByProject.get(row.projectId) || 0
+    });
+    const archived = Boolean(row.archived);
 
     return {
       projectId: row.projectId,
       code: row.code,
       name: row.name,
       clientName: row.clientName,
-      archived: Boolean(row.archived), // arquivado = projeto inativo nos relatórios
+      archived, // arquivado = projeto inativo nos relatórios
+      category: deriveProjectCardCategory({
+        archived,
+        workedDays,
+        workedHours,
+        progressPct: row.progressPct ?? null
+      }),
       workedDays,
       totalDays,
       daysConsumedPct,
-      workedHours: buildWorkedHoursProgress({
-        normalWorkedMinutes: a.normalWorkedMinutes,
-        overtimeWorkedMinutes: a.overtimeWorkedMinutes,
-        plannedNormalHours: plannedNormalByProject.get(row.projectId) || 0,
-        plannedOvertimeHours: plannedOvertimeByProject.get(row.projectId) || 0
-      }),
+      workedHours,
       progressPct: row.progressPct ?? null,
       progressMethod: row.progressMethod ?? null,
       plannedCost,

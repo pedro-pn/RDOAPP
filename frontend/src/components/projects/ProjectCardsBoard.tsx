@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getProjectCards, type LastDayStatus, type ProjectCard } from '../../api/acompanhamentoComercial';
+import { getProjectCards, type LastDayStatus, type ProjectCard, type ProjectCardCategory } from '../../api/acompanhamentoComercial';
 import { ProjectDetailDashboard } from './ProjectDetailDashboard';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
@@ -203,7 +203,17 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
 }
 
 // Aba "Projetos": um card por projeto com previsto x realizado (dias, avanço, colaboradores, prazos).
-type CardsView = 'andamento' | 'arquivados';
+type CardsView = 'andamento' | 'futuros' | 'arquivados';
+
+const VIEW_CATEGORY: Record<CardsView, ProjectCardCategory> = {
+  andamento: 'ANDAMENTO',
+  futuros: 'FUTURO',
+  arquivados: 'ARQUIVADO'
+};
+
+function cardCategory(card: ProjectCard): ProjectCardCategory {
+  return card.category ?? (card.archived ? 'ARQUIVADO' : 'ANDAMENTO');
+}
 
 export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }) {
   const [search, setSearch] = useState('');
@@ -215,16 +225,21 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
     ...acompanhamentoRefreshQueryOptions
   });
 
-  // Separa pelo status do projeto nos relatórios: em andamento (ativo) x arquivados (inativo).
+  // Separa pelo status operacional do card: em andamento, futuro ou arquivado.
   const counts = useMemo(() => {
     const list = data ?? [];
-    return { andamento: list.filter(c => !c.archived).length, arquivados: list.filter(c => c.archived).length };
+    return {
+      andamento: list.filter(c => cardCategory(c) === 'ANDAMENTO').length,
+      futuros: list.filter(c => cardCategory(c) === 'FUTURO').length,
+      arquivados: list.filter(c => cardCategory(c) === 'ARQUIVADO').length
+    };
   }, [data]);
 
   const cards = useMemo(() => {
     const term = search.trim().toLowerCase();
+    const category = VIEW_CATEGORY[view];
     return (data ?? [])
-      .filter(c => (view === 'arquivados' ? c.archived : !c.archived))
+      .filter(c => cardCategory(c) === category)
       .filter(c => !term || `${c.code} ${c.name} ${c.clientName}`.toLowerCase().includes(term));
   }, [data, search, view]);
 
@@ -256,6 +271,13 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
             Em andamento <span className="acp-seg-count">{counts.andamento}</span>
           </button>
           <button
+            type="button" role="tab" aria-selected={view === 'futuros'}
+            className={`acp-seg-btn${view === 'futuros' ? ' active' : ''}`}
+            onClick={() => setView('futuros')}
+          >
+            Futuros <span className="acp-seg-count">{counts.futuros}</span>
+          </button>
+          <button
             type="button" role="tab" aria-selected={view === 'arquivados'}
             className={`acp-seg-btn${view === 'arquivados' ? ' active' : ''}`}
             onClick={() => setView('arquivados')}
@@ -279,7 +301,7 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
         <div className="page-card placeholder-copy">
           {search.trim()
             ? 'Nenhum projeto encontrado para a busca nesta situação.'
-            : view === 'arquivados' ? 'Nenhum projeto arquivado.' : 'Nenhum projeto em andamento.'}
+            : view === 'arquivados' ? 'Nenhum projeto arquivado.' : view === 'futuros' ? 'Nenhum projeto futuro.' : 'Nenhum projeto em andamento.'}
         </div>
       ) : (
         <div className="acp-pcards-grid">
