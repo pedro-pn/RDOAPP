@@ -35,6 +35,7 @@ import { useToast } from '../../components/ui/ToastContext';
 import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
 import { ProjectRevisionPicker } from '../../components/projects/ProjectRevisionPicker';
 import { JobRoleManager } from '../../components/projects/JobRoleManager';
+import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { getCommercialPendencias } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
@@ -469,6 +470,14 @@ function asServices(value: unknown): RdoServiceDraft[] {
         ? item.data as Record<string, unknown>
         : {}
     }));
+}
+
+function asDdsThemes(value: unknown): { id: string; name: string; custom?: boolean }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map(item => ({ id: asString(item.id), name: asString(item.name), ...(item.custom === true ? { custom: true } : {}) }))
+    .filter(item => item.id && item.name);
 }
 
 function draftDateLabel(draft: ReportDraft) {
@@ -1131,7 +1140,7 @@ export function GestorPage() {
   const pageScrollRef = useRef<HTMLDivElement | null>(null);
   const restoredScrollKeysRef = useRef<Set<string>>(new Set());
   const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
-  const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos'>('colaboradores');
+  const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [gestorSearch, setGestorSearch] = usePersistentSearch(`gestor-search:${user?.id || 'anonymous'}:${tab}`);
   // Só o valor enviado às queries é adiado; a filtragem client-side segue instantânea.
@@ -1547,6 +1556,14 @@ export function GestorPage() {
       noturnoStart: asString(payload.noturnoStart),
       noturnoEnd: asString(payload.noturnoEnd),
       noturnoInterval: asString(payload.noturnoInterval, '01:00:00'),
+      ddsDay: asBoolean(payload.ddsDay),
+      ddsDayStart: asString(payload.ddsDayStart),
+      ddsDayEnd: asString(payload.ddsDayEnd),
+      ddsDayThemes: asDdsThemes(payload.ddsDayThemes),
+      ddsNight: asBoolean(payload.ddsNight),
+      ddsNightStart: asString(payload.ddsNightStart),
+      ddsNightEnd: asString(payload.ddsNightEnd),
+      ddsNightThemes: asDdsThemes(payload.ddsNightThemes),
       overtimeReason: asString(payload.overtimeReason),
       dailyDescription: asString(payload.dailyDescription),
       generalUploads: Array.isArray(payload.generalUploads) ? payload.generalUploads : [],
@@ -3389,8 +3406,11 @@ export function GestorPage() {
           <button className={`nav-tab ${equipeSubTab === 'cargos' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'cargos'} onClick={() => setEquipeSubTab('cargos')}>
             Cargos
           </button>
+          <button className={`nav-tab ${equipeSubTab === 'dds' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'dds'} onClick={() => setEquipeSubTab('dds')}>
+            Temas de DDS
+          </button>
         </div>
-        {equipeSubTab === 'cargos' ? <JobRoleManager /> : renderColaboradoresSubTab()}
+        {equipeSubTab === 'cargos' ? <JobRoleManager /> : equipeSubTab === 'dds' ? <DdsThemeManager /> : renderColaboradoresSubTab()}
       </>
     );
   }

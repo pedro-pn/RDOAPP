@@ -435,6 +435,34 @@ function cloneBefore(node, clones) {
   clones.forEach(clone => parent.insertBefore(clone, node));
 }
 
+// Campos do DDS (Diálogo Diário de Segurança) por turno, a partir de specialConditions.dds.
+// Os temas são snapshots {id, name} gravados no relatório; relatórios antigos sem o bloco saem vazios.
+export function buildDdsDocxFields(special) {
+  const dds = (special && special.dds) || {};
+  const hasNight = !!(special && special.noturno);
+  const themeNames = block => (Array.isArray(block.temas) ? block.temas : [])
+    .map(theme => (typeof theme === 'string' ? theme : theme && theme.name))
+    .filter(Boolean)
+    .join(', ');
+  const fields = (block, active) => ({
+    start: active ? (block.inicio || '') : '',
+    end: active ? (block.termino || '') : '',
+    themes: active ? themeNames(block) : ''
+  });
+  const day = dds.diurno || {};
+  const nightDds = dds.noturno || {};
+  const dayFields = fields(day, !!day.enabled);
+  const nightFields = fields(nightDds, hasNight && !!nightDds.enabled);
+  return {
+    ddsdaystart: dayFields.start,
+    ddsdayend: dayFields.end,
+    ddsdaythemes: dayFields.themes,
+    ddsnightstart: nightFields.start,
+    ddsnightend: nightFields.end,
+    ddsnightthemes: nightFields.themes
+  };
+}
+
 function buildDocxData(report) {
   const special = report.specialConditions || {};
   const night = special.noturnoDetails || {};
@@ -472,7 +500,8 @@ function buildDocxData(report) {
       ? formatInhibitionSystem(getField(primaryFields, ['Sistema']) || primaryService?.system || '')
       : (stringify(getField(primaryFields, ['Sistema'])) || primaryService?.system || ''),
     leadername: projectLeader.name || '',
-    leaderposition: projectLeader.role || ''
+    leaderposition: projectLeader.role || '',
+    ...buildDdsDocxFields(special)
   };
 }
 

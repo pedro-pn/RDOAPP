@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { listDdsThemes } from '../api/ddsThemes';
 import { downloadReportDocx, downloadReportPdf } from '../api/reports';
 
 import { useAuth } from '../auth/AuthContext';
@@ -7,6 +9,8 @@ import { accountPageStateFromPath } from '../auth/moduleNavigation';
 import { roleHomePath } from '../auth/rolePath';
 import type { UploadedFile } from '../api/uploads';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../components/reports/ManualReportOperationalFields';
+import { DdsCustomThemeReviewAlert } from '../components/reports/DdsCustomThemeReviewAlert';
+import { ReportDdsSummarySection } from '../components/reports/ReportDdsSummarySection';
 import {
   buildManualReportOperationalData,
   validateManualReportOperationalFields
@@ -112,6 +116,14 @@ interface RdoFormState {
   noturnoStart: string;
   noturnoEnd: string;
   noturnoInterval: string;
+  ddsDay: boolean;
+  ddsDayStart: string;
+  ddsDayEnd: string;
+  ddsDayThemes: { id: string; name: string; custom?: boolean }[];
+  ddsNight: boolean;
+  ddsNightStart: string;
+  ddsNightEnd: string;
+  ddsNightThemes: { id: string; name: string; custom?: boolean }[];
   overtimeReason: string;
   dailyDescription: string;
   generalUploads: UploadedFile[];
@@ -510,10 +522,21 @@ function legacyServiceData(service: NonNullable<ReportSummary['services']>[numbe
   return data;
 }
 
+function asDdsThemeSnapshots(value: unknown): { id: string; name: string; custom?: boolean }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map(item => ({ id: getString(item.id), name: getString(item.name), ...(item.custom === true ? { custom: true } : {}) }))
+    .filter(item => item.id && item.name);
+}
+
 function reportToForm(report: ReportSummary): RdoFormState {
   const specialConditions = asRecord(report.specialConditions);
   const standbyDetails = asRecord(specialConditions.standbyDetails);
   const noturnoDetails = asRecord(specialConditions.noturnoDetails);
+  const dds = asRecord(specialConditions.dds);
+  const ddsDiurno = asRecord(dds.diurno);
+  const ddsNoturno = asRecord(dds.noturno);
   const serviceOnly = isServiceOnlyReport(report);
   const serviceReportMode = serviceOnly || isDerivedServiceReport(report);
   const serviceData = asRecord(specialConditions.serviceData);
@@ -539,6 +562,14 @@ function reportToForm(report: ReportSummary): RdoFormState {
     noturnoStart: getString(noturnoDetails.inicio),
     noturnoEnd: getString(noturnoDetails.termino),
     noturnoInterval: getString(noturnoDetails.intervalo) || getString(noturnoDetails.jantaIntervalo) || '01:00:00',
+    ddsDay: Boolean(ddsDiurno.enabled),
+    ddsDayStart: getString(ddsDiurno.inicio),
+    ddsDayEnd: getString(ddsDiurno.termino),
+    ddsDayThemes: asDdsThemeSnapshots(ddsDiurno.temas),
+    ddsNight: Boolean(ddsNoturno.enabled),
+    ddsNightStart: getString(ddsNoturno.inicio),
+    ddsNightEnd: getString(ddsNoturno.termino),
+    ddsNightThemes: asDdsThemeSnapshots(ddsNoturno.temas),
     overtimeReason: report.overtimeReason || '',
     dailyDescription: report.dailyDescription || '',
     generalUploads: asUploadedFiles(specialConditions.generalUploads),
@@ -637,6 +668,21 @@ function buildPayload(
             collaboratorIds: manualReport ? [] : form.nightCollaboratorIds,
             colaboradores: (manualReport ? [] : form.nightCollaboratorIds)
               .map(id => resources.collaborators?.find(collaborator => collaborator.id === id)?.name || id)
+          },
+          // Sempre sobrescrito por inteiro: o spread de specialConditions acima não pode ressuscitar um bloco antigo.
+          dds: {
+            diurno: {
+              enabled: form.ddsDay,
+              inicio: form.ddsDayStart,
+              termino: form.ddsDayEnd,
+              temas: form.ddsDayThemes
+            },
+            noturno: {
+              enabled: form.noturno && form.ddsNight,
+              inicio: form.ddsNightStart,
+              termino: form.ddsNightEnd,
+              temas: form.ddsNightThemes
+            }
           }
         },
     collaboratorIds: manualReport ? [] : form.collaboratorIds,
@@ -726,6 +772,21 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   const inhibitionOptions = bootstrapQuery.data?.inhibitionOptions;
   const overtimeApproval = overtimeMinutesFromReport(report);
   const showOvertimeApproval = isManager && canApproveInEditor && !serviceReportMode && overtimeApproval.total > 0;
+  const showDdsFields = report.reportType === 'RDO' && !manualReport && !serviceReportMode;
+  const ddsThemesQuery = useQuery({ queryKey: ['dds-themes'], queryFn: () => listDdsThemes(), enabled: showDdsFields, staleTime: 60_000 });
+
+  function linkCustomDdsTheme(theme: { id: string; name: string }) {
+    const replace = (list: RdoFormState['ddsDayThemes']) => list.map(item => (
+      item.custom && item.name.trim().toLowerCase() === theme.name.trim().toLowerCase()
+        ? { id: theme.id, name: theme.name }
+        : item
+    ));
+    setForm(current => ({
+      ...current,
+      ddsDayThemes: replace(current.ddsDayThemes),
+      ddsNightThemes: replace(current.ddsNightThemes)
+    }));
+  }
   const manualOperationalFormValue: ManualReportOperationalFieldsValue = {
     arrivalTime: form.arrivalTime,
     departureTime: form.departureTime,
@@ -738,7 +799,15 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     noturnoCollaboratorIds: form.nightCollaboratorIds,
     standby: form.standby,
     standbyDuration: form.standbyDuration,
-    standbyMotivo: form.standbyMotivo
+    standbyMotivo: form.standbyMotivo,
+    ddsDay: form.ddsDay,
+    ddsDayStart: form.ddsDayStart,
+    ddsDayEnd: form.ddsDayEnd,
+    ddsDayThemes: form.ddsDayThemes,
+    ddsNight: form.ddsNight,
+    ddsNightStart: form.ddsNightStart,
+    ddsNightEnd: form.ddsNightEnd,
+    ddsNightThemes: form.ddsNightThemes
   };
 
   function setField<K extends keyof RdoFormState>(field: K, value: RdoFormState[K]) {
@@ -841,6 +910,24 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     if (readOnly) return false;
     if (manualReport) return handleManualInlineSave(options);
     if (!validateSequence()) return false;
+    if (showDdsFields) {
+      if (form.ddsDay && (!form.ddsDayStart.trim() || !form.ddsDayEnd.trim())) {
+        showToast('Informe início e término do DDS.', 'error');
+        return false;
+      }
+      if (form.ddsDay && !form.ddsDayThemes.length) {
+        showToast('Adicione ao menos um tema do DDS.', 'error');
+        return false;
+      }
+      if (form.noturno && form.ddsNight && (!form.ddsNightStart.trim() || !form.ddsNightEnd.trim())) {
+        showToast('Informe início e término do DDS noturno.', 'error');
+        return false;
+      }
+      if (form.noturno && form.ddsNight && !form.ddsNightThemes.length) {
+        showToast('Adicione ao menos um tema do DDS noturno.', 'error');
+        return false;
+      }
+    }
 
     const { navigateAfter = false, showSuccess = true } = options;
 
@@ -1007,10 +1094,22 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
           <ManualReportOperationalFields
             value={manualOperationalFormValue}
             collaborators={collaborators}
+            ddsThemes={ddsThemesQuery.data || []}
             disabled={readOnly}
             embedded
             showNightShift
             showStandby={report.reportType === 'RDO'}
+            showDds={showDdsFields}
+            ddsAlert={
+              <DdsCustomThemeReviewAlert
+                dayThemes={form.ddsDayThemes}
+                nightThemes={form.ddsNightThemes}
+                officialThemes={ddsThemesQuery.data || []}
+                canRegister={user?.role === 'MANAGER' || user?.role === 'COORDINATOR'}
+                readOnly={readOnly}
+                onLinkTheme={linkCustomDdsTheme}
+              />
+            }
             onChange={updateManualOperationalFields}
           />
         </section>
@@ -1799,6 +1898,19 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
   const isStandby = Boolean(specialConditions.standby);
   const isNoturno = Boolean(noturnoDetails.enabled || nightCollaboratorIds.length);
 
+  const dds = asRecord(specialConditions.dds);
+  const ddsBlocks = [
+    { label: 'DDS diurno', data: asRecord(dds.diurno) },
+    { label: 'DDS noturno', data: asRecord(dds.noturno) }
+  ]
+    .filter(block => Boolean(block.data.enabled))
+    .map(block => ({
+      label: block.label,
+      inicio: getString(block.data.inicio),
+      termino: getString(block.data.termino),
+      temas: asDdsThemeSnapshots(block.data.temas).map(theme => (theme.custom ? `${theme.name} (novo)` : theme.name))
+    }));
+
   return (
     <>
       <section className="page-card">
@@ -1832,6 +1944,8 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
           </>
         ) : null}
       </section>
+
+      <ReportDdsSummarySection blocks={ddsBlocks} />
 
       {(report.services?.length ?? 0) > 0 ? (
         <section className="page-card">
