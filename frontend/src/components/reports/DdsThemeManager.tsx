@@ -41,11 +41,18 @@ export function DdsThemeManager() {
       <p className="placeholder-copy" style={{ margin: '4px 0 10px' }}>
         Lista usada no registro de DDS dos RDOs. Temas inativos não aparecem na seleção.
       </p>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div className="inline-add-row" style={{ marginBottom: 12 }}>
         <input
           placeholder="Novo tema"
           value={newName}
+          aria-label="Novo tema de DDS"
           onChange={event => setNewName(event.target.value)}
+          onKeyDown={event => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            if (!newName.trim() || createMutation.isPending) return;
+            createMutation.mutate(newName.trim());
+          }}
         />
         <button
           className="mini-btn"
