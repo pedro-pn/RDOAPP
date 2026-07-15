@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { createJobRole, deactivateJobRole, listJobRoles, updateJobRole } from '../../api/jobRoles';
@@ -11,13 +11,14 @@ export function JobRoleManager() {
   const { data, isLoading } = useQuery({ queryKey: ['job-roles', 'all'], queryFn: () => listJobRoles(true) });
 
   const [newName, setNewName] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['job-roles'] });
 
   const createMutation = useMutation({
     mutationFn: (name: string) => createJobRole(name),
-    onSuccess: () => { showToast('Cargo adicionado.'); setNewName(''); invalidate(); },
+    onSuccess: () => { showToast('Cargo adicionado.'); setNewName(''); setShowCreateForm(false); invalidate(); },
     onError: () => showToast('Não foi possível adicionar (nome já existe?).')
   });
 
@@ -35,27 +36,53 @@ export function JobRoleManager() {
 
   const roles = data ?? [];
 
+  function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = newName.trim();
+    if (!name || createMutation.isPending) return;
+    createMutation.mutate(name);
+  }
+
   return (
     <div className="page-card">
-      <div className="sec">Cargos</div>
+      <div className="admin-toolbar">
+        <div className="sec">Cargos</div>
+        {!showCreateForm ? (
+          <button className="mini-btn" type="button" onClick={() => setShowCreateForm(true)}>
+            + Novo cargo
+          </button>
+        ) : null}
+      </div>
       <p className="placeholder-copy" style={{ margin: '4px 0 10px' }}>
         Lista usada no cadastro de colaboradores. Cargos inativos não aparecem na seleção.
       </p>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <input
-          placeholder="Novo cargo"
-          value={newName}
-          onChange={event => setNewName(event.target.value)}
-        />
-        <button
-          className="mini-btn"
-          type="button"
-          disabled={createMutation.isPending || !newName.trim()}
-          onClick={() => createMutation.mutate(newName.trim())}
-        >
-          Adicionar
-        </button>
-      </div>
+      {showCreateForm ? (
+        <form className="admin-inline-form" onSubmit={handleCreateSubmit} autoComplete="off">
+          <div className="admin-toolbar full">
+            <div className="sec">Novo cargo</div>
+            <button className="mini-btn alt" type="button" onClick={() => { setShowCreateForm(false); setNewName(''); }}>
+              Cancelar
+            </button>
+          </div>
+          <div className="admin-inline-grid">
+            <div className="field-group field-group-wide">
+              <label htmlFor="job-role-name">Nome do cargo</label>
+              <input
+                id="job-role-name"
+                value={newName}
+                autoComplete="off"
+                onChange={event => setNewName(event.target.value)}
+                required
+              />
+            </div>
+            <div className="admin-form-actions">
+              <button className="mini-btn" type="submit" disabled={createMutation.isPending || !newName.trim()}>
+                Salvar
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : null}
       {isLoading ? (
         <div className="placeholder-copy">Carregando cargos…</div>
       ) : (
