@@ -66,7 +66,7 @@ export function AcompanhamentoPage() {
               <span className="equip-nav-ico" aria-hidden="true">⌂</span>
               <span className="equip-nav-label">Sede</span>
             </button>
-            {hasAcompanhamentoAccess ? (
+            {isManager ? (
               <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
                 <span className="equip-nav-ico" aria-hidden="true">$</span>
                 <span className="equip-nav-label">Custo</span>
@@ -85,14 +85,14 @@ export function AcompanhamentoPage() {
               <option value="dashboard">Dashboard</option>
               <option value="projetos">Projetos</option>
               <option value="sede">Sede</option>
-              {hasAcompanhamentoAccess ? <option value="custo">Custo</option> : null}
+              {isManager ? <option value="custo">Custo</option> : null}
             </select>
           </div>
 
           <section className="equip-content">
             {section === 'projetos' ? <ProjectCardsBoard canManage={hasAcompanhamentoAccess} />
               : section === 'sede' ? <SedeCostsBoard />
-              : section === 'custo' && hasAcompanhamentoAccess ? <CostEngineManager canManageCosts={isManager} />
+              : section === 'custo' && isManager ? <CostEngineManager canManageCosts={isManager} />
               : <AcompanhamentoDashboard canManage={hasAcompanhamentoAccess} />}
           </section>
         </div>
