@@ -7,6 +7,7 @@ import authRouter from './resources/auth.js';
 import bootstrapRouter from './resources/bootstrap.js';
 import collaboratorsRouter from './resources/collaborators.js';
 import countersRouter from './resources/counters.js';
+import ddsThemesRouter from './resources/dds-themes.js';
 import draftsRouter from './resources/drafts.js';
 import episRouter from './resources/epis.js';
 import equipamentosRouter from './resources/equipamentos.js';
@@ -34,6 +35,7 @@ function mountRdoRoutes(targetRouter) {
   targetRouter.use('/bootstrap', bootstrapRouter);
   targetRouter.use('/collaborators', collaboratorsRouter);
   targetRouter.use('/job-roles', jobRolesRouter);
+  targetRouter.use('/dds-themes', ddsThemesRouter);
   targetRouter.use('/projects', projectsRouter);
   targetRouter.use('/project-segments', projectSegmentsRouter);
   targetRouter.use('/reports', reportsRouter);
