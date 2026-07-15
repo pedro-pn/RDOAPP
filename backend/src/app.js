@@ -41,11 +41,9 @@ app.use(cors({
   origin(origin, callback) {
     const allowedOrigins = env.allowedOrigins || [];
     const originAllowed = !allowedOrigins.length || allowedOrigins.includes(origin);
-    if (!origin || originAllowed) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error('Origem nao permitida pelo CORS.'));
+    // Nega origem não permitida sem lançar erro (evita respostas HTTP 500 ruidosas
+    // e ruído no monitoramento). O navegador bloqueia por falta de cabeçalhos CORS.
+    callback(null, !origin || originAllowed);
   },
   exposedHeaders: ['Content-Disposition']
 }));
@@ -123,6 +121,11 @@ app.use('/api', apiRouter);
 
 app.use((err, req, res, _next) => {
   console.error(err);
+
+  // Corpo malformado: não expor a mensagem interna do parser de JSON.
+  if (err && (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err))) {
+    return res.status(400).json({ error: 'Corpo da requisição inválido.' });
+  }
 
   if (err instanceof ZodError) {
     const issues = localizedZodIssues(err.issues || []);

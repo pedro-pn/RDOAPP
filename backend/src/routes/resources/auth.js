@@ -25,6 +25,11 @@ const router = Router();
 const EMAIL_CHANGE_TOKEN_MAX_AGE_MS = 60 * 60 * 1000;
 const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
+// Hash "dummy" calculado uma vez no carregamento do módulo. Serve para rodar um
+// scrypt de custo equivalente quando o usuário informado não existe, mantendo o
+// tempo de resposta do login constante (mitiga enumeração por timing — CWE-208).
+const dummyPasswordHashPromise = hashPassword('constant-time-login-guard');
+
 const loginSchema = z.object({
   username: z.string().min(1, 'Informe o usuário.'),
   password: z.string().min(1, 'Informe a senha.'),
@@ -461,6 +466,9 @@ router.post('/login', loginRateLimit, asyncHandler(async (req, res) => {
   }
 
   if (!user) {
+    // Verificação "dummy" para equalizar o tempo de resposta quando o usuário não
+    // existe (ou está inativo), evitando enumeração de usuários por canal lateral de tempo.
+    await verifyPassword(data.password, await dummyPasswordHashPromise);
     return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
   }
 
