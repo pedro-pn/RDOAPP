@@ -78,3 +78,8 @@ backend/Relatórios/**
 # Saída do script de reparo de imagens
 faltantes-fotos.csv
 backend/scripts/faltantes-fotos.csv
+
+# Documentos do pentest — contêm credenciais de contas de teste; não versionar
+PLANO_AUDITORIA_SEGURANCA.md
+FINDINGS_PENTEST.md
+RELATORIO_PENTEST_FILTROVALI.md
