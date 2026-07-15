@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createDdsTheme, listDdsThemes } from '../api/ddsThemes';
+import { useQuery } from '@tanstack/react-query';
+import { listDdsThemes } from '../api/ddsThemes';
 import { downloadReportDocx, downloadReportPdf } from '../api/reports';
 
 import { useAuth } from '../auth/AuthContext';
@@ -9,6 +9,8 @@ import { accountPageStateFromPath } from '../auth/moduleNavigation';
 import { roleHomePath } from '../auth/rolePath';
 import type { UploadedFile } from '../api/uploads';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../components/reports/ManualReportOperationalFields';
+import { DdsCustomThemeReviewAlert } from '../components/reports/DdsCustomThemeReviewAlert';
+import { ReportDdsSummarySection } from '../components/reports/ReportDdsSummarySection';
 import {
   buildManualReportOperationalData,
   validateManualReportOperationalFields
@@ -771,23 +773,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   const overtimeApproval = overtimeMinutesFromReport(report);
   const showOvertimeApproval = isManager && canApproveInEditor && !serviceReportMode && overtimeApproval.total > 0;
   const showDdsFields = report.reportType === 'RDO' && !manualReport && !serviceReportMode;
-  const queryClient = useQueryClient();
-  const ddsThemesQuery = useQuery({
-    queryKey: ['dds-themes'],
-    queryFn: () => listDdsThemes(),
-    enabled: showDdsFields,
-    staleTime: 60_000
-  });
-  // Temas de DDS digitados pelo colaborador fora da lista oficial — o gestor valida na revisão.
-  const customDdsThemes = useMemo(() => {
-    const names = new Map<string, string>();
-    [...form.ddsDayThemes, ...form.ddsNightThemes].forEach(theme => {
-      if (theme.custom && theme.name.trim()) names.set(theme.name.trim().toLowerCase(), theme.name.trim());
-    });
-    return Array.from(names.values());
-  }, [form.ddsDayThemes, form.ddsNightThemes]);
-  const canRegisterDdsTheme = user?.role === 'MANAGER' || user?.role === 'COORDINATOR';
-  const [registeringDdsTheme, setRegisteringDdsTheme] = useState<string | null>(null);
+  const ddsThemesQuery = useQuery({ queryKey: ['dds-themes'], queryFn: () => listDdsThemes(), enabled: showDdsFields, staleTime: 60_000 });
 
   function linkCustomDdsTheme(theme: { id: string; name: string }) {
     const replace = (list: RdoFormState['ddsDayThemes']) => list.map(item => (
@@ -800,27 +786,6 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
       ddsDayThemes: replace(current.ddsDayThemes),
       ddsNightThemes: replace(current.ddsNightThemes)
     }));
-  }
-
-  async function registerCustomDdsTheme(name: string) {
-    setRegisteringDdsTheme(name);
-    try {
-      const created = await createDdsTheme(name);
-      queryClient.invalidateQueries({ queryKey: ['dds-themes'] });
-      linkCustomDdsTheme(created);
-      showToast('Tema cadastrado na lista de DDS. Salve o relatório para concluir.', 'success');
-    } catch {
-      // O nome pode já existir na lista (ex.: cadastrado por outro gestor) — vincula ao existente.
-      const existing = (ddsThemesQuery.data || []).find(item => item.name.trim().toLowerCase() === name.trim().toLowerCase());
-      if (existing) {
-        linkCustomDdsTheme(existing);
-        showToast('Tema já existia na lista; vinculado ao relatório. Salve para concluir.', 'success');
-      } else {
-        showToast('Não foi possível cadastrar o tema.', 'error');
-      }
-    } finally {
-      setRegisteringDdsTheme(null);
-    }
   }
   const manualOperationalFormValue: ManualReportOperationalFieldsValue = {
     arrivalTime: form.arrivalTime,
@@ -1135,30 +1100,16 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
             showNightShift
             showStandby={report.reportType === 'RDO'}
             showDds={showDdsFields}
-            ddsAlert={customDdsThemes.length ? (
-              <div className="project-registration-alert" role="alert">
-                <strong>Temas de DDS fora da lista oficial.</strong>{' '}
-                O colaborador registrou tema(s) que não estão na lista: valide cadastrando na lista oficial ou ajuste nos temas do DDS.
-                <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-                  {customDdsThemes.map(name => (
-                    <li key={name} style={{ marginBottom: 4 }}>
-                      {name}
-                      {canRegisterDdsTheme && !readOnly ? (
-                        <button
-                          className="mini-btn"
-                          type="button"
-                          style={{ marginLeft: 8 }}
-                          disabled={registeringDdsTheme !== null}
-                          onClick={() => registerCustomDdsTheme(name)}
-                        >
-                          {registeringDdsTheme === name ? 'Cadastrando...' : 'Cadastrar na lista'}
-                        </button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            ddsAlert={
+              <DdsCustomThemeReviewAlert
+                dayThemes={form.ddsDayThemes}
+                nightThemes={form.ddsNightThemes}
+                officialThemes={ddsThemesQuery.data || []}
+                canRegister={user?.role === 'MANAGER' || user?.role === 'COORDINATOR'}
+                readOnly={readOnly}
+                onLinkTheme={linkCustomDdsTheme}
+              />
+            }
             onChange={updateManualOperationalFields}
           />
         </section>
@@ -1994,23 +1945,7 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
         ) : null}
       </section>
 
-      {ddsBlocks.length ? (
-        <section className="page-card">
-          <div className="section-title">DDS — Diálogo Diário de Segurança</div>
-          <div className="detail-grid">
-            {ddsBlocks.map(block => (
-              <div key={block.label}>
-                <span className="detail-label">{block.label}</span>
-                <span className="detail-value">
-                  {[block.inicio && block.termino ? `${block.inicio} às ${block.termino}` : block.inicio || block.termino, block.temas.join(', ')]
-                    .filter(Boolean)
-                    .join(' — ') || '-'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <ReportDdsSummarySection blocks={ddsBlocks} />
 
       {(report.services?.length ?? 0) > 0 ? (
         <section className="page-card">

@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { listDdsThemes } from '../../api/ddsThemes';
 import { listReports } from '../../api/reports';
+import { NewReportSpecialConditions } from '../../components/reports/NewReportSpecialConditions';
 import { RdoDdsNovelty } from '../../components/reports/RdoDdsNovelty';
 import { ServiceCollaboratorsBlock, ServiceFields } from '../../components/reports/ServiceFields';
 import { serviceTypeLabels } from '../../components/reports/serviceTypes';
@@ -54,7 +55,6 @@ const TEXT = {
   next: 'Próximo →',
   submit: 'Enviar relatório ✓',
   team: 'Equipe diurna',
-  ddsThemes: 'Temas abordados',
   specialConditions: 'Condições especiais',
   identification: 'Identificação',
   schedules: 'Horários',
@@ -291,8 +291,6 @@ export function NewReportPage() {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [invalidTarget, setInvalidTarget] = useState<string | null>(null);
   const [ddsNoveltyActive, setDdsNoveltyActive] = useState(true);
-  const [ddsDayCustomTheme, setDdsDayCustomTheme] = useState('');
-  const [ddsNightCustomTheme, setDdsNightCustomTheme] = useState('');
   const [collaboratorsPrefilled, setCollaboratorsPrefilled] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canCreateServiceOnly = user?.role === 'MANAGER';
@@ -690,47 +688,6 @@ export function NewReportPage() {
         </span>
       );
     });
-  }
-
-  function addDdsThemeById(id: string, night = false) {
-    if (!id) return;
-    const theme = ddsThemes.find(item => item.id === id);
-    if (!theme) return;
-    addDdsTheme(night ? 'night' : 'day', { id: theme.id, name: theme.name });
-  }
-
-  function addCustomDdsTheme(night = false) {
-    const name = (night ? ddsNightCustomTheme : ddsDayCustomTheme).trim();
-    if (!name) return;
-    const selected = night ? ddsNightThemes : ddsDayThemes;
-    if (selected.some(item => item.name.trim().toLowerCase() === name.toLowerCase())) {
-      if (night) setDdsNightCustomTheme('');
-      else setDdsDayCustomTheme('');
-      return;
-    }
-    // Se o texto digitado corresponde a um tema oficial, vincula a ele em vez de criar um avulso.
-    const existing = ddsThemes.find(item => item.name.trim().toLowerCase() === name.toLowerCase());
-    addDdsTheme(
-      night ? 'night' : 'day',
-      existing
-        ? { id: existing.id, name: existing.name }
-        : { id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, custom: true }
-    );
-    if (night) setDdsNightCustomTheme('');
-    else setDdsDayCustomTheme('');
-  }
-
-  function renderDdsThemeList(themes: { id: string; name: string; custom?: boolean }[], night = false) {
-    if (!themes.length) {
-      return <div className="colab-empty">Nenhum tema adicionado.</div>;
-    }
-
-    return themes.map(theme => (
-      <span className={`colab-tag ${theme.custom ? 'colab-tag-custom' : ''}`} key={`${night ? 'night' : 'day'}-dds-${theme.id}`}>
-        <span>{theme.custom ? `${theme.name} (novo)` : theme.name}</span>
-        <button type="button" onClick={() => removeDdsTheme(night ? 'night' : 'day', theme.id)}>×</button>
-      </span>
-    ));
   }
 
   function fieldState(target: string) {
@@ -1411,237 +1368,32 @@ export function NewReportPage() {
         {!effectiveServiceOnly ? (
         <>
         {/* Card 4: Condições especiais */}
-        <section className="page-card">
-          <div className="section-title">{TEXT.specialConditions}</div>
-          <div className="tog-row" data-dds-novelty>
-            <span className="tog-lbl">Houve DDS?</span>
-            <label className="tog">
-              <input
-                type="checkbox"
-                checked={ddsDay}
-                onChange={event => setHeaderField('ddsDay', event.target.checked)}
-              />
-              <span className="tog-sl" />
-            </label>
-          </div>
-          {ddsDay ? (
-            <div className="collapse-section">
-              <div className="fg-r2">
-                <div className={fieldState('header:ddsDayStart')} data-invalid-target="header:ddsDayStart">
-                  <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    value={ddsDayStart}
-                    onChange={event => setHeaderField('ddsDayStart', event.target.value)}
-                  />
-                </div>
-                <div className={fieldState('header:ddsDayEnd')} data-invalid-target="header:ddsDayEnd">
-                  <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    value={ddsDayEnd}
-                    onChange={event => setHeaderField('ddsDayEnd', event.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="section-title" style={{ marginTop: 14 }}>{TEXT.ddsThemes} <span style={{ color: 'var(--rd)' }}>*</span></div>
-              <div
-                className={`colab-list ${invalidTarget === 'header:ddsDayThemes' ? 'field-invalid-panel' : ''}`}
-                data-invalid-target="header:ddsDayThemes"
-              >
-                {renderDdsThemeList(ddsDayThemes)}
-              </div>
-              <div className="cadd">
-                <select value="" onChange={event => addDdsThemeById(event.target.value)}>
-                  <option value="">Adicionar...</option>
-                  {ddsThemes
-                    .filter(item => !ddsDayThemes.some(theme => theme.id === item.id))
-                    .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-              </div>
-              <div className="cadd">
-                <input
-                  value={ddsDayCustomTheme}
-                  placeholder="Tema fora da lista? Digite aqui..."
-                  onChange={event => setDdsDayCustomTheme(event.target.value)}
-                  onKeyDown={event => {
-                    if (event.key !== 'Enter') return;
-                    event.preventDefault();
-                    addCustomDdsTheme();
-                  }}
-                />
-                <button
-                  className="cadd-btn"
-                  type="button"
-                  disabled={!ddsDayCustomTheme.trim()}
-                  onClick={() => addCustomDdsTheme()}
-                >
-                  + Add
-                </button>
-              </div>
-            </div>
-          ) : null}
-          <div className="tog-row">
-            <span className="tog-lbl">Houve standby?</span>
-            <label className="tog">
-              <input
-                type="checkbox"
-                checked={standby}
-                onChange={event => setHeaderField('standby', event.target.checked)}
-              />
-              <span className="tog-sl" />
-            </label>
-          </div>
-          {standby ? (
-            <div className="collapse-section">
-              <div className="fg-r2">
-                <div className={fieldState('header:standbyDuration')} data-invalid-target="header:standbyDuration">
-                  <label>Tempo total <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    step={60}
-                    value={standbyDuration}
-                    onChange={event => setHeaderField('standbyDuration', event.target.value)}
-                  />
-                </div>
-                <div className={fieldState('header:standbyMotivo')} data-invalid-target="header:standbyMotivo">
-                  <label>Motivo <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Motivo..."
-                    value={standbyMotivo}
-                    onChange={event => setHeaderField('standbyMotivo', event.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : null}
-          <div className="tog-row">
-            <span className="tog-lbl">Houve turno noturno?</span>
-            <label className="tog">
-              <input
-                type="checkbox"
-                checked={noturno}
-                onChange={event => setHeaderField('noturno', event.target.checked)}
-              />
-              <span className="tog-sl" />
-            </label>
-          </div>
-          {noturno ? (
-            <div className="collapse-section noturno-section">
-              <div className="fg-r2 night-time-grid">
-                <div className={fieldState('header:noturnoStart')} data-invalid-target="header:noturnoStart">
-                  <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    value={noturnoStart}
-                    onChange={event => setHeaderField('noturnoStart', event.target.value)}
-                  />
-                </div>
-                <div className={fieldState('header:noturnoEnd')} data-invalid-target="header:noturnoEnd">
-                  <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    value={noturnoEnd}
-                    onChange={event => setHeaderField('noturnoEnd', event.target.value)}
-                  />
-                </div>
-              </div>
-              <div className={fieldState('header:noturnoInterval')} style={{ marginTop: 6 }} data-invalid-target="header:noturnoInterval">
-                <label>Intervalo noturno</label>
-                <input
-                  type="time"
-                  step={1}
-                  value={noturnoInterval}
-                  onChange={event => setHeaderField('noturnoInterval', event.target.value)}
-                />
-              </div>
-              <div className="section-title" style={{ marginTop: 14 }}>{TEXT.nightTeam}</div>
-              <div
-                className={`colab-list ${invalidTarget === 'header:nightCollaborators' ? 'field-invalid-panel' : ''}`}
-                data-invalid-target="header:nightCollaborators"
-              >
-                {renderCollaboratorList(nightCollaboratorIds, true)}
-              </div>
-              <div className="cadd">
-                <select value="" onChange={event => addCollaboratorById(event.target.value, true)}>
-                  <option value="">Adicionar...</option>
-                  {collaborators
-                    .filter(item => !nightCollaboratorIds.includes(item.id))
-                    .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-              </div>
-              <div className="tog-row" style={{ marginTop: 14 }}>
-                <span className="tog-lbl">Houve DDS no turno noturno?</span>
-                <label className="tog">
-                  <input
-                    type="checkbox"
-                    checked={ddsNight}
-                    onChange={event => setHeaderField('ddsNight', event.target.checked)}
-                  />
-                  <span className="tog-sl" />
-                </label>
-              </div>
-              {ddsNight ? (
-                <div className="collapse-section">
-                  <div className="fg-r2">
-                    <div className={fieldState('header:ddsNightStart')} data-invalid-target="header:ddsNightStart">
-                      <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
-                      <input
-                        type="time"
-                        value={ddsNightStart}
-                        onChange={event => setHeaderField('ddsNightStart', event.target.value)}
-                      />
-                    </div>
-                    <div className={fieldState('header:ddsNightEnd')} data-invalid-target="header:ddsNightEnd">
-                      <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
-                      <input
-                        type="time"
-                        value={ddsNightEnd}
-                        onChange={event => setHeaderField('ddsNightEnd', event.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="section-title" style={{ marginTop: 14 }}>{TEXT.ddsThemes} <span style={{ color: 'var(--rd)' }}>*</span></div>
-                  <div
-                    className={`colab-list ${invalidTarget === 'header:ddsNightThemes' ? 'field-invalid-panel' : ''}`}
-                    data-invalid-target="header:ddsNightThemes"
-                  >
-                    {renderDdsThemeList(ddsNightThemes, true)}
-                  </div>
-                  <div className="cadd">
-                    <select value="" onChange={event => addDdsThemeById(event.target.value, true)}>
-                      <option value="">Adicionar...</option>
-                      {ddsThemes
-                        .filter(item => !ddsNightThemes.some(theme => theme.id === item.id))
-                        .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="cadd">
-                    <input
-                      value={ddsNightCustomTheme}
-                      placeholder="Tema fora da lista? Digite aqui..."
-                      onChange={event => setDdsNightCustomTheme(event.target.value)}
-                      onKeyDown={event => {
-                        if (event.key !== 'Enter') return;
-                        event.preventDefault();
-                        addCustomDdsTheme(true);
-                      }}
-                    />
-                    <button
-                      className="cadd-btn"
-                      type="button"
-                      disabled={!ddsNightCustomTheme.trim()}
-                      onClick={() => addCustomDdsTheme(true)}
-                    >
-                      + Add
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </section>
+        <NewReportSpecialConditions
+          collaborators={collaborators}
+          ddsThemes={ddsThemes}
+          invalidTarget={invalidTarget}
+          standby={standby}
+          standbyDuration={standbyDuration}
+          standbyMotivo={standbyMotivo}
+          noturno={noturno}
+          noturnoStart={noturnoStart}
+          noturnoEnd={noturnoEnd}
+          noturnoInterval={noturnoInterval}
+          nightCollaboratorIds={nightCollaboratorIds}
+          ddsDay={ddsDay}
+          ddsDayStart={ddsDayStart}
+          ddsDayEnd={ddsDayEnd}
+          ddsDayThemes={ddsDayThemes}
+          ddsNight={ddsNight}
+          ddsNightStart={ddsNightStart}
+          ddsNightEnd={ddsNightEnd}
+          ddsNightThemes={ddsNightThemes}
+          setHeaderField={setHeaderField}
+          setNightCollaborators={setNightCollaborators}
+          addDdsTheme={addDdsTheme}
+          removeDdsTheme={removeDdsTheme}
+          fieldState={fieldState}
+        />
         </>
         ) : null}
 

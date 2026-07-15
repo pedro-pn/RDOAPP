@@ -13,7 +13,7 @@ export interface DdsThemeSnapshot {
   custom?: boolean;
 }
 
-interface RdoStoreState {
+export interface RdoStoreState {
   draftId: string | null;
   serviceOnly: boolean;
   projectId: string | null;
