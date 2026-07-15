@@ -5,6 +5,8 @@ import type { AuthUser } from '../types/auth';
 const LAST_MODULE_KEY_PREFIX = 'filtrovali:last-module:';
 const HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX = 'filtrovali:hub-first-login-tutorial:';
 const ACOMPANHAMENTO_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-novelty:';
+// v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
+const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
 
 function storageKey(user: Pick<AuthUser, 'id'>) {
   return `${LAST_MODULE_KEY_PREFIX}${user.id}`;
@@ -69,6 +71,22 @@ export function hasSeenAcompanhamentoNovelty(user: Pick<AuthUser, 'id'> | null |
 export function markAcompanhamentoNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(acompanhamentoNoveltyStorageKey(user), '1');
+}
+
+// Novidade do registro de DDS no formulário de RDO: destaque único na primeira abertura do formulário.
+// A marcação de "visto" fica no localStorage (por navegador); a data-limite abaixo encerra a campanha
+// de vez — depois dela o aviso não aparece nem em navegadores/dispositivos que nunca o viram.
+const RDO_DDS_NOVELTY_EXPIRES_AT = new Date('2026-07-25T23:59:59-03:00');
+
+export function shouldShowRdoDdsNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > RDO_DDS_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${RDO_DDS_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markRdoDdsNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${RDO_DDS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 export function shouldOpenHubOnFirstLogin(user: AuthUser | null | undefined) {

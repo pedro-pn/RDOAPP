@@ -6,6 +6,13 @@ interface RdoServiceDraft {
   data: Record<string, unknown>;
 }
 
+export interface DdsThemeSnapshot {
+  id: string;
+  name: string;
+  // Tema digitado fora da lista oficial; fica pendente de validação do gestor na revisão do RDO.
+  custom?: boolean;
+}
+
 interface RdoStoreState {
   draftId: string | null;
   serviceOnly: boolean;
@@ -23,13 +30,23 @@ interface RdoStoreState {
   noturnoStart: string;
   noturnoEnd: string;
   noturnoInterval: string;
+  ddsDay: boolean;
+  ddsDayStart: string;
+  ddsDayEnd: string;
+  ddsDayThemes: DdsThemeSnapshot[];
+  ddsNight: boolean;
+  ddsNightStart: string;
+  ddsNightEnd: string;
+  ddsNightThemes: DdsThemeSnapshot[];
   overtimeReason: string;
   dailyDescription: string;
   generalUploads: unknown[];
   services: RdoServiceDraft[];
-  setHeaderField: <K extends keyof Pick<RdoStoreState, 'serviceOnly' | 'projectId' | 'reportDate' | 'arrivalTime' | 'departureTime' | 'lunchBreak' | 'standby' | 'noturno' | 'standbyDuration' | 'standbyMotivo' | 'noturnoStart' | 'noturnoEnd' | 'noturnoInterval' | 'overtimeReason' | 'dailyDescription'>>(field: K, value: RdoStoreState[K]) => void;
+  setHeaderField: <K extends keyof Pick<RdoStoreState, 'serviceOnly' | 'projectId' | 'reportDate' | 'arrivalTime' | 'departureTime' | 'lunchBreak' | 'standby' | 'noturno' | 'standbyDuration' | 'standbyMotivo' | 'noturnoStart' | 'noturnoEnd' | 'noturnoInterval' | 'ddsDay' | 'ddsDayStart' | 'ddsDayEnd' | 'ddsNight' | 'ddsNightStart' | 'ddsNightEnd' | 'overtimeReason' | 'dailyDescription'>>(field: K, value: RdoStoreState[K]) => void;
   setCollaborators: (ids: string[]) => void;
   setNightCollaborators: (ids: string[]) => void;
+  addDdsTheme: (shift: 'day' | 'night', theme: DdsThemeSnapshot) => void;
+  removeDdsTheme: (shift: 'day' | 'night', id: string) => void;
   setGeneralUploads: (uploads: unknown[]) => void;
   addService: (type: string, data?: Record<string, unknown>) => void;
   updateServiceType: (id: string, type: string) => void;
@@ -57,6 +74,14 @@ const initialState = {
   noturnoStart: '',
   noturnoEnd: '',
   noturnoInterval: '01:00:00',
+  ddsDay: false,
+  ddsDayStart: '',
+  ddsDayEnd: '',
+  ddsDayThemes: [] as DdsThemeSnapshot[],
+  ddsNight: false,
+  ddsNightStart: '',
+  ddsNightEnd: '',
+  ddsNightThemes: [] as DdsThemeSnapshot[],
   overtimeReason: '',
   dailyDescription: '',
   generalUploads: [],
@@ -73,6 +98,17 @@ export const useRdoStore = create<RdoStoreState>(set => ({
   setHeaderField: (field, value) => set(state => ({ ...state, [field]: value })),
   setCollaborators: collaboratorIds => set({ collaboratorIds }),
   setNightCollaborators: nightCollaboratorIds => set({ nightCollaboratorIds }),
+  addDdsTheme: (shift, theme) =>
+    set(state => {
+      const key = shift === 'day' ? 'ddsDayThemes' : 'ddsNightThemes';
+      if (state[key].some(item => item.id === theme.id)) return state;
+      return { [key]: [...state[key], theme] };
+    }),
+  removeDdsTheme: (shift, id) =>
+    set(state => {
+      const key = shift === 'day' ? 'ddsDayThemes' : 'ddsNightThemes';
+      return { [key]: state[key].filter(item => item.id !== id) };
+    }),
   setGeneralUploads: generalUploads => set({ generalUploads }),
   addService: (type, data = {}) =>
     set(state => ({

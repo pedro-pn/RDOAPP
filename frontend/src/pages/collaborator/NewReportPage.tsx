@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
+import { listDdsThemes } from '../../api/ddsThemes';
 import { listReports } from '../../api/reports';
+import { RdoDdsNovelty } from '../../components/reports/RdoDdsNovelty';
 import { ServiceCollaboratorsBlock, ServiceFields } from '../../components/reports/ServiceFields';
 import { serviceTypeLabels } from '../../components/reports/serviceTypes';
 import { Modal } from '../../components/ui/Modal';
@@ -52,6 +54,7 @@ const TEXT = {
   next: 'Próximo →',
   submit: 'Enviar relatório ✓',
   team: 'Equipe diurna',
+  ddsThemes: 'Temas abordados',
   specialConditions: 'Condições especiais',
   identification: 'Identificação',
   schedules: 'Horários',
@@ -258,6 +261,14 @@ export function NewReportPage() {
     noturnoStart,
     noturnoEnd,
     noturnoInterval,
+    ddsDay,
+    ddsDayStart,
+    ddsDayEnd,
+    ddsDayThemes,
+    ddsNight,
+    ddsNightStart,
+    ddsNightEnd,
+    ddsNightThemes,
     overtimeReason,
     dailyDescription,
     generalUploads,
@@ -266,6 +277,8 @@ export function NewReportPage() {
     setHeaderField,
     setCollaborators,
     setNightCollaborators,
+    addDdsTheme,
+    removeDdsTheme,
     setGeneralUploads,
     addService,
     updateService,
@@ -277,8 +290,9 @@ export function NewReportPage() {
   const [step, setStep] = useState(0);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [invalidTarget, setInvalidTarget] = useState<string | null>(null);
-  const [collaboratorToAdd, setCollaboratorToAdd] = useState('');
-  const [nightCollaboratorToAdd, setNightCollaboratorToAdd] = useState('');
+  const [ddsNoveltyActive, setDdsNoveltyActive] = useState(true);
+  const [ddsDayCustomTheme, setDdsDayCustomTheme] = useState('');
+  const [ddsNightCustomTheme, setDdsNightCustomTheme] = useState('');
   const [collaboratorsPrefilled, setCollaboratorsPrefilled] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canCreateServiceOnly = user?.role === 'MANAGER';
@@ -288,6 +302,8 @@ export function NewReportPage() {
 
   const projects = useMemo(() => sortProjects(bootstrapQuery.data?.projects || [], 'asc'), [bootstrapQuery.data?.projects]);
   const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => item.isActive);
+  const ddsThemesQuery = useQuery({ queryKey: ['dds-themes'], queryFn: () => listDdsThemes(), staleTime: 60_000 });
+  const ddsThemes = ddsThemesQuery.data || [];
   const units = bootstrapQuery.data?.units || [];
   const manometers = bootstrapQuery.data?.manometers || [];
   const serviceCollaboratorOptions = useMemo(() => {
@@ -643,16 +659,13 @@ export function NewReportPage() {
         : 'Data com regime integral de hora extra conforme configuração do projeto.'
   ];
 
-  function addCollaboratorFromSelect(night = false) {
-    const id = night ? nightCollaboratorToAdd : collaboratorToAdd;
+  function addCollaboratorById(id: string, night = false) {
     if (!id) return;
     if (night) {
       setNightCollaborators(Array.from(new Set([...nightCollaboratorIds, id])));
-      setNightCollaboratorToAdd('');
       return;
     }
     setCollaborators(Array.from(new Set([...collaboratorIds, id])));
-    setCollaboratorToAdd('');
   }
 
   function removeCollaboratorFromList(id: string, night = false) {
@@ -677,6 +690,47 @@ export function NewReportPage() {
         </span>
       );
     });
+  }
+
+  function addDdsThemeById(id: string, night = false) {
+    if (!id) return;
+    const theme = ddsThemes.find(item => item.id === id);
+    if (!theme) return;
+    addDdsTheme(night ? 'night' : 'day', { id: theme.id, name: theme.name });
+  }
+
+  function addCustomDdsTheme(night = false) {
+    const name = (night ? ddsNightCustomTheme : ddsDayCustomTheme).trim();
+    if (!name) return;
+    const selected = night ? ddsNightThemes : ddsDayThemes;
+    if (selected.some(item => item.name.trim().toLowerCase() === name.toLowerCase())) {
+      if (night) setDdsNightCustomTheme('');
+      else setDdsDayCustomTheme('');
+      return;
+    }
+    // Se o texto digitado corresponde a um tema oficial, vincula a ele em vez de criar um avulso.
+    const existing = ddsThemes.find(item => item.name.trim().toLowerCase() === name.toLowerCase());
+    addDdsTheme(
+      night ? 'night' : 'day',
+      existing
+        ? { id: existing.id, name: existing.name }
+        : { id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, custom: true }
+    );
+    if (night) setDdsNightCustomTheme('');
+    else setDdsDayCustomTheme('');
+  }
+
+  function renderDdsThemeList(themes: { id: string; name: string; custom?: boolean }[], night = false) {
+    if (!themes.length) {
+      return <div className="colab-empty">Nenhum tema adicionado.</div>;
+    }
+
+    return themes.map(theme => (
+      <span className={`colab-tag ${theme.custom ? 'colab-tag-custom' : ''}`} key={`${night ? 'night' : 'day'}-dds-${theme.id}`}>
+        <span>{theme.custom ? `${theme.name} (novo)` : theme.name}</span>
+        <button type="button" onClick={() => removeDdsTheme(night ? 'night' : 'day', theme.id)}>×</button>
+      </span>
+    ));
   }
 
   function fieldState(target: string) {
@@ -794,6 +848,12 @@ export function NewReportPage() {
     if (noturno && !noturnoEnd) return failRequired('Término (noturno)', 'header:noturnoEnd', 0);
     if (noturno && !noturnoInterval) return failRequired('Intervalo noturno', 'header:noturnoInterval', 0);
     if (noturno && !nightCollaboratorIds.length) return failRequired('Colaboradores noturnos', 'header:nightCollaborators', 0);
+    if (ddsDay && !ddsDayStart) return failRequired('Início (DDS)', 'header:ddsDayStart', 0);
+    if (ddsDay && !ddsDayEnd) return failRequired('Término (DDS)', 'header:ddsDayEnd', 0);
+    if (ddsDay && !ddsDayThemes.length) return failRequired('Temas do DDS', 'header:ddsDayThemes', 0);
+    if (noturno && ddsNight && !ddsNightStart) return failRequired('Início (DDS noturno)', 'header:ddsNightStart', 0);
+    if (noturno && ddsNight && !ddsNightEnd) return failRequired('Término (DDS noturno)', 'header:ddsNightEnd', 0);
+    if (noturno && ddsNight && !ddsNightThemes.length) return failRequired('Temas do DDS noturno', 'header:ddsNightThemes', 0);
     return true;
   }
 
@@ -920,6 +980,14 @@ export function NewReportPage() {
       noturnoStart,
       noturnoEnd,
       noturnoInterval,
+      ddsDay,
+      ddsDayStart,
+      ddsDayEnd,
+      ddsDayThemes,
+      ddsNight,
+      ddsNightStart,
+      ddsNightEnd,
+      ddsNightThemes,
       overtimeReason,
       dailyDescription,
       generalUploads,
@@ -941,6 +1009,14 @@ export function NewReportPage() {
     noturnoStart,
     noturnoEnd,
     noturnoInterval,
+    ddsDay,
+    ddsDayStart,
+    ddsDayEnd,
+    ddsDayThemes,
+    ddsNight,
+    ddsNightStart,
+    ddsNightEnd,
+    ddsNightThemes,
     overtimeReason,
     dailyDescription,
     generalUploads,
@@ -1114,6 +1190,20 @@ export function NewReportPage() {
               termino: noturnoEnd,
               intervalo: noturnoInterval,
               collaboratorIds: nightCollaboratorIds
+            },
+            dds: {
+              diurno: {
+                enabled: ddsDay,
+                inicio: ddsDayStart,
+                termino: ddsDayEnd,
+                temas: ddsDayThemes
+              },
+              noturno: {
+                enabled: noturno && ddsNight,
+                inicio: ddsNightStart,
+                termino: ddsNightEnd,
+                temas: ddsNightThemes
+              }
             },
             overtimeSummary
           },
@@ -1309,15 +1399,12 @@ export function NewReportPage() {
             {renderCollaboratorList(collaboratorIds)}
           </div>
           <div className="cadd">
-            <select value={collaboratorToAdd} onChange={event => setCollaboratorToAdd(event.target.value)}>
+            <select value="" onChange={event => addCollaboratorById(event.target.value)}>
               <option value="">Adicionar...</option>
               {collaborators
                 .filter(item => !collaboratorIds.includes(item.id))
                 .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-            <button className="cadd-btn" type="button" onClick={() => addCollaboratorFromSelect()}>
-              + Add
-            </button>
           </div>
         </section>
 
@@ -1326,6 +1413,74 @@ export function NewReportPage() {
         {/* Card 4: Condições especiais */}
         <section className="page-card">
           <div className="section-title">{TEXT.specialConditions}</div>
+          <div className="tog-row" data-dds-novelty>
+            <span className="tog-lbl">Houve DDS?</span>
+            <label className="tog">
+              <input
+                type="checkbox"
+                checked={ddsDay}
+                onChange={event => setHeaderField('ddsDay', event.target.checked)}
+              />
+              <span className="tog-sl" />
+            </label>
+          </div>
+          {ddsDay ? (
+            <div className="collapse-section">
+              <div className="fg-r2">
+                <div className={fieldState('header:ddsDayStart')} data-invalid-target="header:ddsDayStart">
+                  <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
+                  <input
+                    type="time"
+                    value={ddsDayStart}
+                    onChange={event => setHeaderField('ddsDayStart', event.target.value)}
+                  />
+                </div>
+                <div className={fieldState('header:ddsDayEnd')} data-invalid-target="header:ddsDayEnd">
+                  <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
+                  <input
+                    type="time"
+                    value={ddsDayEnd}
+                    onChange={event => setHeaderField('ddsDayEnd', event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="section-title" style={{ marginTop: 14 }}>{TEXT.ddsThemes} <span style={{ color: 'var(--rd)' }}>*</span></div>
+              <div
+                className={`colab-list ${invalidTarget === 'header:ddsDayThemes' ? 'field-invalid-panel' : ''}`}
+                data-invalid-target="header:ddsDayThemes"
+              >
+                {renderDdsThemeList(ddsDayThemes)}
+              </div>
+              <div className="cadd">
+                <select value="" onChange={event => addDdsThemeById(event.target.value)}>
+                  <option value="">Adicionar...</option>
+                  {ddsThemes
+                    .filter(item => !ddsDayThemes.some(theme => theme.id === item.id))
+                    .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </div>
+              <div className="cadd">
+                <input
+                  value={ddsDayCustomTheme}
+                  placeholder="Tema fora da lista? Digite aqui..."
+                  onChange={event => setDdsDayCustomTheme(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key !== 'Enter') return;
+                    event.preventDefault();
+                    addCustomDdsTheme();
+                  }}
+                />
+                <button
+                  className="cadd-btn"
+                  type="button"
+                  disabled={!ddsDayCustomTheme.trim()}
+                  onClick={() => addCustomDdsTheme()}
+                >
+                  + Add
+                </button>
+              </div>
+            </div>
+          ) : null}
           <div className="tog-row">
             <span className="tog-lbl">Houve standby?</span>
             <label className="tog">
@@ -1409,16 +1564,81 @@ export function NewReportPage() {
                 {renderCollaboratorList(nightCollaboratorIds, true)}
               </div>
               <div className="cadd">
-                <select value={nightCollaboratorToAdd} onChange={event => setNightCollaboratorToAdd(event.target.value)}>
+                <select value="" onChange={event => addCollaboratorById(event.target.value, true)}>
                   <option value="">Adicionar...</option>
                   {collaborators
                     .filter(item => !nightCollaboratorIds.includes(item.id))
                     .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
-                <button className="cadd-btn" type="button" onClick={() => addCollaboratorFromSelect(true)}>
-                  + Add
-                </button>
               </div>
+              <div className="tog-row" style={{ marginTop: 14 }}>
+                <span className="tog-lbl">Houve DDS no turno noturno?</span>
+                <label className="tog">
+                  <input
+                    type="checkbox"
+                    checked={ddsNight}
+                    onChange={event => setHeaderField('ddsNight', event.target.checked)}
+                  />
+                  <span className="tog-sl" />
+                </label>
+              </div>
+              {ddsNight ? (
+                <div className="collapse-section">
+                  <div className="fg-r2">
+                    <div className={fieldState('header:ddsNightStart')} data-invalid-target="header:ddsNightStart">
+                      <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
+                      <input
+                        type="time"
+                        value={ddsNightStart}
+                        onChange={event => setHeaderField('ddsNightStart', event.target.value)}
+                      />
+                    </div>
+                    <div className={fieldState('header:ddsNightEnd')} data-invalid-target="header:ddsNightEnd">
+                      <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
+                      <input
+                        type="time"
+                        value={ddsNightEnd}
+                        onChange={event => setHeaderField('ddsNightEnd', event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="section-title" style={{ marginTop: 14 }}>{TEXT.ddsThemes} <span style={{ color: 'var(--rd)' }}>*</span></div>
+                  <div
+                    className={`colab-list ${invalidTarget === 'header:ddsNightThemes' ? 'field-invalid-panel' : ''}`}
+                    data-invalid-target="header:ddsNightThemes"
+                  >
+                    {renderDdsThemeList(ddsNightThemes, true)}
+                  </div>
+                  <div className="cadd">
+                    <select value="" onChange={event => addDdsThemeById(event.target.value, true)}>
+                      <option value="">Adicionar...</option>
+                      {ddsThemes
+                        .filter(item => !ddsNightThemes.some(theme => theme.id === item.id))
+                        .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="cadd">
+                    <input
+                      value={ddsNightCustomTheme}
+                      placeholder="Tema fora da lista? Digite aqui..."
+                      onChange={event => setDdsNightCustomTheme(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        addCustomDdsTheme(true);
+                      }}
+                    />
+                    <button
+                      className="cadd-btn"
+                      type="button"
+                      disabled={!ddsNightCustomTheme.trim()}
+                      onClick={() => addCustomDdsTheme(true)}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>
@@ -1697,6 +1917,14 @@ export function NewReportPage() {
               ))}
             </div>
       </Modal>
+
+      {user ? (
+        <RdoDdsNovelty
+          user={user}
+          enabled={ddsNoveltyActive && step === 0 && !effectiveServiceOnly}
+          onSeen={() => setDdsNoveltyActive(false)}
+        />
+      ) : null}
     </Shell>
   );
 }
