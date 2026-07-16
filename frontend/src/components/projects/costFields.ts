@@ -10,9 +10,7 @@ export const PARAM_FIELDS: Array<[string, string]> = [
   ['transferenciaPct', 'Transferência/Viagem (fração)'],
   ['he70Pct', 'HE 70% (fração)'],
   ['he100Pct', 'HE 100% (fração)'],
-  ['fgtsPct', 'FGTS (fração)'],
-  ['inssPatronalPct', 'INSS Patronal (fração)'],
-  ['multaPct', 'Multa rescisória (fração)']
+  ['fgtsPct', 'FGTS (fração)']
 ];
 
 export const BENEFIT_FIELDS: Array<[string, string]> = [

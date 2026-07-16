@@ -276,7 +276,7 @@ model CostParameterSet {
   costProfileId   String
   version         Int
   effectiveDate   DateTime    @db.Date
-  params          Json // campos "amarelos" da planilha (salário, %s, benefícios, encargos)
+  params          Json // campos "amarelos" da planilha (salário, %s, benefícios, FGTS)
   note            String?
   createdByUserId String?
   createdAt       DateTime    @default(now())

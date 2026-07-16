@@ -336,12 +336,15 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                       </>
                     ) : null}
                     <div style={rowStyle}>
-                      <HelpTip help={hasOmieInvoice ? 'ISS vem da alíquota/código da NFSe do Omie quando disponível. PIS e COFINS são calculados pela regra da planilha sobre o faturamento real.' : 'Previsão da planilha para ISS, PIS e COFINS enquanto não houver NF sincronizada no Omie.'}>ISS, PIS e COFINS</HelpTip>
+                      <HelpTip help={hasOmieInvoice ? 'ISS vem da alíquota/código da NFSe do Omie quando disponível. PIS, COFINS e o INSS de 5,5% para serviços 14.01/7.02 são calculados sobre o faturamento real.' : 'Previsão da planilha para ISS, PIS, COFINS e INSS de 5,5% para serviços 14.01/7.02 enquanto não houver NF sincronizada no Omie.'}>Impostos na NF</HelpTip>
                       <span>{brl(taxes.invoiceTaxTotal)}</span>
                     </div>
                     <div style={rowStyle}><span className="placeholder-copy">{hasOmieInvoice ? 'ISS Omie' : 'ISS previsto'}</span><span>{brl(taxes.iss)}</span></div>
                     <div style={rowStyle}><span className="placeholder-copy">PIS</span><span>{brl(taxes.pis)}</span></div>
                     <div style={rowStyle}><span className="placeholder-copy">COFINS</span><span>{brl(taxes.cofins)}</span></div>
+                    {taxes.inss > 0 ? (
+                      <div style={rowStyle}><span className="placeholder-copy">INSS NF (5,5%)</span><span>{brl(taxes.inss)}</span></div>
+                    ) : null}
                     <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}>
                       <HelpTip help={hasOmieInvoice ? 'Cálculo gerencial feito sobre o faturamento real do Omie. O cliente paga o valor faturado; este valor é o imposto estimado a pagar pela empresa.' : 'Previsão gerencial feita sobre a venda prevista. O cliente paga a venda prevista; este valor é o imposto estimado a pagar pela empresa.'}>IRPJ/CSLL fora da NF</HelpTip>
                       <strong>{brl(taxes.outOfInvoiceTaxTotal)}</strong>
@@ -350,7 +353,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     <div style={rowStyle}><span className="placeholder-copy">CSLL</span><span>{brl(taxes.csll)}</span></div>
                     <div style={rowStyle}><span className="placeholder-copy">Adic. IRPJ</span><span>{brl(taxes.additionalIrpjEstimated)}</span></div>
                     <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}>
-                      <HelpTip help="Soma de ISS, PIS, COFINS, IRPJ, CSLL e adicional de IRPJ calculados para o projeto.">Total de impostos</HelpTip>
+                      <HelpTip help="Soma de ISS, PIS, COFINS, INSS quando aplicável, IRPJ, CSLL e adicional de IRPJ calculados para o projeto.">Total de impostos</HelpTip>
                       <strong>{brl(taxes.totalTax)}</strong>
                     </div>
                   </div>

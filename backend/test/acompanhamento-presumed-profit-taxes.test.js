@@ -26,6 +26,7 @@ test('buildPresumedProfitTaxEstimate calcula impostos da planilha para codigo 7.
     issDelta: null,
     pis: 650,
     cofins: 3000,
+    inss: 0,
     invoiceTaxTotal: 6650,
     irpjPresumedBasis: 8800,
     csllPresumedBasis: 13200,
@@ -50,6 +51,7 @@ test('buildPresumedProfitTaxEstimate calcula impostos da planilha para codigo 7.
     probableEffectivePct: 10.04,
     effectiveTaxPct: 10.04,
     invoiceTaxEffectivePct: 6.65,
+    inssRatePct: 0,
     irpjCsllEffectivePct: 3.39
   });
 });
@@ -60,7 +62,10 @@ test('buildPresumedProfitTaxEstimate trata 7.02 como mesma regra de 7.05', () =>
   assert.equal(out.serviceTaxCode, '7.02');
   assert.equal(out.equivalentServiceTaxCode, '7.05');
   assert.equal(out.spreadsheetBlock, '7.05 + 10% Tributacao 2026');
-  assert.equal(out.probableTotal, 10038);
+  assert.equal(out.inss, 5500);
+  assert.equal(out.inssRatePct, 5.5);
+  assert.equal(out.invoiceTaxTotal, 12150);
+  assert.equal(out.probableTotal, 15538);
   assert.equal(out.irpjCsllTotal, 3388);
   assert.equal(out.outOfInvoiceTaxTotal, 3388);
 });
@@ -72,6 +77,7 @@ test('buildPresumedProfitTaxEstimate calcula codigo 14.01 pela base maior da pla
   assert.equal(out.iss, 3000);
   assert.equal(out.pis, 650);
   assert.equal(out.cofins, 3000);
+  assert.equal(out.inss, 5500);
   assert.equal(out.irpjPresumedBasis, 35000);
   assert.equal(out.csllPresumedBasis, 35000);
   assert.equal(out.irpjBasic, 5250);
@@ -79,8 +85,8 @@ test('buildPresumedProfitTaxEstimate calcula codigo 14.01 pela base maior da pla
   assert.equal(out.additionalIrpjEstimated, 3500);
   assert.equal(out.irpjCsllTotal, 11900);
   assert.equal(out.outOfInvoiceTaxTotal, 11900);
-  assert.equal(out.probableTotal, 18550);
-  assert.equal(out.probableEffectivePct, 18.55);
+  assert.equal(out.probableTotal, 24050);
+  assert.equal(out.probableEffectivePct, 24.05);
 });
 
 test('buildPresumedProfitTaxEstimate usa faturamento real do Omie quando existir', () => {
@@ -116,9 +122,10 @@ test('buildPresumedProfitTaxEstimate usa aliquota ISS informada pelo Omie', () =
   assert.deepEqual(out.omieServiceTaxCodes, ['14.01']);
   assert.equal(out.issRatePct, 2);
   assert.equal(out.iss, 2000);
-  assert.equal(out.invoiceTaxTotal, 5650);
+  assert.equal(out.inss, 5500);
+  assert.equal(out.invoiceTaxTotal, 11150);
   assert.equal(out.irpjCsllTotal, 11900);
-  assert.equal(out.probableTotal, 17550);
+  assert.equal(out.probableTotal, 23050);
 });
 
 test('buildPresumedProfitTaxEstimate soma faturamentos Omie por codigo fiscal e aliquota de ISS', () => {
@@ -135,12 +142,14 @@ test('buildPresumedProfitTaxEstimate soma faturamentos Omie por codigo fiscal e 
   assert.deepEqual(out.serviceTaxCodes, ['7.05', '14.01']);
   assert.deepEqual(out.omieServiceTaxCodes, ['7.05', '14.01']);
   assert.equal(out.issRatePct, 3.8);
+  assert.equal(out.inssRatePct, 3.3);
   assert.equal(out.iss, 3800);
+  assert.equal(out.inss, 3300);
   assert.equal(out.omieIss, 3800);
   assert.equal(out.irpjPresumedBasis, 24520);
   assert.equal(out.csllPresumedBasis, 26280);
   assert.equal(out.irpjCsllTotal, 8495.2);
-  assert.equal(out.probableTotal, 15945.2);
+  assert.equal(out.probableTotal, 19245.2);
 });
 
 test('buildPresumedProfitTaxEstimate preserva codigo Omie sem regra de presuncao conhecida', () => {
