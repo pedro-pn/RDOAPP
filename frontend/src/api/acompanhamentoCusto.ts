@@ -2,6 +2,13 @@ import { apiClient } from './client';
 
 export type CostParams = Record<string, number | Record<string, number>>;
 
+export interface CostParameterHistoryEntry {
+  effectiveDate: string;
+  params: CostParams | null;
+  note?: string | null;
+  updatedAt: string | null;
+}
+
 export interface CostProfile {
   id: string;
   key: string;
@@ -9,6 +16,7 @@ export interface CostProfile {
   effectiveDate?: string | null;
   params: CostParams | null;
   updatedAt?: string;
+  history: CostParameterHistoryEntry[];
 }
 
 export interface CostResult {

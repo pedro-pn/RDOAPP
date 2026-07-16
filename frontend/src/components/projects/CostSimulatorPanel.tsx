@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getCostProfiles, saveCostParams, simulateCost, type CostParams, type CostResult } from '../../api/acompanhamentoCusto';
+import {
+  getCostProfiles,
+  saveCostParams,
+  simulateCost,
+  type CostParameterHistoryEntry,
+  type CostParams,
+  type CostResult
+} from '../../api/acompanhamentoCusto';
 import { useToast } from '../ui/ToastContext';
 import { PARAM_FIELDS, BENEFIT_FIELDS, INPUT_FIELDS, brl, modelNumber } from './costFields';
 
@@ -13,6 +20,93 @@ function fmtDate(value?: string | null) {
   const [y, m, d] = value.slice(0, 10).split('-');
   return d && m && y ? `${d}/${m}/${y}` : value;
 }
+function fmtDateTime(value?: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fmtDate(value) : date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+const PERCENT_PARAM_KEYS = new Set([
+  'periculosidadePct',
+  'produtividadePct',
+  'transferenciaPct',
+  'he70Pct',
+  'he100Pct',
+  'fgtsPct',
+  'inssPatronalPct',
+  'multaPct'
+]);
+
+function paramNumber(params: CostParams | null | undefined, key: string) {
+  const value = params?.[key];
+  return typeof value === 'number' ? value : null;
+}
+function formatParam(params: CostParams | null | undefined, key: string) {
+  const value = paramNumber(params, key);
+  if (value === null) return '—';
+  if (key === 'salarioBase' || key === 'insalubridade') return brl(value);
+  if (PERCENT_PARAM_KEYS.has(key)) {
+    return `${(value * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% (${value.toLocaleString('pt-BR', { maximumFractionDigits: 4 })})`;
+  }
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+}
+function benefits(params: CostParams | null | undefined) {
+  const value = params?.beneficios;
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, number> : {};
+}
+function benefitTotal(params: CostParams | null | undefined) {
+  return Object.values(benefits(params)).reduce((sum, value) => sum + (Number(value) || 0), 0);
+}
+
+function ModelHistory({ history }: { history: CostParameterHistoryEntry[] }) {
+  if (!history.length) {
+    return <p className="placeholder-copy" style={{ margin: 0 }}>Nenhuma vigência salva para este modelo.</p>;
+  }
+
+  const seenDates = new Set<string>();
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {history.map((entry, index) => {
+        const dateKey = entry.effectiveDate?.slice(0, 10) || '';
+        const isUsed = !seenDates.has(dateKey);
+        seenDates.add(dateKey);
+        return (
+          <details key={`${dateKey}-${entry.updatedAt ?? index}`} className="acp-det-tax-details">
+            <summary className="acp-det-collabs-summary">
+              <span>{fmtDate(entry.effectiveDate)}</span>
+              <span className="placeholder-copy">
+                {isUsed ? 'Usada pelo motor' : 'Substituída por correção posterior'} · salvo em {fmtDateTime(entry.updatedAt)}
+              </span>
+            </summary>
+            <div className="det-section" style={{ marginTop: 8 }}>
+              <div className="sec" style={{ fontSize: 13 }}>Parâmetros</div>
+              {PARAM_FIELDS.map(([key, label]) => (
+                <div className="det-row" key={key}>
+                  <span className="det-label">{label}</span>
+                  <span className="det-val">{formatParam(entry.params, key)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="det-section" style={{ marginTop: 8 }}>
+              <div className="sec" style={{ fontSize: 13 }}>Benefícios</div>
+              {BENEFIT_FIELDS.map(([key, label]) => (
+                <div className="det-row" key={key}>
+                  <span className="det-label">{label}</span>
+                  <span className="det-val">{brl(benefits(entry.params)[key])}</span>
+                </div>
+              ))}
+              <div className="det-row">
+                <span className="det-label">Total</span>
+                <span className="det-val">{brl(benefitTotal(entry.params))}</span>
+              </div>
+            </div>
+            {entry.note ? <p className="placeholder-copy" style={{ margin: '8px 0 0' }}>Nota: {entry.note}</p> : null}
+          </details>
+        );
+      })}
+    </div>
+  );
+}
 
 // Editor dos perfis-modelo (operador/auxiliar) + simulador mensal de custo.
 export function CostSimulatorPanel() {
@@ -23,6 +117,7 @@ export function CostSimulatorPanel() {
   const [selectedKey, setSelectedKey] = useState('');
   const [params, setParams] = useState<CostParams>({});
   const [effectiveDate, setEffectiveDate] = useState(todayKey());
+  const [note, setNote] = useState('');
   const [inputs, setInputs] = useState<Record<string, number>>({ diasCliente: 22, diasFora: 1, diasCasa: 22, he70Horas: 1, he100Horas: 1 });
   const [result, setResult] = useState<CostResult | null>(null);
 
@@ -34,12 +129,14 @@ export function CostSimulatorPanel() {
     const profile = profiles.find(p => p.key === key);
     if (profile?.params) setParams(profile.params);
     setEffectiveDate(todayKey());
+    setNote('');
   }, [data, selectedKey]);
 
   const saveMutation = useMutation({
-    mutationFn: () => saveCostParams(selectedKey, params, effectiveDate),
+    mutationFn: () => saveCostParams(selectedKey, params, effectiveDate, note.trim() || undefined),
     onSuccess: () => {
       showToast('Parâmetros salvos com nova vigência.');
+      setNote('');
       queryClient.invalidateQueries({ queryKey: ['cost-profiles'] });
       queryClient.invalidateQueries({ queryKey: ['cost-cargos'] });
       queryClient.invalidateQueries({ queryKey: ['ponto-colaboradores'] });
@@ -58,6 +155,7 @@ export function CostSimulatorPanel() {
 
   const profiles = data ?? [];
   const selectedProfile = profiles.find(p => p.key === selectedKey) ?? null;
+  const history = selectedProfile?.history ?? [];
   const num = (key: string) => Number((params[key] as number) ?? 0);
   const benefits = (params.beneficios as Record<string, number>) ?? {};
   const setNum = (key: string, value: string) => setParams(current => ({ ...current, [key]: Number(value) }));
@@ -101,12 +199,21 @@ export function CostSimulatorPanel() {
           <label htmlFor="p-effective-date">Vigente a partir de</label>
           <input id="p-effective-date" type="date" required value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} />
         </div>
+        <div className="field-group">
+          <label htmlFor="p-note">Nota da alteração</label>
+          <input id="p-note" type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="Ex.: correção do histórico" />
+        </div>
       </div>
 
       <div style={{ marginTop: 12 }}>
         <button className="mini-btn" type="button" disabled={!effectiveDate || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
           {saveMutation.isPending ? 'Salvando…' : 'Salvar parâmetros do modelo'}
         </button>
+      </div>
+
+      <div className="det-section" style={{ marginTop: 14 }}>
+        <div className="sec" style={{ fontSize: 13 }}>Histórico de vigências do modelo</div>
+        <ModelHistory history={history} />
       </div>
 
       <hr style={{ margin: '16px 0', border: 0, borderTop: '1px solid #eee' }} />
