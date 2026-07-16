@@ -58,6 +58,7 @@ export interface ProjectSchedulePayload {
 }
 
 export type ProgressMethod = 'RDO' | 'MANUAL';
+export type GroupProgressMethod = 'GROUP_SCOPE' | 'GROUP_WEIGHTED' | 'GROUP_AVERAGE';
 export interface ProjectAlert {
   code: string;
   level: 'danger' | 'warn';
@@ -142,11 +143,41 @@ export async function getCommercialPendencias(): Promise<CommercialPendencia[]> 
   return data;
 }
 
-export interface DashboardRow {
+export interface MissionGroupMemberSummary {
   projectId: string;
   code: string;
   name: string;
   clientName: string;
+  clientCnpj?: string | null;
+  order?: number;
+  category?: ProjectCardCategory;
+  progressPct?: number | null;
+  visible?: boolean;
+}
+
+export interface MissionGroupResponse {
+  id: string;
+  name: string;
+  status: 'ACTIVE' | 'DISSOLVED';
+  createdAt: string;
+  updatedAt: string;
+  dissolvedAt: string | null;
+  warning?: string;
+  members: MissionGroupMemberSummary[];
+}
+
+export interface CreateMissionGroupRequest {
+  name?: string;
+  projectIds: string[];
+}
+
+export interface DashboardRow {
+  kind?: 'PROJECT';
+  projectId: string;
+  code: string;
+  name: string;
+  clientName: string;
+  clientCnpj?: string | null;
   proposalCode: string;
   resolved: boolean;
   archived: boolean;
@@ -176,12 +207,49 @@ export interface DashboardRow {
   presumedProfitTaxes?: PresumedProfitTaxEstimate | null;
   progressPct?: number | null;
   progressMethod?: ProgressMethod | null;
+  progressWeight?: number | null;
 }
 
-export async function getCommercialDashboard(categoryCode?: string): Promise<DashboardRow[]> {
-  const { data } = await apiClient.get<DashboardRow[]>('/acompanhamento/comercial/dashboard', {
+export interface DashboardGroupRow extends Omit<DashboardRow, 'kind' | 'projectId' | 'progressMethod'> {
+  kind: 'GROUP';
+  groupId: string;
+  members: MissionGroupMemberSummary[];
+  progressMethod?: GroupProgressMethod | null;
+}
+
+export type DashboardItem = DashboardRow | DashboardGroupRow;
+
+export async function getCommercialDashboard(categoryCode?: string): Promise<DashboardItem[]> {
+  const { data } = await apiClient.get<DashboardItem[]>('/acompanhamento/comercial/dashboard', {
     params: categoryCode ? { category: categoryCode } : undefined
   });
+  return data;
+}
+
+export async function listMissionGroups(status?: 'ACTIVE' | 'DISSOLVED' | 'ALL'): Promise<MissionGroupResponse[]> {
+  const { data } = await apiClient.get<MissionGroupResponse[]>('/acompanhamento/comercial/grupos-missoes', {
+    params: status ? { status } : undefined
+  });
+  return data;
+}
+
+export async function createMissionGroup(payload: CreateMissionGroupRequest): Promise<MissionGroupResponse> {
+  const { data } = await apiClient.post<MissionGroupResponse>('/acompanhamento/comercial/grupos-missoes', payload);
+  return data;
+}
+
+export async function renameMissionGroup(groupId: string, name: string): Promise<MissionGroupResponse> {
+  const { data } = await apiClient.patch<MissionGroupResponse>(
+    `/acompanhamento/comercial/grupos-missoes/${groupId}`,
+    { name }
+  );
+  return data;
+}
+
+export async function dissolveMissionGroup(groupId: string): Promise<{ ok: true; groupId: string; dissolvedAt: string }> {
+  const { data } = await apiClient.post<{ ok: true; groupId: string; dissolvedAt: string }>(
+    `/acompanhamento/comercial/grupos-missoes/${groupId}/desmesclar`
+  );
   return data;
 }
 
@@ -367,10 +435,12 @@ export interface WorkedHoursProgress {
 }
 
 export interface ProjectCard {
+  kind?: 'PROJECT';
   projectId: string;
   code: string;
   name: string;
   clientName: string;
+  clientCnpj?: string | null;
   archived: boolean;
   category: ProjectCardCategory;
   workedDays: number;
@@ -379,6 +449,7 @@ export interface ProjectCard {
   workedHours: WorkedHoursProgress;
   progressPct: number | null;
   progressMethod?: ProgressMethod | null;
+  progressWeight?: number | null;
   plannedCost: number | null;
   invoicedRevenue: number | null;
   invoiceCount: number;
@@ -387,6 +458,7 @@ export interface ProjectCard {
   costConsumedPct: number | null;
   lastDay: { date: string | null; status: LastDayStatus };
   collaboratorsCount: number;
+  collaboratorIds?: string[];
   startDate: string | null;
   expectedEndDate: string | null;
   laborCost: number | null; // custo de mão de obra COM adicional offshore (do ponto), somado ao realizado
@@ -396,8 +468,17 @@ export interface ProjectCard {
   alerts: ProjectAlert[];
 }
 
-export async function getProjectCards(): Promise<ProjectCard[]> {
-  const { data } = await apiClient.get<ProjectCard[]>('/acompanhamento/comercial/projetos-cards');
+export interface MissionGroupCard extends Omit<ProjectCard, 'kind' | 'projectId' | 'progressMethod'> {
+  kind: 'GROUP';
+  groupId: string;
+  members: MissionGroupMemberSummary[];
+  progressMethod?: GroupProgressMethod | null;
+}
+
+export type ProjectCardItem = ProjectCard | MissionGroupCard;
+
+export async function getProjectCards(): Promise<ProjectCardItem[]> {
+  const { data } = await apiClient.get<ProjectCardItem[]>('/acompanhamento/comercial/projetos-cards');
   return data;
 }
 
@@ -406,15 +487,21 @@ export async function getProjectCards(): Promise<ProjectCard[]> {
 export type DayStatus = 'TRABALHADO' | 'STANDBY' | 'PARADO';
 
 export interface ProjectDetail {
+  group?: {
+    id: string;
+    name: string;
+    members: MissionGroupMemberSummary[];
+  };
   header: {
     code: string;
     clientName: string;
+    clientCnpj?: string | null;
     proposalCode: string | null;
     lastRdoDate: string | null;
     segment: string | null;
   };
   alerts: ProjectAlert[];
-  avancoMethod?: ProgressMethod | null;
+  avancoMethod?: ProgressMethod | GroupProgressMethod | null;
   diasCorridos: { elapsed: number | null; planned: number | null; pct: number | null };
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
   consumo: {
@@ -437,6 +524,7 @@ export interface ProjectDetail {
   overtimeMinutes: number;
   colaboradores: Array<{ name: string; role: string; custo: number | null; custoHora: number | null }>;
   equipamentos: Array<{ name: string; days: number; since: string }>;
+  plannedScope?: PlannedScope;
   footer: {
     mobilizationDate: string | null;
     startDate: string | null;
@@ -448,6 +536,13 @@ export interface ProjectDetail {
 export async function getProjectDetail(projectId: string): Promise<ProjectDetail> {
   const { data } = await apiClient.get<ProjectDetail>(
     `/acompanhamento/comercial/projetos/${projectId}/detalhe`
+  );
+  return data;
+}
+
+export async function getMissionGroupDetail(groupId: string): Promise<ProjectDetail> {
+  const { data } = await apiClient.get<ProjectDetail>(
+    `/acompanhamento/comercial/grupos-missoes/${groupId}/detalhe`
   );
   return data;
 }

@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getProjectCards, type LastDayStatus, type ProjectCard, type ProjectCardCategory } from '../../api/acompanhamentoComercial';
+import {
+  createMissionGroup,
+  dissolveMissionGroup,
+  getProjectCards,
+  type LastDayStatus,
+  type MissionGroupCard,
+  type ProjectCardCategory,
+  type ProjectCardItem
+} from '../../api/acompanhamentoComercial';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { ProjectDetailDashboard } from './ProjectDetailDashboard';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
@@ -30,6 +39,14 @@ function clampPct(value?: number | null, max = 100) {
   return Math.min(Math.max(value ?? 0, 0), max);
 }
 
+function isGroupCard(card: ProjectCardItem): card is MissionGroupCard {
+  return card.kind === 'GROUP';
+}
+
+function cardKey(card: ProjectCardItem) {
+  return isGroupCard(card) ? `group-${card.groupId}` : card.projectId;
+}
+
 const STATUS_META: Record<LastDayStatus, { label: string; cls: string }> = {
   TRABALHADO: { label: 'Último dia trabalhado', cls: 'ok' },
   PARADO: { label: 'Parado (standby)', cls: 'warn' },
@@ -53,7 +70,24 @@ function HoursBar({ normalPct, overtimePct }: { normalPct: number | null; overti
   );
 }
 
-function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
+function Card({
+  card,
+  selected = false,
+  canSelect = false,
+  canManageGroups = false,
+  onOpen,
+  onToggleSelect,
+  onDissolve
+}: {
+  card: ProjectCardItem;
+  selected?: boolean;
+  canSelect?: boolean;
+  canManageGroups?: boolean;
+  onOpen: () => void;
+  onToggleSelect?: () => void;
+  onDissolve?: () => void;
+}) {
+  const grouped = isGroupCard(card);
   const status = STATUS_META[card.lastDay.status];
   const workedHours = card.workedHours ?? {
     normalWorkedHours: 0,
@@ -66,19 +100,52 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
     overtimePct: null,
     totalPct: null
   };
+  const handleOpen = () => {
+    if (canSelect && !grouped) {
+      onToggleSelect?.();
+      return;
+    }
+    onOpen();
+  };
   return (
     <div
-      className="acp-pcard acp-pcard-click"
+      className={`acp-pcard acp-pcard-click${grouped ? ' acp-pcard-group' : ''}${selected ? ' selected' : ''}`}
       role="button"
       tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      onClick={handleOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpen(); } }}
     >
       <div className="acp-pcard-head">
+        {canSelect && !grouped ? (
+          <label className="acp-pcard-select" onClick={event => event.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelect}
+              aria-label={`Selecionar missão ${card.code}`}
+            />
+          </label>
+        ) : null}
         <strong>{card.code}</strong>
         <span className="acp-pcard-name">{card.name || '—'}</span>
       </div>
       {card.clientName ? <div className="acp-pcard-client">{card.clientName}</div> : null}
+
+      {grouped ? (
+        <div className="acp-group-members" aria-label="Missões unificadas">
+          {card.members.map(member => (
+            <span
+              key={member.projectId}
+              className="acp-group-member"
+              title={`${member.code} · ${member.name || member.clientName || 'Missão'}`}
+            >
+              <strong>{member.code}</strong>
+              <span>{member.name || member.clientName || 'Missão'}</span>
+              {member.progressPct != null ? <em>{pct(member.progressPct)}</em> : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {card.alerts.length > 0 ? (
         <div className="acp-alerts">
@@ -208,12 +275,28 @@ function Card({ card, onOpen }: { card: ProjectCard; onOpen: () => void }) {
         <div><span>Início</span><strong>{formatDate(card.startDate)}</strong></div>
         <div><span>Previsão de término</span><strong>{formatDate(card.expectedEndDate)}</strong></div>
       </div>
+
+      {grouped && canManageGroups ? (
+        <div className="acp-group-actions">
+          <button
+            type="button"
+            className="mini-btn alt"
+            onClick={event => {
+              event.stopPropagation();
+              onDissolve?.();
+            }}
+          >
+            Desmesclar
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 // Aba "Projetos": um card por projeto com previsto x realizado (dias, avanço, colaboradores, prazos).
 type CardsView = 'andamento' | 'futuros' | 'arquivados';
+type SelectedDetail = { kind: 'PROJECT'; id: string } | { kind: 'GROUP'; id: string };
 
 const VIEW_CATEGORY: Record<CardsView, ProjectCardCategory> = {
   andamento: 'ANDAMENTO',
@@ -221,18 +304,63 @@ const VIEW_CATEGORY: Record<CardsView, ProjectCardCategory> = {
   arquivados: 'ARQUIVADO'
 };
 
-function cardCategory(card: ProjectCard): ProjectCardCategory {
+function cardCategory(card: ProjectCardItem): ProjectCardCategory {
   return card.category ?? (card.archived ? 'ARQUIVADO' : 'ANDAMENTO');
 }
 
-export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }) {
+export function ProjectCardsBoard({
+  canManage = false,
+  canManageGroups = false
+}: {
+  canManage?: boolean;
+  canManageGroups?: boolean;
+}) {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [view, setView] = useState<CardsView>('andamento');
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<SelectedDetail | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedForGroup, setSelectedForGroup] = useState<Set<string>>(() => new Set());
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const [dissolveTarget, setDissolveTarget] = useState<MissionGroupCard | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['project-cards'],
     queryFn: () => getProjectCards(),
     ...acompanhamentoRefreshQueryOptions
+  });
+  const createGroupMutation = useMutation({
+    mutationFn: (projectIds: string[]) => createMissionGroup({ projectIds }),
+    onSuccess: async () => {
+      setSelectedForGroup(new Set());
+      setSelectionMode(false);
+      setGroupError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['project-cards'] }),
+        queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-groups'] })
+      ]);
+    },
+    onError: (error: any) => {
+      setGroupError(error?.response?.data?.error || 'Não foi possível unificar as missões selecionadas.');
+    }
+  });
+  const dissolveGroupMutation = useMutation({
+    mutationFn: (groupId: string) => dissolveMissionGroup(groupId),
+    onSuccess: async () => {
+      setDissolveTarget(null);
+      setSelectedForGroup(new Set());
+      setGroupError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['project-cards'] }),
+        queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-groups'] })
+      ]);
+    },
+    onError: (error: any) => {
+      setGroupError(error?.response?.data?.error || 'Não foi possível desmesclar este agrupamento.');
+    }
   });
 
   // Separa pelo status operacional do card: em andamento, futuro ou arquivado.
@@ -250,12 +378,42 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
     const category = VIEW_CATEGORY[view];
     return (data ?? [])
       .filter(c => cardCategory(c) === category)
-      .filter(c => !term || `${c.code} ${c.name} ${c.clientName}`.toLowerCase().includes(term));
+      .filter(c => {
+        if (!term) return true;
+        const members = isGroupCard(c) ? c.members.map(member => `${member.code} ${member.name} ${member.clientName} ${member.clientCnpj ?? ''}`).join(' ') : '';
+        return `${c.code} ${c.name} ${c.clientName} ${c.clientCnpj ?? ''} ${members}`.toLowerCase().includes(term);
+      });
   }, [data, search, view]);
+
+  const selectedCount = selectedForGroup.size;
+  const cancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedForGroup(new Set());
+    setGroupError(null);
+  };
+  const toggleSelected = (projectId: string) => {
+    setGroupError(null);
+    setSelectedForGroup(current => {
+      const next = new Set(current);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  };
+  const createSelectedGroup = () => {
+    const projectIds = Array.from(selectedForGroup);
+    if (projectIds.length < 2) {
+      setGroupError('Selecione pelo menos duas missões para unificar.');
+      return;
+    }
+    createGroupMutation.mutate(projectIds);
+  };
 
   // Todos os hooks acima; só então a troca para o dashboard do projeto (Rules of Hooks).
   if (selected) {
-    return <ProjectDetailDashboard projectId={selected} canManage={canManage} onBack={() => setSelected(null)} />;
+    return selected.kind === 'GROUP'
+      ? <ProjectDetailDashboard groupId={selected.id} canManage={canManage} onBack={() => setSelected(null)} />
+      : <ProjectDetailDashboard projectId={selected.id} canManage={canManage} onBack={() => setSelected(null)} />;
   }
 
   if (isLoading) return <div className="page-card placeholder-copy">Carregando projetos…</div>;
@@ -271,7 +429,7 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
 
   return (
     <div className="acp-pcards-wrap" data-acp-cards>
-      <div className="page-card acp-filters">
+      <div className="page-card acp-filters acp-pcards-filters">
         <div className="acp-seg" role="tablist" aria-label="Situação dos projetos" data-acp-cards-seg>
           <button
             type="button" role="tab" aria-selected={view === 'andamento'}
@@ -295,7 +453,7 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
             Arquivados <span className="acp-seg-count">{counts.arquivados}</span>
           </button>
         </div>
-        <div className="field-group">
+        <div className="field-group acp-pcards-search">
           <label htmlFor="acp-pcards-search">Buscar</label>
           <input
             id="acp-pcards-search"
@@ -305,6 +463,43 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+        {canManageGroups ? (
+          <div className="acp-group-toolbar" aria-label="Ações de unificação">
+            {!selectionMode ? (
+              <button
+                type="button"
+                className="mini-btn"
+                onClick={() => {
+                  setSelectionMode(true);
+                  setSelectedForGroup(new Set());
+                  setGroupError(null);
+                }}
+              >
+                Unificar projetos
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="mini-btn"
+                  disabled={selectedCount < 2 || createGroupMutation.isPending}
+                  onClick={createSelectedGroup}
+                >
+                  {createGroupMutation.isPending ? 'Unificando…' : `Confirmar (${selectedCount})`}
+                </button>
+                <button
+                  type="button"
+                  className="mini-btn alt"
+                  disabled={createGroupMutation.isPending}
+                  onClick={cancelSelection}
+                >
+                  Cancelar
+                </button>
+              </>
+            )}
+            {groupError ? <div className="form-error acp-group-error">{groupError}</div> : null}
+          </div>
+        ) : null}
       </div>
 
       {cards.length === 0 ? (
@@ -315,9 +510,39 @@ export function ProjectCardsBoard({ canManage = false }: { canManage?: boolean }
         </div>
       ) : (
         <div className="acp-pcards-grid">
-          {cards.map(card => <Card key={card.projectId} card={card} onOpen={() => setSelected(card.projectId)} />)}
+          {cards.map(card => (
+            <Card
+              key={cardKey(card)}
+              card={card}
+              selected={!isGroupCard(card) && selectedForGroup.has(card.projectId)}
+              canSelect={canManageGroups && selectionMode}
+              canManageGroups={canManageGroups}
+              onOpen={() => {
+                setSelected(isGroupCard(card)
+                  ? { kind: 'GROUP', id: card.groupId }
+                  : { kind: 'PROJECT', id: card.projectId });
+              }}
+              onToggleSelect={!isGroupCard(card) ? () => toggleSelected(card.projectId) : undefined}
+              onDissolve={isGroupCard(card) ? () => setDissolveTarget(card) : undefined}
+            />
+          ))}
         </div>
       )}
+      <ConfirmDialog
+        open={dissolveTarget !== null}
+        title="Desmesclar missões"
+        description="As missões voltarão a aparecer como cards individuais no Acompanhamento. Relatórios e dados originais não serão alterados."
+        highlight={dissolveTarget?.name}
+        confirmLabel={dissolveGroupMutation.isPending ? 'Desmesclando…' : 'Desmesclar'}
+        cancelLabel="Cancelar"
+        danger={false}
+        onConfirm={() => {
+          if (dissolveTarget && !dissolveGroupMutation.isPending) dissolveGroupMutation.mutate(dissolveTarget.groupId);
+        }}
+        onCancel={() => {
+          if (!dissolveGroupMutation.isPending) setDissolveTarget(null);
+        }}
+      />
     </div>
   );
 }

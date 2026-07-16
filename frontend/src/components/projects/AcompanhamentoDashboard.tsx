@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getCommercialDashboard, getRealizedByCategory, type DashboardRow } from '../../api/acompanhamentoComercial';
+import { getCommercialDashboard, getRealizedByCategory, type DashboardGroupRow, type DashboardItem, type DashboardRow } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
@@ -25,7 +25,15 @@ function pct(value?: string | number | null) {
   const n = toNum(value);
   return n === null ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
-function comp(row: DashboardRow, key: string) {
+function isGroupRow(row: DashboardItem): row is DashboardGroupRow {
+  return row.kind === 'GROUP';
+}
+
+function itemKey(row: DashboardItem) {
+  return isGroupRow(row) ? `group-${row.groupId}` : row.projectId;
+}
+
+function comp(row: DashboardItem, key: string) {
   return toNum(row.components?.[key] ?? null);
 }
 
@@ -34,7 +42,7 @@ interface Metric {
   key: string;
   label: string;
   unit: Unit;
-  get: (row: DashboardRow) => number | null;
+  get: (row: DashboardItem) => number | null;
 }
 
 const METRICS: Metric[] = [
@@ -98,7 +106,8 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
       if (status === 'andamento' && row.archived) return false;
       if (status === 'arquivados' && !row.archived) return false;
       if (term) {
-        const hay = `${row.code} ${row.name} ${row.clientName} ${row.proposalCode}`.toLowerCase();
+        const members = isGroupRow(row) ? row.members.map(m => `${m.code} ${m.name} ${m.clientName} ${m.clientCnpj ?? ''}`).join(' ') : '';
+        const hay = `${row.code} ${row.name} ${row.clientName} ${row.clientCnpj ?? ''} ${row.proposalCode} ${members}`.toLowerCase();
         if (!hay.includes(term)) return false;
       }
       return true;
@@ -202,7 +211,7 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
         ) : (
           <div className="acp-bars">
             {chartData.map(({ row, value }) => (
-              <div className="acp-bar-row" key={row.projectId}>
+              <div className="acp-bar-row" key={itemKey(row)}>
                 <span className="acp-bar-label" title={`${row.code} — ${row.name || row.clientName}`}>{row.code}</span>
                 <span className="acp-bar-track">
                   <span className="acp-bar-fill" style={{ width: `${maxValue ? Math.max(2, (value / maxValue) * 100) : 0}%` }} />
@@ -243,12 +252,19 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
             <tbody>
               {filtered.map(row => (
                 <tr
-                  key={row.projectId}
-                  className="acp-table-row"
-                  onClick={() => setManaged(row)}
-                  title="Abrir cronograma"
+                  key={itemKey(row)}
+                  className={`acp-table-row${isGroupRow(row) ? ' acp-table-row-group' : ''}`}
+                  onClick={() => { if (!isGroupRow(row)) setManaged(row); }}
+                  title={isGroupRow(row) ? 'Agrupamento de missões' : 'Abrir cronograma'}
                 >
-                  <td data-label="Missão">{row.code}{row.name ? ` — ${row.name}` : ''}</td>
+                  <td data-label="Missão">
+                    {row.code}{row.name ? ` — ${row.name}` : ''}
+                    {isGroupRow(row) ? (
+                      <div className="acp-table-members">
+                        {row.members.map(member => <span key={member.projectId}>{member.code}</span>)}
+                      </div>
+                    ) : null}
+                  </td>
                   <td data-label="Cliente">{row.clientName || '—'}</td>
                   <td data-label="Contrato">{row.proposalCode}</td>
                   <td data-label="Venda">{brl(toNum(row.salePrice))}</td>
