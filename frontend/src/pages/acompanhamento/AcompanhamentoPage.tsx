@@ -102,6 +102,9 @@ export function AcompanhamentoPage() {
         ready={section === 'dashboard'}
         goToSection={setSection}
         triggerRef={tutorialTrigger}
+        groupingNoveltyEnabled={isManager}
+        groupingNoveltyUser={user}
+        projectSectionActive={section === 'projetos'}
       />
     </Shell>
   );

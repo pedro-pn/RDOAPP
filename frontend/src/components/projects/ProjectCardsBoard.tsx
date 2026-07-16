@@ -473,11 +473,12 @@ export function ProjectCardsBoard({
           />
         </div>
         {canManageGroups ? (
-          <div className="acp-group-toolbar" aria-label="Ações de unificação">
+          <div className="acp-group-toolbar" aria-label="Ações de unificação" data-acp-group-toolbar>
             {!selectionMode ? (
               <button
                 type="button"
                 className="mini-btn"
+                data-acp-group-start
                 onClick={() => {
                   setSelectionMode(true);
                   setSelectedForGroup(new Set());
@@ -491,6 +492,7 @@ export function ProjectCardsBoard({
                 <button
                   type="button"
                   className="mini-btn"
+                  data-acp-group-confirm
                   disabled={selectedCount < 2 || createGroupMutation.isPending}
                   onClick={createSelectedGroup}
                 >

@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0
-- Modified principles: Princípio VI expandido para dropdowns/selects e largura desktop
+- Version change: 1.2.0 → 1.3.0
+- Modified principles: Princípio VI expandido para divulgação temporária de novidades e tutorial guiado
 - Added sections: nenhuma
 - Removed sections: nenhuma
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir dropdowns padronizados e largura desktop adequada
-  - ✅ .specify/templates/spec-template.md — sem referências à constitution; sem alteração necessária
-  - ✅ .specify/templates/tasks-template.md — polish inclui verificação visual de selects/dropdowns e largura desktop
-  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para módulos largos e campos selecionáveis
+  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir estratégia de novidade/tutorial
+  - ✅ .specify/templates/spec-template.md — contrato visual passou a capturar divulgação e tutorial de frontend
+  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a incluir novidade temporária e tutorial guiado
+  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para novidades e tutoriais
 - Follow-up TODOs: nenhum
 -->
 
@@ -95,11 +95,26 @@ Nenhuma página, modal ou card pode nascer fora da formatação padrão do app. 
 - Página nova DEVE seguir a estrutura visual das páginas existentes do mesmo tipo
   (cabeçalho, cards, tabela/lista) — copiar o padrão de uma tela análoga em
   `frontend/src/pages/` antes de inventar layout novo.
+- Função nova visível ao usuário DEVE incluir um aviso de novidade no padrão de card
+  centralizado do tutorial (`driver.js`), equivalente ao aviso de DDS: aparece no
+  primeiro acesso do usuário impactado, grava "visto" em `localStorage` por usuário e
+  navegador, e possui data-limite global de expiração exatamente 10 dias corridos após
+  a data de implementação registrada no código. Depois da data-limite, o aviso NÃO
+  pode aparecer para ninguém, mesmo em navegador que nunca acessou a função.
+- Função nova com interação não óbvia DEVE incluir tutorial guiado temporário no mesmo
+  fluxo do aviso de novidade, também limitado a 10 dias e ao primeiro acesso do público
+  impactado. Esse tutorial DEVE apontar os controles reais da função e terminar sem
+  bloquear o uso normal.
+- Tutorial permanente de primeiro acesso é obrigatório apenas para módulo novo. Para
+  função nova dentro de módulo existente, o tutorial é campanha temporária de novidade,
+  não onboarding permanente do módulo.
 
 Racional: divergências visuais quase nunca são intencionais — surgem quando uma tela é
 construída sem olhar o kit e os tokens existentes, e depois custam passadas inteiras de
-padronização. A regra torna a checagem objetiva em review: componente do kit usado? token
-usado? tela análoga seguida?
+padronização. Novidades sem divulgação deixam usuários sem descobrir fluxos novos; aviso
+e tutorial temporários tornam a adoção previsível sem criar pop-ups permanentes para
+funções pontuais. A regra torna a checagem objetiva em review: componente do kit usado?
+token usado? tela análoga seguida? novidade temporária implementada quando aplicável?
 
 ## Restrições de Stack
 
@@ -141,4 +156,4 @@ corrigido.
   DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
   registrada na seção Complexity Tracking do plano da feature.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-09
+**Version**: 1.3.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-16
