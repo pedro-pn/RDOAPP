@@ -53,6 +53,20 @@
   standard states (default, focus, disabled, error, mobile), and desktop modules with
   dashboards/tables/forms must use the wide module shell pattern.
 
+**Required visual evidence when frontend changes are present:**
+
+| Surface | Existing reference audited | Shared component/classes | Field/dropdown states covered | Mobile/desktop evidence |
+|---------|----------------------------|--------------------------|-------------------------------|-------------------------|
+| [surface name] | [path + pattern checked] | [e.g., Modal, Button, field-group, admin-inline-form] | [default/focus/disabled/error/empty] | [viewport behavior] |
+
+- A plan may reuse or clone an existing component only after checking that the source
+  component still complies with the current constitution. If the source component has
+  visual debt, the plan must include a task to fix the source or use a better shared
+  pattern instead.
+- Inline form controls must use shared form structure (`field-group`, `admin-form-grid`,
+  `admin-inline-form`, or a documented equivalent). Placeholder text alone is not an
+  acceptable label.
+
 ## Project Structure
 
 ### Documentation (this feature)
