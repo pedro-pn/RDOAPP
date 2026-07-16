@@ -14,6 +14,8 @@ test('buildPresumedProfitTaxEstimate calcula impostos da planilha para codigo 7.
     serviceTaxCode: '7.05',
     equivalentServiceTaxCode: null,
     spreadsheetBlock: '7.05 + 10% Tributacao 2026',
+    serviceTaxCodes: ['7.05'],
+    omieServiceTaxCodes: ['7.05'],
     basisSource: 'EXPECTED_SALE',
     basisAmount: 100000,
     expectedSalePrice: 100000,
@@ -96,13 +98,65 @@ test('buildPresumedProfitTaxEstimate usa faturamento real do Omie quando existir
   assert.equal(out.totalTax, 12045.6);
 });
 
-test('buildPresumedProfitTaxEstimate calcula diferenca do ISS previsto contra Omie', () => {
+test('buildPresumedProfitTaxEstimate deriva aliquota efetiva do ISS Omie quando percentual nao vem destacado', () => {
   const out = buildPresumedProfitTaxEstimate(100000, { invoiceIss: 5000 });
 
   assert.equal(out.basisSource, 'EXPECTED_SALE');
-  assert.equal(out.iss, 3000);
+  assert.equal(out.issRatePct, 5);
+  assert.equal(out.iss, 5000);
   assert.equal(out.omieIss, 5000);
-  assert.equal(out.issDelta, 2000);
+  assert.equal(out.issDelta, 0);
+});
+
+test('buildPresumedProfitTaxEstimate usa aliquota ISS informada pelo Omie', () => {
+  const out = buildPresumedProfitTaxEstimate(100000, { serviceTaxCode: '14.01', issRatePct: 2 });
+
+  assert.equal(out.serviceTaxCode, '14.01');
+  assert.deepEqual(out.serviceTaxCodes, ['14.01']);
+  assert.deepEqual(out.omieServiceTaxCodes, ['14.01']);
+  assert.equal(out.issRatePct, 2);
+  assert.equal(out.iss, 2000);
+  assert.equal(out.invoiceTaxTotal, 5650);
+  assert.equal(out.irpjCsllTotal, 11900);
+  assert.equal(out.probableTotal, 17550);
+});
+
+test('buildPresumedProfitTaxEstimate soma faturamentos Omie por codigo fiscal e aliquota de ISS', () => {
+  const out = buildPresumedProfitTaxEstimate(100000, {
+    components: { codigoServicoFiscal: '14.01' },
+    invoices: [
+      { amount: 40000, iss: 800, issRatePct: 2, serviceTaxCode: '7.05' },
+      { amount: 60000, iss: 3000, issRatePct: 5, serviceTaxCode: '14.01' }
+    ]
+  });
+
+  assert.equal(out.basisSource, 'OMIE_INVOICED');
+  assert.equal(out.serviceTaxCode, 'MIXED');
+  assert.deepEqual(out.serviceTaxCodes, ['7.05', '14.01']);
+  assert.deepEqual(out.omieServiceTaxCodes, ['7.05', '14.01']);
+  assert.equal(out.issRatePct, 3.8);
+  assert.equal(out.iss, 3800);
+  assert.equal(out.omieIss, 3800);
+  assert.equal(out.irpjPresumedBasis, 24520);
+  assert.equal(out.csllPresumedBasis, 26280);
+  assert.equal(out.irpjCsllTotal, 8495.2);
+  assert.equal(out.probableTotal, 15945.2);
+});
+
+test('buildPresumedProfitTaxEstimate preserva codigo Omie sem regra de presuncao conhecida', () => {
+  const out = buildPresumedProfitTaxEstimate(100000, {
+    invoices: [
+      { amount: 10000, iss: 500, issRatePct: 5, serviceTaxCode: '99.01' }
+    ]
+  });
+
+  assert.equal(out.serviceTaxCode, '7.05');
+  assert.deepEqual(out.serviceTaxCodes, ['7.05']);
+  assert.deepEqual(out.omieServiceTaxCodes, ['99.01']);
+  assert.equal(out.issRatePct, 0);
+  assert.equal(out.iss, 0);
+  assert.equal(out.omieIss, 0);
+  assert.equal(out.invoiceTaxTotal, 365);
 });
 
 test('buildPresumedProfitTaxEstimate arredonda centavos e aceita texto numerico', () => {
@@ -133,6 +187,7 @@ test('buildPresumedProfitTaxEstimate ignora venda ausente ou zerada', () => {
 
 test('resolveServiceTaxCode normaliza codigos informados em texto ou componentes', () => {
   assert.equal(normalizeServiceTaxCode('codigo 14,01'), '14.01');
+  assert.equal(normalizeServiceTaxCode('070202'), '7.02');
   assert.equal(resolveServiceTaxCode({ codigoServicoFiscal: '7.02' }), '7.02');
   assert.equal(resolveServiceTaxCode({ qualquer: 'sem codigo' }), '7.05');
 });

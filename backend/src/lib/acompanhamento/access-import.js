@@ -428,7 +428,13 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     NOT: [{ statusTitulo: 'CANCELADO' }],
     OR: [
       { codigoTipoDocumento: 'NFS' },
-      { AND: [{ numeroDocumentoFiscal: { not: null } }, { numeroDocumentoFiscal: { not: '' } }] }
+      {
+        AND: [
+          { OR: [{ codigoTipoDocumento: null }, { codigoTipoDocumento: '' }] },
+          { numeroDocumentoFiscal: { not: null } },
+          { numeroDocumentoFiscal: { not: '' } }
+        ]
+      }
     ]
   };
   const [proposals, projects, budgets, rdoGroups, omieTotals, omiePaid, omieReceivables] = await Promise.all([
@@ -454,7 +460,17 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     prisma.report.groupBy({ by: ['projectId'], where: { reportType: 'RDO', deletedAt: null }, _count: { _all: true } }),
     prisma.omiePurchase.groupBy({ by: ['projectId'], where: realizedWhere, _sum: { valor: true } }),
     prisma.omiePurchase.groupBy({ by: ['projectId'], where: { ...realizedWhere, statusTitulo: 'PAGO' }, _sum: { valor: true } }),
-    prisma.omieReceivable.groupBy({ by: ['projectId'], where: invoicedWhere, _sum: { valor: true, valorIss: true }, _count: { _all: true } })
+    prisma.omieReceivable.findMany({
+      where: invoicedWhere,
+      select: {
+        projectId: true,
+        valor: true,
+        valorIss: true,
+        aliquotaIss: true,
+        codigoLc116: true,
+        codigoServico: true
+      }
+    })
   ]);
 
   const latestByProp = new Map();
@@ -468,11 +484,24 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
   const rdoByProject = new Map(rdoGroups.map(g => [g.projectId, g._count._all]));
   const realizedByProject = new Map(omieTotals.map(g => [g.projectId, g._sum.valor]));
   const realizedPaidByProject = new Map(omiePaid.map(g => [g.projectId, g._sum.valor]));
-  const invoicedByProject = new Map(omieReceivables.map(g => [g.projectId, {
-    total: g._sum.valor,
-    iss: g._sum.valorIss,
-    count: g._count._all
-  }]));
+  const invoicedByProject = new Map();
+  for (const receivable of omieReceivables) {
+    const amount = toNumber(receivable.valor);
+    if (amount === null || amount <= 0) continue;
+    const projectId = receivable.projectId;
+    const current = invoicedByProject.get(projectId) ?? { total: 0, iss: 0, count: 0, invoices: [] };
+    const iss = toNumber(receivable.valorIss);
+    current.total += amount;
+    current.iss += iss ?? 0;
+    current.count += 1;
+    current.invoices.push({
+      amount,
+      iss,
+      issRatePct: toNumber(receivable.aliquotaIss),
+      serviceTaxCode: receivable.codigoLc116 ?? receivable.codigoServico ?? null
+    });
+    invoicedByProject.set(projectId, current);
+  }
 
   const rows = [];
   for (const project of projects) {
@@ -500,6 +529,7 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       invoiceCount: invoiced?.count ?? 0,
       presumedProfitTaxes: buildPresumedProfitTaxEstimate(salePrice, {
         components: source?.components ?? null,
+        invoices: invoiced?.invoices ?? null,
         invoicedAmount: invoiced?.total ?? null,
         invoiceIss: invoiced?.iss ?? null
       }),
