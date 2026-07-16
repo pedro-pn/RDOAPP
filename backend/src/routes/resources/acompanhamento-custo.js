@@ -66,7 +66,6 @@ function normalizeCostParams(params) {
   if (!params || typeof params !== 'object' || Array.isArray(params)) return params;
   const normalized = { ...params };
   delete normalized.inssPatronalPct;
-  delete normalized.multaPct;
   return normalized;
 }
 
