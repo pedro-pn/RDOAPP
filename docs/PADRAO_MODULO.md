@@ -74,6 +74,12 @@ usar o shell largo de desktop, seguindo o padrao de Equipamentos/Acompanhamento
 (`.equip-page` ou equivalente documentado). Nao comprimir modulos operacionais no
 container padrao de 420/540px quando houver largura disponivel.
 
+Navegacao interna de modulo deve sobreviver ao refresh da pagina. Abas, secoes
+laterais, filtros que funcionam como abas e detalhes que substituem a lista devem ser
+representados por URL/query params (`?tab=...`, `?section=...`, `?project=...`) sempre
+que nao forem sensiveis. Ao trocar para uma secao incompativel, limpar parametros
+relacionados para evitar reabrir categoria/card antigo por acidente.
+
 Campos selecionaveis (`select`, combobox, multiselect e dropdown de filtro) devem usar
 o estilo compartilhado do app: borda, raio, padding, foco, disabled, erro e mobile
 consistentes. Select nativo com aparencia crua do navegador e bloqueante em review.

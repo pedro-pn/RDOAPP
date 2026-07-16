@@ -57,12 +57,16 @@
   global expiration exactly 10 days after implementation date, and a guided tutorial
   for the first access to the new function during that same window. New modules keep
   permanent first-access module onboarding; functions inside existing modules do not.
+- Module-internal navigation persists across refresh: tabs, side sections, tab-like
+  filters and detail views that replace a list are represented by URL/query params
+  whenever the state is shareable and non-sensitive, with incompatible params cleaned
+  when changing sections.
 
 **Required visual evidence when frontend changes are present:**
 
-| Surface | Existing reference audited | Shared component/classes | Field/dropdown states covered | Novelty/tutorial plan | Mobile/desktop evidence |
-|---------|----------------------------|--------------------------|-------------------------------|------------------------|-------------------------|
-| [surface name] | [path + pattern checked] | [e.g., Modal, Button, field-group, admin-inline-form] | [default/focus/disabled/error/empty] | [10-day novelty/tutorial or N/A with reason] | [viewport behavior] |
+| Surface | Existing reference audited | Shared component/classes | Field/dropdown states covered | Navigation persistence | Novelty/tutorial plan | Mobile/desktop evidence |
+|---------|----------------------------|--------------------------|-------------------------------|------------------------|------------------------|-------------------------|
+| [surface name] | [path + pattern checked] | [e.g., Modal, Button, field-group, admin-inline-form] | [default/focus/disabled/error/empty] | [URL/query params or N/A with reason] | [10-day novelty/tutorial or N/A with reason] | [viewport behavior] |
 
 - A plan may reuse or clone an existing component only after checking that the source
   component still complies with the current constitution. If the source component has

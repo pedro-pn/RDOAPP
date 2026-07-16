@@ -111,11 +111,15 @@
   For new user-facing functions, describe the 10-day novelty campaign and guided
   tutorial for first access. If this is a new module, describe the permanent first-access
   module tutorial instead. If no novelty/tutorial applies, state the reason.
+
+  For screens with module-internal navigation, describe how tabs, sections, tab-like
+  filters and list-replacing detail views persist across refresh. Prefer URL/query params
+  unless the state is sensitive or not shareable.
 -->
 
-| Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Novelty/tutorial contract | Responsive contract |
-|---------|------------------------------|---------------------------|-----------------------|---------------------------|---------------------|
-| [e.g., Manager create form] | [file/class inspected] | [ui component or CSS class] | [field-group/admin-inline-form/shared dropdown] | [10-day novelty/tutorial, permanent module tutorial, or N/A] | [mobile + desktop behavior] |
+| Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Navigation persistence | Novelty/tutorial contract | Responsive contract |
+|---------|------------------------------|---------------------------|-----------------------|------------------------|---------------------------|---------------------|
+| [e.g., Manager create form] | [file/class inspected] | [ui component or CSS class] | [field-group/admin-inline-form/shared dropdown] | [URL/query params, localStorage exception, or N/A] | [10-day novelty/tutorial, permanent module tutorial, or N/A] | [mobile + desktop behavior] |
 
 ### Key Entities *(include if feature involves data)*
 

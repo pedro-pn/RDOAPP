@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath, markAcompanhamentoNoveltySeen } from '../../auth/moduleNavigation';
@@ -12,6 +12,11 @@ import { CostEngineManager } from '../../components/projects/CostEngineManager';
 import { AcompanhamentoTutorial } from '../../components/AcompanhamentoTutorial';
 
 type Section = 'dashboard' | 'projetos' | 'sede' | 'custo';
+const SECTIONS: Section[] = ['dashboard', 'projetos', 'sede', 'custo'];
+
+function parseSection(value: string | null, fallback: Section = 'dashboard'): Section {
+  return SECTIONS.includes(value as Section) ? value as Section : fallback;
+}
 
 function tutorialUserKey(user: ReturnType<typeof useAuth>['user'], isManager: boolean) {
   const identity = String(user?.email || user?.username || user?.id || '').trim().toLowerCase();
@@ -21,17 +26,37 @@ function tutorialUserKey(user: ReturnType<typeof useAuth>['user'], isManager: bo
 export function AcompanhamentoPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
-  const [section, setSection] = useState<Section>('dashboard');
   const tutorialTrigger = useRef<(() => void) | null>(null);
 
   const isManager = user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('acompanhamento:manager'));
   const hasAcompanhamentoAccess = user?.accountType === 'ADMIN'
     || Boolean(user?.moduleRoles?.some(role => role === 'acompanhamento:manager' || role === 'acompanhamento:viewer'));
   const userKey = tutorialUserKey(user, isManager);
+  const projectDetailFromUrl = searchParams.has('project') || searchParams.has('group');
+  const section = parseSection(searchParams.get('section'), projectDetailFromUrl ? 'projetos' : 'dashboard');
+  const setSection = useCallback((nextSection: Section) => {
+    setSearchParams(currentParams => {
+      const nextParams = new URLSearchParams(currentParams);
+      if (nextSection === 'dashboard') nextParams.delete('section');
+      else nextParams.set('section', nextSection);
+
+      if (nextSection !== 'projetos') {
+        nextParams.delete('project');
+        nextParams.delete('group');
+        nextParams.delete('cards');
+      }
+      if (nextSection !== 'custo') nextParams.delete('cost');
+      return nextParams;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // Ao entrar no módulo, a novidade do hub já foi "consumida".
   useEffect(() => { if (user) markAcompanhamentoNoveltySeen(user); }, [user]);
+  useEffect(() => {
+    if (!isManager && section === 'custo') setSection('dashboard');
+  }, [isManager, section, setSection]);
 
   const handleLogout = () => {
     logout();

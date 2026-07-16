@@ -12,17 +12,27 @@ import { useAccumulatedReportsPage } from '../../hooks/useReports';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 import { usePersistentSearch } from '../../hooks/usePersistentSearch';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 import { type ProjectSortDirection } from '../../utils/projectSort';
 import { ProjectSortButton } from '../../utils/ProjectSortButton';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
 type MyReportsTab = 'pending' | 'approved';
+const MY_REPORTS_TABS: MyReportsTab[] = ['pending', 'approved'];
 const REPORT_PAGE_SIZE = 25;
+
+function parseMyReportsTab(value: string | null): MyReportsTab {
+  return MY_REPORTS_TABS.includes(value as MyReportsTab) ? value as MyReportsTab : 'pending';
+}
 
 export function MyReportsPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [tab, setTab] = useState<MyReportsTab>('pending');
+  const [tab, setTab] = useUrlParamState<MyReportsTab>({
+    param: 'tab',
+    defaultValue: 'pending',
+    parse: parseMyReportsTab
+  });
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [search, setSearch] = usePersistentSearch(`my-reports-search:${user?.id || user?.username || 'anonymous'}:${tab}`);
   const debouncedSearch = useDebouncedValue(search, 300);

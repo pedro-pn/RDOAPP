@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
@@ -32,8 +32,10 @@ import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { downloadBlob } from '../../utils/download';
 import { defaultRomaneioUnit, romaneioMeasureLabel } from '../../utils/romaneioMeasure';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 
 type Tab = 'romaneios' | 'equipamentos' | 'notificacoes';
+const TABS: Tab[] = ['romaneios', 'equipamentos', 'notificacoes'];
 const NEW_CATEGORY_VALUE = '__new_category__';
 
 const managedCatalogSources = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK']);
@@ -104,6 +106,10 @@ function normalizeSearch(value: unknown) {
     .trim();
 }
 
+function parseRomaneioTab(value: string | null): Tab {
+  return TABS.includes(value as Tab) ? value as Tab : 'romaneios';
+}
+
 export function RomaneioPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -111,7 +117,11 @@ export function RomaneioPage() {
   const queryClient = useQueryClient();
   const isManager = user?.moduleRoles?.includes('romaneio:manager');
   const canEditRomaneio = user?.role === 'MANAGER' || user?.role === 'COORDINATOR';
-  const [tab, setTab] = useState<Tab>('romaneios');
+  const [tab, setTab] = useUrlParamState<Tab>({
+    param: 'tab',
+    defaultValue: 'romaneios',
+    parse: parseRomaneioTab
+  });
   const [search, setSearch] = useState('');
   const [projectId, setProjectId] = useState('');
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -135,6 +145,10 @@ export function RomaneioPage() {
   const catalogQuery = useQuery({ queryKey: ['romaneio-catalog'], queryFn: listRomaneioCatalog, enabled: isManager || tab !== 'notificacoes' });
   const draftsQuery = useQuery({ queryKey: ['romaneio-drafts'], queryFn: listRomaneioDrafts });
   const recipientsQuery = useQuery({ queryKey: ['romaneio-recipients'], queryFn: listRomaneioRecipients, enabled: isManager && tab === 'notificacoes' });
+
+  useEffect(() => {
+    if (!isManager && tab === 'notificacoes') setTab('romaneios');
+  }, [isManager, setTab, tab]);
 
   const saveCatalogMutation = useMutation({
     mutationFn: () => createRomaneioCatalogItem(catalogForm),
