@@ -17,6 +17,7 @@ import { useProjects } from '../../hooks/useProjects';
 import { useAccumulatedReportsPage, useReportCounts } from '../../hooks/useReports';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { usePersistentSearch } from '../../hooks/usePersistentSearch';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 import { InfiniteScrollSentinel } from '../../components/ui/InfiniteScrollSentinel';
 import { useSurveys } from '../../hooks/useSurveys';
@@ -34,6 +35,7 @@ import { matchesSearch, projectSearchParts, reportSearchParts } from '../../util
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
 type CoordinatorTab = 'pending' | 'approved' | 'archived' | 'nps' | 'estatisticas' | 'dds';
+const COORDINATOR_TABS: CoordinatorTab[] = ['pending', 'approved', 'archived', 'nps', 'estatisticas', 'dds'];
 const REPORT_PAGE_SIZE = 50;
 const REPORT_TYPE_PAGE_SIZE = 10;
 
@@ -49,6 +51,10 @@ const TEXT = {
   pending: 'Pendentes',
   reports: 'Relatórios'
 };
+
+function parseCoordinatorTab(value: string | null): CoordinatorTab {
+  return COORDINATOR_TABS.includes(value as CoordinatorTab) ? value as CoordinatorTab : 'pending';
+}
 
 function surveyBadge(survey?: SatisfactionSurveySummary | null) {
   if (!survey) return { label: 'Pesquisa não enviada', className: 'badge badge-pen' };
@@ -123,7 +129,11 @@ export function CoordinatorPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { reset } = useRdoStore();
-  const [tab, setTab] = useState<CoordinatorTab>('pending');
+  const [tab, setTab] = useUrlParamState<CoordinatorTab>({
+    param: 'tab',
+    defaultValue: 'pending',
+    parse: parseCoordinatorTab
+  });
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [search, setSearch] = usePersistentSearch(`coordinator-search:${user?.id || 'anonymous'}:${tab}`);
   // Só o valor enviado às queries é adiado; a filtragem client-side segue instantânea.

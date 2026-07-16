@@ -24,6 +24,9 @@ description: "Task list template for feature implementation"
 - For new user-facing frontend functions, include tasks for the 10-day novelty campaign
   and guided tutorial from the Visual/UI Contract. For new modules, include the
   permanent first-access module tutorial instead.
+- For frontend surfaces with tabs, side sections, tab-like filters or list-replacing
+  detail views, include a task to persist navigation in URL/query params and verify that
+  refresh keeps the user on the same module page.
 
 ## Path Conventions
 
@@ -172,6 +175,9 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Visual contract implementation: each new/changed form control uses shared
   structure (`field-group`, `admin-form-grid`, `admin-inline-form`, or documented
   equivalent); no placeholder-only labels; no raw dropdown/select styling
+- [ ] TXXX Navigation continuity: represent module-internal tabs/sections/detail views
+  in URL/query params (or document a localStorage exception) and verify refresh/deep-link
+  restores the same page without stale incompatible params
 - [ ] TXXX Visual consistency pass: verify every Visual/UI Contract surface in desktop
   and mobile; dropdowns/selects have default, focus, disabled, error and empty states;
   desktop module width is not compressed; mobile layout has no horizontal page scroll

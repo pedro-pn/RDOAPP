@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 1.2.0 → 1.3.0
-- Modified principles: Princípio VI expandido para divulgação temporária de novidades e tutorial guiado
+- Version change: 1.3.0 → 1.4.0
+- Modified principles: Princípio VI expandido para continuidade de navegação em refresh
 - Added sections: nenhuma
 - Removed sections: nenhuma
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir estratégia de novidade/tutorial
-  - ✅ .specify/templates/spec-template.md — contrato visual passou a capturar divulgação e tutorial de frontend
-  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a incluir novidade temporária e tutorial guiado
-  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para novidades e tutoriais
+  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir continuidade de navegação
+  - ✅ .specify/templates/spec-template.md — contrato visual passou a capturar persistência de navegação
+  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a incluir refresh/deep-link de abas
+  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para persistência de navegação
 - Follow-up TODOs: nenhum
 -->
 
@@ -108,13 +108,21 @@ Nenhuma página, modal ou card pode nascer fora da formatação padrão do app. 
 - Tutorial permanente de primeiro acesso é obrigatório apenas para módulo novo. Para
   função nova dentro de módulo existente, o tutorial é campanha temporária de novidade,
   não onboarding permanente do módulo.
+- Navegação interna de módulo (abas, seções laterais, filtros com aparência de aba e
+  detalhes que substituem a lista, como cards abertos) DEVE sobreviver a atualização
+  da página. O padrão preferencial é refletir o estado navegacional em URL/query params
+  (`?tab=...`, `?section=...`, `?project=...`) e limpar parâmetros incompatíveis ao
+  trocar de seção. Persistência em `localStorage` só é aceita quando a URL exporia dado
+  sensível ou quando o estado não representa navegação compartilhável.
 
 Racional: divergências visuais quase nunca são intencionais — surgem quando uma tela é
 construída sem olhar o kit e os tokens existentes, e depois custam passadas inteiras de
 padronização. Novidades sem divulgação deixam usuários sem descobrir fluxos novos; aviso
 e tutorial temporários tornam a adoção previsível sem criar pop-ups permanentes para
-funções pontuais. A regra torna a checagem objetiva em review: componente do kit usado?
-token usado? tela análoga seguida? novidade temporária implementada quando aplicável?
+funções pontuais. Abas que voltam para o início após F5 quebram o contexto operacional
+do usuário em campo e tornam a experiência inconsistente entre módulos. A regra torna a
+checagem objetiva em review: componente do kit usado? token usado? tela análoga
+seguida? novidade temporária implementada quando aplicável? refresh preserva a página?
 
 ## Restrições de Stack
 
@@ -156,4 +164,4 @@ corrigido.
   DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
   registrada na seção Complexity Tracking do plano da feature.
 
-**Version**: 1.3.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-16
+**Version**: 1.4.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-16

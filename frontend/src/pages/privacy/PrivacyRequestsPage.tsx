@@ -14,6 +14,7 @@ import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 
 const requestTypeLabel: Record<string, string> = {
   CONFIRMATION: 'Confirmação',
@@ -87,12 +88,20 @@ function matchesSearch(values: Array<string | null | undefined>, search: string)
   return values.some(value => String(value || '').toLowerCase().includes(needle));
 }
 
+function parseRequestStatusFilter(value: string | null): RequestStatusFilter {
+  return requestStatusOptions.some(option => option.value === value) ? value as RequestStatusFilter : 'OPEN';
+}
+
 export function PrivacyRequestsPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RequestStatusFilter>('OPEN');
+  const [statusFilter, setStatusFilter] = useUrlParamState<RequestStatusFilter>({
+    param: 'tab',
+    defaultValue: 'OPEN',
+    parse: parseRequestStatusFilter
+  });
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');

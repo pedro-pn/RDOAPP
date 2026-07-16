@@ -29,9 +29,16 @@ import { useToast } from '../../components/ui/ToastContext';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { downloadBlob } from '../../utils/download';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 
 type Tab = 'collaborators' | 'catalog';
 type RecordTab = 'active' | 'archived';
+const TABS: Tab[] = ['collaborators', 'catalog'];
+
+function parseEpiTab(value: string | null): Tab {
+  return TABS.includes(value as Tab) ? value as Tab : 'collaborators';
+}
+
 type RemoveDialogState =
   | { kind: 'record'; id: string; title: string; description: string }
   | { kind: 'catalog'; id: string; title: string; description: string };
@@ -123,7 +130,11 @@ export function EpiPage() {
   const showToast = useToast();
   const queryClient = useQueryClient();
   const isTechnician = user?.accountType === 'ADMIN' || user?.moduleRoles?.includes('epi:technician');
-  const [tab, setTab] = useState<Tab>('collaborators');
+  const [tab, setTab] = useUrlParamState<Tab>({
+    param: 'tab',
+    defaultValue: 'collaborators',
+    parse: parseEpiTab
+  });
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
@@ -483,8 +494,9 @@ export function EpiPage() {
                       {editingProfileId === collaborator.id ? (
                         <div className="epi-profile-grid">
                           <div className="field-group epi-profile-cpf">
-                            <label>CPF</label>
+                            <label htmlFor={`epi-profile-cpf-${collaborator.id}`}>CPF</label>
                             <input
+                              id={`epi-profile-cpf-${collaborator.id}`}
                               inputMode="numeric"
                               maxLength={14}
                               placeholder="000.000.000-00"
@@ -494,12 +506,12 @@ export function EpiPage() {
                             />
                           </div>
                           <div className="field-group epi-profile-registration">
-                            <label>Matrícula</label>
-                            <input value={profileForm.registrationNumber} onChange={event => setProfileForm(current => ({ ...current, registrationNumber: event.target.value }))} disabled={!isTechnician} />
+                            <label htmlFor={`epi-profile-registration-${collaborator.id}`}>Matrícula</label>
+                            <input id={`epi-profile-registration-${collaborator.id}`} value={profileForm.registrationNumber} onChange={event => setProfileForm(current => ({ ...current, registrationNumber: event.target.value }))} disabled={!isTechnician} />
                           </div>
                           <div className="field-group epi-profile-admission">
-                            <label>Data de admissão</label>
-                            <input type="date" value={profileForm.admissionDate} onChange={event => setProfileForm(current => ({ ...current, admissionDate: event.target.value }))} disabled={!isTechnician} />
+                            <label htmlFor={`epi-profile-admission-${collaborator.id}`}>Data de admissão</label>
+                            <input id={`epi-profile-admission-${collaborator.id}`} type="date" value={profileForm.admissionDate} onChange={event => setProfileForm(current => ({ ...current, admissionDate: event.target.value }))} disabled={!isTechnician} />
                           </div>
                           {isTechnician ? (
                             <>

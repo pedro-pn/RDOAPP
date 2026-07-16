@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 
 import {
@@ -306,6 +307,7 @@ function Card({
 // Aba "Projetos": um card por projeto com previsto x realizado (dias, avanço, colaboradores, prazos).
 type CardsView = 'andamento' | 'futuros' | 'arquivados';
 type SelectedDetail = { kind: 'PROJECT'; id: string } | { kind: 'GROUP'; id: string };
+const CARD_VIEWS: CardsView[] = ['andamento', 'futuros', 'arquivados'];
 
 const VIEW_CATEGORY: Record<CardsView, ProjectCardCategory> = {
   andamento: 'ANDAMENTO',
@@ -317,6 +319,17 @@ function cardCategory(card: ProjectCardItem): ProjectCardCategory {
   return card.category ?? (card.archived ? 'ARQUIVADO' : 'ANDAMENTO');
 }
 
+function parseCardsView(value: string | null): CardsView {
+  return CARD_VIEWS.includes(value as CardsView) ? value as CardsView : 'andamento';
+}
+
+function selectedDetailFromParams(params: URLSearchParams): SelectedDetail | null {
+  const groupId = params.get('group')?.trim();
+  if (groupId) return { kind: 'GROUP', id: groupId };
+  const projectId = params.get('project')?.trim();
+  return projectId ? { kind: 'PROJECT', id: projectId } : null;
+}
+
 export function ProjectCardsBoard({
   canManage = false,
   canManageGroups = false
@@ -325,9 +338,10 @@ export function ProjectCardsBoard({
   canManageGroups?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<CardsView>('andamento');
-  const [selected, setSelected] = useState<SelectedDetail | null>(null);
+  const view = parseCardsView(searchParams.get('cards'));
+  const selected = selectedDetailFromParams(searchParams);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedForGroup, setSelectedForGroup] = useState<Set<string>>(() => new Set());
   const [groupError, setGroupError] = useState<string | null>(null);
@@ -371,6 +385,29 @@ export function ProjectCardsBoard({
       setGroupError(mutationErrorMessage(error, 'Não foi possível desmesclar este agrupamento.'));
     }
   });
+  const setView = useCallback((nextView: CardsView) => {
+    setSearchParams(currentParams => {
+      const nextParams = new URLSearchParams(currentParams);
+      if (nextView === 'andamento') nextParams.delete('cards');
+      else nextParams.set('cards', nextView);
+      return nextParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+  const setSelected = useCallback((nextSelected: SelectedDetail | null) => {
+    setSearchParams(currentParams => {
+      const nextParams = new URLSearchParams(currentParams);
+      nextParams.delete('project');
+      nextParams.delete('group');
+      if (nextSelected?.kind === 'GROUP') {
+        nextParams.set('section', 'projetos');
+        nextParams.set('group', nextSelected.id);
+      } else if (nextSelected?.kind === 'PROJECT') {
+        nextParams.set('section', 'projetos');
+        nextParams.set('project', nextSelected.id);
+      }
+      return nextParams;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // Separa pelo status operacional do card: em andamento, futuro ou arquivado.
   const counts = useMemo(() => {
