@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 
 import {
   createMissionGroup,
@@ -45,6 +46,14 @@ function isGroupCard(card: ProjectCardItem): card is MissionGroupCard {
 
 function cardKey(card: ProjectCardItem) {
   return isGroupCard(card) ? `group-${card.groupId}` : card.projectId;
+}
+
+function mutationErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<{ error?: string }>(error)) {
+    const message = error.response?.data?.error;
+    if (message) return message;
+  }
+  return fallback;
 }
 
 const STATUS_META: Record<LastDayStatus, { label: string; cls: string }> = {
@@ -341,8 +350,8 @@ export function ProjectCardsBoard({
         queryClient.invalidateQueries({ queryKey: ['mission-groups'] })
       ]);
     },
-    onError: (error: any) => {
-      setGroupError(error?.response?.data?.error || 'Não foi possível unificar as missões selecionadas.');
+    onError: (error: unknown) => {
+      setGroupError(mutationErrorMessage(error, 'Não foi possível unificar as missões selecionadas.'));
     }
   });
   const dissolveGroupMutation = useMutation({
@@ -358,8 +367,8 @@ export function ProjectCardsBoard({
         queryClient.invalidateQueries({ queryKey: ['mission-groups'] })
       ]);
     },
-    onError: (error: any) => {
-      setGroupError(error?.response?.data?.error || 'Não foi possível desmesclar este agrupamento.');
+    onError: (error: unknown) => {
+      setGroupError(mutationErrorMessage(error, 'Não foi possível desmesclar este agrupamento.'));
     }
   });
 
