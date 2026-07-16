@@ -107,11 +107,15 @@
   or inline editor, fill the table below with concrete existing references and shared
   components/classes. "Clone of X" is not enough unless X was checked against the
   current constitution and visual standard.
+
+  For new user-facing functions, describe the 10-day novelty campaign and guided
+  tutorial for first access. If this is a new module, describe the permanent first-access
+  module tutorial instead. If no novelty/tutorial applies, state the reason.
 -->
 
-| Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Responsive contract |
-|---------|------------------------------|---------------------------|-----------------------|---------------------|
-| [e.g., Manager create form] | [file/class inspected] | [ui component or CSS class] | [field-group/admin-inline-form/shared dropdown] | [mobile + desktop behavior] |
+| Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Novelty/tutorial contract | Responsive contract |
+|---------|------------------------------|---------------------------|-----------------------|---------------------------|---------------------|
+| [e.g., Manager create form] | [file/class inspected] | [ui component or CSS class] | [field-group/admin-inline-form/shared dropdown] | [10-day novelty/tutorial, permanent module tutorial, or N/A] | [mobile + desktop behavior] |
 
 ### Key Entities *(include if feature involves data)*
 

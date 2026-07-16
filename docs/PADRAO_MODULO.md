@@ -78,6 +78,19 @@ Campos selecionaveis (`select`, combobox, multiselect e dropdown de filtro) deve
 o estilo compartilhado do app: borda, raio, padding, foco, disabled, erro e mobile
 consistentes. Select nativo com aparencia crua do navegador e bloqueante em review.
 
+Funcao nova visivel ao usuario deve incluir divulgacao temporaria no padrao do app:
+
+- card centralizado via Driver.js, no mesmo modelo usado para novidades como DDS;
+- marcador "visto" em `localStorage`, por usuario e navegador;
+- data-limite global exatamente 10 dias corridos apos a data de implementacao;
+- depois da data-limite, o aviso nao aparece para ninguem, mesmo em primeiro acesso;
+- tutorial guiado apontando os controles reais da funcao durante a mesma janela de
+  10 dias e apenas no primeiro acesso do publico impactado.
+
+Tutorial permanente de primeiro acesso e exigido para modulo novo. Funcao nova dentro
+de modulo existente usa apenas campanha temporaria de novidade, nao onboarding
+permanente.
+
 Evitar misturar no mesmo arquivo:
 
 - provider e hook compartilhado;

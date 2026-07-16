@@ -21,6 +21,9 @@ description: "Task list template for feature implementation"
 - For frontend UI work, include the exact shared components/classes required by the
   Visual/UI Contract. Do not write only "clone/copy X"; name the audited source file
   and the shared pattern to preserve or correct.
+- For new user-facing frontend functions, include tasks for the 10-day novelty campaign
+  and guided tutorial from the Visual/UI Contract. For new modules, include the
+  permanent first-access module tutorial instead.
 
 ## Path Conventions
 
@@ -160,6 +163,12 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
+- [ ] TXXX Novelty campaign: implement the Driver.js-style centered novelty card with
+  localStorage seen marker per user/browser and global expiration 10 days after the
+  implementation date (or document N/A for non-frontend/non-user-facing changes)
+- [ ] TXXX Guided tutorial: implement the first-access tutorial for the new function
+  during the same 10-day window, or permanent first-access tutorial when this is a new
+  module
 - [ ] TXXX Visual contract implementation: each new/changed form control uses shared
   structure (`field-group`, `admin-form-grid`, `admin-inline-form`, or documented
   equivalent); no placeholder-only labels; no raw dropdown/select styling
