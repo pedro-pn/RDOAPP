@@ -69,7 +69,9 @@ export interface PresumedProfitTaxEstimate {
   defaultServiceTaxCode: string;
   supportedServiceTaxCodes: string[];
   projectCostBasis: 'IRPJ_CSLL_OUTSIDE_INVOICE';
-  serviceTaxCode: '14.01' | '7.05' | '7.02';
+  serviceTaxCode: '14.01' | '7.05' | '7.02' | 'MIXED';
+  serviceTaxCodes?: Array<'14.01' | '7.05' | '7.02'>;
+  omieServiceTaxCodes?: string[];
   equivalentServiceTaxCode: string | null;
   spreadsheetBlock: string;
   basisSource: 'EXPECTED_SALE' | 'OMIE_INVOICED';

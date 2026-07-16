@@ -1772,6 +1772,9 @@ model OmieReceivable {
   osNumber              String?
   valor                 Decimal?  @db.Decimal(14, 2) // valor_documento
   valorIss              Decimal?  @db.Decimal(14, 2) // valor_iss informado na NF/conta a receber
+  aliquotaIss           Decimal?  @db.Decimal(5, 2) // nAliquotaISS vindo da NFSe
+  codigoLc116           String? // CodigoLC116 vindo da NFSe (ex.: 7.02, 7.05, 14.01)
+  codigoServico         String? // CodigoServico municipal vindo da NFSe
   statusTitulo          String? // RECEBIDO, A RECEBER, ATRASADO, ...
   categoriaCodigo       String?
   categoriaDescricao    String?
