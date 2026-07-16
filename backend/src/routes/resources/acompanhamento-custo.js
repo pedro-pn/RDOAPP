@@ -81,7 +81,8 @@ router.get('/perfis', requireAuth, requireAcompanhamentoManager, asyncHandler(as
       label: p.label,
       effectiveDate: set?.effectiveDate ?? null,
       params: set?.params ?? null,
-      updatedAt: set?.createdAt ?? p.updatedAt
+      updatedAt: set?.createdAt ?? p.updatedAt,
+      history: parameterSetHistory(p.parameterSets)
     };
   }));
 }));
