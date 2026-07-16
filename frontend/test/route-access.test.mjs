@@ -357,6 +357,36 @@ test('multi-module internal accounts open the modules hub until the first-login 
   }
 });
 
+test('acompanhamento grouping novelty is local once-per-user and expires globally', async () => {
+  const stored = new Map();
+  const originalNow = Date.now;
+  globalThis.window = {
+    localStorage: {
+      getItem: key => stored.get(key) || null,
+      setItem: (key, value) => stored.set(key, value)
+    }
+  };
+
+  try {
+    Date.now = () => new Date('2026-07-16T12:00:00-03:00').getTime();
+    const {
+      markAcompanhamentoGroupingNoveltySeen,
+      shouldShowAcompanhamentoGroupingNovelty
+    } = await loadModuleNavigation();
+
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-1' }), true);
+    markAcompanhamentoGroupingNoveltySeen({ id: 'manager-1' });
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-1' }), false);
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-2' }), true);
+
+    Date.now = () => new Date('2026-07-27T00:00:00-03:00').getTime();
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-3' }), false);
+  } finally {
+    Date.now = originalNow;
+    delete globalThis.window;
+  }
+});
+
 test('single-module internal accounts keep entering their module directly', async () => {
   const { preferredEntryPath } = await loadModuleNavigation();
 
