@@ -246,6 +246,7 @@ export async function listProjectCards() {
       code: row.code,
       name: row.name,
       clientName: row.clientName,
+      clientCnpj: row.clientCnpj ?? null,
       archived, // arquivado = projeto inativo nos relatórios
       category: deriveProjectCardCategory({
         archived,
@@ -259,6 +260,7 @@ export async function listProjectCards() {
       workedHours,
       progressPct: row.progressPct ?? null,
       progressMethod: row.progressMethod ?? null,
+      progressWeight: row.progressWeight ?? null,
       plannedCost,
       invoicedRevenue: row.invoicedRevenue ?? null,
       invoiceCount: row.invoiceCount ?? 0,
@@ -267,6 +269,7 @@ export async function listProjectCards() {
       costConsumedPct,
       lastDay,
       collaboratorsCount: a.collabs.size,
+      collaboratorIds: Array.from(a.collabs),
       startDate: row.startDate ?? null,
       expectedEndDate,
       // Custo de mão de obra (HH) do ponto vigente.
