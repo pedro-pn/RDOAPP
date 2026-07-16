@@ -7,6 +7,7 @@ import type { SurveyQuestion, SurveyResponses } from '../../api/surveys';
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { rdoPath } from '../../auth/rolePath';
+import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -32,7 +33,7 @@ import { reportDownloadFileName } from '../../utils/reportFileName';
 import { matchesSearch, projectSearchParts, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
-type CoordinatorTab = 'pending' | 'approved' | 'archived' | 'nps' | 'estatisticas';
+type CoordinatorTab = 'pending' | 'approved' | 'archived' | 'nps' | 'estatisticas' | 'dds';
 const REPORT_PAGE_SIZE = 50;
 const REPORT_TYPE_PAGE_SIZE = 10;
 
@@ -573,6 +574,7 @@ export function CoordinatorPage() {
     if (tab === 'archived') return renderArchivedTab();
     if (tab === 'nps') return renderNpsTab();
     if (tab === 'estatisticas') return renderEstatisticasTab();
+    if (tab === 'dds') return <DdsThemeManager />;
 
     if (reportsQuery.isLoading) return <ReportListSkeleton />;
 
@@ -762,20 +764,25 @@ export function CoordinatorPage() {
           <button className={`nav-tab ${tab === 'estatisticas' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'estatisticas'} onClick={() => setTab('estatisticas')}>
             Estatísticas
           </button>
+          <button className={`nav-tab ${tab === 'dds' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'dds'} onClick={() => setTab('dds')}>
+            Temas de DDS
+          </button>
         </div>
       </div>
       <main className="page-scroll">
-        <section className="page-card">
-          <div className="section-title">{TEXT.reports}</div>
-          <div className="admin-search-row">
-            <SearchBar
-              ariaLabel={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
-              placeholder={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
-              value={search}
-              onChange={setSearch}
-            />
-          </div>
-        </section>
+        {tab !== 'dds' ? (
+          <section className="page-card">
+            <div className="section-title">{TEXT.reports}</div>
+            <div className="admin-search-row">
+              <SearchBar
+                ariaLabel={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
+                placeholder={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
+                value={search}
+                onChange={setSearch}
+              />
+            </div>
+          </section>
+        ) : null}
         {renderTabContent()}
       </main>
     </Shell>

@@ -1,4 +1,13 @@
+import { useState, type ReactNode } from 'react';
+
 import type { Collaborator } from '../../types/domain';
+
+export interface DdsThemeSnapshot {
+  id: string;
+  name: string;
+  // Tema digitado fora da lista oficial; fica pendente de validação do gestor na revisão do RDO.
+  custom?: boolean;
+}
 
 export interface ManualReportOperationalFieldsValue {
   arrivalTime: string;
@@ -13,16 +22,28 @@ export interface ManualReportOperationalFieldsValue {
   standby: boolean;
   standbyDuration: string;
   standbyMotivo: string;
+  ddsDay: boolean;
+  ddsDayStart: string;
+  ddsDayEnd: string;
+  ddsDayThemes: DdsThemeSnapshot[];
+  ddsNight: boolean;
+  ddsNightStart: string;
+  ddsNightEnd: string;
+  ddsNightThemes: DdsThemeSnapshot[];
 }
 
 interface ManualReportOperationalFieldsProps {
   value: ManualReportOperationalFieldsValue;
   collaborators: Collaborator[];
+  ddsThemes?: DdsThemeSnapshot[];
   disabled?: boolean;
   defaultOpen?: boolean;
   embedded?: boolean;
   showNightShift?: boolean;
   showStandby?: boolean;
+  showDds?: boolean;
+  // Aviso exibido logo abaixo do bloco de DDS diurno (ex.: temas fora da lista aguardando validação).
+  ddsAlert?: ReactNode;
   summaryLabel?: string;
   onChange: (patch: Partial<ManualReportOperationalFieldsValue>) => void;
 }
@@ -40,13 +61,18 @@ function collaboratorName(collaborators: Collaborator[], id: string) {
 export function ManualReportOperationalFields({
   value,
   collaborators,
+  ddsThemes = [],
   disabled = false,
   embedded = false,
   showNightShift = false,
   showStandby = false,
+  showDds = false,
+  ddsAlert = null,
   summaryLabel = 'Dados operacionais (opcional)',
   onChange
 }: ManualReportOperationalFieldsProps) {
+  const [customThemeInputs, setCustomThemeInputs] = useState<Record<string, string>>({});
+
   function renderSelected(ids: string[], field: 'collaboratorIds' | 'noturnoCollaboratorIds') {
     if (!ids.length) return <div className="colab-empty">Nenhum colaborador adicionado.</div>;
 
@@ -99,6 +125,138 @@ export function ManualReportOperationalFields({
     );
   }
 
+  function addCustomTheme(field: 'ddsDayThemes' | 'ddsNightThemes') {
+    const selected = value[field];
+    const name = (customThemeInputs[field] || '').trim();
+    if (!name) return;
+    setCustomThemeInputs(current => ({ ...current, [field]: '' }));
+    if (selected.some(item => item.name.trim().toLowerCase() === name.toLowerCase())) return;
+    // Se o texto digitado corresponde a um tema oficial, vincula a ele em vez de criar um avulso.
+    const existing = ddsThemes.find(item => item.name.trim().toLowerCase() === name.toLowerCase());
+    const theme: DdsThemeSnapshot = existing
+      ? { id: existing.id, name: existing.name }
+      : { id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, custom: true };
+    onChange({ [field]: [...selected, theme] });
+  }
+
+  function renderThemePicker(field: 'ddsDayThemes' | 'ddsNightThemes') {
+    const selected = value[field];
+    return (
+      <>
+        <div className="colab-list">
+          {selected.length ? (
+            selected.map(theme => (
+              <span className={`colab-tag ${theme.custom ? 'colab-tag-custom' : ''}`} key={`${field}-${theme.id}`}>
+                <span>{theme.custom ? `${theme.name} (novo)` : theme.name}</span>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onChange({ [field]: selected.filter(item => item.id !== theme.id) })}
+                  aria-label="Remover tema"
+                >
+                  ×
+                </button>
+              </span>
+            ))
+          ) : (
+            <div className="colab-empty">Nenhum tema adicionado.</div>
+          )}
+        </div>
+        <div className="cadd">
+          <select
+            value=""
+            disabled={disabled}
+            onChange={event => {
+              const selectedId = event.target.value;
+              if (!selectedId) return;
+              const theme = ddsThemes.find(item => item.id === selectedId);
+              if (!theme || selected.some(item => item.id === theme.id)) return;
+              onChange({ [field]: [...selected, { id: theme.id, name: theme.name }] });
+            }}
+          >
+            <option value="">Adicionar...</option>
+            {ddsThemes
+              .filter(item => !selected.some(theme => theme.id === item.id))
+              .map(item => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+          </select>
+        </div>
+        <div className="cadd">
+          <input
+            value={customThemeInputs[field] || ''}
+            disabled={disabled}
+            placeholder="Tema fora da lista? Digite aqui..."
+            onChange={event => setCustomThemeInputs(current => ({ ...current, [field]: event.target.value }))}
+            onKeyDown={event => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              addCustomTheme(field);
+            }}
+          />
+          <button
+            className="cadd-btn"
+            type="button"
+            disabled={disabled || !(customThemeInputs[field] || '').trim()}
+            onClick={() => addCustomTheme(field)}
+          >
+            + Add
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  function renderDdsFields(shift: 'day' | 'night') {
+    const enabled = shift === 'day' ? value.ddsDay : value.ddsNight;
+    const startField = shift === 'day' ? 'ddsDayStart' : 'ddsNightStart';
+    const endField = shift === 'day' ? 'ddsDayEnd' : 'ddsNightEnd';
+    const enabledField = shift === 'day' ? 'ddsDay' : 'ddsNight';
+
+    return (
+      <>
+        <div className="tog-row">
+          <span className="tog-lbl">{shift === 'day' ? 'Houve DDS?' : 'Houve DDS no turno noturno?'}</span>
+          <label className="tog">
+            <input
+              type="checkbox"
+              checked={enabled}
+              disabled={disabled}
+              onChange={event => onChange({ [enabledField]: event.target.checked })}
+            />
+            <span className="tog-sl" />
+          </label>
+        </div>
+        {enabled ? (
+          <div className="collapse-section">
+            <div className="fg-r2">
+              <div className="field-group">
+                <label>Início</label>
+                <input
+                  type="time"
+                  value={value[startField]}
+                  disabled={disabled}
+                  onChange={event => onChange({ [startField]: event.target.value })}
+                />
+              </div>
+              <div className="field-group">
+                <label>Término</label>
+                <input
+                  type="time"
+                  value={value[endField]}
+                  disabled={disabled}
+                  onChange={event => onChange({ [endField]: event.target.value })}
+                />
+              </div>
+            </div>
+            <div className="section-title manual-operational-subtitle">Temas abordados</div>
+            {renderThemePicker(shift === 'day' ? 'ddsDayThemes' : 'ddsNightThemes')}
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
   const body = (
     <>
       <section className="manual-operational-section">
@@ -140,9 +298,12 @@ export function ManualReportOperationalFields({
         {renderPicker(value.collaboratorIds, 'collaboratorIds')}
       </section>
 
-      {showNightShift || showStandby ? (
+      {showNightShift || showStandby || showDds ? (
         <section className="manual-operational-section">
           <div className="section-title">Condições especiais</div>
+
+          {showDds ? renderDdsFields('day') : null}
+          {showDds ? ddsAlert : null}
 
           {showStandby ? (
             <>
@@ -234,6 +395,7 @@ export function ManualReportOperationalFields({
                   </div>
                   <div className="section-title manual-operational-subtitle">Equipe noturna</div>
                   {renderPicker(value.noturnoCollaboratorIds, 'noturnoCollaboratorIds')}
+                  {showDds ? renderDdsFields('night') : null}
                 </div>
               ) : null}
             </>

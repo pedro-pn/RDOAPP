@@ -370,6 +370,18 @@ model JobRole {
   @@index([isActive, order])
 }
 
+// Lista gerenciável de temas de DDS abordados nos RDOs (gestores e coordenadores).
+model DdsTheme {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
 model Project {
   id                             String  @id @default(cuid())
   code                           String  @unique
