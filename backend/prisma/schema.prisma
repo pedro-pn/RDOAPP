@@ -208,11 +208,6 @@ enum AccessImportStatus {
   ERROR
 }
 
-enum AcompanhamentoMissionGroupStatus {
-  ACTIVE
-  DISSOLVED
-}
-
 model Collaborator {
   id                        String                           @id @default(cuid())
   code                      String                           @unique
@@ -440,44 +435,10 @@ model Project {
   plannedNormalHours     ProjectPlannedNormalHours[]
   plannedOvertime        ProjectPlannedOvertime[]
   stockMovements         StockMovement[]
-  acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
 
   @@index([deletedAt])
   @@index([registrationPending])
   @@index([commercialProposalCode])
-}
-
-model AcompanhamentoMissionGroup {
-  id                String                            @id @default(cuid())
-  name              String
-  status            AcompanhamentoMissionGroupStatus  @default(ACTIVE)
-  createdByUserId   String?
-  dissolvedByUserId String?
-  createdAt         DateTime                          @default(now())
-  updatedAt         DateTime                          @updatedAt
-  dissolvedAt       DateTime?
-  createdBy         User?                             @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  dissolvedBy       User?                             @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
-  members           AcompanhamentoMissionGroupMember[]
-
-  @@index([status, createdAt])
-  @@index([createdByUserId])
-  @@index([dissolvedByUserId])
-}
-
-model AcompanhamentoMissionGroupMember {
-  id              String                     @id @default(cuid())
-  groupId         String
-  projectId       String
-  activeProjectId String?                    @unique
-  order           Int                        @default(0)
-  createdAt       DateTime                   @default(now())
-  group           AcompanhamentoMissionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  project         Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@unique([groupId, projectId])
-  @@index([groupId, order])
-  @@index([projectId])
 }
 
 model ProjectReportSeq {
@@ -1062,8 +1023,6 @@ model User {
   accessImports                       AccessImport[]                      @relation("AccessImportUser")
   selectedBudgets                     ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
   stockMovements                      StockMovement[]                     @relation("StockMovementCreator")
-  createdAcompanhamentoMissionGroups  AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
-  dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupDissolvedBy")
 
   @@index([clientCnpj])
 }

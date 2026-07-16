@@ -353,7 +353,6 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     header: {
       code: row.code,
       clientName: row.clientName,
-      clientCnpj: row.clientCnpj ?? null,
       proposalCode: row.proposalCode,
       lastRdoDate,
       segment: project?.clientSegment ?? null

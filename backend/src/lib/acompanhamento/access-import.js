@@ -14,7 +14,6 @@ import prisma from '../prisma.js';
 import { computeProgressForProjects } from './avanco.js';
 import { buildOmieCostCategoryWhere } from './cost-categories.js';
 import { buildPresumedProfitTaxEstimate } from './presumed-profit-taxes.js';
-import { progressContributionWeight } from './progress-groups.js';
 import { getStockConsumptionCostByProject } from './stock-cost.js';
 
 const PROPOSAL_TABLE = 'proposta';
@@ -449,17 +448,7 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     }),
     prisma.project.findMany({
       where: { deletedAt: null },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        clientName: true,
-        clientCnpj: true,
-        contractCode: true,
-        commercialProposalCode: true,
-        startDate: true,
-        isActive: true
-      }
+      select: { id: true, code: true, name: true, clientName: true, contractCode: true, commercialProposalCode: true, startDate: true, isActive: true }
     }),
     prisma.projectBudget.findMany({
       where: { version: 1 },
@@ -528,7 +517,6 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       code: project.code,
       name: project.name,
       clientName: project.clientName,
-      clientCnpj: project.clientCnpj,
       proposalCode: String(codProp),
       resolved,
       archived: !project.isActive, // segue o status do projeto nos relatórios (isActive=false => arquivado)
@@ -577,7 +565,6 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     const p = progressByProject.get(row.projectId);
     row.progressPct = p?.progressPct ?? null;
     row.progressMethod = p?.progressMethod ?? null;
-    row.progressWeight = progressContributionWeight(p);
   }
 
   rows.sort((a, b) => Number(a.resolved) - Number(b.resolved) || a.code.localeCompare(b.code));

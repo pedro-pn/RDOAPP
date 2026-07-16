@@ -141,7 +141,6 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['project-cards'] });
       queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
-      queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] });
       queryClient.invalidateQueries({ queryKey: ['ponto-colaboradores'] });
     },
     onError: () => showToast('Não foi possível atualizar o cronograma.')
@@ -352,10 +351,9 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       </div>
       <div className="admin-inline-grid" style={{ marginTop: 8 }}>
         <div className="field-group acp-svc-weight-fg">
-          <label htmlFor={`acp-manual-progress-${projectId}`}>Avanço manual <HelpTip icon help="Avanço informado à mão, em %. É usado só como fallback quando o projeto NÃO tem escopo previsto cadastrado (aí o avanço não pode vir dos RDOs). Se houver escopo, este valor é ignorado." /></label>
+          <label>Avanço manual <HelpTip icon help="Avanço informado à mão, em %. É usado só como fallback quando o projeto NÃO tem escopo previsto cadastrado (aí o avanço não pode vir dos RDOs). Se houver escopo, este valor é ignorado." /></label>
           <div className="acp-pct-field">
             <input
-              id={`acp-manual-progress-${projectId}`}
               type="number" min="0" max="100" step="1" inputMode="numeric" placeholder="—"
               value={manualValue}
               onChange={e => setManualEdit(e.target.value)}

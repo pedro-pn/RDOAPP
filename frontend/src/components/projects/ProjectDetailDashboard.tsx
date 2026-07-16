@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
-  getMissionGroupDetail,
   getPlannedScope,
   getProjectDetail,
   type DayStatus,
@@ -149,9 +148,7 @@ function PlannedScopeView({ scope }: { scope?: PlannedScope }) {
         <div className="acp-det-scope-svc" key={i}>
           <div className="acp-det-scope-head">
             <span>{SERVICE_LABELS[svc.serviceType] ?? svc.serviceType}</span>
-            {svc.weight !== null && svc.weight !== undefined ? (
-              <span className="acp-det-scope-weight">peso {Number(svc.weight ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>
-            ) : null}
+            <span className="acp-det-scope-weight">peso {Number(svc.weight ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>
           </div>
           <ul>
             {svc.systems.map((sys, j) => (
@@ -167,35 +164,19 @@ function PlannedScopeView({ scope }: { scope?: PlannedScope }) {
 }
 
 // Dashboard detalhado de um projeto (aberto ao clicar num card da aba Projetos).
-export function ProjectDetailDashboard({
-  projectId,
-  groupId,
-  canManage = false,
-  onBack
-}: {
-  projectId?: string;
-  groupId?: string;
-  canManage?: boolean;
-  onBack: () => void;
-}) {
-  const [scheduleProject, setScheduleProject] = useState<{ projectId: string; code: string } | null>(null);
+export function ProjectDetailDashboard({ projectId, canManage = false, onBack }: { projectId: string; canManage?: boolean; onBack: () => void }) {
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDirty, setScheduleDirty] = useState(false);
   const scheduleRef = useRef<ScheduleEditorHandle>(null);
-  const isGroup = Boolean(groupId);
-  const detailKey = isGroup ? ['mission-group-detail', groupId] : ['project-detail', projectId];
   const { data, isLoading } = useQuery({
-    queryKey: detailKey,
-    queryFn: () => isGroup ? getMissionGroupDetail(groupId!) : getProjectDetail(projectId!),
+    queryKey: ['project-detail', projectId],
+    queryFn: () => getProjectDetail(projectId),
     ...acompanhamentoRefreshQueryOptions
   });
-  const { data: scope } = useQuery({
-    queryKey: ['planned-scope', projectId],
-    queryFn: () => getPlannedScope(projectId!),
-    enabled: !isGroup && Boolean(projectId)
-  });
+  const { data: scope } = useQuery({ queryKey: ['planned-scope', projectId], queryFn: () => getPlannedScope(projectId) });
 
   function closeSchedule() {
-    setScheduleProject(null);
+    setScheduleOpen(false);
     setScheduleDirty(false);
   }
 
@@ -203,16 +184,13 @@ export function ProjectDetailDashboard({
     return (
       <div className="acp-det">
         <button type="button" className="mini-btn alt" onClick={onBack}>← Voltar</button>
-        <div className="page-card placeholder-copy" style={{ marginTop: 12 }}>
-          {isGroup ? 'Carregando agrupamento…' : 'Carregando projeto…'}
-        </div>
+        <div className="page-card placeholder-copy" style={{ marginTop: 12 }}>Carregando projeto…</div>
       </div>
     );
   }
 
   const h = data.header;
   const equipamentos = data.equipamentos ?? [];
-  const effectiveScope = data.plannedScope ?? scope;
   const workedHours = data.workedHours ?? {
     normalWorkedHours: 0,
     overtimeWorkedHours: 0,
@@ -223,13 +201,8 @@ export function ProjectDetailDashboard({
     totalPct: null,
     roleCounts: []
   };
-  const progressSuffix = data.avancoMethod === 'MANUAL'
-    ? ' (manual)'
-    : data.avancoMethod === 'GROUP_SCOPE' || data.avancoMethod === 'GROUP_WEIGHTED' || data.avancoMethod === 'GROUP_AVERAGE'
-      ? ' (consolidado)'
-      : '';
   const headerBits = [
-    isGroup ? `Grupo ${h.code}` : `Missão ${h.code}`,
+    `Missão ${h.code}`,
     h.clientName,
     h.proposalCode ? `Proposta ${h.proposalCode}` : null,
     `Última atualização ${fmtDate(h.lastRdoDate)}`,
@@ -240,8 +213,8 @@ export function ProjectDetailDashboard({
     <div className="acp-det">
       <div className="acp-det-bar">
         <button type="button" className="mini-btn alt" onClick={onBack}>← Voltar</button>
-        {canManage && !isGroup ? (
-          <button type="button" className="mini-btn" onClick={() => setScheduleProject({ projectId: projectId!, code: h.code })}>
+        {canManage ? (
+          <button type="button" className="mini-btn" onClick={() => setScheduleOpen(true)}>
             Editar cronograma
           </button>
         ) : null}
@@ -249,25 +222,6 @@ export function ProjectDetailDashboard({
 
       <div className="page-card acp-det-header">
         <h2>{headerBits.join('  ·  ')}</h2>
-        {data.group ? (
-          <div className="acp-det-group-members" aria-label="Missões unificadas">
-            {data.group.members.map(member => (
-              <span key={member.projectId}>
-                <strong>{member.code}</strong>
-                {member.name || member.clientName ? <em>{member.name || member.clientName}</em> : null}
-                {canManage ? (
-                  <button
-                    type="button"
-                    className="mini-btn alt acp-det-group-schedule"
-                    onClick={() => setScheduleProject({ projectId: member.projectId, code: member.code })}
-                  >
-                    Cronograma
-                  </button>
-                ) : null}
-              </span>
-            ))}
-          </div>
-        ) : null}
         {data.alerts.length > 0 ? (
           <div className="acp-alerts">
             {data.alerts.map((a, i) => <span key={i} className={`acp-alert ${a.level}`}>⚠ {a.label}</span>)}
@@ -414,7 +368,7 @@ export function ProjectDetailDashboard({
           <div className="page-card acp-det-block">
             <div className="acp-det-avanco">
               <div className="acp-det-metric-top">
-                <HelpTip help="Quanto do escopo vendido já foi executado: cruza o realizado dos RDOs (metros de tubulação, litros de óleo) com o previsto, ponderado pelo peso de cada serviço. Sem escopo cadastrado, usa o avanço manual informado no cronograma.">Avanço do escopo{progressSuffix}</HelpTip>
+                <HelpTip help="Quanto do escopo vendido já foi executado: cruza o realizado dos RDOs (metros de tubulação, litros de óleo) com o previsto, ponderado pelo peso de cada serviço. Sem escopo cadastrado, usa o avanço manual informado no cronograma.">Avanço do escopo{data.avancoMethod === 'MANUAL' ? ' (manual)' : ''}</HelpTip>
                 <span className="acp-det-metric-val">{fmtPct(data.avancoPct)}</span>
               </div>
               <Bar value={data.avancoPct} />
@@ -460,7 +414,7 @@ export function ProjectDetailDashboard({
         <div className="acp-det-col">
           <div className="page-card acp-det-block">
             <div className="acp-det-sub"><HelpTip help="Escopo vendido informado manualmente (aba Cronograma): serviços, sistemas e quantitativos, com o peso de cada serviço no avanço.">Escopo cadastrado</HelpTip></div>
-            <PlannedScopeView scope={effectiveScope} />
+            <PlannedScopeView scope={scope} />
           </div>
         </div>
       </div>
@@ -530,22 +484,20 @@ export function ProjectDetailDashboard({
         <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade de avanço acumulada até a data de referência dos dias corridos.">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
 
-      <Modal open={scheduleProject !== null} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
+      <Modal open={scheduleOpen} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
         <div className="acp-manage">
           <div className="acp-manage-head">
-            <div className="sec" id="acp-detail-schedule-title">Cronograma — Missão {scheduleProject?.code ?? h.code}</div>
+            <div className="sec" id="acp-detail-schedule-title">Cronograma — Missão {h.code}</div>
             <button className="mini-btn alt" type="button" onClick={closeSchedule} aria-label="Fechar">✕</button>
           </div>
           <div className="acp-manage-body">
-            {scheduleProject ? (
-              <ProjectScheduleEditor
-                key={scheduleProject.projectId}
-                ref={scheduleRef}
-                projectId={scheduleProject.projectId}
-                canManage={canManage}
-                onDirtyChange={setScheduleDirty}
-              />
-            ) : null}
+            <ProjectScheduleEditor
+              key={projectId}
+              ref={scheduleRef}
+              projectId={projectId}
+              canManage={canManage}
+              onDirtyChange={setScheduleDirty}
+            />
           </div>
           <div className="acp-manage-foot">
             <button type="button" className="mini-btn alt" onClick={closeSchedule}>Cancelar</button>
