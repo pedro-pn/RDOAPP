@@ -5,7 +5,7 @@
  *   salarioBase, salarioMinimo, cargaHoraria (220), diasUteis (22), insalubridade,
  *   periculosidadePct, produtividadePct, transferenciaPct, he70Pct (0,7), he100Pct (1),
  *   beneficios { planoSaude, valeAlimentacao, odonto, seguroVida, cursos },
- *   fgtsPct (0,08)
+ *   fgtsPct (0,08), multaPct (0,40)
  *
  * inputs (aba Simulador Mensal):
  *   diasCliente (periculosidade), diasFora (transferência/viagem),
@@ -40,6 +40,7 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
   const he70Pct = n(params.he70Pct);
   const he100Pct = n(params.he100Pct);
   const fgtsPct = n(params.fgtsPct);
+  const multaPct = n(params.multaPct, 0.4);
   const beneficiosTotal = defaultBenefits(params.beneficios);
 
   const diasCliente = n(inputs.diasCliente);
@@ -85,7 +86,7 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
   const provisoes = provisao13 + provisaoFerias + fgtsProvisoes + inssProvisoes;
 
   // G) passivo rescisório
-  const multaFgts = 0;
+  const multaFgts = fgts * multaPct;
   const avisoPrevio = (remuneracaoBruta + beneficiosTotal) / 12;
   const passivoRescisorio = multaFgts + avisoPrevio;
 

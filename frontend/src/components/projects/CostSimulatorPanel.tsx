@@ -32,7 +32,8 @@ const PERCENT_PARAM_KEYS = new Set([
   'transferenciaPct',
   'he70Pct',
   'he100Pct',
-  'fgtsPct'
+  'fgtsPct',
+  'multaPct'
 ]);
 
 function paramNumber(params: CostParams | null | undefined, key: string) {
@@ -58,7 +59,6 @@ function benefitTotal(params: CostParams | null | undefined) {
 function activeCostParams(params: CostParams) {
   const next = { ...params };
   delete next.inssPatronalPct;
-  delete next.multaPct;
   return next;
 }
 
@@ -243,7 +243,7 @@ export function CostSimulatorPanel() {
           <div className="det-row"><span className="det-label">Encargos (FGTS)</span><span className="det-val">{brl(result.encargos)}</span></div>
           <div className="det-row"><span className="det-label">Provisões (13º+férias+FGTS)</span><span className="det-val">{brl(result.provisoes)}</span></div>
           <div className="det-row"><span className="det-label">Benefícios</span><span className="det-val">{brl(result.beneficios)}</span></div>
-          <div className="det-row"><span className="det-label">Passivo rescisório (aviso)</span><span className="det-val">{brl(result.passivoRescisorio)}</span></div>
+          <div className="det-row"><span className="det-label">Passivo rescisório</span><span className="det-val">{brl(result.passivoRescisorio)}</span></div>
           <div className="det-row"><span className="det-label"><strong>Custo total mensal</strong></span><span className="det-val"><strong>{brl(result.totalMensal)}</strong></span></div>
           <div className="det-row"><span className="det-label">Custo/hora (220h)</span><span className="det-val">{brl(result.custoHora220)}</span></div>
           <div className="det-row"><span className="det-label">Custo/dia útil</span><span className="det-val">{brl(result.custoDiaUtil)}</span></div>

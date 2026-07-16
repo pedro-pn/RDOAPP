@@ -30,6 +30,7 @@ console.log('Produtividade:           ', pct(p.produtividadePct));
 console.log('Transferência:           ', pct(p.transferenciaPct));
 console.log('HE 70% / 100%:           ', pct(p.he70Pct), '/', pct(p.he100Pct));
 console.log('FGTS:                    ', pct(p.fgtsPct));
+console.log('Multa rescisória:        ', pct(p.multaPct));
 console.log('Benefícios:              ', `plano ${brl(ben.planoSaude)} · VA ${brl(ben.valeAlimentacao)} · odonto ${brl(ben.odonto)} · seguro ${brl(ben.seguroVida)} · cursos ${brl(ben.cursos)}`);
 
 console.log('\n--- Simulador Mensal (inputs deste mês) ---');
@@ -49,7 +50,7 @@ console.log('Remuneração bruta:   ', brl(b.remuneracaoBruta));
 console.log('Encargos (FGTS):     ', brl(b.encargos));
 console.log('Provisões (13º+férias+FGTS):', brl(b.provisoes));
 console.log('Benefícios:          ', brl(b.beneficios));
-console.log('Passivo rescisório (aviso):', brl(b.passivoRescisorio));
+console.log('Passivo rescisório:  ', brl(b.passivoRescisorio));
 console.log('CUSTO TOTAL MENSAL (planilha):', brl(b.totalMensal));
 console.log('+ EPI/mês:           ', brl(r.epiMensal));
 
