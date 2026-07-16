@@ -18,6 +18,9 @@ description: "Task list template for feature implementation"
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+- For frontend UI work, include the exact shared components/classes required by the
+  Visual/UI Contract. Do not write only "clone/copy X"; name the audited source file
+  and the shared pattern to preserve or correct.
 
 ## Path Conventions
 
@@ -35,6 +38,7 @@ description: "Task list template for feature implementation"
   - Feature requirements from plan.md
   - Entities from data-model.md
   - Endpoints from contracts/
+  - Visual/UI Contract entries from spec.md and visual evidence from plan.md
 
   Tasks MUST be organized by user story so each story can be:
   - Implemented independently
@@ -156,9 +160,12 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
-- [ ] TXXX Visual consistency pass: dropdowns/selects formatted by the shared app
-  standard, desktop module width not compressed, and mobile layout free of horizontal
-  scroll
+- [ ] TXXX Visual contract implementation: each new/changed form control uses shared
+  structure (`field-group`, `admin-form-grid`, `admin-inline-form`, or documented
+  equivalent); no placeholder-only labels; no raw dropdown/select styling
+- [ ] TXXX Visual consistency pass: verify every Visual/UI Contract surface in desktop
+  and mobile; dropdowns/selects have default, focus, disabled, error and empty states;
+  desktop module width is not compressed; mobile layout has no horizontal page scroll
 - [ ] TXXX Run quickstart.md validation
 
 ---
