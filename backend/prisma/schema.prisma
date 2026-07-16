@@ -275,6 +275,7 @@ model CostParameterSet {
   id              String      @id @default(cuid())
   costProfileId   String
   version         Int
+  effectiveDate   DateTime    @db.Date
   params          Json // campos "amarelos" da planilha (salário, %s, benefícios, encargos)
   note            String?
   createdByUserId String?
@@ -283,6 +284,7 @@ model CostParameterSet {
 
   @@unique([costProfileId, version])
   @@index([costProfileId])
+  @@index([costProfileId, effectiveDate])
 }
 
 // Configurações globais do módulo Acompanhamento (chave/valor). Ex.: custo de EPI por colaborador.
