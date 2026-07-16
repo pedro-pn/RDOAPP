@@ -149,6 +149,78 @@ function numberValue(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function effectiveDateKey(set) {
+  return set?.effectiveDate ? dateKeyUTC(set.effectiveDate) : '1970-01-01';
+}
+
+function createdAtTime(set) {
+  const time = set?.createdAt ? new Date(set.createdAt).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sortParameterSets(sets = []) {
+  return [...sets].sort((left, right) => {
+    const byDate = effectiveDateKey(left).localeCompare(effectiveDateKey(right));
+    if (byDate !== 0) return byDate;
+    const byVersion = (Number(left.version) || 0) - (Number(right.version) || 0);
+    if (byVersion !== 0) return byVersion;
+    return createdAtTime(left) - createdAtTime(right);
+  });
+}
+
+export function effectiveParameterSetAt(sets = [], dateKey) {
+  let selected = null;
+  for (const set of sortParameterSets(sets)) {
+    if (effectiveDateKey(set) <= dateKey) selected = set;
+    else break;
+  }
+  return selected;
+}
+
+function maxDateKey(...keys) {
+  return keys.filter(Boolean).sort().at(-1);
+}
+
+function minDateKey(...keys) {
+  return keys.filter(Boolean).sort()[0];
+}
+
+function addDaysKey(dateKey, days) {
+  const d = dateFromYmd(dateKey);
+  d.setUTCDate(d.getUTCDate() + days);
+  return dateKeyUTC(d);
+}
+
+function daysInclusive(startKey, endKey) {
+  if (!startKey || !endKey || startKey > endKey) return 0;
+  return Math.round((dateFromYmd(endKey).getTime() - dateFromYmd(startKey).getTime()) / 86400000) + 1;
+}
+
+function monthBounds(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    monthStartKey: `${monthKey}-01`,
+    monthEndKey: `${monthKey}-${String(lastDay).padStart(2, '0')}`,
+    daysInMonth: lastDay
+  };
+}
+
+function coverageForRange(monthKey, fileStart, fileEnd, segmentStartKey, segmentEndKey) {
+  const bounds = monthBounds(monthKey);
+  const startKey = maxDateKey(bounds.monthStartKey, dateKeyUTC(fileStart), segmentStartKey);
+  const endKey = minDateKey(bounds.monthEndKey, dateKeyUTC(fileEnd), segmentEndKey);
+  const days = daysInclusive(startKey, endKey);
+  return {
+    fraction: days > 0 ? days / bounds.daysInMonth : 0,
+    start: days > 0 ? dateFromYmd(startKey) : dateFromYmd(bounds.monthStartKey),
+    end: days > 0 ? dateFromYmd(endKey) : dateFromYmd(bounds.monthStartKey),
+    startKey,
+    endKey,
+    days
+  };
+}
+
 function dayRowsFromPeriod(period) {
   const rows = [];
   const sourceCreatedAt = period.import?.createdAt || period.createdAt || new Date(0);
@@ -276,36 +348,85 @@ export function mergePontoPeriods(periods = []) {
   });
 }
 
-// Cargo (JobRole.name = Collaborator.role) -> parâmetros efetivos ("base viva": herda do modelo,
-// sobrescreve salário base + insalubridade).
-async function getRoleParamsMap() {
+// Cargo (JobRole.name = Collaborator.role) -> parâmetros efetivos por data. O cargo herda do modelo
+// que estava vigente na data calculada e sobrescreve salário base + insalubridade.
+export function buildRoleParamsResolver({ roles = [], models = [] } = {}) {
+  const modelSetsByKey = new Map();
+  for (const model of models) {
+    const sets = sortParameterSets(model.parameterSets || []);
+    if (sets.length) modelSetsByKey.set(model.key, sets);
+  }
+  const fallbackModelKey = modelSetsByKey.has('operador')
+    ? 'operador'
+    : modelSetsByKey.keys().next().value;
+
+  const roleSetsByName = new Map();
+  for (const role of roles) {
+    const sets = sortParameterSets(role.costProfile?.parameterSets || []);
+    if (sets.length) roleSetsByName.set(role.name, sets);
+  }
+
+  function paramsFor(roleName, dateKey) {
+    const roleSet = effectiveParameterSetAt(roleSetsByName.get(roleName) || [], dateKey);
+    if (!roleSet) return null;
+    const override = roleSet.params || {};
+    const modelKey = typeof override.baseModel === 'string' && override.baseModel
+      ? override.baseModel
+      : fallbackModelKey;
+    const modelSet = effectiveParameterSetAt(modelSetsByKey.get(modelKey) || [], dateKey)
+      || effectiveParameterSetAt(modelSetsByKey.get(fallbackModelKey) || [], dateKey);
+    if (!modelSet) return null;
+
+    const effective = { ...(modelSet.params || {}) };
+    if (override.salarioBase != null) effective.salarioBase = override.salarioBase;
+    if (override.insalubridade != null) effective.insalubridade = override.insalubridade;
+    return effective;
+  }
+
+  function hasProfile(roleName) {
+    return roleSetsByName.has(roleName);
+  }
+
+  function changeDatesFor(roleName, startKey, endKey) {
+    const dates = new Set([startKey]);
+    const add = set => {
+      const key = effectiveDateKey(set);
+      if (key > startKey && key <= endKey) dates.add(key);
+    };
+    for (const set of roleSetsByName.get(roleName) || []) add(set);
+    for (const sets of modelSetsByKey.values()) {
+      for (const set of sets) add(set);
+    }
+    return [...dates].sort();
+  }
+
+  function segmentsFor(roleName, startKey, endKey) {
+    return changeDatesFor(roleName, startKey, endKey)
+      .map((startKeyForSegment, index, starts) => {
+        const nextStart = starts[index + 1];
+        return {
+          startKey: startKeyForSegment,
+          endKey: nextStart ? addDaysKey(nextStart, -1) : endKey,
+          params: paramsFor(roleName, startKeyForSegment)
+        };
+      })
+      .filter(segment => segment.startKey <= segment.endKey);
+  }
+
+  return { paramsFor, segmentsFor, hasProfile };
+}
+
+async function getRoleParamsResolver() {
   const [roles, models] = await Promise.all([
     prisma.jobRole.findMany({
-      include: { costProfile: { include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } } } }
+      include: { costProfile: { include: { parameterSets: true } } }
     }),
     prisma.costProfile.findMany({
       where: { jobRoleId: null },
-      include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } }
+      include: { parameterSets: true }
     })
   ]);
-  const modelParams = new Map();
-  for (const model of models) {
-    const set = model.parameterSets[0];
-    if (set) modelParams.set(model.key, set.params);
-  }
-  const fallbackModel = modelParams.get('operador') || [...modelParams.values()][0] || {};
-  const map = new Map();
-  for (const role of roles) {
-    const set = role.costProfile?.parameterSets?.[0];
-    if (!set) continue;
-    const override = set.params || {};
-    const base = modelParams.get(override.baseModel) || fallbackModel;
-    const effective = { ...base };
-    if (override.salarioBase != null) effective.salarioBase = override.salarioBase;
-    if (override.insalubridade != null) effective.insalubridade = override.insalubridade;
-    map.set(role.name, effective);
-  }
-  return map;
+  return buildRoleParamsResolver({ roles, models });
 }
 
 function reportWorkedMinutes(report) {
@@ -364,35 +485,26 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
   return rdoDataByCollaboratorFromReports(reports);
 }
 
-// Classifica só dias com RDO. Dia com ponto e sem RDO fica como sede/sobra, sem verbas variáveis.
-function classifyDays(workedDates, rdo) {
-  const projAwayDays = new Map();
-  const projHomeDays = new Map();
-  const projOffshoreDays = new Map();
-  for (const d of workedDates) {
-    const dp = rdo.dayProject.get(d);
+function classifyProjectHours(dayRows, rdo) {
+  const projAwayHours = new Map();
+  const projHomeHours = new Map();
+  const projOffshoreHours = new Map();
+  const rdoWorkedByPid = new Map();
+  for (const row of dayRows) {
+    const dp = rdo.dayProject.get(row.date);
     if (!dp) continue;
-    if (dp.offshore) {
-      projOffshoreDays.set(dp.projectId, (projOffshoreDays.get(dp.projectId) || 0) + 1);
-    } else if (dp.sleepMode === 'HOME') {
-      projHomeDays.set(dp.projectId, (projHomeDays.get(dp.projectId) || 0) + 1);
-    } else {
-      projAwayDays.set(dp.projectId, (projAwayDays.get(dp.projectId) || 0) + 1);
-    }
+    const hours = Math.max(0, row.normalHours || 0);
+    const target = dp.offshore ? projOffshoreHours : dp.sleepMode === 'HOME' ? projHomeHours : projAwayHours;
+    target.set(dp.projectId, (target.get(dp.projectId) || 0) + hours);
+    rdoWorkedByPid.set(dp.projectId, (rdoWorkedByPid.get(dp.projectId) || 0) + (dp.hours || 0));
   }
-  return { projAwayDays, projHomeDays, projOffshoreDays };
+  return { projAwayHours, projHomeHours, projOffshoreHours, rdoWorkedByPid };
 }
 
 // Fração do mês coberta pelo arquivo (para proporcionalizar o fixo no mês parcial).
 function monthCoverage(monthKey, fileStart, fileEnd) {
-  const [y, m] = monthKey.split('-').map(Number);
-  const monthStart = Date.UTC(y, m - 1, 1);
-  const monthEndDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const monthEnd = Date.UTC(y, m - 1, monthEndDay);
-  const start = Math.max(monthStart, new Date(fileStart).getTime());
-  const end = Math.min(monthEnd, new Date(fileEnd).getTime());
-  const coverDays = Math.max(0, Math.round((end - start) / 86400000) + 1);
-  return { fraction: Math.min(1, coverDays / monthEndDay), start: new Date(start), end: new Date(end) };
+  const bounds = monthBounds(monthKey);
+  return coverageForRange(monthKey, fileStart, fileEnd, bounds.monthStartKey, bounds.monthEndKey);
 }
 
 // Divide a hora extra do mês em 70% e 100% com teto de HE70 (padrão 30h/mês): o excesso vira 100%.
@@ -402,16 +514,55 @@ export function splitOvertime(extrasHoras, cap = 30) {
   return { he70Horas, he100Horas };
 }
 
-// Detalhe por mês do colaborador: usa o `monthly` do ponto (exato, com teto de HE por mês); se ausente
-// (imports antigos), apropria os totais do período pela proporção de dias trabalhados.
-function monthsOf(period, cap) {
+function splitOvertimeDays(days, cap = 30) {
+  let he70Remaining = Math.max(0, cap);
+  return days.map(day => {
+    const extrasHoras = Math.max(0, day.extrasHoras || 0);
+    const he70Horas = Math.min(he70Remaining, extrasHoras);
+    he70Remaining -= he70Horas;
+    return {
+      ...day,
+      he70Horas,
+      he100Horas: Math.max(0, extrasHoras - he70Horas)
+    };
+  });
+}
+
+function monthRowsFromMonthlyData(monthKey, monthData) {
+  const month = monthData && typeof monthData === 'object' && !Array.isArray(monthData) ? monthData : {};
+  if (Array.isArray(month.days) && month.days.length) {
+    return month.days
+      .filter(day => day?.date)
+      .map(day => ({
+        date: String(day.date),
+        normalHours: numberValue(day.workedMinutes) / 60,
+        extrasHoras: numberValue(day.extrasMinutes) / 60
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  const workedDates = Array.isArray(month.workedDates) ? month.workedDates : [];
+  if (!workedDates.length) return [];
+  const normalPerDay = numberValue(month.normalMinutes) / workedDates.length / 60;
+  const extrasPerDay = numberValue(month.extrasMinutes) / workedDates.length / 60;
+  return workedDates
+    .filter(Boolean)
+    .map(date => ({ date: String(date || monthKey), normalHours: normalPerDay, extrasHoras: extrasPerDay }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Detalhe por mês do colaborador: usa os dias do ponto quando disponíveis; se ausentes (imports
+// antigos), apropria os totais do período pela proporção de dias trabalhados.
+function monthsOf(period) {
   if (period.monthly && typeof period.monthly === 'object' && Object.keys(period.monthly).length) {
-    return Object.entries(period.monthly).map(([monthKey, m]) => ({
-      monthKey,
-      normalHours: (m.normalMinutes || 0) / 60,
-      workedDates: m.workedDates || [],
-      ...splitOvertime((m.extrasMinutes || 0) / 60, cap)
-    }));
+    return Object.entries(period.monthly).map(([monthKey, month]) => {
+      const days = monthRowsFromMonthlyData(monthKey, month);
+      return {
+        monthKey,
+        days,
+        workedDates: days.filter(day => day.normalHours > 0).map(day => day.date)
+      };
+    });
   }
   const workedDates = period.workedDates || [];
   const total = workedDates.length || 1;
@@ -419,12 +570,12 @@ function monthsOf(period, cap) {
   for (const d of workedDates) { const mk = d.slice(0, 7); if (!byMonth.has(mk)) byMonth.set(mk, []); byMonth.get(mk).push(d); }
   return [...byMonth.entries()].map(([monthKey, dates]) => {
     const ratio = dates.length / total;
+    const normalPerDay = ((period.workedMinutes / 60) * ratio) / (dates.length || 1);
+    const extrasPerDay = (((period.he70Minutes + period.he100Minutes) / 60) * ratio) / (dates.length || 1);
     return {
       monthKey,
-      normalHours: (period.workedMinutes / 60) * ratio,
-      workedDates: dates,
-      he70Horas: (period.he70Minutes / 60) * ratio,
-      he100Horas: (period.he100Minutes / 60) * ratio
+      days: dates.map(date => ({ date, normalHours: normalPerDay, extrasHoras: extrasPerDay })),
+      workedDates: dates
     };
   });
 }
@@ -491,6 +642,21 @@ export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Ho
   }
 
   // Sobra = folha − Σ projetos, quebrada em folga (dias de semana sem ponto) e sede (o resto).
+  if (totalHours <= 0) {
+    return {
+      folha,
+      folhaBase,
+      fixoMensal: fixedBase,
+      variavelMensal,
+      totalHours,
+      byProject,
+      idle: {
+        sede: { cost: folha, costBase: folhaBase, hours: 0 },
+        folga: { cost: 0, costBase: 0, hours: 0 }
+      }
+    };
+  }
+
   const idleHours = Math.max(0, totalHours - sumProjectHours);
   const idleCost = folha - sumCost;
   const idleCostBase = folhaBase - sumCostBase;
@@ -531,7 +697,7 @@ export async function computeCollaboratorRates(importId = null) {
         import: { select: { createdAt: true } }
       }
     }),
-    getRoleParamsMap(),
+    getRoleParamsResolver(),
     getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
     getEpiAnnualCost()
   ]);
@@ -542,7 +708,6 @@ export async function computeCollaboratorRates(importId = null) {
   const byCollaboratorId = new Map();
   for (const period of periods) {
     const role = period.collaborator?.role || null;
-    const params = role ? roleParams.get(role) : null;
     const rdo = rdoData.get(period.collaboratorId) || { byProject: new Map(), dayProject: new Map() };
 
     const he70Horas = period.he70Minutes / 60;
@@ -556,7 +721,7 @@ export async function computeCollaboratorRates(importId = null) {
       collaboratorId: period.collaboratorId,
       name: period.collaborator?.name || period.rawName,
       role,
-      hasCostProfile: Boolean(params),
+      hasCostProfile: false,
       normalHoras: normalHours,
       he70Horas,
       he100Horas,
@@ -573,86 +738,111 @@ export async function computeCollaboratorRates(importId = null) {
       months: [] // detalhe por mês (para o filtro da aba Custo/hora)
     };
 
-    if (params && totalWorkedDays > 0) {
-      const cap = Number(params.he70LimiteHoras) || 30; // teto de HE70 por mês (excesso vira 100%)
-      const months = monthsOf(period, cap);
+    if (role && roleParams.hasProfile(role) && totalWorkedDays > 0) {
+      const months = monthsOf(period);
 
       const agg = { folha: 0, folhaBase: 0, fixo: 0, variavel: 0, totalHours: 0, folga: 0, normal: 0, he70: 0, he100: 0 };
       const idle = { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } };
       const byProject = {};
+      let computedAny = false;
 
       for (const mrec of months) {
         const mk = mrec.monthKey;
-        const datesM = mrec.workedDates;
-        const workedDaysM = datesM.length;
-        const normalHoursM = mrec.normalHours;
-        const he70M = mrec.he70Horas;
-        const he100M = mrec.he100Horas;
-        const hoursPerDayM = workedDaysM > 0 ? normalHoursM / workedDaysM : 0;
+        const monthCov = monthCoverage(mk, fileStart, fileEnd);
+        if (monthCov.days <= 0) continue;
+        const capParams = roleParams.paramsFor(role, monthCov.startKey) || roleParams.paramsFor(role, `${mk}-01`);
+        const cap = Number(capParams?.he70LimiteHoras) || 30; // teto de HE70 por mês (excesso vira 100%)
+        const daysWithOvertime = splitOvertimeDays(mrec.days || [], cap);
+        const segments = roleParams.segmentsFor(role, monthCov.startKey, monthCov.endKey);
 
-        const cov = monthCoverage(mk, fileStart, fileEnd);
-        const folgaM = countFolgaWeekdays(cov.start, cov.end, workedSet) * HORAS_POR_DIA;
+        const monthAgg = { folha: 0, folhaBase: 0, fixo: 0, variavel: 0, totalHours: 0, folga: 0, normal: 0, he70: 0, he100: 0 };
+        const monthIdle = { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } };
+        const monthByProject = {};
 
-        const { projAwayDays, projHomeDays, projOffshoreDays } = classifyDays(datesM, rdo);
-        const rdoWorkedByPidM = new Map();
-        for (const d of datesM) { const dp = rdo.dayProject.get(d); if (dp) rdoWorkedByPidM.set(dp.projectId, (rdoWorkedByPidM.get(dp.projectId) || 0) + dp.hours); }
-        const projectIds = [...new Set([...projAwayDays.keys(), ...projHomeDays.keys(), ...projOffshoreDays.keys()])];
-        const projects = projectIds.map(pid => ({
-          pid,
-          rdoDaysHours: ((projAwayDays.get(pid) || 0) + (projHomeDays.get(pid) || 0) + (projOffshoreDays.get(pid) || 0)) * hoursPerDayM,
-          awayDaysHours: (projAwayDays.get(pid) || 0) * hoursPerDayM,
-          homeDaysHours: (projHomeDays.get(pid) || 0) * hoursPerDayM,
-          offshoreDaysHours: (projOffshoreDays.get(pid) || 0) * hoursPerDayM,
-          rdoWorkedHours: rdoWorkedByPidM.get(pid) || 0,
-          offshore: Boolean(rdo.byProject.get(pid)?.offshore)
-        }));
+        for (const segment of segments) {
+          if (!segment.params) continue;
+          const segCov = coverageForRange(mk, fileStart, fileEnd, segment.startKey, segment.endKey);
+          if (segCov.days <= 0) continue;
+          const segmentDays = daysWithOvertime.filter(day => day.date >= segCov.startKey && day.date <= segCov.endKey);
+          const normalHoursS = segmentDays.reduce((sum, day) => sum + (day.normalHours || 0), 0);
+          const he70S = segmentDays.reduce((sum, day) => sum + (day.he70Horas || 0), 0);
+          const he100S = segmentDays.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
+          const folgaS = countFolgaWeekdays(segCov.start, segCov.end, workedSet) * HORAS_POR_DIA;
 
-        const res = computeCollaboratorCost({
-          params, epiMensal, normalHours: normalHoursM, he70Horas: he70M, he100Horas: he100M,
-          folgaHours: folgaM, projects, fixedCoverage: cov.fraction
-        });
+          const { projAwayHours, projHomeHours, projOffshoreHours, rdoWorkedByPid } = classifyProjectHours(segmentDays, rdo);
+          const projectIds = [...new Set([...projAwayHours.keys(), ...projHomeHours.keys(), ...projOffshoreHours.keys()])];
+          const projects = projectIds.map(pid => ({
+            pid,
+            rdoDaysHours: (projAwayHours.get(pid) || 0) + (projHomeHours.get(pid) || 0) + (projOffshoreHours.get(pid) || 0),
+            awayDaysHours: projAwayHours.get(pid) || 0,
+            homeDaysHours: projHomeHours.get(pid) || 0,
+            offshoreDaysHours: projOffshoreHours.get(pid) || 0,
+            rdoWorkedHours: rdoWorkedByPid.get(pid) || 0,
+            offshore: Boolean(rdo.byProject.get(pid)?.offshore)
+          }));
 
-        agg.folha += res.folha; agg.folhaBase += res.folhaBase; agg.fixo += res.fixoMensal;
-        agg.variavel += res.variavelMensal; agg.totalHours += res.totalHours; agg.folga += folgaM;
-        agg.normal += normalHoursM; agg.he70 += he70M; agg.he100 += he100M;
-        for (const [pid, a] of Object.entries(res.byProject)) {
+          const res = computeCollaboratorCost({
+            params: segment.params, epiMensal, normalHours: normalHoursS, he70Horas: he70S, he100Horas: he100S,
+            folgaHours: folgaS, projects, fixedCoverage: segCov.fraction
+          });
+
+          computedAny = true;
+          monthAgg.folha += res.folha; monthAgg.folhaBase += res.folhaBase; monthAgg.fixo += res.fixoMensal;
+          monthAgg.variavel += res.variavelMensal; monthAgg.totalHours += res.totalHours; monthAgg.folga += folgaS;
+          monthAgg.normal += normalHoursS; monthAgg.he70 += he70S; monthAgg.he100 += he100S;
+          for (const [pid, a] of Object.entries(res.byProject)) {
+            if (!monthByProject[pid]) monthByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+            monthByProject[pid].cost += a.cost; monthByProject[pid].costBase += a.costBase; monthByProject[pid].hours += a.hours;
+          }
+          monthIdle.sede.cost += res.idle.sede.cost; monthIdle.sede.costBase += res.idle.sede.costBase; monthIdle.sede.hours += res.idle.sede.hours;
+          monthIdle.folga.cost += res.idle.folga.cost; monthIdle.folga.costBase += res.idle.folga.costBase; monthIdle.folga.hours += res.idle.folga.hours;
+        }
+
+        if (monthAgg.totalHours <= 0 && monthAgg.folha === 0) continue;
+        agg.folha += monthAgg.folha; agg.folhaBase += monthAgg.folhaBase; agg.fixo += monthAgg.fixo;
+        agg.variavel += monthAgg.variavel; agg.totalHours += monthAgg.totalHours; agg.folga += monthAgg.folga;
+        agg.normal += monthAgg.normal; agg.he70 += monthAgg.he70; agg.he100 += monthAgg.he100;
+        for (const [pid, a] of Object.entries(monthByProject)) {
           if (!byProject[pid]) byProject[pid] = { cost: 0, costBase: 0, hours: 0 };
           byProject[pid].cost += a.cost; byProject[pid].costBase += a.costBase; byProject[pid].hours += a.hours;
         }
-        idle.sede.cost += res.idle.sede.cost; idle.sede.costBase += res.idle.sede.costBase; idle.sede.hours += res.idle.sede.hours;
-        idle.folga.cost += res.idle.folga.cost; idle.folga.costBase += res.idle.folga.costBase; idle.folga.hours += res.idle.folga.hours;
+        idle.sede.cost += monthIdle.sede.cost; idle.sede.costBase += monthIdle.sede.costBase; idle.sede.hours += monthIdle.sede.hours;
+        idle.folga.cost += monthIdle.folga.cost; idle.folga.costBase += monthIdle.folga.costBase; idle.folga.hours += monthIdle.folga.hours;
 
         entry.months.push({
           month: mk,
-          normalHoras: normalHoursM,
-          he70Horas: he70M,
-          he100Horas: he100M,
-          totalMensal: res.folha,
-          totalMensalBase: res.folhaBase,
-          fixoMensal: res.fixoMensal,
-          variavelMensal: res.variavelMensal,
-          custoHora: res.totalHours > 0 ? res.folha / res.totalHours : 0,
-          custoHoraBase: res.totalHours > 0 ? res.folhaBase / res.totalHours : 0,
-          idle: res.idle,
-          byProject: res.byProject
+          normalHoras: monthAgg.normal,
+          he70Horas: monthAgg.he70,
+          he100Horas: monthAgg.he100,
+          totalMensal: monthAgg.folha,
+          totalMensalBase: monthAgg.folhaBase,
+          fixoMensal: monthAgg.fixo,
+          variavelMensal: monthAgg.variavel,
+          custoHora: monthAgg.totalHours > 0 ? monthAgg.folha / monthAgg.totalHours : 0,
+          custoHoraBase: monthAgg.totalHours > 0 ? monthAgg.folhaBase / monthAgg.totalHours : 0,
+          idle: monthIdle,
+          byProject: monthByProject
         });
       }
       entry.months.sort((a, b) => a.month.localeCompare(b.month));
 
-      entry.totalMensal = agg.folha;
-      entry.totalMensalBase = agg.folhaBase;
-      entry.fixoMensal = agg.fixo;
-      entry.variavelMensal = agg.variavel;
-      entry.custoHora = agg.totalHours > 0 ? agg.folha / agg.totalHours : 0;
-      entry.custoHoraBase = agg.totalHours > 0 ? agg.folhaBase / agg.totalHours : 0;
-      entry.folgaHours = agg.folga;
-      // Horas do somado = Σ dos meses (a HE já com teto por mês, pode diferir do split bruto do arquivo).
-      entry.normalHoras = agg.normal;
-      entry.he70Horas = agg.he70;
-      entry.he100Horas = agg.he100;
-      entry.totalHoras = agg.normal + agg.he70 + agg.he100;
-      entry.byProject = byProject;
-      entry.idle = idle;
+      if (computedAny) {
+        entry.hasCostProfile = true;
+        entry.totalMensal = agg.folha;
+        entry.totalMensalBase = agg.folhaBase;
+        entry.fixoMensal = agg.fixo;
+        entry.variavelMensal = agg.variavel;
+        entry.custoHora = agg.totalHours > 0 ? agg.folha / agg.totalHours : 0;
+        entry.custoHoraBase = agg.totalHours > 0 ? agg.folhaBase / agg.totalHours : 0;
+        entry.folgaHours = agg.folga;
+        // Horas do somado = Σ dos meses (a HE já com teto por mês, pode diferir do split bruto do arquivo).
+        entry.normalHoras = agg.normal;
+        entry.he70Horas = agg.he70;
+        entry.he100Horas = agg.he100;
+        entry.totalHoras = agg.normal + agg.he70 + agg.he100;
+        entry.byProject = byProject;
+        entry.idle = idle;
+      }
     }
 
     rates.push(entry);
@@ -684,7 +874,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
         import: { select: { createdAt: true } }
       }
     }),
-    getRoleParamsMap(),
+    getRoleParamsResolver(),
     getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
     getEpiAnnualCost()
   ]);
@@ -695,32 +885,30 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   if (!period) throw new Error(`Colaborador "${nameQuery}" não encontrado no ponto vigente.`);
 
   const role = period.collaborator.role;
-  const params = roleParams.get(role);
+  const cov = monthCoverage(monthKey, pontoScope.periodStart, pontoScope.periodEnd);
+  const params = roleParams.paramsFor(role, cov.startKey);
   if (!params) throw new Error(`Cargo "${role}" sem custo configurado.`);
   const rdo = rdoData.get(period.collaboratorId) || { byProject: new Map(), dayProject: new Map() };
 
   const cap = Number(params.he70LimiteHoras) || 30;
-  const mrec = monthsOf(period, cap).find(m => m.monthKey === monthKey);
+  const mrec = monthsOf(period).find(m => m.monthKey === monthKey);
   if (!mrec) throw new Error(`Sem dados de ${nameQuery} no mês ${monthKey}.`);
-  const datesM = mrec.workedDates;
-  const normalHoursM = mrec.normalHours;
-  const he70M = mrec.he70Horas;
-  const he100M = mrec.he100Horas;
-  const hoursPerDayM = datesM.length > 0 ? normalHoursM / datesM.length : 0;
-
-  const cov = monthCoverage(monthKey, pontoScope.periodStart, pontoScope.periodEnd);
+  const daysM = splitOvertimeDays(mrec.days || [], cap);
+  const normalHoursM = daysM.reduce((sum, day) => sum + (day.normalHours || 0), 0);
+  const he70M = daysM.reduce((sum, day) => sum + (day.he70Horas || 0), 0);
+  const he100M = daysM.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
   const folgaHours = countFolgaWeekdays(cov.start, cov.end, new Set(period.workedDates || [])) * HORAS_POR_DIA;
 
-  const { projAwayDays, projHomeDays, projOffshoreDays } = classifyDays(datesM, rdo);
+  const { projAwayHours, projHomeHours, projOffshoreHours } = classifyProjectHours(daysM, rdo);
   let projectDaysHours = 0;
   let awayDaysHours = 0;
   let homeDaysHours = 0;
   let offshoreDaysHours = 0;
-  const projectIds = [...new Set([...projAwayDays.keys(), ...projHomeDays.keys(), ...projOffshoreDays.keys()])];
+  const projectIds = [...new Set([...projAwayHours.keys(), ...projHomeHours.keys(), ...projOffshoreHours.keys()])];
   for (const pid of projectIds) {
-    const away = (projAwayDays.get(pid) || 0) * hoursPerDayM;
-    const home = (projHomeDays.get(pid) || 0) * hoursPerDayM;
-    const offshore = (projOffshoreDays.get(pid) || 0) * hoursPerDayM;
+    const away = projAwayHours.get(pid) || 0;
+    const home = projHomeHours.get(pid) || 0;
+    const offshore = projOffshoreHours.get(pid) || 0;
     awayDaysHours += away;
     homeDaysHours += home;
     offshoreDaysHours += offshore;

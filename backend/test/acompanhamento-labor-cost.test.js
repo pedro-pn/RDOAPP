@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildRoleParamsResolver,
   computeCollaboratorCost,
+  effectiveParameterSetAt,
   mergePontoPeriods,
   rdoDataByCollaboratorFromReports,
   serviceIntervalsWorkedMinutes,
@@ -29,6 +31,44 @@ test('teto de HE70 (30h): excesso vira 100%', () => {
   assert.ok(near(b.he70Horas, 25) && near(b.he100Horas, 0));
   const c = splitOvertime(0, 30);
   assert.ok(near(c.he70Horas, 0) && near(c.he100Horas, 0));
+});
+
+test('parâmetros de custo respeitam data de vigência do salário', () => {
+  const sets = [
+    { version: 1, effectiveDate: new Date('1970-01-01T00:00:00.000Z'), params: { salarioBase: 1000 } },
+    { version: 2, effectiveDate: new Date('2026-07-10T00:00:00.000Z'), params: { salarioBase: 2000 } }
+  ];
+  assert.equal(effectiveParameterSetAt(sets, '2026-03-31').version, 1);
+  assert.equal(effectiveParameterSetAt(sets, '2026-07-10').version, 2);
+
+  const resolver = buildRoleParamsResolver({
+    models: [
+      {
+        key: 'operador',
+        parameterSets: [
+          { version: 1, effectiveDate: new Date('1970-01-01T00:00:00.000Z'), params: { salarioBase: 1000, transferenciaPct: 0.3 } },
+          { version: 2, effectiveDate: new Date('2026-07-15T00:00:00.000Z'), params: { salarioBase: 1200, transferenciaPct: 0.4 } }
+        ]
+      }
+    ],
+    roles: [
+      {
+        name: 'Operador',
+        costProfile: {
+          parameterSets: [
+            { version: 1, effectiveDate: new Date('1970-01-01T00:00:00.000Z'), params: { baseModel: 'operador', salarioBase: 3000, insalubridade: 300 } },
+            { version: 2, effectiveDate: new Date('2026-07-10T00:00:00.000Z'), params: { baseModel: 'operador', salarioBase: 4000, insalubridade: 300 } }
+          ]
+        }
+      }
+    ]
+  });
+
+  assert.equal(resolver.paramsFor('Operador', '2026-03-31').salarioBase, 3000);
+  assert.equal(resolver.paramsFor('Operador', '2026-07-09').salarioBase, 3000);
+  assert.equal(resolver.paramsFor('Operador', '2026-07-10').salarioBase, 4000);
+  assert.equal(resolver.paramsFor('Operador', '2026-07-14').transferenciaPct, 0.3);
+  assert.equal(resolver.paramsFor('Operador', '2026-07-15').transferenciaPct, 0.4);
 });
 
 test('prova real: Σ projetos + sede + folga = folha', () => {
