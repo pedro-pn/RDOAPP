@@ -84,6 +84,7 @@ export interface PresumedProfitTaxEstimate {
   issDelta: number | null;
   pis: number;
   cofins: number;
+  inss: number;
   invoiceTaxTotal: number;
   irpjPresumedBasis: number;
   csllPresumedBasis: number;
@@ -94,6 +95,9 @@ export interface PresumedProfitTaxEstimate {
   issRatePct: number;
   pisRatePct: number;
   cofinsRatePct: number;
+  inssRatePct: number;
+  serviceInssRatePct: number;
+  serviceInssTaxCodes: Array<'14.01' | '7.02'>;
   irpjRatePct: number;
   csllRatePct: number;
   additionalIrpjRatePct: number;

@@ -52,7 +52,7 @@ function parameterSetHistory(sets = []) {
     })
     .map(set => ({
       effectiveDate: set.effectiveDate,
-      params: set.params,
+      params: normalizeCostParams(set.params),
       note: set.note,
       updatedAt: set.createdAt
     }));
@@ -60,6 +60,14 @@ function parameterSetHistory(sets = []) {
 
 function maxVersion(sets = []) {
   return sets.reduce((max, set) => Math.max(max, Number(set.version) || 0), 0);
+}
+
+function normalizeCostParams(params) {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) return params;
+  const normalized = { ...params };
+  delete normalized.inssPatronalPct;
+  delete normalized.multaPct;
+  return normalized;
 }
 
 const dateOnlySchema = z.string()
@@ -80,7 +88,7 @@ router.get('/perfis', requireAuth, requireAcompanhamentoManager, asyncHandler(as
       key: p.key,
       label: p.label,
       effectiveDate: set?.effectiveDate ?? null,
-      params: set?.params ?? null,
+      params: normalizeCostParams(set?.params ?? null),
       updatedAt: set?.createdAt ?? p.updatedAt,
       history: parameterSetHistory(p.parameterSets)
     };
@@ -102,7 +110,7 @@ router.put('/perfis/:key/parametros', requireAuth, requireAcompanhamentoManager,
       costProfileId: current.profile.id,
       version: current.maxVersion + 1,
       effectiveDate,
-      params,
+      params: normalizeCostParams(params),
       note: note ?? null,
       createdByUserId: req.auth?.user?.id ?? null
     }
@@ -144,7 +152,7 @@ router.get('/cargos', requireAuth, requireAcompanhamentoManager, asyncHandler(as
       name: role.name,
       profileId: role.costProfile?.id ?? null,
       effectiveDate: set?.effectiveDate ?? null,
-      params: set?.params ?? null,
+      params: normalizeCostParams(set?.params ?? null),
       updatedAt: set?.createdAt ?? role.costProfile?.updatedAt ?? null,
       history: parameterSetHistory(sets)
     };
@@ -169,7 +177,7 @@ router.put('/cargos/:jobRoleId/parametros', requireAuth, requireAcompanhamentoMa
       costProfileId: profile.id,
       version: currentVersion + 1,
       effectiveDate,
-      params,
+      params: normalizeCostParams(params),
       note: note ?? null,
       createdByUserId: req.auth?.user?.id ?? null
     }

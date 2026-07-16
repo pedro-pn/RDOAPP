@@ -5,7 +5,7 @@
  *   salarioBase, salarioMinimo, cargaHoraria (220), diasUteis (22), insalubridade,
  *   periculosidadePct, produtividadePct, transferenciaPct, he70Pct (0,7), he100Pct (1),
  *   beneficios { planoSaude, valeAlimentacao, odonto, seguroVida, cursos },
- *   fgtsPct (0,08), inssPatronalPct (0,10), multaPct (0,40)
+ *   fgtsPct (0,08)
  *
  * inputs (aba Simulador Mensal):
  *   diasCliente (periculosidade), diasFora (transferência/viagem),
@@ -40,8 +40,6 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
   const he70Pct = n(params.he70Pct);
   const he100Pct = n(params.he100Pct);
   const fgtsPct = n(params.fgtsPct);
-  const inssPatronalPct = n(params.inssPatronalPct);
-  const multaPct = n(params.multaPct);
   const beneficiosTotal = defaultBenefits(params.beneficios);
 
   const diasCliente = n(inputs.diasCliente);
@@ -76,18 +74,18 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
 
   // D) encargos
   const fgts = remuneracaoBruta * fgtsPct;
-  const inssPatronal = remuneracaoBruta * inssPatronalPct;
-  const encargos = fgts + inssPatronal;
+  const inssPatronal = 0;
+  const encargos = fgts;
 
-  // E) provisões (13º + férias + encargos s/ provisões)
+  // E) provisões (13º + férias + FGTS s/ provisões)
   const provisao13 = remuneracaoBruta / 12;
   const provisaoFerias = (remuneracaoBruta / 12) * (1 + 1 / 3);
   const fgtsProvisoes = (provisao13 + provisaoFerias) * fgtsPct;
-  const inssProvisoes = (provisao13 + provisaoFerias) * inssPatronalPct;
+  const inssProvisoes = 0;
   const provisoes = provisao13 + provisaoFerias + fgtsProvisoes + inssProvisoes;
 
   // G) passivo rescisório
-  const multaFgts = fgts * multaPct;
+  const multaFgts = 0;
   const avisoPrevio = (remuneracaoBruta + beneficiosTotal) / 12;
   const passivoRescisorio = multaFgts + avisoPrevio;
 

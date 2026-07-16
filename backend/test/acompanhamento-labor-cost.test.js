@@ -16,7 +16,7 @@ const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const PARAMS = {
   salarioBase: 3080.33, insalubridade: 324.2, cargaHoraria: 220, diasUteis: 22,
   periculosidadePct: 0.3, produtividadePct: 0.15, transferenciaPct: 0.3,
-  he70Pct: 0.7, he100Pct: 1, fgtsPct: 0.08, inssPatronalPct: 0.1, multaPct: 0.4,
+  he70Pct: 0.7, he100Pct: 1, fgtsPct: 0.08,
   beneficios: { planoSaude: 800, valeAlimentacao: 600, odonto: 16, seguroVida: 50, cursos: 300 }
 };
 

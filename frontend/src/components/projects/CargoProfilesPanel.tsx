@@ -116,7 +116,7 @@ export function CargoProfilesPanel() {
       <p className="placeholder-copy" style={{ margin: '4px 0 12px' }}>
         Cada cargo é calculado com base em um <strong>modelo</strong> (planilha base) e define apenas o
         <strong> salário base</strong> e a <strong>insalubridade</strong>. Os demais parâmetros
-        (adicionais, encargos, benefícios) vêm do modelo vigente na data calculada. Ao salvar, informe
+        (adicionais, FGTS, benefícios) vêm do modelo vigente na data calculada. Ao salvar, informe
         a data a partir da qual os novos valores passam a valer. A periculosidade é integral (setor operacional).
       </p>
       {selectedCargo?.effectiveDate ? (
@@ -203,7 +203,7 @@ export function CargoProfilesPanel() {
           <div className="det-row"><span className="det-label">Produtividade / Gratificação</span><span className="det-val">{frac(mp, 'produtividadePct')}</span></div>
           <div className="det-row"><span className="det-label">Transferência / Viagem</span><span className="det-val">{frac(mp, 'transferenciaPct')}</span></div>
           <div className="det-row"><span className="det-label">HE 70% / 100%</span><span className="det-val">{frac(mp, 'he70Pct')} / {frac(mp, 'he100Pct')}</span></div>
-          <div className="det-row"><span className="det-label">FGTS / INSS patronal</span><span className="det-val">{frac(mp, 'fgtsPct')} / {frac(mp, 'inssPatronalPct')}</span></div>
+          <div className="det-row"><span className="det-label">FGTS</span><span className="det-val">{frac(mp, 'fgtsPct')}</span></div>
           <div className="det-row"><span className="det-label">Benefícios (total)</span><span className="det-val">{brl(benefitsTotal(mp))}</span></div>
         </div>
       ) : null}

@@ -15,8 +15,6 @@ const OPERADOR_PARAMS = {
   he70Pct: 0.7,
   he100Pct: 1,
   fgtsPct: 0.08,
-  inssPatronalPct: 0.1,
-  multaPct: 0.4,
   beneficios: { planoSaude: 800, valeAlimentacao: 600, odonto: 16, seguroVida: 50, cursos: 300 }
 };
 
@@ -33,19 +31,27 @@ test('motor reproduz as verbas do Simulador (operador) da planilha', () => {
   close(r.he100, 41.749064);
   close(r.dsr, 14.042867);
   close(r.remuneracaoBruta, 4683.675726);
-  close(r.encargos, 843.061631);
-  close(r.provisoes, 1074.643375);
+  close(r.encargos, 374.694058);
+  close(r.provisoes, 983.571903);
   close(r.beneficios, 1766);
-  close(r.passivoRescisorio, 687.3506);
-  close(r.totalMensal, 9054.731333);
-  close(r.custoHora220, 41.15787);
+  close(r.passivoRescisorio, 537.472977);
+  close(r.totalMensal, 8345.414664);
+  close(r.custoHora220, 37.933703);
 });
 
-test('zerar inputs deixa só fixos + encargos + provisões + benefícios + passivo', () => {
+test('zerar inputs deixa só fixos + FGTS + provisões + benefícios + passivo', () => {
   const r = computeMonthlyCost(OPERADOR_PARAMS, { diasCliente: 0, diasFora: 0, diasCasa: 0, he70Horas: 0, he100Horas: 0 });
   // bruta = base + insalub = 3404.53
   assert.ok(Math.abs(r.remuneracaoBruta - 3404.53) < 0.01);
   assert.ok(r.totalMensal > r.remuneracaoBruta);
+});
+
+test('motor ignora campos legados de INSS patronal e multa rescisória', () => {
+  const current = computeMonthlyCost(OPERADOR_PARAMS, OPERADOR_INPUTS);
+  const legacy = computeMonthlyCost({ ...OPERADOR_PARAMS, inssPatronalPct: 0.99, multaPct: 0.99 }, OPERADOR_INPUTS);
+
+  assert.equal(legacy.inssPatronal, 0);
+  assert.equal(legacy.totalMensal, current.totalMensal);
 });
 
 test('auxiliar usa gratificação 5% e viagem 10% no mesmo motor', () => {

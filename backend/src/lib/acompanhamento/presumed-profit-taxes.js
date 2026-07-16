@@ -4,6 +4,7 @@ const METHOD = 'COMMERCIAL_TAX_SPREADSHEET_2026';
 const DEFAULT_ISS_RATE = 0.03;
 const PIS_RATE = 0.0065;
 const COFINS_RATE = 0.03;
+const INSS_RATE = 0.055;
 const IRPJ_RATE = 0.15;
 const CSLL_RATE = 0.09;
 const ADDITIONAL_IRPJ_RATE = 0.10;
@@ -14,20 +15,23 @@ const SERVICE_TAX_RULES = {
     serviceTaxCode: '14.01',
     spreadsheetBlock: '14.01 + 10% Tributacao 2026',
     irpjPresumptionRate: 0.35,
-    csllPresumptionRate: 0.35
+    csllPresumptionRate: 0.35,
+    inssRate: INSS_RATE
   },
   '7.05': {
     serviceTaxCode: '7.05',
     spreadsheetBlock: '7.05 + 10% Tributacao 2026',
     irpjPresumptionRate: 0.088,
-    csllPresumptionRate: 0.132
+    csllPresumptionRate: 0.132,
+    inssRate: 0
   },
   '7.02': {
     serviceTaxCode: '7.02',
     equivalentServiceTaxCode: '7.05',
     spreadsheetBlock: '7.05 + 10% Tributacao 2026',
     irpjPresumptionRate: 0.088,
-    csllPresumptionRate: 0.132
+    csllPresumptionRate: 0.132,
+    inssRate: INSS_RATE
   }
 };
 
@@ -54,6 +58,8 @@ export const PRESUMED_PROFIT_TAX_ASSUMPTIONS = {
   issRatePct: 3,
   pisRatePct: 0.65,
   cofinsRatePct: 3,
+  serviceInssRatePct: 5.5,
+  serviceInssTaxCodes: ['14.01', '7.02'],
   irpjRatePct: 15,
   csllRatePct: 9,
   additionalIrpjRatePct: 10,
@@ -198,6 +204,8 @@ function buildTaxLine(amount, serviceTaxCode, issRatePct, omieServiceTaxCode = n
   const iss = amount * issRate;
   const pis = amount * PIS_RATE;
   const cofins = amount * COFINS_RATE;
+  const inssRate = rule.inssRate ?? 0;
+  const inss = amount * inssRate;
   const irpjPresumedBasis = amount * rule.irpjPresumptionRate;
   const csllPresumedBasis = amount * rule.csllPresumptionRate;
   const irpjBasic = irpjPresumedBasis * IRPJ_RATE;
@@ -214,7 +222,9 @@ function buildTaxLine(amount, serviceTaxCode, issRatePct, omieServiceTaxCode = n
     iss,
     pis,
     cofins,
-    invoiceTaxTotal: iss + pis + cofins,
+    inssRatePct: inssRate * 100,
+    inss,
+    invoiceTaxTotal: iss + pis + cofins + inss,
     irpjPresumedBasis,
     csllPresumedBasis,
     irpjBasic,
@@ -283,6 +293,7 @@ export function buildPresumedProfitTaxEstimate(salePrice, options = {}) {
   const iss = sumLines(lines, 'iss');
   const pis = sumLines(lines, 'pis');
   const cofins = sumLines(lines, 'cofins');
+  const inss = sumLines(lines, 'inss');
   const invoiceTaxTotal = sumLines(lines, 'invoiceTaxTotal');
   const irpjPresumedBasis = sumLines(lines, 'irpjPresumedBasis');
   const csllPresumedBasis = sumLines(lines, 'csllPresumedBasis');
@@ -299,6 +310,7 @@ export function buildPresumedProfitTaxEstimate(salePrice, options = {}) {
   const invoiceTaxEffectivePct = (invoiceTaxTotal / basis) * 100;
   const irpjCsllEffectivePct = (irpjCsllTotal / basis) * 100;
   const issRatePct = (iss / basis) * 100;
+  const inssRatePct = (inss / basis) * 100;
   const irpjPresumptionPct = (irpjPresumedBasis / basis) * 100;
   const csllPresumptionPct = (csllPresumedBasis / basis) * 100;
 
@@ -316,6 +328,7 @@ export function buildPresumedProfitTaxEstimate(salePrice, options = {}) {
     issDelta: omieIss !== null ? roundMoney(omieIss - iss) : null,
     pis: roundMoney(pis),
     cofins: roundMoney(cofins),
+    inss: roundMoney(inss),
     invoiceTaxTotal: roundMoney(invoiceTaxTotal),
     irpjPresumedBasis: roundMoney(irpjPresumedBasis),
     csllPresumedBasis: roundMoney(csllPresumedBasis),
@@ -340,6 +353,7 @@ export function buildPresumedProfitTaxEstimate(salePrice, options = {}) {
     probableEffectivePct: roundPct(effectiveTaxPct),
     effectiveTaxPct: roundPct(effectiveTaxPct),
     invoiceTaxEffectivePct: roundPct(invoiceTaxEffectivePct),
+    inssRatePct: roundPct(inssRatePct),
     irpjCsllEffectivePct: roundPct(irpjCsllEffectivePct)
   };
 }

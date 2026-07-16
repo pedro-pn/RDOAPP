@@ -32,9 +32,7 @@ const PERCENT_PARAM_KEYS = new Set([
   'transferenciaPct',
   'he70Pct',
   'he100Pct',
-  'fgtsPct',
-  'inssPatronalPct',
-  'multaPct'
+  'fgtsPct'
 ]);
 
 function paramNumber(params: CostParams | null | undefined, key: string) {
@@ -56,6 +54,12 @@ function benefits(params: CostParams | null | undefined) {
 }
 function benefitTotal(params: CostParams | null | undefined) {
   return Object.values(benefits(params)).reduce((sum, value) => sum + (Number(value) || 0), 0);
+}
+function activeCostParams(params: CostParams) {
+  const next = { ...params };
+  delete next.inssPatronalPct;
+  delete next.multaPct;
+  return next;
 }
 
 function ModelHistory({ history }: { history: CostParameterHistoryEntry[] }) {
@@ -133,7 +137,7 @@ export function CostSimulatorPanel() {
   }, [data, selectedKey]);
 
   const saveMutation = useMutation({
-    mutationFn: () => saveCostParams(selectedKey, params, effectiveDate, note.trim() || undefined),
+    mutationFn: () => saveCostParams(selectedKey, activeCostParams(params), effectiveDate, note.trim() || undefined),
     onSuccess: () => {
       showToast('Parâmetros salvos com nova vigência.');
       setNote('');
@@ -236,10 +240,10 @@ export function CostSimulatorPanel() {
       {result ? (
         <div className="det-section" style={{ marginTop: 12 }}>
           <div className="det-row"><span className="det-label">Remuneração bruta</span><span className="det-val">{brl(result.remuneracaoBruta)}</span></div>
-          <div className="det-row"><span className="det-label">Encargos (FGTS+INSS)</span><span className="det-val">{brl(result.encargos)}</span></div>
-          <div className="det-row"><span className="det-label">Provisões (13º+férias)</span><span className="det-val">{brl(result.provisoes)}</span></div>
+          <div className="det-row"><span className="det-label">Encargos (FGTS)</span><span className="det-val">{brl(result.encargos)}</span></div>
+          <div className="det-row"><span className="det-label">Provisões (13º+férias+FGTS)</span><span className="det-val">{brl(result.provisoes)}</span></div>
           <div className="det-row"><span className="det-label">Benefícios</span><span className="det-val">{brl(result.beneficios)}</span></div>
-          <div className="det-row"><span className="det-label">Passivo rescisório</span><span className="det-val">{brl(result.passivoRescisorio)}</span></div>
+          <div className="det-row"><span className="det-label">Passivo rescisório (aviso)</span><span className="det-val">{brl(result.passivoRescisorio)}</span></div>
           <div className="det-row"><span className="det-label"><strong>Custo total mensal</strong></span><span className="det-val"><strong>{brl(result.totalMensal)}</strong></span></div>
           <div className="det-row"><span className="det-label">Custo/hora (220h)</span><span className="det-val">{brl(result.custoHora220)}</span></div>
           <div className="det-row"><span className="det-label">Custo/dia útil</span><span className="det-val">{brl(result.custoDiaUtil)}</span></div>
