@@ -193,6 +193,7 @@ export function ManualReportOperationalFields({
           <input
             value={customThemeInputs[field] || ''}
             disabled={disabled}
+            aria-label="Tema fora da lista"
             placeholder="Tema fora da lista? Digite aqui..."
             onChange={event => setCustomThemeInputs(current => ({ ...current, [field]: event.target.value }))}
             onKeyDown={event => {

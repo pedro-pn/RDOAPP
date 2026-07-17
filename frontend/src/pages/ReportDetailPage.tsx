@@ -1138,8 +1138,9 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
                 <div className="admin-form-grid">
                   {normalizeServiceType(service.type) !== 'inibicao' ? (
                   <div className="field-group">
-                    <label>Equipamento(s)</label>
+                    <label htmlFor={`service-equipment-${service.id}`}>Equipamento(s)</label>
                     <input
+                      id={`service-equipment-${service.id}`}
                       value={getString(service.data.equipmentId)}
                       disabled={readOnly || manualReport}
                       placeholder="Informar equipamento do cliente..."
