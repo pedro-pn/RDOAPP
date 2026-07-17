@@ -2194,15 +2194,11 @@ export function GestorPage() {
   async function handleManualReportSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (manualReportSubmitting) return;
-    if (manualReportTarget && !manualReportForm.pdfDataUrl) {
-      showToast('Selecione um PDF.', 'error');
-      return;
-    }
     if (!manualReportTarget && !manualReportForm.files.length) {
       showToast('Selecione ao menos um PDF.', 'error');
       return;
     }
-    if (!manualReportTarget && !manualReportForm.projectId) {
+    if (!manualReportForm.projectId) {
       showToast('Selecione um projeto.', 'error');
       return;
     }
@@ -2253,13 +2249,16 @@ export function GestorPage() {
         await reportMutations.replaceManualReportPdf.mutateAsync({
           id: manualReportTarget.id,
           payload: {
+            projectId: manualReportForm.projectId,
             fileName: manualReportForm.fileName,
             ...replacementServiceMetadata,
-            pdfDataUrl: manualReportForm.pdfDataUrl,
-            signatureMode: manualReportForm.signatureMode
+            ...(manualReportForm.pdfDataUrl ? {
+              pdfDataUrl: manualReportForm.pdfDataUrl,
+              signatureMode: manualReportForm.signatureMode
+            } : {})
           }
         });
-        showToast('PDF substituído.', 'success');
+        showToast(manualReportForm.pdfDataUrl ? 'PDF substituído.' : 'Relatório atualizado.', 'success');
       } else {
         for (const file of uploadFiles) {
           const serviceMetadata = manualReportForm.reportType !== 'RDO'
@@ -2352,7 +2351,7 @@ export function GestorPage() {
             disabled={reportMutations.replaceManualReportPdf.isPending}
             onClick={() => openManualReportReplace(report)}
           >
-            Substituir PDF
+            Editar manual
           </button>
         ) : null}
         {canReview && report.status !== 'APPROVED' ? (
@@ -2616,14 +2615,13 @@ export function GestorPage() {
       >
         <form className="admin-form admin-form-grid manual-report-form" onSubmit={handleManualReportSubmit}>
           <div className="section-title" id="manual-report-upload-title">
-            {replacing ? 'Substituir PDF' : 'Upload de relatório antigo'}
+            {replacing ? 'Editar relatório manual' : 'Upload de relatório antigo'}
           </div>
           <div className="field-group">
             <label htmlFor="manual-report-project">Projeto</label>
             <select
               id="manual-report-project"
               value={manualReportForm.projectId}
-              disabled={replacing}
               onChange={event => setManualReportForm(current => ({ ...current, projectId: event.target.value }))}
               required
             >
@@ -2715,6 +2713,7 @@ export function GestorPage() {
             <select
               id="manual-report-signature-mode"
               value={manualReportForm.signatureMode}
+              disabled={replacing && !manualReportForm.pdfDataUrl}
               onChange={event => setManualReportForm(current => ({ ...current, signatureMode: event.target.value as ManualReportFormState['signatureMode'] }))}
             >
               <option value="APPROVED">Aprovado (assinatura opcional)</option>
@@ -2725,7 +2724,7 @@ export function GestorPage() {
           <div className="field-group-wide">
             <PdfDropzone
               id="manual-report-pdf"
-              label={replacing ? 'PDF' : 'PDFs'}
+              label={replacing ? 'PDF (opcional)' : 'PDFs'}
               fileName={selectedPdfLabel}
               onFile={file => void handleManualReportFile(file)}
               multiple={!replacing}
@@ -2817,8 +2816,8 @@ export function GestorPage() {
             <button className="secondary-button" type="button" disabled={submitting} onClick={closeManualReportModal}>
               Cancelar
             </button>
-            <button className="primary-button" type="submit" disabled={submitting || (replacing ? !manualReportForm.pdfDataUrl : !manualReportForm.files.length)}>
-              {submitting ? 'Salvando...' : replacing ? 'Substituir PDF' : manualReportForm.files.length > 1 ? 'Adicionar relatórios' : 'Adicionar relatório'}
+            <button className="primary-button" type="submit" disabled={submitting || (replacing ? !manualReportForm.projectId : !manualReportForm.files.length)}>
+              {submitting ? 'Salvando...' : replacing ? 'Salvar alterações' : manualReportForm.files.length > 1 ? 'Adicionar relatórios' : 'Adicionar relatório'}
             </button>
           </div>
         </form>
