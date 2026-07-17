@@ -752,7 +752,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     () => new Set(serviceReportMode && !manualReport ? form.collaboratorIds : [...form.collaboratorIds, ...form.nightCollaboratorIds]),
     [manualReport, serviceReportMode, form.collaboratorIds, form.nightCollaboratorIds]
   );
-  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => item.isActive || selectedCollaboratorIds.has(item.id));
+  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => manualReport || item.isActive || selectedCollaboratorIds.has(item.id));
   const serviceCollaboratorOptions = useMemo(() => {
     if (manualReport) return [];
     const ids = serviceReportMode ? form.collaboratorIds : Array.from(new Set([...form.collaboratorIds, ...form.nightCollaboratorIds]));
@@ -1096,6 +1096,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
             collaborators={collaborators}
             ddsThemes={ddsThemesQuery.data || []}
             disabled={readOnly}
+            includeInactiveCollaborators={manualReport}
             embedded
             showNightShift
             showStandby={report.reportType === 'RDO'}
@@ -1137,8 +1138,9 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
                 <div className="admin-form-grid">
                   {normalizeServiceType(service.type) !== 'inibicao' ? (
                   <div className="field-group">
-                    <label>Equipamento(s)</label>
+                    <label htmlFor={`service-equipment-${service.id}`}>Equipamento(s)</label>
                     <input
+                      id={`service-equipment-${service.id}`}
                       value={getString(service.data.equipmentId)}
                       disabled={readOnly || manualReport}
                       placeholder="Informar equipamento do cliente..."

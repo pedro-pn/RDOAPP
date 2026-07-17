@@ -1257,10 +1257,6 @@ export function GestorPage() {
   };
   const archivedProjectsQuery = { data: gestorBootstrapQuery.data?.archivedProjects, isLoading: gestorBootstrapQuery.isLoading };
   const collaboratorsQuery = { data: gestorBootstrapQuery.data?.collaborators, isLoading: gestorBootstrapQuery.isLoading };
-  const activeManualReportCollaborators = useMemo(
-    () => (collaboratorsQuery.data || []).filter(collaborator => collaborator.isActive !== false),
-    [collaboratorsQuery.data]
-  );
   const internalUsersQuery = useUsers('internal');
   const clientUsersQuery = useUsers('client');
   const surveysQuery = { data: gestorBootstrapQuery.data?.surveys, isLoading: gestorBootstrapQuery.isLoading };
@@ -2801,8 +2797,9 @@ export function GestorPage() {
                     </div>
                     <ManualReportOperationalFields
                       value={file}
-                      collaborators={activeManualReportCollaborators}
+                      collaborators={collaboratorsQuery.data || []}
                       disabled={submitting}
+                      includeInactiveCollaborators
                       showNightShift
                       showStandby={manualReportForm.reportType === 'RDO'}
                       onChange={patch => updateManualReportUploadFile(file.id, patch)}
