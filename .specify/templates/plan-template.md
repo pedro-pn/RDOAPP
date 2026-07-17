@@ -43,7 +43,12 @@
 - Server operations/deploy commands are not executed by the agent; any such command is
   documented for the human operator to run on the server.
 - UI is pt-BR and mobile-first: wide tables have mobile alternatives, modals have fixed
-  action footers and no page-level horizontal scroll.
+  action footers and no page-level horizontal scroll. Card grids must fit the useful
+  mobile width (e.g., `minmax(min(100%, ...), 1fr)` or equivalent), flex/grid children
+  must be allowed to shrink (`min-width: 0`), and long values/badges/actions must not
+  widen the viewport. Tabs, segmented controls and tab-like filters must wrap, use a
+  responsive grid, scroll internally by design, or switch to a mobile select/menu
+  without widening the page.
 - Forms and APIs use Zod-compatible validation on frontend and backend.
 - Schema changes are represented by Prisma migrations and never by ad hoc database edits.
 - Backend business logic has tests in `backend/test` when the feature adds or changes
@@ -64,9 +69,9 @@
 
 **Required visual evidence when frontend changes are present:**
 
-| Surface | Existing reference audited | Shared component/classes | Field/dropdown states covered | Navigation persistence | Novelty/tutorial plan | Mobile/desktop evidence |
-|---------|----------------------------|--------------------------|-------------------------------|------------------------|------------------------|-------------------------|
-| [surface name] | [path + pattern checked] | [e.g., Modal, Button, field-group, admin-inline-form] | [default/focus/disabled/error/empty] | [URL/query params or N/A with reason] | [10-day novelty/tutorial or N/A with reason] | [viewport behavior] |
+| Surface | Existing reference audited | Shared component/classes | Field/dropdown states covered | Navigation persistence | Novelty/tutorial plan | Mobile/desktop overflow evidence |
+|---------|----------------------------|--------------------------|-------------------------------|------------------------|------------------------|----------------------------------|
+| [surface name] | [path + pattern checked] | [e.g., Modal, Button, field-group, admin-inline-form] | [default/focus/disabled/error/empty] | [URL/query params or N/A with reason] | [10-day novelty/tutorial or N/A with reason] | [viewport behavior; tabs/cards/grids/text overflow checked] |
 
 - A plan may reuse or clone an existing component only after checking that the source
   component still complies with the current constitution. If the source component has

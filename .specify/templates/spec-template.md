@@ -115,11 +115,16 @@
   For screens with module-internal navigation, describe how tabs, sections, tab-like
   filters and list-replacing detail views persist across refresh. Prefer URL/query params
   unless the state is sensitive or not shareable.
+
+  For responsive surfaces, define how tabs/segments/tab-like filters, card grids, tables
+  converted to cards, badges, metric values, links and action rows avoid page-level
+  horizontal scroll on narrow phones. Include the expected behavior for long labels and
+  large numeric values.
 -->
 
-| Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Navigation persistence | Novelty/tutorial contract | Responsive contract |
-|---------|------------------------------|---------------------------|-----------------------|------------------------|---------------------------|---------------------|
-| [e.g., Manager create form] | [file/class inspected] | [ui component or CSS class] | [field-group/admin-inline-form/shared dropdown] | [URL/query params, localStorage exception, or N/A] | [10-day novelty/tutorial, permanent module tutorial, or N/A] | [mobile + desktop behavior] |
+| Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Navigation persistence | Novelty/tutorial contract | Responsive/overflow contract |
+|---------|------------------------------|---------------------------|-----------------------|------------------------|---------------------------|------------------------------|
+| [e.g., Manager create form] | [file/class inspected] | [ui component or CSS class] | [field-group/admin-inline-form/shared dropdown] | [URL/query params, localStorage exception, or N/A] | [10-day novelty/tutorial, permanent module tutorial, or N/A] | [mobile + desktop behavior; no tab/card/grid/text overflow] |
 
 ### Key Entities *(include if feature involves data)*
 

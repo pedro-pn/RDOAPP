@@ -27,6 +27,13 @@ description: "Task list template for feature implementation"
 - For frontend surfaces with tabs, side sections, tab-like filters or list-replacing
   detail views, include a task to persist navigation in URL/query params and verify that
   refresh keeps the user on the same module page.
+- For frontend card grids, card-like mobile table rows, badges, metric values, links or
+  action rows, include a task to verify they do not create page-level horizontal scroll
+  on narrow phones. Fixed visual minimums must use a shrink-safe pattern such as
+  `minmax(min(100%, ...), 1fr)` or an equivalent documented layout.
+- For frontend tabs, segmented controls and tab-like filters, include a task to verify
+  labels wrap/fit, use a responsive grid, scroll internally by design, or switch to a
+  mobile select/menu without creating page-level horizontal scroll.
 
 ## Path Conventions
 
@@ -178,6 +185,10 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Navigation continuity: represent module-internal tabs/sections/detail views
   in URL/query params (or document a localStorage exception) and verify refresh/deep-link
   restores the same page without stale incompatible params
+- [ ] TXXX Mobile overflow audit: verify changed card grids, card-like table rows,
+  tabs/segments, badges, metric values, links and action rows at narrow phone widths;
+  ensure grid/flex children can shrink (`min-width: 0`) and long content wraps/truncates
+  without page-level horizontal scroll
 - [ ] TXXX Visual consistency pass: verify every Visual/UI Contract surface in desktop
   and mobile; dropdowns/selects have default, focus, disabled, error and empty states;
   desktop module width is not compressed; mobile layout has no horizontal page scroll
