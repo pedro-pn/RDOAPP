@@ -752,7 +752,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     () => new Set(serviceReportMode && !manualReport ? form.collaboratorIds : [...form.collaboratorIds, ...form.nightCollaboratorIds]),
     [manualReport, serviceReportMode, form.collaboratorIds, form.nightCollaboratorIds]
   );
-  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => item.isActive || selectedCollaboratorIds.has(item.id));
+  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => manualReport || item.isActive || selectedCollaboratorIds.has(item.id));
   const serviceCollaboratorOptions = useMemo(() => {
     if (manualReport) return [];
     const ids = serviceReportMode ? form.collaboratorIds : Array.from(new Set([...form.collaboratorIds, ...form.nightCollaboratorIds]));
@@ -1096,6 +1096,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
             collaborators={collaborators}
             ddsThemes={ddsThemesQuery.data || []}
             disabled={readOnly}
+            includeInactiveCollaborators={manualReport}
             embedded
             showNightShift
             showStandby={report.reportType === 'RDO'}

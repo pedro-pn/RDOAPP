@@ -97,10 +97,18 @@ export interface ActiveCollaborator {
   id: string;
   name: string;
   role: string | null;
+  isActive: boolean;
 }
 
 export async function getActiveCollaborators(): Promise<ActiveCollaborator[]> {
   const { data } = await apiClient.get<ActiveCollaborator[]>('/acompanhamento/ponto/colaboradores-ativos');
+  return data;
+}
+
+export async function getPontoLinkCollaborators(): Promise<ActiveCollaborator[]> {
+  const { data } = await apiClient.get<ActiveCollaborator[]>('/acompanhamento/ponto/colaboradores-ativos', {
+    params: { includeInactive: 'true' }
+  });
   return data;
 }
 
