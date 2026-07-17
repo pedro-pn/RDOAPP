@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 1.3.0 → 1.4.0
-- Modified principles: Princípio VI expandido para continuidade de navegação em refresh
+- Version change: 1.5.0 → 1.6.0
+- Modified principles: Princípio II expandido para regras testáveis de overflow em abas/segmentos mobile
 - Added sections: nenhuma
 - Removed sections: nenhuma
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir continuidade de navegação
-  - ✅ .specify/templates/spec-template.md — contrato visual passou a capturar persistência de navegação
-  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a incluir refresh/deep-link de abas
-  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para persistência de navegação
+  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir abas/segmentos sem overflow
+  - ✅ .specify/templates/spec-template.md — contrato responsivo passou a capturar tabs/segmentos
+  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a auditar abas/segmentos
+  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para tabs/segmentos mobile
 - Follow-up TODOs: nenhum
 -->
 
@@ -35,9 +35,23 @@ funcionar em mobile desde a primeira versão, não como ajuste posterior. Regras
 - Tabelas largas DEVEM ter alternativa empilhada em telas estreitas (padrão: tabela vira cards).
 - Modais DEVEM ter rodapé de ações fixo e corpo rolável.
 - Nenhum elemento pode estourar a borda da viewport (sem scroll horizontal de página).
+- Grades de cards em mobile DEVEM caber na largura útil do contêiner. Colunas com
+  mínimo visual fixo DEVEM usar `minmax(min(100%, <largura>), 1fr)` ou equivalente,
+  com `width: 100%`, `min-width: 0` e filhos `min-width: 0` quando houver grid/flex.
+- Conteúdo interno de cards (valores monetários, status, badges, links, ações e
+  métricas) DEVE quebrar, truncar com ellipsis ou empilhar sem aumentar a largura do
+  card. `white-space: nowrap` só é permitido quando acompanhado de `max-width` e
+  tratamento de overflow que não gere scroll horizontal de página.
+- Abas, segmentos, filtros com aparência de aba e qualquer `tablist` em mobile DEVEM
+  caber dentro da largura do módulo. O componente DEVE usar quebra de linha, grid
+  responsivo, rolagem interna explícita ou substituir a navegação por `select`/menu
+  mobile; rótulos longos DEVEM quebrar/encurtar sem empurrar a viewport.
 
 Racional: a base de usuários acessa majoritariamente por celular em campo; correções
-retroativas de responsividade custam ciclos inteiros de retrabalho.
+retroativas de responsividade custam ciclos inteiros de retrabalho. Cards que dependem
+de `minmax(280px, 1fr)`, valores internos com `nowrap` ou barras de abas com rótulos
+longos parecem corretos em desktop, mas cortam bordas e conteúdo nos celulares usados
+em obra.
 
 ### III. Validação com Zod nas Duas Pontas
 
@@ -164,4 +178,4 @@ corrigido.
   DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
   registrada na seção Complexity Tracking do plano da feature.
 
-**Version**: 1.4.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-16
+**Version**: 1.6.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-17

@@ -38,7 +38,7 @@ export function CostEngineManager({ canManageCosts = true }: { canManageCosts?: 
 
   return (
     <div data-acp-custo>
-      <div className="acp-seg" role="tablist" aria-label="Seções de custo" style={{ marginBottom: 12 }}>
+      <div className="acp-seg acp-cost-tabs" role="tablist" aria-label="Seções de custo">
         {tabs.map(([key, label]) => (
           <button
             key={key}

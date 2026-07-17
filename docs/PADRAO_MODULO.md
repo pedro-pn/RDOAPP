@@ -74,6 +74,17 @@ usar o shell largo de desktop, seguindo o padrao de Equipamentos/Acompanhamento
 (`.equip-page` ou equivalente documentado). Nao comprimir modulos operacionais no
 container padrao de 420/540px quando houver largura disponivel.
 
+No mobile, cards e grades devem caber na largura util da tela sem scroll horizontal de
+pagina. Grades com largura minima visual devem usar padrao encolhivel, como
+`minmax(min(100%, 280px), 1fr)`, e containers/filhos flex ou grid devem declarar
+`min-width: 0` quando necessario. Valores longos, badges, links e linhas de acao
+devem quebrar, truncar com ellipsis ou empilhar sem cortar bordas do card.
+
+Abas, segmented controls e filtros que funcionam como abas tambem devem caber no
+mobile. Use quebra de linha, grid responsivo, rolagem interna intencional ou troque por
+`select`/menu mobile quando houver muitas opcoes. Rotulo longo nao pode aumentar a
+largura da pagina.
+
 Navegacao interna de modulo deve sobreviver ao refresh da pagina. Abas, secoes
 laterais, filtros que funcionam como abas e detalhes que substituem a lista devem ser
 representados por URL/query params (`?tab=...`, `?section=...`, `?project=...`) sempre

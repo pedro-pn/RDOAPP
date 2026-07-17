@@ -148,13 +148,13 @@ export function PontoImportPanel() {
             <tbody>
               {imports.map(im => (
                 <tr key={im.id}>
-                  <td>{im.fileName}</td>
-                  <td>{fmtDate(im.periodStart)} – {fmtDate(im.periodEnd)}</td>
-                  <td>{im.collaboratorsMatched}/{im.collaboratorsTotal}</td>
-                  <td>{im.rowsRead}</td>
-                  <td>{fmtDate(im.createdAt)}</td>
+                  <td data-label="Arquivo">{im.fileName}</td>
+                  <td data-label="Período">{fmtDate(im.periodStart)} – {fmtDate(im.periodEnd)}</td>
+                  <td data-label="Colab.">{im.collaboratorsMatched}/{im.collaboratorsTotal}</td>
+                  <td data-label="Linhas">{im.rowsRead}</td>
+                  <td data-label="Enviado">{fmtDate(im.createdAt)}</td>
                   {isManager ? (
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td data-label="Ações" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button
                         className="mini-btn danger"
                         type="button"
