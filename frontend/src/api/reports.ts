@@ -153,7 +153,14 @@ export interface ManualReportUploadPayload {
   operationalData?: ManualReportOperationalData;
 }
 
-export type ManualReportPdfReplacePayload = Pick<ManualReportUploadPayload, 'fileName' | 'serviceEquipment' | 'serviceSystem' | 'pdfDataUrl' | 'signatureMode'>;
+export interface ManualReportPdfReplacePayload {
+  projectId?: string;
+  fileName?: string;
+  serviceEquipment?: string;
+  serviceSystem?: string;
+  pdfDataUrl?: string;
+  signatureMode?: ManualReportSignatureMode;
+}
 
 export async function uploadManualReport(payload: ManualReportUploadPayload) {
   const response = await apiClient.post<ReportSummary>(rdoApiPath('/reports/manual-upload'), payload);
