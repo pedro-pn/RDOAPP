@@ -108,7 +108,7 @@ function WorkedHoursMetric({ data }: {
   return (
     <div className="acp-det-metric">
       <div className="acp-det-metric-top">
-        <HelpTip help="Soma das horas trabalhadas dos RDOs, separando horas normais e horas extras, sobre o total previsto no cronograma. As horas previstas já incluem todos os colaboradores.">Horas trabalhadas</HelpTip>
+        <HelpTip help="Soma das horas-homem dos RDOs, separando horas normais e horas extras. Cada turno é multiplicado pela quantidade de colaboradores daquele turno; as horas previstas já incluem todos os colaboradores.">Horas trabalhadas</HelpTip>
         <span className="acp-det-metric-val">
           {fmtHours(data.totalWorkedHours)} / {fmtHours(data.plannedTotalHours)}
           {data.totalPct != null ? ` · ${data.totalPct}%` : ''}
@@ -422,7 +422,7 @@ export function ProjectDetailDashboard({
 
             <div className="acp-det-two">
               <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos RDOs.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
-              <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas de standby de todos os RDOs do projeto.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas-homem de stand-by de todos os RDOs do projeto, multiplicando o tempo pela equipe do turno.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
             </div>
 
             <div className="acp-det-sub"><HelpTip help="Status dos últimos 5 dias com RDO: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
@@ -451,7 +451,7 @@ export function ProjectDetailDashboard({
             </div>
 
             <div className="acp-det-two" style={{ marginTop: 10 }}>
-              <div><span className="acp-det-kpi-label"><HelpTip help="Total de horas extras identificadas nos RDOs do projeto.">Horas extras</HelpTip></span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Total de horas extras-homem identificadas nos RDOs do projeto, multiplicando a HE pela equipe do turno.">Horas extras</HelpTip></span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
             </div>
           </div>
         </div>
@@ -486,7 +486,7 @@ export function ProjectDetailDashboard({
         </details>
       </div>
 
-      {/* Colaboradores em largura total, tabela retrátil: nome · cargo · valor gasto (custo/hora). */}
+      {/* Colaboradores em largura total, tabela retrátil: nome · cargo · horas · valor gasto (custo/hora). */}
       <div className="page-card acp-det-block">
         <details className="acp-det-collabs-details" open>
           <summary className="acp-det-collabs-summary">
@@ -501,6 +501,7 @@ export function ProjectDetailDashboard({
                   <tr>
                     <th>Nome</th>
                     <th>Cargo</th>
+                    <th style={{ textAlign: 'right' }}>Horas</th>
                     <th style={{ textAlign: 'right' }}>Custo (HH)</th>
                   </tr>
                 </thead>
@@ -509,6 +510,7 @@ export function ProjectDetailDashboard({
                     <tr key={i}>
                       <td>{c.name}</td>
                       <td>{c.role}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtHours(c.horas)}</td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {c.custo != null ? (
                           <>{brl(c.custo)}<span className="acp-det-collab-rate">{c.custoHora != null ? ` (${brl(c.custoHora)}/h)` : ''}</span></>

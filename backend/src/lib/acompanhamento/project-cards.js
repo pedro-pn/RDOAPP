@@ -10,6 +10,7 @@ import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
 import { laborCostByProject } from './labor-cost.js';
 import { getEquipmentUsageByProject } from './equipment-usage.js';
+import { reportAllCollaboratorIds, reportPersonTimeMetrics } from './report-time.js';
 import prisma from '../prisma.js';
 
 function toNum(value) {
@@ -124,18 +125,22 @@ export async function listProjectCards() {
     prisma.report.findMany({
       where: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null },
       select: {
+        id: true,
         projectId: true,
         reportDate: true,
         specialConditions: true,
+        daytimeCount: true,
         daytimeWorkedMinutes: true,
         nighttimeWorkedMinutes: true,
+        daytimeOvertimeMinutes: true,
+        nighttimeOvertimeMinutes: true,
         totalOvertimeMinutes: true
       },
       orderBy: { reportDate: 'asc' }
     }),
     prisma.reportCollaborator.findMany({
       where: { report: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null } },
-      select: { collaboratorId: true, report: { select: { projectId: true } } }
+      select: { reportId: true, collaboratorId: true }
     }),
     laborCostByProject(), // custo de mão de obra (HH) do ponto vigente — separado do realizado Omie
     prisma.projectPlannedNormalHours.findMany({
@@ -152,6 +157,11 @@ export async function listProjectCards() {
   const now = new Date();
 
   const projById = new Map(projects.map(p => [p.id, p]));
+  const dayCollaboratorIdsByReport = new Map();
+  for (const c of collaborators) {
+    if (!dayCollaboratorIdsByReport.has(c.reportId)) dayCollaboratorIdsByReport.set(c.reportId, []);
+    dayCollaboratorIdsByReport.get(c.reportId).push(c.collaboratorId);
+  }
 
   // Agrega por projeto: datas distintas de RDO, colaboradores distintos e o último RDO.
   const agg = new Map();
@@ -171,13 +181,13 @@ export async function listProjectCards() {
     const a = ensure(r.projectId);
     a.dates.add(dateKey(r.reportDate));
     if (!a.lastReport || new Date(r.reportDate) > new Date(a.lastReport.reportDate)) a.lastReport = r;
-    const workedMinutes = (r.daytimeWorkedMinutes || 0) + (r.nighttimeWorkedMinutes || 0);
-    const overtimeMinutes = Math.min(workedMinutes, Math.max(0, r.totalOvertimeMinutes || 0));
-    a.overtimeWorkedMinutes += overtimeMinutes;
-    a.normalWorkedMinutes += Math.max(0, workedMinutes - overtimeMinutes);
-  }
-  for (const c of collaborators) {
-    if (c.report?.projectId) ensure(c.report.projectId).collabs.add(c.collaboratorId);
+    const dayCollaboratorIds = dayCollaboratorIdsByReport.get(r.id) || [];
+    const metrics = reportPersonTimeMetrics(r, dayCollaboratorIds);
+    a.overtimeWorkedMinutes += metrics.overtimeWorkedMinutes;
+    a.normalWorkedMinutes += metrics.normalWorkedMinutes;
+    for (const collaboratorId of reportAllCollaboratorIds(r, dayCollaboratorIds)) {
+      a.collabs.add(collaboratorId);
+    }
   }
 
   const sumHoursByProject = (items) => {

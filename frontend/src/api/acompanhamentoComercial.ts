@@ -522,7 +522,7 @@ export interface ProjectDetail {
   standby: { count: number; minutes: number };
   ultimosDias: Array<{ date: string; status: DayStatus; workedMinutes: number; standbyMinutes: number }>;
   overtimeMinutes: number;
-  colaboradores: Array<{ name: string; role: string; custo: number | null; custoHora: number | null }>;
+  colaboradores: Array<{ name: string; role: string; horas: number; custo: number | null; custoHora: number | null }>;
   equipamentos: Array<{ name: string; days: number; since: string }>;
   plannedScope?: PlannedScope;
   footer: {
