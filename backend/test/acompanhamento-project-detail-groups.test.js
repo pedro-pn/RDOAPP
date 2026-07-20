@@ -66,7 +66,7 @@ function detail(overrides = {}) {
       { date: '2026-07-09', status: 'TRABALHADO', workedMinutes: 480, standbyMinutes: 0 }
     ],
     overtimeMinutes: overrides.overtimeMinutes ?? 120,
-    colaboradores: overrides.colaboradores ?? [{ name: 'Ana', role: 'Operador', custo: 20, custoHora: 4 }],
+    colaboradores: overrides.colaboradores ?? [{ name: 'Ana', role: 'Operador', horas: 5, custo: 20, custoHora: 4 }],
     equipamentos: overrides.equipamentos ?? [{ name: 'Bomba', days: 3, since: '2026-07-07T00:00:00.000Z' }],
     footer: overrides.footer ?? {
       mobilizationDate: '2026-06-30T00:00:00.000Z',
@@ -109,8 +109,8 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
           { date: '2026-07-12', status: 'PARADO', workedMinutes: 0, standbyMinutes: 480 }
         ],
         colaboradores: [
-          { name: 'Ana', role: 'Operador', custo: 30, custoHora: 5 },
-          { name: 'Bruno', role: 'Supervisor', custo: 40, custoHora: 8 }
+          { name: 'Ana', role: 'Operador', horas: 7, custo: 30, custoHora: 5 },
+          { name: 'Bruno', role: 'Supervisor', horas: 4, custo: 40, custoHora: 8 }
         ],
         equipamentos: [
           { name: 'Bomba', days: 5, since: '2026-07-07T00:00:00.000Z' },
@@ -155,7 +155,7 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
     { date: '2026-07-09', status: 'STANDBY', workedMinutes: 840, standbyMinutes: 60 },
     { date: '2026-07-12', status: 'PARADO', workedMinutes: 0, standbyMinutes: 480 }
   ]);
-  assert.deepEqual(result.colaboradores.map(item => [item.name, item.custo]), [['Ana', 50], ['Bruno', 40]]);
+  assert.deepEqual(result.colaboradores.map(item => [item.name, item.horas, item.custo]), [['Ana', 12, 50], ['Bruno', 4, 40]]);
   assert.deepEqual(result.equipamentos.map(item => [item.name, item.days]), [['Bomba', 5], ['Filtro', 2]]);
   assert.equal(result.plannedScope.services[0].weight, 70);
   assert.equal(result.plannedScope.services[0].systems[0].quantity, 150);

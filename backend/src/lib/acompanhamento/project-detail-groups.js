@@ -160,15 +160,19 @@ function combineCollaborators(details) {
       const existing = byPerson.get(key) ?? {
         name,
         role,
+        horas: 0,
         custo: null,
         custoHora: null
       };
+      existing.horas += toNumber(item.horas) ?? 0;
       const cost = toNumber(item.custo);
       if (cost !== null) existing.custo = round2((existing.custo ?? 0) + cost);
       byPerson.set(key, existing);
     }
   }
-  return Array.from(byPerson.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  return Array.from(byPerson.values())
+    .map(item => ({ ...item, horas: round1(item.horas) }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 
 function combineHoursRows(scopes, key) {
