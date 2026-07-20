@@ -39,48 +39,7 @@ import { sortProjects } from '../utils/projectSort';
 import { reportDownloadFileName } from '../utils/reportFileName';
 import { buildReportServicePayload, normalizeServiceType } from '../utils/reportServicePayload';
 import { loadUploadAssetUrl, normalizeLocalUploadUrl } from '../utils/uploadAssetUrl';
-
-const TEXT = {
-  addService: 'Adicionar serviço',
-  approvedAt: 'Aprovado em',
-  approve: 'Aprovar',
-  back: 'Voltar',
-  code: 'Código',
-  collaborators: 'Equipe',
-  description: 'Descrição do dia',
-  details: 'Detalhe do relatório',
-  downloadError: 'Não foi possível baixar o relatório.',
-  finalization: 'Finalização',
-  generalInfo: 'Informações gerais',
-  interval: 'Intervalo',
-  loadError: 'Falha ao carregar relatório.',
-  loading: 'Carregando relatório...',
-  missing: 'Relatório não encontrado.',
-  nightTeam: 'Equipe noturna',
-  noService: 'Nenhum serviço adicionado.',
-  project: 'Projeto',
-  reject: 'Devolver',
-  rejectClient: 'Reprovar',
-  rejectClientPrompt: 'Informe o motivo da reprovação do relatório:',
-  rejectClientRequired: 'Informe um motivo para reprovar o relatório.',
-  rejectPrompt: 'Informe o motivo da devolução do relatório:',
-  rejectRequired: 'Informe um motivo para devolver o relatório.',
-  reportSummary: 'Resumo',
-  reportAudit: 'Auditoria da assinatura',
-  requestSignature: 'Assinar',
-  requestSignatureError: 'Não foi possível solicitar a assinatura.',
-  returnedAt: 'Devolvido em',
-  save: 'Salvar',
-  saved: 'Relatório atualizado.',
-  select: 'Selecione',
-  service: 'Serviço',
-  services: 'Serviços',
-  signedLocked: 'Relatório assinado. Os dados estão bloqueados para edição.',
-  signatureRequested: 'Assinatura solicitada. Abra o link para concluir.',
-  team: 'Equipe',
-  time: 'Horário',
-  updateError: 'Não foi possível atualizar o relatório.'
-};
+import { REPORT_DETAIL_TEXT as TEXT } from './reportDetailText';
 
 const serviceTypeModalOptions = [
   { type: 'limpeza', icon: '🧪', name: 'Limpeza química' },
