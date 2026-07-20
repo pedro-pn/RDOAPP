@@ -23,6 +23,7 @@ import { PrivacyNotice } from '../components/privacy/PrivacyNotice';
 import { useToast } from '../components/ui/ToastContext';
 import { SIGNATURE_RDO_NOTICE_VERSION } from '../constants/privacy';
 import { useReportDetailBootstrap } from '../hooks/useBootstrap';
+import { pageScrollRestoreStateFromNavigation } from '../hooks/usePageScrollRestoration';
 import { useReport, useReportAudit, useReportMutations } from '../hooks/useReports';
 import { Shell } from '../layout/Shell';
 import { TopBar } from '../layout/TopBar';
@@ -695,6 +696,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   const location = useLocation();
   const { user } = useAuth();
   const reportBackPath = backPathFromState(location.state, roleHomePath(user?.role));
+  const reportBackState = pageScrollRestoreStateFromNavigation(location.state);
   const bootstrapQuery = useReportDetailBootstrap(report.id);
   const reportMutations = useReportMutations();
   const showToast = useToast();
@@ -846,7 +848,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
         }) || {}
       });
       if (showSuccess) showToast(TEXT.saved, 'success');
-      if (navigateAfter) navigate(reportBackPath, { replace: true });
+      if (navigateAfter) navigate(reportBackPath, { replace: true, state: reportBackState });
       return true;
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Não foi possível atualizar os dados operacionais.', 'error');
@@ -957,7 +959,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
       // Relatório salvo: efetiva a exclusão global das fotos removidas no editor.
       await flushStagedUploadDeletions();
       if (showSuccess) showToast(TEXT.saved, 'success');
-      if (navigateAfter) navigate(reportBackPath, { replace: true });
+      if (navigateAfter) navigate(reportBackPath, { replace: true, state: reportBackState });
       return true;
     } catch (err) {
       showToast(err instanceof Error ? err.message : TEXT.updateError, 'error');
@@ -991,7 +993,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     if (!saved) return;
     const updated = await handleStatus(status, reviewNotes);
     if (updated && status === 'APPROVED' && user?.role === 'MANAGER') {
-      navigate(reportBackPath, { replace: true });
+      navigate(reportBackPath, { replace: true, state: reportBackState });
     }
   }
 
@@ -2018,6 +2020,7 @@ export function ReportDetailPage() {
   const { user, logout } = useAuth();
   const reportQuery = useReport(id, !!id);
   const reportBackPath = backPathFromState(location.state, roleHomePath(user?.role));
+  const reportBackState = pageScrollRestoreStateFromNavigation(location.state);
 
   async function handleLogout() {
     await logout();
@@ -2045,7 +2048,7 @@ export function ReportDetailPage() {
         subtitle={report ? `${report.reportType}${report.sequenceNumber ? ` ${report.sequenceNumber}` : ''}` : user?.name}
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate(reportBackPath, { replace: true })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate(reportBackPath, { replace: true, state: reportBackState })}>
               {TEXT.back}
             </button>
             <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>

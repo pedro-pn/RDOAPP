@@ -41,6 +41,7 @@ export type NavigationLocation = {
   pathname: string;
   search?: string;
   hash?: string;
+  state?: unknown;
 };
 
 function isClientAccount(user: Pick<AuthUser, 'accountType' | 'role'> | null | undefined) {

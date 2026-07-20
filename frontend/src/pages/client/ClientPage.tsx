@@ -19,6 +19,7 @@ import { useAccumulatedReportsPage, useReportMutations } from '../../hooks/useRe
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { usePersistentSearch } from '../../hooks/usePersistentSearch';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
+import { currentPageScrollState, saveCurrentPageScroll } from '../../hooks/usePageScrollRestoration';
 import { InfiniteScrollSentinel } from '../../components/ui/InfiniteScrollSentinel';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
@@ -533,6 +534,16 @@ export function ClientPage() {
     }
   }
 
+  function handleOpenReportDetail(report: ReportSummary) {
+    saveCurrentPageScroll(location, user?.id || user?.username || 'anonymous');
+    navigate(rdoReportDetailPath(user, report.id), {
+      state: {
+        ...(navigationStateFromLocation(location) || {}),
+        ...currentPageScrollState()
+      }
+    });
+  }
+
   async function handleOpenSurvey(project: Project) {
     try {
       const link = await getClientSurveyLink(project.id);
@@ -752,7 +763,7 @@ export function ClientPage() {
         className="client-report-card report-card-clickable"
         key={report.id}
         data-client-report-id={report.id}
-        onClick={() => navigate(rdoReportDetailPath(user, report.id), { state: navigationStateFromLocation(location) })}
+        onClick={() => handleOpenReportDetail(report)}
       >
         <div className="client-report-header">
           <div className="client-report-main">

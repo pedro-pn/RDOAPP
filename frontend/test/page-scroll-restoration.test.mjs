@@ -18,7 +18,7 @@ async function loadPageScrollRestoration() {
 }
 
 test('page scroll storage key is scoped by user and full route', async () => {
-  const { pageScrollStorageKey } = await loadPageScrollRestoration();
+  const { pageScrollRestoreStateFromNavigation, pageScrollStorageKey } = await loadPageScrollRestoration();
   const location = { pathname: '/rdo/gestor', search: '?tab=arquivados', hash: '#rel-20' };
 
   assert.equal(
@@ -26,4 +26,6 @@ test('page scroll storage key is scoped by user and full route', async () => {
     'filtrovali:page-scroll:manager-1:/rdo/gestor?tab=arquivados#rel-20'
   );
   assert.notEqual(pageScrollStorageKey(location, 'manager-1'), pageScrollStorageKey(location, 'manager-2'));
+  assert.deepEqual(pageScrollRestoreStateFromNavigation({ restoreScrollTop: 820 }), { restoreScrollTop: 820 });
+  assert.equal(pageScrollRestoreStateFromNavigation({ restoreScrollTop: 0 }), undefined);
 });
