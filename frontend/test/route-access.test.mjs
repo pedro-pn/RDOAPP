@@ -418,10 +418,20 @@ test('preferred entry path keeps client accounts inside the reports module', asy
 });
 
 test('account page back path prefers the route that opened account settings', async () => {
-  const { accountBackPath, accountPageStateFromPath } = await loadModuleNavigation();
+  const { accountBackPath, accountPageStateFromPath, backPathFromState, navigationStateFromLocation, pathFromLocation } = await loadModuleNavigation();
 
   assert.deepEqual(accountPageStateFromPath('/admin/accounts'), { from: '/admin/accounts' });
+  assert.equal(pathFromLocation({ pathname: '/rdo/gestor', search: '?tab=aprovados', hash: '#rdo-10' }), '/rdo/gestor?tab=aprovados#rdo-10');
+  assert.deepEqual(
+    navigationStateFromLocation({ pathname: '/rdo/gestor', search: '?tab=arquivados', hash: '' }),
+    { from: '/rdo/gestor?tab=arquivados' }
+  );
+  assert.deepEqual(accountPageStateFromPath({ pathname: '/estoque', search: '?tab=itens', hash: '#filtro' }), { from: '/estoque?tab=itens#filtro' });
   assert.equal(accountBackPath(adminWithEpiOnly, { from: '/admin/accounts' }, '/rdo/gestor'), '/admin/accounts');
+  assert.equal(backPathFromState({ from: { pathname: '/rdo/coordenador', search: '?tab=approved', hash: '#rel' } }, '/rdo/coordenador'), '/rdo/coordenador?tab=approved#rel');
+  assert.equal(backPathFromState({ from: 'https://example.com' }, '/rdo/gestor'), '/rdo/gestor');
+  assert.equal(backPathFromState({ from: '/conta?tab=perfil' }, '/rdo/gestor'), '/rdo/gestor');
   assert.equal(accountBackPath(adminWithEpiOnly, undefined, '/rdo/gestor'), '/rdo/gestor');
   assert.equal(accountPageStateFromPath('/conta'), undefined);
+  assert.equal(accountPageStateFromPath('/conta?tab=perfil'), undefined);
 });

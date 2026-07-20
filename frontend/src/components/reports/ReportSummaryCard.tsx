@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthContext';
+import { navigationStateFromLocation } from '../../auth/moduleNavigation';
 import { rdoReportDetailPath } from '../../auth/rolePath';
 import type { ReportSummary } from '../../types/domain';
 import { formatDateOnlyPtBr } from '../../utils/dateOnly';
@@ -158,6 +159,7 @@ export function ReportSummaryCard({
   leadingControl?: ReactNode;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const status = report.status === 'PENDING' && report.reviewNotes === 'Editado pelo colaborador'
     ? { label: 'Editado', className: 'status-pending' }
@@ -176,7 +178,7 @@ export function ReportSummaryCard({
     && (report.arrivalTime !== '00:00' || report.departureTime !== '00:00');
 
   function handleOpenDetail() {
-    navigate(rdoReportDetailPath(user, report.id));
+    navigate(rdoReportDetailPath(user, report.id), { state: navigationStateFromLocation(location) });
   }
 
   return (

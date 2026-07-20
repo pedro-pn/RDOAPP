@@ -1,4 +1,4 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿import { useLocation, useNavigate } from 'react-router-dom';
 
 
 import { useAuth } from '../../auth/AuthContext';
@@ -90,6 +90,7 @@ function draftDateLabel(draft: ReportDraft) {
 export function HomePage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const draftsQuery = useDrafts();
   const reportsQuery = useReports({ mine: true, summary: true });
   const draftMutations = useDraftMutations();
@@ -146,7 +147,7 @@ export function HomePage() {
         showLogo
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button

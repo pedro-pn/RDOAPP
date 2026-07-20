@@ -37,6 +37,12 @@ function safeLocalStorageSet(key: string, value: string) {
   }
 }
 
+export type NavigationLocation = {
+  pathname: string;
+  search?: string;
+  hash?: string;
+};
+
 function isClientAccount(user: Pick<AuthUser, 'accountType' | 'role'> | null | undefined) {
   return user?.accountType === 'CLIENT' || user?.role === 'CLIENT';
 }
@@ -148,12 +154,43 @@ export function preferredEntryPath(user: AuthUser | null | undefined) {
   return modules[0]?.path || '/modulos';
 }
 
-export function accountPageStateFromPath(pathname: string) {
-  const path = pathname || '/';
-  return path === '/conta' ? undefined : { from: path };
+export function pathFromLocation(location: NavigationLocation) {
+  return `${location.pathname || '/'}${location.search || ''}${location.hash || ''}`;
+}
+
+function pathFromStateValue(value: unknown) {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && 'pathname' in value) {
+    return pathFromLocation(value as NavigationLocation);
+  }
+  return '';
+}
+
+function pathWithoutSearchAndHash(path: string) {
+  return path.split('#')[0].split('?')[0] || '/';
+}
+
+function isAccountSettingsPath(path: string) {
+  return pathWithoutSearchAndHash(path) === '/conta';
+}
+
+export function navigationStateFromLocation(location: NavigationLocation) {
+  const from = pathFromLocation(location);
+  return isAccountSettingsPath(from) ? undefined : { from };
+}
+
+export function backPathFromState(state: unknown, fallbackPath: string) {
+  const from = state && typeof state === 'object' && 'from' in state
+    ? pathFromStateValue((state as { from?: unknown }).from)
+    : '';
+  return from.startsWith('/') && !isAccountSettingsPath(from) ? from : fallbackPath;
+}
+
+export function accountPageStateFromPath(pathname: string | NavigationLocation) {
+  const path = typeof pathname === 'string' ? pathname || '/' : pathFromLocation(pathname);
+  return isAccountSettingsPath(path) ? undefined : { from: path };
 }
 
 export function accountBackPath(user: AuthUser | null | undefined, state: unknown, fallbackPath: string) {
-  const from = state && typeof state === 'object' && 'from' in state ? (state as { from?: unknown }).from : null;
-  return typeof from === 'string' && from && from !== '/conta' ? from : fallbackPath || preferredEntryPath(user);
+  return backPathFromState(state, fallbackPath || preferredEntryPath(user));
 }
