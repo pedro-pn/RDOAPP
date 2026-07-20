@@ -187,6 +187,10 @@ export function backPathFromState(state: unknown, fallbackPath: string) {
   return from.startsWith('/') && !isAccountSettingsPath(from) ? from : fallbackPath;
 }
 
+export function hasBackPathInState(state: unknown) {
+  return backPathFromState(state, '') !== '';
+}
+
 export function accountPageStateFromPath(pathname: string | NavigationLocation) {
   const path = typeof pathname === 'string' ? pathname || '/' : pathFromLocation(pathname);
   return isAccountSettingsPath(path) ? undefined : { from: path };

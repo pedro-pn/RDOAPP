@@ -5,7 +5,7 @@ import { listDdsThemes } from '../api/ddsThemes';
 import { downloadReportDocx, downloadReportPdf } from '../api/reports';
 
 import { useAuth } from '../auth/AuthContext';
-import { accountPageStateFromPath, backPathFromState } from '../auth/moduleNavigation';
+import { accountPageStateFromPath, backPathFromState, hasBackPathInState } from '../auth/moduleNavigation';
 import { roleHomePath } from '../auth/rolePath';
 import type { UploadedFile } from '../api/uploads';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../components/reports/ManualReportOperationalFields';
@@ -2021,10 +2021,19 @@ export function ReportDetailPage() {
   const reportQuery = useReport(id, !!id);
   const reportBackPath = backPathFromState(location.state, roleHomePath(user?.role));
   const reportBackState = pageScrollRestoreStateFromNavigation(location.state);
+  const canUseHistoryBack = hasBackPathInState(location.state);
 
   async function handleLogout() {
     await logout();
     navigate('/', { replace: true });
+  }
+
+  function handleBack() {
+    if (canUseHistoryBack) {
+      navigate(-1);
+      return;
+    }
+    navigate(reportBackPath, { replace: true, state: reportBackState });
   }
 
   const report = reportQuery.data;
@@ -2048,7 +2057,7 @@ export function ReportDetailPage() {
         subtitle={report ? `${report.reportType}${report.sequenceNumber ? ` ${report.sequenceNumber}` : ''}` : user?.name}
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate(reportBackPath, { replace: true, state: reportBackState })}>
+            <button className="topbar-chip" type="button" onClick={handleBack}>
               {TEXT.back}
             </button>
             <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>

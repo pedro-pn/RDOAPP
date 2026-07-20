@@ -44,10 +44,31 @@ function normalizeScrollTop(value: unknown) {
   return Number.isFinite(scrollTop) && scrollTop > 0 ? Math.round(scrollTop) : 0;
 }
 
+function pageScrollContainer() {
+  if (typeof document === 'undefined') return null;
+  return document.querySelector<HTMLElement>('.page-scroll');
+}
+
+function documentScrollContainer() {
+  if (typeof document === 'undefined') return null;
+  return (document.scrollingElement as HTMLElement | null) || document.documentElement || document.body;
+}
+
+function currentWindowScrollTop() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return 0;
+  return normalizeScrollTop(
+    Math.max(
+      window.scrollY || 0,
+      documentScrollContainer()?.scrollTop || 0,
+      document.documentElement?.scrollTop || 0,
+      document.body?.scrollTop || 0
+    )
+  );
+}
+
 function currentPageScrollTop() {
-  if (typeof document === 'undefined') return 0;
-  const container = document.querySelector<HTMLElement>('.page-scroll');
-  return container ? normalizeScrollTop(container.scrollTop) : 0;
+  const container = pageScrollContainer();
+  return normalizeScrollTop(Math.max(container?.scrollTop || 0, currentWindowScrollTop()));
 }
 
 function scrollTopFromState(state: unknown) {
@@ -75,7 +96,21 @@ export function pageScrollRestoreStateFromNavigation(state: unknown) {
   return scrollTop > 0 ? { [RESTORE_SCROLL_STATE_KEY]: scrollTop } : undefined;
 }
 
-export function restorePageScrollTop(container: HTMLElement, top: number) {
+function applyPageScrollTop(container: HTMLElement | null, top: number) {
+  container?.scrollTo?.({ top, left: 0, behavior: 'auto' });
+  if (container) container.scrollTop = top;
+
+  if (typeof document !== 'undefined') {
+    const documentContainer = documentScrollContainer();
+    documentContainer?.scrollTo?.({ top, left: 0, behavior: 'auto' });
+    if (documentContainer) documentContainer.scrollTop = top;
+    if (document.body) document.body.scrollTop = top;
+  }
+
+  if (typeof window !== 'undefined') window.scrollTo({ top, left: 0, behavior: 'auto' });
+}
+
+export function restorePageScrollTop(container: HTMLElement | null, top: number) {
   if (typeof window === 'undefined') return () => undefined;
 
   let attempts = 0;
@@ -91,13 +126,13 @@ export function restorePageScrollTop(container: HTMLElement, top: number) {
 
   const apply = () => {
     if (cancelled) return;
-    container.scrollTop = top;
+    applyPageScrollTop(container, top);
     attempts += 1;
-    if (attempts < RESTORE_MAX_FRAMES && Math.abs(container.scrollTop - top) > 2) {
+    if (attempts < RESTORE_MAX_FRAMES && Math.abs(currentPageScrollTop() - top) > 2) {
       frame = window.requestAnimationFrame(apply);
       return;
     }
-    if (Math.abs(container.scrollTop - top) <= 2) stopObserver();
+    if (Math.abs(currentPageScrollTop() - top) <= 2) stopObserver();
   };
 
   const scheduleApply = () => {
@@ -111,7 +146,8 @@ export function restorePageScrollTop(container: HTMLElement, top: number) {
 
   if (typeof MutationObserver !== 'undefined') {
     observer = new MutationObserver(scheduleApply);
-    observer.observe(container, { childList: true, subtree: true });
+    const observerTarget = container || document.body;
+    if (observerTarget) observer.observe(observerTarget, { childList: true, subtree: true });
     timeout = window.setTimeout(stopObserver, RESTORE_OBSERVER_MS);
   }
 
@@ -143,8 +179,9 @@ export function usePageScrollRestoration({
 
     const setup = () => {
       if (cancelled) return;
-      const container = document.querySelector<HTMLElement>('.page-scroll');
-      if (!container) {
+      const container = pageScrollContainer();
+      const documentContainer = documentScrollContainer();
+      if (!container && !documentContainer) {
         setupAttempts += 1;
         if (setupAttempts < SETUP_MAX_FRAMES) {
           setupFrame = window.requestAnimationFrame(setup);
@@ -152,7 +189,7 @@ export function usePageScrollRestoration({
         return;
       }
 
-      const saveScroll = () => writeScrollTop(storageKey, container.scrollTop);
+      const saveScroll = () => writeScrollTop(storageKey, currentPageScrollTop());
       const scheduleSave = () => {
         if (saveFrame) return;
         saveFrame = window.requestAnimationFrame(() => {
@@ -161,12 +198,14 @@ export function usePageScrollRestoration({
         });
       };
 
-      container.addEventListener('scroll', scheduleSave, { passive: true });
+      container?.addEventListener('scroll', scheduleSave, { passive: true });
+      window.addEventListener('scroll', scheduleSave, { passive: true });
       cleanupScrollListener = () => {
         if (saveFrame) window.cancelAnimationFrame(saveFrame);
         saveFrame = 0;
         saveScroll();
-        container.removeEventListener('scroll', scheduleSave);
+        container?.removeEventListener('scroll', scheduleSave);
+        window.removeEventListener('scroll', scheduleSave);
       };
 
       const stored = restoreScrollTop || readStoredScrollTop(storageKey);
