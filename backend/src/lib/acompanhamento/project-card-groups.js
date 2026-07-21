@@ -337,6 +337,7 @@ function buildGroupCard(group, memberCardsByProjectId) {
     laborCost: sumValues(visibleCards, card => card.laborCost),
     laborCostBase: sumValues(visibleCards, card => card.laborCostBase),
     stockCost: sumValues(visibleCards, card => card.stockCost, { nullWhenEmpty: false }),
+    manualCost: sumValues(visibleCards, card => card.manualCost, { nullWhenEmpty: false }),
     equipment: combineEquipment(visibleCards),
     alerts: combineAlerts(visibleCards)
   };

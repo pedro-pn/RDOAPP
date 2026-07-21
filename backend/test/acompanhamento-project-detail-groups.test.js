@@ -35,6 +35,7 @@ function detail(overrides = {}) {
       pago: 30,
       previstoPagar: 10,
       estoque: 10,
+      manual: 0,
       previsto: 100,
       pct: 50
     },
@@ -60,6 +61,7 @@ function detail(overrides = {}) {
       roleCounts: [{ roleName: 'Operador', collaboratorCount: 1, usedHours: 10, pctOfPlannedTotal: 50 }]
     },
     maioresGastos: overrides.maioresGastos ?? [{ categoria: 'Quimicos', total: 30 }],
+    manualCosts: overrides.manualCosts ?? [],
     avancoPct: overrides.avancoPct ?? 50,
     progressHistory: overrides.progressHistory ?? [],
     standby: overrides.standby ?? { count: 1, minutes: 60 },
@@ -87,7 +89,7 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
         code: '1001',
         avancoPct: 25,
         progressHistory: [{ date: '2026-07-01', progressPct: 25 }],
-        consumo: { gasto: 40, omie: 30, pago: 20, previstoPagar: 10, estoque: 10, previsto: 100, pct: 40 }
+        consumo: { gasto: 40, omie: 30, pago: 20, previstoPagar: 10, estoque: 10, manual: 0, previsto: 100, pct: 40 }
       }),
       plannedScope: {
         services: [{ serviceType: 'FLUSHING', weight: 60, systems: [{ systemType: 'OLEO', quantity: 100, unit: 'L' }] }],
@@ -107,12 +109,13 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
           { date: '2026-07-01', progressPct: 50 },
           { date: '2026-07-08', progressPct: 75 }
         ],
-        consumo: { gasto: 160, omie: 120, pago: 80, previstoPagar: 40, estoque: 40, previsto: 300, pct: 53 },
+        consumo: { gasto: 160, omie: 120, pago: 80, previstoPagar: 40, estoque: 30, manual: 10, previsto: 300, pct: 53 },
         faturamento: { previsto: 300, realizado: 220, notas: 2 },
         diasCorridos: { elapsed: 6, planned: 20, pct: 30 },
         diasTrabalhados: { worked: 4, planned: 12, pct: 33 },
         maoDeObra: { custo: 30, custoBase: 25, horas: 7, periodStart: '2026-07-02T00:00:00.000Z', periodEnd: '2026-08-01T00:00:00.000Z' },
-        maioresGastos: [{ categoria: 'Quimicos', total: 50 }, { categoria: 'Filtros', total: 20 }],
+        maioresGastos: [{ categoria: 'Quimicos', total: 50 }, { categoria: 'Filtros', total: 20 }, { categoria: 'Manual: Cliente pagou direto', total: 10 }],
+        manualCosts: [{ id: 'm1', projectId: 'p2', projectCode: '1002', description: 'Cliente pagou direto', amount: 10 }],
         standby: { count: 2, minutes: 90 },
         ultimosDias: [
           { date: '2026-07-09', status: 'STANDBY', workedMinutes: 360, standbyMinutes: 60 },
@@ -149,6 +152,7 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
   assert.deepEqual(result.diasCorridos, { elapsed: 10, planned: 30, pct: 33 });
   assert.deepEqual(result.diasTrabalhados, { worked: 7, planned: 20, pct: 35 });
   assert.equal(result.consumo.gasto, 200);
+  assert.equal(result.consumo.manual, 10);
   assert.equal(result.consumo.previsto, 400);
   assert.equal(result.faturamento.previsto, 420);
   assert.equal(result.faturamento.realizado, 300);
@@ -162,8 +166,10 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
   ]);
   assert.deepEqual(result.maioresGastos, [
     { categoria: 'Quimicos', total: 80 },
-    { categoria: 'Filtros', total: 20 }
+    { categoria: 'Filtros', total: 20 },
+    { categoria: 'Manual: Cliente pagou direto', total: 10 }
   ]);
+  assert.deepEqual(result.manualCosts, [{ id: 'm1', projectId: 'p2', projectCode: '1002', description: 'Cliente pagou direto', amount: 10 }]);
   assert.deepEqual(result.standby, { count: 3, minutes: 150 });
   assert.deepEqual(result.ultimosDias, [
     { date: '2026-07-09', status: 'STANDBY', workedMinutes: 840, standbyMinutes: 60 },

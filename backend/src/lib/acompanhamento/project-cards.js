@@ -287,6 +287,7 @@ export async function listProjectCards() {
       laborCost,
       laborCostBase: laborByProject.get(row.projectId)?.laborCostBase ?? null,
       stockCost,
+      manualCost: toNum(row.manualCost) ?? 0,
       equipment, // equipamentos (módulo Equipamentos) em obra: { name, days, since }
       alerts
     };

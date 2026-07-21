@@ -441,6 +441,7 @@ model Project {
   plannedOvertime        ProjectPlannedOvertime[]
   stockMovements         StockMovement[]
   manualProgressHistory  ProjectManualProgressHistory[]
+  manualCosts            ProjectManualCost[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
 
   @@index([deletedAt])
@@ -457,6 +458,24 @@ model ProjectManualProgressHistory {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, recordedAt])
+}
+
+model ProjectManualCost {
+  id              String    @id @default(cuid())
+  projectId       String
+  description     String
+  amount          Decimal   @db.Decimal(12, 2)
+  costDate        DateTime?
+  note            String?
+  createdByUserId String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User?     @relation("ProjectManualCostCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, deletedAt])
+  @@index([createdByUserId])
 }
 
 model AcompanhamentoMissionGroup {
@@ -1074,6 +1093,7 @@ model User {
   accessImports                       AccessImport[]                      @relation("AccessImportUser")
   selectedBudgets                     ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
   stockMovements                      StockMovement[]                     @relation("StockMovementCreator")
+  projectManualCosts                  ProjectManualCost[]                 @relation("ProjectManualCostCreator")
   createdAcompanhamentoMissionGroups  AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
   dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupDissolvedBy")
 

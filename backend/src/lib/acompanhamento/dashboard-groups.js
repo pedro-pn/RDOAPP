@@ -87,6 +87,7 @@ function buildGroupRow(group, rowsByProjectId) {
     realizedCost,
     realizedPaid: sumValues(visibleRows, row => row.realizedPaid),
     stockCost: sumValues(visibleRows, row => row.stockCost),
+    manualCost: sumValues(visibleRows, row => row.manualCost),
     presumedProfitTaxes: combinePresumedProfitTaxes(visibleRows),
     progressPct: progress.progressPct,
     progressMethod: progress.progressMethod,

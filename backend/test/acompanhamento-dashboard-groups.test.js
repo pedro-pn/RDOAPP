@@ -28,6 +28,7 @@ function row(overrides = {}) {
     realizedCost: overrides.realizedCost ?? 30,
     realizedPaid: overrides.realizedPaid ?? 25,
     stockCost: overrides.stockCost ?? 5,
+    manualCost: overrides.manualCost ?? 3,
     presumedProfitTaxes: overrides.presumedProfitTaxes ?? { outOfInvoiceTaxTotal: 4, invoiceTaxTotal: 2, basisSource: 'EXPECTED_SALE' },
     progressPct: overrides.progressPct ?? 50,
     progressMethod: overrides.progressMethod ?? 'RDO',
@@ -69,6 +70,7 @@ test('groupDashboardRows sums components and recalculates expected margin', () =
       expectedProfit: 25,
       plannedTotalCost: 75,
       realizedCost: 20,
+      manualCost: 5,
       components: { he: 10, diaria: 5 }
     }),
     row({
@@ -77,6 +79,7 @@ test('groupDashboardRows sums components and recalculates expected margin', () =
       expectedProfit: 75,
       plannedTotalCost: 225,
       realizedCost: 100,
+      manualCost: 15,
       components: { he: 20, standby: 15 }
     })
   ], [group()]);
@@ -87,6 +90,7 @@ test('groupDashboardRows sums components and recalculates expected margin', () =
   assert.equal(grouped.expectedMargin, 25);
   assert.equal(grouped.plannedTotalCost, 300);
   assert.equal(grouped.realizedCost, 120);
+  assert.equal(grouped.manualCost, 20);
   assert.deepEqual(grouped.components, { he: 30, diaria: 5, standby: 15 });
 });
 

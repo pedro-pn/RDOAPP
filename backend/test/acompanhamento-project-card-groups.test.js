@@ -44,6 +44,7 @@ function card(overrides = {}) {
     laborCost: overrides.laborCost ?? 20,
     laborCostBase: overrides.laborCostBase ?? 18,
     stockCost: overrides.stockCost ?? 7,
+    manualCost: overrides.manualCost ?? 3,
     equipment: overrides.equipment ?? [],
     alerts: overrides.alerts ?? []
   };
@@ -82,6 +83,7 @@ test('groupProjectCards sums money, recalculates ratios, deduplicates collaborat
       code: '1001',
       plannedCost: 100,
       realizedCost: 25,
+      manualCost: 5,
       invoicedRevenue: 80,
       invoiceCount: 1,
       workedDays: 2,
@@ -94,6 +96,7 @@ test('groupProjectCards sums money, recalculates ratios, deduplicates collaborat
       code: '1002',
       plannedCost: 300,
       realizedCost: 175,
+      manualCost: 15,
       invoicedRevenue: 220,
       invoiceCount: 2,
       workedDays: 3,
@@ -106,6 +109,7 @@ test('groupProjectCards sums money, recalculates ratios, deduplicates collaborat
   const grouped = result[0];
   assert.equal(grouped.plannedCost, 400);
   assert.equal(grouped.realizedCost, 200);
+  assert.equal(grouped.manualCost, 20);
   assert.equal(grouped.costConsumedPct, 50);
   assert.equal(grouped.invoicedRevenue, 300);
   assert.equal(grouped.invoiceCount, 3);

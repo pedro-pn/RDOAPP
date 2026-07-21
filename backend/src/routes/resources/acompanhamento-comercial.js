@@ -23,6 +23,7 @@ import {
   setProjectBudgetRevision,
   setProjectSchedule
 } from '../../lib/acompanhamento/access-import.js';
+import { createManualProjectCost, deleteManualProjectCost } from '../../lib/acompanhamento/manual-costs.js';
 import { getPlannedScope, setPlannedScope } from '../../lib/acompanhamento/planned-scope.js';
 import { computeProjectProgress } from '../../lib/acompanhamento/avanco.js';
 import { buildOmieCostCategoryWhere } from '../../lib/acompanhamento/cost-categories.js';
@@ -368,6 +369,14 @@ const scheduleSchema = z.object({
   laborCollaboratorIds: z.array(z.string()).optional()
 });
 
+const manualCostSchema = z.object({
+  description: z.string().trim().min(1).max(120),
+  amount: z.number().positive().max(999999999.99),
+  costDate: z.string().trim().nullable().optional()
+    .refine(value => !value || !Number.isNaN(new Date(value).getTime()), 'Data do custo manual inválida.'),
+  note: z.string().trim().max(500).nullable().optional()
+});
+
 router.patch(
   '/projetos/:projectId/cronograma',
   requireAuth,
@@ -379,6 +388,35 @@ router.patch(
       res.json({ ok: true });
     } catch (error) {
       res.status(400).json({ error: error.message });
+    }
+  })
+);
+
+router.post(
+  '/projetos/:projectId/custos-manuais',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const data = manualCostSchema.parse(req.body || {});
+    try {
+      const cost = await createManualProjectCost(req.params.projectId, data, { userId: req.auth?.user?.id ?? null });
+      res.status(201).json(cost);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  })
+);
+
+router.delete(
+  '/projetos/:projectId/custos-manuais/:costId',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    try {
+      const result = await deleteManualProjectCost(req.params.projectId, req.params.costId);
+      res.json(result);
+    } catch (error) {
+      res.status(404).json({ error: error.message });
     }
   })
 );
