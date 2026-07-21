@@ -262,7 +262,7 @@ model ClientSegment {
   updatedAt DateTime @updatedAt
 }
 
-// Motor de custo (planilhas operador/auxiliar): perfil + parâmetros versionados.
+// Motor de custo de colaborador: perfil + parâmetros versionados.
 // Um perfil pode ser vinculado a um cargo (JobRole) — nesse caso é o custo daquele cargo.
 model CostProfile {
   id            String             @id @default(cuid())

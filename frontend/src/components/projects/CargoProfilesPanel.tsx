@@ -41,13 +41,13 @@ function modelLabel(key: string | undefined, models: CostProfile[]) {
   if (!model) return key || '—';
   return `Modelo ${modelNumber(model.key, models.indexOf(model) + 1)} (${model.label})`;
 }
-function moneyParam(entry: CargoCostHistoryEntry, key: 'salarioBase' | 'insalubridade') {
+function moneyParam(entry: CargoCostHistoryEntry, key: 'salarioBase') {
   const value = entry.params?.[key];
   return typeof value === 'number' ? brl(value) : '—';
 }
 
-// Custo por cargo: o cargo herda os adicionais do modelo escolhido e só define salário base e
-// insalubridade. Cada alteração cria uma versão com data de vigência.
+// Custo por cargo: o cargo herda os adicionais do modelo escolhido e só define salário base.
+// Cada alteração cria uma versão com data de vigência.
 export function CargoProfilesPanel() {
   const queryClient = useQueryClient();
   const showToast = useToast();
@@ -66,7 +66,6 @@ export function CargoProfilesPanel() {
   const [selectedId, setSelectedId] = useState('');
   const [baseModel, setBaseModel] = useState('');
   const [salarioBase, setSalarioBase] = useState('');
-  const [insalubridade, setInsalubridade] = useState('');
   const [effectiveDate, setEffectiveDate] = useState(todayKey());
 
   const selectedCargo = (cargos ?? []).find(c => c.jobRoleId === selectedId) ?? null;
@@ -84,15 +83,13 @@ export function CargoProfilesPanel() {
     const model = models.find(m => m.key === modelKey) ?? models[0];
     setBaseModel(model.key);
     setSalarioBase(String(params?.salarioBase ?? num(model.params, 'salarioBase')));
-    setInsalubridade(String(params?.insalubridade ?? num(model.params, 'insalubridade')));
     setEffectiveDate(todayKey());
   }, [cargos, selectedId, models]);
 
   const saveMutation = useMutation({
     mutationFn: () => saveCargoCostParams(selectedId, {
       baseModel,
-      salarioBase: Number(salarioBase) || 0,
-      insalubridade: Number(insalubridade) || 0
+      salarioBase: Number(salarioBase) || 0
     }, effectiveDate),
     onSuccess: () => {
       showToast('Custo do cargo salvo com nova vigência.');
@@ -115,9 +112,9 @@ export function CargoProfilesPanel() {
       <div className="sec">Custo por cargo</div>
       <p className="placeholder-copy" style={{ margin: '4px 0 12px' }}>
         Cada cargo é calculado com base em um <strong>modelo</strong> (planilha base) e define apenas o
-        <strong> salário base</strong> e a <strong>insalubridade</strong>. Os demais parâmetros
-        (adicionais, FGTS, multa rescisória, benefícios) vêm do modelo vigente na data calculada. Ao salvar, informe
-        a data a partir da qual os novos valores passam a valer. A periculosidade é integral (setor operacional).
+        <strong> salário base</strong>. Os demais parâmetros (salário mínimo, adicionais, FGTS, multa rescisória,
+        benefícios) vêm do modelo vigente na data calculada. Ao salvar, informe a data a partir da qual os novos
+        valores passam a valer. A insalubridade é calculada por salário mínimo × 20%.
       </p>
       {selectedCargo?.effectiveDate ? (
         <p className="placeholder-copy" style={{ margin: '-6px 0 12px' }}>
@@ -149,10 +146,6 @@ export function CargoProfilesPanel() {
           <input id="cargo-salario" type="number" step="any" disabled={!isManager} value={salarioBase} onChange={e => setSalarioBase(e.target.value)} />
         </div>
         <div className="field-group">
-          <label htmlFor="cargo-insalub">Insalubridade (R$)</label>
-          <input id="cargo-insalub" type="number" step="any" disabled={!isManager} value={insalubridade} onChange={e => setInsalubridade(e.target.value)} />
-        </div>
-        <div className="field-group">
           <label htmlFor="cargo-effective-date">Vigente a partir de</label>
           <input id="cargo-effective-date" type="date" required disabled={!isManager} value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} />
         </div>
@@ -176,7 +169,6 @@ export function CargoProfilesPanel() {
                   <th>Vigente desde</th>
                   <th>Modelo</th>
                   <th>Salário base</th>
-                  <th>Insalubridade</th>
                   <th>Salvo em</th>
                 </tr>
               </thead>
@@ -186,7 +178,6 @@ export function CargoProfilesPanel() {
                     <td>{fmtDate(entry.effectiveDate)}</td>
                     <td>{modelLabel(entry.params?.baseModel, models)}</td>
                     <td>{moneyParam(entry, 'salarioBase')}</td>
-                    <td>{moneyParam(entry, 'insalubridade')}</td>
                     <td>{fmtDateTime(entry.updatedAt)}</td>
                   </tr>
                 ))}
@@ -202,6 +193,7 @@ export function CargoProfilesPanel() {
           <div className="det-row"><span className="det-label">Periculosidade</span><span className="det-val">{frac(mp, 'periculosidadePct')} (integral)</span></div>
           <div className="det-row"><span className="det-label">Produtividade / Gratificação</span><span className="det-val">{frac(mp, 'produtividadePct')}</span></div>
           <div className="det-row"><span className="det-label">Transferência / Viagem</span><span className="det-val">{frac(mp, 'transferenciaPct')}</span></div>
+          <div className="det-row"><span className="det-label">Confinamento / Offshore</span><span className="det-val">{frac(mp, 'confinamentoPct')}</span></div>
           <div className="det-row"><span className="det-label">HE 70% / 100%</span><span className="det-val">{frac(mp, 'he70Pct')} / {frac(mp, 'he100Pct')}</span></div>
           <div className="det-row"><span className="det-label">FGTS</span><span className="det-val">{frac(mp, 'fgtsPct')}</span></div>
           <div className="det-row"><span className="det-label">Multa rescisória</span><span className="det-val">{frac(mp, 'multaPct')}</span></div>

@@ -30,6 +30,7 @@ const PERCENT_PARAM_KEYS = new Set([
   'periculosidadePct',
   'produtividadePct',
   'transferenciaPct',
+  'confinamentoPct',
   'he70Pct',
   'he100Pct',
   'fgtsPct',
@@ -43,7 +44,7 @@ function paramNumber(params: CostParams | null | undefined, key: string) {
 function formatParam(params: CostParams | null | undefined, key: string) {
   const value = paramNumber(params, key);
   if (value === null) return '—';
-  if (key === 'salarioBase' || key === 'insalubridade') return brl(value);
+  if (key === 'salarioBase' || key === 'salarioMinimo') return brl(value);
   if (PERCENT_PARAM_KEYS.has(key)) {
     return `${(value * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% (${value.toLocaleString('pt-BR', { maximumFractionDigits: 4 })})`;
   }
@@ -59,6 +60,7 @@ function benefitTotal(params: CostParams | null | undefined) {
 function activeCostParams(params: CostParams) {
   const next = { ...params };
   delete next.inssPatronalPct;
+  delete next.offshoreBonusPct;
   return next;
 }
 
@@ -122,7 +124,7 @@ export function CostSimulatorPanel() {
   const [params, setParams] = useState<CostParams>({});
   const [effectiveDate, setEffectiveDate] = useState(todayKey());
   const [note, setNote] = useState('');
-  const [inputs, setInputs] = useState<Record<string, number>>({ diasCliente: 22, diasFora: 1, diasCasa: 22, he70Horas: 1, he100Horas: 1 });
+  const [inputs, setInputs] = useState<Record<string, number>>({ diasCasa: 22, diasFora: 0, offshoreDays: 0, he70Horas: 0, he100Horas: 0 });
   const [result, setResult] = useState<CostResult | null>(null);
 
   useEffect(() => {
@@ -169,9 +171,10 @@ export function CostSimulatorPanel() {
     <div className="page-card">
       <div className="sec">Modelos base e simulador</div>
       <p className="placeholder-copy" style={{ margin: '4px 0 12px' }}>
-        Planilhas base de cálculo (Modelo 1 = Operador, Modelo 2 = Auxiliar). Os cargos herdam estes
+        Planilha base de cálculo (Modelo 1 = Operador+, Modelo 2 = Auxiliar). Os cargos herdam estes
         parâmetros pela data de vigência (aba <strong>Cargos</strong>). Salvar cria uma nova vigência que
-        passa a valer a partir da data informada. Frações: 0,3 = 30%.
+        passa a valer a partir da data informada. Frações: 0,3 = 30%. A insalubridade é calculada por
+        salário mínimo × 20%.
       </p>
 
       <div className="field-group" style={{ maxWidth: 320 }}>
