@@ -3,6 +3,7 @@ import {
   combineEquipment,
   combinePresumedProfitTaxes,
   combineProgress,
+  combineProgressHistory,
   maxIsoDate,
   minIsoDate,
   ratioPct,
@@ -354,6 +355,12 @@ export function groupProjectDetails(group, memberDetails = []) {
     workedHours: combineWorkedHours(details),
     maioresGastos: combineTopExpenses(details),
     avancoPct: progress.progressPct,
+    progressHistory: combineProgressHistory(details.map(({ detail, progress }) => ({
+      progressHistory: detail.progressHistory,
+      progressWeight: progressContributionWeightSafe(progress),
+      plannedCost: detail.consumo?.previsto,
+      salePrice: detail.faturamento?.previsto
+    }))),
     standby: {
       count: sumValues(details, item => item.detail.standby?.count, { nullWhenEmpty: false }),
       minutes: sumValues(details, item => item.detail.standby?.minutes, { nullWhenEmpty: false })

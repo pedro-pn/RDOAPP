@@ -440,11 +440,23 @@ model Project {
   plannedNormalHours     ProjectPlannedNormalHours[]
   plannedOvertime        ProjectPlannedOvertime[]
   stockMovements         StockMovement[]
+  manualProgressHistory  ProjectManualProgressHistory[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
 
   @@index([deletedAt])
   @@index([registrationPending])
   @@index([commercialProposalCode])
+}
+
+model ProjectManualProgressHistory {
+  id          String   @id @default(cuid())
+  projectId   String
+  progressPct Decimal  @db.Decimal(5, 2)
+  recordedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, recordedAt])
 }
 
 model AcompanhamentoMissionGroup {

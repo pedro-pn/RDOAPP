@@ -15,6 +15,7 @@ import {
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { ProjectDetailDashboard } from './ProjectDetailDashboard';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
+import type { AuthUser } from '../../types/auth';
 
 function formatDate(iso?: string | null) {
   if (!iso) return '—';
@@ -332,10 +333,12 @@ function selectedDetailFromParams(params: URLSearchParams): SelectedDetail | nul
 
 export function ProjectCardsBoard({
   canManage = false,
-  canManageGroups = false
+  canManageGroups = false,
+  progressHistoryNoveltyUser = null
 }: {
   canManage?: boolean;
   canManageGroups?: boolean;
+  progressHistoryNoveltyUser?: Pick<AuthUser, 'id'> | null;
 }) {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -458,8 +461,8 @@ export function ProjectCardsBoard({
   // Todos os hooks acima; só então a troca para o dashboard do projeto (Rules of Hooks).
   if (selected) {
     return selected.kind === 'GROUP'
-      ? <ProjectDetailDashboard groupId={selected.id} canManage={canManage} onBack={() => setSelected(null)} />
-      : <ProjectDetailDashboard projectId={selected.id} canManage={canManage} onBack={() => setSelected(null)} />;
+      ? <ProjectDetailDashboard groupId={selected.id} canManage={canManage} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />
+      : <ProjectDetailDashboard projectId={selected.id} canManage={canManage} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />;
   }
 
   if (isLoading) return <div className="page-card placeholder-copy">Carregando projetos…</div>;

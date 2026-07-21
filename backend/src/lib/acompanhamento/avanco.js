@@ -79,6 +79,57 @@ function round(value, decimals = 1) {
   return Math.round(value * f) / f;
 }
 
+function toDateKey(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function dateMs(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
+function startOfUtcWeekKey(value) {
+  const ms = dateMs(value);
+  if (ms === null) return null;
+  const d = new Date(ms);
+  d.setUTCHours(0, 0, 0, 0);
+  const diff = (d.getUTCDay() + 6) % 7; // semana iniciando na segunda-feira
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function hasMeasurableScope(plannedServices = []) {
+  return plannedServices.some(service => (service.systems ?? []).some(system => {
+    const quantity = num(system?.quantity);
+    return quantity !== null && quantity > 0;
+  }));
+}
+
+export function compactWeeklyProgressHistory(points = [], { startDate = null } = {}) {
+  const byWeek = new Map();
+  for (const point of points) {
+    const progressPct = num(point?.progressPct);
+    const date = toDateKey(point?.date);
+    const week = startOfUtcWeekKey(date);
+    if (progressPct === null || !date || !week) continue;
+    const existing = byWeek.get(week);
+    if (!existing || dateMs(date) >= dateMs(existing.date)) {
+      byWeek.set(week, { date, progressPct: round(progressPct) });
+    }
+  }
+
+  const out = Array.from(byWeek.values())
+    .sort((a, b) => dateMs(a.date) - dateMs(b.date));
+  const baselineDate = toDateKey(startDate);
+  if (baselineDate && (out.length === 0 || dateMs(baselineDate) < dateMs(out[0].date))) {
+    out.unshift({ date: baselineDate, progressPct: 0 });
+  }
+  return out;
+}
+
 // Monta o resultado de avanço de um projeto a partir do previsto e do realizado já agregado.
 // realizedByType: Map<serviceTypeCanônico, {tubulacaoM, oleoL}>.
 export function buildProgress(plannedServices, realizedByType) {
@@ -120,6 +171,66 @@ export function buildProgress(plannedServices, realizedByType) {
     progressPct,
     services
   };
+}
+
+// Reconstitui o histórico do avanço físico por semana a partir dos RDOs já lançados.
+// O ponto semanal usa o último avanço conhecido naquela semana; semanas sem RDO ficam implícitas
+// pelo espaçamento temporal do gráfico.
+export function buildProgressHistory(plannedServices = [], serviceReports = [], {
+  startDate = null,
+  manualProgressPct = null,
+  manualProgressHistory = [],
+  currentDate = new Date()
+} = {}) {
+  if (!hasMeasurableScope(plannedServices)) {
+    const manual = num(manualProgressPct);
+    if (manual === null) return [];
+
+    const manualPoints = (manualProgressHistory ?? [])
+      .map(point => ({
+        date: point?.recordedAt ?? point?.date,
+        progressPct: num(point?.progressPct)
+      }))
+      .filter(point => point.progressPct !== null);
+    const ordered = manualPoints
+      .slice()
+      .sort((a, b) => (dateMs(a.date) ?? 0) - (dateMs(b.date) ?? 0));
+    const latest = ordered[ordered.length - 1];
+    if (!latest || round(latest.progressPct) !== round(manual)) {
+      ordered.push({ date: currentDate, progressPct: manual });
+    }
+    return compactWeeklyProgressHistory(ordered, { startDate });
+  }
+
+  const servicesByDate = new Map();
+  for (const service of serviceReports) {
+    if (!isServiceFinalized(service)) continue;
+    const canonical = normalizeRdoServiceType(service.serviceType);
+    if (!canonical) continue;
+    const date = toDateKey(service.reportDate ?? service.report?.reportDate);
+    if (!date) continue;
+    if (!servicesByDate.has(date)) servicesByDate.set(date, []);
+    servicesByDate.get(date).push({ ...service, canonical });
+  }
+
+  const realizedByType = new Map();
+  const rawPoints = [];
+  const dates = Array.from(servicesByDate.keys()).sort((a, b) => dateMs(a) - dateMs(b));
+  for (const date of dates) {
+    for (const service of servicesByDate.get(date) ?? []) {
+      const acc = realizedByType.get(service.canonical) ?? { tubulacaoM: 0, oleoL: 0 };
+      const realized = realizedFromExtraData(service.extraData);
+      acc.tubulacaoM += realized.tubulacaoM;
+      acc.oleoL += realized.oleoL;
+      realizedByType.set(service.canonical, acc);
+    }
+    const progress = buildProgress(plannedServices, realizedByType);
+    if (progress.progressPct !== null) rawPoints.push({ date, progressPct: progress.progressPct });
+  }
+
+  const history = compactWeeklyProgressHistory(rawPoints, { startDate });
+  if (history.length === 0 && startDate) return [{ date: toDateKey(startDate), progressPct: 0 }];
+  return history;
 }
 
 // Agrega o realizado dos RDOs (por projeto → por serviço canônico) para um conjunto de projetos.
@@ -187,6 +298,85 @@ export async function computeProgressForProjects(projectIds) {
       progressMethod: scope.progressPct != null ? 'RDO' : (useManual ? 'MANUAL' : null)
     });
   }
+  return result;
+}
+
+export async function computeProgressHistoryForProjects(projectIds) {
+  const result = new Map();
+  if (!projectIds || projectIds.length === 0) return result;
+
+  const [plannedServices, projects, reportServices, manualProgressHistory] = await Promise.all([
+    prisma.projectPlannedService.findMany({
+      where: { projectId: { in: projectIds } },
+      orderBy: [{ order: 'asc' }],
+      include: { systems: { orderBy: [{ order: 'asc' }] } }
+    }),
+    prisma.project.findMany({
+      where: { id: { in: projectIds } },
+      select: { id: true, startDate: true, manualProgressPct: true, updatedAt: true }
+    }),
+    prisma.reportService.findMany({
+      where: {
+        report: {
+          projectId: { in: projectIds },
+          reportType: 'RDO',
+          deletedAt: null
+        }
+      },
+      select: {
+        finalized: true,
+        serviceType: true,
+        extraData: true,
+        report: { select: { projectId: true, reportDate: true } }
+      }
+    }),
+    prisma.projectManualProgressHistory.findMany({
+      where: { projectId: { in: projectIds } },
+      select: { projectId: true, progressPct: true, recordedAt: true },
+      orderBy: [{ recordedAt: 'asc' }, { createdAt: 'asc' }]
+    })
+  ]);
+
+  const plannedByProject = new Map();
+  for (const service of plannedServices) {
+    if (!plannedByProject.has(service.projectId)) plannedByProject.set(service.projectId, []);
+    plannedByProject.get(service.projectId).push(service);
+  }
+
+  const projectById = new Map(projects.map(project => [project.id, project]));
+  const servicesByProject = new Map();
+  for (const service of reportServices) {
+    const projectId = service.report?.projectId;
+    if (!projectId) continue;
+    if (!servicesByProject.has(projectId)) servicesByProject.set(projectId, []);
+    servicesByProject.get(projectId).push({
+      finalized: service.finalized,
+      serviceType: service.serviceType,
+      extraData: service.extraData,
+      reportDate: service.report?.reportDate
+    });
+  }
+
+  const manualHistoryByProject = new Map();
+  for (const item of manualProgressHistory) {
+    if (!manualHistoryByProject.has(item.projectId)) manualHistoryByProject.set(item.projectId, []);
+    manualHistoryByProject.get(item.projectId).push(item);
+  }
+
+  for (const projectId of projectIds) {
+    const project = projectById.get(projectId);
+    result.set(projectId, buildProgressHistory(
+      plannedByProject.get(projectId) ?? [],
+      servicesByProject.get(projectId) ?? [],
+      {
+        startDate: project?.startDate ?? null,
+        manualProgressPct: project?.manualProgressPct ?? null,
+        manualProgressHistory: manualHistoryByProject.get(projectId) ?? [],
+        currentDate: project?.updatedAt ?? new Date()
+      }
+    ));
+  }
+
   return result;
 }
 
