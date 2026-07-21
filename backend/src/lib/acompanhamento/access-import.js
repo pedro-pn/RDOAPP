@@ -269,6 +269,47 @@ async function upsertBudget(client, projectId, proposal) {
   });
 }
 
+// Reespelha todos os campos comerciais materializados no orçamento da proposta selecionada.
+// Campos operacionais/manuais do projeto (approvedAt, início, avanço manual, equipe etc.) são preservados.
+export async function refreshSelectedProjectBudgetsFromProposals(client, { codBds = null } = {}) {
+  const selectedCodBds = Array.isArray(codBds) ? Array.from(new Set(codBds.filter(Number.isInteger))) : null;
+  if (selectedCodBds && selectedCodBds.length === 0) return 0;
+
+  const budgets = await client.projectBudget.findMany({
+    where: {
+      sourceProposalCodBd: selectedCodBds
+        ? { in: selectedCodBds }
+        : { not: null }
+    },
+    select: {
+      projectId: true,
+      version: true,
+      sourceProposalCodBd: true
+    }
+  });
+  if (budgets.length === 0) return 0;
+
+  const sourceCodBds = Array.from(new Set(budgets.map(budget => budget.sourceProposalCodBd).filter(Number.isInteger)));
+  if (sourceCodBds.length === 0) return 0;
+
+  const proposals = await client.commercialProposal.findMany({
+    where: { codBd: { in: sourceCodBds } }
+  });
+  const proposalsByCodBd = new Map(proposals.map(proposal => [proposal.codBd, proposal]));
+
+  let refreshed = 0;
+  for (const budget of budgets) {
+    const proposal = proposalsByCodBd.get(budget.sourceProposalCodBd);
+    if (!proposal) continue;
+    await client.projectBudget.update({
+      where: { projectId_version: { projectId: budget.projectId, version: budget.version } },
+      data: budgetFieldsFromProposal(proposal)
+    });
+    refreshed += 1;
+  }
+  return refreshed;
+}
+
 // Lista as revisões (linhas do Access) cujo contrato bate com o do projeto e indica a vigente.
 export async function listProjectRevisions(projectId) {
   const project = await prisma.project.findUnique({
@@ -632,22 +673,26 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
       orderBy: { createdAt: 'desc' }
     });
     if (duplicate) {
-      const receipt = await prisma.accessImport.create({
-        data: {
-          fileName,
-          contentHash,
-          source,
-          status: 'SUCCESS',
-          rowsRead: 0,
-          created: 0,
-          updated: 0,
-          skipped: 0,
-          pendingProjectsCreated: 0,
-          summary: { skippedDuplicate: true, previousImportId: duplicate.id },
-          importedByUserId
-        }
+      let refreshedSelectedProposalFields = 0;
+      const receipt = await prisma.$transaction(async (tx) => {
+        refreshedSelectedProposalFields = await refreshSelectedProjectBudgetsFromProposals(tx);
+        return tx.accessImport.create({
+          data: {
+            fileName,
+            contentHash,
+            source,
+            status: 'SUCCESS',
+            rowsRead: 0,
+            created: 0,
+            updated: 0,
+            skipped: 0,
+            pendingProjectsCreated: 0,
+            summary: { skippedDuplicate: true, previousImportId: duplicate.id, refreshedSelectedProposalFields },
+            importedByUserId
+          }
+        });
       });
-      return { skippedDuplicate: true, contentHash, importId: receipt.id, previousImportId: duplicate.id };
+      return { skippedDuplicate: true, contentHash, importId: receipt.id, previousImportId: duplicate.id, refreshedSelectedProposalFields };
     }
 
     const rawRows = readProposals(buffer);
@@ -657,6 +702,8 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
 
     let created = 0;
     let updated = 0;
+    let refreshedSelectedProposalFields = 0;
+    const importedCodBds = Array.from(new Set(proposals.map(proposal => proposal.codBd)));
 
     // A importação apenas popula o staging (CommercialProposal). Não cria missões: a maioria das
     // propostas não fecha. A vinculação a um projeto acontece sob demanda, quando já existe uma
@@ -667,6 +714,7 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
         await tx.commercialProposal.upsert({ where: { codBd: p.codBd }, create: p, update: p });
         if (existing) updated += 1; else created += 1;
       }
+      refreshedSelectedProposalFields = await refreshSelectedProjectBudgetsFromProposals(tx, { codBds: importedCodBds });
 
       return tx.accessImport.create({
         data: {
@@ -679,7 +727,11 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
           updated,
           skipped: rawRows.length - proposals.length,
           pendingProjectsCreated: 0,
-          summary: { proposals: proposals.length, distinctProposals: new Set(proposals.map(p => p.codProp)).size },
+          summary: {
+            proposals: proposals.length,
+            distinctProposals: new Set(proposals.map(p => p.codProp)).size,
+            refreshedSelectedProposalFields
+          },
           importedByUserId
         }
       });
@@ -691,6 +743,7 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
       rowsRead: rawRows.length,
       created,
       updated,
+      refreshedSelectedProposalFields,
       skipped: rawRows.length - proposals.length,
       distinctProposals: new Set(proposals.map(p => p.codProp)).size
     };
