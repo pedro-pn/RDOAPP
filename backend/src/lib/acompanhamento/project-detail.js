@@ -15,6 +15,7 @@ import { buildOmieCostCategoryWhere } from './cost-categories.js';
 import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { laborCostByProject } from './labor-cost.js';
 import { buildWorkedHoursProgress } from './project-cards.js';
+import { computeProgressHistoryForProjects } from './avanco.js';
 import {
   nightCollaboratorIdsFromReport,
   nightCollaboratorSnapshotsFromReport,
@@ -196,7 +197,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     equipmentByProject,
     stockCosts,
     plannedNormalHours,
-    plannedOvertime
+    plannedOvertime,
+    progressHistoryByProject
   ] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
@@ -242,7 +244,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     prisma.projectPlannedOvertime.findMany({
       where: { projectId },
       select: { hours: true, roleName: true, jobRole: { select: { name: true } } }
-    })
+    }),
+    computeProgressHistoryForProjects([projectId])
   ]);
 
   // Mão de obra (HH) do ponto — mantido SEPARADO do gasto Omie (em validação, não somado).
@@ -456,6 +459,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     maioresGastos,
     avancoPct,
     avancoMethod: row.progressMethod ?? null,
+    progressHistory: progressHistoryByProject.get(projectId) ?? [],
     standby: { count: standbyCount, minutes: standbyMinutesTotal },
     ultimosDias,
     overtimeMinutes: overtimeMinutesTotal,

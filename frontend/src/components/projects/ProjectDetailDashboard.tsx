@@ -6,13 +6,16 @@ import {
   getPlannedScope,
   getProjectDetail,
   type DayStatus,
-  type PlannedScope
+  type PlannedScope,
+  type ProgressHistoryPoint
 } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
+import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
+import type { AuthUser } from '../../types/auth';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -49,6 +52,13 @@ function fmtDate(iso?: string | null) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
 }
+function fmtShortDate(iso?: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
 function fmtHM(minutes?: number | null) {
   if (!minutes || minutes <= 0) return '0h';
   const h = Math.floor(minutes / 60);
@@ -76,6 +86,91 @@ function HoursBar({ normalPct, overtimePct }: { normalPct: number | null; overti
     <div className="acp-prog-bar big acp-hours-bar">
       {normalWidth > 0 ? <span className="normal" style={{ width: `${normalWidth}%` }} /> : null}
       {overtimeWidth > 0 ? <span className="overtime" style={{ width: `${overtimeWidth}%` }} /> : null}
+    </div>
+  );
+}
+
+function normalizeHistory(points?: ProgressHistoryPoint[]) {
+  return (points ?? [])
+    .map(point => {
+      const time = new Date(point.date).getTime();
+      const progressPct = Number(point.progressPct);
+      return Number.isFinite(time) && Number.isFinite(progressPct)
+        ? { ...point, time, progressPct: clampPct(progressPct) }
+        : null;
+    })
+    .filter((point): point is ProgressHistoryPoint & { time: number } => point !== null)
+    .sort((a, b) => a.time - b.time);
+}
+
+function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
+  const history = normalizeHistory(points);
+  const latest = history[history.length - 1];
+  if (history.length === 0) {
+    return (
+      <div className="acp-progress-chart empty" data-acp-progress-history-chart>
+        <div className="acp-progress-chart-head">
+          <span>Histórico semanal</span>
+          <strong>Sem histórico</strong>
+        </div>
+      </div>
+    );
+  }
+
+  const width = 280;
+  const height = 82;
+  const pad = { top: 8, right: 8, bottom: 18, left: 28 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const minTime = history[0].time;
+  const maxTime = history[history.length - 1].time;
+  const xFor = (time: number, index: number) => (
+    minTime === maxTime
+      ? pad.left + (history.length === 1 ? plotWidth / 2 : (plotWidth * index) / (history.length - 1))
+      : pad.left + ((time - minTime) / (maxTime - minTime)) * plotWidth
+  );
+  const yFor = (value: number) => pad.top + (1 - clampPct(value) / 100) * plotHeight;
+  const plotted = history.map((point, index) => ({
+    ...point,
+    x: xFor(point.time, index),
+    y: yFor(point.progressPct)
+  }));
+  const path = plotted.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+
+  return (
+    <div className="acp-progress-chart" aria-label="Histórico semanal de avanço" data-acp-progress-history-chart>
+      <div className="acp-progress-chart-head">
+        <span>Histórico semanal</span>
+        <strong>{fmtPct(latest?.progressPct)}</strong>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Avanço de ${fmtShortDate(history[0].date)} até ${fmtShortDate(latest?.date)}`}>
+        {[0, 50, 100].map(value => (
+          <g key={value}>
+            <line
+              className="acp-progress-chart-grid"
+              x1={pad.left}
+              y1={yFor(value)}
+              x2={width - pad.right}
+              y2={yFor(value)}
+            />
+            <text className="acp-progress-chart-y" x={pad.left - 6} y={yFor(value) + 3} textAnchor="end">
+              {value}
+            </text>
+          </g>
+        ))}
+        <path className="acp-progress-chart-line" d={path} />
+        {plotted.map(point => (
+          <circle className="acp-progress-chart-dot" key={`${point.date}-${point.progressPct}`} cx={point.x} cy={point.y} r="3.4">
+            <title>{`${fmtDate(point.date)} · ${fmtPct(point.progressPct)}`}</title>
+          </circle>
+        ))}
+        <text className="acp-progress-chart-x" x={pad.left} y={height - 4} textAnchor="start">
+          {fmtShortDate(history[0].date)}
+        </text>
+        <text className="acp-progress-chart-x" x={width - pad.right} y={height - 4} textAnchor="end">
+          {fmtShortDate(latest?.date)}
+        </text>
+      </svg>
     </div>
   );
 }
@@ -171,15 +266,18 @@ export function ProjectDetailDashboard({
   projectId,
   groupId,
   canManage = false,
+  progressHistoryNoveltyUser = null,
   onBack
 }: {
   projectId?: string;
   groupId?: string;
   canManage?: boolean;
+  progressHistoryNoveltyUser?: Pick<AuthUser, 'id'> | null;
   onBack: () => void;
 }) {
   const [scheduleProject, setScheduleProject] = useState<{ projectId: string; code: string } | null>(null);
   const [scheduleDirty, setScheduleDirty] = useState(false);
+  const [progressHistoryNoveltyActive, setProgressHistoryNoveltyActive] = useState(true);
   const scheduleRef = useRef<ScheduleEditorHandle>(null);
   const isGroup = Boolean(groupId);
   const detailKey = isGroup ? ['mission-group-detail', groupId] : ['project-detail', projectId];
@@ -419,6 +517,7 @@ export function ProjectDetailDashboard({
               </div>
               <Bar value={data.avancoPct} />
             </div>
+            <ProgressHistoryChart points={data.progressHistory} />
 
             <div className="acp-det-two">
               <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos RDOs.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
@@ -555,6 +654,11 @@ export function ProjectDetailDashboard({
           </div>
         </div>
       </Modal>
+      <ProjectProgressHistoryNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={progressHistoryNoveltyActive}
+        onSeen={() => setProgressHistoryNoveltyActive(false)}
+      />
     </div>
   );
 }

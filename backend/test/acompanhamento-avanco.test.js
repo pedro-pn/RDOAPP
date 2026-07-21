@@ -5,7 +5,8 @@ import {
   normalizeRdoServiceType,
   realizedFromExtraData,
   isServiceFinalized,
-  buildProgress
+  buildProgress,
+  buildProgressHistory
 } from '../src/lib/acompanhamento/avanco.js';
 
 test('isServiceFinalized: coluna booleana e campo textual do extraData', () => {
@@ -87,4 +88,68 @@ test('buildProgress: sem meta cadastrada não entra no avanço (progressPct null
   assert.equal(out.services[0].executionPct, null);
   assert.equal(out.progressPct, null);
   assert.equal(out.hasScope, false);
+});
+
+test('buildProgressHistory compacta avanço acumulado em pontos semanais', () => {
+  const planned = [
+    { serviceType: 'LIMPEZA_QUIMICA', weight: 1, systems: [{ systemType: 'TUBULACAO', quantity: 1000, unit: 'M' }] }
+  ];
+  const out = buildProgressHistory(planned, [
+    {
+      finalized: true,
+      serviceType: 'limpeza',
+      reportDate: '2026-07-01T00:00:00.000Z',
+      extraData: { tubes: [{ c: '100', lengthUnit: 'm' }] }
+    },
+    {
+      finalized: true,
+      serviceType: 'limpeza',
+      reportDate: '2026-07-03T00:00:00.000Z',
+      extraData: { tubes: [{ c: '200', lengthUnit: 'm' }] }
+    },
+    {
+      finalized: true,
+      serviceType: 'limpeza',
+      reportDate: '2026-07-10T00:00:00.000Z',
+      extraData: { tubes: [{ c: '300', lengthUnit: 'm' }] }
+    }
+  ], { startDate: '2026-06-30T00:00:00.000Z' });
+
+  assert.deepEqual(out, [
+    { date: '2026-06-30', progressPct: 0 },
+    { date: '2026-07-03', progressPct: 30 },
+    { date: '2026-07-10', progressPct: 60 }
+  ]);
+});
+
+test('buildProgressHistory usa ponto manual atual quando não há escopo medível', () => {
+  const out = buildProgressHistory([], [], {
+    startDate: '2026-07-01T00:00:00.000Z',
+    manualProgressPct: 42.4,
+    currentDate: '2026-07-15T00:00:00.000Z'
+  });
+
+  assert.deepEqual(out, [
+    { date: '2026-07-01', progressPct: 0 },
+    { date: '2026-07-15', progressPct: 42.4 }
+  ]);
+});
+
+test('buildProgressHistory usa histórico manual quando não há escopo medível', () => {
+  const out = buildProgressHistory([], [], {
+    startDate: '2026-07-01T00:00:00.000Z',
+    manualProgressPct: 35,
+    currentDate: '2026-07-15T00:00:00.000Z',
+    manualProgressHistory: [
+      { recordedAt: '2026-07-03T00:00:00.000Z', progressPct: 10 },
+      { recordedAt: '2026-07-07T00:00:00.000Z', progressPct: '20.5' },
+      { recordedAt: '2026-07-10T00:00:00.000Z', progressPct: 35 }
+    ]
+  });
+
+  assert.deepEqual(out, [
+    { date: '2026-07-01', progressPct: 0 },
+    { date: '2026-07-03', progressPct: 10 },
+    { date: '2026-07-10', progressPct: 35 }
+  ]);
 });

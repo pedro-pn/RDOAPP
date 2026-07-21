@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { groupProjectCards } from '../src/lib/acompanhamento/project-card-groups.js';
+import { combineProgressHistory, groupProjectCards } from '../src/lib/acompanhamento/project-card-groups.js';
 
 function card(overrides = {}) {
   return {
@@ -29,6 +29,7 @@ function card(overrides = {}) {
     progressPct: overrides.progressPct ?? 50,
     progressMethod: overrides.progressMethod ?? 'RDO',
     progressWeight: overrides.progressWeight ?? null,
+    progressHistory: overrides.progressHistory ?? [],
     plannedCost: overrides.plannedCost ?? 100,
     invoicedRevenue: overrides.invoicedRevenue ?? 90,
     invoiceCount: overrides.invoiceCount ?? 1,
@@ -147,6 +148,33 @@ test('groupProjectCards uses scope contribution weight before planned cost for p
   ], [group()]);
 
   assert.equal(result[0].progressPct, 70);
+});
+
+test('combineProgressHistory carries latest member points and weights by scope', () => {
+  const out = combineProgressHistory([
+    card({
+      projectId: 'p1',
+      progressWeight: 100,
+      progressHistory: [
+        { date: '2026-07-01', progressPct: 10 },
+        { date: '2026-07-08', progressPct: 50 }
+      ]
+    }),
+    card({
+      projectId: 'p2',
+      progressWeight: 300,
+      progressHistory: [
+        { date: '2026-07-01', progressPct: 0 },
+        { date: '2026-07-15', progressPct: 100 }
+      ]
+    })
+  ]);
+
+  assert.deepEqual(out, [
+    { date: '2026-07-01', progressPct: 2.5 },
+    { date: '2026-07-08', progressPct: 12.5 },
+    { date: '2026-07-15', progressPct: 87.5 }
+  ]);
 });
 
 test('groupProjectCards ignores dissolved groups', () => {

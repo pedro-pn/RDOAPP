@@ -127,6 +127,12 @@ export function componentsFromRow(row) {
   };
 }
 
+export function shouldRecordManualProgressHistory(previousManualProgressPct, nextManualProgressPct) {
+  const previous = previousManualProgressPct == null ? null : Number(previousManualProgressPct);
+  const next = nextManualProgressPct == null ? null : Number(nextManualProgressPct);
+  return next !== null && previous !== next;
+}
+
 // JSON precisa de bigint serializável.
 function serializeRaw(row) {
   const out = {};
@@ -393,6 +399,17 @@ export async function setProjectSchedule(projectId, {
   laborCollaboratorIds
 } = {}) {
   return prisma.$transaction(async (tx) => {
+    let previousManualProgressPct;
+    if (manualProgressPct !== undefined) {
+      const currentProject = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { manualProgressPct: true }
+      });
+      previousManualProgressPct = currentProject?.manualProgressPct != null
+        ? Number(currentProject.manualProgressPct)
+        : null;
+    }
+
     if (approvedAt !== undefined) {
       const budget = await tx.projectBudget.findUnique({
         where: { projectId_version: { projectId, version: 1 } },
@@ -405,9 +422,10 @@ export async function setProjectSchedule(projectId, {
       });
     }
     const projectData = {};
+    const nextManualProgressPct = manualProgressPct == null ? null : Number(manualProgressPct);
     if (startDate !== undefined) projectData.startDate = startDate ? new Date(startDate) : null;
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
-    if (manualProgressPct !== undefined) projectData.manualProgressPct = manualProgressPct == null ? null : manualProgressPct;
+    if (manualProgressPct !== undefined) projectData.manualProgressPct = nextManualProgressPct;
     if (offshore !== undefined) projectData.offshore = Boolean(offshore);
     if (laborSleepModeByCollaborator !== undefined) {
       projectData.laborSleepModeByCollaborator = normalizeSleepModeMap(laborSleepModeByCollaborator);
@@ -427,6 +445,14 @@ export async function setProjectSchedule(projectId, {
     }
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
+    }
+    if (
+      manualProgressPct !== undefined
+      && shouldRecordManualProgressHistory(previousManualProgressPct, nextManualProgressPct)
+    ) {
+      await tx.projectManualProgressHistory.create({
+        data: { projectId, progressPct: nextManualProgressPct }
+      });
     }
     return { ok: true };
   });

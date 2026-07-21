@@ -434,6 +434,11 @@ export interface WorkedHoursProgress {
   roleCounts?: Array<{ roleName: string; collaboratorCount: number; usedHours: number; pctOfPlannedTotal: number | null }>;
 }
 
+export interface ProgressHistoryPoint {
+  date: string;
+  progressPct: number;
+}
+
 export interface ProjectCard {
   kind?: 'PROJECT';
   projectId: string;
@@ -519,6 +524,7 @@ export interface ProjectDetail {
   workedHours: WorkedHoursProgress;
   maioresGastos: Array<{ categoria: string; total: number }>;
   avancoPct: number | null;
+  progressHistory?: ProgressHistoryPoint[];
   standby: { count: number; minutes: number };
   ultimosDias: Array<{ date: string; status: DayStatus; workedMinutes: number; standbyMinutes: number }>;
   overtimeMinutes: number;

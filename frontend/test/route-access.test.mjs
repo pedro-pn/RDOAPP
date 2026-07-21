@@ -387,6 +387,36 @@ test('acompanhamento grouping novelty is local once-per-user and expires globall
   }
 });
 
+test('acompanhamento progress history novelty is local once-per-user and expires globally', async () => {
+  const stored = new Map();
+  const originalNow = Date.now;
+  globalThis.window = {
+    localStorage: {
+      getItem: key => stored.get(key) || null,
+      setItem: (key, value) => stored.set(key, value)
+    }
+  };
+
+  try {
+    Date.now = () => new Date('2026-07-21T12:00:00-03:00').getTime();
+    const {
+      markAcompanhamentoProgressHistoryNoveltySeen,
+      shouldShowAcompanhamentoProgressHistoryNovelty
+    } = await loadModuleNavigation();
+
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-1' }), true);
+    markAcompanhamentoProgressHistoryNoveltySeen({ id: 'viewer-1' });
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-1' }), false);
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-2' }), true);
+
+    Date.now = () => new Date('2026-08-01T00:00:00-03:00').getTime();
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-3' }), false);
+  } finally {
+    Date.now = originalNow;
+    delete globalThis.window;
+  }
+});
+
 test('single-module internal accounts keep entering their module directly', async () => {
   const { preferredEntryPath } = await loadModuleNavigation();
 

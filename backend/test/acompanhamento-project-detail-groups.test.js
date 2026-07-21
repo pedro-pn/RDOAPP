@@ -61,6 +61,7 @@ function detail(overrides = {}) {
     },
     maioresGastos: overrides.maioresGastos ?? [{ categoria: 'Quimicos', total: 30 }],
     avancoPct: overrides.avancoPct ?? 50,
+    progressHistory: overrides.progressHistory ?? [],
     standby: overrides.standby ?? { count: 1, minutes: 60 },
     ultimosDias: overrides.ultimosDias ?? [
       { date: '2026-07-09', status: 'TRABALHADO', workedMinutes: 480, standbyMinutes: 0 }
@@ -82,7 +83,12 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
     {
       projectId: 'p1',
       member: group().members[0],
-      detail: detail({ code: '1001', avancoPct: 25, consumo: { gasto: 40, omie: 30, pago: 20, previstoPagar: 10, estoque: 10, previsto: 100, pct: 40 } }),
+      detail: detail({
+        code: '1001',
+        avancoPct: 25,
+        progressHistory: [{ date: '2026-07-01', progressPct: 25 }],
+        consumo: { gasto: 40, omie: 30, pago: 20, previstoPagar: 10, estoque: 10, previsto: 100, pct: 40 }
+      }),
       plannedScope: {
         services: [{ serviceType: 'FLUSHING', weight: 60, systems: [{ systemType: 'OLEO', quantity: 100, unit: 'L' }] }],
         normalHours: [{ roleName: 'Operador', collaboratorCount: 1, hours: 8 }],
@@ -97,6 +103,10 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
         proposalCode: 'PROP-2',
         lastRdoDate: '2026-07-12T00:00:00.000Z',
         avancoPct: 75,
+        progressHistory: [
+          { date: '2026-07-01', progressPct: 50 },
+          { date: '2026-07-08', progressPct: 75 }
+        ],
         consumo: { gasto: 160, omie: 120, pago: 80, previstoPagar: 40, estoque: 40, previsto: 300, pct: 53 },
         faturamento: { previsto: 300, realizado: 220, notas: 2 },
         diasCorridos: { elapsed: 6, planned: 20, pct: 30 },
@@ -146,6 +156,10 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
   assert.equal(result.maoDeObra.custo, 50);
   assert.equal(result.avancoMethod, 'GROUP_WEIGHTED');
   assert.equal(result.avancoPct, 62.5);
+  assert.deepEqual(result.progressHistory, [
+    { date: '2026-07-01', progressPct: 43.8 },
+    { date: '2026-07-08', progressPct: 62.5 }
+  ]);
   assert.deepEqual(result.maioresGastos, [
     { categoria: 'Quimicos', total: 80 },
     { categoria: 'Filtros', total: 20 }

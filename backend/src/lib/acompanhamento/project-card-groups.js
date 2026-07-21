@@ -201,6 +201,55 @@ export function combineProgress(cards) {
   return { progressPct: round1(avg), progressMethod: 'GROUP_AVERAGE' };
 }
 
+function normalizeHistoryPoint(point) {
+  const progressPct = toNumber(point?.progressPct);
+  if (progressPct === null || !point?.date) return null;
+  const d = new Date(point.date);
+  if (Number.isNaN(d.getTime())) return null;
+  return { date: d.toISOString().slice(0, 10), progressPct };
+}
+
+function latestProgressAt(points, date) {
+  let latest = null;
+  const targetTime = new Date(date).getTime();
+  for (const point of points) {
+    if (new Date(point.date).getTime() <= targetTime) latest = point;
+    else break;
+  }
+  return latest;
+}
+
+export function combineProgressHistory(cards) {
+  const histories = cards
+    .map(card => ({
+      weight: Math.max(0, toNumber(card.progressWeight ?? card.plannedCost ?? card.plannedTotalCost ?? card.salePrice) ?? 0),
+      points: (card.progressHistory ?? [])
+        .map(normalizeHistoryPoint)
+        .filter(Boolean)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    }))
+    .filter(item => item.points.length > 0);
+  if (histories.length === 0) return [];
+
+  const dates = Array.from(new Set(histories.flatMap(item => item.points.map(point => point.date))))
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+  const out = [];
+  for (const date of dates) {
+    const active = histories
+      .map(item => ({ weight: item.weight, point: latestProgressAt(item.points, date) }))
+      .filter(item => item.point);
+    if (active.length === 0) continue;
+
+    const weightTotal = active.reduce((sum, item) => sum + item.weight, 0);
+    const progressPct = weightTotal > 0
+      ? active.reduce((sum, item) => sum + item.point.progressPct * item.weight, 0) / weightTotal
+      : active.reduce((sum, item) => sum + item.point.progressPct, 0) / active.length;
+    out.push({ date, progressPct: round1(progressPct) });
+  }
+  return out;
+}
+
 export function combinePresumedProfitTaxes(cards) {
   const taxes = cards.map(card => card.presumedProfitTaxes).filter(Boolean);
   if (taxes.length === 0) return null;

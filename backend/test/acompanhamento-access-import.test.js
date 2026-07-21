@@ -7,6 +7,7 @@ import {
   deriveSale,
   mapProposalRow,
   refreshSelectedProjectBudgetsFromProposals,
+  shouldRecordManualProgressHistory,
   toCnpj,
   toDate,
   toInt,
@@ -187,4 +188,12 @@ test('refreshSelectedProjectBudgetsFromProposals atualiza orçamento vigente com
       }
     }
   ]);
+});
+
+test('shouldRecordManualProgressHistory grava só quando o avanço manual numérico muda', () => {
+  assert.equal(shouldRecordManualProgressHistory(null, 25), true);
+  assert.equal(shouldRecordManualProgressHistory(10, 25), true);
+  assert.equal(shouldRecordManualProgressHistory('25.0', 25), false);
+  assert.equal(shouldRecordManualProgressHistory(25, null), false);
+  assert.equal(shouldRecordManualProgressHistory(undefined, undefined), false);
 });
