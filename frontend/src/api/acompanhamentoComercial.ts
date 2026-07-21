@@ -204,6 +204,7 @@ export interface DashboardRow {
   realizedCost?: string | number | null;
   realizedPaid?: string | number | null;
   stockCost?: string | number | null;
+  manualCost?: string | number | null;
   presumedProfitTaxes?: PresumedProfitTaxEstimate | null;
   progressPct?: number | null;
   progressMethod?: ProgressMethod | null;
@@ -469,6 +470,7 @@ export interface ProjectCard {
   laborCost: number | null; // custo de mão de obra COM adicional offshore (do ponto), somado ao realizado
   laborCostBase: number | null; // custo de mão de obra SEM offshore (comparação)
   stockCost: number; // consumo líquido de produtos químicos/filtros via romaneio
+  manualCost: number; // custos lançados manualmente no acompanhamento
   equipment: Array<{ name: string; days: number; since: string }>; // equipamentos (módulo Equipamentos) em obra
   alerts: ProjectAlert[];
 }
@@ -490,6 +492,25 @@ export async function getProjectCards(): Promise<ProjectCardItem[]> {
 // --- Dashboard detalhado de um projeto ---
 
 export type DayStatus = 'TRABALHADO' | 'STANDBY' | 'PARADO';
+
+export interface ManualProjectCost {
+  id: string;
+  projectId: string;
+  projectCode?: string | null;
+  description: string;
+  amount: number;
+  costDate?: string | null;
+  note?: string | null;
+  createdAt?: string | null;
+  createdBy?: { id: string; name: string } | null;
+}
+
+export interface ManualProjectCostPayload {
+  description: string;
+  amount: number;
+  costDate?: string | null;
+  note?: string | null;
+}
 
 export interface ProjectDetail {
   group?: {
@@ -515,6 +536,7 @@ export interface ProjectDetail {
     pago: number;
     previstoPagar: number;
     estoque: number;
+    manual: number;
     previsto: number | null;
     pct: number | null;
   };
@@ -523,6 +545,7 @@ export interface ProjectDetail {
   presumedProfitTaxes: PresumedProfitTaxEstimate | null;
   workedHours: WorkedHoursProgress;
   maioresGastos: Array<{ categoria: string; total: number }>;
+  manualCosts?: ManualProjectCost[];
   avancoPct: number | null;
   progressHistory?: ProgressHistoryPoint[];
   standby: { count: number; minutes: number };
@@ -549,6 +572,21 @@ export async function getProjectDetail(projectId: string): Promise<ProjectDetail
 export async function getMissionGroupDetail(groupId: string): Promise<ProjectDetail> {
   const { data } = await apiClient.get<ProjectDetail>(
     `/acompanhamento/comercial/grupos-missoes/${groupId}/detalhe`
+  );
+  return data;
+}
+
+export async function createManualProjectCost(projectId: string, payload: ManualProjectCostPayload): Promise<ManualProjectCost> {
+  const { data } = await apiClient.post<ManualProjectCost>(
+    `/acompanhamento/comercial/projetos/${projectId}/custos-manuais`,
+    payload
+  );
+  return data;
+}
+
+export async function deleteManualProjectCost(projectId: string, costId: string): Promise<{ ok: true; id: string }> {
+  const { data } = await apiClient.delete<{ ok: true; id: string }>(
+    `/acompanhamento/comercial/projetos/${projectId}/custos-manuais/${costId}`
   );
   return data;
 }

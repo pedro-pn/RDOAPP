@@ -417,6 +417,36 @@ test('acompanhamento progress history novelty is local once-per-user and expires
   }
 });
 
+test('acompanhamento manual cost novelty is local once-per-user and expires globally', async () => {
+  const stored = new Map();
+  const originalNow = Date.now;
+  globalThis.window = {
+    localStorage: {
+      getItem: key => stored.get(key) || null,
+      setItem: (key, value) => stored.set(key, value)
+    }
+  };
+
+  try {
+    Date.now = () => new Date('2026-07-21T12:00:00-03:00').getTime();
+    const {
+      markAcompanhamentoManualCostNoveltySeen,
+      shouldShowAcompanhamentoManualCostNovelty
+    } = await loadModuleNavigation();
+
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-1' }), true);
+    markAcompanhamentoManualCostNoveltySeen({ id: 'manager-1' });
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-1' }), false);
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-2' }), true);
+
+    Date.now = () => new Date('2026-08-01T00:00:00-03:00').getTime();
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-3' }), false);
+  } finally {
+    Date.now = originalNow;
+    delete globalThis.window;
+  }
+});
+
 test('single-module internal accounts keep entering their module directly', async () => {
   const { preferredEntryPath } = await loadModuleNavigation();
 

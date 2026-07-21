@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  applyManualCostsToDashboardRows,
   applyStockCostsToDashboardRows,
   contractToProposalCode,
   deriveSale,
@@ -129,6 +130,23 @@ test('applyStockCostsToDashboardRows soma estoque ao realizado total preservando
   assert.deepEqual(rows, [
     { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 125.75, stockCost: 25.25 },
     { projectId: 'project-2', realizedOmieCost: null, realizedCost: 12, stockCost: 12 }
+  ]);
+});
+
+test('applyManualCostsToDashboardRows soma custo manual ao realizado total', () => {
+  const rows = [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 125.75, stockCost: 25.25, manualCost: 0 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: null, stockCost: 0, manualCost: 0 }
+  ];
+
+  applyManualCostsToDashboardRows(rows, new Map([
+    ['project-1', { total: 40 }],
+    ['project-2', { total: 12.5 }]
+  ]));
+
+  assert.deepEqual(rows, [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 165.75, stockCost: 25.25, manualCost: 40 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: 12.5, stockCost: 0, manualCost: 12.5 }
   ]);
 });
 

@@ -2493,6 +2493,80 @@ a {
 .acp-det-rank li { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
 .acp-det-rank-cat { color: var(--tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acp-det-rank-val { color: var(--mu); flex: 0 0 auto; }
+.acp-manual-costs {
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--bg);
+  padding: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.acp-manual-costs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.acp-manual-costs-head .acp-det-sub { margin: 0; }
+.acp-manual-cost-toggle { flex: 0 0 auto; }
+.acp-manual-cost-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.acp-manual-cost-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  border-top: 1px solid var(--br);
+  padding-top: 7px;
+}
+.acp-manual-cost-list li:first-child { border-top: 0; padding-top: 0; }
+.acp-manual-cost-list li > div:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.acp-manual-cost-list strong { font-size: 13px; overflow-wrap: anywhere; }
+.acp-manual-cost-list span,
+.acp-manual-cost-list em {
+  color: var(--mu);
+  font-size: 11px;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+.acp-manual-cost-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.acp-manual-cost-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+.acp-manual-cost-form .field-group,
+.acp-manual-cost-form input { min-width: 0; }
+.acp-manual-cost-form .field-group:first-child { grid-column: 1 / -1; }
+.acp-manual-cost-form .field-group-wide { grid-column: 1 / -1; }
+.acp-manual-cost-form .admin-form-actions { justify-content: flex-start; }
+@media (max-width: 860px) {
+  .acp-manual-costs-head { align-items: stretch; flex-direction: column; }
+  .acp-manual-cost-toggle { width: 100%; }
+  .acp-manual-cost-list li { grid-template-columns: 1fr; }
+  .acp-manual-cost-actions { justify-content: space-between; }
+  .acp-manual-cost-form { grid-template-columns: 1fr; }
+}
 
 .acp-det-two { display: flex; gap: 16px; flex-wrap: wrap; }
 .acp-det-two > div { display: flex; flex-direction: column; gap: 1px; }

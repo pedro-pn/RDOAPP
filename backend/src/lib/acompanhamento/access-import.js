@@ -13,6 +13,7 @@ import MDBReader from 'mdb-reader';
 import prisma from '../prisma.js';
 import { computeProgressForProjects } from './avanco.js';
 import { buildOmieCostCategoryWhere } from './cost-categories.js';
+import { getManualProjectCostsByProject } from './manual-costs.js';
 import { buildPresumedProfitTaxEstimate } from './presumed-profit-taxes.js';
 import { progressContributionWeight } from './progress-groups.js';
 import { getStockConsumptionCostByProject } from './stock-cost.js';
@@ -191,6 +192,17 @@ export function applyStockCostsToDashboardRows(rows, stockCosts) {
     row.stockCost = stockCost;
     if (stockCost > 0) {
       row.realizedCost = (toNumber(row.realizedOmieCost) ?? 0) + stockCost;
+    }
+  }
+  return rows;
+}
+
+export function applyManualCostsToDashboardRows(rows, manualCosts) {
+  for (const row of rows) {
+    const manualCost = manualCosts.get(row.projectId)?.total ?? 0;
+    row.manualCost = manualCost;
+    if (manualCost > 0) {
+      row.realizedCost = (toNumber(row.realizedCost) ?? toNumber(row.realizedOmieCost) ?? 0) + manualCost;
     }
   }
   return rows;
@@ -628,14 +640,19 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       realizedCost: realizedByProject.get(project.id) ?? null,
       realizedPaid: realizedPaidByProject.get(project.id) ?? null,
       stockCost: 0,
+      manualCost: 0,
       progressPct: null,
       progressMethod: null
     });
   }
 
   if (!categoryCode && rows.length > 0) {
-    const stockCosts = await getStockConsumptionCostByProject(rows.map(row => row.projectId));
+    const [stockCosts, manualCosts] = await Promise.all([
+      getStockConsumptionCostByProject(rows.map(row => row.projectId)),
+      getManualProjectCostsByProject(rows.map(row => row.projectId))
+    ]);
     applyStockCostsToDashboardRows(rows, stockCosts);
+    applyManualCostsToDashboardRows(rows, manualCosts);
   }
 
   // Avanço físico (RDO ponderado por serviço; ou manual como fallback) dos projetos exibidos, em lote.

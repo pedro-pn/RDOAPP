@@ -14,6 +14,7 @@ import { computeAlerts } from './alerts.js';
 import { buildOmieCostCategoryWhere } from './cost-categories.js';
 import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { laborCostByProject } from './labor-cost.js';
+import { getManualProjectCostsByProject } from './manual-costs.js';
 import { buildWorkedHoursProgress } from './project-cards.js';
 import { computeProgressHistoryForProjects } from './avanco.js';
 import {
@@ -196,6 +197,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     labor,
     equipmentByProject,
     stockCosts,
+    manualCostsByProject,
     plannedNormalHours,
     plannedOvertime,
     progressHistoryByProject
@@ -237,6 +239,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     laborCostByProject(), // custo de mão de obra (HH) do ponto vigente
     getEquipmentUsageByProject([projectId]),
     getStockConsumptionCostByProject([projectId]),
+    getManualProjectCostsByProject([projectId], { includeEntries: true }),
     prisma.projectPlannedNormalHours.findMany({
       where: { projectId },
       select: { hours: true, roleName: true, jobRole: { select: { name: true } } }
@@ -270,9 +273,10 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   const omieGasto = nonSalary.reduce((sum, g) => sum + g.total, 0);
   const omiePayment = buildOmieCostPaymentSummary(costStatusGroups);
   const stockCost = stockCosts.get(projectId) || { total: 0, categories: [] };
-  const gasto = omieGasto + stockCost.total;
+  const manualCost = manualCostsByProject.get(projectId) || { total: 0, entries: [], categories: [] };
+  const gasto = omieGasto + stockCost.total + manualCost.total;
   const previstoCusto = toNum(row.plannedTotalCost);
-  const maioresGastos = [...nonSalary, ...stockCost.categories]
+  const maioresGastos = [...nonSalary, ...stockCost.categories, ...manualCost.categories]
     .filter(g => g.total > 0)
     .sort((a, b) => b.total - a.total || a.categoria.localeCompare(b.categoria, 'pt-BR'))
     .slice(0, 5);
@@ -445,6 +449,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       pago: omiePayment.pago,
       previstoPagar: omiePayment.previstoPagar,
       estoque: stockCost.total,
+      manual: manualCost.total,
       previsto: previstoCusto,
       pct: previstoCusto && previstoCusto > 0 ? Math.round((gasto / previstoCusto) * 100) : null
     },
@@ -457,6 +462,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     maoDeObra,
     workedHours,
     maioresGastos,
+    manualCosts: manualCost.entries,
     avancoPct,
     avancoMethod: row.progressMethod ?? null,
     progressHistory: progressHistoryByProject.get(projectId) ?? [],

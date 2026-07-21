@@ -334,6 +334,7 @@ export function groupProjectDetails(group, memberDetails = []) {
       pago: sumValues(details, item => item.detail.consumo?.pago, { nullWhenEmpty: false }),
       previstoPagar: sumValues(details, item => item.detail.consumo?.previstoPagar, { nullWhenEmpty: false }),
       estoque: sumValues(details, item => item.detail.consumo?.estoque, { nullWhenEmpty: false }),
+      manual: sumValues(details, item => item.detail.consumo?.manual, { nullWhenEmpty: false }),
       previsto,
       pct: ratioPct(gasto, previsto)
     },
@@ -354,6 +355,7 @@ export function groupProjectDetails(group, memberDetails = []) {
     }))),
     workedHours: combineWorkedHours(details),
     maioresGastos: combineTopExpenses(details),
+    manualCosts: details.flatMap(item => item.detail.manualCosts ?? []),
     avancoPct: progress.progressPct,
     progressHistory: combineProgressHistory(details.map(({ detail, progress }) => ({
       progressHistory: detail.progressHistory,
