@@ -364,7 +364,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
           </div>
         </div>
         <div className="field-group">
-          <label htmlFor={`acp-offshore-${projectId}`}>Projeto offshore <HelpTip icon help="Projetos offshore acrescentam 10 pontos percentuais na transferência/viagem do custo de mão de obra (HH) dos colaboradores alocados, e os dias no projeto passam a contar como embarque." /></label>
+          <label htmlFor={`acp-offshore-${projectId}`}>Projeto offshore <HelpTip icon help="Projetos offshore usam a modalidade OFFSHORE do motor de mão de obra para os colaboradores alocados, com periculosidade integral e confinamento." /></label>
           <label className="acp-checkbox-inline">
             <input
               id={`acp-offshore-${projectId}`}
@@ -372,7 +372,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
               checked={offshoreValue}
               onChange={e => setOffshoreEdit(e.target.checked)}
             />
-            <span>{offshoreValue ? 'Sim (+10% transferência)' : 'Não'}</span>
+            <span>{offshoreValue ? 'Sim' : 'Não'}</span>
           </label>
         </div>
       </div>

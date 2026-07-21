@@ -1,18 +1,25 @@
 /*
- * Motor de custo mensal de colaborador — replica as planilhas custo_operador / custo_auxiliar.
+ * Motor de custo mensal de colaborador — replica a aba "Calculo Colaboradores"
+ * da planilha Motor_colaborador.xlsm.
  *
- * params (campos "amarelos" da aba Parâmetros):
- *   salarioBase, salarioMinimo, cargaHoraria (220), diasUteis (22), insalubridade,
- *   periculosidadePct, produtividadePct, transferenciaPct, he70Pct (0,7), he100Pct (1),
- *   beneficios { planoSaude, valeAlimentacao, odonto, seguroVida, cursos },
- *   fgtsPct (0,08), multaPct (0,40)
+ * params (campos laranja da planilha, mais percentuais configuráveis do app):
+ *   salarioBase, salarioMinimo, cargaHoraria (220), diasUteis (22),
+ *   periculosidadePct, produtividadePct, transferenciaPct, confinamentoPct,
+ *   he70Pct (0,7), he100Pct (1), fgtsPct (0,08), multaPct (0,50),
+ *   beneficios { seguroVida, valeAlimentacao, planoSaude, odonto, cursos, moradia }.
  *
- * inputs (aba Simulador Mensal):
- *   diasCliente (periculosidade), diasFora (transferência/viagem),
- *   diasCasa (produtividade/gratificação), he70Horas, he100Horas
+ * inputs:
+ *   diasCasa (Em Itajai), diasFora (Em viagem), offshoreDays (OFFSHORE),
+ *   diasCliente (legado, tratado como periculosidade integral se exceder as modalidades),
+ *   he70Horas, he100Horas.
+ *
+ * Colunas vazias da planilha (INSS++ e equivalentes) ficam fora do calculo.
  */
 
-const DIAS_MES = 30; // divisor mensal usado nas verbas proporcionais (literal na planilha)
+const HORAS_POR_DIA = 8.8;
+const DEFAULT_DIAS_UTEIS = 22;
+const HOME_PERICULOSIDADE_FACTOR = 5 / 7;
+const DEFAULT_INSALUBRIDADE_PCT = 0.2;
 
 function n(value, fallback = 0) {
   const x = typeof value === 'number' ? value : Number(value);
@@ -20,55 +27,85 @@ function n(value, fallback = 0) {
 }
 
 export function defaultBenefits(beneficios = {}) {
+  const educacao = beneficios.cursos != null ? beneficios.cursos : beneficios.educacao;
   return (
-    n(beneficios.planoSaude) +
-    n(beneficios.valeAlimentacao) +
-    n(beneficios.odonto) +
     n(beneficios.seguroVida) +
-    n(beneficios.cursos)
+    n(beneficios.valeAlimentacao) +
+    n(beneficios.planoSaude) +
+    n(beneficios.odonto) +
+    n(educacao) +
+    n(beneficios.moradia)
   );
+}
+
+function derivedInsalubridade(params) {
+  const salarioMinimo = n(params.salarioMinimo);
+  if (salarioMinimo > 0) return salarioMinimo * n(params.insalubridadePct, DEFAULT_INSALUBRIDADE_PCT);
+  return n(params.insalubridade);
+}
+
+function defaultConfinamentoPct(transferenciaPct) {
+  // A planilha usa 40% para operador+ e 20% para auxiliar. O modelo auxiliar
+  // legado e identificado pelo percentual de viagem de 10%.
+  return transferenciaPct <= 0.1 ? 0.2 : 0.4;
+}
+
+function dayFraction(days, diasUteis) {
+  return diasUteis > 0 ? n(days) / diasUteis : 0;
 }
 
 export function computeMonthlyCost(params = {}, inputs = {}) {
   const salarioBase = n(params.salarioBase);
-  const insalubridade = n(params.insalubridade);
+  const insalubridade = derivedInsalubridade(params);
   const cargaHoraria = n(params.cargaHoraria, 220) || 220;
-  const diasUteis = n(params.diasUteis, 22) || 22;
-  const periculosidadePct = n(params.periculosidadePct);
+  const diasUteis = n(params.diasUteis, DEFAULT_DIAS_UTEIS) || DEFAULT_DIAS_UTEIS;
+  const periculosidadePct = n(params.periculosidadePct, 0.3);
   const produtividadePct = n(params.produtividadePct);
   const transferenciaPct = n(params.transferenciaPct);
-  const he70Pct = n(params.he70Pct);
-  const he100Pct = n(params.he100Pct);
-  const fgtsPct = n(params.fgtsPct);
-  const multaPct = n(params.multaPct, 0.4);
+  const confinamentoPct = n(params.confinamentoPct, defaultConfinamentoPct(transferenciaPct));
+  const he70Pct = n(params.he70Pct, 0.7);
+  const he100Pct = n(params.he100Pct, 1);
+  const fgtsPct = n(params.fgtsPct, 0.08);
+  const multaPct = n(params.multaPct, 0.5);
   const beneficiosTotal = defaultBenefits(params.beneficios);
 
-  const diasCliente = n(inputs.diasCliente);
   const diasFora = n(inputs.diasFora);
   const diasCasa = n(inputs.diasCasa);
+  const offshoreDays = n(inputs.offshoreDays);
+  const diasModalidade = diasCasa + diasFora + offshoreDays;
+  const diasClienteLegado = n(inputs.diasCliente);
+  const diasClienteIntegral = Math.max(0, diasClienteLegado - diasModalidade);
   const he70Horas = n(inputs.he70Horas);
   const he100Horas = n(inputs.he100Horas);
-  // Dias em projeto offshore: geram transferência com um bônus (pontos percentuais) sobre o pct base.
-  const offshoreDays = n(inputs.offshoreDays);
-  const offshoreBonusPct = n(inputs.offshoreBonusPct);
 
   // A) fixos
   const subtotalFixo = salarioBase + insalubridade;
 
-  // B) verbas variáveis
-  const periculosidade = ((salarioBase * periculosidadePct) / DIAS_MES) * diasCliente;
-  const produtividade =
-    ((salarioBase + insalubridade + salarioBase * periculosidadePct) / DIAS_MES) * diasCasa * produtividadePct;
-  // Transferência: dias fora (viagem, sem RDO) no pct base + dias offshore no pct + bônus.
-  const transferencia =
-    ((salarioBase + insalubridade) / DIAS_MES) *
-    (diasFora * transferenciaPct + offshoreDays * (transferenciaPct + offshoreBonusPct));
+  // B) verbas variaveis por modalidade:
+  // Em Itajai: periculosidade ponderada por 5/7 + produtividade/gratificacao.
+  // Em viagem: periculosidade integral + transferencia.
+  // Offshore: periculosidade integral + confinamento.
+  const homeFraction = dayFraction(diasCasa, diasUteis);
+  const awayFraction = dayFraction(diasFora, diasUteis);
+  const offshoreFraction = dayFraction(offshoreDays, diasUteis);
+  const legacyClientFraction = dayFraction(diasClienteIntegral, diasUteis);
+  const periculosidadeFactor =
+    homeFraction * HOME_PERICULOSIDADE_FACTOR +
+    awayFraction +
+    offshoreFraction +
+    legacyClientFraction;
+
+  const periculosidade = salarioBase * periculosidadePct * periculosidadeFactor;
+  const produtividade = (salarioBase + insalubridade + periculosidade) * homeFraction * produtividadePct;
+  const transferencia = (salarioBase + insalubridade) * awayFraction * transferenciaPct;
+  const confinamento = (salarioBase + insalubridade) * offshoreFraction * confinamentoPct;
+
   const valorHora =
-    (salarioBase + insalubridade + periculosidade + produtividade + transferencia) / cargaHoraria;
+    (salarioBase + insalubridade + periculosidade + produtividade + transferencia + confinamento) / cargaHoraria;
   const he70 = (valorHora + valorHora * he70Pct) * he70Horas;
   const he100 = (valorHora + valorHora * he100Pct) * he100Horas;
   const dsr = ((he70 + he100) / diasUteis) * 4;
-  const subtotalVariavel = periculosidade + produtividade + transferencia + he70 + he100 + dsr;
+  const subtotalVariavel = periculosidade + produtividade + transferencia + confinamento + he70 + he100 + dsr;
 
   // C) remuneração bruta
   const remuneracaoBruta = subtotalFixo + subtotalVariavel;
@@ -78,25 +115,31 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
   const inssPatronal = 0;
   const encargos = fgts;
 
-  // E) provisões (13º + férias + FGTS s/ provisões)
-  const provisao13 = remuneracaoBruta / 12;
-  const provisaoFerias = (remuneracaoBruta / 12) * (1 + 1 / 3);
-  const fgtsProvisoes = (provisao13 + provisaoFerias) * fgtsPct;
-  const inssProvisoes = 0;
-  const provisoes = provisao13 + provisaoFerias + fgtsProvisoes + inssProvisoes;
+  // E) provisoes: ferias, 13o, aviso previo e multa FGTS (INSS++ vazio na planilha).
+  const ferias = remuneracaoBruta / 12;
+  const tercoFerias = ferias / 3;
+  const fgtsFerias = (ferias + tercoFerias) * fgtsPct;
+  const decimoTerceiro = remuneracaoBruta / 12;
+  const fgtsDecimoTerceiro = decimoTerceiro * fgtsPct;
+  const provisoes = ferias + tercoFerias + fgtsFerias + decimoTerceiro + fgtsDecimoTerceiro;
 
-  // G) passivo rescisório
-  const multaFgts = fgts * multaPct;
-  const avisoPrevio = (remuneracaoBruta + beneficiosTotal) / 12;
-  const passivoRescisorio = multaFgts + avisoPrevio;
+  const avisoPrevio = remuneracaoBruta / 12;
+  const fgtsAvisoPrevio = avisoPrevio * fgtsPct;
+  const multaFgts = (fgts + fgtsFerias + fgtsDecimoTerceiro + fgtsAvisoPrevio) * multaPct;
+  const passivoRescisorio = avisoPrevio + fgtsAvisoPrevio + multaFgts;
+  const inssProvisoes = 0;
 
   const totalMensal = remuneracaoBruta + encargos + provisoes + beneficiosTotal + passivoRescisorio;
 
   return {
     subtotalFixo,
+    insalubridade,
     periculosidade,
     produtividade,
+    gratificacaoServicos: produtividade,
     transferencia,
+    bonificacaoViagem: transferencia,
+    confinamento,
     valorHora,
     he70,
     he100,
@@ -106,6 +149,15 @@ export function computeMonthlyCost(params = {}, inputs = {}) {
     fgts,
     inssPatronal,
     encargos,
+    ferias,
+    tercoFerias,
+    fgtsFerias,
+    decimoTerceiro,
+    fgtsDecimoTerceiro,
+    avisoPrevio,
+    fgtsAvisoPrevio,
+    multaFgts,
+    inssProvisoes,
     provisoes,
     beneficios: beneficiosTotal,
     passivoRescisorio,

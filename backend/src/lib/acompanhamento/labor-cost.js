@@ -23,7 +23,6 @@ import { computeMonthlyCost } from './cost-engine.js';
 import { getEpiAnnualCost } from './settings.js';
 
 const HORAS_POR_DIA = 8.8;
-const OFFSHORE_TRANSFERENCIA_BONUS_PCT = 0.10; // +10 pontos percentuais na transferência (offshore)
 
 function dateKeyUTC(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -349,7 +348,8 @@ export function mergePontoPeriods(periods = []) {
 }
 
 // Cargo (JobRole.name = Collaborator.role) -> parâmetros efetivos por data. O cargo herda do modelo
-// que estava vigente na data calculada e sobrescreve salário base + insalubridade.
+// que estava vigente na data calculada e sobrescreve o salário base. A insalubridade vem do salário
+// mínimo no motor novo.
 export function buildRoleParamsResolver({ roles = [], models = [] } = {}) {
   const modelSetsByKey = new Map();
   for (const model of models) {
@@ -379,7 +379,6 @@ export function buildRoleParamsResolver({ roles = [], models = [] } = {}) {
 
     const effective = { ...(modelSet.params || {}) };
     if (override.salarioBase != null) effective.salarioBase = override.salarioBase;
-    if (override.insalubridade != null) effective.insalubridade = override.insalubridade;
     return effective;
   }
 
@@ -600,7 +599,6 @@ export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Ho
     diasCliente: projectDaysHours / dpd,
     diasFora: awayDaysHours / dpd,
     offshoreDays: offshoreDaysHours / dpd,
-    offshoreBonusPct: OFFSHORE_TRANSFERENCIA_BONUS_PCT,
     diasCasa: homeDaysHours / dpd,
     he70Horas,
     he100Horas
@@ -626,7 +624,6 @@ export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Ho
       diasCliente: hours.clientHours / dpd,
       diasFora: hours.awayHours / dpd,
       offshoreDays: hours.offshoreHours / dpd,
-      offshoreBonusPct: OFFSHORE_TRANSFERENCIA_BONUS_PCT,
       diasCasa: hours.homeHours / dpd,
       he70Horas: he70P,
       he100Horas: he100P
@@ -919,7 +916,6 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     diasCliente: projectDaysHours / HORAS_POR_DIA,
     diasFora: awayDaysHours / HORAS_POR_DIA,
     offshoreDays: offshoreDaysHours / HORAS_POR_DIA,
-    offshoreBonusPct: OFFSHORE_TRANSFERENCIA_BONUS_PCT,
     diasCasa: homeDaysHours / HORAS_POR_DIA,
     he70Horas: he70M,
     he100Horas: he100M

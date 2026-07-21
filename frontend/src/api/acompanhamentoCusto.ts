@@ -29,9 +29,11 @@ export interface CostResult {
   custoHora220: number;
   custoHora176: number;
   custoDiaUtil: number;
+  insalubridade: number;
   periculosidade: number;
   produtividade: number;
   transferencia: number;
+  confinamento: number;
   valorHora: number;
   he70: number;
   he100: number;
@@ -53,12 +55,11 @@ export async function simulateCost(payload: { profileKey?: string; params?: Cost
   return data;
 }
 
-// --- Perfil de custo por cargo (herda do modelo por vigência, sobrescreve salário/insalubridade) ---
+// --- Perfil de custo por cargo (herda do modelo por vigência, sobrescreve salário) ---
 
 export interface CargoCostOverride {
   baseModel?: string; // 'operador' | 'auxiliar' (Modelo 1 / Modelo 2)
   salarioBase?: number;
-  insalubridade?: number;
 }
 
 export interface CargoCostHistoryEntry {

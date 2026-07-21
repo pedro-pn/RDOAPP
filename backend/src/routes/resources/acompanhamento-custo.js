@@ -1,5 +1,5 @@
 /*
- * Motor de custo — perfis de custo (operador/auxiliar), parâmetros versionados e simulador.
+ * Motor de custo — perfis de custo, parâmetros versionados e simulador.
  *   GET  /api/acompanhamento/custo/perfis                 lista perfis + parâmetros vigentes
  *   PUT  /api/acompanhamento/custo/perfis/:key/parametros nova vigência de parâmetros (gestor)
  *   POST /api/acompanhamento/custo/simular                { profileKey|params, inputs } -> custo
