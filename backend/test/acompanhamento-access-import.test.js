@@ -6,6 +6,7 @@ import {
   contractToProposalCode,
   deriveSale,
   mapProposalRow,
+  refreshSelectedProjectBudgetsFromProposals,
   toCnpj,
   toDate,
   toInt,
@@ -127,5 +128,63 @@ test('applyStockCostsToDashboardRows soma estoque ao realizado total preservando
   assert.deepEqual(rows, [
     { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 125.75, stockCost: 25.25 },
     { projectId: 'project-2', realizedOmieCost: null, realizedCost: 12, stockCost: 12 }
+  ]);
+});
+
+test('refreshSelectedProjectBudgetsFromProposals atualiza orçamento vigente com dados da proposta sincronizada', async () => {
+  const updates = [];
+  const client = {
+    projectBudget: {
+      findMany: async (args) => {
+        assert.deepEqual(args.where, { sourceProposalCodBd: { in: [101] } });
+        return [
+          { projectId: 'project-1', version: 1, sourceProposalCodBd: 101 }
+        ];
+      },
+      update: async (args) => {
+        updates.push(args);
+        return args.data;
+      }
+    },
+    commercialProposal: {
+      findMany: async (args) => {
+        assert.deepEqual(args.where, { codBd: { in: [101] } });
+        return [
+          {
+            codBd: 101,
+            serviceModality: 'INLOCO',
+            salePrice: 120000,
+            plannedCost: 34567.89,
+            expectedProfit: 85432.11,
+            expectedMargin: 71.19,
+            taxes: 1200,
+            plannedDays: 12,
+            mobilizationLeadDays: 3,
+            isComplete: true
+          }
+        ];
+      }
+    }
+  };
+
+  const refreshed = await refreshSelectedProjectBudgetsFromProposals(client, { codBds: [101, 101] });
+
+  assert.equal(refreshed, 1);
+  assert.deepEqual(updates, [
+    {
+      where: { projectId_version: { projectId: 'project-1', version: 1 } },
+      data: {
+        sourceProposalCodBd: 101,
+        serviceModality: 'INLOCO',
+        salePrice: 120000,
+        plannedTotalCost: 34567.89,
+        expectedProfit: 85432.11,
+        expectedMargin: 71.19,
+        taxes: 1200,
+        plannedDays: 12,
+        mobilizationLeadDays: 3,
+        isComplete: true
+      }
+    }
   ]);
 });
