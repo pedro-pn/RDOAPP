@@ -41,6 +41,10 @@ export function estoqueApiPath(path: string) {
   return `/estoque${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+export function qualidadeApiPath(path: string) {
+  return `/qualidade${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 function tokenFromAuthorizationHeader(header: unknown) {
   if (typeof header !== 'string') return '';
   const match = header.match(/^Bearer\s+(.+)$/i);

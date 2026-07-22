@@ -95,6 +95,12 @@ Campos selecionaveis (`select`, combobox, multiselect e dropdown de filtro) deve
 o estilo compartilhado do app: borda, raio, padding, foco, disabled, erro e mobile
 consistentes. Select nativo com aparencia crua do navegador e bloqueante em review.
 
+Formularios devem usar o estado visual compartilhado para obrigatorios vazios ou
+invalidos. Ao tentar salvar, cada campo obrigatorio com erro deve ficar vermelho com
+`.field-group.field-invalid`, mensagem `.field-error` abaixo do controle e
+`aria-invalid` quando aplicavel. A validacao nativa do navegador nao substitui esse
+padrao.
+
 Funcao nova visivel ao usuario deve incluir divulgacao temporaria no padrao do app:
 
 - card centralizado via Driver.js, no mesmo modelo usado para novidades como DDS;

@@ -120,6 +120,10 @@
   converted to cards, badges, metric values, links and action rows avoid page-level
   horizontal scroll on narrow phones. Include the expected behavior for long labels and
   large numeric values.
+
+  For forms, define the required-field empty/error behavior: saving with a mandatory
+  field empty or invalid must highlight the specific field in red using the shared
+  field-group/field-invalid/field-error pattern, not only browser-native validation.
 -->
 
 | Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Navigation persistence | Novelty/tutorial contract | Responsive/overflow contract |

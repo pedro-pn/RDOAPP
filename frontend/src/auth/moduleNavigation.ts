@@ -9,6 +9,7 @@ const ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-gr
 const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-group-rename-novelty:v1:';
 const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
 const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
+const ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-project-deviations-novelty:v1:';
 // v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
 const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
 
@@ -142,6 +143,21 @@ export function shouldShowAcompanhamentoManualCostNovelty(user: Pick<AuthUser, '
 export function markAcompanhamentoManualCostNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade da seção Desvios no dashboard do projeto.
+// Validade global de 10 dias corridos após a implantação (22/07/2026 a 01/08/2026).
+const ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_EXPIRES_AT = new Date('2026-08-01T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoProjectDeviationsNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoProjectDeviationsNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 // Novidade do registro de DDS no formulário de RDO: destaque único na primeira abertura do formulário.

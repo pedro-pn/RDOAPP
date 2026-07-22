@@ -16,11 +16,13 @@ import {
   type PlannedScope,
   type ProgressHistoryPoint
 } from '../../api/acompanhamentoComercial';
+import { listProjectQualityDeviations, type ProjectDeviation } from '../../api/qualidade';
 import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
+import { ProjectQualityDeviationsNovelty } from './ProjectQualityDeviationsNovelty';
 import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import type { AuthUser } from '../../types/auth';
@@ -33,6 +35,20 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 const SYSTEM_LABELS: Record<string, string> = { TUBULACAO: 'Tubulações', OLEO: 'Óleo' };
 const UNIT_LABELS: Record<string, string> = { M: 'm', KG: 'kg', T: 't', UN: 'un', L: 'L' };
+const QUALITY_IMPACT_LABELS: Record<string, string> = { ALTO: 'Alto', MEDIO: 'Médio', BAIXO: 'Baixo' };
+const QUALITY_STATUS_LABELS: Record<string, string> = {
+  ABERTO: 'Aberto',
+  EM_TRIAGEM: 'Em triagem',
+  EM_OBSERVACAO: 'Em observação',
+  EM_ACAO: 'Em ação',
+  FECHADO: 'Fechado',
+  DIVULGADO: 'Divulgado'
+};
+const QUALITY_DISPOSITION_LABELS: Record<string, string> = {
+  TRATAR: 'Tratar',
+  MONITORAR: 'Monitorar',
+  ARQUIVAR_DIVULGAR: 'Arquivar / Divulgar'
+};
 const DAY_META: Record<DayStatus, { cls: string; label: string }> = {
   TRABALHADO: { cls: 'green', label: 'Trabalhado' },
   STANDBY: { cls: 'yellow', label: 'Trabalhado com standby' },
@@ -67,6 +83,12 @@ function formatBrlCurrencyInput(value: string) {
     maximumFractionDigits: 2
   });
   return `R$ ${amount}`;
+}
+
+function qualityImpactBadgeClass(impact: string) {
+  if (impact === 'ALTO') return 'badge badge-rej';
+  if (impact === 'MEDIO') return 'badge badge-pen';
+  return 'badge badge-ok';
 }
 
 const manualCostFormSchema = z.object({
@@ -367,6 +389,8 @@ export function ProjectDetailDashboard({
   const [scheduleDirty, setScheduleDirty] = useState(false);
   const [progressHistoryNoveltyActive, setProgressHistoryNoveltyActive] = useState(true);
   const [manualCostNoveltyActive, setManualCostNoveltyActive] = useState(true);
+  const [qualityDeviationsNoveltyActive, setQualityDeviationsNoveltyActive] = useState(true);
+  const [expandedQualityDeviationIds, setExpandedQualityDeviationIds] = useState<Set<string>>(() => new Set());
   const [manualCostFormOpen, setManualCostFormOpen] = useState(false);
   const [manualCostError, setManualCostError] = useState<string | null>(null);
   const [deletingManualCostId, setDeletingManualCostId] = useState<string | null>(null);
@@ -387,6 +411,19 @@ export function ProjectDetailDashboard({
     queryFn: () => getPlannedScope(projectId!),
     enabled: !isGroup && Boolean(projectId)
   });
+  const { data: qualityDeviations = [], isLoading: qualityDeviationsLoading } = useQuery<ProjectDeviation[]>({
+    queryKey: ['qualidade', 'project-deviations', projectId],
+    queryFn: () => listProjectQualityDeviations(projectId!),
+    enabled: !isGroup && Boolean(projectId)
+  });
+  function toggleQualityDeviation(id: string) {
+    setExpandedQualityDeviationIds(current => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const refreshCostViews = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: detailKey }),
@@ -836,6 +873,95 @@ export function ProjectDetailDashboard({
         </div>
       </div>
 
+      {!isGroup ? (
+        <div className="page-card acp-det-block quality-deviations" data-quality-project-deviations>
+          <div className="quality-deviations-head">
+            <div className="acp-det-sub">Desvios</div>
+            <a className="equip-link" href="/qualidade?tab=registros">Abrir Qualidade</a>
+          </div>
+          {qualityDeviationsLoading ? (
+            <div className="placeholder-copy">Carregando desvios...</div>
+          ) : qualityDeviations.length === 0 ? (
+            <div className="placeholder-copy">Nenhum desvio registrado.</div>
+          ) : (
+            <ul className="quality-deviation-list">
+              {qualityDeviations.map(deviation => {
+                const expanded = expandedQualityDeviationIds.has(deviation.id);
+                const detailsId = `quality-deviation-${deviation.id}`;
+                return (
+                  <li key={deviation.id} className={expanded ? 'is-expanded' : ''}>
+                    <div className="quality-deviation-row">
+                      <div className="quality-deviation-main">
+                        <strong>{deviation.number}</strong>
+                        <span>{deviation.nature?.name || '—'}</span>
+                        <small>{fmtDate(deviation.eventDate)}</small>
+                      </div>
+                      <div className="quality-deviation-meta">
+                        <span className={qualityImpactBadgeClass(deviation.impact)}>
+                          {QUALITY_IMPACT_LABELS[deviation.impact] || deviation.impact}
+                        </span>
+                        <span className="badge">{QUALITY_STATUS_LABELS[deviation.status] || deviation.status}</span>
+                        <span className={deviation.recurrent ? 'badge badge-pen' : 'badge'}>
+                          {deviation.occurrences12m}x 12m
+                        </span>
+                        <button
+                          type="button"
+                          className="mini-btn alt quality-deviation-toggle"
+                          aria-expanded={expanded}
+                          aria-controls={detailsId}
+                          onClick={() => toggleQualityDeviation(deviation.id)}
+                        >
+                          {expanded ? 'Recolher' : 'Ver mais'}
+                        </button>
+                      </div>
+                    </div>
+                    {expanded ? (
+                      <div id={detailsId} className="quality-deviation-details">
+                        <dl className="quality-deviation-fields">
+                          <div>
+                            <dt>Disposição</dt>
+                            <dd>{QUALITY_DISPOSITION_LABELS[deviation.disposition] || deviation.disposition}</dd>
+                          </div>
+                          <div>
+                            <dt>Origem</dt>
+                            <dd>{deviation.origin || '—'}</dd>
+                          </div>
+                          {deviation.linkedRnc ? (
+                            <div>
+                              <dt>RNC vinculada</dt>
+                              <dd>{deviation.linkedRnc}</dd>
+                            </div>
+                          ) : null}
+                          {deviation.actionDeadline ? (
+                            <div>
+                              <dt>Prazo da ação</dt>
+                              <dd>{fmtDate(deviation.actionDeadline)}</dd>
+                            </div>
+                          ) : null}
+                        </dl>
+                        <div className="quality-deviation-text">
+                          <span>Descrição</span>
+                          <p>{deviation.description}</p>
+                        </div>
+                        {deviation.definedAction || deviation.actionOwner ? (
+                          <div className="quality-deviation-text">
+                            <span>Ação definida</span>
+                            <p>
+                              {deviation.definedAction || '—'}
+                              {deviation.actionOwner ? ` · Responsável: ${deviation.actionOwner}` : ''}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
       <div className="page-card acp-det-block">
         <details className="acp-det-equips-details" open>
           <summary className="acp-det-collabs-summary">
@@ -935,6 +1061,11 @@ export function ProjectDetailDashboard({
         user={progressHistoryNoveltyUser}
         enabled={manualCostNoveltyActive && canAddManualCost}
         onSeen={() => setManualCostNoveltyActive(false)}
+      />
+      <ProjectQualityDeviationsNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={qualityDeviationsNoveltyActive && !isGroup}
+        onSeen={() => setQualityDeviationsNoveltyActive(false)}
       />
     </div>
   );

@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 1.5.0 → 1.6.0
-- Modified principles: Princípio II expandido para regras testáveis de overflow em abas/segmentos mobile
+- Version change: 1.6.0 → 1.7.0
+- Modified principles: Princípio VI expandido para erro visual obrigatório em campos obrigatórios
 - Added sections: nenhuma
 - Removed sections: nenhuma
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir abas/segmentos sem overflow
-  - ✅ .specify/templates/spec-template.md — contrato responsivo passou a capturar tabs/segmentos
-  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a auditar abas/segmentos
-  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para tabs/segmentos mobile
+  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir erro vermelho em campos obrigatórios
+  - ✅ .specify/templates/spec-template.md — contrato visual passou a declarar erro de campo obrigatório
+  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a auditar obrigatórios vazios
+  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para validação visual de obrigatórios
 - Follow-up TODOs: nenhum
 -->
 
@@ -99,6 +99,10 @@ Nenhuma página, modal ou card pode nascer fora da formatação padrão do app. 
   DEVEM aparecer formatados com borda, raio, padding, foco e indicador visual de
   abertura consistentes com o app; dropdown com aparência padrão crua do navegador é
   violação bloqueante.
+- Ao tentar salvar formulário com campo obrigatório vazio ou inválido, o campo DEVE
+  receber o estado visual de erro do app: wrapper `.field-group.field-invalid`, controle
+  com `aria-invalid` quando aplicável e mensagem `.field-error` abaixo do campo. A
+  validação nativa do navegador não pode substituir esse padrão visual.
 - Listas suspensas customizadas (combobox, multiselect, filtros com menu) DEVEM usar
   componente existente do kit ou uma classe compartilhada baseada nos tokens. É
   proibido criar dropdown local sem estados de foco, disabled, erro e mobile definidos.
@@ -178,4 +182,4 @@ corrigido.
   DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
   registrada na seção Complexity Tracking do plano da feature.
 
-**Version**: 1.6.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-17
+**Version**: 1.7.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-22
