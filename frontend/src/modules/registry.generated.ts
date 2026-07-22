@@ -275,6 +275,59 @@ export const moduleRegistry = [
     ]
   },
   {
+    "id": "qualidade",
+    "prismaModule": "QUALIDADE",
+    "badge": "QLD",
+    "title": "Qualidade",
+    "copy": "Registros de melhorias, desvios, licoes aprendidas e incidentes.",
+    "hub": {
+      "enabled": true,
+      "roles": [
+        "qualidade:manager",
+        "qualidade:viewer"
+      ],
+      "path": "/qualidade"
+    },
+    "pathPrefixes": [
+      "/qualidade"
+    ],
+    "routes": {
+      "index": "/qualidade"
+    },
+    "routeGroups": {
+      "default": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "qualidade:manager",
+          "qualidade:viewer"
+        ]
+      }
+    },
+    "roles": [
+      {
+        "code": "QUALIDADE_MANAGER",
+        "public": "qualidade:manager",
+        "label": "Qualidade - Gestor",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      },
+      {
+        "code": "QUALIDADE_VIEWER",
+        "public": "qualidade:viewer",
+        "label": "Qualidade - Visualizador",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      }
+    ]
+  },
+  {
     "id": "acompanhamento",
     "prismaModule": "ACOMPANHAMENTO",
     "badge": "ACP",

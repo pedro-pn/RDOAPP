@@ -7,10 +7,13 @@ import {
   availableHubModulesForUser,
   hasSeenAcompanhamentoNovelty,
   markAcompanhamentoNoveltySeen,
+  markQualidadeNoveltySeen,
+  shouldShowQualidadeNovelty,
   userHasAcompanhamentoModule
 } from '../auth/moduleNavigation';
 import { HubTutorial } from '../components/HubTutorial';
 import { AcompanhamentoHubNovelty } from '../components/AcompanhamentoHubNovelty';
+import { QualidadeHubNovelty } from '../components/QualidadeHubNovelty';
 import { roleHomePath } from '../auth/rolePath';
 import { Shell } from '../layout/Shell';
 import { TopBar } from '../layout/TopBar';
@@ -21,9 +24,10 @@ const DEFAULT_MODULE_ICON = <circle cx="12" cy="12" r="9" />;
 const MODULE_ICONS: Partial<Record<HubModuleEntry['id'], ReactNode>> = {
   rdo: (
     <>
-      <rect x="3" y="12" width="4" height="8" rx="1" />
-      <rect x="9" y="8" width="4" height="12" rx="1" />
-      <rect x="15" y="4" width="4" height="16" rx="1" />
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 5a3 3 0 0 1 6 0v1H9z" />
+      <path d="M9 11h6" />
+      <path d="M9 15h5" />
     </>
   ),
   admin: (
@@ -54,6 +58,20 @@ const MODULE_ICONS: Partial<Record<HubModuleEntry['id'], ReactNode>> = {
     <>
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </>
+  ),
+  estoque: (
+    <>
+      <path d="M3 7.5L12 3l9 4.5l-9 4.5z" />
+      <path d="M3 7.5v9L12 21l9-4.5v-9" />
+      <path d="M12 12v9" />
+      <path d="M7.5 5.25l9 4.5" />
+    </>
+  ),
+  qualidade: (
+    <>
+      <path d="M12 3l2.2 1.5l2.7-.2l.8 2.6l2.2 1.6l-1 2.5l1 2.5l-2.2 1.6l-.8 2.6l-2.7-.2L12 20l-2.2-1.5l-2.7.2l-.8-2.6l-2.2-1.6l1-2.5l-1-2.5l2.2-1.6l.8-2.6l2.7.2z" />
+      <path d="M8.7 12l2.1 2.1l4.5-4.6" />
     </>
   ),
   acompanhamento: (
@@ -125,12 +143,21 @@ export function HubPage() {
   const isAdmin = user?.accountType === 'ADMIN';
   const modules = useMemo(() => hubModulesForUser(user), [user]);
   const availableModules = useMemo(() => availableHubModulesForUser(user), [user]);
-  const shouldRedirect = !isAdmin && availableModules.length === 1;
+  const baseShouldRedirect = !isAdmin && availableModules.length === 1;
 
   // Novidade do módulo Acompanhamento: badge "Novo" + destaque no 1º acesso ao hub.
   const [acompNoveltyActive, setAcompNoveltyActive] = useState(
     () => userHasAcompanhamentoModule(user) && !hasSeenAcompanhamentoNovelty(user)
   );
+  const [qualityNoveltyActive, setQualityNoveltyActive] = useState(
+    () => shouldShowQualidadeNovelty(user)
+  );
+  const shouldRedirect = baseShouldRedirect && !acompNoveltyActive && !qualityNoveltyActive;
+
+  useEffect(() => {
+    setAcompNoveltyActive(userHasAcompanhamentoModule(user) && !hasSeenAcompanhamentoNovelty(user));
+    setQualityNoveltyActive(shouldShowQualidadeNovelty(user));
+  }, [user]);
 
   const firstName = user?.name?.split(' ')[0] || 'Usuário';
   const initials = user?.name
@@ -220,11 +247,17 @@ export function HubPage() {
                     if (module.id === 'acompanhamento') {
                       markAcompanhamentoNoveltySeen(user);
                       setAcompNoveltyActive(false);
+                    } else if (module.id === 'qualidade') {
+                      markQualidadeNoveltySeen(user);
+                      setQualityNoveltyActive(false);
                     }
                     navigate(path);
                   } : undefined}
                 >
                   {module.id === 'acompanhamento' && acompNoveltyActive && (
+                    <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
+                  )}
+                  {module.id === 'qualidade' && qualityNoveltyActive && (
                     <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
                   )}
                   <div className="hub-card-accent" style={{ background: accent }} />
@@ -262,6 +295,13 @@ export function HubPage() {
           user={user}
           enabled={!shouldRedirect && acompNoveltyActive}
           onSeen={() => setAcompNoveltyActive(false)}
+        />
+      )}
+      {user && (
+        <QualidadeHubNovelty
+          user={user}
+          enabled={!shouldRedirect && qualityNoveltyActive}
+          onSeen={() => setQualityNoveltyActive(false)}
         />
       )}
     </Shell>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type FormEvent, type KeyboardEvent, type SetStateAction } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type FormEvent, type KeyboardEvent, type PointerEvent, type SetStateAction } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -8,6 +8,15 @@ import { ProjectSortButton } from '../../utils/ProjectSortButton';
 import { reportDownloadFileName } from '../../utils/reportFileName';
 import { matchesSearch, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
+import {
+  createPointerDragGhost,
+  movePointerDragGhost,
+  reorderIdFromPoint,
+  reorderRowsById,
+  scrollReorderContainerEdge,
+  setReorderDragImage,
+  type PointerDragState
+} from '../../utils/reorderDrag';
 
 import type { UserRole } from '../../types/auth';
 import { downloadReportDocx, downloadReportPdf, downloadReportsBatch } from '../../api/reports';
@@ -1153,6 +1162,11 @@ export function GestorPage() {
   const [draggedSurveyQuestionId, setDraggedSurveyQuestionId] = useState<string | null>(null);
   const [dragOverSurveyQuestionId, setDragOverSurveyQuestionId] = useState<string | null>(null);
   const [surveyOptionInputs, setSurveyOptionInputs] = useState<Record<string, string>>({});
+  const surveyQuestionDragId = useRef<string | null>(null);
+  const surveyQuestionDropHandled = useRef(false);
+  const surveyQuestionStartDrafts = useRef<SurveyQuestionDraft[]>([]);
+  const surveyQuestionDraftsRef = useRef<SurveyQuestionDraft[]>([]);
+  const surveyQuestionTouchDrag = useRef<PointerDragState | null>(null);
   const surveyQuestionEditorListRef = useRef<HTMLDivElement | null>(null);
 
   const [collaboratorForm, setCollaboratorForm] = useState<CollaboratorFormState>(emptyCollaboratorForm);
@@ -1727,20 +1741,43 @@ export function GestorPage() {
     setShowSurveyQuestionEditor(true);
   }
 
+  useEffect(() => {
+    if (!surveyQuestionDragId.current) surveyQuestionDraftsRef.current = surveyQuestionDrafts;
+  }, [surveyQuestionDrafts]);
+
   function updateSurveyQuestionDraft(index: number, patch: Partial<SurveyQuestionDraft>) {
     setSurveyQuestionDrafts(current => current.map((question, itemIndex) => (
       itemIndex === index ? { ...question, ...patch } : question
     )));
   }
 
-  function moveSurveyQuestion(fromIndex: number, toIndex: number) {
-    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
-    setSurveyQuestionDrafts(current => {
-      const next = [...current];
-      const [item] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, item);
-      return next;
-    });
+  function applySurveyQuestionDrafts(next: SurveyQuestionDraft[]) {
+    surveyQuestionDraftsRef.current = next;
+    setSurveyQuestionDrafts(next);
+  }
+
+  function clearSurveyQuestionDrag() {
+    surveyQuestionDragId.current = null;
+    setDraggedSurveyQuestionId(null);
+    setDragOverSurveyQuestionId(null);
+  }
+
+  function startSurveyQuestionDrag(questionId: string) {
+    surveyQuestionDropHandled.current = false;
+    surveyQuestionDraftsRef.current = surveyQuestionDrafts;
+    surveyQuestionStartDrafts.current = surveyQuestionDrafts;
+    surveyQuestionDragId.current = questionId;
+    setDraggedSurveyQuestionId(questionId);
+    setDragOverSurveyQuestionId(questionId);
+  }
+
+  function applySurveyQuestionReorder(targetId: string) {
+    const fromId = surveyQuestionDragId.current;
+    if (!fromId) return;
+    const next = reorderRowsById(surveyQuestionDraftsRef.current, fromId, targetId, question => question.id);
+    if (next === surveyQuestionDraftsRef.current) return;
+    setDragOverSurveyQuestionId(targetId);
+    applySurveyQuestionDrafts(next);
   }
 
   function addSurveyQuestionOption(index: number) {
@@ -1763,27 +1800,64 @@ export function GestorPage() {
 
   function handleSurveyQuestionDragOver(event: DragEvent<HTMLElement>, questionId?: string) {
     event.preventDefault();
-    if (questionId) setDragOverSurveyQuestionId(questionId);
-    const container = surveyQuestionEditorListRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const edgeSize = 88;
-    const scrollStep = 18;
-    if (event.clientY < rect.top + edgeSize) {
-      container.scrollTop -= scrollStep;
-    } else if (event.clientY > rect.bottom - edgeSize) {
-      container.scrollTop += scrollStep;
-    }
+    if (questionId) applySurveyQuestionReorder(questionId);
+    scrollReorderContainerEdge(surveyQuestionEditorListRef.current, event.clientY);
   }
 
   function handleSurveyQuestionDragStart(event: DragEvent<HTMLButtonElement>, questionId: string) {
-    setDraggedSurveyQuestionId(questionId);
-    setDragOverSurveyQuestionId(questionId);
-    const card = event.currentTarget.closest('.survey-question-card');
-    if (card instanceof HTMLElement) {
-      event.dataTransfer.setDragImage(card, Math.min(80, card.clientWidth / 2), 28);
-    }
+    startSurveyQuestionDrag(questionId);
     event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', questionId);
+    setReorderDragImage(event, '.survey-question-card', 'app-reorder-drag-ghost');
+  }
+
+  function handleSurveyQuestionDrop(event: DragEvent<HTMLElement>, questionId: string) {
+    event.preventDefault();
+    surveyQuestionDropHandled.current = true;
+    applySurveyQuestionReorder(questionId);
+    clearSurveyQuestionDrag();
+  }
+
+  function handleSurveyQuestionDragEnd() {
+    if (!surveyQuestionDropHandled.current) applySurveyQuestionDrafts(surveyQuestionStartDrafts.current);
+    surveyQuestionDropHandled.current = false;
+    clearSurveyQuestionDrag();
+  }
+
+  function handleSurveyQuestionPointerDown(event: PointerEvent<HTMLButtonElement>, questionId: string) {
+    if (event.pointerType === 'mouse') return;
+    const card = event.currentTarget.closest('.survey-question-card');
+    if (!(card instanceof HTMLElement)) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    startSurveyQuestionDrag(questionId);
+    document.body.classList.add('app-reorder-touching');
+    const state = createPointerDragGhost(card, event.clientX, event.clientY, 'app-reorder-touch-ghost');
+    state.pointerId = event.pointerId;
+    surveyQuestionTouchDrag.current = state;
+  }
+
+  function handleSurveyQuestionPointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const state = surveyQuestionTouchDrag.current;
+    if (!state || state.pointerId !== event.pointerId || !surveyQuestionDragId.current) return;
+    event.preventDefault();
+    movePointerDragGhost(state, event.clientX, event.clientY);
+    scrollReorderContainerEdge(surveyQuestionEditorListRef.current, event.clientY);
+    const targetId = reorderIdFromPoint(event.clientX, event.clientY, '.survey-question-card');
+    if (targetId) applySurveyQuestionReorder(targetId);
+  }
+
+  function finishSurveyQuestionPointerDrag(event: PointerEvent<HTMLButtonElement>, persist: boolean) {
+    const state = surveyQuestionTouchDrag.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    state.ghost.remove();
+    surveyQuestionTouchDrag.current = null;
+    document.body.classList.remove('app-reorder-touching');
+    if (!persist) applySurveyQuestionDrafts(surveyQuestionStartDrafts.current);
+    clearSurveyQuestionDrag();
   }
 
   function addSurveyQuestionDraft() {
@@ -4346,16 +4420,12 @@ export function GestorPage() {
           >
             {surveyQuestionDrafts.map((question, index) => (
               <div
-                className={`card admin-card survey-question-card ${draggedSurveyQuestionId === question.id ? 'dragging' : ''} ${dragOverSurveyQuestionId === question.id && draggedSurveyQuestionId !== question.id ? 'drag-over' : ''}`}
+                className={`card admin-card survey-question-card ${draggedSurveyQuestionId === question.id ? 'drag-placeholder' : ''} ${dragOverSurveyQuestionId === question.id && draggedSurveyQuestionId !== question.id ? 'drag-over' : ''}`}
                 key={question.id}
+                data-reorder-id={question.id}
                 onDragEnter={() => setDragOverSurveyQuestionId(question.id)}
                 onDragOver={event => handleSurveyQuestionDragOver(event, question.id)}
-                onDrop={() => {
-                  const fromIndex = surveyQuestionDrafts.findIndex(item => item.id === draggedSurveyQuestionId);
-                  moveSurveyQuestion(fromIndex, index);
-                  setDraggedSurveyQuestionId(null);
-                  setDragOverSurveyQuestionId(null);
-                }}
+                onDrop={event => handleSurveyQuestionDrop(event, question.id)}
               >
                 <div className="admin-inline-grid">
                   <div className="survey-question-drag-cell">
@@ -4364,10 +4434,11 @@ export function GestorPage() {
                       type="button"
                       draggable
                       onDragStart={event => handleSurveyQuestionDragStart(event, question.id)}
-                      onDragEnd={() => {
-                        setDraggedSurveyQuestionId(null);
-                        setDragOverSurveyQuestionId(null);
-                      }}
+                      onDragEnd={handleSurveyQuestionDragEnd}
+                      onPointerDown={event => handleSurveyQuestionPointerDown(event, question.id)}
+                      onPointerMove={handleSurveyQuestionPointerMove}
+                      onPointerUp={event => finishSurveyQuestionPointerDrag(event, true)}
+                      onPointerCancel={event => finishSurveyQuestionPointerDrag(event, false)}
                       title="Arrastar para reordenar"
                       aria-label="Arrastar pergunta para reordenar"
                     >

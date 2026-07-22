@@ -7,6 +7,7 @@ import { EpiPage } from '../pages/epi/EpiPage';
 import { EquipamentosPage } from '../pages/equipamentos/EquipamentosPage';
 import { EstoquePage } from '../pages/estoque/EstoquePage';
 import { PrivacyRequestsPage } from '../pages/privacy/PrivacyRequestsPage';
+import { QualidadePage } from '../pages/qualidade/QualidadePage';
 import { NewRomaneioPage } from '../pages/romaneio/NewRomaneioPage';
 import { RomaneioPage } from '../pages/romaneio/RomaneioPage';
 import { moduleRouteAccess, moduleRoutePath } from './registry';
@@ -18,6 +19,7 @@ const ROMANEIO_ACCESS = moduleRouteAccess('romaneio');
 const EPI_ACCESS = moduleRouteAccess('epi');
 const EQUIPAMENTOS_ACCESS = moduleRouteAccess('equipamentos');
 const ESTOQUE_ACCESS = moduleRouteAccess('estoque');
+const QUALIDADE_ACCESS = moduleRouteAccess('qualidade');
 const ACOMPANHAMENTO_ACCESS = moduleRouteAccess('acompanhamento');
 // module:scaffold access
 
@@ -46,6 +48,10 @@ export const moduleRouteElements = (
 
     <Route element={<RoleRoute {...ESTOQUE_ACCESS} />}>
       <Route path={moduleRoutePath('estoque', 'index')} element={<EstoquePage />} />
+    </Route>
+
+    <Route element={<RoleRoute {...QUALIDADE_ACCESS} />}>
+      <Route path={moduleRoutePath('qualidade', 'index')} element={<QualidadePage />} />
     </Route>
 
     <Route element={<RoleRoute {...ACOMPANHAMENTO_ACCESS} />}>

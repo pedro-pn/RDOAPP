@@ -86,6 +86,7 @@ enum AppModule {
   EQUIPAMENTOS
   ESTOQUE
   ACOMPANHAMENTO
+  QUALIDADE
 }
 
 enum ModuleRoleCode {
@@ -104,6 +105,8 @@ enum ModuleRoleCode {
   ESTOQUE_VIEWER
   ACOMPANHAMENTO_MANAGER
   ACOMPANHAMENTO_VIEWER
+  QUALIDADE_MANAGER
+  QUALIDADE_VIEWER
 }
 
 enum StockItemType {
@@ -211,6 +214,40 @@ enum AccessImportStatus {
 enum AcompanhamentoMissionGroupStatus {
   ACTIVE
   DISSOLVED
+}
+
+enum QualityRecordType {
+  DESVIO
+  LICAO_APRENDIDA
+  INCIDENTE
+  RECLAMACAO_CLIENTE
+  MELHORIA
+}
+
+enum QualityEvidenceKind {
+  LINK
+  ATTACHMENT
+}
+
+enum QualityImpact {
+  ALTO
+  MEDIO
+  BAIXO
+}
+
+enum QualityDisposition {
+  TRATAR
+  MONITORAR
+  ARQUIVAR_DIVULGAR
+}
+
+enum QualityStatus {
+  ABERTO
+  EM_TRIAGEM
+  EM_OBSERVACAO
+  EM_ACAO
+  FECHADO
+  DIVULGADO
 }
 
 model Collaborator {
@@ -443,6 +480,7 @@ model Project {
   manualProgressHistory  ProjectManualProgressHistory[]
   manualCosts            ProjectManualCost[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
+  qualityRecords         QualityRecord[]
 
   @@index([deletedAt])
   @@index([registrationPending])
@@ -1096,8 +1134,99 @@ model User {
   projectManualCosts                  ProjectManualCost[]                 @relation("ProjectManualCostCreator")
   createdAcompanhamentoMissionGroups  AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
   dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupDissolvedBy")
+  createdQualityRecords               QualityRecord[]                     @relation("QualityRecordCreator")
+  updatedQualityRecords               QualityRecord[]                     @relation("QualityRecordUpdater")
+  deletedQualityRecords               QualityRecord[]                     @relation("QualityRecordDeletedBy")
 
   @@index([clientCnpj])
+}
+
+// === Modulo Qualidade ===
+
+model QualityNature {
+  id        String          @id @default(cuid())
+  name      String
+  isActive  Boolean         @default(true)
+  position  Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  records   QualityRecord[]
+
+  @@index([isActive, position, name])
+  @@index([position])
+}
+
+model QualityRecord {
+  id                 String             @id @default(cuid())
+  number             String             @unique
+  type               QualityRecordType
+  seq                Int
+  year               Int
+  registeredAt       DateTime
+  origin             String
+  projectId          String?
+  eventDate          DateTime
+  natureId           String
+  description        String
+  impact             QualityImpact
+  linkedRnc          String?
+  disposition        QualityDisposition
+  definedAction      String?
+  actionOwner        String?
+  actionDeadline     DateTime?
+  evidence           String?
+  resultVerification String?
+  status             QualityStatus
+  createdById        String?
+  updatedById        String?
+  deletedById        String?
+  deletedAt          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  project            Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  nature             QualityNature      @relation(fields: [natureId], references: [id], onDelete: Restrict)
+  createdBy          User?              @relation("QualityRecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy          User?              @relation("QualityRecordUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  deletedBy          User?              @relation("QualityRecordDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  evidences          QualityEvidence[]
+
+  @@unique([type, year, seq])
+  @@index([projectId, type])
+  @@index([natureId, eventDate])
+  @@index([status])
+  @@index([impact])
+  @@index([registeredAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+  @@index([deletedById])
+}
+
+model QualityEvidence {
+  id          String              @id @default(cuid())
+  recordId    String
+  kind        QualityEvidenceKind
+  label       String?
+  url         String?
+  fileName    String?
+  mimeType    String?
+  storagePath String?
+  publicToken String?             @unique
+  position    Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  record      QualityRecord       @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId, position])
+  @@index([kind])
+  @@index([storagePath])
+}
+
+model QualityRecordSeq {
+  type    QualityRecordType
+  year    Int
+  lastSeq Int               @default(0)
+
+  @@id([type, year])
 }
 
 model NotificationPreferenceToken {

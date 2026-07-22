@@ -12,6 +12,7 @@ import { resolvePublicCalibrationCertificate } from './lib/calibration-certifica
 import { equipmentAttachmentFileName, inlineContentDisposition, resolvePublicEquipmentAttachment } from './lib/equipment-attachments.js';
 import { captureOperationalError } from './lib/operations/error-tracking.js';
 import { resolvePublicStockAttachment, stockAttachmentFileName } from './lib/estoque/stock-attachments.js';
+import { qualityAttachmentFileName, resolvePublicQualityAttachment } from './lib/qualidade/attachments.js';
 import { localizedZodErrorDetails, localizedZodIssues } from './lib/zod-error.js';
 import { requireAuth } from './middleware/auth.js';
 import { requestMetrics } from './middleware/request-metrics.js';
@@ -56,7 +57,8 @@ app.use((req, res, next) => {
     '/api/particle-counters',
     '/api/rdo/particle-counters',
     '/api/equipamentos',
-    '/api/estoque'
+    '/api/estoque',
+    '/api/qualidade/registros'
   ].some(prefix => req.path === prefix || req.path.startsWith(`${prefix}/`));
   const isManualReportUploadApi = req.path === '/api/reports/manual-upload'
     || req.path === '/api/rdo/reports/manual-upload'
@@ -108,6 +110,15 @@ app.get('/api/estoque-anexos/:token', asyncHandler(async (req, res) => {
   }
   res.type('application/pdf');
   res.setHeader('Content-Disposition', inlineContentDisposition(stockAttachmentFileName(resolved)));
+  return res.sendFile(resolved.targetPath);
+}));
+app.get('/api/qualidade-anexos/:token', asyncHandler(async (req, res) => {
+  const resolved = await resolvePublicQualityAttachment(req.params.token);
+  if (!resolved) {
+    return res.status(404).json({ error: 'Anexo não encontrado.' });
+  }
+  res.type(resolved.evidence.mimeType || 'application/octet-stream');
+  res.setHeader('Content-Disposition', inlineContentDisposition(qualityAttachmentFileName(resolved.evidence)));
   return res.sendFile(resolved.targetPath);
 }));
 app.get('/relatorios/*storedFilePath', requireAuth, asyncHandler(serveAuthorizedStoredFile));
