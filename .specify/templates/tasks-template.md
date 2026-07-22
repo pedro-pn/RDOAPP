@@ -18,6 +18,22 @@ description: "Task list template for feature implementation"
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+- For frontend UI work, include the exact shared components/classes required by the
+  Visual/UI Contract. Do not write only "clone/copy X"; name the audited source file
+  and the shared pattern to preserve or correct.
+- For new user-facing frontend functions, include tasks for the 10-day novelty campaign
+  and guided tutorial from the Visual/UI Contract. For new modules, include the
+  permanent first-access module tutorial instead.
+- For frontend surfaces with tabs, side sections, tab-like filters or list-replacing
+  detail views, include a task to persist navigation in URL/query params and verify that
+  refresh keeps the user on the same module page.
+- For frontend card grids, card-like mobile table rows, badges, metric values, links or
+  action rows, include a task to verify they do not create page-level horizontal scroll
+  on narrow phones. Fixed visual minimums must use a shrink-safe pattern such as
+  `minmax(min(100%, ...), 1fr)` or an equivalent documented layout.
+- For frontend tabs, segmented controls and tab-like filters, include a task to verify
+  labels wrap/fit, use a responsive grid, scroll internally by design, or switch to a
+  mobile select/menu without creating page-level horizontal scroll.
 
 ## Path Conventions
 
@@ -35,6 +51,7 @@ description: "Task list template for feature implementation"
   - Feature requirements from plan.md
   - Entities from data-model.md
   - Endpoints from contracts/
+  - Visual/UI Contract entries from spec.md and visual evidence from plan.md
 
   Tasks MUST be organized by user story so each story can be:
   - Implemented independently
@@ -156,9 +173,25 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
-- [ ] TXXX Visual consistency pass: dropdowns/selects formatted by the shared app
-  standard, desktop module width not compressed, and mobile layout free of horizontal
-  scroll
+- [ ] TXXX Novelty campaign: implement the Driver.js-style centered novelty card with
+  localStorage seen marker per user/browser and global expiration 10 days after the
+  implementation date (or document N/A for non-frontend/non-user-facing changes)
+- [ ] TXXX Guided tutorial: implement the first-access tutorial for the new function
+  during the same 10-day window, or permanent first-access tutorial when this is a new
+  module
+- [ ] TXXX Visual contract implementation: each new/changed form control uses shared
+  structure (`field-group`, `admin-form-grid`, `admin-inline-form`, or documented
+  equivalent); no placeholder-only labels; no raw dropdown/select styling
+- [ ] TXXX Navigation continuity: represent module-internal tabs/sections/detail views
+  in URL/query params (or document a localStorage exception) and verify refresh/deep-link
+  restores the same page without stale incompatible params
+- [ ] TXXX Mobile overflow audit: verify changed card grids, card-like table rows,
+  tabs/segments, badges, metric values, links and action rows at narrow phone widths;
+  ensure grid/flex children can shrink (`min-width: 0`) and long content wraps/truncates
+  without page-level horizontal scroll
+- [ ] TXXX Visual consistency pass: verify every Visual/UI Contract surface in desktop
+  and mobile; dropdowns/selects have default, focus, disabled, error and empty states;
+  desktop module width is not compressed; mobile layout has no horizontal page scroll
 - [ ] TXXX Run quickstart.md validation
 
 ---

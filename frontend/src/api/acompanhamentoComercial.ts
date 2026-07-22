@@ -58,6 +58,7 @@ export interface ProjectSchedulePayload {
 }
 
 export type ProgressMethod = 'RDO' | 'MANUAL';
+export type GroupProgressMethod = 'GROUP_SCOPE' | 'GROUP_WEIGHTED' | 'GROUP_AVERAGE';
 export interface ProjectAlert {
   code: string;
   level: 'danger' | 'warn';
@@ -69,7 +70,9 @@ export interface PresumedProfitTaxEstimate {
   defaultServiceTaxCode: string;
   supportedServiceTaxCodes: string[];
   projectCostBasis: 'IRPJ_CSLL_OUTSIDE_INVOICE';
-  serviceTaxCode: '14.01' | '7.05' | '7.02';
+  serviceTaxCode: '14.01' | '7.05' | '7.02' | 'MIXED';
+  serviceTaxCodes?: Array<'14.01' | '7.05' | '7.02'>;
+  omieServiceTaxCodes?: string[];
   equivalentServiceTaxCode: string | null;
   spreadsheetBlock: string;
   basisSource: 'EXPECTED_SALE' | 'OMIE_INVOICED';
@@ -82,6 +85,7 @@ export interface PresumedProfitTaxEstimate {
   issDelta: number | null;
   pis: number;
   cofins: number;
+  inss: number;
   invoiceTaxTotal: number;
   irpjPresumedBasis: number;
   csllPresumedBasis: number;
@@ -92,6 +96,9 @@ export interface PresumedProfitTaxEstimate {
   issRatePct: number;
   pisRatePct: number;
   cofinsRatePct: number;
+  inssRatePct: number;
+  serviceInssRatePct: number;
+  serviceInssTaxCodes: Array<'14.01' | '7.02'>;
   irpjRatePct: number;
   csllRatePct: number;
   additionalIrpjRatePct: number;
@@ -136,11 +143,41 @@ export async function getCommercialPendencias(): Promise<CommercialPendencia[]> 
   return data;
 }
 
-export interface DashboardRow {
+export interface MissionGroupMemberSummary {
   projectId: string;
   code: string;
   name: string;
   clientName: string;
+  clientCnpj?: string | null;
+  order?: number;
+  category?: ProjectCardCategory;
+  progressPct?: number | null;
+  visible?: boolean;
+}
+
+export interface MissionGroupResponse {
+  id: string;
+  name: string;
+  status: 'ACTIVE' | 'DISSOLVED';
+  createdAt: string;
+  updatedAt: string;
+  dissolvedAt: string | null;
+  warning?: string;
+  members: MissionGroupMemberSummary[];
+}
+
+export interface CreateMissionGroupRequest {
+  name?: string;
+  projectIds: string[];
+}
+
+export interface DashboardRow {
+  kind?: 'PROJECT';
+  projectId: string;
+  code: string;
+  name: string;
+  clientName: string;
+  clientCnpj?: string | null;
   proposalCode: string;
   resolved: boolean;
   archived: boolean;
@@ -167,15 +204,53 @@ export interface DashboardRow {
   realizedCost?: string | number | null;
   realizedPaid?: string | number | null;
   stockCost?: string | number | null;
+  manualCost?: string | number | null;
   presumedProfitTaxes?: PresumedProfitTaxEstimate | null;
   progressPct?: number | null;
   progressMethod?: ProgressMethod | null;
+  progressWeight?: number | null;
 }
 
-export async function getCommercialDashboard(categoryCode?: string): Promise<DashboardRow[]> {
-  const { data } = await apiClient.get<DashboardRow[]>('/acompanhamento/comercial/dashboard', {
+export interface DashboardGroupRow extends Omit<DashboardRow, 'kind' | 'projectId' | 'progressMethod'> {
+  kind: 'GROUP';
+  groupId: string;
+  members: MissionGroupMemberSummary[];
+  progressMethod?: GroupProgressMethod | null;
+}
+
+export type DashboardItem = DashboardRow | DashboardGroupRow;
+
+export async function getCommercialDashboard(categoryCode?: string): Promise<DashboardItem[]> {
+  const { data } = await apiClient.get<DashboardItem[]>('/acompanhamento/comercial/dashboard', {
     params: categoryCode ? { category: categoryCode } : undefined
   });
+  return data;
+}
+
+export async function listMissionGroups(status?: 'ACTIVE' | 'DISSOLVED' | 'ALL'): Promise<MissionGroupResponse[]> {
+  const { data } = await apiClient.get<MissionGroupResponse[]>('/acompanhamento/comercial/grupos-missoes', {
+    params: status ? { status } : undefined
+  });
+  return data;
+}
+
+export async function createMissionGroup(payload: CreateMissionGroupRequest): Promise<MissionGroupResponse> {
+  const { data } = await apiClient.post<MissionGroupResponse>('/acompanhamento/comercial/grupos-missoes', payload);
+  return data;
+}
+
+export async function renameMissionGroup(groupId: string, name: string): Promise<MissionGroupResponse> {
+  const { data } = await apiClient.patch<MissionGroupResponse>(
+    `/acompanhamento/comercial/grupos-missoes/${groupId}`,
+    { name }
+  );
+  return data;
+}
+
+export async function dissolveMissionGroup(groupId: string): Promise<{ ok: true; groupId: string; dissolvedAt: string }> {
+  const { data } = await apiClient.post<{ ok: true; groupId: string; dissolvedAt: string }>(
+    `/acompanhamento/comercial/grupos-missoes/${groupId}/desmesclar`
+  );
   return data;
 }
 
@@ -360,11 +435,18 @@ export interface WorkedHoursProgress {
   roleCounts?: Array<{ roleName: string; collaboratorCount: number; usedHours: number; pctOfPlannedTotal: number | null }>;
 }
 
+export interface ProgressHistoryPoint {
+  date: string;
+  progressPct: number;
+}
+
 export interface ProjectCard {
+  kind?: 'PROJECT';
   projectId: string;
   code: string;
   name: string;
   clientName: string;
+  clientCnpj?: string | null;
   archived: boolean;
   category: ProjectCardCategory;
   workedDays: number;
@@ -373,6 +455,7 @@ export interface ProjectCard {
   workedHours: WorkedHoursProgress;
   progressPct: number | null;
   progressMethod?: ProgressMethod | null;
+  progressWeight?: number | null;
   plannedCost: number | null;
   invoicedRevenue: number | null;
   invoiceCount: number;
@@ -381,17 +464,28 @@ export interface ProjectCard {
   costConsumedPct: number | null;
   lastDay: { date: string | null; status: LastDayStatus };
   collaboratorsCount: number;
+  collaboratorIds?: string[];
   startDate: string | null;
   expectedEndDate: string | null;
   laborCost: number | null; // custo de mão de obra COM adicional offshore (do ponto), somado ao realizado
   laborCostBase: number | null; // custo de mão de obra SEM offshore (comparação)
   stockCost: number; // consumo líquido de produtos químicos/filtros via romaneio
+  manualCost: number; // custos lançados manualmente no acompanhamento
   equipment: Array<{ name: string; days: number; since: string }>; // equipamentos (módulo Equipamentos) em obra
   alerts: ProjectAlert[];
 }
 
-export async function getProjectCards(): Promise<ProjectCard[]> {
-  const { data } = await apiClient.get<ProjectCard[]>('/acompanhamento/comercial/projetos-cards');
+export interface MissionGroupCard extends Omit<ProjectCard, 'kind' | 'projectId' | 'progressMethod'> {
+  kind: 'GROUP';
+  groupId: string;
+  members: MissionGroupMemberSummary[];
+  progressMethod?: GroupProgressMethod | null;
+}
+
+export type ProjectCardItem = ProjectCard | MissionGroupCard;
+
+export async function getProjectCards(): Promise<ProjectCardItem[]> {
+  const { data } = await apiClient.get<ProjectCardItem[]>('/acompanhamento/comercial/projetos-cards');
   return data;
 }
 
@@ -399,16 +493,41 @@ export async function getProjectCards(): Promise<ProjectCard[]> {
 
 export type DayStatus = 'TRABALHADO' | 'STANDBY' | 'PARADO';
 
+export interface ManualProjectCost {
+  id: string;
+  projectId: string;
+  projectCode?: string | null;
+  description: string;
+  amount: number;
+  costDate?: string | null;
+  note?: string | null;
+  createdAt?: string | null;
+  createdBy?: { id: string; name: string } | null;
+}
+
+export interface ManualProjectCostPayload {
+  description: string;
+  amount: number;
+  costDate?: string | null;
+  note?: string | null;
+}
+
 export interface ProjectDetail {
+  group?: {
+    id: string;
+    name: string;
+    members: MissionGroupMemberSummary[];
+  };
   header: {
     code: string;
     clientName: string;
+    clientCnpj?: string | null;
     proposalCode: string | null;
     lastRdoDate: string | null;
     segment: string | null;
   };
   alerts: ProjectAlert[];
-  avancoMethod?: ProgressMethod | null;
+  avancoMethod?: ProgressMethod | GroupProgressMethod | null;
   diasCorridos: { elapsed: number | null; planned: number | null; pct: number | null };
   diasTrabalhados: { worked: number; planned: number | null; pct: number | null };
   consumo: {
@@ -417,6 +536,7 @@ export interface ProjectDetail {
     pago: number;
     previstoPagar: number;
     estoque: number;
+    manual: number;
     previsto: number | null;
     pct: number | null;
   };
@@ -425,12 +545,15 @@ export interface ProjectDetail {
   presumedProfitTaxes: PresumedProfitTaxEstimate | null;
   workedHours: WorkedHoursProgress;
   maioresGastos: Array<{ categoria: string; total: number }>;
+  manualCosts?: ManualProjectCost[];
   avancoPct: number | null;
+  progressHistory?: ProgressHistoryPoint[];
   standby: { count: number; minutes: number };
   ultimosDias: Array<{ date: string; status: DayStatus; workedMinutes: number; standbyMinutes: number }>;
   overtimeMinutes: number;
-  colaboradores: Array<{ name: string; role: string; custo: number | null; custoHora: number | null }>;
+  colaboradores: Array<{ name: string; role: string; horas: number; custo: number | null; custoHora: number | null }>;
   equipamentos: Array<{ name: string; days: number; since: string }>;
+  plannedScope?: PlannedScope;
   footer: {
     mobilizationDate: string | null;
     startDate: string | null;
@@ -442,6 +565,28 @@ export interface ProjectDetail {
 export async function getProjectDetail(projectId: string): Promise<ProjectDetail> {
   const { data } = await apiClient.get<ProjectDetail>(
     `/acompanhamento/comercial/projetos/${projectId}/detalhe`
+  );
+  return data;
+}
+
+export async function getMissionGroupDetail(groupId: string): Promise<ProjectDetail> {
+  const { data } = await apiClient.get<ProjectDetail>(
+    `/acompanhamento/comercial/grupos-missoes/${groupId}/detalhe`
+  );
+  return data;
+}
+
+export async function createManualProjectCost(projectId: string, payload: ManualProjectCostPayload): Promise<ManualProjectCost> {
+  const { data } = await apiClient.post<ManualProjectCost>(
+    `/acompanhamento/comercial/projetos/${projectId}/custos-manuais`,
+    payload
+  );
+  return data;
+}
+
+export async function deleteManualProjectCost(projectId: string, costId: string): Promise<{ ok: true; id: string }> {
+  const { data } = await apiClient.delete<{ ok: true; id: string }>(
+    `/acompanhamento/comercial/projetos/${projectId}/custos-manuais/${costId}`
   );
   return data;
 }

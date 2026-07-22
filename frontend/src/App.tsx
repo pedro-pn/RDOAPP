@@ -5,6 +5,7 @@ import { modulePathForUser, rememberModuleAccess, preferredEntryPath } from './a
 import { PrivateRoute } from './auth/PrivateRoute';
 import { RoleRoute } from './auth/RoleRoute';
 import { useAuth } from './auth/AuthContext';
+import { usePageScrollRestoration } from './hooks/usePageScrollRestoration';
 import { AccountPage } from './pages/account/AccountPage';
 import { ClientPage } from './pages/client/ClientPage';
 import { ConfirmEmailChangePage } from './pages/ConfirmEmailChangePage';
@@ -48,6 +49,16 @@ function ModuleAccessTracker() {
   return null;
 }
 
+function PageScrollRestorationTracker() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const identity = user?.id || user?.username || 'anonymous';
+
+  usePageScrollRestoration({ location, identity });
+
+  return null;
+}
+
 function RootRedirect() {
   const { user } = useAuth();
   return <Navigate to={preferredEntryPath(user)} replace />;
@@ -62,6 +73,7 @@ export default function App() {
   return (
     <>
       <ModuleAccessTracker />
+      <PageScrollRestorationTracker />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

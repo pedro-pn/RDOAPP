@@ -2,13 +2,21 @@ import { apiClient } from './client';
 
 export type CostParams = Record<string, number | Record<string, number>>;
 
+export interface CostParameterHistoryEntry {
+  effectiveDate: string;
+  params: CostParams | null;
+  note?: string | null;
+  updatedAt: string | null;
+}
+
 export interface CostProfile {
   id: string;
   key: string;
   label: string;
-  version: number | null;
+  effectiveDate?: string | null;
   params: CostParams | null;
   updatedAt?: string;
+  history: CostParameterHistoryEntry[];
 }
 
 export interface CostResult {
@@ -21,9 +29,11 @@ export interface CostResult {
   custoHora220: number;
   custoHora176: number;
   custoDiaUtil: number;
+  insalubridade: number;
   periculosidade: number;
   produtividade: number;
   transferencia: number;
+  confinamento: number;
   valorHora: number;
   he70: number;
   he100: number;
@@ -35,8 +45,8 @@ export async function getCostProfiles(): Promise<CostProfile[]> {
   return data;
 }
 
-export async function saveCostParams(key: string, params: CostParams, note?: string) {
-  const { data } = await apiClient.put(`/acompanhamento/custo/perfis/${key}/parametros`, { params, note });
+export async function saveCostParams(key: string, params: CostParams, effectiveDate: string, note?: string) {
+  const { data } = await apiClient.put(`/acompanhamento/custo/perfis/${key}/parametros`, { params, effectiveDate, note });
   return data;
 }
 
@@ -45,21 +55,28 @@ export async function simulateCost(payload: { profileKey?: string; params?: Cost
   return data;
 }
 
-// --- Perfil de custo por cargo (base viva: herda do modelo, sobrescreve salário/insalubridade) ---
+// --- Perfil de custo por cargo (herda do modelo por vigência, sobrescreve salário) ---
 
 export interface CargoCostOverride {
   baseModel?: string; // 'operador' | 'auxiliar' (Modelo 1 / Modelo 2)
   salarioBase?: number;
-  insalubridade?: number;
+}
+
+export interface CargoCostHistoryEntry {
+  effectiveDate: string;
+  params: CargoCostOverride | null;
+  note?: string | null;
+  updatedAt: string | null;
 }
 
 export interface CargoCostProfile {
   jobRoleId: string;
   name: string;
   profileId: string | null;
-  version: number | null;
+  effectiveDate: string | null;
   params: CargoCostOverride | null;
   updatedAt: string | null;
+  history: CargoCostHistoryEntry[];
 }
 
 export async function getCargoCostProfiles(): Promise<CargoCostProfile[]> {
@@ -67,8 +84,8 @@ export async function getCargoCostProfiles(): Promise<CargoCostProfile[]> {
   return data;
 }
 
-export async function saveCargoCostParams(jobRoleId: string, params: CargoCostOverride, note?: string) {
-  const { data } = await apiClient.put(`/acompanhamento/custo/cargos/${jobRoleId}/parametros`, { params, note });
+export async function saveCargoCostParams(jobRoleId: string, params: CargoCostOverride, effectiveDate: string, note?: string) {
+  const { data } = await apiClient.put(`/acompanhamento/custo/cargos/${jobRoleId}/parametros`, { params, effectiveDate, note });
   return data;
 }
 

@@ -1,4 +1,4 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿import { useLocation, useNavigate } from 'react-router-dom';
 
 
 import { useAuth } from '../../auth/AuthContext';
@@ -62,6 +62,14 @@ function asStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function asDdsThemes(value: unknown): { id: string; name: string; custom?: boolean }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map(item => ({ id: asString(item.id), name: asString(item.name), ...(item.custom === true ? { custom: true } : {}) }))
+    .filter(item => item.id && item.name);
+}
+
 function asServices(value: unknown): RdoServiceDraft[] {
   if (!Array.isArray(value)) return [];
 
@@ -82,6 +90,7 @@ function draftDateLabel(draft: ReportDraft) {
 export function HomePage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const draftsQuery = useDrafts();
   const reportsQuery = useReports({ mine: true, summary: true });
   const draftMutations = useDraftMutations();
@@ -113,6 +122,14 @@ export function HomePage() {
       noturnoStart: asString(payload.noturnoStart),
       noturnoEnd: asString(payload.noturnoEnd),
       noturnoInterval: asString(payload.noturnoInterval, '01:00:00'),
+      ddsDay: asBoolean(payload.ddsDay),
+      ddsDayStart: asString(payload.ddsDayStart),
+      ddsDayEnd: asString(payload.ddsDayEnd),
+      ddsDayThemes: asDdsThemes(payload.ddsDayThemes),
+      ddsNight: asBoolean(payload.ddsNight),
+      ddsNightStart: asString(payload.ddsNightStart),
+      ddsNightEnd: asString(payload.ddsNightEnd),
+      ddsNightThemes: asDdsThemes(payload.ddsNightThemes),
       overtimeReason: asString(payload.overtimeReason),
       dailyDescription: asString(payload.dailyDescription),
       generalUploads: Array.isArray(payload.generalUploads) ? payload.generalUploads : [],
@@ -130,7 +147,7 @@ export function HomePage() {
         showLogo
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button

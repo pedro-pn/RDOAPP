@@ -36,10 +36,27 @@ function num(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function str(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text === '' ? null : text;
+}
+
 function boolFlag(value) {
   if (value === 'S') return true;
   if (value === 'N') return false;
   return null;
+}
+
+function isCanceledStatus(value) {
+  return /CANCELAD[OA]|CANCELLED|CANCELED|^C$/i.test(str(value) ?? '');
+}
+
+function isCanceledReceivable(record, nfseInfo = null) {
+  return isCanceledStatus(record?.status_titulo)
+    || isCanceledStatus(record?.cStatusNFSe)
+    || isCanceledStatus(record?.Cabecalho?.cStatusNFSe)
+    || isCanceledStatus(nfseInfo?.status);
 }
 
 async function startRun(scope, triggeredBy) {
@@ -72,6 +89,94 @@ async function paginate(path, call, baseParam, recordsKey, onPage, label = call)
     page += 1;
   } while (page <= totalPages);
   return read;
+}
+
+async function paginateNfse(baseParam, onPage, label = 'ListarNFSEs') {
+  let page = 1;
+  let totalPages = 1;
+  let read = 0;
+  do {
+    const json = await omieCall('/servicos/nfse/', 'ListarNFSEs', {
+      ...baseParam,
+      nPagina: page,
+      nRegPorPagina: PAGE_SIZE
+    });
+    totalPages = json.nTotPaginas || 1;
+    const records = json.nfseEncontradas || [];
+    read += records.length;
+    await onPage(records);
+    if (totalPages > 1) {
+      console.log(`  [${label}] página ${page}/${totalPages} · lidos ${read}`);
+    }
+    page += 1;
+  } while (page <= totalPages);
+  return read;
+}
+
+function addUnique(map, key, info) {
+  const normalized = str(key);
+  if (!normalized) return;
+  if (!map.has(normalized)) {
+    map.set(normalized, info);
+    return;
+  }
+  if (map.get(normalized) !== info) map.set(normalized, null);
+}
+
+function extractNfseTaxInfo(nfse) {
+  const services = Array.isArray(nfse?.ListaServicos)
+    ? nfse.ListaServicos
+    : (nfse?.Servicos && typeof nfse.Servicos === 'object' ? [nfse.Servicos] : []);
+  const serviceWithCode = services.find(s => str(s?.CodigoLC116) || str(s?.CodigoServico)) ?? null;
+  const serviceWithRate = services.find(s => num(s?.nAliquotaISS) !== null) ?? null;
+  const values = nfse?.Valores && typeof nfse.Valores === 'object' ? nfse.Valores : {};
+
+  let weightedRate = 0;
+  let weightedAmount = 0;
+  for (const service of services) {
+    const rate = num(service?.nAliquotaISS);
+    if (rate === null) continue;
+    const amount = num(service?.nValorServico) ?? num(service?.nValorTotal) ?? 1;
+    const weight = amount > 0 ? amount : 1;
+    weightedRate += rate * weight;
+    weightedAmount += weight;
+  }
+
+  return {
+    codigoLc116: str(serviceWithCode?.CodigoLC116),
+    codigoServico: str(serviceWithCode?.CodigoServico),
+    status: str(nfse?.Cabecalho?.cStatusNFSe),
+    aliquotaIss: weightedAmount > 0 ? weightedRate / weightedAmount : (num(values.nAliquotaISS) ?? num(serviceWithRate?.nAliquotaISS)),
+    valorIss: num(values.nValorISS) ?? num(serviceWithRate?.nValorISS)
+  };
+}
+
+async function fetchOmieNfseTaxLookup() {
+  const lookup = { byFiscalNumber: new Map(), byOs: new Map(), byRps: new Map(), recordsRead: 0 };
+  const read = await paginateNfse({ cExibirDescricao: 'S' }, async (records) => {
+    for (const nfse of records) {
+      const info = extractNfseTaxInfo(nfse);
+      addUnique(lookup.byFiscalNumber, nfse?.Cabecalho?.nNumeroNFSe, info);
+      addUnique(lookup.byOs, nfse?.OrdemServico?.nCodigoOS, info);
+      addUnique(lookup.byRps, nfse?.RPS?.nNumeroRPS, info);
+    }
+  });
+  lookup.recordsRead = read;
+  return lookup;
+}
+
+function findNfseTaxInfo(receivable, lookup) {
+  if (!lookup) return null;
+
+  const fiscalMatch = lookup.byFiscalNumber.get(str(receivable.numero_documento_fiscal));
+  if (fiscalMatch) return fiscalMatch;
+
+  const osMatch = lookup.byOs.get(str(receivable.nCodOS));
+  if (osMatch) return osMatch;
+
+  const rpsNumber = str(receivable.numero_documento)?.match(/\d+/)?.[0] ?? null;
+  const rpsMatch = lookup.byRps.get(rpsNumber);
+  return rpsMatch || null;
 }
 
 export async function syncOmieProjects({ triggeredBy = 'SCRIPT' } = {}) {
@@ -226,7 +331,18 @@ export async function syncOmieReceivables({ triggeredBy = 'SCRIPT', sinceDays = 
       baseParam.filtrar_por_data_de = omieDateStr(new Date(Date.now() - Number(sinceDays) * 86400000));
     }
 
+    let nfseLookup = null;
+    let nfseLookupError = null;
+    try {
+      nfseLookup = await fetchOmieNfseTaxLookup();
+    } catch (error) {
+      nfseLookupError = error.message;
+      console.warn(`[omie] ListarNFSEs indisponível; receitas serão sincronizadas sem código/ISS da NFSe: ${error.message}`);
+    }
+
     let written = 0;
+    let canceledIgnored = 0;
+    let nfseMatched = 0;
     const read = await paginate('/financas/contareceber/', 'ListarContasReceber', baseParam, 'conta_receber_cadastro', async (records) => {
       for (const r of records) {
         const codigoProjeto = r.codigo_projeto != null ? String(r.codigo_projeto) : null;
@@ -234,13 +350,20 @@ export async function syncOmieReceivables({ triggeredBy = 'SCRIPT', sinceDays = 
         if (!op) continue;
         const omieId = String(r.codigo_lancamento_omie);
         const categoriaCodigo = r.codigo_categoria ?? null;
+        const nfseInfo = findNfseTaxInfo(r, nfseLookup);
+        if (nfseInfo) nfseMatched += 1;
+        if (isCanceledReceivable(r, nfseInfo)) {
+          await prisma.omieReceivable.deleteMany({ where: { omieId } });
+          canceledIgnored += 1;
+          continue;
+        }
         const data = {
           omieId,
           codigoProjeto,
           projectId: op.projectId ?? null,
           osNumber: op.osNumber,
           valor: num(r.valor_documento),
-          valorIss: num(r.valor_iss),
+          valorIss: num(r.valor_iss) ?? nfseInfo?.valorIss ?? null,
           statusTitulo: r.status_titulo ?? null,
           categoriaCodigo,
           categoriaDescricao: categoriaCodigo ? categoryName.get(categoriaCodigo) ?? null : null,
@@ -262,13 +385,29 @@ export async function syncOmieReceivables({ triggeredBy = 'SCRIPT', sinceDays = 
           rawPayload: r,
           syncedAt: new Date()
         };
+        if (nfseLookup) {
+          data.aliquotaIss = nfseInfo?.aliquotaIss ?? null;
+          data.codigoLc116 = nfseInfo?.codigoLc116 ?? null;
+          data.codigoServico = nfseInfo?.codigoServico ?? null;
+        }
         // eslint-disable-next-line no-await-in-loop
         await prisma.omieReceivable.upsert({ where: { omieId }, create: data, update: data });
         written += 1;
       }
     });
 
-    await finishRun(run.id, 'SUCCESS', { recordsRead: read, recordsWritten: written, summary: { linkedProjects: linkedByCodigo.size, incremental: Boolean(sinceDays) } });
+    await finishRun(run.id, 'SUCCESS', {
+      recordsRead: read,
+      recordsWritten: written,
+      summary: {
+        linkedProjects: linkedByCodigo.size,
+        incremental: Boolean(sinceDays),
+        nfseRead: nfseLookup?.recordsRead ?? 0,
+        nfseMatched,
+        canceledIgnored,
+        nfseLookupError
+      }
+    });
     return { read, written, projects: linkedByCodigo.size };
   } catch (error) {
     await finishRun(run.id, 'ERROR', { error: error.message });

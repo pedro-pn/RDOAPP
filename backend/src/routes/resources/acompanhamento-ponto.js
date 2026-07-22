@@ -101,16 +101,18 @@ router.get(
   })
 );
 
-// Colaboradores ativos para o seletor de reconciliação (vincular nome do ponto → colaborador).
+// Colaboradores para seletores do acompanhamento. Por padrão retorna ativos; a reconciliação
+// do ponto pode incluir históricos/inativos para custos retroativos.
 router.get(
   '/colaboradores-ativos',
   requireAuth,
   requireAcompanhamentoAccess,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const includeInactive = req.query.includeInactive === 'true';
     const collaborators = await prisma.collaborator.findMany({
-      where: { isActive: true },
+      where: includeInactive ? {} : { isActive: true },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, role: true }
+      select: { id: true, name: true, role: true, isActive: true }
     });
     res.json(collaborators);
   })

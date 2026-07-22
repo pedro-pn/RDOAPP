@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
+import { listDdsThemes } from '../../api/ddsThemes';
 import { listReports } from '../../api/reports';
+import { NewReportSpecialConditions } from '../../components/reports/NewReportSpecialConditions';
+import { RdoDdsNovelty } from '../../components/reports/RdoDdsNovelty';
 import { ServiceCollaboratorsBlock, ServiceFields } from '../../components/reports/ServiceFields';
 import { serviceTypeLabels } from '../../components/reports/serviceTypes';
 import { Modal } from '../../components/ui/Modal';
@@ -229,6 +232,7 @@ function formatMinutes(total: number) {
 
 export function NewReportPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const bootstrapQuery = useNewReportBootstrap();
   const reportMutations = useReportMutations();
@@ -258,6 +262,14 @@ export function NewReportPage() {
     noturnoStart,
     noturnoEnd,
     noturnoInterval,
+    ddsDay,
+    ddsDayStart,
+    ddsDayEnd,
+    ddsDayThemes,
+    ddsNight,
+    ddsNightStart,
+    ddsNightEnd,
+    ddsNightThemes,
     overtimeReason,
     dailyDescription,
     generalUploads,
@@ -266,6 +278,8 @@ export function NewReportPage() {
     setHeaderField,
     setCollaborators,
     setNightCollaborators,
+    addDdsTheme,
+    removeDdsTheme,
     setGeneralUploads,
     addService,
     updateService,
@@ -277,8 +291,7 @@ export function NewReportPage() {
   const [step, setStep] = useState(0);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [invalidTarget, setInvalidTarget] = useState<string | null>(null);
-  const [collaboratorToAdd, setCollaboratorToAdd] = useState('');
-  const [nightCollaboratorToAdd, setNightCollaboratorToAdd] = useState('');
+  const [ddsNoveltyActive, setDdsNoveltyActive] = useState(true);
   const [collaboratorsPrefilled, setCollaboratorsPrefilled] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canCreateServiceOnly = user?.role === 'MANAGER';
@@ -288,6 +301,8 @@ export function NewReportPage() {
 
   const projects = useMemo(() => sortProjects(bootstrapQuery.data?.projects || [], 'asc'), [bootstrapQuery.data?.projects]);
   const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => item.isActive);
+  const ddsThemesQuery = useQuery({ queryKey: ['dds-themes'], queryFn: () => listDdsThemes(), staleTime: 60_000 });
+  const ddsThemes = ddsThemesQuery.data || [];
   const units = bootstrapQuery.data?.units || [];
   const manometers = bootstrapQuery.data?.manometers || [];
   const serviceCollaboratorOptions = useMemo(() => {
@@ -643,16 +658,13 @@ export function NewReportPage() {
         : 'Data com regime integral de hora extra conforme configuração do projeto.'
   ];
 
-  function addCollaboratorFromSelect(night = false) {
-    const id = night ? nightCollaboratorToAdd : collaboratorToAdd;
+  function addCollaboratorById(id: string, night = false) {
     if (!id) return;
     if (night) {
       setNightCollaborators(Array.from(new Set([...nightCollaboratorIds, id])));
-      setNightCollaboratorToAdd('');
       return;
     }
     setCollaborators(Array.from(new Set([...collaboratorIds, id])));
-    setCollaboratorToAdd('');
   }
 
   function removeCollaboratorFromList(id: string, night = false) {
@@ -794,6 +806,12 @@ export function NewReportPage() {
     if (noturno && !noturnoEnd) return failRequired('Término (noturno)', 'header:noturnoEnd', 0);
     if (noturno && !noturnoInterval) return failRequired('Intervalo noturno', 'header:noturnoInterval', 0);
     if (noturno && !nightCollaboratorIds.length) return failRequired('Colaboradores noturnos', 'header:nightCollaborators', 0);
+    if (ddsDay && !ddsDayStart) return failRequired('Início (DDS)', 'header:ddsDayStart', 0);
+    if (ddsDay && !ddsDayEnd) return failRequired('Término (DDS)', 'header:ddsDayEnd', 0);
+    if (ddsDay && !ddsDayThemes.length) return failRequired('Temas do DDS', 'header:ddsDayThemes', 0);
+    if (noturno && ddsNight && !ddsNightStart) return failRequired('Início (DDS noturno)', 'header:ddsNightStart', 0);
+    if (noturno && ddsNight && !ddsNightEnd) return failRequired('Término (DDS noturno)', 'header:ddsNightEnd', 0);
+    if (noturno && ddsNight && !ddsNightThemes.length) return failRequired('Temas do DDS noturno', 'header:ddsNightThemes', 0);
     return true;
   }
 
@@ -920,6 +938,14 @@ export function NewReportPage() {
       noturnoStart,
       noturnoEnd,
       noturnoInterval,
+      ddsDay,
+      ddsDayStart,
+      ddsDayEnd,
+      ddsDayThemes,
+      ddsNight,
+      ddsNightStart,
+      ddsNightEnd,
+      ddsNightThemes,
       overtimeReason,
       dailyDescription,
       generalUploads,
@@ -941,6 +967,14 @@ export function NewReportPage() {
     noturnoStart,
     noturnoEnd,
     noturnoInterval,
+    ddsDay,
+    ddsDayStart,
+    ddsDayEnd,
+    ddsDayThemes,
+    ddsNight,
+    ddsNightStart,
+    ddsNightEnd,
+    ddsNightThemes,
     overtimeReason,
     dailyDescription,
     generalUploads,
@@ -1115,6 +1149,20 @@ export function NewReportPage() {
               intervalo: noturnoInterval,
               collaboratorIds: nightCollaboratorIds
             },
+            dds: {
+              diurno: {
+                enabled: ddsDay,
+                inicio: ddsDayStart,
+                termino: ddsDayEnd,
+                temas: ddsDayThemes
+              },
+              noturno: {
+                enabled: noturno && ddsNight,
+                inicio: ddsNightStart,
+                termino: ddsNightEnd,
+                temas: ddsNightThemes
+              }
+            },
             overtimeSummary
           },
           collaboratorIds,
@@ -1148,7 +1196,7 @@ export function NewReportPage() {
             <button className="topbar-chip" type="button" onClick={handleBack}>
               {TEXT.back}
             </button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>
@@ -1309,119 +1357,44 @@ export function NewReportPage() {
             {renderCollaboratorList(collaboratorIds)}
           </div>
           <div className="cadd">
-            <select value={collaboratorToAdd} onChange={event => setCollaboratorToAdd(event.target.value)}>
+            <select value="" onChange={event => addCollaboratorById(event.target.value)}>
               <option value="">Adicionar...</option>
               {collaborators
                 .filter(item => !collaboratorIds.includes(item.id))
                 .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-            <button className="cadd-btn" type="button" onClick={() => addCollaboratorFromSelect()}>
-              + Add
-            </button>
           </div>
         </section>
 
         {!effectiveServiceOnly ? (
         <>
         {/* Card 4: Condições especiais */}
-        <section className="page-card">
-          <div className="section-title">{TEXT.specialConditions}</div>
-          <div className="tog-row">
-            <span className="tog-lbl">Houve standby?</span>
-            <label className="tog">
-              <input
-                type="checkbox"
-                checked={standby}
-                onChange={event => setHeaderField('standby', event.target.checked)}
-              />
-              <span className="tog-sl" />
-            </label>
-          </div>
-          {standby ? (
-            <div className="collapse-section">
-              <div className="fg-r2">
-                <div className={fieldState('header:standbyDuration')} data-invalid-target="header:standbyDuration">
-                  <label>Tempo total <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    step={60}
-                    value={standbyDuration}
-                    onChange={event => setHeaderField('standbyDuration', event.target.value)}
-                  />
-                </div>
-                <div className={fieldState('header:standbyMotivo')} data-invalid-target="header:standbyMotivo">
-                  <label>Motivo <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Motivo..."
-                    value={standbyMotivo}
-                    onChange={event => setHeaderField('standbyMotivo', event.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : null}
-          <div className="tog-row">
-            <span className="tog-lbl">Houve turno noturno?</span>
-            <label className="tog">
-              <input
-                type="checkbox"
-                checked={noturno}
-                onChange={event => setHeaderField('noturno', event.target.checked)}
-              />
-              <span className="tog-sl" />
-            </label>
-          </div>
-          {noturno ? (
-            <div className="collapse-section noturno-section">
-              <div className="fg-r2 night-time-grid">
-                <div className={fieldState('header:noturnoStart')} data-invalid-target="header:noturnoStart">
-                  <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    value={noturnoStart}
-                    onChange={event => setHeaderField('noturnoStart', event.target.value)}
-                  />
-                </div>
-                <div className={fieldState('header:noturnoEnd')} data-invalid-target="header:noturnoEnd">
-                  <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
-                  <input
-                    type="time"
-                    value={noturnoEnd}
-                    onChange={event => setHeaderField('noturnoEnd', event.target.value)}
-                  />
-                </div>
-              </div>
-              <div className={fieldState('header:noturnoInterval')} style={{ marginTop: 6 }} data-invalid-target="header:noturnoInterval">
-                <label>Intervalo noturno</label>
-                <input
-                  type="time"
-                  step={1}
-                  value={noturnoInterval}
-                  onChange={event => setHeaderField('noturnoInterval', event.target.value)}
-                />
-              </div>
-              <div className="section-title" style={{ marginTop: 14 }}>{TEXT.nightTeam}</div>
-              <div
-                className={`colab-list ${invalidTarget === 'header:nightCollaborators' ? 'field-invalid-panel' : ''}`}
-                data-invalid-target="header:nightCollaborators"
-              >
-                {renderCollaboratorList(nightCollaboratorIds, true)}
-              </div>
-              <div className="cadd">
-                <select value={nightCollaboratorToAdd} onChange={event => setNightCollaboratorToAdd(event.target.value)}>
-                  <option value="">Adicionar...</option>
-                  {collaborators
-                    .filter(item => !nightCollaboratorIds.includes(item.id))
-                    .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-                <button className="cadd-btn" type="button" onClick={() => addCollaboratorFromSelect(true)}>
-                  + Add
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </section>
+        <NewReportSpecialConditions
+          collaborators={collaborators}
+          ddsThemes={ddsThemes}
+          invalidTarget={invalidTarget}
+          standby={standby}
+          standbyDuration={standbyDuration}
+          standbyMotivo={standbyMotivo}
+          noturno={noturno}
+          noturnoStart={noturnoStart}
+          noturnoEnd={noturnoEnd}
+          noturnoInterval={noturnoInterval}
+          nightCollaboratorIds={nightCollaboratorIds}
+          ddsDay={ddsDay}
+          ddsDayStart={ddsDayStart}
+          ddsDayEnd={ddsDayEnd}
+          ddsDayThemes={ddsDayThemes}
+          ddsNight={ddsNight}
+          ddsNightStart={ddsNightStart}
+          ddsNightEnd={ddsNightEnd}
+          ddsNightThemes={ddsNightThemes}
+          setHeaderField={setHeaderField}
+          setNightCollaborators={setNightCollaborators}
+          addDdsTheme={addDdsTheme}
+          removeDdsTheme={removeDdsTheme}
+          fieldState={fieldState}
+        />
         </>
         ) : null}
 
@@ -1697,6 +1670,14 @@ export function NewReportPage() {
               ))}
             </div>
       </Modal>
+
+      {user ? (
+        <RdoDdsNovelty
+          user={user}
+          enabled={ddsNoveltyActive && step === 0 && !effectiveServiceOnly}
+          onSeen={() => setDdsNoveltyActive(false)}
+        />
+      ) : null}
     </Shell>
   );
 }

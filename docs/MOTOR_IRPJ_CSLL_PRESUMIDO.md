@@ -25,7 +25,8 @@ Impostos previstos na NF:
 
 - ISS;
 - PIS;
-- COFINS.
+- COFINS;
+- INSS de 5,5% para NFs dos servicos `14.01` e `7.02`.
 
 Eles continuam sendo calculados para previsao e conferencia com o Omie, mas nao
 sao somados como custo extra fora da nota.
@@ -67,7 +68,7 @@ Frontend:
 - detalhe do projeto: gastos do projeto em um bloco e impostos em um bloco
   retratil separado;
 - quando ha NF sincronizada, a tela mostra o faturamento real e o ISS real do
-  Omie, sem mostrar previsoes de ISS/PIS/COFINS do app;
+  Omie, usando o app para estimar PIS, COFINS e INSS quando aplicavel;
 - quando nao ha NF sincronizada, a tela mostra a previsao da planilha;
 - dashboard: metricas `IRPJ/CSLL fora da NF`, `ISS Omie`, `Impostos NF
   previstos` e `Faturado no Omie`.
@@ -141,12 +142,13 @@ Aliquotas comuns:
 ISS    = 3,00% da base
 PIS    = 0,65% da base
 COFINS = 3,00% da base
+INSS   = 5,50% da base para servicos 14.01 e 7.02
 IRPJ   = 15,00% sobre a base presumida de IRPJ
 CSLL   = 9,00% sobre a base presumida de CSLL
 Adic. IRPJ = 10,00% sobre a base presumida de IRPJ
 ```
 
-Para `7.05` e `7.02`:
+Para `7.05`:
 
 ```text
 base IRPJ = base * 8,80%
@@ -157,15 +159,26 @@ IRPJ/CSLL fora da NF = 3,388%
 Total da planilha    = 10,038%
 ```
 
+Para `7.02`:
+
+```text
+base IRPJ = base * 8,80%
+base CSLL = base * 13,20%
+
+ISS/PIS/COFINS/INSS na NF = 12,15%
+IRPJ/CSLL fora da NF      = 3,388%
+Total da planilha         = 15,538%
+```
+
 Para `14.01`:
 
 ```text
 base IRPJ = base * 35,00%
 base CSLL = base * 35,00%
 
-ISS/PIS/COFINS na NF = 6,65%
-IRPJ/CSLL fora da NF = 11,90%
-Total da planilha    = 18,55%
+ISS/PIS/COFINS/INSS na NF = 12,15%
+IRPJ/CSLL fora da NF      = 11,90%
+Total da planilha         = 24,05%
 ```
 
 ## Adicional de IRPJ
@@ -188,8 +201,8 @@ O objeto `presumedProfitTaxes` contem:
 - `expectedSalePrice`: venda prevista;
 - `invoicedAmount`: faturamento real Omie, se houver;
 - `serviceTaxCode`: `14.01`, `7.05` ou `7.02`;
-- `invoiceTaxTotal`: ISS + PIS + COFINS previstos na NF;
-- `iss`, `pis`, `cofins`: previsao por imposto;
+- `invoiceTaxTotal`: ISS + PIS + COFINS + INSS quando aplicavel;
+- `iss`, `pis`, `cofins`, `inss`: previsao por imposto;
 - `omieIss`: ISS vindo do Omie, quando houver;
 - `issDelta`: diferenca entre ISS Omie e ISS previsto;
 - `irpjBasic`, `csll`, `additionalIrpjEstimated`;
@@ -229,7 +242,7 @@ Conclusao: a base de faturamento real do Omie pode ser usada, inclusive em
 projetos faturados em varias parcelas. Mas o ISS fixo de 3% da planilha nao
 bate com todos os projetos no Omie; ha NFs com aliquotas efetivas como 0%, 1%,
 2%, 3,3% e 5%. Por isso, quando ha NF sincronizada, a tela mostra o ISS real do
-Omie e nao a previsao de ISS/PIS/COFINS feita pelo app.
+Omie e usa o app para estimar PIS, COFINS e INSS quando aplicavel.
 
 PIS e COFINS nao vieram destacados em `ListarContasReceber` na amostra
 consultada. Para provar esses valores contra o Omie, precisamos de outra fonte

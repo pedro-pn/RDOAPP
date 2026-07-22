@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthContext';
+import { navigationStateFromLocation } from '../../auth/moduleNavigation';
 import { rdoReportDetailPath } from '../../auth/rolePath';
+import { currentPageScrollState, saveCurrentPageScroll } from '../../hooks/usePageScrollRestoration';
 import type { ReportSummary } from '../../types/domain';
 import { formatDateOnlyPtBr } from '../../utils/dateOnly';
 import { serviceTypeLabels } from './serviceTypes';
@@ -158,6 +160,7 @@ export function ReportSummaryCard({
   leadingControl?: ReactNode;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const status = report.status === 'PENDING' && report.reviewNotes === 'Editado pelo colaborador'
     ? { label: 'Editado', className: 'status-pending' }
@@ -176,7 +179,13 @@ export function ReportSummaryCard({
     && (report.arrivalTime !== '00:00' || report.departureTime !== '00:00');
 
   function handleOpenDetail() {
-    navigate(rdoReportDetailPath(user, report.id));
+    saveCurrentPageScroll(location, user?.id || user?.username || 'anonymous');
+    navigate(rdoReportDetailPath(user, report.id), {
+      state: {
+        ...(navigationStateFromLocation(location) || {}),
+        ...currentPageScrollState()
+      }
+    });
   }
 
   return (

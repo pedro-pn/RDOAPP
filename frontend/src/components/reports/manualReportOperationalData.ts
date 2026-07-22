@@ -15,7 +15,15 @@ export function emptyManualReportOperationalFields(): ManualReportOperationalFie
     noturnoCollaboratorIds: [],
     standby: false,
     standbyDuration: '',
-    standbyMotivo: ''
+    standbyMotivo: '',
+    ddsDay: false,
+    ddsDayStart: '',
+    ddsDayEnd: '',
+    ddsDayThemes: [],
+    ddsNight: false,
+    ddsNightStart: '',
+    ddsNightEnd: '',
+    ddsNightThemes: []
   };
 }
 
@@ -35,6 +43,18 @@ export function validateManualReportOperationalFields(
   }
   if (options.reportType === 'RDO' && fields.standby && (!fields.standbyDuration.trim() || !fields.standbyMotivo.trim())) {
     return scopedMessage('Informe tempo total e motivo do stand-by', options.label);
+  }
+  if (options.reportType === 'RDO' && fields.ddsDay && (!fields.ddsDayStart.trim() || !fields.ddsDayEnd.trim())) {
+    return scopedMessage('Informe início e término do DDS', options.label);
+  }
+  if (options.reportType === 'RDO' && fields.ddsDay && !fields.ddsDayThemes.length) {
+    return scopedMessage('Adicione ao menos um tema do DDS', options.label);
+  }
+  if (options.reportType === 'RDO' && fields.noturno && fields.ddsNight && (!fields.ddsNightStart.trim() || !fields.ddsNightEnd.trim())) {
+    return scopedMessage('Informe início e término do DDS noturno', options.label);
+  }
+  if (options.reportType === 'RDO' && fields.noturno && fields.ddsNight && !fields.ddsNightThemes.length) {
+    return scopedMessage('Adicione ao menos um tema do DDS noturno', options.label);
   }
   return null;
 }

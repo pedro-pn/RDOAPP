@@ -27,13 +27,16 @@
     "backfill:equipment-notifications": "node scripts/backfill-equipment-notifications.js",
     "backfill:equipment-technical": "node scripts/backfill-equipment-technical.js",
     "audit:report-files": "node scripts/audit-report-files.js",
-    "repair:report-file-paths": "node scripts/repair-report-file-paths.js"
+    "repair:report-file-paths": "node scripts/repair-report-file-paths.js",
+    "import:rdo-manual-pdfs": "node scripts/import-manual-rdo-pdfs.js"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
+    "@napi-rs/canvas": "^1.0.2",
+    "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.8.0",
+    "@tesseract.js-data/por": "^1.0.0",
     "@xmldom/xmldom": "^0.9.9",
-    "adm-zip": "^0.5.18",
+    "adm-zip": "^0.6.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -43,11 +46,17 @@
     "morgan": "^1.11.0",
     "nodemailer": "^9.0.3",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.1.200",
     "pg": "^8.22.0",
     "sharp": "^0.35.3",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "prisma": "^7.8.0"
+  },
+  "overrides": {
+    "fast-uri": "3.1.4",
+    "fast-xml-parser": "5.10.1"
   }
 }

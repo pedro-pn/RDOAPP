@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { listDdsThemes } from '../api/ddsThemes';
 import { downloadReportDocx, downloadReportPdf } from '../api/reports';
 
 import { useAuth } from '../auth/AuthContext';
-import { accountPageStateFromPath } from '../auth/moduleNavigation';
+import { accountPageStateFromPath, backPathFromState, hasBackPathInState } from '../auth/moduleNavigation';
 import { roleHomePath } from '../auth/rolePath';
 import type { UploadedFile } from '../api/uploads';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../components/reports/ManualReportOperationalFields';
+import { DdsCustomThemeReviewAlert } from '../components/reports/DdsCustomThemeReviewAlert';
+import { ReportDdsSummarySection } from '../components/reports/ReportDdsSummarySection';
 import {
   buildManualReportOperationalData,
   validateManualReportOperationalFields
@@ -19,6 +23,7 @@ import { PrivacyNotice } from '../components/privacy/PrivacyNotice';
 import { useToast } from '../components/ui/ToastContext';
 import { SIGNATURE_RDO_NOTICE_VERSION } from '../constants/privacy';
 import { useReportDetailBootstrap } from '../hooks/useBootstrap';
+import { pageScrollRestoreStateFromNavigation } from '../hooks/usePageScrollRestoration';
 import { useReport, useReportAudit, useReportMutations } from '../hooks/useReports';
 import { Shell } from '../layout/Shell';
 import { TopBar } from '../layout/TopBar';
@@ -34,48 +39,7 @@ import { sortProjects } from '../utils/projectSort';
 import { reportDownloadFileName } from '../utils/reportFileName';
 import { buildReportServicePayload, normalizeServiceType } from '../utils/reportServicePayload';
 import { loadUploadAssetUrl, normalizeLocalUploadUrl } from '../utils/uploadAssetUrl';
-
-const TEXT = {
-  addService: 'Adicionar serviço',
-  approvedAt: 'Aprovado em',
-  approve: 'Aprovar',
-  back: 'Voltar',
-  code: 'Código',
-  collaborators: 'Equipe',
-  description: 'Descrição do dia',
-  details: 'Detalhe do relatório',
-  downloadError: 'Não foi possível baixar o relatório.',
-  finalization: 'Finalização',
-  generalInfo: 'Informações gerais',
-  interval: 'Intervalo',
-  loadError: 'Falha ao carregar relatório.',
-  loading: 'Carregando relatório...',
-  missing: 'Relatório não encontrado.',
-  nightTeam: 'Equipe noturna',
-  noService: 'Nenhum serviço adicionado.',
-  project: 'Projeto',
-  reject: 'Devolver',
-  rejectClient: 'Reprovar',
-  rejectClientPrompt: 'Informe o motivo da reprovação do relatório:',
-  rejectClientRequired: 'Informe um motivo para reprovar o relatório.',
-  rejectPrompt: 'Informe o motivo da devolução do relatório:',
-  rejectRequired: 'Informe um motivo para devolver o relatório.',
-  reportSummary: 'Resumo',
-  reportAudit: 'Auditoria da assinatura',
-  requestSignature: 'Assinar',
-  requestSignatureError: 'Não foi possível solicitar a assinatura.',
-  returnedAt: 'Devolvido em',
-  save: 'Salvar',
-  saved: 'Relatório atualizado.',
-  select: 'Selecione',
-  service: 'Serviço',
-  services: 'Serviços',
-  signedLocked: 'Relatório assinado. Os dados estão bloqueados para edição.',
-  signatureRequested: 'Assinatura solicitada. Abra o link para concluir.',
-  team: 'Equipe',
-  time: 'Horário',
-  updateError: 'Não foi possível atualizar o relatório.'
-};
+import { REPORT_DETAIL_TEXT as TEXT } from './reportDetailText';
 
 const serviceTypeModalOptions = [
   { type: 'limpeza', icon: '🧪', name: 'Limpeza química' },
@@ -112,6 +76,14 @@ interface RdoFormState {
   noturnoStart: string;
   noturnoEnd: string;
   noturnoInterval: string;
+  ddsDay: boolean;
+  ddsDayStart: string;
+  ddsDayEnd: string;
+  ddsDayThemes: { id: string; name: string; custom?: boolean }[];
+  ddsNight: boolean;
+  ddsNightStart: string;
+  ddsNightEnd: string;
+  ddsNightThemes: { id: string; name: string; custom?: boolean }[];
   overtimeReason: string;
   dailyDescription: string;
   generalUploads: UploadedFile[];
@@ -510,10 +482,21 @@ function legacyServiceData(service: NonNullable<ReportSummary['services']>[numbe
   return data;
 }
 
+function asDdsThemeSnapshots(value: unknown): { id: string; name: string; custom?: boolean }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map(item => ({ id: getString(item.id), name: getString(item.name), ...(item.custom === true ? { custom: true } : {}) }))
+    .filter(item => item.id && item.name);
+}
+
 function reportToForm(report: ReportSummary): RdoFormState {
   const specialConditions = asRecord(report.specialConditions);
   const standbyDetails = asRecord(specialConditions.standbyDetails);
   const noturnoDetails = asRecord(specialConditions.noturnoDetails);
+  const dds = asRecord(specialConditions.dds);
+  const ddsDiurno = asRecord(dds.diurno);
+  const ddsNoturno = asRecord(dds.noturno);
   const serviceOnly = isServiceOnlyReport(report);
   const serviceReportMode = serviceOnly || isDerivedServiceReport(report);
   const serviceData = asRecord(specialConditions.serviceData);
@@ -539,6 +522,14 @@ function reportToForm(report: ReportSummary): RdoFormState {
     noturnoStart: getString(noturnoDetails.inicio),
     noturnoEnd: getString(noturnoDetails.termino),
     noturnoInterval: getString(noturnoDetails.intervalo) || getString(noturnoDetails.jantaIntervalo) || '01:00:00',
+    ddsDay: Boolean(ddsDiurno.enabled),
+    ddsDayStart: getString(ddsDiurno.inicio),
+    ddsDayEnd: getString(ddsDiurno.termino),
+    ddsDayThemes: asDdsThemeSnapshots(ddsDiurno.temas),
+    ddsNight: Boolean(ddsNoturno.enabled),
+    ddsNightStart: getString(ddsNoturno.inicio),
+    ddsNightEnd: getString(ddsNoturno.termino),
+    ddsNightThemes: asDdsThemeSnapshots(ddsNoturno.temas),
     overtimeReason: report.overtimeReason || '',
     dailyDescription: report.dailyDescription || '',
     generalUploads: asUploadedFiles(specialConditions.generalUploads),
@@ -637,6 +628,21 @@ function buildPayload(
             collaboratorIds: manualReport ? [] : form.nightCollaboratorIds,
             colaboradores: (manualReport ? [] : form.nightCollaboratorIds)
               .map(id => resources.collaborators?.find(collaborator => collaborator.id === id)?.name || id)
+          },
+          // Sempre sobrescrito por inteiro: o spread de specialConditions acima não pode ressuscitar um bloco antigo.
+          dds: {
+            diurno: {
+              enabled: form.ddsDay,
+              inicio: form.ddsDayStart,
+              termino: form.ddsDayEnd,
+              temas: form.ddsDayThemes
+            },
+            noturno: {
+              enabled: form.noturno && form.ddsNight,
+              inicio: form.ddsNightStart,
+              termino: form.ddsNightEnd,
+              temas: form.ddsNightThemes
+            }
           }
         },
     collaboratorIds: manualReport ? [] : form.collaboratorIds,
@@ -646,7 +652,10 @@ function buildPayload(
 
 function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const reportBackPath = backPathFromState(location.state, roleHomePath(user?.role));
+  const reportBackState = pageScrollRestoreStateFromNavigation(location.state);
   const bootstrapQuery = useReportDetailBootstrap(report.id);
   const reportMutations = useReportMutations();
   const showToast = useToast();
@@ -706,7 +715,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     () => new Set(serviceReportMode && !manualReport ? form.collaboratorIds : [...form.collaboratorIds, ...form.nightCollaboratorIds]),
     [manualReport, serviceReportMode, form.collaboratorIds, form.nightCollaboratorIds]
   );
-  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => item.isActive || selectedCollaboratorIds.has(item.id));
+  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => manualReport || item.isActive || selectedCollaboratorIds.has(item.id));
   const serviceCollaboratorOptions = useMemo(() => {
     if (manualReport) return [];
     const ids = serviceReportMode ? form.collaboratorIds : Array.from(new Set([...form.collaboratorIds, ...form.nightCollaboratorIds]));
@@ -726,6 +735,21 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   const inhibitionOptions = bootstrapQuery.data?.inhibitionOptions;
   const overtimeApproval = overtimeMinutesFromReport(report);
   const showOvertimeApproval = isManager && canApproveInEditor && !serviceReportMode && overtimeApproval.total > 0;
+  const showDdsFields = report.reportType === 'RDO' && !manualReport && !serviceReportMode;
+  const ddsThemesQuery = useQuery({ queryKey: ['dds-themes'], queryFn: () => listDdsThemes(), enabled: showDdsFields, staleTime: 60_000 });
+
+  function linkCustomDdsTheme(theme: { id: string; name: string }) {
+    const replace = (list: RdoFormState['ddsDayThemes']) => list.map(item => (
+      item.custom && item.name.trim().toLowerCase() === theme.name.trim().toLowerCase()
+        ? { id: theme.id, name: theme.name }
+        : item
+    ));
+    setForm(current => ({
+      ...current,
+      ddsDayThemes: replace(current.ddsDayThemes),
+      ddsNightThemes: replace(current.ddsNightThemes)
+    }));
+  }
   const manualOperationalFormValue: ManualReportOperationalFieldsValue = {
     arrivalTime: form.arrivalTime,
     departureTime: form.departureTime,
@@ -738,7 +762,15 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     noturnoCollaboratorIds: form.nightCollaboratorIds,
     standby: form.standby,
     standbyDuration: form.standbyDuration,
-    standbyMotivo: form.standbyMotivo
+    standbyMotivo: form.standbyMotivo,
+    ddsDay: form.ddsDay,
+    ddsDayStart: form.ddsDayStart,
+    ddsDayEnd: form.ddsDayEnd,
+    ddsDayThemes: form.ddsDayThemes,
+    ddsNight: form.ddsNight,
+    ddsNightStart: form.ddsNightStart,
+    ddsNightEnd: form.ddsNightEnd,
+    ddsNightThemes: form.ddsNightThemes
   };
 
   function setField<K extends keyof RdoFormState>(field: K, value: RdoFormState[K]) {
@@ -775,7 +807,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
         }) || {}
       });
       if (showSuccess) showToast(TEXT.saved, 'success');
-      if (navigateAfter) navigate(roleHomePath(user?.role));
+      if (navigateAfter) navigate(reportBackPath, { replace: true, state: reportBackState });
       return true;
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Não foi possível atualizar os dados operacionais.', 'error');
@@ -841,6 +873,24 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     if (readOnly) return false;
     if (manualReport) return handleManualInlineSave(options);
     if (!validateSequence()) return false;
+    if (showDdsFields) {
+      if (form.ddsDay && (!form.ddsDayStart.trim() || !form.ddsDayEnd.trim())) {
+        showToast('Informe início e término do DDS.', 'error');
+        return false;
+      }
+      if (form.ddsDay && !form.ddsDayThemes.length) {
+        showToast('Adicione ao menos um tema do DDS.', 'error');
+        return false;
+      }
+      if (form.noturno && form.ddsNight && (!form.ddsNightStart.trim() || !form.ddsNightEnd.trim())) {
+        showToast('Informe início e término do DDS noturno.', 'error');
+        return false;
+      }
+      if (form.noturno && form.ddsNight && !form.ddsNightThemes.length) {
+        showToast('Adicione ao menos um tema do DDS noturno.', 'error');
+        return false;
+      }
+    }
 
     const { navigateAfter = false, showSuccess = true } = options;
 
@@ -868,7 +918,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
       // Relatório salvo: efetiva a exclusão global das fotos removidas no editor.
       await flushStagedUploadDeletions();
       if (showSuccess) showToast(TEXT.saved, 'success');
-      if (navigateAfter) navigate(roleHomePath(user?.role));
+      if (navigateAfter) navigate(reportBackPath, { replace: true, state: reportBackState });
       return true;
     } catch (err) {
       showToast(err instanceof Error ? err.message : TEXT.updateError, 'error');
@@ -902,7 +952,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     if (!saved) return;
     const updated = await handleStatus(status, reviewNotes);
     if (updated && status === 'APPROVED' && user?.role === 'MANAGER') {
-      navigate(roleHomePath(user.role));
+      navigate(reportBackPath, { replace: true, state: reportBackState });
     }
   }
 
@@ -1007,10 +1057,23 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
           <ManualReportOperationalFields
             value={manualOperationalFormValue}
             collaborators={collaborators}
+            ddsThemes={ddsThemesQuery.data || []}
             disabled={readOnly}
+            includeInactiveCollaborators={manualReport}
             embedded
             showNightShift
             showStandby={report.reportType === 'RDO'}
+            showDds={showDdsFields}
+            ddsAlert={
+              <DdsCustomThemeReviewAlert
+                dayThemes={form.ddsDayThemes}
+                nightThemes={form.ddsNightThemes}
+                officialThemes={ddsThemesQuery.data || []}
+                canRegister={user?.role === 'MANAGER' || user?.role === 'COORDINATOR'}
+                readOnly={readOnly}
+                onLinkTheme={linkCustomDdsTheme}
+              />
+            }
             onChange={updateManualOperationalFields}
           />
         </section>
@@ -1038,8 +1101,9 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
                 <div className="admin-form-grid">
                   {normalizeServiceType(service.type) !== 'inibicao' ? (
                   <div className="field-group">
-                    <label>Equipamento(s)</label>
+                    <label htmlFor={`service-equipment-${service.id}`}>Equipamento(s)</label>
                     <input
+                      id={`service-equipment-${service.id}`}
                       value={getString(service.data.equipmentId)}
                       disabled={readOnly || manualReport}
                       placeholder="Informar equipamento do cliente..."
@@ -1799,6 +1863,19 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
   const isStandby = Boolean(specialConditions.standby);
   const isNoturno = Boolean(noturnoDetails.enabled || nightCollaboratorIds.length);
 
+  const dds = asRecord(specialConditions.dds);
+  const ddsBlocks = [
+    { label: 'DDS diurno', data: asRecord(dds.diurno) },
+    { label: 'DDS noturno', data: asRecord(dds.noturno) }
+  ]
+    .filter(block => Boolean(block.data.enabled))
+    .map(block => ({
+      label: block.label,
+      inicio: getString(block.data.inicio),
+      termino: getString(block.data.termino),
+      temas: asDdsThemeSnapshots(block.data.temas).map(theme => (theme.custom ? `${theme.name} (novo)` : theme.name))
+    }));
+
   return (
     <>
       <section className="page-card">
@@ -1832,6 +1909,8 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
           </>
         ) : null}
       </section>
+
+      <ReportDdsSummarySection blocks={ddsBlocks} />
 
       {(report.services?.length ?? 0) > 0 ? (
         <section className="page-card">
@@ -1895,13 +1974,25 @@ function collaboratorCanEditReport(user: ReturnType<typeof useAuth>['user'], rep
 
 export function ReportDetailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id = '' } = useParams();
   const { user, logout } = useAuth();
   const reportQuery = useReport(id, !!id);
+  const reportBackPath = backPathFromState(location.state, roleHomePath(user?.role));
+  const reportBackState = pageScrollRestoreStateFromNavigation(location.state);
+  const canUseHistoryBack = hasBackPathInState(location.state);
 
   async function handleLogout() {
     await logout();
     navigate('/', { replace: true });
+  }
+
+  function handleBack() {
+    if (canUseHistoryBack) {
+      navigate(-1);
+      return;
+    }
+    navigate(reportBackPath, { replace: true, state: reportBackState });
   }
 
   const report = reportQuery.data;
@@ -1925,10 +2016,10 @@ export function ReportDetailPage() {
         subtitle={report ? `${report.reportType}${report.sequenceNumber ? ` ${report.sequenceNumber}` : ''}` : user?.name}
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate(-1)}>
+            <button className="topbar-chip" type="button" onClick={handleBack}>
               {TEXT.back}
             </button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>

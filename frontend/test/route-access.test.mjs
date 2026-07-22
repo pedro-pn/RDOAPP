@@ -357,6 +357,96 @@ test('multi-module internal accounts open the modules hub until the first-login 
   }
 });
 
+test('acompanhamento grouping novelty is local once-per-user and expires globally', async () => {
+  const stored = new Map();
+  const originalNow = Date.now;
+  globalThis.window = {
+    localStorage: {
+      getItem: key => stored.get(key) || null,
+      setItem: (key, value) => stored.set(key, value)
+    }
+  };
+
+  try {
+    Date.now = () => new Date('2026-07-16T12:00:00-03:00').getTime();
+    const {
+      markAcompanhamentoGroupingNoveltySeen,
+      shouldShowAcompanhamentoGroupingNovelty
+    } = await loadModuleNavigation();
+
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-1' }), true);
+    markAcompanhamentoGroupingNoveltySeen({ id: 'manager-1' });
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-1' }), false);
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-2' }), true);
+
+    Date.now = () => new Date('2026-07-27T00:00:00-03:00').getTime();
+    assert.equal(shouldShowAcompanhamentoGroupingNovelty({ id: 'manager-3' }), false);
+  } finally {
+    Date.now = originalNow;
+    delete globalThis.window;
+  }
+});
+
+test('acompanhamento progress history novelty is local once-per-user and expires globally', async () => {
+  const stored = new Map();
+  const originalNow = Date.now;
+  globalThis.window = {
+    localStorage: {
+      getItem: key => stored.get(key) || null,
+      setItem: (key, value) => stored.set(key, value)
+    }
+  };
+
+  try {
+    Date.now = () => new Date('2026-07-21T12:00:00-03:00').getTime();
+    const {
+      markAcompanhamentoProgressHistoryNoveltySeen,
+      shouldShowAcompanhamentoProgressHistoryNovelty
+    } = await loadModuleNavigation();
+
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-1' }), true);
+    markAcompanhamentoProgressHistoryNoveltySeen({ id: 'viewer-1' });
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-1' }), false);
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-2' }), true);
+
+    Date.now = () => new Date('2026-08-01T00:00:00-03:00').getTime();
+    assert.equal(shouldShowAcompanhamentoProgressHistoryNovelty({ id: 'viewer-3' }), false);
+  } finally {
+    Date.now = originalNow;
+    delete globalThis.window;
+  }
+});
+
+test('acompanhamento manual cost novelty is local once-per-user and expires globally', async () => {
+  const stored = new Map();
+  const originalNow = Date.now;
+  globalThis.window = {
+    localStorage: {
+      getItem: key => stored.get(key) || null,
+      setItem: (key, value) => stored.set(key, value)
+    }
+  };
+
+  try {
+    Date.now = () => new Date('2026-07-21T12:00:00-03:00').getTime();
+    const {
+      markAcompanhamentoManualCostNoveltySeen,
+      shouldShowAcompanhamentoManualCostNovelty
+    } = await loadModuleNavigation();
+
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-1' }), true);
+    markAcompanhamentoManualCostNoveltySeen({ id: 'manager-1' });
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-1' }), false);
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-2' }), true);
+
+    Date.now = () => new Date('2026-08-01T00:00:00-03:00').getTime();
+    assert.equal(shouldShowAcompanhamentoManualCostNovelty({ id: 'manager-3' }), false);
+  } finally {
+    Date.now = originalNow;
+    delete globalThis.window;
+  }
+});
+
 test('single-module internal accounts keep entering their module directly', async () => {
   const { preferredEntryPath } = await loadModuleNavigation();
 
@@ -388,10 +478,22 @@ test('preferred entry path keeps client accounts inside the reports module', asy
 });
 
 test('account page back path prefers the route that opened account settings', async () => {
-  const { accountBackPath, accountPageStateFromPath } = await loadModuleNavigation();
+  const { accountBackPath, accountPageStateFromPath, backPathFromState, hasBackPathInState, navigationStateFromLocation, pathFromLocation } = await loadModuleNavigation();
 
   assert.deepEqual(accountPageStateFromPath('/admin/accounts'), { from: '/admin/accounts' });
+  assert.equal(pathFromLocation({ pathname: '/rdo/gestor', search: '?tab=aprovados', hash: '#rdo-10' }), '/rdo/gestor?tab=aprovados#rdo-10');
+  assert.deepEqual(
+    navigationStateFromLocation({ pathname: '/rdo/gestor', search: '?tab=arquivados', hash: '' }),
+    { from: '/rdo/gestor?tab=arquivados' }
+  );
+  assert.deepEqual(accountPageStateFromPath({ pathname: '/estoque', search: '?tab=itens', hash: '#filtro' }), { from: '/estoque?tab=itens#filtro' });
   assert.equal(accountBackPath(adminWithEpiOnly, { from: '/admin/accounts' }, '/rdo/gestor'), '/admin/accounts');
+  assert.equal(backPathFromState({ from: { pathname: '/rdo/coordenador', search: '?tab=approved', hash: '#rel' } }, '/rdo/coordenador'), '/rdo/coordenador?tab=approved#rel');
+  assert.equal(backPathFromState({ from: 'https://example.com' }, '/rdo/gestor'), '/rdo/gestor');
+  assert.equal(backPathFromState({ from: '/conta?tab=perfil' }, '/rdo/gestor'), '/rdo/gestor');
+  assert.equal(hasBackPathInState({ from: '/rdo/coordenador?tab=approved' }), true);
+  assert.equal(hasBackPathInState({ from: '/conta?tab=perfil' }), false);
   assert.equal(accountBackPath(adminWithEpiOnly, undefined, '/rdo/gestor'), '/rdo/gestor');
   assert.equal(accountPageStateFromPath('/conta'), undefined);
+  assert.equal(accountPageStateFromPath('/conta?tab=perfil'), undefined);
 });
