@@ -240,6 +240,7 @@ function FieldEditor({ field, onChange, onRemove, unitsCatalog, nested, drag }: 
         )}
         <input
           type="text"
+          aria-label="Rótulo do campo"
           placeholder="Rótulo do campo"
           value={field.label}
           onChange={e => onChange({ label: e.target.value })}
@@ -260,6 +261,7 @@ function FieldEditor({ field, onChange, onRemove, unitsCatalog, nested, drag }: 
         {(field.type === 'select' || field.type === 'multiselect') && (
           <input
             type="text"
+            aria-label="Opções do campo"
             placeholder="Opções (separadas por vírgula)"
             value={(field.options || []).join(', ')}
             onChange={e => onChange({ options: e.target.value.split(',').map(o => o.trim()) })}
@@ -268,6 +270,7 @@ function FieldEditor({ field, onChange, onRemove, unitsCatalog, nested, drag }: 
         {!nested && (
           <input
             type="text"
+            aria-label="Seção ou agrupamento"
             placeholder="Seção / agrupamento (ex.: Elétrico)"
             value={field.group || ''}
             onChange={e => onChange({ group: e.target.value })}
@@ -296,6 +299,7 @@ function FieldEditor({ field, onChange, onRemove, unitsCatalog, nested, drag }: 
           <div className="tech-build-group-opts">
             <input
               type="text"
+              aria-label="Rótulo do item"
               placeholder="Rótulo do item (ex.: Motor)"
               value={field.itemLabel || ''}
               onChange={e => onChange({ itemLabel: e.target.value })}

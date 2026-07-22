@@ -171,10 +171,16 @@ function zodErrorToFormErrors(error: z.ZodError) {
   }, {});
 }
 
+function withoutRecordType(payload: QualityRecordPayload): QualityRecordUpdatePayload {
+  const updatePayload: Partial<QualityRecordPayload> = { ...payload };
+  delete updatePayload.type;
+  return updatePayload as QualityRecordUpdatePayload;
+}
+
 function resolverFor(record: QualityRecord | null): Resolver<QualityRecordFormValues> {
   return async values => {
     const payload = valuesToPayload(values);
-    const candidate = record ? (({ type: _type, ...rest }) => rest)(payload) : payload;
+    const candidate = record ? withoutRecordType(payload) : payload;
     const result = (record ? schemas.recordUpdate : schemas.recordCreate).safeParse(candidate);
     if (result.success) return { values, errors: {} };
     return { values: {}, errors: zodErrorToFormErrors(result.error) };
@@ -299,8 +305,7 @@ export function QualityRecordFormModal({ open, record, projects, natures, saving
     }
 
     if (record) {
-      const { type: _type, ...updatePayload } = payload;
-      onSubmit(updatePayload);
+      onSubmit(withoutRecordType(payload));
       return;
     }
     onSubmit(payload);

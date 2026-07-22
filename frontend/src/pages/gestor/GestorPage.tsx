@@ -13,6 +13,7 @@ import {
   movePointerDragGhost,
   reorderIdFromPoint,
   reorderRowsById,
+  scrollReorderContainerEdge,
   setReorderDragImage,
   type PointerDragState
 } from '../../utils/reorderDrag';
@@ -1779,19 +1780,6 @@ export function GestorPage() {
     applySurveyQuestionDrafts(next);
   }
 
-  function scrollSurveyQuestionEditor(clientY: number) {
-    const container = surveyQuestionEditorListRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const edgeSize = 88;
-    const scrollStep = 18;
-    if (clientY < rect.top + edgeSize) {
-      container.scrollTop -= scrollStep;
-    } else if (clientY > rect.bottom - edgeSize) {
-      container.scrollTop += scrollStep;
-    }
-  }
-
   function addSurveyQuestionOption(index: number) {
     const question = surveyQuestionDrafts[index];
     if (!question) return;
@@ -1813,7 +1801,7 @@ export function GestorPage() {
   function handleSurveyQuestionDragOver(event: DragEvent<HTMLElement>, questionId?: string) {
     event.preventDefault();
     if (questionId) applySurveyQuestionReorder(questionId);
-    scrollSurveyQuestionEditor(event.clientY);
+    scrollReorderContainerEdge(surveyQuestionEditorListRef.current, event.clientY);
   }
 
   function handleSurveyQuestionDragStart(event: DragEvent<HTMLButtonElement>, questionId: string) {
@@ -1854,7 +1842,7 @@ export function GestorPage() {
     if (!state || state.pointerId !== event.pointerId || !surveyQuestionDragId.current) return;
     event.preventDefault();
     movePointerDragGhost(state, event.clientX, event.clientY);
-    scrollSurveyQuestionEditor(event.clientY);
+    scrollReorderContainerEdge(surveyQuestionEditorListRef.current, event.clientY);
     const targetId = reorderIdFromPoint(event.clientX, event.clientY, '.survey-question-card');
     if (targetId) applySurveyQuestionReorder(targetId);
   }

@@ -92,3 +92,18 @@ export function createPointerDragGhost(
 export function movePointerDragGhost(state: PointerDragState, clientX: number, clientY: number) {
   state.ghost.style.transform = `translate3d(${clientX - state.offsetX}px, ${clientY - state.offsetY}px, 0)`;
 }
+
+export function scrollReorderContainerEdge(
+  container: HTMLElement | null,
+  clientY: number,
+  edgeSize = 88,
+  scrollStep = 18
+) {
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  if (clientY < rect.top + edgeSize) {
+    container.scrollTop -= scrollStep;
+  } else if (clientY > rect.bottom - edgeSize) {
+    container.scrollTop += scrollStep;
+  }
+}
