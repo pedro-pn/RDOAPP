@@ -2526,7 +2526,28 @@ a {
 .acp-progress-chart svg { display: block; width: 100%; height: 82px; overflow: visible; }
 .acp-progress-chart-grid { stroke: #d7ded7; stroke-width: 1; }
 .acp-progress-chart-line { fill: none; stroke: var(--g); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.acp-progress-chart-point { cursor: default; outline: none; }
+.acp-progress-chart-dot-hit { fill: transparent; stroke: transparent; pointer-events: all; }
 .acp-progress-chart-dot { fill: var(--wh); stroke: var(--g); stroke-width: 2; }
+.acp-progress-chart-point:hover .acp-progress-chart-dot,
+.acp-progress-chart-point:focus .acp-progress-chart-dot {
+  fill: var(--g);
+}
+.acp-progress-chart-tip {
+  pointer-events: none;
+  filter: drop-shadow(0 12px 28px rgba(20, 20, 20, 0.16));
+}
+.acp-progress-chart-tip rect,
+.acp-progress-chart-tip-arrow {
+  fill: var(--wh);
+  stroke: var(--br);
+  stroke-width: 0.8;
+}
+.acp-progress-chart-tip-arrow { stroke-linejoin: round; }
+.acp-progress-chart-tip text { font-size: 10.5px; line-height: 1.4; }
+.acp-progress-chart-tip-date { fill: var(--tx); font-weight: 700; }
+.acp-progress-chart-tip-label { fill: var(--mu); }
+.acp-progress-chart-tip-value { fill: var(--tx); font-weight: 700; }
 .acp-progress-chart-y,
 .acp-progress-chart-x {
   fill: var(--mu);

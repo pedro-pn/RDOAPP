@@ -212,6 +212,7 @@ function normalizeHistory(points?: ProgressHistoryPoint[]) {
 
 function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
   const history = normalizeHistory(points);
+  const [activePoint, setActivePoint] = useState<(ProgressHistoryPoint & { time: number; x: number; y: number }) | null>(null);
   const latest = history[history.length - 1];
   if (history.length === 0) {
     return (
@@ -243,6 +244,22 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
     y: yFor(point.progressPct)
   }));
   const path = plotted.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+  const tipWidth = 138;
+  const tipHeight = 42;
+  const tooltip = activePoint ? (() => {
+    const above = activePoint.y > tipHeight + 12;
+    const x = Math.max(2, Math.min(width - tipWidth - 2, activePoint.x - tipWidth / 2));
+    const y = above ? activePoint.y - tipHeight - 9 : activePoint.y + 9;
+    return {
+      x,
+      y,
+      above,
+      arrowX: activePoint.x - x,
+      day: fmtDate(activePoint.date),
+      amount: fmtPct(activePoint.progressPct)
+    };
+  })() : null;
+  const pointLabel = (point: ProgressHistoryPoint) => `Dia: ${fmtDate(point.date)} · Quantidade: ${fmtPct(point.progressPct)}`;
 
   return (
     <div className="acp-progress-chart" aria-label="Histórico semanal de avanço" data-acp-progress-history-chart>
@@ -267,9 +284,19 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
         ))}
         <path className="acp-progress-chart-line" d={path} />
         {plotted.map(point => (
-          <circle className="acp-progress-chart-dot" key={`${point.date}-${point.progressPct}`} cx={point.x} cy={point.y} r="3.4">
-            <title>{`${fmtDate(point.date)} · ${fmtPct(point.progressPct)}`}</title>
-          </circle>
+          <g
+            className="acp-progress-chart-point"
+            key={`${point.date}-${point.progressPct}`}
+            tabIndex={0}
+            aria-label={pointLabel(point)}
+            onFocus={() => setActivePoint(point)}
+            onBlur={() => setActivePoint(null)}
+            onMouseEnter={() => setActivePoint(point)}
+            onMouseLeave={() => setActivePoint(null)}
+          >
+            <circle className="acp-progress-chart-dot-hit" cx={point.x} cy={point.y} r="8" />
+            <circle className="acp-progress-chart-dot" cx={point.x} cy={point.y} r="3.4" />
+          </g>
         ))}
         <text className="acp-progress-chart-x" x={pad.left} y={height - 4} textAnchor="start">
           {fmtShortDate(history[0].date)}
@@ -277,6 +304,20 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
         <text className="acp-progress-chart-x" x={width - pad.right} y={height - 4} textAnchor="end">
           {fmtShortDate(latest?.date)}
         </text>
+        {tooltip ? (
+          <g className="acp-progress-chart-tip" transform={`translate(${tooltip.x} ${tooltip.y})`}>
+            <rect width={tipWidth} height={tipHeight} rx="6" />
+            <path
+              className="acp-progress-chart-tip-arrow"
+              d={tooltip.above
+                ? `M ${tooltip.arrowX - 5} ${tipHeight - 1} L ${tooltip.arrowX} ${tipHeight + 5} L ${tooltip.arrowX + 5} ${tipHeight - 1} Z`
+                : `M ${tooltip.arrowX - 5} 1 L ${tooltip.arrowX} -5 L ${tooltip.arrowX + 5} 1 Z`}
+            />
+            <text className="acp-progress-chart-tip-date" x="10" y="15">{tooltip.day}</text>
+            <text className="acp-progress-chart-tip-label" x="10" y="32">Quantidade</text>
+            <text className="acp-progress-chart-tip-value" x={tipWidth - 10} y="32" textAnchor="end">{tooltip.amount}</text>
+          </g>
+        ) : null}
       </svg>
     </div>
   );
