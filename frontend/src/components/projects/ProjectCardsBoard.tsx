@@ -7,6 +7,7 @@ import {
   createMissionGroup,
   dissolveMissionGroup,
   getProjectCards,
+  renameMissionGroup,
   type LastDayStatus,
   type MissionGroupCard,
   type ProjectCardCategory,
@@ -14,6 +15,7 @@ import {
 } from '../../api/acompanhamentoComercial';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { ProjectDetailDashboard } from './ProjectDetailDashboard';
+import { ProjectGroupRenameNovelty } from './ProjectGroupRenameNovelty';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import type { AuthUser } from '../../types/auth';
 
@@ -48,6 +50,10 @@ function isGroupCard(card: ProjectCardItem): card is MissionGroupCard {
 
 function cardKey(card: ProjectCardItem) {
   return isGroupCard(card) ? `group-${card.groupId}` : card.projectId;
+}
+
+function memberOriginalLabel(member: MissionGroupCard['members'][number]) {
+  return [member.code, member.name || member.clientName].filter(Boolean).join(' — ');
 }
 
 function mutationErrorMessage(error: unknown, fallback: string) {
@@ -86,20 +92,42 @@ function Card({
   selected = false,
   canSelect = false,
   canManageGroups = false,
+  renaming = false,
+  renameValue = '',
+  renameError = null,
+  renameSaving = false,
   onOpen,
   onToggleSelect,
+  onStartRename,
+  onRenameValueChange,
+  onSubmitRename,
+  onCancelRename,
   onDissolve
 }: {
   card: ProjectCardItem;
   selected?: boolean;
   canSelect?: boolean;
   canManageGroups?: boolean;
+  renaming?: boolean;
+  renameValue?: string;
+  renameError?: string | null;
+  renameSaving?: boolean;
   onOpen: () => void;
   onToggleSelect?: () => void;
+  onStartRename?: () => void;
+  onRenameValueChange?: (value: string) => void;
+  onSubmitRename?: () => void;
+  onCancelRename?: () => void;
   onDissolve?: () => void;
 }) {
   const grouped = isGroupCard(card);
   const status = STATUS_META[card.lastDay.status];
+  const originalNames = grouped
+    ? card.members
+      .map(memberOriginalLabel)
+      .filter(Boolean)
+      .join(' · ')
+    : '';
   const workedHours = card.workedHours ?? {
     normalWorkedHours: 0,
     overtimeWorkedHours: 0,
@@ -124,7 +152,13 @@ function Card({
       role="button"
       tabIndex={0}
       onClick={handleOpen}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpen(); } }}
+      onKeyDown={e => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleOpen();
+        }
+      }}
     >
       <div className="acp-pcard-head">
         {canSelect && !grouped ? (
@@ -137,9 +171,79 @@ function Card({
             />
           </label>
         ) : null}
-        <strong>{card.code}</strong>
-        <span className="acp-pcard-name">{card.name || '—'}</span>
+        {!grouped ? <strong>{card.code}</strong> : null}
+        {renaming ? (
+          <form
+            className="acp-pcard-name-edit"
+            onClick={event => event.stopPropagation()}
+            onSubmit={event => {
+              event.preventDefault();
+              event.stopPropagation();
+              onSubmitRename?.();
+            }}
+          >
+            <input
+              type="text"
+              aria-label="Nome do card"
+              maxLength={120}
+              value={renameValue}
+              disabled={renameSaving}
+              autoFocus
+              onFocus={event => event.currentTarget.select()}
+              onChange={event => onRenameValueChange?.(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  onCancelRename?.();
+                }
+              }}
+              required
+            />
+            <button
+              type="submit"
+              className="acp-pcard-icon-action"
+              title="Salvar nome"
+              aria-label="Salvar nome"
+              disabled={renameSaving}
+            >
+              <span aria-hidden="true">✓</span>
+            </button>
+            <button
+              type="button"
+              className="acp-pcard-icon-action muted"
+              title="Cancelar edição"
+              aria-label="Cancelar edição"
+              disabled={renameSaving}
+              onClick={onCancelRename}
+            >
+              <span aria-hidden="true">✕</span>
+            </button>
+          </form>
+        ) : (
+          <span className="acp-pcard-name">{card.name || '—'}</span>
+        )}
+        {grouped && canManageGroups && !renaming ? (
+          <button
+            type="button"
+            className="acp-pcard-icon-action"
+            data-acp-group-rename-start
+            title="Editar nome do card"
+            aria-label="Editar nome do card"
+            onClick={event => {
+              event.stopPropagation();
+              onStartRename?.();
+            }}
+          >
+            <span aria-hidden="true">✎</span>
+          </button>
+        ) : null}
       </div>
+      {grouped && renaming && renameError ? (
+        <div className="form-error acp-pcard-rename-error" onClick={event => event.stopPropagation()}>{renameError}</div>
+      ) : null}
+      {grouped && originalNames ? (
+        <div className="acp-pcard-original-names" title={originalNames}>{originalNames}</div>
+      ) : null}
       {card.clientName ? <div className="acp-pcard-client">{card.clientName}</div> : null}
 
       {grouped ? (
@@ -350,6 +454,10 @@ export function ProjectCardsBoard({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedForGroup, setSelectedForGroup] = useState<Set<string>>(() => new Set());
   const [groupError, setGroupError] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<MissionGroupCard | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [groupRenameNoveltyActive, setGroupRenameNoveltyActive] = useState(true);
   const [dissolveTarget, setDissolveTarget] = useState<MissionGroupCard | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['project-cards'],
@@ -390,6 +498,48 @@ export function ProjectCardsBoard({
       setGroupError(mutationErrorMessage(error, 'Não foi possível desmesclar este agrupamento.'));
     }
   });
+  const renameGroupMutation = useMutation({
+    mutationFn: ({ groupId, name }: { groupId: string; name: string }) => renameMissionGroup(groupId, name),
+    onSuccess: async () => {
+      setRenameTarget(null);
+      setRenameValue('');
+      setRenameError(null);
+      setGroupError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['project-cards'] }),
+        queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-groups'] })
+      ]);
+    },
+    onError: (error: unknown) => {
+      setRenameError(mutationErrorMessage(error, 'Não foi possível alterar o nome deste agrupamento.'));
+    }
+  });
+  const openRenameGroup = (card: MissionGroupCard) => {
+    setRenameTarget(card);
+    setRenameValue(card.name || '');
+    setRenameError(null);
+  };
+  const closeRenameGroup = () => {
+    if (renameGroupMutation.isPending) return;
+    setRenameTarget(null);
+    setRenameValue('');
+    setRenameError(null);
+  };
+  const submitRenameGroup = () => {
+    if (!renameTarget || renameGroupMutation.isPending) return;
+    const name = renameValue.trim();
+    if (!name) {
+      setRenameError('Informe um nome para o card.');
+      return;
+    }
+    if (name.length > 120) {
+      setRenameError('Nome muito longo.');
+      return;
+    }
+    renameGroupMutation.mutate({ groupId: renameTarget.groupId, name });
+  };
   const setView = useCallback((nextView: CardsView) => {
     setSearchParams(currentParams => {
       const nextParams = new URLSearchParams(currentParams);
@@ -570,12 +720,23 @@ export function ProjectCardsBoard({
               selected={!isGroupCard(card) && selectedForGroup.has(card.projectId)}
               canSelect={canManageGroups && selectionMode}
               canManageGroups={canManageGroups}
+              renaming={isGroupCard(card) && renameTarget?.groupId === card.groupId}
+              renameValue={renameValue}
+              renameError={isGroupCard(card) && renameTarget?.groupId === card.groupId ? renameError : null}
+              renameSaving={isGroupCard(card) && renameTarget?.groupId === card.groupId && renameGroupMutation.isPending}
               onOpen={() => {
                 setSelected(isGroupCard(card)
                   ? { kind: 'GROUP', id: card.groupId }
                   : { kind: 'PROJECT', id: card.projectId });
               }}
               onToggleSelect={!isGroupCard(card) ? () => toggleSelected(card.projectId) : undefined}
+              onStartRename={isGroupCard(card) ? () => openRenameGroup(card) : undefined}
+              onRenameValueChange={value => {
+                setRenameValue(value);
+                setRenameError(null);
+              }}
+              onSubmitRename={submitRenameGroup}
+              onCancelRename={closeRenameGroup}
               onDissolve={isGroupCard(card) ? () => setDissolveTarget(card) : undefined}
             />
           ))}
@@ -595,6 +756,11 @@ export function ProjectCardsBoard({
         onCancel={() => {
           if (!dissolveGroupMutation.isPending) setDissolveTarget(null);
         }}
+      />
+      <ProjectGroupRenameNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={groupRenameNoveltyActive && canManageGroups && !selectionMode && renameTarget === null}
+        onSeen={() => setGroupRenameNoveltyActive(false)}
       />
     </div>
   );
