@@ -43,7 +43,12 @@
 - Server operations/deploy commands are not executed by the agent; any such command is
   documented for the human operator to run on the server.
 - UI is pt-BR and mobile-first: wide tables have mobile alternatives, modals have fixed
-  action footers and no page-level horizontal scroll.
+  action footers and no page-level horizontal scroll. Card grids must fit the useful
+  mobile width (e.g., `minmax(min(100%, ...), 1fr)` or equivalent), flex/grid children
+  must be allowed to shrink (`min-width: 0`), and long values/badges/actions must not
+  widen the viewport. Tabs, segmented controls and tab-like filters must wrap, use a
+  responsive grid, scroll internally by design, or switch to a mobile select/menu
+  without widening the page.
 - Forms and APIs use Zod-compatible validation on frontend and backend.
 - Schema changes are represented by Prisma migrations and never by ad hoc database edits.
 - Backend business logic has tests in `backend/test` when the feature adds or changes
@@ -52,6 +57,29 @@
   `select` fields, custom dropdowns/comboboxes and multiselects must match the app
   standard states (default, focus, disabled, error, mobile), and desktop modules with
   dashboards/tables/forms must use the wide module shell pattern.
+- New user-facing functions include the temporary novelty campaign when applicable:
+  Driver.js-style centered novelty card, localStorage seen marker per user/browser,
+  global expiration exactly 10 days after implementation date, and a guided tutorial
+  for the first access to the new function during that same window. New modules keep
+  permanent first-access module onboarding; functions inside existing modules do not.
+- Module-internal navigation persists across refresh: tabs, side sections, tab-like
+  filters and detail views that replace a list are represented by URL/query params
+  whenever the state is shareable and non-sensitive, with incompatible params cleaned
+  when changing sections.
+
+**Required visual evidence when frontend changes are present:**
+
+| Surface | Existing reference audited | Shared component/classes | Field/dropdown states covered | Navigation persistence | Novelty/tutorial plan | Mobile/desktop overflow evidence |
+|---------|----------------------------|--------------------------|-------------------------------|------------------------|------------------------|----------------------------------|
+| [surface name] | [path + pattern checked] | [e.g., Modal, Button, field-group, admin-inline-form] | [default/focus/disabled/error/empty] | [URL/query params or N/A with reason] | [10-day novelty/tutorial or N/A with reason] | [viewport behavior; tabs/cards/grids/text overflow checked] |
+
+- A plan may reuse or clone an existing component only after checking that the source
+  component still complies with the current constitution. If the source component has
+  visual debt, the plan must include a task to fix the source or use a better shared
+  pattern instead.
+- Inline form controls must use shared form structure (`field-group`, `admin-form-grid`,
+  `admin-inline-form`, or a documented equivalent). Placeholder text alone is not an
+  acceptable label.
 
 ## Project Structure
 

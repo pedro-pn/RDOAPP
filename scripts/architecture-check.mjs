@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   generatedFrontendRegistryPath,
@@ -102,6 +103,20 @@ function toPosix(filePath) {
 
 function read(filePath) {
   return fs.readFileSync(repoPath(filePath), 'utf8');
+}
+
+function runGit(args) {
+  const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
+  if (result.status !== 0) return '';
+  return result.stdout.trim();
+}
+
+function gitRefExists(ref) {
+  return Boolean(runGit(['rev-parse', '--verify', `${ref}^{commit}`]));
+}
+
+function uniqueLines(output) {
+  return [...new Set(output.split(/\r?\n/).map(line => line.trim()).filter(Boolean))];
 }
 
 function lineCount(content) {
@@ -251,12 +266,69 @@ function checkBackendRuntimeAssets() {
   }
 }
 
+function changedFilesForVisualContract() {
+  const baseRef = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : '';
+
+  if (baseRef && gitRefExists(baseRef)) {
+    return uniqueLines(runGit(['diff', '--name-only', '--diff-filter=ACMR', `${baseRef}...HEAD`]));
+  }
+
+  if (process.env.GITHUB_EVENT_NAME === 'push' && gitRefExists('HEAD~1')) {
+    return uniqueLines(runGit(['diff', '--name-only', '--diff-filter=ACMR', 'HEAD~1', 'HEAD']));
+  }
+
+  const currentBranch = runGit(['branch', '--show-current']);
+  if (currentBranch && currentBranch !== 'main' && gitRefExists('origin/main')) {
+    return uniqueLines(runGit(['diff', '--name-only', '--diff-filter=ACMR', 'origin/main...HEAD']));
+  }
+
+  return uniqueLines([
+    runGit(['diff', '--name-only', '--diff-filter=ACMR']),
+    runGit(['diff', '--cached', '--name-only', '--diff-filter=ACMR'])
+  ].filter(Boolean).join('\n'));
+}
+
+function lineNumberForOffset(content, offset) {
+  return content.slice(0, offset).split(/\r?\n/).length;
+}
+
+function checkFrontendVisualContract() {
+  const files = changedFilesForVisualContract()
+    .filter(filePath => /^frontend\/src\/.*\.(?:tsx|jsx)$/.test(filePath))
+    .filter(filePath => fs.existsSync(repoPath(filePath)));
+
+  for (const filePath of files) {
+    const source = read(filePath);
+
+    const inlineFlexInputPattern = /<(?:div|section|form)\b[^>]*style=\{\{[^}]*display:\s*['"]flex['"][\s\S]{0,900}<input\b/gi;
+    for (const match of source.matchAll(inlineFlexInputPattern)) {
+      const line = lineNumberForOffset(source, match.index ?? 0);
+      failures.push(`${filePath}:${line} usa input dentro de linha flex inline. Use um padrao compartilhado de formulario (field-group/admin-inline-form/admin-form-grid) antes de adicionar campos novos.`);
+    }
+
+    const formControlPattern = /<(input|select|textarea)\b[\s\S]*?>/gi;
+    for (const match of source.matchAll(formControlPattern)) {
+      const tag = match[0];
+      const tagName = match[1].toLowerCase();
+      const hasPlaceholder = /\bplaceholder=/.test(tag);
+      const hasAccessibleLabel = /\b(?:id|aria-label|aria-labelledby|className)=/.test(tag);
+      const isHidden = tagName === 'input' && /\btype=["']hidden["']/.test(tag);
+
+      if (tagName === 'input' && hasPlaceholder && !hasAccessibleLabel && !isHidden) {
+        const line = lineNumberForOffset(source, match.index ?? 0);
+        failures.push(`${filePath}:${line} usa placeholder como unico rotulo de input. Adicione label/id em field-group ou use o componente compartilhado adequado.`);
+      }
+    }
+  }
+}
+
 checkLineBudgets();
 checkRootLibFiles();
 checkServerRouteImports();
 checkRouteJobExports();
 checkModuleRegistry();
 checkBackendRuntimeAssets();
+checkFrontendVisualContract();
 
 if (failures.length) {
   console.error('Architecture check failed:');

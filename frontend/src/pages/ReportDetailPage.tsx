@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listDdsThemes } from '../api/ddsThemes';
 import { downloadReportDocx, downloadReportPdf } from '../api/reports';
 
 import { useAuth } from '../auth/AuthContext';
-import { accountPageStateFromPath } from '../auth/moduleNavigation';
+import { accountPageStateFromPath, backPathFromState, hasBackPathInState } from '../auth/moduleNavigation';
 import { roleHomePath } from '../auth/rolePath';
 import type { UploadedFile } from '../api/uploads';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../components/reports/ManualReportOperationalFields';
@@ -23,6 +23,7 @@ import { PrivacyNotice } from '../components/privacy/PrivacyNotice';
 import { useToast } from '../components/ui/ToastContext';
 import { SIGNATURE_RDO_NOTICE_VERSION } from '../constants/privacy';
 import { useReportDetailBootstrap } from '../hooks/useBootstrap';
+import { pageScrollRestoreStateFromNavigation } from '../hooks/usePageScrollRestoration';
 import { useReport, useReportAudit, useReportMutations } from '../hooks/useReports';
 import { Shell } from '../layout/Shell';
 import { TopBar } from '../layout/TopBar';
@@ -38,48 +39,7 @@ import { sortProjects } from '../utils/projectSort';
 import { reportDownloadFileName } from '../utils/reportFileName';
 import { buildReportServicePayload, normalizeServiceType } from '../utils/reportServicePayload';
 import { loadUploadAssetUrl, normalizeLocalUploadUrl } from '../utils/uploadAssetUrl';
-
-const TEXT = {
-  addService: 'Adicionar serviço',
-  approvedAt: 'Aprovado em',
-  approve: 'Aprovar',
-  back: 'Voltar',
-  code: 'Código',
-  collaborators: 'Equipe',
-  description: 'Descrição do dia',
-  details: 'Detalhe do relatório',
-  downloadError: 'Não foi possível baixar o relatório.',
-  finalization: 'Finalização',
-  generalInfo: 'Informações gerais',
-  interval: 'Intervalo',
-  loadError: 'Falha ao carregar relatório.',
-  loading: 'Carregando relatório...',
-  missing: 'Relatório não encontrado.',
-  nightTeam: 'Equipe noturna',
-  noService: 'Nenhum serviço adicionado.',
-  project: 'Projeto',
-  reject: 'Devolver',
-  rejectClient: 'Reprovar',
-  rejectClientPrompt: 'Informe o motivo da reprovação do relatório:',
-  rejectClientRequired: 'Informe um motivo para reprovar o relatório.',
-  rejectPrompt: 'Informe o motivo da devolução do relatório:',
-  rejectRequired: 'Informe um motivo para devolver o relatório.',
-  reportSummary: 'Resumo',
-  reportAudit: 'Auditoria da assinatura',
-  requestSignature: 'Assinar',
-  requestSignatureError: 'Não foi possível solicitar a assinatura.',
-  returnedAt: 'Devolvido em',
-  save: 'Salvar',
-  saved: 'Relatório atualizado.',
-  select: 'Selecione',
-  service: 'Serviço',
-  services: 'Serviços',
-  signedLocked: 'Relatório assinado. Os dados estão bloqueados para edição.',
-  signatureRequested: 'Assinatura solicitada. Abra o link para concluir.',
-  team: 'Equipe',
-  time: 'Horário',
-  updateError: 'Não foi possível atualizar o relatório.'
-};
+import { REPORT_DETAIL_TEXT as TEXT } from './reportDetailText';
 
 const serviceTypeModalOptions = [
   { type: 'limpeza', icon: '🧪', name: 'Limpeza química' },
@@ -692,7 +652,10 @@ function buildPayload(
 
 function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const reportBackPath = backPathFromState(location.state, roleHomePath(user?.role));
+  const reportBackState = pageScrollRestoreStateFromNavigation(location.state);
   const bootstrapQuery = useReportDetailBootstrap(report.id);
   const reportMutations = useReportMutations();
   const showToast = useToast();
@@ -752,7 +715,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     () => new Set(serviceReportMode && !manualReport ? form.collaboratorIds : [...form.collaboratorIds, ...form.nightCollaboratorIds]),
     [manualReport, serviceReportMode, form.collaboratorIds, form.nightCollaboratorIds]
   );
-  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => item.isActive || selectedCollaboratorIds.has(item.id));
+  const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => manualReport || item.isActive || selectedCollaboratorIds.has(item.id));
   const serviceCollaboratorOptions = useMemo(() => {
     if (manualReport) return [];
     const ids = serviceReportMode ? form.collaboratorIds : Array.from(new Set([...form.collaboratorIds, ...form.nightCollaboratorIds]));
@@ -844,7 +807,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
         }) || {}
       });
       if (showSuccess) showToast(TEXT.saved, 'success');
-      if (navigateAfter) navigate(roleHomePath(user?.role));
+      if (navigateAfter) navigate(reportBackPath, { replace: true, state: reportBackState });
       return true;
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Não foi possível atualizar os dados operacionais.', 'error');
@@ -955,7 +918,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
       // Relatório salvo: efetiva a exclusão global das fotos removidas no editor.
       await flushStagedUploadDeletions();
       if (showSuccess) showToast(TEXT.saved, 'success');
-      if (navigateAfter) navigate(roleHomePath(user?.role));
+      if (navigateAfter) navigate(reportBackPath, { replace: true, state: reportBackState });
       return true;
     } catch (err) {
       showToast(err instanceof Error ? err.message : TEXT.updateError, 'error');
@@ -989,7 +952,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
     if (!saved) return;
     const updated = await handleStatus(status, reviewNotes);
     if (updated && status === 'APPROVED' && user?.role === 'MANAGER') {
-      navigate(roleHomePath(user.role));
+      navigate(reportBackPath, { replace: true, state: reportBackState });
     }
   }
 
@@ -1096,6 +1059,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
             collaborators={collaborators}
             ddsThemes={ddsThemesQuery.data || []}
             disabled={readOnly}
+            includeInactiveCollaborators={manualReport}
             embedded
             showNightShift
             showStandby={report.reportType === 'RDO'}
@@ -1137,8 +1101,9 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
                 <div className="admin-form-grid">
                   {normalizeServiceType(service.type) !== 'inibicao' ? (
                   <div className="field-group">
-                    <label>Equipamento(s)</label>
+                    <label htmlFor={`service-equipment-${service.id}`}>Equipamento(s)</label>
                     <input
+                      id={`service-equipment-${service.id}`}
                       value={getString(service.data.equipmentId)}
                       disabled={readOnly || manualReport}
                       placeholder="Informar equipamento do cliente..."
@@ -2009,13 +1974,25 @@ function collaboratorCanEditReport(user: ReturnType<typeof useAuth>['user'], rep
 
 export function ReportDetailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id = '' } = useParams();
   const { user, logout } = useAuth();
   const reportQuery = useReport(id, !!id);
+  const reportBackPath = backPathFromState(location.state, roleHomePath(user?.role));
+  const reportBackState = pageScrollRestoreStateFromNavigation(location.state);
+  const canUseHistoryBack = hasBackPathInState(location.state);
 
   async function handleLogout() {
     await logout();
     navigate('/', { replace: true });
+  }
+
+  function handleBack() {
+    if (canUseHistoryBack) {
+      navigate(-1);
+      return;
+    }
+    navigate(reportBackPath, { replace: true, state: reportBackState });
   }
 
   const report = reportQuery.data;
@@ -2039,10 +2016,10 @@ export function ReportDetailPage() {
         subtitle={report ? `${report.reportType}${report.sequenceNumber ? ` ${report.sequenceNumber}` : ''}` : user?.name}
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate(-1)}>
+            <button className="topbar-chip" type="button" onClick={handleBack}>
               {TEXT.back}
             </button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>

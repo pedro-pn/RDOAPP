@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { driver } from 'driver.js';
 import type { DriveStep } from 'driver.js';
 
@@ -7,7 +7,7 @@ import { downloadReportPdf, downloadReportsBatch, type ReleasedServiceReportNoti
 import { getClientSurveyLink } from '../../api/surveys';
 
 import { useAuth } from '../../auth/AuthContext';
-import { accountPageStateFromPath } from '../../auth/moduleNavigation';
+import { accountPageStateFromPath, navigationStateFromLocation } from '../../auth/moduleNavigation';
 import { rdoReportDetailPath } from '../../auth/rolePath';
 import { ClientTutorial } from '../../components/ClientTutorial';
 import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
@@ -19,6 +19,7 @@ import { useAccumulatedReportsPage, useReportMutations } from '../../hooks/useRe
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { usePersistentSearch } from '../../hooks/usePersistentSearch';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
+import { currentPageScrollState, saveCurrentPageScroll } from '../../hooks/usePageScrollRestoration';
 import { InfiniteScrollSentinel } from '../../components/ui/InfiniteScrollSentinel';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
@@ -227,6 +228,7 @@ function canSelectClientReport(report: ReportSummary) {
 
 export function ClientPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const archivedProjectsQuery = useProjects(false);
   const reportMutations = useReportMutations();
@@ -532,6 +534,16 @@ export function ClientPage() {
     }
   }
 
+  function handleOpenReportDetail(report: ReportSummary) {
+    saveCurrentPageScroll(location, user?.id || user?.username || 'anonymous');
+    navigate(rdoReportDetailPath(user, report.id), {
+      state: {
+        ...(navigationStateFromLocation(location) || {}),
+        ...currentPageScrollState()
+      }
+    });
+  }
+
   async function handleOpenSurvey(project: Project) {
     try {
       const link = await getClientSurveyLink(project.id);
@@ -751,7 +763,7 @@ export function ClientPage() {
         className="client-report-card report-card-clickable"
         key={report.id}
         data-client-report-id={report.id}
-        onClick={() => navigate(rdoReportDetailPath(user, report.id))}
+        onClick={() => handleOpenReportDetail(report)}
       >
         <div className="client-report-header">
           <div className="client-report-main">
@@ -914,7 +926,7 @@ export function ClientPage() {
         showLogo
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>

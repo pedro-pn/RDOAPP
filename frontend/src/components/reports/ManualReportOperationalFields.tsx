@@ -42,6 +42,7 @@ interface ManualReportOperationalFieldsProps {
   showNightShift?: boolean;
   showStandby?: boolean;
   showDds?: boolean;
+  includeInactiveCollaborators?: boolean;
   // Aviso exibido logo abaixo do bloco de DDS diurno (ex.: temas fora da lista aguardando validação).
   ddsAlert?: ReactNode;
   summaryLabel?: string;
@@ -52,10 +53,15 @@ function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function collaboratorLabel(collaborator: Collaborator) {
+  const label = [collaborator.name, collaborator.role].filter(Boolean).join(' - ');
+  return collaborator.isActive === false ? `${label} (inativo)` : label;
+}
+
 function collaboratorName(collaborators: Collaborator[], id: string) {
   const collaborator = collaborators.find(item => item.id === id);
   if (!collaborator) return id;
-  return [collaborator.name, collaborator.role].filter(Boolean).join(' - ');
+  return collaboratorLabel(collaborator);
 }
 
 export function ManualReportOperationalFields({
@@ -67,6 +73,7 @@ export function ManualReportOperationalFields({
   showNightShift = false,
   showStandby = false,
   showDds = false,
+  includeInactiveCollaborators = false,
   ddsAlert = null,
   summaryLabel = 'Dados operacionais (opcional)',
   onChange
@@ -112,11 +119,11 @@ export function ManualReportOperationalFields({
           >
             <option value="">Adicionar...</option>
             {collaborators
-              .filter(item => item.isActive !== false)
+              .filter(item => includeInactiveCollaborators || item.isActive !== false)
               .filter(item => !ids.includes(item.id))
               .map(item => (
                 <option key={item.id} value={item.id}>
-                  {[item.name, item.role].filter(Boolean).join(' - ')}
+                  {collaboratorLabel(item)}
                 </option>
               ))}
           </select>
@@ -186,6 +193,7 @@ export function ManualReportOperationalFields({
           <input
             value={customThemeInputs[field] || ''}
             disabled={disabled}
+            aria-label="Tema fora da lista"
             placeholder="Tema fora da lista? Digite aqui..."
             onChange={event => setCustomThemeInputs(current => ({ ...current, [field]: event.target.value }))}
             onKeyDown={event => {

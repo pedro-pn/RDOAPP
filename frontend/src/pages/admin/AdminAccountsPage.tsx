@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 
 import { useAuth } from '../../auth/AuthContext';
@@ -108,6 +108,7 @@ function linkedProjectsLabel(user: InternalUserSummary) {
 
 export function AdminAccountsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const usersQuery = useUsers();
   const collaboratorsQuery = useCollaborators();
@@ -354,7 +355,7 @@ export function AdminAccountsPage() {
         showLogo
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>

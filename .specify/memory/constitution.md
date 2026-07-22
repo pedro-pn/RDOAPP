@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0
-- Modified principles: Princípio VI expandido para dropdowns/selects e largura desktop
+- Version change: 1.5.0 → 1.6.0
+- Modified principles: Princípio II expandido para regras testáveis de overflow em abas/segmentos mobile
 - Added sections: nenhuma
 - Removed sections: nenhuma
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir dropdowns padronizados e largura desktop adequada
-  - ✅ .specify/templates/spec-template.md — sem referências à constitution; sem alteração necessária
-  - ✅ .specify/templates/tasks-template.md — polish inclui verificação visual de selects/dropdowns e largura desktop
-  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para módulos largos e campos selecionáveis
+  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir abas/segmentos sem overflow
+  - ✅ .specify/templates/spec-template.md — contrato responsivo passou a capturar tabs/segmentos
+  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a auditar abas/segmentos
+  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para tabs/segmentos mobile
 - Follow-up TODOs: nenhum
 -->
 
@@ -35,9 +35,23 @@ funcionar em mobile desde a primeira versão, não como ajuste posterior. Regras
 - Tabelas largas DEVEM ter alternativa empilhada em telas estreitas (padrão: tabela vira cards).
 - Modais DEVEM ter rodapé de ações fixo e corpo rolável.
 - Nenhum elemento pode estourar a borda da viewport (sem scroll horizontal de página).
+- Grades de cards em mobile DEVEM caber na largura útil do contêiner. Colunas com
+  mínimo visual fixo DEVEM usar `minmax(min(100%, <largura>), 1fr)` ou equivalente,
+  com `width: 100%`, `min-width: 0` e filhos `min-width: 0` quando houver grid/flex.
+- Conteúdo interno de cards (valores monetários, status, badges, links, ações e
+  métricas) DEVE quebrar, truncar com ellipsis ou empilhar sem aumentar a largura do
+  card. `white-space: nowrap` só é permitido quando acompanhado de `max-width` e
+  tratamento de overflow que não gere scroll horizontal de página.
+- Abas, segmentos, filtros com aparência de aba e qualquer `tablist` em mobile DEVEM
+  caber dentro da largura do módulo. O componente DEVE usar quebra de linha, grid
+  responsivo, rolagem interna explícita ou substituir a navegação por `select`/menu
+  mobile; rótulos longos DEVEM quebrar/encurtar sem empurrar a viewport.
 
 Racional: a base de usuários acessa majoritariamente por celular em campo; correções
-retroativas de responsividade custam ciclos inteiros de retrabalho.
+retroativas de responsividade custam ciclos inteiros de retrabalho. Cards que dependem
+de `minmax(280px, 1fr)`, valores internos com `nowrap` ou barras de abas com rótulos
+longos parecem corretos em desktop, mas cortam bordas e conteúdo nos celulares usados
+em obra.
 
 ### III. Validação com Zod nas Duas Pontas
 
@@ -95,11 +109,34 @@ Nenhuma página, modal ou card pode nascer fora da formatação padrão do app. 
 - Página nova DEVE seguir a estrutura visual das páginas existentes do mesmo tipo
   (cabeçalho, cards, tabela/lista) — copiar o padrão de uma tela análoga em
   `frontend/src/pages/` antes de inventar layout novo.
+- Função nova visível ao usuário DEVE incluir um aviso de novidade no padrão de card
+  centralizado do tutorial (`driver.js`), equivalente ao aviso de DDS: aparece no
+  primeiro acesso do usuário impactado, grava "visto" em `localStorage` por usuário e
+  navegador, e possui data-limite global de expiração exatamente 10 dias corridos após
+  a data de implementação registrada no código. Depois da data-limite, o aviso NÃO
+  pode aparecer para ninguém, mesmo em navegador que nunca acessou a função.
+- Função nova com interação não óbvia DEVE incluir tutorial guiado temporário no mesmo
+  fluxo do aviso de novidade, também limitado a 10 dias e ao primeiro acesso do público
+  impactado. Esse tutorial DEVE apontar os controles reais da função e terminar sem
+  bloquear o uso normal.
+- Tutorial permanente de primeiro acesso é obrigatório apenas para módulo novo. Para
+  função nova dentro de módulo existente, o tutorial é campanha temporária de novidade,
+  não onboarding permanente do módulo.
+- Navegação interna de módulo (abas, seções laterais, filtros com aparência de aba e
+  detalhes que substituem a lista, como cards abertos) DEVE sobreviver a atualização
+  da página. O padrão preferencial é refletir o estado navegacional em URL/query params
+  (`?tab=...`, `?section=...`, `?project=...`) e limpar parâmetros incompatíveis ao
+  trocar de seção. Persistência em `localStorage` só é aceita quando a URL exporia dado
+  sensível ou quando o estado não representa navegação compartilhável.
 
 Racional: divergências visuais quase nunca são intencionais — surgem quando uma tela é
 construída sem olhar o kit e os tokens existentes, e depois custam passadas inteiras de
-padronização. A regra torna a checagem objetiva em review: componente do kit usado? token
-usado? tela análoga seguida?
+padronização. Novidades sem divulgação deixam usuários sem descobrir fluxos novos; aviso
+e tutorial temporários tornam a adoção previsível sem criar pop-ups permanentes para
+funções pontuais. Abas que voltam para o início após F5 quebram o contexto operacional
+do usuário em campo e tornam a experiência inconsistente entre módulos. A regra torna a
+checagem objetiva em review: componente do kit usado? token usado? tela análoga
+seguida? novidade temporária implementada quando aplicável? refresh preserva a página?
 
 ## Restrições de Stack
 
@@ -141,4 +178,4 @@ corrigido.
   DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
   registrada na seção Complexity Tracking do plano da feature.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-09
+**Version**: 1.6.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-17

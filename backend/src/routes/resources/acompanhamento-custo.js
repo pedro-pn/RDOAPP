@@ -1,7 +1,7 @@
 /*
- * Motor de custo — perfis de custo (operador/auxiliar), parâmetros versionados e simulador.
+ * Motor de custo — perfis de custo, parâmetros versionados e simulador.
  *   GET  /api/acompanhamento/custo/perfis                 lista perfis + parâmetros vigentes
- *   PUT  /api/acompanhamento/custo/perfis/:key/parametros nova versão de parâmetros (gestor)
+ *   PUT  /api/acompanhamento/custo/perfis/:key/parametros nova vigência de parâmetros (gestor)
  *   POST /api/acompanhamento/custo/simular                { profileKey|params, inputs } -> custo
  *   GET  /api/acompanhamento/custo/categorias-omie        lista categorias Omie do cálculo
  *   PUT  /api/acompanhamento/custo/categorias-omie/:codigo inclui/remove categoria do cálculo
@@ -21,46 +21,100 @@ const router = Router();
 async function latestParams(key) {
   const profile = await prisma.costProfile.findUnique({
     where: { key },
-    include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } }
+    include: { parameterSets: true }
   });
   if (!profile) return null;
-  return { profile, set: profile.parameterSets[0] ?? null };
+  return {
+    profile,
+    set: latestParameterSet(profile.parameterSets),
+    maxVersion: maxVersion(profile.parameterSets)
+  };
 }
+
+function effectiveDateKey(set) {
+  return set?.effectiveDate ? new Date(set.effectiveDate).toISOString().slice(0, 10) : '1970-01-01';
+}
+
+function latestParameterSet(sets = []) {
+  return [...sets].sort((left, right) => {
+    const byDate = effectiveDateKey(right).localeCompare(effectiveDateKey(left));
+    if (byDate !== 0) return byDate;
+    return (Number(right.version) || 0) - (Number(left.version) || 0);
+  })[0] ?? null;
+}
+
+function parameterSetHistory(sets = []) {
+  return [...sets]
+    .sort((left, right) => {
+      const byDate = effectiveDateKey(right).localeCompare(effectiveDateKey(left));
+      if (byDate !== 0) return byDate;
+      return (Number(right.version) || 0) - (Number(left.version) || 0);
+    })
+    .map(set => ({
+      effectiveDate: set.effectiveDate,
+      params: normalizeCostParams(set.params),
+      note: set.note,
+      updatedAt: set.createdAt
+    }));
+}
+
+function maxVersion(sets = []) {
+  return sets.reduce((max, set) => Math.max(max, Number(set.version) || 0), 0);
+}
+
+function normalizeCostParams(params) {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) return params;
+  const normalized = { ...params };
+  delete normalized.inssPatronalPct;
+  return normalized;
+}
+
+const dateOnlySchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe a data de vigência no formato YYYY-MM-DD.')
+  .transform(value => new Date(`${value}T00:00:00.000Z`));
 
 router.get('/perfis', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
   // Apenas os perfis-modelo (planilhas base). Perfis por cargo (jobRoleId != null) ficam em /cargos.
   const profiles = await prisma.costProfile.findMany({
     where: { isActive: true, jobRoleId: null },
     orderBy: { label: 'asc' },
-    include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } }
+    include: { parameterSets: true }
   });
-  res.json(profiles.map(p => ({
-    id: p.id,
-    key: p.key,
-    label: p.label,
-    version: p.parameterSets[0]?.version ?? null,
-    params: p.parameterSets[0]?.params ?? null,
-    updatedAt: p.parameterSets[0]?.createdAt ?? p.updatedAt
-  })));
+  res.json(profiles.map(p => {
+    const set = latestParameterSet(p.parameterSets);
+    return {
+      id: p.id,
+      key: p.key,
+      label: p.label,
+      effectiveDate: set?.effectiveDate ?? null,
+      params: normalizeCostParams(set?.params ?? null),
+      updatedAt: set?.createdAt ?? p.updatedAt,
+      history: parameterSetHistory(p.parameterSets)
+    };
+  }));
 }));
 
-const paramsSchema = z.object({ params: z.record(z.any()), note: z.string().optional() });
+const paramsSchema = z.object({
+  params: z.record(z.any()),
+  effectiveDate: dateOnlySchema,
+  note: z.string().optional()
+});
 
 router.put('/perfis/:key/parametros', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
-  const { params, note } = paramsSchema.parse(req.body);
+  const { params, effectiveDate, note } = paramsSchema.parse(req.body);
   const current = await latestParams(req.params.key);
   if (!current) return res.status(404).json({ error: 'Perfil de custo não encontrado.' });
-  const nextVersion = (current.set?.version ?? 0) + 1;
   const created = await prisma.costParameterSet.create({
     data: {
       costProfileId: current.profile.id,
-      version: nextVersion,
-      params,
+      version: current.maxVersion + 1,
+      effectiveDate,
+      params: normalizeCostParams(params),
       note: note ?? null,
       createdByUserId: req.auth?.user?.id ?? null
     }
   });
-  res.status(201).json({ key: current.profile.key, version: created.version, params: created.params });
+  res.status(201).json({ key: current.profile.key, effectiveDate: created.effectiveDate, params: created.params });
 }));
 
 const simulateSchema = z.object({
@@ -87,23 +141,28 @@ router.get('/cargos', requireAuth, requireAcompanhamentoManager, asyncHandler(as
   const roles = await prisma.jobRole.findMany({
     where: { isActive: true },
     orderBy: { name: 'asc' },
-    include: { costProfile: { include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } } } }
+    include: { costProfile: { include: { parameterSets: true } } }
   });
-  res.json(roles.map(role => ({
-    jobRoleId: role.id,
-    name: role.name,
-    profileId: role.costProfile?.id ?? null,
-    version: role.costProfile?.parameterSets?.[0]?.version ?? null,
-    params: role.costProfile?.parameterSets?.[0]?.params ?? null,
-    updatedAt: role.costProfile?.parameterSets?.[0]?.createdAt ?? role.costProfile?.updatedAt ?? null
-  })));
+  res.json(roles.map(role => {
+    const sets = role.costProfile?.parameterSets || [];
+    const set = latestParameterSet(sets);
+    return {
+      jobRoleId: role.id,
+      name: role.name,
+      profileId: role.costProfile?.id ?? null,
+      effectiveDate: set?.effectiveDate ?? null,
+      params: normalizeCostParams(set?.params ?? null),
+      updatedAt: set?.createdAt ?? role.costProfile?.updatedAt ?? null,
+      history: parameterSetHistory(sets)
+    };
+  }));
 }));
 
 router.put('/cargos/:jobRoleId/parametros', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
-  const { params, note } = paramsSchema.parse(req.body);
+  const { params, effectiveDate, note } = paramsSchema.parse(req.body);
   const role = await prisma.jobRole.findUnique({
     where: { id: req.params.jobRoleId },
-    include: { costProfile: { include: { parameterSets: { orderBy: { version: 'desc' }, take: 1 } } } }
+    include: { costProfile: { include: { parameterSets: true } } }
   });
   if (!role) return res.status(404).json({ error: 'Cargo não encontrado.' });
 
@@ -111,17 +170,18 @@ router.put('/cargos/:jobRoleId/parametros', requireAuth, requireAcompanhamentoMa
   if (!profile) {
     profile = await prisma.costProfile.create({ data: { key: `role:${role.id}`, label: role.name, jobRoleId: role.id } });
   }
-  const currentVersion = role.costProfile?.parameterSets?.[0]?.version ?? 0;
+  const currentVersion = maxVersion(role.costProfile?.parameterSets || []);
   const created = await prisma.costParameterSet.create({
     data: {
       costProfileId: profile.id,
       version: currentVersion + 1,
-      params,
+      effectiveDate,
+      params: normalizeCostParams(params),
       note: note ?? null,
       createdByUserId: req.auth?.user?.id ?? null
     }
   });
-  res.status(201).json({ jobRoleId: role.id, profileId: profile.id, version: created.version, params: created.params });
+  res.status(201).json({ jobRoleId: role.id, profileId: profile.id, effectiveDate: created.effectiveDate, params: created.params });
 }));
 
 // === Configuração global de custo (EPI por colaborador) ===

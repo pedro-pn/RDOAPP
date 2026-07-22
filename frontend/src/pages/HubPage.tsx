@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import {
@@ -118,6 +118,7 @@ function ChevronRight() {
 export function HubPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const tutorialTrigger = useRef<(() => void) | null>(null);
 
   const isClient = user?.accountType === 'CLIENT' || user?.role === 'CLIENT';
@@ -178,7 +179,7 @@ export function HubPage() {
             <button
               className="topbar-chip"
               type="button"
-              onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}
+              onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}
             >
               Conta
             </button>

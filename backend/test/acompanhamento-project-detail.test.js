@@ -44,6 +44,36 @@ test('buildPlannedRoleCounts conta colaboradores distintos e horas usadas por ca
   ]);
 });
 
+test('buildPlannedRoleCounts separa horas noturnas por equipe do turno quando recebe RDOs', () => {
+  const plannedRows = [
+    { roleName: 'Técnico' },
+    { roleName: 'Supervisor' }
+  ];
+  const collaborators = [
+    {
+      collaboratorId: 'day-1',
+      collaborator: { role: 'Técnico' },
+      report: { daytimeWorkedMinutes: 480, nighttimeWorkedMinutes: 360 }
+    }
+  ];
+  const reports = [
+    {
+      nighttimeWorkedMinutes: 360,
+      specialConditions: {
+        noturnoDetails: {
+          collaboratorIds: ['night-1'],
+          colaboradores: [{ id: 'night-1', name: 'Nina', role: 'Supervisor' }]
+        }
+      }
+    }
+  ];
+
+  assert.deepEqual(buildPlannedRoleCounts(plannedRows, collaborators, 100, reports), [
+    { roleName: 'Supervisor', collaboratorCount: 1, usedHours: 6, pctOfPlannedTotal: 6 },
+    { roleName: 'Técnico', collaboratorCount: 1, usedHours: 8, pctOfPlannedTotal: 8 }
+  ]);
+});
+
 test('buildPlannedRoleCounts omite cargos previstos sem colaborador correspondente', () => {
   const out = buildPlannedRoleCounts(
     [{ roleName: 'Supervisor' }],

@@ -98,6 +98,34 @@
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
+### Visual/UI Contract *(mandatory if feature touches frontend)*
+
+<!--
+  If there are no frontend UI changes, write: "N/A - no frontend UI changes."
+
+  For every new or changed screen, modal, card, form, table, select, combobox, dropdown
+  or inline editor, fill the table below with concrete existing references and shared
+  components/classes. "Clone of X" is not enough unless X was checked against the
+  current constitution and visual standard.
+
+  For new user-facing functions, describe the 10-day novelty campaign and guided
+  tutorial for first access. If this is a new module, describe the permanent first-access
+  module tutorial instead. If no novelty/tutorial applies, state the reason.
+
+  For screens with module-internal navigation, describe how tabs, sections, tab-like
+  filters and list-replacing detail views persist across refresh. Prefer URL/query params
+  unless the state is sensitive or not shareable.
+
+  For responsive surfaces, define how tabs/segments/tab-like filters, card grids, tables
+  converted to cards, badges, metric values, links and action rows avoid page-level
+  horizontal scroll on narrow phones. Include the expected behavior for long labels and
+  large numeric values.
+-->
+
+| Surface | Existing reference inspected | Components/classes to use | Form/dropdown pattern | Navigation persistence | Novelty/tutorial contract | Responsive/overflow contract |
+|---------|------------------------------|---------------------------|-----------------------|------------------------|---------------------------|------------------------------|
+| [e.g., Manager create form] | [file/class inspected] | [ui component or CSS class] | [field-group/admin-inline-form/shared dropdown] | [URL/query params, localStorage exception, or N/A] | [10-day novelty/tutorial, permanent module tutorial, or N/A] | [mobile + desktop behavior; no tab/card/grid/text overflow] |
+
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]

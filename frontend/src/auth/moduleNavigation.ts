@@ -5,6 +5,9 @@ import type { AuthUser } from '../types/auth';
 const LAST_MODULE_KEY_PREFIX = 'filtrovali:last-module:';
 const HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX = 'filtrovali:hub-first-login-tutorial:';
 const ACOMPANHAMENTO_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-novelty:';
+const ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-grouping-novelty:v1:';
+const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
+const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
 // v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
 const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
 
@@ -35,6 +38,13 @@ function safeLocalStorageSet(key: string, value: string) {
     // localStorage can be unavailable in private or restricted contexts.
   }
 }
+
+export type NavigationLocation = {
+  pathname: string;
+  search?: string;
+  hash?: string;
+  state?: unknown;
+};
 
 function isClientAccount(user: Pick<AuthUser, 'accountType' | 'role'> | null | undefined) {
   return user?.accountType === 'CLIENT' || user?.role === 'CLIENT';
@@ -71,6 +81,51 @@ export function hasSeenAcompanhamentoNovelty(user: Pick<AuthUser, 'id'> | null |
 export function markAcompanhamentoNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(acompanhamentoNoveltyStorageKey(user), '1');
+}
+
+// Novidade da unificação de projetos no Acompanhamento.
+// Aparece uma vez por navegador durante a campanha; depois da data-limite não aparece para ninguém.
+const ACOMPANHAMENTO_GROUPING_NOVELTY_EXPIRES_AT = new Date('2026-07-26T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoGroupingNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_GROUPING_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoGroupingNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade do histórico semanal de avanço no dashboard do projeto.
+// Validade global de 10 dias corridos após a implantação (21/07/2026 a 31/07/2026).
+const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_EXPIRES_AT = new Date('2026-07-31T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoProgressHistoryNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoProgressHistoryNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade do custo manual no dashboard do projeto.
+// Validade global de 10 dias corridos após a implantação (21/07/2026 a 31/07/2026).
+const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_EXPIRES_AT = new Date('2026-07-31T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoManualCostNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_MANUAL_COST_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoManualCostNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 // Novidade do registro de DDS no formulário de RDO: destaque único na primeira abertura do formulário.
@@ -132,12 +187,47 @@ export function preferredEntryPath(user: AuthUser | null | undefined) {
   return modules[0]?.path || '/modulos';
 }
 
-export function accountPageStateFromPath(pathname: string) {
-  const path = pathname || '/';
-  return path === '/conta' ? undefined : { from: path };
+export function pathFromLocation(location: NavigationLocation) {
+  return `${location.pathname || '/'}${location.search || ''}${location.hash || ''}`;
+}
+
+function pathFromStateValue(value: unknown) {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && 'pathname' in value) {
+    return pathFromLocation(value as NavigationLocation);
+  }
+  return '';
+}
+
+function pathWithoutSearchAndHash(path: string) {
+  return path.split('#')[0].split('?')[0] || '/';
+}
+
+function isAccountSettingsPath(path: string) {
+  return pathWithoutSearchAndHash(path) === '/conta';
+}
+
+export function navigationStateFromLocation(location: NavigationLocation) {
+  const from = pathFromLocation(location);
+  return isAccountSettingsPath(from) ? undefined : { from };
+}
+
+export function backPathFromState(state: unknown, fallbackPath: string) {
+  const from = state && typeof state === 'object' && 'from' in state
+    ? pathFromStateValue((state as { from?: unknown }).from)
+    : '';
+  return from.startsWith('/') && !isAccountSettingsPath(from) ? from : fallbackPath;
+}
+
+export function hasBackPathInState(state: unknown) {
+  return backPathFromState(state, '') !== '';
+}
+
+export function accountPageStateFromPath(pathname: string | NavigationLocation) {
+  const path = typeof pathname === 'string' ? pathname || '/' : pathFromLocation(pathname);
+  return isAccountSettingsPath(path) ? undefined : { from: path };
 }
 
 export function accountBackPath(user: AuthUser | null | undefined, state: unknown, fallbackPath: string) {
-  const from = state && typeof state === 'object' && 'from' in state ? (state as { from?: unknown }).from : null;
-  return typeof from === 'string' && from && from !== '/conta' ? from : fallbackPath || preferredEntryPath(user);
+  return backPathFromState(state, fallbackPath || preferredEntryPath(user));
 }

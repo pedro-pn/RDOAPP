@@ -10,6 +10,7 @@ import { StockItemsTab } from './StockItemsTab';
 import { StockMovementFormModal } from './StockMovementFormModal';
 import { StockMovementsTab } from './StockMovementsTab';
 import { StockSummaryTab } from './StockSummaryTab';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 
 type EstoqueTab = 'resumo' | 'movimentacoes' | 'itens' | 'categorias';
 
@@ -19,9 +20,18 @@ const TABS: Array<{ key: EstoqueTab; label: string }> = [
   { key: 'itens', label: 'Itens' },
   { key: 'categorias', label: 'Categorias' }
 ];
+const TAB_KEYS = TABS.map(item => item.key);
+
+function parseEstoqueTab(value: string | null): EstoqueTab {
+  return TAB_KEYS.includes(value as EstoqueTab) ? value as EstoqueTab : 'resumo';
+}
 
 export function EstoquePage() {
-  const [tab, setTab] = useState<EstoqueTab>('resumo');
+  const [tab, setTab] = useUrlParamState<EstoqueTab>({
+    param: 'tab',
+    defaultValue: 'resumo',
+    parse: parseEstoqueTab
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -40,7 +50,7 @@ export function EstoquePage() {
         subtitle="Filtros, produtos químicos e movimentações"
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>Conta</button>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>Conta</button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>Sair</button>
           </>
         }

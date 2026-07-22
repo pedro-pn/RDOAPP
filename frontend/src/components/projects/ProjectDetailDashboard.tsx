@@ -1,17 +1,29 @@
 import { useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { Controller, useForm, type Resolver } from 'react-hook-form';
+import { z } from 'zod';
 
 import {
+  createManualProjectCost,
+  deleteManualProjectCost,
+  getMissionGroupDetail,
   getPlannedScope,
   getProjectDetail,
   type DayStatus,
-  type PlannedScope
+  type ManualProjectCost,
+  type ManualProjectCostPayload,
+  type PlannedScope,
+  type ProgressHistoryPoint
 } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
+import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
+import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
+import type { AuthUser } from '../../types/auth';
 
 const SERVICE_LABELS: Record<string, string> = {
   LIMPEZA_QUIMICA: 'Limpeza química',
@@ -26,6 +38,75 @@ const DAY_META: Record<DayStatus, { cls: string; label: string }> = {
   STANDBY: { cls: 'yellow', label: 'Trabalhado com standby' },
   PARADO: { cls: 'red', label: 'Parado (jornada cheia)' }
 };
+
+interface ManualCostFormValues {
+  description: string;
+  amount: string;
+  costDate: string;
+  note: string;
+}
+
+const manualCostFormDefaultValues: ManualCostFormValues = {
+  description: '',
+  amount: '',
+  costDate: '',
+  note: ''
+};
+
+function parseBrlCurrencyInput(value: string) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return Number.NaN;
+  return Number(digits) / 100;
+}
+
+function formatBrlCurrencyInput(value: string) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const amount = (Number(digits) / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return `R$ ${amount}`;
+}
+
+const manualCostFormSchema = z.object({
+  description: z.string().trim().min(1, 'Informe a descrição.').max(120, 'Use até 120 caracteres.'),
+  amount: z.string().trim().min(1, 'Informe o valor.').superRefine((value, ctx) => {
+    const amount = parseBrlCurrencyInput(value);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Informe um valor maior que zero.' });
+      return;
+    }
+    if (amount > 999999999.99) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valor muito alto.' });
+    }
+  }),
+  costDate: z.string().trim().refine(value => !value || !Number.isNaN(new Date(value).getTime()), 'Informe uma data válida.'),
+  note: z.string().trim().max(500, 'Use até 500 caracteres.')
+});
+
+function zodErrorToFormErrors(error: z.ZodError) {
+  return error.issues.reduce<Record<string, { type: string; message: string }>>((acc, issue) => {
+    const key = String(issue.path[0] || 'form');
+    if (!acc[key]) acc[key] = { type: 'manual', message: issue.message };
+    return acc;
+  }, {});
+}
+
+const manualCostFormResolver: Resolver<ManualCostFormValues> = async values => {
+  const result = manualCostFormSchema.safeParse(values);
+  if (result.success) return { values: result.data, errors: {} };
+  return { values: {}, errors: zodErrorToFormErrors(result.error) };
+};
+
+function manualCostFormValuesToPayload(values: ManualCostFormValues): ManualProjectCostPayload {
+  return {
+    description: values.description.trim(),
+    amount: parseBrlCurrencyInput(values.amount),
+    costDate: values.costDate.trim() || null,
+    note: values.note.trim() || null
+  };
+}
 
 const brl = (n?: number | null) =>
   n === null || n === undefined ? '—' : n.toLocaleString('pt-BR', {
@@ -48,6 +129,13 @@ function fmtDate(iso?: string | null) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
 }
+function fmtShortDate(iso?: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
 function fmtHM(minutes?: number | null) {
   if (!minutes || minutes <= 0) return '0h';
   const h = Math.floor(minutes / 60);
@@ -57,6 +145,14 @@ function fmtHM(minutes?: number | null) {
 
 function clampPct(value?: number | null, max = 100) {
   return Math.min(Math.max(value ?? 0, 0), max);
+}
+
+function mutationErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError<{ error?: string }>(error)) {
+    const message = error.response?.data?.error;
+    if (message) return message;
+  }
+  return error instanceof Error ? error.message : fallback;
 }
 
 function Bar({ value, tone }: { value: number | null; tone?: 'cost' }) {
@@ -75,6 +171,91 @@ function HoursBar({ normalPct, overtimePct }: { normalPct: number | null; overti
     <div className="acp-prog-bar big acp-hours-bar">
       {normalWidth > 0 ? <span className="normal" style={{ width: `${normalWidth}%` }} /> : null}
       {overtimeWidth > 0 ? <span className="overtime" style={{ width: `${overtimeWidth}%` }} /> : null}
+    </div>
+  );
+}
+
+function normalizeHistory(points?: ProgressHistoryPoint[]) {
+  return (points ?? [])
+    .map(point => {
+      const time = new Date(point.date).getTime();
+      const progressPct = Number(point.progressPct);
+      return Number.isFinite(time) && Number.isFinite(progressPct)
+        ? { ...point, time, progressPct: clampPct(progressPct) }
+        : null;
+    })
+    .filter((point): point is ProgressHistoryPoint & { time: number } => point !== null)
+    .sort((a, b) => a.time - b.time);
+}
+
+function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
+  const history = normalizeHistory(points);
+  const latest = history[history.length - 1];
+  if (history.length === 0) {
+    return (
+      <div className="acp-progress-chart empty" data-acp-progress-history-chart>
+        <div className="acp-progress-chart-head">
+          <span>Histórico semanal</span>
+          <strong>Sem histórico</strong>
+        </div>
+      </div>
+    );
+  }
+
+  const width = 280;
+  const height = 82;
+  const pad = { top: 8, right: 8, bottom: 18, left: 28 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const minTime = history[0].time;
+  const maxTime = history[history.length - 1].time;
+  const xFor = (time: number, index: number) => (
+    minTime === maxTime
+      ? pad.left + (history.length === 1 ? plotWidth / 2 : (plotWidth * index) / (history.length - 1))
+      : pad.left + ((time - minTime) / (maxTime - minTime)) * plotWidth
+  );
+  const yFor = (value: number) => pad.top + (1 - clampPct(value) / 100) * plotHeight;
+  const plotted = history.map((point, index) => ({
+    ...point,
+    x: xFor(point.time, index),
+    y: yFor(point.progressPct)
+  }));
+  const path = plotted.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+
+  return (
+    <div className="acp-progress-chart" aria-label="Histórico semanal de avanço" data-acp-progress-history-chart>
+      <div className="acp-progress-chart-head">
+        <span>Histórico semanal</span>
+        <strong>{fmtPct(latest?.progressPct)}</strong>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Avanço de ${fmtShortDate(history[0].date)} até ${fmtShortDate(latest?.date)}`}>
+        {[0, 50, 100].map(value => (
+          <g key={value}>
+            <line
+              className="acp-progress-chart-grid"
+              x1={pad.left}
+              y1={yFor(value)}
+              x2={width - pad.right}
+              y2={yFor(value)}
+            />
+            <text className="acp-progress-chart-y" x={pad.left - 6} y={yFor(value) + 3} textAnchor="end">
+              {value}
+            </text>
+          </g>
+        ))}
+        <path className="acp-progress-chart-line" d={path} />
+        {plotted.map(point => (
+          <circle className="acp-progress-chart-dot" key={`${point.date}-${point.progressPct}`} cx={point.x} cy={point.y} r="3.4">
+            <title>{`${fmtDate(point.date)} · ${fmtPct(point.progressPct)}`}</title>
+          </circle>
+        ))}
+        <text className="acp-progress-chart-x" x={pad.left} y={height - 4} textAnchor="start">
+          {fmtShortDate(history[0].date)}
+        </text>
+        <text className="acp-progress-chart-x" x={width - pad.right} y={height - 4} textAnchor="end">
+          {fmtShortDate(latest?.date)}
+        </text>
+      </svg>
     </div>
   );
 }
@@ -107,7 +288,7 @@ function WorkedHoursMetric({ data }: {
   return (
     <div className="acp-det-metric">
       <div className="acp-det-metric-top">
-        <HelpTip help="Soma das horas trabalhadas dos RDOs, separando horas normais e horas extras, sobre o total previsto no cronograma. As horas previstas já incluem todos os colaboradores.">Horas trabalhadas</HelpTip>
+        <HelpTip help="Soma das horas-homem dos RDOs, separando horas normais e horas extras. Cada turno é multiplicado pela quantidade de colaboradores daquele turno; as horas previstas já incluem todos os colaboradores.">Horas trabalhadas</HelpTip>
         <span className="acp-det-metric-val">
           {fmtHours(data.totalWorkedHours)} / {fmtHours(data.plannedTotalHours)}
           {data.totalPct != null ? ` · ${data.totalPct}%` : ''}
@@ -148,7 +329,9 @@ function PlannedScopeView({ scope }: { scope?: PlannedScope }) {
         <div className="acp-det-scope-svc" key={i}>
           <div className="acp-det-scope-head">
             <span>{SERVICE_LABELS[svc.serviceType] ?? svc.serviceType}</span>
-            <span className="acp-det-scope-weight">peso {Number(svc.weight ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>
+            {svc.weight !== null && svc.weight !== undefined ? (
+              <span className="acp-det-scope-weight">peso {Number(svc.weight ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>
+            ) : null}
           </div>
           <ul>
             {svc.systems.map((sys, j) => (
@@ -164,33 +347,120 @@ function PlannedScopeView({ scope }: { scope?: PlannedScope }) {
 }
 
 // Dashboard detalhado de um projeto (aberto ao clicar num card da aba Projetos).
-export function ProjectDetailDashboard({ projectId, canManage = false, onBack }: { projectId: string; canManage?: boolean; onBack: () => void }) {
-  const [scheduleOpen, setScheduleOpen] = useState(false);
+export function ProjectDetailDashboard({
+  projectId,
+  groupId,
+  canManage = false,
+  canManageManualCosts = false,
+  progressHistoryNoveltyUser = null,
+  onBack
+}: {
+  projectId?: string;
+  groupId?: string;
+  canManage?: boolean;
+  canManageManualCosts?: boolean;
+  progressHistoryNoveltyUser?: Pick<AuthUser, 'id'> | null;
+  onBack: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [scheduleProject, setScheduleProject] = useState<{ projectId: string; code: string } | null>(null);
   const [scheduleDirty, setScheduleDirty] = useState(false);
+  const [progressHistoryNoveltyActive, setProgressHistoryNoveltyActive] = useState(true);
+  const [manualCostNoveltyActive, setManualCostNoveltyActive] = useState(true);
+  const [manualCostFormOpen, setManualCostFormOpen] = useState(false);
+  const [manualCostError, setManualCostError] = useState<string | null>(null);
+  const [deletingManualCostId, setDeletingManualCostId] = useState<string | null>(null);
+  const { control, register, handleSubmit, reset, formState: { errors } } = useForm<ManualCostFormValues>({
+    defaultValues: manualCostFormDefaultValues,
+    resolver: manualCostFormResolver
+  });
   const scheduleRef = useRef<ScheduleEditorHandle>(null);
+  const isGroup = Boolean(groupId);
+  const detailKey = isGroup ? ['mission-group-detail', groupId] : ['project-detail', projectId];
   const { data, isLoading } = useQuery({
-    queryKey: ['project-detail', projectId],
-    queryFn: () => getProjectDetail(projectId),
+    queryKey: detailKey,
+    queryFn: () => isGroup ? getMissionGroupDetail(groupId!) : getProjectDetail(projectId!),
     ...acompanhamentoRefreshQueryOptions
   });
-  const { data: scope } = useQuery({ queryKey: ['planned-scope', projectId], queryFn: () => getPlannedScope(projectId) });
+  const { data: scope } = useQuery({
+    queryKey: ['planned-scope', projectId],
+    queryFn: () => getPlannedScope(projectId!),
+    enabled: !isGroup && Boolean(projectId)
+  });
+  const refreshCostViews = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: detailKey }),
+      queryClient.invalidateQueries({ queryKey: ['project-detail'] }),
+      queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] }),
+      queryClient.invalidateQueries({ queryKey: ['project-cards'] }),
+      queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] })
+    ]);
+  };
+  const createManualCostMutation = useMutation({
+    mutationFn: (payload: ManualProjectCostPayload) => {
+      if (!projectId) throw new Error('Abra uma missão individual para adicionar custo manual.');
+      return createManualProjectCost(projectId, payload);
+    },
+    onSuccess: async () => {
+      setManualCostError(null);
+      reset(manualCostFormDefaultValues);
+      setManualCostFormOpen(false);
+      await refreshCostViews();
+    },
+    onError: (error: unknown) => {
+      setManualCostError(mutationErrorMessage(error, 'Não foi possível adicionar o custo manual.'));
+    }
+  });
+  const deleteManualCostMutation = useMutation({
+    mutationFn: (cost: ManualProjectCost) => deleteManualProjectCost(cost.projectId, cost.id),
+    onMutate: (cost) => {
+      setManualCostError(null);
+      setDeletingManualCostId(cost.id);
+    },
+    onSuccess: async () => {
+      await refreshCostViews();
+    },
+    onError: (error: unknown) => {
+      setManualCostError(mutationErrorMessage(error, 'Não foi possível remover o custo manual.'));
+    },
+    onSettled: () => setDeletingManualCostId(null)
+  });
+  const submitManualCost = handleSubmit(values => {
+    if (!canManageManualCosts || isGroup || createManualCostMutation.isPending) return;
+    setManualCostError(null);
+    createManualCostMutation.mutate(manualCostFormValuesToPayload(values));
+  });
 
   function closeSchedule() {
-    setScheduleOpen(false);
+    setScheduleProject(null);
     setScheduleDirty(false);
+  }
+
+  function openManualCostForm() {
+    setManualCostError(null);
+    setManualCostFormOpen(true);
+  }
+
+  function closeManualCostForm() {
+    setManualCostError(null);
+    reset(manualCostFormDefaultValues);
+    setManualCostFormOpen(false);
   }
 
   if (isLoading || !data) {
     return (
       <div className="acp-det">
         <button type="button" className="mini-btn alt" onClick={onBack}>← Voltar</button>
-        <div className="page-card placeholder-copy" style={{ marginTop: 12 }}>Carregando projeto…</div>
+        <div className="page-card placeholder-copy" style={{ marginTop: 12 }}>
+          {isGroup ? 'Carregando agrupamento…' : 'Carregando projeto…'}
+        </div>
       </div>
     );
   }
 
   const h = data.header;
   const equipamentos = data.equipamentos ?? [];
+  const effectiveScope = data.plannedScope ?? scope;
   const workedHours = data.workedHours ?? {
     normalWorkedHours: 0,
     overtimeWorkedHours: 0,
@@ -201,8 +471,15 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
     totalPct: null,
     roleCounts: []
   };
+  const progressSuffix = data.avancoMethod === 'MANUAL'
+    ? ' (manual)'
+    : data.avancoMethod === 'GROUP_SCOPE' || data.avancoMethod === 'GROUP_WEIGHTED' || data.avancoMethod === 'GROUP_AVERAGE'
+      ? ' (consolidado)'
+      : '';
+  const manualCosts = data.manualCosts ?? [];
+  const canAddManualCost = canManageManualCosts && !isGroup && Boolean(projectId);
   const headerBits = [
-    `Missão ${h.code}`,
+    isGroup ? `Grupo ${h.code}` : `Missão ${h.code}`,
     h.clientName,
     h.proposalCode ? `Proposta ${h.proposalCode}` : null,
     `Última atualização ${fmtDate(h.lastRdoDate)}`,
@@ -213,8 +490,8 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
     <div className="acp-det">
       <div className="acp-det-bar">
         <button type="button" className="mini-btn alt" onClick={onBack}>← Voltar</button>
-        {canManage ? (
-          <button type="button" className="mini-btn" onClick={() => setScheduleOpen(true)}>
+        {canManage && !isGroup ? (
+          <button type="button" className="mini-btn" onClick={() => setScheduleProject({ projectId: projectId!, code: h.code })}>
             Editar cronograma
           </button>
         ) : null}
@@ -222,6 +499,25 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
 
       <div className="page-card acp-det-header">
         <h2>{headerBits.join('  ·  ')}</h2>
+        {data.group ? (
+          <div className="acp-det-group-members" aria-label="Missões unificadas">
+            {data.group.members.map(member => (
+              <span key={member.projectId}>
+                <strong>{member.code}</strong>
+                {member.name || member.clientName ? <em>{member.name || member.clientName}</em> : null}
+                {canManage ? (
+                  <button
+                    type="button"
+                    className="mini-btn alt acp-det-group-schedule"
+                    onClick={() => setScheduleProject({ projectId: member.projectId, code: member.code })}
+                  >
+                    Cronograma
+                  </button>
+                ) : null}
+              </span>
+            ))}
+          </div>
+        ) : null}
         {data.alerts.length > 0 ? (
           <div className="acp-alerts">
             {data.alerts.map((a, i) => <span key={i} className={`acp-alert ${a.level}`}>⚠ {a.label}</span>)}
@@ -259,13 +555,14 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
               const paidOmieCost = data.consumo.pago ?? 0;
               const pendingOmieCost = data.consumo.previstoPagar ?? 0;
               const stockCost = data.consumo.estoque ?? 0;
+              const manualCost = data.consumo.manual ?? 0;
               const rowStyle = { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 } as const;
               const hasOffshore = moCusto != null && mo.custoBase != null && Math.round(moCusto) !== Math.round(mo.custoBase);
               return (
                 <>
                   <MetricBar
                     label="Consumo de gastos"
-                    help="Total realizado (compras do Omie sem salários, consumo de químicos/filtros do estoque, + mão de obra do ponto) sobre o custo previsto no comercial."
+                    help="Total realizado (compras do Omie sem salários, consumo de químicos/filtros do estoque, custos manuais e mão de obra do ponto) sobre o custo previsto no comercial."
                     value={totalPct}
                     tone="cost"
                     caption={`${brl(totalRealizado)} / ${brl(previsto)}${totalPct != null ? ` · ${totalPct}%` : ''}`}
@@ -285,6 +582,9 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     {stockCost > 0 ? (
                       <div style={rowStyle}><span className="placeholder-copy">Estoque (químicos/filtros)</span><span>{brl(stockCost)}</span></div>
                     ) : null}
+                    {manualCost > 0 ? (
+                      <div style={rowStyle}><span className="placeholder-copy">Custos manuais</span><span>{brl(manualCost)}</span></div>
+                    ) : null}
                     {moCusto != null ? (
                       <div style={rowStyle}>
                         <HelpTip help="Valor gasto com mão de obra deste projeto, calculado a partir do ponto (custo rateado por colaborador), incluindo o adicional offshore quando houver.">Mão de obra{hasOffshore ? ' c/ offshore' : ''}</HelpTip>
@@ -296,7 +596,123 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     ) : null}
                     <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}><strong>Total realizado</strong><strong>{brl(totalRealizado)}</strong></div>
                   </div>
-                  <div className="acp-det-sub"><HelpTip help="As 5 maiores categorias de despesa do projeto, somando Omie sem salários e consumo líquido de químicos/filtros do estoque.">Maiores gastos (Omie + estoque)</HelpTip></div>
+                  {(manualCosts.length > 0 || canAddManualCost || (canManageManualCosts && isGroup)) ? (
+                    <div className="acp-manual-costs" data-acp-manual-costs>
+                      <div className="acp-manual-costs-head">
+                        <div className="acp-det-sub">Custos manuais</div>
+                        {canAddManualCost ? (
+                          <button
+                            type="button"
+                            className="mini-btn alt acp-manual-cost-toggle"
+                            aria-controls="acp-manual-cost-form"
+                            aria-expanded={manualCostFormOpen}
+                            data-acp-manual-cost-add
+                            onClick={manualCostFormOpen ? closeManualCostForm : openManualCostForm}
+                          >
+                            {manualCostFormOpen ? 'Cancelar' : 'Adicionar custo'}
+                          </button>
+                        ) : null}
+                      </div>
+                      {manualCosts.length > 0 ? (
+                        <ul className="acp-manual-cost-list">
+                          {manualCosts.map(cost => (
+                            <li key={cost.id}>
+                              <div>
+                                <strong>{cost.description}</strong>
+                                <span>
+                                  {isGroup && cost.projectCode ? `Missão ${cost.projectCode} · ` : ''}
+                                  {fmtDate(cost.costDate ?? cost.createdAt)}
+                                  {cost.createdBy?.name ? ` · ${cost.createdBy.name}` : ''}
+                                </span>
+                                {cost.note ? <em>{cost.note}</em> : null}
+                              </div>
+                              <div className="acp-manual-cost-actions">
+                                <strong>{brl(cost.amount)}</strong>
+                                {canManageManualCosts ? (
+                                  <button
+                                    type="button"
+                                    className="mini-btn danger"
+                                    disabled={deleteManualCostMutation.isPending && deletingManualCostId === cost.id}
+                                    onClick={() => deleteManualCostMutation.mutate(cost)}
+                                  >
+                                    {deleteManualCostMutation.isPending && deletingManualCostId === cost.id ? 'Removendo…' : 'Excluir'}
+                                  </button>
+                                ) : null}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="placeholder-copy">Nenhum custo manual lançado.</div>
+                      )}
+                      {manualCostError ? <div className="form-error">{manualCostError}</div> : null}
+
+                      {canAddManualCost && manualCostFormOpen ? (
+                        <form id="acp-manual-cost-form" className="acp-manual-cost-form" onSubmit={submitManualCost}>
+                          <div className="field-group">
+                            <label htmlFor="acp-manual-cost-description">Descrição</label>
+                            <input
+                              id="acp-manual-cost-description"
+                              {...register('description')}
+                              maxLength={120}
+                              aria-invalid={Boolean(errors.description)}
+                              required
+                            />
+                            {errors.description ? <small className="field-error">{errors.description.message}</small> : null}
+                          </div>
+                          <div className="field-group">
+                            <label htmlFor="acp-manual-cost-amount">Valor</label>
+                            <Controller
+                              name="amount"
+                              control={control}
+                              render={({ field }) => (
+                                <input
+                                  id="acp-manual-cost-amount"
+                                  name={field.name}
+                                  ref={field.ref}
+                                  value={field.value}
+                                  type="text"
+                                  inputMode="numeric"
+                                  autoComplete="off"
+                                  aria-invalid={Boolean(errors.amount)}
+                                  required
+                                  onBlur={field.onBlur}
+                                  onChange={event => field.onChange(formatBrlCurrencyInput(event.target.value))}
+                                />
+                              )}
+                            />
+                            {errors.amount ? <small className="field-error">{errors.amount.message}</small> : null}
+                          </div>
+                          <div className="field-group">
+                            <label htmlFor="acp-manual-cost-date">Data</label>
+                            <input
+                              id="acp-manual-cost-date"
+                              {...register('costDate')}
+                              type="date"
+                              aria-invalid={Boolean(errors.costDate)}
+                            />
+                            {errors.costDate ? <small className="field-error">{errors.costDate.message}</small> : null}
+                          </div>
+                          <div className="field-group field-group-wide">
+                            <label htmlFor="acp-manual-cost-note">Observação</label>
+                            <input
+                              id="acp-manual-cost-note"
+                              {...register('note')}
+                              maxLength={500}
+                              aria-invalid={Boolean(errors.note)}
+                            />
+                            {errors.note ? <small className="field-error">{errors.note.message}</small> : null}
+                          </div>
+                          <div className="admin-form-actions field-group-wide">
+                            <button type="submit" className="mini-btn" disabled={createManualCostMutation.isPending}>
+                              {createManualCostMutation.isPending ? 'Salvando…' : 'Adicionar custo'}
+                            </button>
+                          </div>
+                        </form>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className="acp-det-sub"><HelpTip help="As 5 maiores categorias de despesa do projeto, somando Omie sem salários, consumo líquido de químicos/filtros do estoque e custos manuais.">Maiores gastos (Omie + estoque + manual)</HelpTip></div>
                   {data.maioresGastos.length === 0 ? (
                     <div className="placeholder-copy">Sem gastos registrados.</div>
                   ) : (
@@ -322,7 +738,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                 <details className="acp-det-tax-details">
                   <summary className="acp-det-collabs-summary">
                     Impostos do projeto
-                    <span className="acp-det-tax-summary-value">{brl(taxes.outOfInvoiceTaxTotal)}</span>
+                    <span className="acp-det-tax-summary-value">{brl(taxes.totalTax)}</span>
                   </summary>
                   <div className="acp-det-tax-body">
                     <div style={rowStyle}>
@@ -333,21 +749,18 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     {hasOmieInvoice ? (
                       <>
                         <div style={rowStyle}><span className="placeholder-copy">Faturado Omie ({data.faturamento.notas} NF)</span><span>{brl(invoicedRevenue)}</span></div>
-                        {taxes.omieIss != null ? (
-                          <div style={rowStyle}><span className="placeholder-copy">ISS Omie</span><span>{brl(taxes.omieIss)}</span></div>
-                        ) : null}
                       </>
-                    ) : (
-                      <>
-                        <div style={rowStyle}>
-                          <HelpTip help="Previsão da planilha para ISS, PIS e COFINS enquanto não houver NF sincronizada no Omie. Esses valores não são somados aos gastos do projeto.">Impostos previstos na NF</HelpTip>
-                          <span>{brl(taxes.invoiceTaxTotal)}</span>
-                        </div>
-                        <div style={rowStyle}><span className="placeholder-copy">ISS previsto</span><span>{brl(taxes.iss)}</span></div>
-                        <div style={rowStyle}><span className="placeholder-copy">PIS previsto</span><span>{brl(taxes.pis)}</span></div>
-                        <div style={rowStyle}><span className="placeholder-copy">COFINS previsto</span><span>{brl(taxes.cofins)}</span></div>
-                      </>
-                    )}
+                    ) : null}
+                    <div style={rowStyle}>
+                      <HelpTip help={hasOmieInvoice ? 'ISS vem da alíquota/código da NFSe do Omie quando disponível. PIS, COFINS e o INSS de 5,5% para serviços 14.01/7.02 são calculados sobre o faturamento real.' : 'Previsão da planilha para ISS, PIS, COFINS e INSS de 5,5% para serviços 14.01/7.02 enquanto não houver NF sincronizada no Omie.'}>Impostos na NF</HelpTip>
+                      <span>{brl(taxes.invoiceTaxTotal)}</span>
+                    </div>
+                    <div style={rowStyle}><span className="placeholder-copy">{hasOmieInvoice ? 'ISS Omie' : 'ISS previsto'}</span><span>{brl(taxes.iss)}</span></div>
+                    <div style={rowStyle}><span className="placeholder-copy">PIS</span><span>{brl(taxes.pis)}</span></div>
+                    <div style={rowStyle}><span className="placeholder-copy">COFINS</span><span>{brl(taxes.cofins)}</span></div>
+                    {taxes.inss > 0 ? (
+                      <div style={rowStyle}><span className="placeholder-copy">INSS NF (5,5%)</span><span>{brl(taxes.inss)}</span></div>
+                    ) : null}
                     <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}>
                       <HelpTip help={hasOmieInvoice ? 'Cálculo gerencial feito sobre o faturamento real do Omie. O cliente paga o valor faturado; este valor é o imposto estimado a pagar pela empresa.' : 'Previsão gerencial feita sobre a venda prevista. O cliente paga a venda prevista; este valor é o imposto estimado a pagar pela empresa.'}>IRPJ/CSLL fora da NF</HelpTip>
                       <strong>{brl(taxes.outOfInvoiceTaxTotal)}</strong>
@@ -355,6 +768,10 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     <div style={rowStyle}><span className="placeholder-copy">IRPJ básico</span><span>{brl(taxes.irpjBasic)}</span></div>
                     <div style={rowStyle}><span className="placeholder-copy">CSLL</span><span>{brl(taxes.csll)}</span></div>
                     <div style={rowStyle}><span className="placeholder-copy">Adic. IRPJ</span><span>{brl(taxes.additionalIrpjEstimated)}</span></div>
+                    <div style={{ ...rowStyle, marginTop: 4, borderTop: '1px solid #eee', paddingTop: 4 }}>
+                      <HelpTip help="Soma de ISS, PIS, COFINS, INSS quando aplicável, IRPJ, CSLL e adicional de IRPJ calculados para o projeto.">Total de impostos</HelpTip>
+                      <strong>{brl(taxes.totalTax)}</strong>
+                    </div>
                   </div>
                 </details>
               </div>
@@ -367,15 +784,16 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
           <div className="page-card acp-det-block">
             <div className="acp-det-avanco">
               <div className="acp-det-metric-top">
-                <HelpTip help="Quanto do escopo vendido já foi executado: cruza o realizado dos RDOs (metros de tubulação, litros de óleo) com o previsto, ponderado pelo peso de cada serviço. Sem escopo cadastrado, usa o avanço manual informado no cronograma.">Avanço do escopo{data.avancoMethod === 'MANUAL' ? ' (manual)' : ''}</HelpTip>
+                <HelpTip help="Quanto do escopo vendido já foi executado: cruza o realizado dos RDOs (metros de tubulação, litros de óleo) com o previsto, ponderado pelo peso de cada serviço. Sem escopo cadastrado, usa o avanço manual informado no cronograma.">Avanço do escopo{progressSuffix}</HelpTip>
                 <span className="acp-det-metric-val">{fmtPct(data.avancoPct)}</span>
               </div>
               <Bar value={data.avancoPct} />
             </div>
+            <ProgressHistoryChart points={data.progressHistory} />
 
             <div className="acp-det-two">
               <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos RDOs.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
-              <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas de standby de todos os RDOs do projeto.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas-homem de stand-by de todos os RDOs do projeto, multiplicando o tempo pela equipe do turno.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
             </div>
 
             <div className="acp-det-sub"><HelpTip help="Status dos últimos 5 dias com RDO: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
@@ -404,7 +822,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
             </div>
 
             <div className="acp-det-two" style={{ marginTop: 10 }}>
-              <div><span className="acp-det-kpi-label"><HelpTip help="Total de horas extras identificadas nos RDOs do projeto.">Horas extras</HelpTip></span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Total de horas extras-homem identificadas nos RDOs do projeto, multiplicando a HE pela equipe do turno.">Horas extras</HelpTip></span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
             </div>
           </div>
         </div>
@@ -413,7 +831,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
         <div className="acp-det-col">
           <div className="page-card acp-det-block">
             <div className="acp-det-sub"><HelpTip help="Escopo vendido informado manualmente (aba Cronograma): serviços, sistemas e quantitativos, com o peso de cada serviço no avanço.">Escopo cadastrado</HelpTip></div>
-            <PlannedScopeView scope={scope} />
+            <PlannedScopeView scope={effectiveScope} />
           </div>
         </div>
       </div>
@@ -439,7 +857,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
         </details>
       </div>
 
-      {/* Colaboradores em largura total, tabela retrátil: nome · cargo · valor gasto (custo/hora). */}
+      {/* Colaboradores em largura total, tabela retrátil: nome · cargo · horas · valor gasto (custo/hora). */}
       <div className="page-card acp-det-block">
         <details className="acp-det-collabs-details" open>
           <summary className="acp-det-collabs-summary">
@@ -454,6 +872,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                   <tr>
                     <th>Nome</th>
                     <th>Cargo</th>
+                    <th style={{ textAlign: 'right' }}>Horas</th>
                     <th style={{ textAlign: 'right' }}>Custo (HH)</th>
                   </tr>
                 </thead>
@@ -462,6 +881,7 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
                     <tr key={i}>
                       <td>{c.name}</td>
                       <td>{c.role}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtHours(c.horas)}</td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {c.custo != null ? (
                           <>{brl(c.custo)}<span className="acp-det-collab-rate">{c.custoHora != null ? ` (${brl(c.custoHora)}/h)` : ''}</span></>
@@ -483,20 +903,22 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
         <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade de avanço acumulada até a data de referência dos dias corridos.">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
 
-      <Modal open={scheduleOpen} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
+      <Modal open={scheduleProject !== null} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
         <div className="acp-manage">
           <div className="acp-manage-head">
-            <div className="sec" id="acp-detail-schedule-title">Cronograma — Missão {h.code}</div>
+            <div className="sec" id="acp-detail-schedule-title">Cronograma — Missão {scheduleProject?.code ?? h.code}</div>
             <button className="mini-btn alt" type="button" onClick={closeSchedule} aria-label="Fechar">✕</button>
           </div>
           <div className="acp-manage-body">
-            <ProjectScheduleEditor
-              key={projectId}
-              ref={scheduleRef}
-              projectId={projectId}
-              canManage={canManage}
-              onDirtyChange={setScheduleDirty}
-            />
+            {scheduleProject ? (
+              <ProjectScheduleEditor
+                key={scheduleProject.projectId}
+                ref={scheduleRef}
+                projectId={scheduleProject.projectId}
+                canManage={canManage}
+                onDirtyChange={setScheduleDirty}
+              />
+            ) : null}
           </div>
           <div className="acp-manage-foot">
             <button type="button" className="mini-btn alt" onClick={closeSchedule}>Cancelar</button>
@@ -504,6 +926,16 @@ export function ProjectDetailDashboard({ projectId, canManage = false, onBack }:
           </div>
         </div>
       </Modal>
+      <ProjectProgressHistoryNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={progressHistoryNoveltyActive}
+        onSeen={() => setProgressHistoryNoveltyActive(false)}
+      />
+      <ProjectManualCostNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={manualCostNoveltyActive && canAddManualCost}
+        onSeen={() => setManualCostNoveltyActive(false)}
+      />
     </div>
   );
 }

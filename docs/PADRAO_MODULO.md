@@ -74,9 +74,39 @@ usar o shell largo de desktop, seguindo o padrao de Equipamentos/Acompanhamento
 (`.equip-page` ou equivalente documentado). Nao comprimir modulos operacionais no
 container padrao de 420/540px quando houver largura disponivel.
 
+No mobile, cards e grades devem caber na largura util da tela sem scroll horizontal de
+pagina. Grades com largura minima visual devem usar padrao encolhivel, como
+`minmax(min(100%, 280px), 1fr)`, e containers/filhos flex ou grid devem declarar
+`min-width: 0` quando necessario. Valores longos, badges, links e linhas de acao
+devem quebrar, truncar com ellipsis ou empilhar sem cortar bordas do card.
+
+Abas, segmented controls e filtros que funcionam como abas tambem devem caber no
+mobile. Use quebra de linha, grid responsivo, rolagem interna intencional ou troque por
+`select`/menu mobile quando houver muitas opcoes. Rotulo longo nao pode aumentar a
+largura da pagina.
+
+Navegacao interna de modulo deve sobreviver ao refresh da pagina. Abas, secoes
+laterais, filtros que funcionam como abas e detalhes que substituem a lista devem ser
+representados por URL/query params (`?tab=...`, `?section=...`, `?project=...`) sempre
+que nao forem sensiveis. Ao trocar para uma secao incompativel, limpar parametros
+relacionados para evitar reabrir categoria/card antigo por acidente.
+
 Campos selecionaveis (`select`, combobox, multiselect e dropdown de filtro) devem usar
 o estilo compartilhado do app: borda, raio, padding, foco, disabled, erro e mobile
 consistentes. Select nativo com aparencia crua do navegador e bloqueante em review.
+
+Funcao nova visivel ao usuario deve incluir divulgacao temporaria no padrao do app:
+
+- card centralizado via Driver.js, no mesmo modelo usado para novidades como DDS;
+- marcador "visto" em `localStorage`, por usuario e navegador;
+- data-limite global exatamente 10 dias corridos apos a data de implementacao;
+- depois da data-limite, o aviso nao aparece para ninguem, mesmo em primeiro acesso;
+- tutorial guiado apontando os controles reais da funcao durante a mesma janela de
+  10 dias e apenas no primeiro acesso do publico impactado.
+
+Tutorial permanente de primeiro acesso e exigido para modulo novo. Funcao nova dentro
+de modulo existente usa apenas campanha temporaria de novidade, nao onboarding
+permanente.
 
 Evitar misturar no mesmo arquivo:
 
