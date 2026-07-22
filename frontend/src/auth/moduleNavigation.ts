@@ -6,6 +6,7 @@ const LAST_MODULE_KEY_PREFIX = 'filtrovali:last-module:';
 const HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX = 'filtrovali:hub-first-login-tutorial:';
 const ACOMPANHAMENTO_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-novelty:';
 const ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-grouping-novelty:v1:';
+const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-group-rename-novelty:v1:';
 const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
 const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
 // v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
@@ -96,6 +97,21 @@ export function shouldShowAcompanhamentoGroupingNovelty(user: Pick<AuthUser, 'id
 export function markAcompanhamentoGroupingNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade da edição de nome dos cards mesclados no Acompanhamento.
+// Validade global de 10 dias corridos após a implantação (22/07/2026 a 01/08/2026).
+const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_EXPIRES_AT = new Date('2026-08-01T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoGroupRenameNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoGroupRenameNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 // Novidade do histórico semanal de avanço no dashboard do projeto.
