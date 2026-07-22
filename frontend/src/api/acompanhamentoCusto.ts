@@ -89,10 +89,12 @@ export async function saveCargoCostParams(jobRoleId: string, params: CargoCostOv
   return data;
 }
 
-// --- Configuração global de custo (EPI por colaborador) ---
+// --- Configuração global de custos anuais por colaborador ---
 
 export interface CostConfig {
   epiAnnualCost: number;
+  examsTrainingAnnualCost: number;
+  offshoreExamsTrainingAnnualCost: number;
 }
 
 export async function getCostConfig(): Promise<CostConfig> {
@@ -100,8 +102,8 @@ export async function getCostConfig(): Promise<CostConfig> {
   return data;
 }
 
-export async function saveCostConfig(epiAnnualCost: number): Promise<CostConfig> {
-  const { data } = await apiClient.put<CostConfig>('/acompanhamento/custo/config', { epiAnnualCost });
+export async function saveCostConfig(payload: CostConfig): Promise<CostConfig> {
+  const { data } = await apiClient.put<CostConfig>('/acompanhamento/custo/config', payload);
   return data;
 }
 
