@@ -119,9 +119,12 @@ function isEvidenceFile(file: File) {
 function evidenceLinksFor(record: QualityRecord | null): EvidenceLinkDraft[] {
   const links = (record?.evidences || [])
     .filter(evidence => evidence.kind === 'LINK' && evidence.url)
-    .map(evidence => ({ id: evidence.id, url: evidence.url || '', label: evidence.label }));
-  if (!links.length && record?.evidence) return [{ url: record.evidence, label: 'Evidência' }];
-  return links.length ? links : [{ url: '' }];
+    .map(evidence => ({ id: evidence.id, url: evidence.url || '', label: evidence.label }))
+    .filter(evidence => validEvidenceUrl(evidence.url));
+  if (!links.length && record?.evidence && validEvidenceUrl(record.evidence)) {
+    return [{ url: record.evidence, label: 'Evidência' }];
+  }
+  return links;
 }
 
 function evidenceFileDraftId(file: File) {
@@ -129,8 +132,10 @@ function evidenceFileDraftId(file: File) {
 }
 
 function validEvidenceUrl(value: string) {
+  const text = String(value || '').trim();
+  if (!text) return false;
   try {
-    const url = new URL(value);
+    const url = new URL(text);
     return ['http:', 'https:'].includes(url.protocol);
   } catch {
     return false;
@@ -236,10 +241,7 @@ export function QualityRecordFormModal({ open, record, projects, natures, saving
   }
 
   function removeEvidenceLink(index: number) {
-    setEvidenceLinks(current => {
-      const next = current.filter((_, itemIndex) => itemIndex !== index);
-      return next.length ? next : [{ url: '' }];
-    });
+    setEvidenceLinks(current => current.filter((_, itemIndex) => itemIndex !== index));
     setSubmitError(null);
   }
 
@@ -438,7 +440,7 @@ export function QualityRecordFormModal({ open, record, projects, natures, saving
           <div className="field-group field-group-wide quality-evidence-block">
             <div className="quality-evidence-head">
               <label>Evidências</label>
-              <button className="mini-btn alt" type="button" disabled={saving} onClick={addEvidenceLink}>Adicionar link</button>
+              <button className="mini-btn alt quality-evidence-add-link" type="button" disabled={saving} onClick={addEvidenceLink}>Adicionar link</button>
             </div>
             <div className="quality-evidence-links-editor">
               {evidenceLinks.map((link, index) => (

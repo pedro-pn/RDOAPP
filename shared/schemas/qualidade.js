@@ -171,6 +171,12 @@ function natureSchema(z) {
   });
 }
 
+function natureOrderSchema(z) {
+  return z.object({
+    ids: z.array(requiredText(z, 80)).min(1, 'Informe a ordem das Naturezas.').max(300, 'Informe no máximo 300 Naturezas por ordenação.')
+  });
+}
+
 export function makeQualidadeSchemas(z) {
   if (!z?.object || !z?.enum) {
     throw new TypeError('A valid Zod instance is required to build qualidade schemas.');
@@ -191,6 +197,7 @@ export function makeQualidadeSchemas(z) {
     recordUpdate: recordSchema(z, { includeType: false }),
     natureCreate: natureSchema(z),
     natureUpdate: natureSchema(z),
+    natureOrder: natureOrderSchema(z),
     activePatch: z.object({ isActive: z.boolean() })
   };
 }

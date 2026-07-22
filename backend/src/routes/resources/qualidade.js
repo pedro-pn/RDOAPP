@@ -16,6 +16,7 @@ import {
   listRecords,
   listRecordsForExport,
   renameNature,
+  reorderNatures,
   setNatureActive,
   updateRecord
 } from '../../lib/qualidade/service.js';
@@ -53,6 +54,16 @@ router.post('/naturezas', requireQualidadeManager, asyncHandler(async (req, res)
   try {
     const data = schemas.natureCreate.parse(req.body);
     res.status(201).json(await createNature(prisma, data));
+  } catch (error) {
+    if (handleQualidadeError(error, res)) return;
+    throw error;
+  }
+}));
+
+router.patch('/naturezas/ordem', requireQualidadeManager, asyncHandler(async (req, res) => {
+  try {
+    const data = schemas.natureOrder.parse(req.body);
+    res.json(await reorderNatures(prisma, data.ids));
   } catch (error) {
     if (handleQualidadeError(error, res)) return;
     throw error;

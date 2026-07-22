@@ -1147,11 +1147,13 @@ model QualityNature {
   id        String          @id @default(cuid())
   name      String
   isActive  Boolean         @default(true)
+  position  Int             @default(0)
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   records   QualityRecord[]
 
-  @@index([isActive, name])
+  @@index([isActive, position, name])
+  @@index([position])
 }
 
 model QualityRecord {

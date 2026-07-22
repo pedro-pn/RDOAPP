@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   createQualityNature,
   listQualityNatures,
   removeQualityNature,
+  reorderQualityNatures,
   setQualityNatureActive,
   type QualityNature,
   type QualityNaturePayload,
@@ -28,13 +29,41 @@ type ConfirmState = {
   onConfirm: () => void;
 };
 
+function setNatureDragImage(event: DragEvent<HTMLButtonElement>) {
+  const row = event.currentTarget.closest('.quality-nature-row');
+  if (!(row instanceof HTMLElement)) return;
+
+  const rect = row.getBoundingClientRect();
+  const preview = row.cloneNode(true) as HTMLElement;
+  preview.setAttribute('aria-hidden', 'true');
+  preview.classList.add('quality-nature-drag-ghost');
+  preview.style.position = 'fixed';
+  preview.style.top = '-1000px';
+  preview.style.left = '-1000px';
+  preview.style.width = `${rect.width}px`;
+  preview.style.pointerEvents = 'none';
+
+  document.body.appendChild(preview);
+  event.dataTransfer.setDragImage(
+    preview,
+    Math.max(0, Math.min(event.clientX - rect.left, rect.width)),
+    Math.max(0, Math.min(event.clientY - rect.top, rect.height))
+  );
+  window.setTimeout(() => preview.remove(), 0);
+}
+
 export function QualityNaturesTab({ isManager }: Props) {
   const showToast = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [includeInactive, setIncludeInactive] = useState(false);
   const [formNature, setFormNature] = useState<QualityNature | null | undefined>(undefined);
+  const [newName, setNewName] = useState('');
+  const [newSubmitted, setNewSubmitted] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const dragNatureId = useRef<string | null>(null);
+  const [draggedNatureId, setDraggedNatureId] = useState<string | null>(null);
+  const [dragOverNatureId, setDragOverNatureId] = useState<string | null>(null);
 
   const naturesQuery = useQuery({
     queryKey: ['qualidade', 'naturezas', { includeInactive }],
@@ -50,7 +79,8 @@ export function QualityNaturesTab({ isManager }: Props) {
     mutationFn: (payload: QualityNaturePayload) => createQualityNature(payload),
     onSuccess: () => {
       invalidate();
-      setFormNature(undefined);
+      setNewName('');
+      setNewSubmitted(false);
       showToast('Natureza cadastrada.', 'success');
     },
     onError: error => showToast(error instanceof Error ? error.message : 'Não foi possível cadastrar.', 'error')
@@ -75,6 +105,18 @@ export function QualityNaturesTab({ isManager }: Props) {
     onError: error => showToast(error instanceof Error ? error.message : 'Não foi possível atualizar.', 'error')
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: (ids: string[]) => reorderQualityNatures(ids),
+    onSuccess: () => {
+      invalidate();
+      showToast('Ordem atualizada.', 'success');
+    },
+    onError: error => {
+      invalidate();
+      showToast(error instanceof Error ? error.message : 'Não foi possível ordenar.', 'error');
+    }
+  });
+
   const removeMutation = useMutation({
     mutationFn: (id: string) => removeQualityNature(id),
     onSuccess: () => {
@@ -91,10 +133,65 @@ export function QualityNaturesTab({ isManager }: Props) {
     return rows.filter(nature => nature.name.toLowerCase().includes(query));
   }, [naturesQuery.data, search]);
   const saving = createMutation.isPending || updateMutation.isPending;
+  const canReorder = isManager && !search.trim() && natures.length > 1;
+  const reorderDisabled = !canReorder || reorderMutation.isPending;
+  const newNameError = newSubmitted && !newName.trim() ? 'Informe o nome da Natureza.' : '';
 
   function handleSubmit(payload: QualityNaturePayload) {
     if (formNature) updateMutation.mutate({ id: formNature.id, payload });
     else createMutation.mutate(payload);
+  }
+
+  function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNewSubmitted(true);
+    const name = newName.trim();
+    if (!name) return;
+    createMutation.mutate({ name });
+  }
+
+  function clearDragState() {
+    dragNatureId.current = null;
+    setDraggedNatureId(null);
+    setDragOverNatureId(null);
+  }
+
+  function handleNatureDragStart(event: DragEvent<HTMLButtonElement>, natureId: string) {
+    if (reorderDisabled) {
+      event.preventDefault();
+      return;
+    }
+    dragNatureId.current = natureId;
+    setDraggedNatureId(natureId);
+    setDragOverNatureId(natureId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', natureId);
+    setNatureDragImage(event);
+  }
+
+  function handleNatureDragOver(event: DragEvent<HTMLElement>, natureId: string) {
+    if (!dragNatureId.current || reorderDisabled) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverNatureId(natureId);
+  }
+
+  function handleNatureDrop(event: DragEvent<HTMLElement>, targetId: string) {
+    event.preventDefault();
+    const fromId = dragNatureId.current;
+    clearDragState();
+    if (!fromId || fromId === targetId || reorderDisabled) return;
+
+    const fromIndex = natures.findIndex(nature => nature.id === fromId);
+    const targetIndex = natures.findIndex(nature => nature.id === targetId);
+    if (fromIndex < 0 || targetIndex < 0) return;
+
+    const next = [...natures];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    const nextWithPositions = next.map((nature, position) => ({ ...nature, position }));
+    queryClient.setQueryData(['qualidade', 'naturezas', { includeInactive }], nextWithPositions);
+    reorderMutation.mutate(nextWithPositions.map(nature => nature.id));
   }
 
   function confirmActive(nature: QualityNature, isActive: boolean) {
@@ -125,8 +222,29 @@ export function QualityNaturesTab({ isManager }: Props) {
           <div className="sec">Naturezas</div>
           <p className="rel-meta">Categorias padronizadas usadas no formulário e na recorrência.</p>
         </div>
-        {isManager ? <button className="mini-btn" type="button" onClick={() => setFormNature(null)}>Nova Natureza</button> : null}
       </div>
+
+      {isManager ? (
+        <form className="quality-nature-inline-add" onSubmit={handleCreateSubmit} noValidate>
+          <div className={newNameError ? 'field-group field-invalid' : 'field-group'}>
+            <label htmlFor="quality-new-nature">Nova Natureza *</label>
+            <input
+              id="quality-new-nature"
+              type="text"
+              value={newName}
+              aria-invalid={Boolean(newNameError) || undefined}
+              aria-describedby={newNameError ? 'quality-new-nature-error' : undefined}
+              disabled={createMutation.isPending}
+              onChange={event => {
+                setNewName(event.target.value);
+                setNewSubmitted(false);
+              }}
+            />
+            {newNameError ? <small id="quality-new-nature-error" className="field-error">{newNameError}</small> : null}
+          </div>
+          <button className="mini-btn" type="submit" disabled={createMutation.isPending}>{createMutation.isPending ? 'Adicionando…' : 'Adicionar'}</button>
+        </form>
+      ) : null}
 
       <div className="nps-tab-toolbar">
         <div className="nps-tab-toolbar-left">
@@ -150,19 +268,50 @@ export function QualityNaturesTab({ isManager }: Props) {
       {naturesQuery.isError ? <p className="equip-form-error">Não foi possível carregar as Naturezas.</p> : null}
       {!naturesQuery.isLoading && !natures.length ? <p className="placeholder-copy">Nenhuma Natureza encontrada.</p> : null}
 
-      <div className="equip-grid">
-        {natures.map(nature => (
-          <article className="card" key={nature.id}>
-            <div className="admin-toolbar">
+      <div className="quality-nature-list" role="list">
+        {natures.map((nature, index) => (
+          <article
+            className={[
+              'quality-nature-row',
+              nature.isActive ? '' : 'inactive',
+              draggedNatureId === nature.id ? 'dragging' : '',
+              dragOverNatureId === nature.id && draggedNatureId !== nature.id ? 'drag-over' : ''
+            ].filter(Boolean).join(' ')}
+            key={nature.id}
+            role="listitem"
+            onDragOver={event => handleNatureDragOver(event, nature.id)}
+            onDragLeave={() => setDragOverNatureId(current => current === nature.id ? null : current)}
+            onDrop={event => handleNatureDrop(event, nature.id)}
+          >
+            <div className="quality-nature-order">
+              {isManager ? (
+                <button
+                  className="quality-nature-drag-handle"
+                  type="button"
+                  aria-label={`Arrastar ${nature.name} para reordenar`}
+                  aria-grabbed={draggedNatureId === nature.id}
+                  title={search.trim() ? 'Limpe a busca para reordenar' : 'Arraste para reordenar'}
+                  draggable={!reorderDisabled}
+                  disabled={reorderDisabled}
+                  onDragStart={event => handleNatureDragStart(event, nature.id)}
+                  onDragEnd={clearDragState}
+                >
+                  ⠿
+                </button>
+              ) : (
+                <span className="quality-nature-position">{index + 1}</span>
+              )}
+            </div>
+            <div className="quality-nature-main">
               <div>
                 <div className="sec">{nature.name}</div>
                 <p className="rel-meta">{nature.recordCount} registro(s) vinculado(s)</p>
               </div>
-              <span className={`badge ${nature.isActive ? 'badge-ok' : 'danger'}`}>{nature.isActive ? 'Ativa' : 'Inativa'}</span>
             </div>
-            <p className="rel-meta">{nature.inUse ? 'Exclusão bloqueada por vínculo com registros.' : 'Sem registros vinculados.'}</p>
+            <span className={`badge ${nature.isActive ? 'badge-ok' : 'danger'}`}>{nature.isActive ? 'Ativa' : 'Inativa'}</span>
+            <p className="rel-meta quality-nature-use">{nature.inUse ? 'Exclusão bloqueada por vínculo com registros.' : 'Sem registros vinculados.'}</p>
             {isManager ? (
-              <div className="admin-form-actions">
+              <div className="admin-form-actions quality-nature-actions">
                 <button className="mini-btn alt" type="button" onClick={() => setFormNature(nature)}>Editar</button>
                 <button className="mini-btn alt" type="button" onClick={() => confirmActive(nature, !nature.isActive)}>
                   {nature.isActive ? 'Inativar' : 'Reativar'}

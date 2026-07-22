@@ -10,6 +10,7 @@ export interface QualityNature {
   id: string;
   name: string;
   isActive: boolean;
+  position: number;
   inUse: boolean;
   recordCount: number;
   createdAt: string;
@@ -219,6 +220,11 @@ export async function updateQualityNature(id: string, payload: QualityNaturePayl
 
 export async function setQualityNatureActive(id: string, isActive: boolean) {
   const response = await apiClient.patch<QualityNature>(qualidadeApiPath(`/naturezas/${id}/ativo`), { isActive });
+  return response.data;
+}
+
+export async function reorderQualityNatures(ids: string[]) {
+  const response = await apiClient.patch<QualityNature[]>(qualidadeApiPath('/naturezas/ordem'), { ids });
   return response.data;
 }
 

@@ -16,10 +16,13 @@ import {
   createRecord,
   deleteRecord,
   deleteNature,
+  listNatures,
   listQualityProjects,
   listProjectDeviations,
   listRecords,
   listRecordsForExport,
+  reorderNatures,
+  serializeQualityRecord,
   setNatureActive
 } from '../src/lib/qualidade/service.js';
 import { makeQualidadeSchemas } from '../../shared/schemas/qualidade.js';
@@ -97,8 +100,31 @@ function createMockQualidadeClient(seed = {}) {
     seq: new Map(),
     ...seed
   };
+  state.natures = state.natures.map((nature, index) => ({ position: index, ...nature }));
   let recordCounter = 0;
   let natureCounter = state.natures.length;
+
+  function selectedRow(row, select) {
+    return Object.fromEntries(Object.keys(select).map(key => [key, row[key]]));
+  }
+
+  function sortRows(rows, orderBy = []) {
+    const order = Array.isArray(orderBy) ? orderBy : [orderBy];
+    return [...rows].sort((a, b) => {
+      for (const entry of order) {
+        const [field, direction] = Object.entries(entry || {})[0] || [];
+        if (!field) continue;
+        const dir = direction === 'desc' ? -1 : 1;
+        const left = a[field];
+        const right = b[field];
+        const result = typeof left === 'number' || typeof right === 'number'
+          ? Number(left || 0) - Number(right || 0)
+          : String(left || '').localeCompare(String(right || ''), 'pt-BR');
+        if (result) return result * dir;
+      }
+      return 0;
+    });
+  }
 
   const client = {
     state,
@@ -202,11 +228,16 @@ function createMockQualidadeClient(seed = {}) {
         const name = where.name?.equals?.toLowerCase();
         return state.natures.find(nature => nature.name.toLowerCase() === name) || null;
       },
-      findMany: async ({ where = {}, include } = {}) => state.natures
-        .filter(nature => where.isActive === undefined || nature.isActive === where.isActive)
-        .map(nature => include?._count
+      findMany: async ({ where = {}, include, select, orderBy } = {}) => {
+        let rows = state.natures
+          .filter(nature => where.isActive === undefined || nature.isActive === where.isActive)
+          .filter(nature => !where.id?.in || where.id.in.includes(nature.id));
+        rows = sortRows(rows, orderBy);
+        if (select) return rows.map(nature => selectedRow(nature, select));
+        return rows.map(nature => include?._count
           ? { ...nature, _count: { records: state.records.filter(record => record.natureId === nature.id).length } }
-          : nature),
+          : nature);
+      },
       create: async ({ data }) => {
         const nature = { id: `nature-${++natureCounter}`, ...data, isActive: true, createdAt: date('2026-07-22'), updatedAt: date('2026-07-22') };
         state.natures.push(nature);
@@ -271,6 +302,47 @@ test('qualidade schemas enforce required fields and defined action for Tratar', 
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ evidences: [{ kind: 'LINK', url: 'texto solto' }] })).success, false);
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ disposition: 'TRATAR', definedAction: '' })).success, false);
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ disposition: 'TRATAR', definedAction: 'Abrir plano de ação' })).success, true);
+});
+
+test('quality record serialization ignores invalid legacy evidence text', () => {
+  const serialized = serializeQualityRecord({
+    id: 'record-legacy',
+    number: 'D-001/26',
+    type: 'DESVIO',
+    seq: 1,
+    year: 2026,
+    registeredAt: date('2026-07-22'),
+    origin: 'abc',
+    project: null,
+    projectId: null,
+    eventDate: date('2026-07-22'),
+    nature: { id: 'nature-1', name: 'Stand By', isActive: true },
+    natureId: 'nature-1',
+    description: 'Desvio com evidencia legada',
+    impact: 'MEDIO',
+    linkedRnc: null,
+    disposition: 'MONITORAR',
+    definedAction: null,
+    actionOwner: null,
+    actionDeadline: null,
+    evidence: 'texto solto',
+    evidences: [{
+      id: 'legacy-evidence-record-legacy',
+      kind: 'LINK',
+      label: 'Evidência',
+      url: 'texto solto',
+      createdAt: date('2026-07-22')
+    }],
+    resultVerification: null,
+    status: 'ABERTO',
+    createdBy: null,
+    updatedBy: null,
+    createdAt: date('2026-07-22'),
+    updatedAt: date('2026-07-22')
+  });
+
+  assert.equal(serialized.evidence, null);
+  assert.deepEqual(serialized.evidences, []);
 });
 
 test('quality evidence attachment accepts images and pdf only', () => {
@@ -375,6 +447,32 @@ test('quality natures are unique case-insensitively and protected when in use', 
   assert.equal(inactive.isActive, false);
   const activeList = await client.qualityNature.findMany({ where: { isActive: true } });
   assert.equal(activeList.some(nature => nature.id === created.id), false);
+});
+
+test('quality natures preserve manual order for forms', async () => {
+  const client = createMockQualidadeClient({
+    natures: [
+      { id: 'nature-1', name: 'Primeira', isActive: true, position: 0, createdAt: date('2026-01-01'), updatedAt: date('2026-01-01') },
+      { id: 'nature-2', name: 'Segunda', isActive: true, position: 1, createdAt: date('2026-01-01'), updatedAt: date('2026-01-01') },
+      { id: 'nature-3', name: 'Terceira', isActive: true, position: 2, createdAt: date('2026-01-01'), updatedAt: date('2026-01-01') }
+    ]
+  });
+
+  await reorderNatures(client, ['nature-3', 'nature-1', 'nature-2']);
+  assert.deepEqual((await listNatures(client, { includeInactive: true })).map(nature => nature.id), [
+    'nature-3',
+    'nature-1',
+    'nature-2'
+  ]);
+
+  const created = await createNature(client, { name: 'Quarta' });
+  assert.equal(created.position, 3);
+  assert.deepEqual((await listNatures(client, { includeInactive: true })).map(nature => nature.id), [
+    'nature-3',
+    'nature-1',
+    'nature-2',
+    created.id
+  ]);
 });
 
 test('quality projects list uses module access endpoint shape and only active non-deleted projects', async () => {

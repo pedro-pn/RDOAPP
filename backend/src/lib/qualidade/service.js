@@ -61,6 +61,17 @@ function normalizeOptionalText(value) {
   return text || null;
 }
 
+function isHttpUrl(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  try {
+    const url = new URL(text);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
 function projectFilter(projectId) {
   const text = String(projectId || '').trim();
   if (!text) return {};
@@ -122,6 +133,7 @@ async function recordsForRecurrence(client, records) {
 function serializeEvidenceItem(evidence) {
   if (!evidence) return null;
   if (evidence.kind === 'LINK') {
+    if (!isHttpUrl(evidence.url)) return null;
     return {
       id: evidence.id,
       kind: 'LINK',
@@ -146,7 +158,7 @@ function serializeEvidences(record) {
   const evidences = (Array.isArray(record.evidences) ? record.evidences : [])
     .map(serializeEvidenceItem)
     .filter(Boolean);
-  if (!evidences.length && record.evidence) {
+  if (!evidences.length && isHttpUrl(record.evidence)) {
     return [{
       id: `legacy-${record.id}`,
       kind: 'LINK',
@@ -160,7 +172,7 @@ function serializeEvidences(record) {
 
 export function serializeQualityRecord(record, recurrence = {}) {
   const evidences = serializeEvidences(record);
-  const firstLink = evidences.find(item => item.kind === 'LINK')?.url || record.evidence || null;
+  const firstLink = evidences.find(item => item.kind === 'LINK')?.url || (isHttpUrl(record.evidence) ? record.evidence : null);
   return {
     id: record.id,
     number: record.number,
@@ -209,6 +221,7 @@ export function serializeQualityNature(nature) {
     id: nature.id,
     name: nature.name,
     isActive: Boolean(nature.isActive),
+    position: Number.isFinite(Number(nature.position)) ? Number(nature.position) : 0,
     inUse: (nature?._count?.records ?? nature.recordCount ?? 0) > 0,
     recordCount: nature?._count?.records ?? nature.recordCount ?? 0,
     createdAt: nature.createdAt,
@@ -529,7 +542,7 @@ export async function listNatures(client = prisma, query = {}) {
   const natures = await client.qualityNature.findMany({
     where: includeInactive ? {} : { isActive: true },
     include: { _count: { select: { records: true } } },
-    orderBy: [{ name: 'asc' }]
+    orderBy: [{ position: 'asc' }, { name: 'asc' }]
   });
   return natures.map(serializeQualityNature);
 }
@@ -544,12 +557,21 @@ async function findNatureByName(client, name, ignoreId = null) {
   return existing && existing.id !== ignoreId ? existing : null;
 }
 
+async function nextNaturePosition(client) {
+  const natures = await client.qualityNature.findMany({
+    select: { position: true }
+  });
+  const maxPosition = natures.reduce((max, nature) => Math.max(max, Number(nature.position) || 0), -1);
+  return maxPosition + 1;
+}
+
 export async function createNature(client = prisma, data) {
   if (await findNatureByName(client, data.name)) {
     throw new QualidadeError('Natureza já cadastrada.', 409);
   }
+  const position = await nextNaturePosition(client);
   const nature = await client.qualityNature.create({
-    data: { name: data.name },
+    data: { name: data.name, position },
     include: { _count: { select: { records: true } } }
   });
   return serializeQualityNature(nature);
@@ -567,6 +589,47 @@ export async function renameNature(client = prisma, id, data) {
     include: { _count: { select: { records: true } } }
   });
   return serializeQualityNature(nature);
+}
+
+function uniqueNatureIds(ids) {
+  const seen = new Set();
+  const unique = [];
+  for (const id of ids) {
+    const text = String(id || '').trim();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    unique.push(text);
+  }
+  return unique;
+}
+
+export async function reorderNatures(client = prisma, ids = []) {
+  const orderedIds = uniqueNatureIds(ids);
+  if (!orderedIds.length) throw new QualidadeError('Informe a ordem das Naturezas.', 400);
+
+  const allNatures = await client.qualityNature.findMany({
+    select: { id: true, name: true, position: true },
+    orderBy: [{ position: 'asc' }, { name: 'asc' }]
+  });
+  const byId = new Map(allNatures.map(nature => [nature.id, nature]));
+  const missing = orderedIds.find(id => !byId.has(id));
+  if (missing) throw new QualidadeError('Natureza inválida para ordenação.', 400);
+
+  const nextOrder = [
+    ...orderedIds.map(id => byId.get(id)),
+    ...allNatures.filter(nature => !orderedIds.includes(nature.id))
+  ];
+
+  await client.$transaction(async tx => {
+    await Promise.all(nextOrder.map((nature, position) => (
+      tx.qualityNature.update({
+        where: { id: nature.id },
+        data: { position }
+      })
+    )));
+  });
+
+  return listNatures(client, { includeInactive: true });
 }
 
 export async function setNatureActive(client = prisma, id, isActive) {

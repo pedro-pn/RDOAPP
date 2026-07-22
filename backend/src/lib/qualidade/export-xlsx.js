@@ -77,11 +77,22 @@ function projectLabel(record) {
   return [record.project.code, record.project.name].filter(Boolean).join(' - ');
 }
 
+function isHttpUrl(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  try {
+    const url = new URL(text);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
 function evidenceLabel(record) {
   const items = Array.isArray(record.evidences) ? record.evidences : [];
-  if (!items.length) return record.evidence || '';
+  if (!items.length) return isHttpUrl(record.evidence) ? record.evidence : '';
   return items.map(item => {
-    if (item.kind === 'LINK') return item.url;
+    if (item.kind === 'LINK') return isHttpUrl(item.url) ? item.url : '';
     return item.publicUrl || item.fileName || '';
   }).filter(Boolean).join('\n');
 }
