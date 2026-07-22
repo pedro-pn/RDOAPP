@@ -68,7 +68,8 @@ Regras:
 | definedAction | String? | obrigatório **se** disposition = TRATAR |
 | actionOwner | String? | texto livre |
 | actionDeadline | DateTime? (date) | data-limite da ação |
-| evidence | String? | link/URL (v1) |
+| evidence | String? | legado/compatibilidade: primeira URL de evidência externa |
+| evidences | QualityEvidence[] | lista de links/anexos vinculados ao registro |
 | resultVerification | String? | texto livre |
 | status | QualityStatus | obrigatório |
 | createdBy / updatedBy | String? | FK → User (auditoria, opcional) |
@@ -83,6 +84,20 @@ Regras:
 - **recurrent**: `occurrences12m >= 3` → "SIM", senão "não".
 
 Calculados no serviço/leitura (ver `lib/qualidade/recurrence.js`).
+
+## Entidade: QualityEvidence (Evidência)
+
+| Campo | Tipo | Regras |
+|-------|------|--------|
+| recordId | String | FK → QualityRecord; cascade no hard delete |
+| kind | QualityEvidenceKind | `LINK` ou `ATTACHMENT` |
+| label | String? | rótulo opcional |
+| url | String? | obrigatório quando `kind = LINK`; http/https |
+| fileName | String? | nome original quando `kind = ATTACHMENT` |
+| mimeType | String? | `application/pdf` ou imagem suportada |
+| storagePath | String? | caminho gerenciado sob `Qualidade/Evidencias` |
+| publicToken | String? | token público aleatório do anexo |
+| position | Int | ordem de exibição/exportação |
 
 ## Entidade: QualityRecordSeq (controle de numeração)
 

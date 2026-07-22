@@ -16,7 +16,8 @@
 - **Ocorrências 12m / Recorrente?**: calculados **automaticamente** já nesta v1, por Natureza (base = Data do Evento); Recorrente = SIM quando ≥ 3 ocorrências.
 - **Nº Registro**: sequencial por Tipo, **reiniciando a cada ano** (ex.: `D-001/26` … `D-045/26`, depois `D-001/27`).
 - **Prazo da ação**: campo de **data** (a planilha original era texto livre).
-- **Evidência**: na v1 é um **link/URL de texto** (anexo de arquivo fica para fase posterior).
+- **Evidência**: lista opcional com um ou mais links e/ou anexos. Anexos aceitos por enquanto:
+  imagens e PDFs.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -184,7 +185,7 @@ baixado abre no Excel/LibreOffice com uma linha por registro e as colunas na ord
 - **FR-001**: O sistema DEVE permitir ao gestor do módulo criar um registro de qualidade com os
   campos: Data do Registro, Tipo, Origem, Obra/Projeto, Data do Evento, Natureza, Descrição do
   evento, Impacto, RNC vinculada, Disposição, Ação definida, Responsável pela ação, Prazo da ação,
-  Evidência, Verificação do resultado e Status.
+  Evidências, Verificação do resultado e Status.
 - **FR-002**: O sistema DEVE gerar o **Nº Registro** automaticamente no formato
   `{letra}-{sequencial de 3 dígitos}/{ano de 2 dígitos}`, onde a letra é D (Desvio), L (Lição
   Aprendida), I (Incidente), R (Reclamação de Cliente) ou M (Melhoria), o sequencial é único e
@@ -243,8 +244,8 @@ baixado abre no Excel/LibreOffice com uma linha por registro e as colunas na ord
 - **Registro de Qualidade (QualityRecord)**: um evento registrado. Atributos: Nº Registro (gerado),
   Data do Registro, Tipo (enum de 5), Origem (texto), vínculo opcional com Projeto (ou Interno/SGQ),
   Data do Evento, vínculo com Natureza, Descrição, Impacto (enum), RNC vinculada (texto), Disposição
-  (enum), Ação definida (texto), Responsável pela ação (texto), Prazo da ação (data), Evidência
-  (link/texto), Verificação do resultado (texto), Status (enum). Ocorrências 12m e Recorrente? são
+  (enum), Ação definida (texto), Responsável pela ação (texto), Prazo da ação (data), Evidências
+  (links/anexos), Verificação do resultado (texto), Status (enum). Ocorrências 12m e Recorrente? são
   **derivados** (não armazenados). Relaciona-se com Projeto (0..1) e Natureza (1).
 - **Natureza (QualityNature)**: categoria padronizada de evento. Atributos: nome (único,
   case-insensitive), ativo/inativo, timestamps. Base de agrupamento para a recorrência. Relaciona-se
@@ -271,8 +272,8 @@ baixado abre no Excel/LibreOffice com uma linha por registro e as colunas na ord
 
 ## Assumptions
 
-- **Evidência** na v1 é um campo de link/URL de texto; upload/anexo de arquivo fica para fase
-  posterior (reaproveitando o padrão de anexos do Estoque/Equipamentos quando for feito).
+- **Evidências** aceitam múltiplos links e múltiplos anexos; nesta fase os anexos permitidos são
+  imagens e PDFs, reaproveitando o padrão de anexos do Estoque/Equipamentos.
 - **Origem** e **Responsável pela ação** são texto livre na v1 (a Legenda os marca como "Manual").
 - A **janela de recorrência** ancora na Data do Evento de cada registro (12 meses anteriores,
   inclusive), tornando o valor por-registro estável e reproduzível — interpretação de "últimos 12

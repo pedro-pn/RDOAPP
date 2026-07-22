@@ -1,4 +1,5 @@
 export const QUALITY_RECORD_TYPES = ['DESVIO', 'LICAO_APRENDIDA', 'INCIDENTE', 'RECLAMACAO_CLIENTE', 'MELHORIA'];
+export const QUALITY_EVIDENCE_KINDS = ['LINK', 'ATTACHMENT'];
 export const QUALITY_IMPACTS = ['ALTO', 'MEDIO', 'BAIXO'];
 export const QUALITY_DISPOSITIONS = ['TRATAR', 'MONITORAR', 'ARQUIVAR_DIVULGAR'];
 export const QUALITY_STATUSES = ['ABERTO', 'EM_TRIAGEM', 'EM_OBSERVACAO', 'EM_ACAO', 'FECHADO', 'DIVULGADO'];
@@ -55,6 +56,37 @@ function requiredText(z, max, message = 'Campo obrigatório.') {
   return schema;
 }
 
+function optionalUrl(z) {
+  return z.any().optional().nullable().transform(value => {
+    const text = String(value || '').trim();
+    return text || null;
+  }).refine(value => {
+    if (value === null) return true;
+    try {
+      const url = new URL(value);
+      return ['http:', 'https:'].includes(url.protocol);
+    } catch {
+      return false;
+    }
+  }, { message: 'Informe um link válido.' });
+}
+
+function evidenceItemSchema(z) {
+  return z.object({
+    id: optionalText(z, 120),
+    kind: z.enum(QUALITY_EVIDENCE_KINDS),
+    label: optionalText(z, 180),
+    url: optionalUrl(z),
+    fileName: optionalText(z, 240),
+    mimeType: optionalText(z, 120),
+    dataUrl: optionalText(z)
+  });
+}
+
+function evidencesSchema(z) {
+  return z.array(evidenceItemSchema(z)).max(20, 'Informe no máximo 20 evidências.').optional().default([]);
+}
+
 function dateText(z, message = 'Informe uma data válida.') {
   return z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, message);
 }
@@ -83,7 +115,8 @@ function recordBaseSchema(z, { includeType = true } = {}) {
     definedAction: optionalText(z, 4000),
     actionOwner: optionalText(z, 180),
     actionDeadline: optionalDateText(z),
-    evidence: optionalText(z, 1000),
+    evidence: optionalUrl(z),
+    evidences: evidencesSchema(z),
     resultVerification: optionalText(z, 4000),
     status: z.enum(QUALITY_STATUSES)
   };
@@ -98,6 +131,37 @@ function recordSchema(z, options = {}) {
         message: 'Informe a ação definida para disposição Tratar.'
       });
     }
+    const evidences = Array.isArray(data.evidences) ? data.evidences : [];
+    evidences.forEach((evidence, index) => {
+      if (evidence.kind === 'LINK' && !evidence.url) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['evidences', index, 'url'],
+          message: 'Informe o link da evidência.'
+        });
+      }
+      if (evidence.kind === 'ATTACHMENT' && !evidence.id && (!evidence.fileName || !evidence.dataUrl)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['evidences', index, 'fileName'],
+          message: 'Selecione uma imagem ou PDF para a evidência.'
+        });
+      }
+      if (evidence.kind === 'ATTACHMENT' && evidence.url) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['evidences', index, 'url'],
+          message: 'Anexos não devem ter link.'
+        });
+      }
+      if (evidence.kind === 'LINK' && evidence.dataUrl) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['evidences', index, 'dataUrl'],
+          message: 'Links não devem ter arquivo anexado.'
+        });
+      }
+    });
   });
 }
 
@@ -114,6 +178,7 @@ export function makeQualidadeSchemas(z) {
 
   return {
     RECORD_TYPES: QUALITY_RECORD_TYPES,
+    EVIDENCE_KINDS: QUALITY_EVIDENCE_KINDS,
     IMPACTS: QUALITY_IMPACTS,
     DISPOSITIONS: QUALITY_DISPOSITIONS,
     STATUSES: QUALITY_STATUSES,

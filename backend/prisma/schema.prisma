@@ -224,6 +224,11 @@ enum QualityRecordType {
   MELHORIA
 }
 
+enum QualityEvidenceKind {
+  LINK
+  ATTACHMENT
+}
+
 enum QualityImpact {
   ALTO
   MEDIO
@@ -1181,6 +1186,7 @@ model QualityRecord {
   createdBy          User?              @relation("QualityRecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy          User?              @relation("QualityRecordUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
   deletedBy          User?              @relation("QualityRecordDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  evidences          QualityEvidence[]
 
   @@unique([type, year, seq])
   @@index([projectId, type])
@@ -1192,6 +1198,25 @@ model QualityRecord {
   @@index([updatedById])
   @@index([deletedAt])
   @@index([deletedById])
+}
+
+model QualityEvidence {
+  id          String              @id @default(cuid())
+  recordId    String
+  kind        QualityEvidenceKind
+  label       String?
+  url         String?
+  fileName    String?
+  mimeType    String?
+  storagePath String?
+  publicToken String?             @unique
+  position    Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  record      QualityRecord       @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId, position])
+  @@index([kind])
+  @@index([storagePath])
 }
 
 model QualityRecordSeq {

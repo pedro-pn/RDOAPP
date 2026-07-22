@@ -9,6 +9,7 @@ import {
   requireQualidadeManager
 } from '../src/middleware/auth.js';
 import { buildQualityRecordsXlsx, QUALITY_EXPORT_HEADERS } from '../src/lib/qualidade/export-xlsx.js';
+import { parseQualityEvidenceUpload } from '../src/lib/qualidade/attachments.js';
 import { calculateQualityRecurrence } from '../src/lib/qualidade/recurrence.js';
 import {
   createNature,
@@ -57,6 +58,9 @@ function includeRecord(state, record) {
     ...record,
     project: record.projectId ? state.projects.find(project => project.id === record.projectId) || null : null,
     nature: state.natures.find(nature => nature.id === record.natureId) || null,
+    evidences: state.evidences
+      .filter(evidence => evidence.recordId === record.id)
+      .sort((a, b) => a.position - b.position),
     createdBy: null,
     updatedBy: null,
     deletedBy: null
@@ -87,6 +91,7 @@ function matchesWhere(record, where = {}) {
 function createMockQualidadeClient(seed = {}) {
   const state = {
     records: [],
+    evidences: [],
     natures: [{ id: 'nature-1', name: 'Stand By', isActive: true, createdAt: date('2026-01-01'), updatedAt: date('2026-01-01') }],
     projects: [{ id: 'project-1', code: '5775', name: 'Projeto X', isActive: true, deletedAt: null }],
     seq: new Map(),
@@ -164,6 +169,28 @@ function createMockQualidadeClient(seed = {}) {
         return record;
       }
     },
+    qualityEvidence: {
+      createMany: async ({ data }) => {
+        state.evidences.push(...data.map(item => ({
+          ...item,
+          createdAt: date('2026-07-22')
+        })));
+        return { count: data.length };
+      },
+      deleteMany: async ({ where }) => {
+        const before = state.evidences.length;
+        state.evidences = state.evidences.filter(item => item.recordId !== where.recordId);
+        return { count: before - state.evidences.length };
+      },
+      findFirst: async ({ where }) => {
+        const token = where.publicToken;
+        const evidence = state.evidences.find(item => item.publicToken === token && item.kind === where.kind);
+        if (!evidence) return null;
+        const record = state.records.find(item => item.id === evidence.recordId && !item.deletedAt);
+        if (!record) return null;
+        return { ...evidence, record: { number: record.number } };
+      }
+    },
     qualityNature: {
       findUnique: async ({ where, include }) => {
         const nature = state.natures.find(item => item.id === where.id) || null;
@@ -220,6 +247,7 @@ function recordPayload(overrides = {}) {
     actionOwner: null,
     actionDeadline: null,
     evidence: null,
+    evidences: [],
     resultVerification: null,
     status: 'ABERTO',
     ...overrides
@@ -231,8 +259,39 @@ test('qualidade schemas enforce required fields and defined action for Tratar', 
 
   assert.equal(schemas.recordCreate.safeParse(recordPayload()).success, true);
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ description: '' })).success, false);
+  assert.equal(schemas.recordCreate.safeParse(recordPayload({ evidence: 'texto solto' })).success, false);
+  assert.equal(schemas.recordCreate.safeParse(recordPayload({ evidence: 'https://example.com/evidencia' })).success, true);
+  assert.equal(schemas.recordCreate.safeParse(recordPayload({
+    evidences: [
+      { kind: 'LINK', url: 'https://example.com/evidencia-1' },
+      { kind: 'LINK', url: 'https://example.com/evidencia-2' },
+      { kind: 'ATTACHMENT', fileName: 'foto.png', mimeType: 'image/png', dataUrl: 'data:image/png;base64,AA==' }
+    ]
+  })).success, true);
+  assert.equal(schemas.recordCreate.safeParse(recordPayload({ evidences: [{ kind: 'LINK', url: 'texto solto' }] })).success, false);
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ disposition: 'TRATAR', definedAction: '' })).success, false);
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ disposition: 'TRATAR', definedAction: 'Abrir plano de ação' })).success, true);
+});
+
+test('quality evidence attachment accepts images and pdf only', () => {
+  const pdf = parseQualityEvidenceUpload({
+    fileName: 'evidencia.pdf',
+    dataUrl: `data:application/pdf;base64,${Buffer.from('%PDF-1.4\n').toString('base64')}`
+  });
+  assert.equal(pdf.mimeType, 'application/pdf');
+  assert.equal(pdf.extension, 'pdf');
+
+  const image = parseQualityEvidenceUpload({
+    fileName: 'foto.png',
+    dataUrl: 'data:image/png;base64,AA=='
+  });
+  assert.equal(image.mimeType, 'image/png');
+  assert.equal(image.extension, 'png');
+
+  assert.throws(() => parseQualityEvidenceUpload({
+    fileName: 'evidencia.txt',
+    dataUrl: 'data:text/plain;base64,AA=='
+  }), /imagem ou PDF/);
 });
 
 test('quality record numbering is sequential by type and year', async () => {
@@ -247,6 +306,26 @@ test('quality record numbering is sequential by type and year', async () => {
   assert.equal(second.number, 'D-002/26');
   assert.equal(nextYear.number, 'D-001/27');
   assert.equal(improvement.number, 'M-001/26');
+});
+
+test('quality record stores multiple evidence links', async () => {
+  const client = createMockQualidadeClient();
+  const record = await createRecord(client, {
+    data: recordPayload({
+      evidences: [
+        { kind: 'LINK', url: 'https://example.com/evidencia-1' },
+        { kind: 'LINK', url: 'https://example.com/evidencia-2' }
+      ]
+    })
+  });
+
+  assert.equal(record.evidences.length, 2);
+  assert.deepEqual(record.evidences.map(item => item.url), [
+    'https://example.com/evidencia-1',
+    'https://example.com/evidencia-2'
+  ]);
+  assert.equal(record.evidence, 'https://example.com/evidencia-1');
+  assert.equal(client.state.evidences.length, 2);
 });
 
 test('concurrent quality record creation produces unique numbers', async () => {

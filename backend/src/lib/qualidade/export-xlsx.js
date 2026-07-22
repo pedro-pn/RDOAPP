@@ -77,6 +77,15 @@ function projectLabel(record) {
   return [record.project.code, record.project.name].filter(Boolean).join(' - ');
 }
 
+function evidenceLabel(record) {
+  const items = Array.isArray(record.evidences) ? record.evidences : [];
+  if (!items.length) return record.evidence || '';
+  return items.map(item => {
+    if (item.kind === 'LINK') return item.url;
+    return item.publicUrl || item.fileName || '';
+  }).filter(Boolean).join('\n');
+}
+
 function recordRow(record) {
   return [
     record.number,
@@ -95,7 +104,7 @@ function recordRow(record) {
     record.definedAction || '',
     record.actionOwner || '',
     record.actionDeadline,
-    record.evidence || '',
+    evidenceLabel(record),
     record.resultVerification || '',
     statusLabels.get(record.status) || record.status
   ];

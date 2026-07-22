@@ -11,6 +11,7 @@ export type QualidadeOption = {
 
 export type QualidadeSchemas = {
   RECORD_TYPES: readonly string[];
+  EVIDENCE_KINDS: readonly string[];
   IMPACTS: readonly string[];
   DISPOSITIONS: readonly string[];
   STATUSES: readonly string[];

@@ -14,6 +14,9 @@ interface Props {
   onCurrentRemovedChange?: (removed: boolean) => void;
   accept?: string;
   disabled?: boolean;
+  emptyText?: string;
+  emptyHint?: string;
+  selectedHint?: string;
 }
 
 export function PdfDropzone({
@@ -29,7 +32,10 @@ export function PdfDropzone({
   accept = 'application/pdf,.pdf',
   disabled = false,
   multiple = false,
-  onFiles
+  onFiles,
+  emptyText,
+  emptyHint = 'ou clique para selecionar',
+  selectedHint
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -94,8 +100,8 @@ export function PdfDropzone({
         />
         <span className="pdf-dropzone-icon" aria-hidden="true">⤓</span>
         <span className="pdf-dropzone-text">
-          <strong>{selectedName || (multiple ? 'Arraste os PDFs aqui' : 'Arraste o PDF aqui')}</strong>
-          <small>{selectedName ? (multiple ? 'Clique ou solte para adicionar mais' : 'Clique ou solte outro para substituir') : 'ou clique para selecionar'}</small>
+          <strong>{selectedName || emptyText || (multiple ? 'Arraste os PDFs aqui' : 'Arraste o PDF aqui')}</strong>
+          <small>{selectedName ? (selectedHint || (multiple ? 'Clique ou solte para adicionar mais' : 'Clique ou solte outro para substituir')) : emptyHint}</small>
         </span>
         {selectedName && !disabled ? (
           <button

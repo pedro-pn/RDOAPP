@@ -1,4 +1,11 @@
+import { randomUUID } from 'node:crypto';
+
 import prisma from '../prisma.js';
+import {
+  createQualityEvidenceAttachment,
+  publicQualityAttachmentUrl,
+  removeQualityEvidenceAttachment
+} from './attachments.js';
 import { nextQualityRecordNumber } from './numbering.js';
 import { calculateQualityRecurrence } from './recurrence.js';
 
@@ -6,7 +13,8 @@ const RECORD_INCLUDE = {
   project: { select: { id: true, code: true, name: true, isActive: true } },
   nature: { select: { id: true, name: true, isActive: true } },
   createdBy: { select: { id: true, name: true } },
-  updatedBy: { select: { id: true, name: true } }
+  updatedBy: { select: { id: true, name: true } },
+  evidences: { orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] }
 };
 
 export class QualidadeError extends Error {
@@ -69,7 +77,15 @@ function recordWhereFromQuery(query = {}) {
         { number: { contains: q, mode: 'insensitive' } },
         { origin: { contains: q, mode: 'insensitive' } },
         { description: { contains: q, mode: 'insensitive' } },
-        { linkedRnc: { contains: q, mode: 'insensitive' } }
+        { linkedRnc: { contains: q, mode: 'insensitive' } },
+        { evidence: { contains: q, mode: 'insensitive' } },
+        { evidences: { some: {
+          OR: [
+            { label: { contains: q, mode: 'insensitive' } },
+            { url: { contains: q, mode: 'insensitive' } },
+            { fileName: { contains: q, mode: 'insensitive' } }
+          ]
+        } } }
       ]
     } : {}),
     ...(query.type ? { type: String(query.type) } : {}),
@@ -103,7 +119,48 @@ async function recordsForRecurrence(client, records) {
   });
 }
 
+function serializeEvidenceItem(evidence) {
+  if (!evidence) return null;
+  if (evidence.kind === 'LINK') {
+    return {
+      id: evidence.id,
+      kind: 'LINK',
+      label: evidence.label,
+      url: evidence.url,
+      createdAt: evidence.createdAt
+    };
+  }
+  if (!evidence.publicToken || !evidence.storagePath) return null;
+  return {
+    id: evidence.id,
+    kind: 'ATTACHMENT',
+    label: evidence.label,
+    fileName: evidence.fileName || 'evidencia',
+    mimeType: evidence.mimeType || 'application/octet-stream',
+    publicUrl: publicQualityAttachmentUrl(evidence.publicToken),
+    createdAt: evidence.createdAt
+  };
+}
+
+function serializeEvidences(record) {
+  const evidences = (Array.isArray(record.evidences) ? record.evidences : [])
+    .map(serializeEvidenceItem)
+    .filter(Boolean);
+  if (!evidences.length && record.evidence) {
+    return [{
+      id: `legacy-${record.id}`,
+      kind: 'LINK',
+      label: 'Evidência',
+      url: record.evidence,
+      createdAt: record.createdAt
+    }];
+  }
+  return evidences;
+}
+
 export function serializeQualityRecord(record, recurrence = {}) {
+  const evidences = serializeEvidences(record);
+  const firstLink = evidences.find(item => item.kind === 'LINK')?.url || record.evidence || null;
   return {
     id: record.id,
     number: record.number,
@@ -135,7 +192,9 @@ export function serializeQualityRecord(record, recurrence = {}) {
     definedAction: record.definedAction,
     actionOwner: record.actionOwner,
     actionDeadline: serializeDateOnly(record.actionDeadline),
-    evidence: record.evidence,
+    evidence: firstLink,
+    evidenceAttachment: evidences.find(item => item.kind === 'ATTACHMENT') || null,
+    evidences,
     resultVerification: record.resultVerification,
     status: record.status,
     createdBy: record.createdBy ? { id: record.createdBy.id, name: record.createdBy.name } : null,
@@ -227,6 +286,8 @@ async function assertNatureForRecord(client, natureId, { currentNatureId = null 
 }
 
 function recordDataFromPayload(data) {
+  const firstLink = (Array.isArray(data.evidences) ? data.evidences : [])
+    .find(item => item?.kind === 'LINK' && item.url)?.url;
   return {
     registeredAt: dateOnly(data.registeredAt),
     origin: data.origin,
@@ -240,10 +301,94 @@ function recordDataFromPayload(data) {
     definedAction: data.definedAction,
     actionOwner: data.actionOwner,
     actionDeadline: dateOnly(data.actionDeadline),
-    evidence: data.evidence,
+    evidence: normalizeOptionalText(firstLink || data.evidence),
     resultVerification: data.resultVerification,
     status: data.status
   };
+}
+
+function evidenceItemsFromPayload(data) {
+  if (Array.isArray(data.evidences)) return data.evidences;
+  const link = normalizeOptionalText(data.evidence);
+  return link ? [{ kind: 'LINK', label: null, url: link }] : [];
+}
+
+function existingEvidenceMap(evidences = []) {
+  return new Map((Array.isArray(evidences) ? evidences : []).map(item => [item.id, item]));
+}
+
+async function evidenceRowsFromPayload(data, currentEvidences = []) {
+  const currentById = existingEvidenceMap(currentEvidences);
+  const rows = [];
+  const createdAttachments = [];
+  const currentAttachmentIdsKept = new Set();
+
+  for (const [position, item] of evidenceItemsFromPayload(data).entries()) {
+    if (item.kind === 'LINK') {
+      const url = normalizeOptionalText(item.url);
+      if (!url) continue;
+      const current = item.id ? currentById.get(item.id) : null;
+      rows.push({
+        id: current?.kind === 'LINK' ? current.id : randomUUID(),
+        kind: 'LINK',
+        label: normalizeOptionalText(item.label),
+        url,
+        fileName: null,
+        mimeType: null,
+        storagePath: null,
+        publicToken: null,
+        position
+      });
+      continue;
+    }
+
+    if (item.kind !== 'ATTACHMENT') continue;
+    const current = item.id ? currentById.get(item.id) : null;
+    if (current?.kind === 'ATTACHMENT' && !item.dataUrl) {
+      currentAttachmentIdsKept.add(current.id);
+      rows.push({
+        id: current.id,
+        kind: 'ATTACHMENT',
+        label: normalizeOptionalText(item.label) ?? current.label ?? null,
+        url: null,
+        fileName: current.fileName,
+        mimeType: current.mimeType,
+        storagePath: current.storagePath,
+        publicToken: current.publicToken,
+        position
+      });
+      continue;
+    }
+
+    const created = await createQualityEvidenceAttachment({ upload: item });
+    if (!created) continue;
+    createdAttachments.push(created);
+    rows.push({
+      id: randomUUID(),
+      kind: 'ATTACHMENT',
+      label: normalizeOptionalText(item.label),
+      url: null,
+      fileName: created.fileName,
+      mimeType: created.mimeType,
+      storagePath: created.storagePath,
+      publicToken: created.publicToken,
+      position
+    });
+  }
+
+  const removedAttachments = currentEvidences
+    .filter(item => item.kind === 'ATTACHMENT' && item.storagePath && !currentAttachmentIdsKept.has(item.id));
+
+  return { rows, createdAttachments, removedAttachments };
+}
+
+async function replaceRecordEvidences(tx, recordId, rows) {
+  await tx.qualityEvidence.deleteMany({ where: { recordId } });
+  if (rows.length) {
+    await tx.qualityEvidence.createMany({
+      data: rows.map(row => ({ ...row, recordId }))
+    });
+  }
 }
 
 export async function createRecord(client = prisma, { data, userId = null }) {
@@ -252,23 +397,35 @@ export async function createRecord(client = prisma, { data, userId = null }) {
     assertNatureForRecord(client, data.natureId)
   ]);
 
-  const created = await client.$transaction(async tx => {
-    const registeredAt = dateOnly(data.registeredAt);
-    const numbering = await nextQualityRecordNumber(tx, { type: data.type, registeredAt });
-    return tx.qualityRecord.create({
-      data: {
-        ...recordDataFromPayload(data),
-        type: data.type,
-        registeredAt,
-        seq: numbering.seq,
-        year: numbering.year,
-        number: numbering.number,
-        createdById: userId,
-        updatedById: userId
-      },
-      include: RECORD_INCLUDE
+  const evidence = await evidenceRowsFromPayload(data);
+  let created;
+  try {
+    created = await client.$transaction(async tx => {
+      const registeredAt = dateOnly(data.registeredAt);
+      const numbering = await nextQualityRecordNumber(tx, { type: data.type, registeredAt });
+      const row = await tx.qualityRecord.create({
+        data: {
+          ...recordDataFromPayload(data),
+          type: data.type,
+          registeredAt,
+          seq: numbering.seq,
+          year: numbering.year,
+          number: numbering.number,
+          createdById: userId,
+          updatedById: userId
+        },
+        include: RECORD_INCLUDE
+      });
+      await replaceRecordEvidences(tx, row.id, evidence.rows);
+      return tx.qualityRecord.findUnique({
+        where: { id: row.id },
+        include: RECORD_INCLUDE
+      });
     });
-  });
+  } catch (error) {
+    await Promise.all(evidence.createdAttachments.map(removeQualityEvidenceAttachment));
+    throw error;
+  }
 
   return (await enrichRecords(client, [created]))[0];
 }
@@ -276,7 +433,7 @@ export async function createRecord(client = prisma, { data, userId = null }) {
 export async function updateRecord(client = prisma, id, { data, userId = null }) {
   const current = await client.qualityRecord.findFirst({
     where: { id, deletedAt: null },
-    select: { id: true, natureId: true }
+    include: { evidences: true }
   });
   if (!current) throw new QualidadeError('Registro de qualidade não encontrado.', 404);
 
@@ -285,14 +442,29 @@ export async function updateRecord(client = prisma, id, { data, userId = null })
     assertNatureForRecord(client, data.natureId, { currentNatureId: current.natureId })
   ]);
 
-  const updated = await client.qualityRecord.update({
-    where: { id },
-    data: {
-      ...recordDataFromPayload(data),
-      updatedById: userId
-    },
-    include: RECORD_INCLUDE
-  });
+  const evidence = await evidenceRowsFromPayload(data, current.evidences);
+  let updated;
+  try {
+    updated = await client.$transaction(async tx => {
+      await tx.qualityRecord.update({
+        where: { id },
+        data: {
+          ...recordDataFromPayload(data),
+          updatedById: userId
+        }
+      });
+      await replaceRecordEvidences(tx, id, evidence.rows);
+      return tx.qualityRecord.findUnique({
+        where: { id },
+        include: RECORD_INCLUDE
+      });
+    });
+  } catch (error) {
+    await Promise.all(evidence.createdAttachments.map(removeQualityEvidenceAttachment));
+    throw error;
+  }
+
+  await Promise.all(evidence.removedAttachments.map(removeQualityEvidenceAttachment));
 
   return (await enrichRecords(client, [updated]))[0];
 }

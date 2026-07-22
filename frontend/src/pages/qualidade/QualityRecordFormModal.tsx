@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 
 import type {
+  QualityEvidence,
+  QualityEvidenceUpload,
+  QualityEvidencePayload,
   QualityNature,
   QualityRecord,
   QualityRecordPayload,
@@ -14,6 +17,7 @@ import type {
   QualityProjectOption
 } from '../../api/qualidade';
 import { Modal } from '../../components/ui/Modal';
+import { PdfDropzone } from '../../components/ui/PdfDropzone';
 import { makeQualidadeSchemas } from '../../../../shared/schemas/qualidade.js';
 
 interface Props {
@@ -40,10 +44,20 @@ interface QualityRecordFormValues {
   definedAction: string;
   actionOwner: string;
   actionDeadline: string;
-  evidence: string;
   resultVerification: string;
   status: QualityStatus;
 }
+
+type EvidenceLinkDraft = {
+  id?: string;
+  url: string;
+  label?: string | null;
+};
+
+type EvidenceFileDraft = {
+  id: string;
+  file: File;
+};
 
 const schemas = makeQualidadeSchemas(z);
 
@@ -54,6 +68,73 @@ function todayDate() {
 function optionalValue(value: string) {
   const text = String(value || '').trim();
   return text || null;
+}
+
+function mimeTypeFor(file: File) {
+  const explicit = String(file.type || '').trim();
+  if (explicit) return explicit;
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.webp')) return 'image/webp';
+  return '';
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const mimeType = mimeTypeFor(file);
+      if (mimeType && /^data:(?:application\/octet-stream)?;base64,/i.test(result)) {
+        resolve(result.replace(/^data:(?:application\/octet-stream)?;base64,/i, `data:${mimeType};base64,`));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function evidenceUpload(file: File | null): Promise<QualityEvidenceUpload | undefined> {
+  if (!file) return undefined;
+  const mimeType = mimeTypeFor(file);
+  const name = file.name.toLowerCase();
+  const allowed = mimeType === 'application/pdf'
+    || mimeType.startsWith('image/')
+    || /\.(pdf|png|jpe?g|webp)$/i.test(name);
+  if (!allowed) throw new Error('A evidência deve ser uma imagem ou PDF.');
+  return { kind: 'ATTACHMENT', fileName: file.name, mimeType, dataUrl: await fileToDataUrl(file) };
+}
+
+function isEvidenceFile(file: File) {
+  const mimeType = mimeTypeFor(file);
+  return mimeType === 'application/pdf'
+    || mimeType.startsWith('image/')
+    || /\.(pdf|png|jpe?g|webp)$/i.test(file.name);
+}
+
+function evidenceLinksFor(record: QualityRecord | null): EvidenceLinkDraft[] {
+  const links = (record?.evidences || [])
+    .filter(evidence => evidence.kind === 'LINK' && evidence.url)
+    .map(evidence => ({ id: evidence.id, url: evidence.url || '', label: evidence.label }));
+  if (!links.length && record?.evidence) return [{ url: record.evidence, label: 'Evidência' }];
+  return links.length ? links : [{ url: '' }];
+}
+
+function evidenceFileDraftId(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`;
+}
+
+function validEvidenceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch {
+    return false;
+  }
 }
 
 function valuesToPayload(values: QualityRecordFormValues): QualityRecordPayload {
@@ -71,7 +152,7 @@ function valuesToPayload(values: QualityRecordFormValues): QualityRecordPayload 
     definedAction: optionalValue(values.definedAction),
     actionOwner: optionalValue(values.actionOwner),
     actionDeadline: optionalValue(values.actionDeadline),
-    evidence: optionalValue(values.evidence),
+    evidence: null,
     resultVerification: optionalValue(values.resultVerification),
     status: values.status
   };
@@ -104,6 +185,11 @@ function fieldClass(
 }
 
 export function QualityRecordFormModal({ open, record, projects, natures, saving, onClose, onSubmit }: Props) {
+  const [evidenceLinks, setEvidenceLinks] = useState<EvidenceLinkDraft[]>(() => evidenceLinksFor(record));
+  const [newEvidenceFiles, setNewEvidenceFiles] = useState<EvidenceFileDraft[]>([]);
+  const [removedEvidenceIds, setRemovedEvidenceIds] = useState<Set<string>>(() => new Set());
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const defaultValues = useMemo<QualityRecordFormValues>(() => ({
     type: record?.type || 'DESVIO',
     registeredAt: record?.registeredAt || todayDate(),
@@ -118,19 +204,98 @@ export function QualityRecordFormModal({ open, record, projects, natures, saving
     definedAction: record?.definedAction || '',
     actionOwner: record?.actionOwner || '',
     actionDeadline: record?.actionDeadline || '',
-    evidence: record?.evidence || '',
     resultVerification: record?.resultVerification || '',
     status: record?.status || 'ABERTO'
   }), [record]);
 
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<QualityRecordFormValues>({
+  const { register, handleSubmit, formState: { errors }, watch, clearErrors } = useForm<QualityRecordFormValues>({
     defaultValues,
     resolver: resolverFor(record)
   });
   const disposition = watch('disposition');
 
-  function submit(values: QualityRecordFormValues) {
+  useEffect(() => {
+    if (!open) return;
+    setEvidenceLinks(evidenceLinksFor(record));
+    setNewEvidenceFiles([]);
+    setRemovedEvidenceIds(new Set());
+    setSubmitError(null);
+    clearErrors();
+  }, [clearErrors, open, record]);
+
+  const existingAttachments = (record?.evidences || [])
+    .filter((evidence): evidence is QualityEvidence => evidence.kind === 'ATTACHMENT' && !removedEvidenceIds.has(evidence.id));
+
+  function updateEvidenceLink(index: number, url: string) {
+    setEvidenceLinks(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, url } : item));
+    setSubmitError(null);
+  }
+
+  function addEvidenceLink() {
+    setEvidenceLinks(current => [...current, { url: '' }]);
+  }
+
+  function removeEvidenceLink(index: number) {
+    setEvidenceLinks(current => {
+      const next = current.filter((_, itemIndex) => itemIndex !== index);
+      return next.length ? next : [{ url: '' }];
+    });
+    setSubmitError(null);
+  }
+
+  function appendEvidenceFiles(files: File[]) {
+    const invalid = files.find(file => !isEvidenceFile(file));
+    if (invalid) {
+      setSubmitError(`Arquivo inválido: ${invalid.name}. Use imagem ou PDF.`);
+      return;
+    }
+    setNewEvidenceFiles(current => [
+      ...current,
+      ...files.map(file => ({ id: evidenceFileDraftId(file), file }))
+    ]);
+    setSubmitError(null);
+  }
+
+  function removeExistingEvidence(id: string) {
+    setRemovedEvidenceIds(current => new Set([...current, id]));
+    setSubmitError(null);
+  }
+
+  function removeNewEvidenceFile(id: string) {
+    setNewEvidenceFiles(current => current.filter(item => item.id !== id));
+    setSubmitError(null);
+  }
+
+  async function submit(values: QualityRecordFormValues) {
+    setSubmitError(null);
     const payload = valuesToPayload(values);
+
+    try {
+      const evidences: QualityEvidencePayload[] = [];
+      for (const link of evidenceLinks) {
+        const url = optionalValue(link.url);
+        if (!url) continue;
+        if (!validEvidenceUrl(url)) {
+          setSubmitError('Informe links de evidência válidos começando com http:// ou https://.');
+          return;
+        }
+        evidences.push({ kind: 'LINK', id: link.id, label: link.label || null, url });
+      }
+      evidences.push(...existingAttachments.map(evidence => ({
+        kind: 'ATTACHMENT' as const,
+        id: evidence.id,
+        label: evidence.label || null
+      })));
+      for (const draft of newEvidenceFiles) {
+        const upload = await evidenceUpload(draft.file);
+        if (upload) evidences.push(upload);
+      }
+      payload.evidences = evidences;
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Não foi possível preparar as evidências.');
+      return;
+    }
+
     if (record) {
       const { type: _type, ...updatePayload } = payload;
       onSubmit(updatePayload);
@@ -270,9 +435,74 @@ export function QualityRecordFormModal({ open, record, projects, natures, saving
             <input id="quality-rnc" type="text" disabled={saving} {...register('linkedRnc')} />
           </div>
 
-          <div className="field-group">
-            <label htmlFor="quality-evidence">Evidência</label>
-            <input id="quality-evidence" type="text" disabled={saving} {...register('evidence')} />
+          <div className="field-group field-group-wide quality-evidence-block">
+            <div className="quality-evidence-head">
+              <label>Evidências</label>
+              <button className="mini-btn alt" type="button" disabled={saving} onClick={addEvidenceLink}>Adicionar link</button>
+            </div>
+            <div className="quality-evidence-links-editor">
+              {evidenceLinks.map((link, index) => (
+                <div className="quality-evidence-link-row" key={link.id || `link-${index}`}>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={link.url}
+                    disabled={saving}
+                    aria-label={`Link de evidência ${index + 1}`}
+                    onChange={event => updateEvidenceLink(index, event.target.value)}
+                  />
+                  <button
+                    className="mini-btn alt"
+                    type="button"
+                    disabled={saving}
+                    onClick={() => removeEvidenceLink(index)}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <PdfDropzone
+              id="quality-evidence-files"
+              label="Anexos da evidência (imagens/PDFs)"
+              file={null}
+              onFile={file => { if (file) appendEvidenceFiles([file]); }}
+              multiple
+              onFiles={appendEvidenceFiles}
+              accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.webp"
+              emptyText="Arraste imagens ou PDFs aqui"
+              emptyHint="ou clique para selecionar vários"
+              disabled={saving}
+            />
+
+            {existingAttachments.length || newEvidenceFiles.length ? (
+              <div className="quality-evidence-file-list">
+                {existingAttachments.map(evidence => (
+                  <div className="quality-evidence-file-row" key={evidence.id}>
+                    {evidence.publicUrl ? (
+                      <a className="equip-link" href={evidence.publicUrl} target="_blank" rel="noreferrer">
+                        {evidence.fileName || 'Anexo'}
+                      </a>
+                    ) : (
+                      <span>{evidence.fileName || 'Anexo'}</span>
+                    )}
+                    <button className="mini-btn alt" type="button" disabled={saving} onClick={() => removeExistingEvidence(evidence.id)}>
+                      Remover
+                    </button>
+                  </div>
+                ))}
+                {newEvidenceFiles.map(draft => (
+                  <div className="quality-evidence-file-row" key={draft.id}>
+                    <span>{draft.file.name}</span>
+                    <button className="mini-btn alt" type="button" disabled={saving} onClick={() => removeNewEvidenceFile(draft.id)}>
+                      Remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {submitError ? <small className="field-error">{submitError}</small> : null}
           </div>
 
           <div className="field-group field-group-wide">

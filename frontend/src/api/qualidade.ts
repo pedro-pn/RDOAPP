@@ -1,6 +1,7 @@
 import { apiClient, qualidadeApiPath } from './client';
 
 export type QualityRecordType = 'DESVIO' | 'LICAO_APRENDIDA' | 'INCIDENTE' | 'RECLAMACAO_CLIENTE' | 'MELHORIA';
+export type QualityEvidenceKind = 'LINK' | 'ATTACHMENT';
 export type QualityImpact = 'ALTO' | 'MEDIO' | 'BAIXO';
 export type QualityDisposition = 'TRATAR' | 'MONITORAR' | 'ARQUIVAR_DIVULGAR';
 export type QualityStatus = 'ABERTO' | 'EM_TRIAGEM' | 'EM_OBSERVACAO' | 'EM_ACAO' | 'FECHADO' | 'DIVULGADO';
@@ -13,6 +14,44 @@ export interface QualityNature {
   recordCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface QualityEvidenceUpload {
+  kind: 'ATTACHMENT';
+  id?: string;
+  label?: string | null;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+}
+
+export interface QualityEvidenceLinkPayload {
+  kind: 'LINK';
+  id?: string;
+  label?: string | null;
+  url: string;
+}
+
+export interface QualityExistingEvidenceAttachmentPayload {
+  kind: 'ATTACHMENT';
+  id: string;
+  label?: string | null;
+}
+
+export type QualityEvidencePayload =
+  | QualityEvidenceLinkPayload
+  | QualityEvidenceUpload
+  | QualityExistingEvidenceAttachmentPayload;
+
+export interface QualityEvidence {
+  id: string;
+  kind: QualityEvidenceKind;
+  label: string | null;
+  url?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  publicUrl?: string | null;
+  createdAt?: string;
 }
 
 export interface QualityRecord {
@@ -38,6 +77,8 @@ export interface QualityRecord {
   actionOwner: string | null;
   actionDeadline: string | null;
   evidence: string | null;
+  evidenceAttachment: QualityEvidence | null;
+  evidences: QualityEvidence[];
   resultVerification: string | null;
   status: QualityStatus;
   createdAt: string;
@@ -59,6 +100,7 @@ export interface QualityRecordPayload {
   actionOwner?: string | null;
   actionDeadline?: string | null;
   evidence?: string | null;
+  evidences?: QualityEvidencePayload[];
   resultVerification?: string | null;
   status: QualityStatus;
 }

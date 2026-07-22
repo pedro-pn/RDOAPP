@@ -75,12 +75,12 @@
   - Datas: Data do Registro (default hoje), Data do Evento, Prazo da ação → `DateTime`/date input.
   - Selects: Tipo, Impacto (Alto/Médio/Baixo), Disposição (Tratar/Monitorar/Arquivar-Divulgar),
     Status (Aberto/Em triagem/Em observação/Em ação/Fechado/Divulgado), Projeto, Natureza.
-  - Texto livre: Origem, Descrição, RNC vinculada, Ação definida, Responsável pela ação, Evidência
-    (URL/texto), Verificação do resultado.
+  - Texto livre/listas: Origem, Descrição, RNC vinculada, Ação definida, Responsável pela ação,
+    Evidências (links/anexos), Verificação do resultado.
   - Regra condicional: Ação definida obrigatória quando Disposição = "Tratar" (validada no Zod
     compartilhado com `superRefine`).
-- **Rationale**: Segue a Legenda da planilha, com o ajuste pedido (Prazo da ação vira data) e a
-  simplificação da v1 (Evidência = link).
+- **Rationale**: Segue a Legenda da planilha, com o ajuste pedido (Prazo da ação vira data) e
+  permite anexar várias fotos/documentos sem impedir links externos.
 - **Alternativas rejeitadas**: Origem/Responsável como listas fechadas (a Legenda os marca como
   Manual; listas podem virar fase posterior).
 

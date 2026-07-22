@@ -23,7 +23,12 @@ Resposta `200`:
     "occurrences12m": 3, "recurrent": true,
     "linkedRnc": "-", "disposition": "MONITORAR",
     "definedAction": null, "actionOwner": null, "actionDeadline": null,
-    "evidence": null, "resultVerification": null, "status": "ABERTO"
+    "evidence": null,
+    "evidences": [
+      { "id": "...", "kind": "LINK", "label": null, "url": "https://..." },
+      { "id": "...", "kind": "ATTACHMENT", "label": null, "fileName": "foto.png", "mimeType": "image/png", "publicUrl": "/api/qualidade-anexos/..." }
+    ],
+    "resultVerification": null, "status": "ABERTO"
   }],
   "page": 1, "pageSize": 50, "total": 1
 }
@@ -36,10 +41,25 @@ Retorna um registro (mesmo shape do item acima). `404` se não existir.
 ### POST /qualidade/registros  *(manager)*
 Corpo (validado por Zod): `type`, `registeredAt`, `origin`, `projectId|null`, `eventDate`,
 `natureId`, `description`, `impact`, `linkedRnc?`, `disposition`, `definedAction?`, `actionOwner?`,
-`actionDeadline?`, `evidence?`, `resultVerification?`, `status`.
+`actionDeadline?`, `evidence?` (legado, primeira URL http/https), `evidences?`
+(lista com itens `LINK` ou `ATTACHMENT`), `resultVerification?`, `status`.
 Regra: se `disposition === "TRATAR"` então `definedAction` é obrigatório (`superRefine`).
+Regra: cada item de `evidences` é um link http/https ou um anexo imagem/PDF. É permitido enviar
+mais de um link e mais de um arquivo no mesmo registro.
 Efeito: gera `number` atômico por (type, year=ano de `registeredAt`). Resposta `201` com o registro.
 Erros: `400` validação; `409` colisão de numeração (retry improvável após transação).
+
+Payload de evidências:
+```json
+{
+  "evidences": [
+    { "kind": "LINK", "url": "https://exemplo.com/evidencia" },
+    { "kind": "ATTACHMENT", "fileName": "foto.png", "mimeType": "image/png", "dataUrl": "data:image/png;base64,..." },
+    { "kind": "ATTACHMENT", "fileName": "documento.pdf", "mimeType": "application/pdf", "dataUrl": "data:application/pdf;base64,..." }
+  ]
+}
+```
+Na edição, anexos já existentes podem ser mantidos enviando `{ "kind": "ATTACHMENT", "id": "..." }`.
 
 ### PUT /qualidade/registros/:id  *(manager)*
 Atualiza campos editáveis (todos, exceto `number`/`type`-ano-seq que geram a numeração — `type`
@@ -49,7 +69,12 @@ editável **não** re-emite o número na v1; ver Assumptions). Mesma validação
 > campo Tipo. Alterar tipo = criar novo registro.
 
 ### DELETE /qualidade/registros/:id  *(manager)*
-Remove o registro. `204`. (Sem soft-delete na v1.)
+Soft delete do registro. `204`. O registro deixa de aparecer nas listagens/exportações, mas é
+preservado no banco para recuperação operacional.
+
+### GET /qualidade-anexos/:token
+Download público por token aleatório de cada anexo de evidência. Retorna `404` quando o token não existe,
+o arquivo não existe ou o registro foi removido via soft delete.
 
 ### GET /qualidade/registros/export
 Exporta os registros para `.xlsx` (acesso: qualquer papel com acesso ao módulo — é leitura). Aceita
@@ -61,7 +86,8 @@ Resposta `200`:
 - Corpo: binário do `.xlsx`. Uma linha por registro; colunas na ordem da referência FR-3-4-11-01:
   Nº Registro, Data do Registro, Tipo, Origem, Obra/Projeto, Data do Evento, Natureza, Descrição,
   Impacto, Ocorrências 12m, Recorrente?, RNC vinculada, Disposição, Ação definida, Responsável pela
-  ação, Prazo da ação, Evidência, Verificação do resultado, Status. Datas como texto `dd/mm/aaaa`;
+  ação, Prazo da ação, Evidência, Verificação do resultado, Status. A evidência exporta todos os
+  links/URLs dos anexos, um por linha na célula. Datas como texto `dd/mm/aaaa`;
   Obra/Projeto = código/nome do projeto ou "Interno/SGQ"; Recorrente? = "SIM"/"não".
 
 ### GET /qualidade/registros/projeto/:projectId/desvios

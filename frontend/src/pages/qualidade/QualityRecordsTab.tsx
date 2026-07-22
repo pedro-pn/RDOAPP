@@ -58,6 +58,18 @@ function natureName(record: QualityRecord) {
   return record.nature?.name || '-';
 }
 
+function evidenceLinks(record: QualityRecord) {
+  const items = Array.isArray(record.evidences) ? record.evidences : [];
+  if (!items.length && record.evidence) return [{ href: record.evidence, label: 'Evidência' }];
+  return items
+    .map(item => {
+      if (item.kind === 'LINK' && item.url) return { href: item.url, label: item.label || 'Link' };
+      if (item.kind === 'ATTACHMENT' && item.publicUrl) return { href: item.publicUrl, label: item.fileName || 'Anexo' };
+      return null;
+    })
+    .filter((item): item is { href: string; label: string } => Boolean(item));
+}
+
 function impactBadgeClass(impact: QualityImpact) {
   if (impact === 'ALTO') return 'badge badge-rej';
   if (impact === 'MEDIO') return 'badge badge-pen';
@@ -258,12 +270,25 @@ export function QualityRecordsTab({ isManager }: Props) {
               </tr>
             </thead>
             <tbody>
-              {records.map(record => (
-                <tr key={record.id}>
-                  <td data-label="Nº">
-                    <strong>{record.number}</strong>
-                    <span className="stock-table-muted">{record.origin}</span>
-                  </td>
+              {records.map(record => {
+                const evidences = evidenceLinks(record);
+                const visibleEvidences = evidences.slice(0, 2);
+                return (
+                  <tr key={record.id}>
+                    <td data-label="Nº">
+                      <strong>{record.number}</strong>
+                      <span className="stock-table-muted">{record.origin}</span>
+                      {visibleEvidences.length ? (
+                        <span className="quality-evidence-links">
+                          {visibleEvidences.map((evidence, index) => (
+                            <a className="equip-link quality-evidence-link" href={evidence.href} target="_blank" rel="noreferrer" key={`${evidence.href}-${index}`}>
+                              {evidence.label}
+                            </a>
+                          ))}
+                          {evidences.length > visibleEvidences.length ? <span className="stock-table-muted">+{evidences.length - visibleEvidences.length}</span> : null}
+                        </span>
+                      ) : null}
+                    </td>
                   <td data-label="Tipo">{typeLabels.get(record.type) || record.type}</td>
                   <td data-label="Projeto">{projectLabel(record)}</td>
                   <td data-label="Natureza">{natureName(record)}</td>
@@ -282,8 +307,9 @@ export function QualityRecordsTab({ isManager }: Props) {
                       <span className="placeholder-copy">Somente leitura</span>
                     )}
                   </td>
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

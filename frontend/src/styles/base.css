@@ -11956,6 +11956,18 @@ input.app-search-input::-webkit-search-cancel-button {
   gap: 6px;
 }
 
+.quality-evidence-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 3px;
+}
+
+.quality-evidence-link {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .modal-card.quality-modal {
   width: min(94vw, 980px);
   max-width: 980px;
@@ -11974,6 +11986,93 @@ input.app-search-input::-webkit-search-cancel-button {
 
 .quality-form-grid .field-group-wide {
   grid-column: 1 / -1;
+}
+
+.quality-evidence-mode {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--bg);
+}
+
+.quality-evidence-mode button {
+  min-height: 32px;
+  border: 0;
+  border-radius: calc(var(--rs) - 2px);
+  background: transparent;
+  color: var(--mu);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quality-evidence-mode button.active {
+  background: var(--wh);
+  color: var(--tx);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+}
+
+.quality-evidence-mode button:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.quality-evidence-mode + input,
+.quality-evidence-mode + .field-group {
+  margin-top: 8px;
+}
+
+.quality-evidence-block {
+  gap: 10px;
+}
+
+.quality-evidence-head,
+.quality-evidence-link-row,
+.quality-evidence-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quality-evidence-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.quality-evidence-links-editor,
+.quality-evidence-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.quality-evidence-link-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.quality-evidence-link-row > button,
+.quality-evidence-file-row > button {
+  flex: 0 0 auto;
+}
+
+.quality-evidence-file-row {
+  justify-content: space-between;
+  padding: 6px 8px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--bg);
+}
+
+.quality-evidence-file-row > span,
+.quality-evidence-file-row > a {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .quality-readonly-strip {
@@ -12197,5 +12296,20 @@ input.app-search-input::-webkit-search-cancel-button {
 
   .quality-row-actions > button {
     flex: 1 1 0;
+  }
+
+  .quality-evidence-mode {
+    width: 100%;
+  }
+
+  .quality-evidence-link-row,
+  .quality-evidence-file-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quality-evidence-link-row > button,
+  .quality-evidence-file-row > button {
+    width: 100%;
   }
 }
