@@ -11,6 +11,7 @@ import asyncHandler from './lib/async-handler.js';
 import { resolvePublicCalibrationCertificate } from './lib/calibration-certificates.js';
 import { equipmentAttachmentFileName, inlineContentDisposition, resolvePublicEquipmentAttachment } from './lib/equipment-attachments.js';
 import { captureOperationalError } from './lib/operations/error-tracking.js';
+import { resolvePublicStockAttachment, stockAttachmentFileName } from './lib/estoque/stock-attachments.js';
 import { localizedZodErrorDetails, localizedZodIssues } from './lib/zod-error.js';
 import { requireAuth } from './middleware/auth.js';
 import { requestMetrics } from './middleware/request-metrics.js';
@@ -40,11 +41,9 @@ app.use(cors({
   origin(origin, callback) {
     const allowedOrigins = env.allowedOrigins || [];
     const originAllowed = !allowedOrigins.length || allowedOrigins.includes(origin);
-    if (!origin || originAllowed) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error('Origem nao permitida pelo CORS.'));
+    // Nega origem não permitida sem lançar erro (evita respostas HTTP 500 ruidosas
+    // e ruído no monitoramento). O navegador bloqueia por falta de cabeçalhos CORS.
+    callback(null, !origin || originAllowed);
   },
   exposedHeaders: ['Content-Disposition']
 }));
@@ -56,7 +55,8 @@ app.use((req, res, next) => {
     '/api/rdo/manometers',
     '/api/particle-counters',
     '/api/rdo/particle-counters',
-    '/api/equipamentos'
+    '/api/equipamentos',
+    '/api/estoque'
   ].some(prefix => req.path === prefix || req.path.startsWith(`${prefix}/`));
   const isManualReportUploadApi = req.path === '/api/reports/manual-upload'
     || req.path === '/api/rdo/reports/manual-upload'
@@ -101,6 +101,15 @@ app.get('/api/equipamentos-anexos/:token', asyncHandler(async (req, res) => {
   res.setHeader('Content-Disposition', inlineContentDisposition(equipmentAttachmentFileName(resolved.attachment)));
   return res.sendFile(resolved.targetPath);
 }));
+app.get('/api/estoque-anexos/:token', asyncHandler(async (req, res) => {
+  const resolved = await resolvePublicStockAttachment(req.params.token);
+  if (!resolved) {
+    return res.status(404).json({ error: 'Anexo não encontrado.' });
+  }
+  res.type('application/pdf');
+  res.setHeader('Content-Disposition', inlineContentDisposition(stockAttachmentFileName(resolved)));
+  return res.sendFile(resolved.targetPath);
+}));
 app.get('/relatorios/*storedFilePath', requireAuth, asyncHandler(serveAuthorizedStoredFile));
 app.get('/uploads/*storedFilePath', requireAuth, asyncHandler(serveAuthorizedStoredFile));
 
@@ -112,6 +121,11 @@ app.use('/api', apiRouter);
 
 app.use((err, req, res, _next) => {
   console.error(err);
+
+  // Corpo malformado: não expor a mensagem interna do parser de JSON.
+  if (err && (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err))) {
+    return res.status(400).json({ error: 'Corpo da requisição inválido.' });
+  }
 
   if (err instanceof ZodError) {
     const issues = localizedZodIssues(err.issues || []);

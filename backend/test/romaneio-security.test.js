@@ -319,6 +319,18 @@ test('Romaneio inbound items are limited by outbound balance and preserve measur
       unitLabel: 'm',
       isCustom: false,
       sortOrder: 0
+    }, {
+      catalogItemId: 'catalog-extra-filter',
+      itemCode: 'FL-EXT',
+      itemName: 'Filtro externo',
+      categoryName: 'Filtros',
+      kind: 'EQUIPMENT',
+      measureType: 'UNIT',
+      quantity: 2,
+      unitLabel: 'unidade',
+      isCustom: false,
+      isExtra: true,
+      sortOrder: 1
     }]
   }]);
 
@@ -337,6 +349,17 @@ test('Romaneio inbound items are limited by outbound balance and preserve measur
     quantity: 7,
     unitLabel: 'unidade',
     isCustom: false
+  }, {
+    catalogItemId: 'catalog-extra-filter',
+    itemCode: 'FL-EXT',
+    itemName: 'Filtro externo',
+    categoryName: 'Filtros',
+    kind: 'EQUIPMENT',
+    measureType: 'UNIT',
+    quantity: 2,
+    unitLabel: 'unidade',
+    isCustom: false,
+    isExtra: true
   }], returnable);
 
   assert.deepEqual(inboundItems, [{
@@ -349,7 +372,20 @@ test('Romaneio inbound items are limited by outbound balance and preserve measur
     quantity: 7,
     unitLabel: 'm',
     isCustom: false,
+    isExtra: false,
     sortOrder: 0
+  }, {
+    catalogItemId: 'catalog-extra-filter',
+    itemName: 'Filtro externo',
+    itemCode: 'FL-EXT',
+    categoryName: 'Filtros',
+    kind: 'EQUIPMENT',
+    measureType: 'UNIT',
+    quantity: 2,
+    unitLabel: 'unidade',
+    isCustom: false,
+    isExtra: true,
+    sortOrder: 1
   }]);
 
   assert.throws(
@@ -1016,7 +1052,7 @@ test('Romaneio catalog category rename updates every item in the category', asyn
   assert.deepEqual(calls[0], ['romaneioCatalogItem.count', {
     where: {
       categoryName: 'Mangueiras',
-      sourceType: { in: ['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS'] }
+      sourceType: { in: ['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK'] }
     }
   }]);
   assert.deepEqual(calls[1], ['romaneioCatalogItem.updateMany', {

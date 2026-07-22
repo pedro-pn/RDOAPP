@@ -84,6 +84,7 @@ enum AppModule {
   EPI
   PRIVACY
   EQUIPAMENTOS
+  ESTOQUE
   ACOMPANHAMENTO
 }
 
@@ -99,8 +100,30 @@ enum ModuleRoleCode {
   PRIVACY_ADMIN
   EQUIPAMENTOS_MANAGER
   EQUIPAMENTOS_VIEWER
+  ESTOQUE_MANAGER
+  ESTOQUE_VIEWER
   ACOMPANHAMENTO_MANAGER
   ACOMPANHAMENTO_VIEWER
+}
+
+enum StockItemType {
+  FILTRO
+  PRODUTO_QUIMICO
+}
+
+enum StockMovementType {
+  ENTRADA
+  SAIDA
+}
+
+enum StockMovementReason {
+  COMPRA
+  DEVOLUCAO_OBRA
+  INVENTARIO
+  USO_EM_PROJETO
+  PERDA
+  DESCARTE_VALIDADE
+  ESTORNO
 }
 
 enum RomaneioItemKind {
@@ -120,6 +143,7 @@ enum RomaneioCatalogSource {
   UNIT
   PARTICLE_COUNTER
   EQUIPAMENTOS
+  STOCK
 }
 
 enum RomaneioType {
@@ -166,11 +190,11 @@ enum BudgetSelectionStatus {
 // Em uso hoje: M (tubulação) e L (óleo) — as que casam com o realizado do RDO. KG/T/UN ficam
 // reservadas para quando o RDO passar a capturar peso/tanques (sem fonte de realizado por ora).
 enum PlannedMeasureUnit {
-  M  // metros (tubulação)
+  M // metros (tubulação)
   KG // quilos (reservado)
-  T  // toneladas (reservado)
+  T // toneladas (reservado)
   UN // unidades (reservado)
-  L  // litros (óleo)
+  L // litros (óleo)
 }
 
 enum AccessImportSource {
@@ -184,29 +208,34 @@ enum AccessImportStatus {
   ERROR
 }
 
+enum AcompanhamentoMissionGroupStatus {
+  ACTIVE
+  DISSOLVED
+}
+
 model Collaborator {
-  id               String    @id @default(cuid())
-  code             String    @unique
-  name             String
-  role             String
-  email            String?
-  cpf              String?
-  registrationNumber String?
-  admissionDate    DateTime?
-  signatureImage   String?
+  id                        String                           @id @default(cuid())
+  code                      String                           @unique
+  name                      String
+  role                      String
+  email                     String?
+  cpf                       String?
+  registrationNumber        String?
+  admissionDate             DateTime?
+  signatureImage            String?
   signatureNoticeAcceptedAt DateTime?
-  signatureNoticeVersion String?
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  projectsLed      Project[] @relation("ProjectOperator")
-  reportLinks      ReportCollaborator[]
-  user             User?
-  epiRecords       EpiRecord[]
-  epiSignatureRequests EpiSignatureRequest[]
-  signatureNoticeLogs CollaboratorSignatureNoticeLog[]
-  pontoPeriods     PontoPeriodSummary[]
-  pontoNameAliases PontoNameAlias[]
+  signatureNoticeVersion    String?
+  isActive                  Boolean                          @default(true)
+  createdAt                 DateTime                         @default(now())
+  updatedAt                 DateTime                         @updatedAt
+  projectsLed               Project[]                        @relation("ProjectOperator")
+  reportLinks               ReportCollaborator[]
+  user                      User?
+  epiRecords                EpiRecord[]
+  epiSignatureRequests      EpiSignatureRequest[]
+  signatureNoticeLogs       CollaboratorSignatureNoticeLog[]
+  pontoPeriods              PontoPeriodSummary[]
+  pontoNameAliases          PontoNameAlias[]
 }
 
 model CollaboratorSignatureNoticeLog {
@@ -233,7 +262,7 @@ model ClientSegment {
   updatedAt DateTime @updatedAt
 }
 
-// Motor de custo (planilhas operador/auxiliar): perfil + parâmetros versionados.
+// Motor de custo de colaborador: perfil + parâmetros versionados.
 // Um perfil pode ser vinculado a um cargo (JobRole) — nesse caso é o custo daquele cargo.
 model CostProfile {
   id            String             @id @default(cuid())
@@ -251,7 +280,8 @@ model CostParameterSet {
   id              String      @id @default(cuid())
   costProfileId   String
   version         Int
-  params          Json // campos "amarelos" da planilha (salário, %s, benefícios, encargos)
+  effectiveDate   DateTime    @db.Date
+  params          Json // campos "amarelos" da planilha (salário, %s, benefícios, FGTS, multa)
   note            String?
   createdByUserId String?
   createdAt       DateTime    @default(now())
@@ -259,6 +289,7 @@ model CostParameterSet {
 
   @@unique([costProfileId, version])
   @@index([costProfileId])
+  @@index([costProfileId, effectiveDate])
 }
 
 // Configurações globais do módulo Acompanhamento (chave/valor). Ex.: custo de EPI por colaborador.
@@ -274,18 +305,18 @@ model AcompanhamentoSetting {
 // manualmente (semanal). Cada import guarda auditoria + um resumo por colaborador no período.
 
 model PontoImport {
-  id                   String   @id @default(cuid())
+  id                   String               @id @default(cuid())
   fileName             String
-  contentHash          String   // sha256 hex do arquivo (idempotência)
-  periodStart          DateTime @db.Date
-  periodEnd            DateTime @db.Date
-  rowsRead             Int      @default(0)
-  collaboratorsTotal   Int      @default(0)
-  collaboratorsMatched Int      @default(0)
+  contentHash          String // sha256 hex do arquivo (idempotência)
+  periodStart          DateTime             @db.Date
+  periodEnd            DateTime             @db.Date
+  rowsRead             Int                  @default(0)
+  collaboratorsTotal   Int                  @default(0)
+  collaboratorsMatched Int                  @default(0)
   summary              Json?
-  status               String   @default("OK")
+  status               String               @default("OK")
   importedByUserId     String?
-  createdAt            DateTime @default(now())
+  createdAt            DateTime             @default(now())
   periods              PontoPeriodSummary[]
 
   @@index([createdAt])
@@ -295,20 +326,20 @@ model PontoImport {
 // Resumo por colaborador × import: horas normais + split HE70/HE100 (só existe no "Resumo" da
 // planilha) + dias trabalhados (para cruzar com RDO e derivar dias de viagem).
 model PontoPeriodSummary {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   importId       String
-  collaboratorId String?      // null até o nome ser vinculado a um Collaborator
+  collaboratorId String? // null até o nome ser vinculado a um Collaborator
   rawName        String
   normalizedName String
-  periodStart    DateTime     @db.Date
-  periodEnd      DateTime     @db.Date
-  workedMinutes  Int          @default(0)
-  he70Minutes    Int          @default(0)
-  he100Minutes   Int          @default(0)
-  nightMinutes   Int          @default(0)
-  workedDates    String[]     @default([]) // ["YYYY-MM-DD", ...] dias com horas normais > 0
-  monthly        Json?        // { "YYYY-MM": { normalMinutes, extrasMinutes, nightMinutes, workedDates[] } }
-  createdAt      DateTime     @default(now())
+  periodStart    DateTime      @db.Date
+  periodEnd      DateTime      @db.Date
+  workedMinutes  Int           @default(0)
+  he70Minutes    Int           @default(0)
+  he100Minutes   Int           @default(0)
+  nightMinutes   Int           @default(0)
+  workedDates    String[]      @default([]) // ["YYYY-MM-DD", ...] dias com horas normais > 0
+  monthly        Json? // { "YYYY-MM": { normalMinutes, extrasMinutes, nightMinutes, workedDates[] } }
+  createdAt      DateTime      @default(now())
   import         PontoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
   collaborator   Collaborator? @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
 
@@ -333,70 +364,151 @@ model PontoNameAlias {
 
 // Lista gerenciável de cargos (substitui o texto livre em Collaborator.role).
 model JobRole {
+  id                 String                      @id @default(cuid())
+  name               String                      @unique
+  order              Int                         @default(0)
+  isActive           Boolean                     @default(true)
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  plannedNormalHours ProjectPlannedNormalHours[]
+  plannedOvertime    ProjectPlannedOvertime[]
+  costProfile        CostProfile?
+
+  @@index([isActive, order])
+}
+
+// Lista gerenciável de temas de DDS abordados nos RDOs (gestores e coordenadores).
+model DdsTheme {
   id        String   @id @default(cuid())
   name      String   @unique
   order     Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  plannedOvertime ProjectPlannedOvertime[]
-  costProfile     CostProfile?
 
   @@index([isActive, order])
 }
 
 model Project {
-  id                    String            @id @default(cuid())
-  code                  String            @unique
-  name                  String
-  isActive              Boolean           @default(true)
-  visibleToCollaborators Boolean          @default(true)
-  managerOnly           Boolean           @default(false)
-  registrationPending   Boolean           @default(false)
-  inhibitionServiceEnabled Boolean        @default(false)
-  requireServiceReportSignatures Boolean  @default(false)
-  offshore              Boolean           @default(false) // projeto offshore: +transferência no custo de MO
-  laborSleepModeByCollaborator Json        @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
-  laborCollaboratorIds  Json              @default("[]") // Acompanhamento: colaboradores adicionados manualmente ao cronograma
+  id                             String  @id @default(cuid())
+  code                           String  @unique
+  name                           String
+  isActive                       Boolean @default(true)
+  visibleToCollaborators         Boolean @default(true)
+  managerOnly                    Boolean @default(false)
+  registrationPending            Boolean @default(false)
+  inhibitionServiceEnabled       Boolean @default(false)
+  requireServiceReportSignatures Boolean @default(false)
+  offshore                       Boolean @default(false) // projeto offshore: +transferência no custo de MO
+  laborSleepModeByCollaborator   Json    @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
+  laborCollaboratorIds           Json    @default("[]") // Acompanhamento: colaboradores adicionados manualmente ao cronograma
 
-  clientName            String
-  clientCnpj            String
-  clientEmailPrimary    String            @default("")
-  clientSignerFirstName String            @default("")
-  clientSignerLastName  String            @default("")
-  clientEmailCc         String[]          @default([])
-  clientSigners         Json[]            @default([])
-  contractCode          String
-  location              String
-  workdayHours          String            @default("09:00")
-  weekendWorkdayHours   String            @default("08:00")
-  includesSaturday      Boolean           @default(false)
-  includesSunday        Boolean           @default(false)
-  operatorId            String?
-  clientSegment         String?
-  commercialProposalCode String?          // = cod_prop do Access; reconciliação proposta↔projeto
-  mobilizationDate     DateTime?           // data de mobilização (manual, gestor/coordenador)
-  startDate            DateTime?           // início real da execução (manual, gestor/coordenador)
-  manualProgressPct    Decimal?  @db.Decimal(5, 2) // avanço informado à mão (fallback quando não há escopo)
-  createdAt            DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  deletedAt             DateTime?
-  operator              Collaborator?     @relation("ProjectOperator", fields: [operatorId], references: [id], onDelete: SetNull)
-  reportSequences       ProjectReportSeq[]
-  authorizedUsers       ProjectAuthorizedUser[]
-  reports               Report[]
-  drafts                ReportDraft[]
-  surveys               SatisfactionSurvey[]
-  romaneios             Romaneio[]
-  budgets               ProjectBudget[]
-  omieProjects          OmieProject[]
-  omiePurchases         OmiePurchase[]
-  plannedServices       ProjectPlannedService[]
-  plannedOvertime       ProjectPlannedOvertime[]
+  clientName             String
+  clientCnpj             String
+  clientEmailPrimary     String                      @default("")
+  clientSignerFirstName  String                      @default("")
+  clientSignerLastName   String                      @default("")
+  clientEmailCc          String[]                    @default([])
+  clientSigners          Json[]                      @default([])
+  contractCode           String
+  location               String
+  workdayHours           String                      @default("09:00")
+  weekendWorkdayHours    String                      @default("08:00")
+  includesSaturday       Boolean                     @default(false)
+  includesSunday         Boolean                     @default(false)
+  operatorId             String?
+  clientSegment          String?
+  commercialProposalCode String? // = cod_prop do Access; reconciliação proposta↔projeto
+  mobilizationDate       DateTime? // data de mobilização (manual, gestor/coordenador)
+  startDate              DateTime? // início real da execução (manual, gestor/coordenador)
+  manualProgressPct      Decimal?                    @db.Decimal(5, 2) // avanço informado à mão (fallback quando não há escopo)
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  deletedAt              DateTime?
+  operator               Collaborator?               @relation("ProjectOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  reportSequences        ProjectReportSeq[]
+  authorizedUsers        ProjectAuthorizedUser[]
+  reports                Report[]
+  drafts                 ReportDraft[]
+  surveys                SatisfactionSurvey[]
+  romaneios              Romaneio[]
+  budgets                ProjectBudget[]
+  omieProjects           OmieProject[]
+  omiePurchases          OmiePurchase[]
+  omieReceivables        OmieReceivable[]
+  plannedServices        ProjectPlannedService[]
+  plannedNormalHours     ProjectPlannedNormalHours[]
+  plannedOvertime        ProjectPlannedOvertime[]
+  stockMovements         StockMovement[]
+  manualProgressHistory  ProjectManualProgressHistory[]
+  manualCosts            ProjectManualCost[]
+  acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
 
   @@index([deletedAt])
   @@index([registrationPending])
   @@index([commercialProposalCode])
+}
+
+model ProjectManualProgressHistory {
+  id          String   @id @default(cuid())
+  projectId   String
+  progressPct Decimal  @db.Decimal(5, 2)
+  recordedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, recordedAt])
+}
+
+model ProjectManualCost {
+  id              String    @id @default(cuid())
+  projectId       String
+  description     String
+  amount          Decimal   @db.Decimal(12, 2)
+  costDate        DateTime?
+  note            String?
+  createdByUserId String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User?     @relation("ProjectManualCostCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, deletedAt])
+  @@index([createdByUserId])
+}
+
+model AcompanhamentoMissionGroup {
+  id                String                            @id @default(cuid())
+  name              String
+  status            AcompanhamentoMissionGroupStatus  @default(ACTIVE)
+  createdByUserId   String?
+  dissolvedByUserId String?
+  createdAt         DateTime                          @default(now())
+  updatedAt         DateTime                          @updatedAt
+  dissolvedAt       DateTime?
+  createdBy         User?                             @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  dissolvedBy       User?                             @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
+  members           AcompanhamentoMissionGroupMember[]
+
+  @@index([status, createdAt])
+  @@index([createdByUserId])
+  @@index([dissolvedByUserId])
+}
+
+model AcompanhamentoMissionGroupMember {
+  id              String                     @id @default(cuid())
+  groupId         String
+  projectId       String
+  activeProjectId String?                    @unique
+  order           Int                        @default(0)
+  createdAt       DateTime                   @default(now())
+  group           AcompanhamentoMissionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  project         Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, projectId])
+  @@index([groupId, order])
+  @@index([projectId])
 }
 
 model ProjectReportSeq {
@@ -404,7 +516,7 @@ model ProjectReportSeq {
   projectId  String
   reportType ReportType
   nextNumber Int        @default(0)
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, reportType])
 }
@@ -421,48 +533,48 @@ model ProjectAuthorizedUser {
 }
 
 model Report {
-  id              String               @id @default(cuid())
-  projectId       String
-  createdByUserId String?
-  reviewedByUserId String?
-  reportType      ReportType           @default(RDO)
-  sequenceNumber  Int?
-  status          ReportStatus         @default(PENDING)
-  reportDate      DateTime
-  arrivalTime     String
-  departureTime   String
-  lunchBreak      String
-  daytimeCount    Int
-  daytimeWorkedMinutes Int            @default(0)
-  nighttimeWorkedMinutes Int          @default(0)
-  daytimeOvertimeMinutes Int          @default(0)
-  nighttimeOvertimeMinutes Int        @default(0)
-  totalOvertimeMinutes Int            @default(0)
-  overtimeReason  String?
-  dailyDescription String?
-  reviewNotes     String?
-  specialConditions Json?
-  pendingDerivedTypes Json?
-  approvedAt      DateTime?
-  returnedAt      DateTime?
-  zapsignDocToken String?
-  zapsignSignerToken String?
-  zapsignRequestedAt DateTime?
-  zapsignSignedAt DateTime?
-  zapsignDocUrl   String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  deletedAt       DateTime?
-  project         Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  createdBy       User?                @relation("ReportCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  reviewedBy      User?                @relation("ReportReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  collaborators   ReportCollaborator[]
-  services        ReportService[]
-  attachments     ReportAttachment[]
-  clientReviews   ClientReportReview[]
-  versions        ReportVersion[]
-  reportSignatures ReportSignature[]
-  auditLogs       ReportAuditLog[]
+  id                         String                            @id @default(cuid())
+  projectId                  String
+  createdByUserId            String?
+  reviewedByUserId           String?
+  reportType                 ReportType                        @default(RDO)
+  sequenceNumber             Int?
+  status                     ReportStatus                      @default(PENDING)
+  reportDate                 DateTime
+  arrivalTime                String
+  departureTime              String
+  lunchBreak                 String
+  daytimeCount               Int
+  daytimeWorkedMinutes       Int                               @default(0)
+  nighttimeWorkedMinutes     Int                               @default(0)
+  daytimeOvertimeMinutes     Int                               @default(0)
+  nighttimeOvertimeMinutes   Int                               @default(0)
+  totalOvertimeMinutes       Int                               @default(0)
+  overtimeReason             String?
+  dailyDescription           String?
+  reviewNotes                String?
+  specialConditions          Json?
+  pendingDerivedTypes        Json?
+  approvedAt                 DateTime?
+  returnedAt                 DateTime?
+  zapsignDocToken            String?
+  zapsignSignerToken         String?
+  zapsignRequestedAt         DateTime?
+  zapsignSignedAt            DateTime?
+  zapsignDocUrl              String?
+  createdAt                  DateTime                          @default(now())
+  updatedAt                  DateTime                          @updatedAt
+  deletedAt                  DateTime?
+  project                    Project                           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdBy                  User?                             @relation("ReportCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  reviewedBy                 User?                             @relation("ReportReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  collaborators              ReportCollaborator[]
+  services                   ReportService[]
+  attachments                ReportAttachment[]
+  clientReviews              ClientReportReview[]
+  versions                   ReportVersion[]
+  reportSignatures           ReportSignature[]
+  auditLogs                  ReportAuditLog[]
   approvalPostProcessingJobs ReportApprovalPostProcessingJob[]
 
   @@unique([projectId, reportType, sequenceNumber])
@@ -479,20 +591,20 @@ model Report {
 }
 
 model ReportApprovalPostProcessingJob {
-  id              String   @id @default(cuid())
-  reportId        String   @unique
-  status          String   @default("PENDING")
-  approvedTransition Boolean @default(false)
-  wasClientRejection Boolean @default(false)
-  reviewedByUserId String?
-  evidence        Json?
-  attempts        Int      @default(0)
-  lockedAt        DateTime?
-  completedAt     DateTime?
-  error           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  report          Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  reportId           String    @unique
+  status             String    @default("PENDING")
+  approvedTransition Boolean   @default(false)
+  wasClientRejection Boolean   @default(false)
+  reviewedByUserId   String?
+  evidence           Json?
+  attempts           Int       @default(0)
+  lockedAt           DateTime?
+  completedAt        DateTime?
+  error              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  report             Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@index([status, lockedAt])
   @@index([createdAt])
@@ -536,41 +648,41 @@ model ReportVersion {
 }
 
 model ReportSignature {
-  id                 String                @id @default(cuid())
-  reportId           String
-  versionId          String
-  userId             String?
-  signerName         String
-  declaredSignerName String?
-  signerEmail        String
-  signerRole         ReportSignerRole
-  signatureType      ReportSignatureType   @default(ELECTRONIC)
-  status             ReportSignatureStatus @default(PENDING)
-  isRequired         Boolean               @default(true)
-  ipAddress          String?
-  userAgent          String?
-  signatureImageDataUrl String?
+  id                      String                @id @default(cuid())
+  reportId                String
+  versionId               String
+  userId                  String?
+  signerName              String
+  declaredSignerName      String?
+  signerEmail             String
+  signerRole              ReportSignerRole
+  signatureType           ReportSignatureType   @default(ELECTRONIC)
+  status                  ReportSignatureStatus @default(PENDING)
+  isRequired              Boolean               @default(true)
+  ipAddress               String?
+  userAgent               String?
+  signatureImageDataUrl   String?
   privacyNoticeAcceptedAt DateTime?
-  privacyNoticeVersion String?
-  sourceDocumentHash String
-  finalDocumentHash  String?
-  signedAt           DateTime?
-  rejectedAt         DateTime?
-  rejectionReason    String?
-  invalidatedAt      DateTime?
-  tokenHash          String?               @unique
-  tokenEncrypted     String?
-  tokenIv            String?
-  tokenAuthTag       String?
-  tokenExpiresAt     DateTime?
-  lastReminderAt     DateTime?
-  reminderClaimedAt  DateTime?
-  reminderCount      Int                   @default(0)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  report             Report                @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  version            ReportVersion         @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  user               User?                 @relation("ReportSignatureUser", fields: [userId], references: [id], onDelete: SetNull)
+  privacyNoticeVersion    String?
+  sourceDocumentHash      String
+  finalDocumentHash       String?
+  signedAt                DateTime?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  invalidatedAt           DateTime?
+  tokenHash               String?               @unique
+  tokenEncrypted          String?
+  tokenIv                 String?
+  tokenAuthTag            String?
+  tokenExpiresAt          DateTime?
+  lastReminderAt          DateTime?
+  reminderClaimedAt       DateTime?
+  reminderCount           Int                   @default(0)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  report                  Report                @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  version                 ReportVersion         @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  user                    User?                 @relation("ReportSignatureUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([versionId, signerEmail])
   @@index([reportId])
@@ -580,18 +692,18 @@ model ReportSignature {
 }
 
 model ReportAuditLog {
-  id        String            @id @default(cuid())
-  reportId  String
-  versionId String?
-  userId    String?
-  action    ReportAuditAction
+  id          String            @id @default(cuid())
+  reportId    String
+  versionId   String?
+  userId      String?
+  action      ReportAuditAction
   description String?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime          @default(now())
-  report    Report            @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  version   ReportVersion?    @relation(fields: [versionId], references: [id], onDelete: SetNull)
-  user      User?             @relation("ReportAuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime          @default(now())
+  report      Report            @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  version     ReportVersion?    @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  user        User?             @relation("ReportAuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([reportId])
   @@index([versionId])
@@ -603,40 +715,40 @@ model ReportAuditLog {
 model ReportCollaborator {
   reportId       String
   collaboratorId String
-  report         Report        @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  collaborator   Collaborator  @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  report         Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  collaborator   Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
 
   @@id([reportId, collaboratorId])
 }
 
 model ReportService {
-  id            String   @id @default(cuid())
-  reportId      String
-  serviceType   String
-  equipmentId   String?
-  system        String?
-  material      String?
-  startTime     String?
-  endTime       String?
-  finalized     Boolean?
-  extraData     Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  report        Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  equipment     Equipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  attachments   ReportAttachment[]
+  id          String             @id @default(cuid())
+  reportId    String
+  serviceType String
+  equipmentId String?
+  system      String?
+  material    String?
+  startTime   String?
+  endTime     String?
+  finalized   Boolean?
+  extraData   Json?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  report      Report             @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  equipment   Equipment?         @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  attachments ReportAttachment[]
 
   @@index([reportId])
 }
 
 model Equipment {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  serviceTags String[]
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  serviceTags    String[]
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   reportServices ReportService[]
 }
 
@@ -661,37 +773,37 @@ model InhibitionSystem {
 }
 
 model Unit {
-  id         String       @id @default(cuid())
-  code       String       @unique
-  name       String
-  category   String
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Manometer {
-  id                  String   @id @default(cuid())
-  code                String   @unique
-  scale               String
-  calibrationCertCode String
-  calibratedAt        DateTime
-  expiresAt           DateTime
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                      String                   @id @default(cuid())
+  code                    String                   @unique
+  scale                   String
+  calibrationCertCode     String
+  calibratedAt            DateTime
+  expiresAt               DateTime
+  isActive                Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   calibrationCertificates CalibrationCertificate[]
 }
 
 model ParticleCounter {
-  id           String   @id @default(cuid())
-  code         String   @unique
-  serialNumber String
-  category     String   @default("CONTADOR DE PARTICULAS")
-  calibratedAt DateTime
-  expiresAt    DateTime
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                      String                   @id @default(cuid())
+  code                    String                   @unique
+  serialNumber            String
+  category                String                   @default("CONTADOR DE PARTICULAS")
+  calibratedAt            DateTime
+  expiresAt               DateTime
+  isActive                Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   calibrationCertificates CalibrationCertificate[]
 
   @@index([category])
@@ -741,6 +853,9 @@ model EquipmentCategory {
   order                Int                @default(0)
   fieldSchema          Json               @default("[]") // [{ key, label, type, required, options?, order, showInDashboard? }]
   technicalSchema      Json               @default("[]") // dados técnicos: [{ key, label, type, group?, unit?, options?, repeatable?, itemSchema?, optionalPerEquipment?, showInDoc?, order }]
+  checklistEnabled     Boolean            @default(false)
+  checklistItems       Json               @default("[]") // pontos de checagem herdados pelos equipamentos da categoria
+  checklistDisplayMode String             @default("AUTO") // AUTO | TAG | NAME para <<nomeoutag>>
   technicalDocEnabled  Boolean            @default(false) // liga a aba "Dados Técnicos" (datasheet estruturado + geração DOCX→PDF)
   technicalTemplateId  String? // DOCX modelo da categoria (Etapa F); null = usa o modelo genérico
   supportsCalibration  Boolean            @default(false)
@@ -754,24 +869,25 @@ model EquipmentCategory {
 }
 
 model CompanyEquipment {
-  id              String                @id @default(cuid())
-  code            String                @unique
-  name            String
-  categoryId      String
-  attributes      Json                  @default("{}") // valores dos campos dinâmicos, keyed por field.key
-  technicalData   Json                  @default("{}") // valores do datasheet, keyed por technicalSchema.key
-  technicalFieldOverrides Json          @default("{}") // inclusão/exclusão de campos optionalPerEquipment, keyed por key -> bool
-  technicalRevision Int                 @default(0)
-  technicalUpdatedAt DateTime?
-  hasCalibration  Boolean               @default(false)
-  calibratedAt    DateTime?
-  expiresAt       DateTime?
-  hasTechnicalDoc Boolean               @default(false)
-  isActive        Boolean               @default(true)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  category        EquipmentCategory     @relation(fields: [categoryId], references: [id])
-  attachments     EquipmentAttachment[]
+  id                      String                @id @default(cuid())
+  code                    String                @unique
+  name                    String
+  categoryId              String
+  attributes              Json                  @default("{}") // valores dos campos dinâmicos, keyed por field.key
+  technicalData           Json                  @default("{}") // valores do datasheet, keyed por technicalSchema.key
+  technicalFieldOverrides Json                  @default("{}") // inclusão/exclusão de campos optionalPerEquipment, keyed por key -> bool
+  checklistItems          Json? // null = herda da categoria; array = override integral
+  technicalRevision       Int                   @default(0)
+  technicalUpdatedAt      DateTime?
+  hasCalibration          Boolean               @default(false)
+  calibratedAt            DateTime?
+  expiresAt               DateTime?
+  hasTechnicalDoc         Boolean               @default(false)
+  isActive                Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  category                EquipmentCategory     @relation(fields: [categoryId], references: [id])
+  attachments             EquipmentAttachment[]
 
   @@index([categoryId])
   @@index([expiresAt])
@@ -834,76 +950,176 @@ model EquipmentAttachment {
   @@index([equipmentId, kind, createdAt])
 }
 
+// === Modulo Estoque ===
+
+model StockItem {
+  id               String          @id @default(cuid())
+  type             StockItemType
+  categoryId       String?
+  code             String          @unique
+  name             String
+  manufacturer     String?
+  description      String?
+  unitLabel        String
+  minQuantity      Decimal?        @db.Decimal(12, 3)
+  location         String?
+  filterModel      String?
+  filterKind       String?
+  filterMicron     String?
+  unNumber         String?
+  casNumber        String?
+  fispqToken       String?
+  checklistEnabled Boolean         @default(false)
+  checklistItems   Json?
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  category         StockCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  batches          StockBatch[]
+  movements        StockMovement[]
+
+  @@index([categoryId])
+}
+
+model StockCategory {
+  id               String        @id @default(cuid())
+  type             StockItemType
+  name             String
+  checklistEnabled Boolean       @default(false)
+  checklistItems   Json          @default("[]")
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  items            StockItem[]
+
+  @@unique([type, name])
+  @@index([type, isActive, name])
+}
+
+model StockBatch {
+  id         String          @id @default(cuid())
+  itemId     String
+  lotNumber  String
+  expiryDate DateTime?
+  nfNumber   String?
+  supplier   String?
+  createdAt  DateTime        @default(now())
+  item       StockItem       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  movements  StockMovement[]
+
+  @@unique([itemId, lotNumber])
+  @@index([expiryDate])
+}
+
+model StockMovement {
+  id                String              @id @default(cuid())
+  itemId            String
+  batchId           String
+  romaneioId        String?
+  type              StockMovementType
+  reason            StockMovementReason
+  quantity          Decimal             @db.Decimal(12, 3)
+  date              DateTime
+  projectId         String?
+  nfNumber          String?
+  supplier          String?
+  unitCost          Decimal?            @db.Decimal(12, 2)
+  requestedBy       String?
+  notes             String?
+  nfAttachmentToken String?
+  excludeFromProjectCost Boolean        @default(false)
+  reversalOfId      String?             @unique
+  createdById       String
+  createdAt         DateTime            @default(now())
+  item              StockItem           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  batch             StockBatch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  project           Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  romaneio          Romaneio?           @relation(fields: [romaneioId], references: [id], onDelete: SetNull)
+  createdBy         User                @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reversalOf        StockMovement?      @relation("StockMovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy        StockMovement?      @relation("StockMovementReversal")
+
+  @@index([itemId, date])
+  @@index([batchId])
+  @@index([projectId])
+  @@index([romaneioId])
+  @@index([type])
+}
+
 model User {
-  id              String        @id @default(cuid())
-  username        String        @unique
-  name            String
-  email           String?
-  emailVerifiedAt DateTime?
-  passwordHash    String
-  role            UserRole
-  accountType     AccountType   @default(INTERNAL)
-  isActive        Boolean       @default(true)
-  clientCnpj      String?
-  privacyPolicyAcceptedAt DateTime?
-  privacyPolicyVersion String?
-  notifyReportsByEmail Boolean @default(true)
-  notifySignaturesByEmail Boolean @default(true)
-  notifySignatureRemindersByEmail Boolean @default(true)
-  notifySurveyRemindersByEmail Boolean @default(true)
-  notifyCalibrationRemindersByEmail Boolean @default(true)
-  collaboratorId  String?       @unique
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  collaborator    Collaborator? @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
-  moduleRoles     ModuleRole[]
-  sessions        UserSession[]
-  passwordResetTokens PasswordResetToken[]
-  emailChangeTokens EmailChangeToken[]
-  drafts          ReportDraft[]
-  authorizedProjects ProjectAuthorizedUser[]
-  createdReports  Report[]      @relation("ReportCreator")
-  reviewedReports Report[]      @relation("ReportReviewer")
-  clientReportReviews ClientReportReview[] @relation("ClientReportReviewer")
-  reportVersions  ReportVersion[] @relation("ReportVersionCreator")
-  reportSignatures ReportSignature[] @relation("ReportSignatureUser")
-  reportAuditLogs ReportAuditLog[] @relation("ReportAuditLogUser")
-  collaboratorSignatureNoticeLogs CollaboratorSignatureNoticeLog[] @relation("CollaboratorSignatureNoticeUser")
-  sentSurveys     SatisfactionSurvey[]
-  createdRomaneios Romaneio[] @relation("RomaneioCreator")
-  createdEpiRecords EpiRecord[] @relation("EpiRecordCreator")
-  epiSignatureRequests EpiSignatureRequest[] @relation("EpiSignatureRequester")
-  dataSubjectRequests DataSubjectRequest[] @relation("DataSubjectRequestUser")
-  completedDataSubjectRequests DataSubjectRequest[] @relation("DataSubjectRequestCompletedByUser")
-  identityVerifiedDataSubjectRequests DataSubjectRequest[] @relation("DataSubjectRequestIdentityVerifiedByUser")
-  dataSubjectResponseAttempts DataSubjectRequestResponseAttempt[] @relation("DataSubjectRequestResponseAttemptUser")
-  notificationPreferenceTokens NotificationPreferenceToken[]
-  accessImports   AccessImport[] @relation("AccessImportUser")
-  selectedBudgets ProjectBudget[] @relation("ProjectBudgetSelectedBy")
+  id                                  String                              @id @default(cuid())
+  username                            String                              @unique
+  name                                String
+  email                               String?
+  emailVerifiedAt                     DateTime?
+  passwordHash                        String
+  role                                UserRole
+  accountType                         AccountType                         @default(INTERNAL)
+  isActive                            Boolean                             @default(true)
+  clientCnpj                          String?
+  privacyPolicyAcceptedAt             DateTime?
+  privacyPolicyVersion                String?
+  notifyReportsByEmail                Boolean                             @default(true)
+  notifySignaturesByEmail             Boolean                             @default(true)
+  notifySignatureRemindersByEmail     Boolean                             @default(true)
+  notifySurveyRemindersByEmail        Boolean                             @default(true)
+  notifyCalibrationRemindersByEmail   Boolean                             @default(true)
+  collaboratorId                      String?                             @unique
+  createdAt                           DateTime                            @default(now())
+  updatedAt                           DateTime                            @updatedAt
+  collaborator                        Collaborator?                       @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
+  moduleRoles                         ModuleRole[]
+  sessions                            UserSession[]
+  passwordResetTokens                 PasswordResetToken[]
+  emailChangeTokens                   EmailChangeToken[]
+  drafts                              ReportDraft[]
+  authorizedProjects                  ProjectAuthorizedUser[]
+  createdReports                      Report[]                            @relation("ReportCreator")
+  reviewedReports                     Report[]                            @relation("ReportReviewer")
+  clientReportReviews                 ClientReportReview[]                @relation("ClientReportReviewer")
+  reportVersions                      ReportVersion[]                     @relation("ReportVersionCreator")
+  reportSignatures                    ReportSignature[]                   @relation("ReportSignatureUser")
+  reportAuditLogs                     ReportAuditLog[]                    @relation("ReportAuditLogUser")
+  collaboratorSignatureNoticeLogs     CollaboratorSignatureNoticeLog[]    @relation("CollaboratorSignatureNoticeUser")
+  sentSurveys                         SatisfactionSurvey[]
+  createdRomaneios                    Romaneio[]                          @relation("RomaneioCreator")
+  createdEpiRecords                   EpiRecord[]                         @relation("EpiRecordCreator")
+  epiSignatureRequests                EpiSignatureRequest[]               @relation("EpiSignatureRequester")
+  dataSubjectRequests                 DataSubjectRequest[]                @relation("DataSubjectRequestUser")
+  completedDataSubjectRequests        DataSubjectRequest[]                @relation("DataSubjectRequestCompletedByUser")
+  identityVerifiedDataSubjectRequests DataSubjectRequest[]                @relation("DataSubjectRequestIdentityVerifiedByUser")
+  dataSubjectResponseAttempts         DataSubjectRequestResponseAttempt[] @relation("DataSubjectRequestResponseAttemptUser")
+  notificationPreferenceTokens        NotificationPreferenceToken[]
+  accessImports                       AccessImport[]                      @relation("AccessImportUser")
+  selectedBudgets                     ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
+  stockMovements                      StockMovement[]                     @relation("StockMovementCreator")
+  projectManualCosts                  ProjectManualCost[]                 @relation("ProjectManualCostCreator")
+  createdAcompanhamentoMissionGroups  AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
+  dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupDissolvedBy")
 
   @@index([clientCnpj])
 }
 
 model NotificationPreferenceToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   userId    String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, usedAt, expiresAt])
   @@index([expiresAt])
 }
 
 model EpiCatalogItem {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   name      String
   ca        String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
   records   EpiRecord[]
 
   @@unique([name, ca])
@@ -912,28 +1128,28 @@ model EpiCatalogItem {
 }
 
 model EpiRecord {
-  id                 String   @id @default(cuid())
-  collaboratorId     String
-  catalogItemId      String?
-  epiName            String
-  ca                 String
-  quantity           Int      @default(1)
-  lendDate           DateTime
-  devolutionDate     DateTime?
-  signatureRequestId String?
+  id                    String               @id @default(cuid())
+  collaboratorId        String
+  catalogItemId         String?
+  epiName               String
+  ca                    String
+  quantity              Int                  @default(1)
+  lendDate              DateTime
+  devolutionDate        DateTime?
+  signatureRequestId    String?
   signatureImageDataUrl String?
-  signatureSignerName String?
-  signedAt           DateTime?
-  pendingReturn      Boolean  @default(false)
-  returnSourceRecordId String?
-  archivedAt         DateTime?
-  createdByUserId    String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  collaborator       Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
-  catalogItem        EpiCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
-  signatureRequest   EpiSignatureRequest? @relation(fields: [signatureRequestId], references: [id], onDelete: SetNull)
-  createdBy          User? @relation("EpiRecordCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  signatureSignerName   String?
+  signedAt              DateTime?
+  pendingReturn         Boolean              @default(false)
+  returnSourceRecordId  String?
+  archivedAt            DateTime?
+  createdByUserId       String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  collaborator          Collaborator         @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  catalogItem           EpiCatalogItem?      @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
+  signatureRequest      EpiSignatureRequest? @relation(fields: [signatureRequestId], references: [id], onDelete: SetNull)
+  createdBy             User?                @relation("EpiRecordCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([collaboratorId])
   @@index([catalogItemId])
@@ -946,28 +1162,28 @@ model EpiRecord {
 }
 
 model EpiSignatureRequest {
-  id                String   @id @default(cuid())
-  collaboratorId    String
-  requestedByUserId String?
-  tokenHash         String   @unique
-  status            String   @default("PENDING")
-  expiresAt         DateTime
-  signedAt          DateTime?
-  signatureImageDataUrl String?
-  signatureSignerName String?
-  signedPdfPath     String?
-  signedPdfHash     String?
-  signedPdfFileName String?
-  ipAddress         String?
-  userAgent         String?
+  id                      String                        @id @default(cuid())
+  collaboratorId          String
+  requestedByUserId       String?
+  tokenHash               String                        @unique
+  status                  String                        @default("PENDING")
+  expiresAt               DateTime
+  signedAt                DateTime?
+  signatureImageDataUrl   String?
+  signatureSignerName     String?
+  signedPdfPath           String?
+  signedPdfHash           String?
+  signedPdfFileName       String?
+  ipAddress               String?
+  userAgent               String?
   privacyNoticeAcceptedAt DateTime?
-  privacyNoticeVersion String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  collaborator      Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
-  requestedBy       User? @relation("EpiSignatureRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
-  records           EpiRecord[]
-  auditLogs         EpiSignatureRequestAuditLog[]
+  privacyNoticeVersion    String?
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+  collaborator            Collaborator                  @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  requestedBy             User?                         @relation("EpiSignatureRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  records                 EpiRecord[]
+  auditLogs               EpiSignatureRequestAuditLog[]
 
   @@index([collaboratorId])
   @@index([status])
@@ -975,12 +1191,12 @@ model EpiSignatureRequest {
 }
 
 model EpiSignatureRequestAuditLog {
-  id        String   @id @default(cuid())
+  id        String              @id @default(cuid())
   requestId String
   action    String
   ipAddress String?
   userAgent String?
-  createdAt DateTime @default(now())
+  createdAt DateTime            @default(now())
   request   EpiSignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
@@ -989,24 +1205,30 @@ model EpiSignatureRequestAuditLog {
 }
 
 model Romaneio {
-  id              String         @id @default(cuid())
-  projectId       String
-  createdByUserId String?
-  type            RomaneioType   @default(OUTBOUND)
-  romaneioDate    DateTime
-  driverName      String
-  vehiclePlate    String
-  cargoWeight     Decimal?       @db.Decimal(12, 3)
-  cargoWeightUnit String?
-  docxUrl         String?
-  pdfUrl          String?
-  emailStatus     String?
-  emailError      String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  project         Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  createdBy       User?          @relation("RomaneioCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  items           RomaneioItem[]
+  id                       String              @id @default(cuid())
+  projectId                String
+  createdByUserId          String?
+  type                     RomaneioType        @default(OUTBOUND)
+  romaneioDate             DateTime
+  driverName               String
+  vehiclePlate             String
+  cargoWeight              Decimal?            @db.Decimal(12, 3)
+  cargoWeightUnit          String?
+  docxUrl                  String?
+  pdfUrl                   String?
+  checklistResponsibleName String?
+  checklistSignatureImage  String?
+  checklistPdfUrl          String?
+  checklistProjectLabel    String?
+  emailStatus              String?
+  emailError               String?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  project                  Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdBy                User?               @relation("RomaneioCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items                    RomaneioItem[]
+  checklists               RomaneioChecklist[]
+  stockMovements           StockMovement[]
 
   @@index([projectId])
   @@index([createdByUserId])
@@ -1029,6 +1251,7 @@ model RomaneioItem {
   quantity      Decimal              @db.Decimal(12, 3)
   unitLabel     String
   isCustom      Boolean              @default(false)
+  isExtra       Boolean              @default(false)
   sortOrder     Int                  @default(0)
   romaneio      Romaneio             @relation(fields: [romaneioId], references: [id], onDelete: Cascade)
   catalogItem   RomaneioCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
@@ -1037,22 +1260,47 @@ model RomaneioItem {
   @@index([catalogItemId])
 }
 
+model RomaneioChecklist {
+  id            String               @id @default(cuid())
+  romaneioId    String
+  catalogItemId String?
+  equipmentId   String?
+  equipmentCode String
+  equipmentName String
+  categoryName  String?
+  displayNameOrTag String @default("")
+  displayMode   String   @default("AUTO")
+  items         Json
+  projectLabel  String?
+  pdfUrl        String?
+  sortOrder     Int                  @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  romaneio      Romaneio             @relation(fields: [romaneioId], references: [id], onDelete: Cascade)
+  catalogItem   RomaneioCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
+
+  @@index([romaneioId])
+  @@index([romaneioId, sortOrder])
+  @@index([catalogItemId])
+}
+
 model RomaneioCatalogItem {
-  id             String                  @id @default(cuid())
-  sourceType     RomaneioCatalogSource   @default(MANUAL)
-  sourceId       String?
-  code           String?
-  name           String
-  categoryName   String
-  kind           RomaneioItemKind        @default(EQUIPMENT)
-  measureType    RomaneioMeasureType     @default(UNIT)
-  defaultUnitLabel String                 @default("unidade")
-  isSerialized   Boolean                 @default(true)
-  isActive       Boolean                 @default(true)
+  id                 String                @id @default(cuid())
+  sourceType         RomaneioCatalogSource @default(MANUAL)
+  sourceId           String?
+  code               String?
+  name               String
+  categoryName       String
+  kind               RomaneioItemKind      @default(EQUIPMENT)
+  measureType        RomaneioMeasureType   @default(UNIT)
+  defaultUnitLabel   String                @default("unidade")
+  isSerialized       Boolean               @default(true)
+  isActive           Boolean               @default(true)
   hiddenInRomaneioAt DateTime?
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
-  romaneioItems  RomaneioItem[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  romaneioItems      RomaneioItem[]
+  romaneioChecklists RomaneioChecklist[]
 
   @@unique([sourceType, sourceId])
   @@unique([categoryName, code, name])
@@ -1180,35 +1428,35 @@ model JobLock {
 }
 
 model SatisfactionSurvey {
-  id                 String    @id @default(cuid())
-  projectId          String
-  tokenHash          String    @unique
-  tokenEncrypted     String
-  tokenIv            String
-  tokenAuthTag       String
-  emailTo            String
-  expiresAt          DateTime
-  respondedAt        DateTime?
-  sentAt             DateTime  @default(now())
-  lastReminderAt     DateTime?
-  reminderClaimedAt  DateTime?
-  reminderOptOutAt   DateTime?
-  reminderCount      Int       @default(0)
-  expirationNotifiedAt DateTime?
-  responses          Json?
-  questions          Json?
-  followUpStatus     String?
-  followUpNotes      String?
-  followUpUpdatedAt  DateTime?
-  submittedIp        String?
-  submittedUserAgent String?
+  id                      String    @id @default(cuid())
+  projectId               String
+  tokenHash               String    @unique
+  tokenEncrypted          String
+  tokenIv                 String
+  tokenAuthTag            String
+  emailTo                 String
+  expiresAt               DateTime
+  respondedAt             DateTime?
+  sentAt                  DateTime  @default(now())
+  lastReminderAt          DateTime?
+  reminderClaimedAt       DateTime?
+  reminderOptOutAt        DateTime?
+  reminderCount           Int       @default(0)
+  expirationNotifiedAt    DateTime?
+  responses               Json?
+  questions               Json?
+  followUpStatus          String?
+  followUpNotes           String?
+  followUpUpdatedAt       DateTime?
+  submittedIp             String?
+  submittedUserAgent      String?
   privacyNoticeAcceptedAt DateTime?
-  privacyNoticeVersion String?
-  sentByUserId       String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sentBy             User?     @relation(fields: [sentByUserId], references: [id], onDelete: SetNull)
+  privacyNoticeVersion    String?
+  sentByUserId            String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  project                 Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sentBy                  User?     @relation(fields: [sentByUserId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
   @@index([expiresAt, respondedAt, reminderOptOutAt])
@@ -1232,26 +1480,26 @@ model SatisfactionSurveyQuestion {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   userId    String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
 }
 
 model EmailChangeToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   userId    String
   email     String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([email])
@@ -1259,60 +1507,60 @@ model EmailChangeToken {
 }
 
 model ReportDraft {
-  id             String   @id @default(cuid())
-  userId         String
-  projectId      String?
-  title          String?
-  reportDate     String?
-  payload        Json
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project        Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  id         String   @id @default(cuid())
+  userId     String
+  projectId  String?
+  title      String?
+  reportDate String?
+  payload    Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([updatedAt])
 }
 
 model UserSession {
-  id         String   @id @default(cuid())
-  tokenHash  String   @unique
-  userId     String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
 }
 
 model DataSubjectRequest {
-  id              String                   @id @default(cuid())
-  protocol        String                   @unique
-  type            DataSubjectRequestType
-  status          DataSubjectRequestStatus @default(OPEN)
-  name            String
-  email           String
-  identifier      String?
-  details         String
-  source          String                   @default("PUBLIC_FORM")
-  requesterUserId String?
-  ipAddress       String?
-  userAgent       String?
-  responseNotes   String?
-  responseEmailStatus String?
-  responseEmailSentAt DateTime?
-  responseEmailError String?
-  identityVerifiedAt DateTime?
-  identityVerifiedByUserId String?
+  id                           String                              @id @default(cuid())
+  protocol                     String                              @unique
+  type                         DataSubjectRequestType
+  status                       DataSubjectRequestStatus            @default(OPEN)
+  name                         String
+  email                        String
+  identifier                   String?
+  details                      String
+  source                       String                              @default("PUBLIC_FORM")
+  requesterUserId              String?
+  ipAddress                    String?
+  userAgent                    String?
+  responseNotes                String?
+  responseEmailStatus          String?
+  responseEmailSentAt          DateTime?
+  responseEmailError           String?
+  identityVerifiedAt           DateTime?
+  identityVerifiedByUserId     String?
   identityVerificationEvidence String?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  completedAt     DateTime?
-  completedByUserId String?
-  completionNotes String?
-  requesterUser   User?                    @relation("DataSubjectRequestUser", fields: [requesterUserId], references: [id], onDelete: SetNull)
-  completedByUser User?                    @relation("DataSubjectRequestCompletedByUser", fields: [completedByUserId], references: [id], onDelete: SetNull)
-  identityVerifiedByUser User?             @relation("DataSubjectRequestIdentityVerifiedByUser", fields: [identityVerifiedByUserId], references: [id], onDelete: SetNull)
-  responseAttempts DataSubjectRequestResponseAttempt[]
+  createdAt                    DateTime                            @default(now())
+  updatedAt                    DateTime                            @updatedAt
+  completedAt                  DateTime?
+  completedByUserId            String?
+  completionNotes              String?
+  requesterUser                User?                               @relation("DataSubjectRequestUser", fields: [requesterUserId], references: [id], onDelete: SetNull)
+  completedByUser              User?                               @relation("DataSubjectRequestCompletedByUser", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  identityVerifiedByUser       User?                               @relation("DataSubjectRequestIdentityVerifiedByUser", fields: [identityVerifiedByUserId], references: [id], onDelete: SetNull)
+  responseAttempts             DataSubjectRequestResponseAttempt[]
 
   @@index([email])
   @@index([requesterUserId])
@@ -1324,23 +1572,23 @@ model DataSubjectRequest {
 }
 
 model DataSubjectRequestResponseAttempt {
-  id              String             @id @default(cuid())
-  requestId       String
-  idempotencyKey  String             @unique
-  message         String
-  responseKind    String             @default("SUBSTANTIVE")
-  resolved        Boolean            @default(false)
-  status          String             @default("PENDING")
-  emailTo         String
-  emailSubject    String?
+  id                String             @id @default(cuid())
+  requestId         String
+  idempotencyKey    String             @unique
+  message           String
+  responseKind      String             @default("SUBSTANTIVE")
+  resolved          Boolean            @default(false)
+  status            String             @default("PENDING")
+  emailTo           String
+  emailSubject      String?
   providerMessageId String?
-  error           String?
-  sentAt          DateTime?
-  createdByUserId String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  request         DataSubjectRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  createdByUser   User?              @relation("DataSubjectRequestResponseAttemptUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  error             String?
+  sentAt            DateTime?
+  createdByUserId   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  request           DataSubjectRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdByUser     User?              @relation("DataSubjectRequestResponseAttemptUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([requestId])
   @@index([createdByUserId])
@@ -1348,15 +1596,15 @@ model DataSubjectRequestResponseAttempt {
 }
 
 model ReportAttachment {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   reportId        String?
   reportServiceId String?
   label           String
   fileName        String
   mimeType        String
   storagePath     String
-  createdAt       DateTime      @default(now())
-  report          Report?       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+  report          Report?        @relation(fields: [reportId], references: [id], onDelete: Cascade)
   reportService   ReportService? @relation(fields: [reportServiceId], references: [id], onDelete: Cascade)
 
   @@index([reportId])
@@ -1368,41 +1616,41 @@ model ReportAttachment {
 
 // Staging 1:1 da tabela `proposta` do Access (uma linha por revisão de proposta).
 model CommercialProposal {
-  id                 String           @id @default(cuid())
-  codBd              Int              @unique // cod_bd (PK do Access) — chave de idempotência
-  codProp            Int                      // cod_prop (nº da proposta)
-  nRev               Int              @default(0) // n_rev (revisão)
-  codNectar          Int?                     // cod_nectar (código externo CRM)
-  proposalDate       DateTime?                // data_proposta
-  createdInAccessAt  DateTime?                // dataCriacao
-  modifiedInAccessAt DateTime?                // dataMod
-  clientName         String?                  // nome_cliente
-  clientCnpj         String?                  // n_cnpj (como string)
-  contactName        String?                  // contato_cliente
-  contactEmail       String?                  // email_cliente
-  localObra          String?                  // local_obra
-  sede               String?                  // sede
-  elaborador         String?                  // elaborador_proposta
-  vendedor           String?                  // nome_vendedor
-  serviceModality    ServiceModality?         // derivado: INLOCO vs POP_SEDE
-  salePrice          Decimal?         @db.Decimal(14, 2) // valor_inloco | valor_pop_sede
-  plannedCost        Decimal?         @db.Decimal(14, 2) // valor_custos
-  expectedProfit     Decimal?         @db.Decimal(14, 2) // valor_lucro
-  expectedMargin     Decimal?         @db.Decimal(6, 2)  // margem_inloco | margem_pop_sede (%)
-  taxes              Decimal?         @db.Decimal(14, 2) // valor_imp
-  plannedDays        Int?                     // n_dias (corridos)
-  workedDays         Int?                     // n_dias_trabalhados
-  mobilizationLeadDays Int?                   // prev_atende (dias p/ iniciar mobilização após aprovação)
-  numOperators       Int?                     // n_operadores
-  numSupervisors     Int?                     // n_encarregado
-  numPerDay          Int?                     // n_p_dia
-  numPerNight        Int?                     // n_p_noite
-  isComplete         Boolean          @default(false) // false quando sem valor de venda
-  components         Json             @default("{}") // componentes de custo/preço normalizados (HE, standby, diárias, mobilização...)
-  rawRow             Json                     // linha original completa (à prova de futuro)
-  lastImportId       String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                   String           @id @default(cuid())
+  codBd                Int              @unique // cod_bd (PK do Access) — chave de idempotência
+  codProp              Int // cod_prop (nº da proposta)
+  nRev                 Int              @default(0) // n_rev (revisão)
+  codNectar            Int? // cod_nectar (código externo CRM)
+  proposalDate         DateTime? // data_proposta
+  createdInAccessAt    DateTime? // dataCriacao
+  modifiedInAccessAt   DateTime? // dataMod
+  clientName           String? // nome_cliente
+  clientCnpj           String? // n_cnpj (como string)
+  contactName          String? // contato_cliente
+  contactEmail         String? // email_cliente
+  localObra            String? // local_obra
+  sede                 String? // sede
+  elaborador           String? // elaborador_proposta
+  vendedor             String? // nome_vendedor
+  serviceModality      ServiceModality? // derivado: INLOCO vs POP_SEDE
+  salePrice            Decimal?         @db.Decimal(14, 2) // valor_inloco | valor_pop_sede
+  plannedCost          Decimal?         @db.Decimal(14, 2) // valor_custos
+  expectedProfit       Decimal?         @db.Decimal(14, 2) // valor_lucro
+  expectedMargin       Decimal?         @db.Decimal(6, 2) // margem_inloco | margem_pop_sede (%)
+  taxes                Decimal?         @db.Decimal(14, 2) // valor_imp
+  plannedDays          Int? // n_dias (corridos)
+  workedDays           Int? // n_dias_trabalhados
+  mobilizationLeadDays Int? // prev_atende (dias p/ iniciar mobilização após aprovação)
+  numOperators         Int? // n_operadores
+  numSupervisors       Int? // n_encarregado
+  numPerDay            Int? // n_p_dia
+  numPerNight          Int? // n_p_noite
+  isComplete           Boolean          @default(false) // false quando sem valor de venda
+  components           Json             @default("{}") // componentes de custo/preço normalizados (HE, standby, diárias, mobilização...)
+  rawRow               Json // linha original completa (à prova de futuro)
+  lastImportId         String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   @@index([codProp, nRev])
   @@index([clientCnpj])
@@ -1434,28 +1682,28 @@ model AccessImport {
 
 // Orçamento previsto derivado da proposta vigente (maior revisão por cod_prop).
 model ProjectBudget {
-  id                  String                @id @default(cuid())
-  projectId           String
-  version             Int                   @default(1)
-  sourceProposalCodBd Int?
-  serviceModality     ServiceModality?
-  salePrice           Decimal?              @db.Decimal(14, 2)
-  plannedTotalCost    Decimal?              @db.Decimal(14, 2)
-  expectedProfit      Decimal?              @db.Decimal(14, 2)
-  expectedMargin      Decimal?              @db.Decimal(6, 2)
-  taxes               Decimal?              @db.Decimal(14, 2)
-  plannedDays         Int?
-  selectionStatus     BudgetSelectionStatus @default(UNKNOWN)
-  selectedByUserId    String?
-  selectedBy          User?                 @relation("ProjectBudgetSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
-  selectedAt          DateTime?
-  approvedAt          DateTime?             // data de aprovação do contrato (default = momento da seleção; editável)
-  mobilizationLeadDays Int?                 // prev_atende: dias após aprovação p/ iniciar mobilização
-  isComplete          Boolean               @default(false)
-  source              String                @default("ACCESS_IMPORT")
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  project             Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                   String                @id @default(cuid())
+  projectId            String
+  version              Int                   @default(1)
+  sourceProposalCodBd  Int?
+  serviceModality      ServiceModality?
+  salePrice            Decimal?              @db.Decimal(14, 2)
+  plannedTotalCost     Decimal?              @db.Decimal(14, 2)
+  expectedProfit       Decimal?              @db.Decimal(14, 2)
+  expectedMargin       Decimal?              @db.Decimal(6, 2)
+  taxes                Decimal?              @db.Decimal(14, 2)
+  plannedDays          Int?
+  selectionStatus      BudgetSelectionStatus @default(UNKNOWN)
+  selectedByUserId     String?
+  selectedBy           User?                 @relation("ProjectBudgetSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
+  selectedAt           DateTime?
+  approvedAt           DateTime? // data de aprovação do contrato (default = momento da seleção; editável)
+  mobilizationLeadDays Int? // prev_atende: dias após aprovação p/ iniciar mobilização
+  isComplete           Boolean               @default(false)
+  source               String                @default("ACCESS_IMPORT")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  project              Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, version])
   @@index([projectId])
@@ -1470,7 +1718,7 @@ model ProjectBudget {
 model ProjectPlannedService {
   id          String                        @id @default(cuid())
   projectId   String
-  serviceType String                        // LIMPEZA_QUIMICA | TESTE_PRESSAO | FLUSHING | FILTRAGEM | (livre)
+  serviceType String // LIMPEZA_QUIMICA | TESTE_PRESSAO | FLUSHING | FILTRAGEM | (livre)
   weight      Decimal                       @default(1) @db.Decimal(6, 2) // peso do serviço no avanço do projeto (D-3)
   note        String?
   order       Int                           @default(0)
@@ -1486,25 +1734,44 @@ model ProjectPlannedService {
 model ProjectPlannedServiceSystem {
   id           String                @id @default(cuid())
   serviceId    String
-  systemType   String                // TUBULACAO | OLEO
+  systemType   String // TUBULACAO | OLEO
   description  String?
   diameter     String?
   diameterUnit String?
   quantity     Decimal?              @db.Decimal(14, 2)
-  unit         PlannedMeasureUnit?   // unidade do sistema (TUBULACAO=M, OLEO=L)
+  unit         PlannedMeasureUnit? // unidade do sistema (TUBULACAO=M, OLEO=L)
   order        Int                   @default(0)
   service      ProjectPlannedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@index([serviceId])
 }
 
-// Previsão de hora extra vendida: por cargo, nº de colaboradores e horas previstas.
+// Previsão de horas normais vendidas: por cargo e total de horas previstas.
+model ProjectPlannedNormalHours {
+  id                String   @id @default(cuid())
+  projectId         String
+  jobRoleId         String?
+  roleName          String? // rótulo do cargo (snapshot/fallback quando sem jobRoleId)
+  collaboratorCount Int      @default(1) // legado: horas previstas já são totais, não por colaborador
+  hours             Decimal  @default(0) @db.Decimal(10, 2)
+  note              String?
+  order             Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobRole           JobRole? @relation(fields: [jobRoleId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([jobRoleId])
+}
+
+// Previsão de hora extra vendida: por cargo e total de horas previstas.
 model ProjectPlannedOvertime {
   id                String   @id @default(cuid())
   projectId         String
   jobRoleId         String?
-  roleName          String?  // rótulo do cargo (snapshot/fallback quando sem jobRoleId)
-  collaboratorCount Int      @default(1)
+  roleName          String? // rótulo do cargo (snapshot/fallback quando sem jobRoleId)
+  collaboratorCount Int      @default(1) // legado: horas previstas já são totais, não por colaborador
   hours             Decimal  @default(0) @db.Decimal(10, 2)
   note              String?
   order             Int      @default(0)
@@ -1535,10 +1802,11 @@ model OmieProject {
 }
 
 model OmieCategory {
-  id        String   @id @default(cuid())
-  codigo    String   @unique // codigo_categoria (ex.: 2.04.92)
-  descricao String?
-  syncedAt  DateTime @default(now())
+  id                              String   @id @default(cuid())
+  codigo                          String   @unique // codigo_categoria (ex.: 2.04.92)
+  descricao                       String?
+  includeInAcompanhamentoCosts    Boolean  @default(true)
+  syncedAt                        DateTime @default(now())
 }
 
 // Título a pagar do Omie = gasto realizado vinculado a um projeto.
@@ -1568,6 +1836,47 @@ model OmiePurchase {
   @@index([codigoProjeto])
   @@index([categoriaCodigo])
   @@index([statusTitulo])
+}
+
+// Título a receber do Omie = faturamento/receita real vinculada a um projeto.
+model OmieReceivable {
+  id                    String    @id @default(cuid())
+  omieId                String    @unique // codigo_lancamento_omie
+  codigoProjeto         String? // codigo interno do Omie
+  projectId             String?
+  osNumber              String?
+  valor                 Decimal?  @db.Decimal(14, 2) // valor_documento
+  valorIss              Decimal?  @db.Decimal(14, 2) // valor_iss informado na NF/conta a receber
+  aliquotaIss           Decimal?  @db.Decimal(5, 2) // nAliquotaISS vindo da NFSe
+  codigoLc116           String? // CodigoLC116 vindo da NFSe (ex.: 7.02, 7.05, 14.01)
+  codigoServico         String? // CodigoServico municipal vindo da NFSe
+  statusTitulo          String? // RECEBIDO, A RECEBER, ATRASADO, ...
+  categoriaCodigo       String?
+  categoriaDescricao    String?
+  clienteCodigo         String?
+  numeroDocumento       String?
+  numeroDocumentoFiscal String?
+  numeroPedido          String?
+  codigoTipoDocumento   String? // NFS, etc.
+  origem                String? // id_origem (VENR, etc.)
+  dataEmissao           DateTime?
+  dataVencimento        DateTime?
+  dataPrevisao          DateTime?
+  dataRegistro          DateTime?
+  retemIss              Boolean?
+  retemPis              Boolean?
+  retemCofins           Boolean?
+  retemCsll             Boolean?
+  retemIr               Boolean?
+  rawPayload            Json
+  syncedAt              DateTime  @default(now())
+  project               Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([codigoProjeto])
+  @@index([codigoTipoDocumento])
+  @@index([statusTitulo])
+  @@index([dataEmissao])
 }
 
 model IntegrationSyncRun {

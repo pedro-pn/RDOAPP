@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  applyManualCostsToDashboardRows,
+  applyStockCostsToDashboardRows,
   contractToProposalCode,
   deriveSale,
   mapProposalRow,
+  refreshSelectedProjectBudgetsFromProposals,
+  shouldRecordManualProgressHistory,
   toCnpj,
   toDate,
   toInt,
@@ -110,4 +114,104 @@ test('mapProposalRow marca isComplete=false quando sem valor de venda', () => {
   assert.equal(mapped.isComplete, false);
   assert.equal(mapped.salePrice, null);
   assert.equal(mapped.serviceModality, null);
+});
+
+test('applyStockCostsToDashboardRows soma estoque ao realizado total preservando Omie separado', () => {
+  const rows = [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: '100.50', stockCost: 0 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: null, stockCost: 0 }
+  ];
+
+  applyStockCostsToDashboardRows(rows, new Map([
+    ['project-1', { total: 25.25 }],
+    ['project-2', { total: 12 }]
+  ]));
+
+  assert.deepEqual(rows, [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 125.75, stockCost: 25.25 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: 12, stockCost: 12 }
+  ]);
+});
+
+test('applyManualCostsToDashboardRows soma custo manual ao realizado total', () => {
+  const rows = [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 125.75, stockCost: 25.25, manualCost: 0 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: null, stockCost: 0, manualCost: 0 }
+  ];
+
+  applyManualCostsToDashboardRows(rows, new Map([
+    ['project-1', { total: 40 }],
+    ['project-2', { total: 12.5 }]
+  ]));
+
+  assert.deepEqual(rows, [
+    { projectId: 'project-1', realizedOmieCost: '100.50', realizedCost: 165.75, stockCost: 25.25, manualCost: 40 },
+    { projectId: 'project-2', realizedOmieCost: null, realizedCost: 12.5, stockCost: 0, manualCost: 12.5 }
+  ]);
+});
+
+test('refreshSelectedProjectBudgetsFromProposals atualiza orçamento vigente com dados da proposta sincronizada', async () => {
+  const updates = [];
+  const client = {
+    projectBudget: {
+      findMany: async (args) => {
+        assert.deepEqual(args.where, { sourceProposalCodBd: { in: [101] } });
+        return [
+          { projectId: 'project-1', version: 1, sourceProposalCodBd: 101 }
+        ];
+      },
+      update: async (args) => {
+        updates.push(args);
+        return args.data;
+      }
+    },
+    commercialProposal: {
+      findMany: async (args) => {
+        assert.deepEqual(args.where, { codBd: { in: [101] } });
+        return [
+          {
+            codBd: 101,
+            serviceModality: 'INLOCO',
+            salePrice: 120000,
+            plannedCost: 34567.89,
+            expectedProfit: 85432.11,
+            expectedMargin: 71.19,
+            taxes: 1200,
+            plannedDays: 12,
+            mobilizationLeadDays: 3,
+            isComplete: true
+          }
+        ];
+      }
+    }
+  };
+
+  const refreshed = await refreshSelectedProjectBudgetsFromProposals(client, { codBds: [101, 101] });
+
+  assert.equal(refreshed, 1);
+  assert.deepEqual(updates, [
+    {
+      where: { projectId_version: { projectId: 'project-1', version: 1 } },
+      data: {
+        sourceProposalCodBd: 101,
+        serviceModality: 'INLOCO',
+        salePrice: 120000,
+        plannedTotalCost: 34567.89,
+        expectedProfit: 85432.11,
+        expectedMargin: 71.19,
+        taxes: 1200,
+        plannedDays: 12,
+        mobilizationLeadDays: 3,
+        isComplete: true
+      }
+    }
+  ]);
+});
+
+test('shouldRecordManualProgressHistory grava só quando o avanço manual numérico muda', () => {
+  assert.equal(shouldRecordManualProgressHistory(null, 25), true);
+  assert.equal(shouldRecordManualProgressHistory(10, 25), true);
+  assert.equal(shouldRecordManualProgressHistory('25.0', 25), false);
+  assert.equal(shouldRecordManualProgressHistory(25, null), false);
+  assert.equal(shouldRecordManualProgressHistory(undefined, undefined), false);
 });

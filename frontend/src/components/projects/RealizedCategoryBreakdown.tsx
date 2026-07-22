@@ -8,7 +8,12 @@ function toNum(value?: string | number | null) {
   return Number.isFinite(n) ? n : 0;
 }
 function brl(value: number) {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 // Realizado (compras Omie) por categoria de gasto. Global (sem projectId) ou de um projeto.

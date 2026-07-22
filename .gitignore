@@ -2,7 +2,9 @@ node_modules/
 .env
 .env.*
 dist/
+build/
 coverage/
+*.log
 *.tsbuildinfo
 frontend/.vite/
 frontend/vite.config.js
@@ -53,6 +55,12 @@ backend/omie-*.json
 
 # Configurações locais do IDE/ferramentas (não compartilhar entre máquinas)
 .claude/settings.local.json
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
 
 # Relatórios gerados podem ser recriados a partir do banco/modelos
 backend/Relatórios/**
@@ -70,3 +78,8 @@ backend/Relatórios/**
 # Saída do script de reparo de imagens
 faltantes-fotos.csv
 backend/scripts/faltantes-fotos.csv
+
+# Documentos do pentest — contêm credenciais de contas de teste; não versionar
+PLANO_AUDITORIA_SEGURANCA.md
+FINDINGS_PENTEST.md
+RELATORIO_PENTEST_FILTROVALI.md

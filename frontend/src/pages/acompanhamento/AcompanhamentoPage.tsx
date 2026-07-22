@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath, markAcompanhamentoNoveltySeen } from '../../auth/moduleNavigation';
@@ -7,10 +7,16 @@ import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { AcompanhamentoDashboard } from '../../components/projects/AcompanhamentoDashboard';
 import { ProjectCardsBoard } from '../../components/projects/ProjectCardsBoard';
+import { SedeCostsBoard } from '../../components/projects/SedeCostsBoard';
 import { CostEngineManager } from '../../components/projects/CostEngineManager';
 import { AcompanhamentoTutorial } from '../../components/AcompanhamentoTutorial';
 
-type Section = 'dashboard' | 'projetos' | 'custo';
+type Section = 'dashboard' | 'projetos' | 'sede' | 'custo';
+const SECTIONS: Section[] = ['dashboard', 'projetos', 'sede', 'custo'];
+
+function parseSection(value: string | null, fallback: Section = 'dashboard'): Section {
+  return SECTIONS.includes(value as Section) ? value as Section : fallback;
+}
 
 function tutorialUserKey(user: ReturnType<typeof useAuth>['user'], isManager: boolean) {
   const identity = String(user?.email || user?.username || user?.id || '').trim().toLowerCase();
@@ -20,17 +26,37 @@ function tutorialUserKey(user: ReturnType<typeof useAuth>['user'], isManager: bo
 export function AcompanhamentoPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
-  const [section, setSection] = useState<Section>('dashboard');
   const tutorialTrigger = useRef<(() => void) | null>(null);
 
   const isManager = user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('acompanhamento:manager'));
   const hasAcompanhamentoAccess = user?.accountType === 'ADMIN'
     || Boolean(user?.moduleRoles?.some(role => role === 'acompanhamento:manager' || role === 'acompanhamento:viewer'));
   const userKey = tutorialUserKey(user, isManager);
+  const projectDetailFromUrl = searchParams.has('project') || searchParams.has('group');
+  const section = parseSection(searchParams.get('section'), projectDetailFromUrl ? 'projetos' : 'dashboard');
+  const setSection = useCallback((nextSection: Section) => {
+    setSearchParams(currentParams => {
+      const nextParams = new URLSearchParams(currentParams);
+      if (nextSection === 'dashboard') nextParams.delete('section');
+      else nextParams.set('section', nextSection);
+
+      if (nextSection !== 'projetos') {
+        nextParams.delete('project');
+        nextParams.delete('group');
+        nextParams.delete('cards');
+      }
+      if (nextSection !== 'custo') nextParams.delete('cost');
+      return nextParams;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // Ao entrar no módulo, a novidade do hub já foi "consumida".
   useEffect(() => { if (user) markAcompanhamentoNoveltySeen(user); }, [user]);
+  useEffect(() => {
+    if (!isManager && section === 'custo') setSection('dashboard');
+  }, [isManager, section, setSection]);
 
   const handleLogout = () => {
     logout();
@@ -45,7 +71,7 @@ export function AcompanhamentoPage() {
         actions={
           <>
             <button className="topbar-chip" type="button" onClick={() => tutorialTrigger.current?.()}>Ver tutorial</button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>Conta</button>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>Conta</button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>Sair</button>
           </>
         }
@@ -61,7 +87,11 @@ export function AcompanhamentoPage() {
               <span className="equip-nav-ico" aria-hidden="true">▦</span>
               <span className="equip-nav-label">Projetos</span>
             </button>
-            {hasAcompanhamentoAccess ? (
+            <button className={`equip-nav-item ${section === 'sede' ? 'active' : ''}`} type="button" aria-current={section === 'sede'} onClick={() => setSection('sede')}>
+              <span className="equip-nav-ico" aria-hidden="true">⌂</span>
+              <span className="equip-nav-label">Sede</span>
+            </button>
+            {isManager ? (
               <button className={`equip-nav-item ${section === 'custo' ? 'active' : ''}`} type="button" aria-current={section === 'custo'} onClick={() => setSection('custo')}>
                 <span className="equip-nav-ico" aria-hidden="true">$</span>
                 <span className="equip-nav-label">Custo</span>
@@ -79,13 +109,15 @@ export function AcompanhamentoPage() {
             >
               <option value="dashboard">Dashboard</option>
               <option value="projetos">Projetos</option>
-              {hasAcompanhamentoAccess ? <option value="custo">Custo</option> : null}
+              <option value="sede">Sede</option>
+              {isManager ? <option value="custo">Custo</option> : null}
             </select>
           </div>
 
           <section className="equip-content">
-            {section === 'projetos' ? <ProjectCardsBoard canManage={hasAcompanhamentoAccess} />
-              : section === 'custo' && hasAcompanhamentoAccess ? <CostEngineManager canManageCosts={isManager} />
+            {section === 'projetos' ? <ProjectCardsBoard canManage={hasAcompanhamentoAccess} canManageGroups={isManager} canManageManualCosts={isManager} progressHistoryNoveltyUser={user} />
+              : section === 'sede' ? <SedeCostsBoard />
+              : section === 'custo' && isManager ? <CostEngineManager canManageCosts={isManager} />
               : <AcompanhamentoDashboard canManage={hasAcompanhamentoAccess} />}
           </section>
         </div>
@@ -95,6 +127,9 @@ export function AcompanhamentoPage() {
         ready={section === 'dashboard'}
         goToSection={setSection}
         triggerRef={tutorialTrigger}
+        groupingNoveltyEnabled={isManager}
+        groupingNoveltyUser={user}
+        projectSectionActive={section === 'projetos'}
       />
     </Shell>
   );

@@ -6,6 +6,7 @@ COPY frontend/package*.json ./
 RUN npm ci
 
 COPY frontend/ ./
+COPY shared /app/shared
 ARG VITE_MAINTENANCE_MODE=false
 ARG VITE_ERROR_TRACKING_ENABLED=false
 ARG VITE_ERROR_TRACKING_ENDPOINT=

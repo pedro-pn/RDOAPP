@@ -22,16 +22,18 @@ console.log(`Cobertura do mês no arquivo: ${(r.fixedCoverage * 100).toFixed(1)}
 
 console.log('\n--- Campos amarelos (Parâmetros) ---');
 console.log('Salário base:            ', brl(p.salarioBase));
-console.log('Insalubridade:           ', brl(p.insalubridade));
+console.log('Salário mínimo:          ', brl(p.salarioMinimo));
+console.log('Insalubridade calculada: ', brl(b.insalubridade));
 console.log('Carga horária mensal:    ', p.cargaHoraria);
 console.log('Dias úteis:              ', p.diasUteis);
 console.log('Periculosidade:          ', pct(p.periculosidadePct));
 console.log('Produtividade:           ', pct(p.produtividadePct));
 console.log('Transferência:           ', pct(p.transferenciaPct));
+console.log('Confinamento:            ', pct(p.confinamentoPct));
 console.log('HE 70% / 100%:           ', pct(p.he70Pct), '/', pct(p.he100Pct));
-console.log('FGTS / INSS patronal:    ', pct(p.fgtsPct), '/', pct(p.inssPatronalPct));
+console.log('FGTS:                    ', pct(p.fgtsPct));
 console.log('Multa rescisória:        ', pct(p.multaPct));
-console.log('Benefícios:              ', `plano ${brl(ben.planoSaude)} · VA ${brl(ben.valeAlimentacao)} · odonto ${brl(ben.odonto)} · seguro ${brl(ben.seguroVida)} · cursos ${brl(ben.cursos)}`);
+console.log('Benefícios:              ', `seguro ${brl(ben.seguroVida)} · VA ${brl(ben.valeAlimentacao)} · plano ${brl(ben.planoSaude)} · odonto ${brl(ben.odonto)} · educação ${brl(ben.cursos)} · moradia ${brl(ben.moradia)}`);
 
 console.log('\n--- Simulador Mensal (inputs deste mês) ---');
 console.log('Dias em cliente (periculosidade):', r.inputs.diasCliente.toFixed(2));
@@ -45,10 +47,11 @@ console.log('\n--- Detalhamento do motor ---');
 console.log('Periculosidade:      ', brl(b.periculosidade));
 console.log('Produtividade:       ', brl(b.produtividade));
 console.log('Transferência:       ', brl(b.transferencia));
+console.log('Confinamento:        ', brl(b.confinamento));
 console.log('HE 70% / 100% / DSR: ', brl(b.he70), '/', brl(b.he100), '/', brl(b.dsr));
 console.log('Remuneração bruta:   ', brl(b.remuneracaoBruta));
-console.log('Encargos (FGTS+INSS):', brl(b.encargos));
-console.log('Provisões (13º+fér.):', brl(b.provisoes));
+console.log('Encargos (FGTS):     ', brl(b.encargos));
+console.log('Provisões (13º+férias+FGTS):', brl(b.provisoes));
 console.log('Benefícios:          ', brl(b.beneficios));
 console.log('Passivo rescisório:  ', brl(b.passivoRescisorio));
 console.log('CUSTO TOTAL MENSAL (planilha):', brl(b.totalMensal));

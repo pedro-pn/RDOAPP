@@ -6,9 +6,11 @@ import type {
   EquipmentPayload,
   PdfUpload
 } from '../../api/equipamentos';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Modal } from '../../components/ui/Modal';
 import { PdfDropzone } from '../../components/ui/PdfDropzone';
 import { dateInputValue, fileToDataUrl, formatDate } from './equipmentStatus';
+import { ChecklistItemsEditor } from './ChecklistItemsEditor';
 
 interface Props {
   open: boolean;
@@ -52,6 +54,11 @@ export function EquipmentFormModal({ open, category, equipment, saving, isManage
   const [docFile, setDocFile] = useState<File | null>(null);
   const [removeCert, setRemoveCert] = useState(false);
   const [removeDoc, setRemoveDoc] = useState(false);
+  const [hasChecklistOverride, setHasChecklistOverride] = useState(equipment?.checklistItems != null);
+  const [checklistItems, setChecklistItems] = useState<string[]>(
+    equipment?.checklistItems != null ? equipment.checklistItems : category.checklistItems || []
+  );
+  const [restoreChecklistConfirm, setRestoreChecklistConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function setAttribute(key: string, value: string) {
@@ -79,6 +86,9 @@ export function EquipmentFormModal({ open, category, equipment, saving, isManage
         calibratedAt: hasCalibration ? calibratedAt : null,
         expiresAt: hasCalibration ? expiresAt : null,
         hasTechnicalDoc: category.supportsTechnicalDoc,
+        checklistItems: category.checklistEnabled
+          ? (hasChecklistOverride ? checklistItems.map(item => item.trim()).filter(Boolean) : null)
+          : undefined,
         calibrationCertificate,
         technicalDoc,
         removeCalibrationCertificate: removeCert,
@@ -220,6 +230,33 @@ export function EquipmentFormModal({ open, category, equipment, saving, isManage
                 />
               </div>
             )}
+
+            {category.checklistEnabled && (
+              <div className="equip-toggle-block">
+                <div className="admin-toolbar">
+                  <div>
+                    <div className="sec">Checklist</div>
+                    <div className="rel-meta">{hasChecklistOverride ? 'Lista própria do equipamento' : 'Herdado da categoria'}</div>
+                  </div>
+                  <button
+                    className="mini-btn alt"
+                    type="button"
+                    disabled={!hasChecklistOverride || !isManager}
+                    onClick={() => setRestoreChecklistConfirm(true)}
+                  >
+                    Restaurar padrão
+                  </button>
+                </div>
+                <ChecklistItemsEditor
+                  value={hasChecklistOverride ? checklistItems : category.checklistItems || []}
+                  disabled={!isManager}
+                  onChange={items => {
+                    setHasChecklistOverride(true);
+                    setChecklistItems(items);
+                  }}
+                />
+              </div>
+            )}
           </>
         ) : (
           <div className="equip-calibration-history" role="tabpanel" aria-label="Histórico de certificados de calibração">
@@ -247,6 +284,17 @@ export function EquipmentFormModal({ open, category, equipment, saving, isManage
           <button className="mini-btn" type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</button>
         </div>
       </form>
+      <ConfirmDialog
+        open={restoreChecklistConfirm}
+        title="Restaurar checklist"
+        description="A lista própria deste equipamento será substituída pelo padrão da categoria."
+        onConfirm={() => {
+          setHasChecklistOverride(false);
+          setChecklistItems(category.checklistItems || []);
+          setRestoreChecklistConfirm(false);
+        }}
+        onCancel={() => setRestoreChecklistConfirm(false)}
+      />
     </Modal>
   );
 }

@@ -1,6 +1,7 @@
 import { apiClient, equipamentosApiPath } from './client';
 
 export type EquipmentFieldType = 'text' | 'number' | 'date' | 'select' | 'textarea';
+export type ChecklistDisplayMode = 'AUTO' | 'TAG' | 'NAME';
 
 export interface EquipmentFieldDefinition {
   key: string;
@@ -51,6 +52,9 @@ export interface EquipmentCategory {
   order: number;
   fieldSchema: EquipmentFieldDefinition[];
   technicalSchema: TechnicalFieldDefinition[];
+  checklistEnabled: boolean;
+  checklistDisplayMode: ChecklistDisplayMode;
+  checklistItems: string[];
   technicalDocEnabled: boolean;
   technicalTemplateId?: string | null;
   supportsCalibration: boolean;
@@ -79,6 +83,7 @@ export interface CompanyEquipment {
   attributes: Record<string, unknown>;
   technicalData: Record<string, unknown>;
   technicalFieldOverrides: Record<string, boolean>;
+  checklistItems?: string[] | null;
   technicalRevision: number;
   technicalUpdatedAt: string | null;
   hasCalibration: boolean;
@@ -112,6 +117,9 @@ export interface EquipmentCategoryPayload {
   order?: number;
   fieldSchema?: EquipmentFieldDefinition[];
   technicalSchema?: TechnicalFieldDefinition[];
+  checklistEnabled?: boolean;
+  checklistDisplayMode?: ChecklistDisplayMode;
+  checklistItems?: string[];
   technicalDocEnabled?: boolean;
   supportsCalibration?: boolean;
   supportsTechnicalDoc?: boolean;
@@ -125,6 +133,7 @@ export interface EquipmentPayload {
   attributes?: Record<string, unknown>;
   technicalData?: Record<string, unknown>;
   technicalFieldOverrides?: Record<string, boolean>;
+  checklistItems?: string[] | null;
   bumpRevision?: boolean;
   hasCalibration?: boolean;
   calibratedAt?: string | null;

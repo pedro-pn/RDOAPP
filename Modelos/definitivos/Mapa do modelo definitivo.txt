@@ -15,6 +15,13 @@
 {{dinnerinterval}} - intervalo de janta
 {{nightcollaboratoscount}} - quantidade de colaboradores turno noturno
 
+{{ddsdaystart}} - horário de início do DDS do turno diurno
+{{ddsdayend}} - horário de término do DDS do turno diurno
+{{ddsdaythemes}} - temas abordados no DDS do turno diurno (separados por vírgula)
+{{ddsnightstart}} - horário de início do DDS do turno noturno
+{{ddsnightend}} - horário de término do DDS do turno noturno
+{{ddsnightthemes}} - temas abordados no DDS do turno noturno (separados por vírgula)
+
 {{dayovertime}} - horas extras do turno diurno
 {{nightovertime}} - horas extras do turno noturno
 {{standby}} - horas em standby

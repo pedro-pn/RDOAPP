@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getCommercialDashboard, getRealizedByCategory, type DashboardRow } from '../../api/acompanhamentoComercial';
+import { getCommercialDashboard, getRealizedByCategory, type DashboardGroupRow, type DashboardItem, type DashboardRow } from '../../api/acompanhamentoComercial';
 import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 import { RealizedCategoryBreakdown } from './RealizedCategoryBreakdown';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
 function toNum(value?: string | number | null) {
   if (value === null || value === undefined || value === '') return null;
@@ -13,13 +14,26 @@ function toNum(value?: string | number | null) {
   return Number.isFinite(n) ? n : null;
 }
 function brl(value?: number | null) {
-  return value === null || value === undefined ? '—' : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value === null || value === undefined ? '—' : value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 function pct(value?: string | number | null) {
   const n = toNum(value);
   return n === null ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
-function comp(row: DashboardRow, key: string) {
+function isGroupRow(row: DashboardItem): row is DashboardGroupRow {
+  return row.kind === 'GROUP';
+}
+
+function itemKey(row: DashboardItem) {
+  return isGroupRow(row) ? `group-${row.groupId}` : row.projectId;
+}
+
+function comp(row: DashboardItem, key: string) {
   return toNum(row.components?.[key] ?? null);
 }
 
@@ -28,14 +42,18 @@ interface Metric {
   key: string;
   label: string;
   unit: Unit;
-  get: (row: DashboardRow) => number | null;
+  get: (row: DashboardItem) => number | null;
 }
 
 const METRICS: Metric[] = [
   { key: 'avanco', label: 'Avanço físico (%)', unit: 'pct', get: r => r.progressPct ?? null },
   { key: 'custo', label: 'Custo previsto (total)', unit: 'brl', get: r => toNum(r.plannedTotalCost) },
   { key: 'realizadoPago', label: 'Realizado — pago', unit: 'brl', get: r => toNum(r.realizedPaid) },
-  { key: 'realizadoTotal', label: 'Realizado — total (pago + a pagar)', unit: 'brl', get: r => toNum(r.realizedCost) },
+  { key: 'realizadoTotal', label: 'Realizado — total', unit: 'brl', get: r => toNum(r.realizedCost) },
+  { key: 'irpjCsllForaNf', label: 'IRPJ/CSLL fora da NF', unit: 'brl', get: r => r.presumedProfitTaxes?.outOfInvoiceTaxTotal ?? null },
+  { key: 'issOmie', label: 'ISS Omie', unit: 'brl', get: r => r.presumedProfitTaxes?.omieIss ?? null },
+  { key: 'impostosNfEstimados', label: 'Impostos NF previstos', unit: 'brl', get: r => r.presumedProfitTaxes?.basisSource === 'OMIE_INVOICED' ? null : r.presumedProfitTaxes?.invoiceTaxTotal ?? null },
+  { key: 'faturadoOmie', label: 'Faturado no Omie', unit: 'brl', get: r => toNum(r.invoicedRevenue) },
   { key: 'venda', label: 'Preço de venda', unit: 'brl', get: r => toNum(r.salePrice) },
   { key: 'lucro', label: 'Lucro previsto', unit: 'brl', get: r => toNum(r.expectedProfit) },
   { key: 'he', label: 'Hora extra', unit: 'brl', get: r => comp(r, 'he') },
@@ -69,9 +87,14 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
 
   const { data, isLoading } = useQuery({
     queryKey: ['commercial-dashboard', category],
-    queryFn: () => getCommercialDashboard(category || undefined)
+    queryFn: () => getCommercialDashboard(category || undefined),
+    ...acompanhamentoRefreshQueryOptions
   });
-  const categoriesQuery = useQuery({ queryKey: ['realized-categories', 'all'], queryFn: () => getRealizedByCategory() });
+  const categoriesQuery = useQuery({
+    queryKey: ['realized-categories', 'all'],
+    queryFn: () => getRealizedByCategory(),
+    ...acompanhamentoRefreshQueryOptions
+  });
 
   const rows = useMemo(() => data ?? [], [data]);
   const metric = METRICS.find(m => m.key === metricKey) ?? METRICS[0];
@@ -83,7 +106,8 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
       if (status === 'andamento' && row.archived) return false;
       if (status === 'arquivados' && !row.archived) return false;
       if (term) {
-        const hay = `${row.code} ${row.name} ${row.clientName} ${row.proposalCode}`.toLowerCase();
+        const members = isGroupRow(row) ? row.members.map(m => `${m.code} ${m.name} ${m.clientName} ${m.clientCnpj ?? ''}`).join(' ') : '';
+        const hay = `${row.code} ${row.name} ${row.clientName} ${row.clientCnpj ?? ''} ${row.proposalCode} ${members}`.toLowerCase();
         if (!hay.includes(term)) return false;
       }
       return true;
@@ -187,7 +211,7 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
         ) : (
           <div className="acp-bars">
             {chartData.map(({ row, value }) => (
-              <div className="acp-bar-row" key={row.projectId}>
+              <div className="acp-bar-row" key={itemKey(row)}>
                 <span className="acp-bar-label" title={`${row.code} — ${row.name || row.clientName}`}>{row.code}</span>
                 <span className="acp-bar-track">
                   <span className="acp-bar-fill" style={{ width: `${maxValue ? Math.max(2, (value / maxValue) * 100) : 0}%` }} />
@@ -228,12 +252,19 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
             <tbody>
               {filtered.map(row => (
                 <tr
-                  key={row.projectId}
-                  className="acp-table-row"
-                  onClick={() => setManaged(row)}
-                  title="Abrir cronograma"
+                  key={itemKey(row)}
+                  className={`acp-table-row${isGroupRow(row) ? ' acp-table-row-group' : ''}`}
+                  onClick={() => { if (!isGroupRow(row)) setManaged(row); }}
+                  title={isGroupRow(row) ? 'Agrupamento de missões' : 'Abrir cronograma'}
                 >
-                  <td data-label="Missão">{row.code}{row.name ? ` — ${row.name}` : ''}</td>
+                  <td data-label="Missão">
+                    {row.code}{row.name ? ` — ${row.name}` : ''}
+                    {isGroupRow(row) ? (
+                      <div className="acp-table-members">
+                        {row.members.map(member => <span key={member.projectId}>{member.code}</span>)}
+                      </div>
+                    ) : null}
+                  </td>
                   <td data-label="Cliente">{row.clientName || '—'}</td>
                   <td data-label="Contrato">{row.proposalCode}</td>
                   <td data-label="Venda">{brl(toNum(row.salePrice))}</td>

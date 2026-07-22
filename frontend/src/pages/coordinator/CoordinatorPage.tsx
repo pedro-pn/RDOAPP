@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { downloadReportPdf } from '../../api/reports';
 import type { SurveyQuestion, SurveyResponses } from '../../api/surveys';
@@ -7,6 +7,7 @@ import type { SurveyQuestion, SurveyResponses } from '../../api/surveys';
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { rdoPath } from '../../auth/rolePath';
+import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -16,6 +17,7 @@ import { useProjects } from '../../hooks/useProjects';
 import { useAccumulatedReportsPage, useReportCounts } from '../../hooks/useReports';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { usePersistentSearch } from '../../hooks/usePersistentSearch';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 import { InfiniteScrollSentinel } from '../../components/ui/InfiniteScrollSentinel';
 import { useSurveys } from '../../hooks/useSurveys';
@@ -32,7 +34,8 @@ import { reportDownloadFileName } from '../../utils/reportFileName';
 import { matchesSearch, projectSearchParts, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
-type CoordinatorTab = 'pending' | 'approved' | 'archived' | 'nps' | 'estatisticas';
+type CoordinatorTab = 'pending' | 'approved' | 'archived' | 'nps' | 'estatisticas' | 'dds';
+const COORDINATOR_TABS: CoordinatorTab[] = ['pending', 'approved', 'archived', 'nps', 'estatisticas', 'dds'];
 const REPORT_PAGE_SIZE = 50;
 const REPORT_TYPE_PAGE_SIZE = 10;
 
@@ -48,6 +51,10 @@ const TEXT = {
   pending: 'Pendentes',
   reports: 'Relatórios'
 };
+
+function parseCoordinatorTab(value: string | null): CoordinatorTab {
+  return COORDINATOR_TABS.includes(value as CoordinatorTab) ? value as CoordinatorTab : 'pending';
+}
 
 function surveyBadge(survey?: SatisfactionSurveySummary | null) {
   if (!survey) return { label: 'Pesquisa não enviada', className: 'badge badge-pen' };
@@ -120,9 +127,14 @@ function npsProjectKey(survey: SatisfactionSurveySummary & { project?: { id?: st
 
 export function CoordinatorPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const { reset } = useRdoStore();
-  const [tab, setTab] = useState<CoordinatorTab>('pending');
+  const [tab, setTab] = useUrlParamState<CoordinatorTab>({
+    param: 'tab',
+    defaultValue: 'pending',
+    parse: parseCoordinatorTab
+  });
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [search, setSearch] = usePersistentSearch(`coordinator-search:${user?.id || 'anonymous'}:${tab}`);
   // Só o valor enviado às queries é adiado; a filtragem client-side segue instantânea.
@@ -573,6 +585,7 @@ export function CoordinatorPage() {
     if (tab === 'archived') return renderArchivedTab();
     if (tab === 'nps') return renderNpsTab();
     if (tab === 'estatisticas') return renderEstatisticasTab();
+    if (tab === 'dds') return <DdsThemeManager />;
 
     if (reportsQuery.isLoading) return <ReportListSkeleton />;
 
@@ -735,7 +748,7 @@ export function CoordinatorPage() {
         showLogo
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>
@@ -762,20 +775,25 @@ export function CoordinatorPage() {
           <button className={`nav-tab ${tab === 'estatisticas' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'estatisticas'} onClick={() => setTab('estatisticas')}>
             Estatísticas
           </button>
+          <button className={`nav-tab ${tab === 'dds' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'dds'} onClick={() => setTab('dds')}>
+            Temas de DDS
+          </button>
         </div>
       </div>
       <main className="page-scroll">
-        <section className="page-card">
-          <div className="section-title">{TEXT.reports}</div>
-          <div className="admin-search-row">
-            <SearchBar
-              ariaLabel={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
-              placeholder={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
-              value={search}
-              onChange={setSearch}
-            />
-          </div>
-        </section>
+        {tab !== 'dds' ? (
+          <section className="page-card">
+            <div className="section-title">{TEXT.reports}</div>
+            <div className="admin-search-row">
+              <SearchBar
+                ariaLabel={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
+                placeholder={`Buscar em ${tab === 'pending' ? 'pendentes' : tab === 'archived' ? 'arquivados' : tab === 'nps' ? 'pesquisas NPS' : 'aprovados'}`}
+                value={search}
+                onChange={setSearch}
+              />
+            </div>
+          </section>
+        ) : null}
         {renderTabContent()}
       </main>
     </Shell>

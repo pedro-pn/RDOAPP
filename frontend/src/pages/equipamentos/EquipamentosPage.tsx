@@ -22,8 +22,10 @@ import { NotificationsConfig } from './NotificationsConfig';
 import { RdoSlotsConfig } from './RdoSlotsConfig';
 import { type ProjectSortDirection } from '../../utils/projectSort';
 import { ProjectSortButton } from '../../utils/ProjectSortButton';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 
 type ActiveTab = { kind: 'category'; id: string } | { kind: 'dashboard' } | { kind: 'config' } | { kind: 'notifications' };
+const EQUIPMENT_TAB_VALUES = new Set(['dashboard', 'config', 'notifications']);
 
 const EQUIPMENT_TUTORIAL_STORAGE_KEY_PREFIX = 'filtrovali-equipment-tutorial-done';
 
@@ -58,6 +60,24 @@ function markEquipmentTutorialDone(identity: string) {
   }
 }
 
+function parseEquipmentTabParam(value: string | null) {
+  if (!value) return 'dashboard';
+  if (EQUIPMENT_TAB_VALUES.has(value)) return value;
+  if (value.startsWith('cat:') && value.slice(4)) return value;
+  return 'dashboard';
+}
+
+function activeTabFromParam(value: string): ActiveTab {
+  if (value.startsWith('cat:')) return { kind: 'category', id: value.slice(4) };
+  if (value === 'config') return { kind: 'config' };
+  if (value === 'notifications') return { kind: 'notifications' };
+  return { kind: 'dashboard' };
+}
+
+function activeTabParam(tab: ActiveTab) {
+  return tab.kind === 'category' ? `cat:${tab.id}` : tab.kind;
+}
+
 function escapeCssSelectorValue(value: string) {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
     return CSS.escape(value);
@@ -89,7 +109,15 @@ export function EquipamentosPage() {
     [rdoSlotsQuery.data]
   );
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>({ kind: 'dashboard' });
+  const [activeTabUrl, setActiveTabUrl] = useUrlParamState<string>({
+    param: 'tab',
+    defaultValue: 'dashboard',
+    parse: parseEquipmentTabParam
+  });
+  const activeTab = activeTabFromParam(activeTabUrl);
+  const setActiveTab = useCallback((nextTab: ActiveTab) => {
+    setActiveTabUrl(activeTabParam(nextTab));
+  }, [setActiveTabUrl]);
   const [equipmentForm, setEquipmentForm] = useState<{ category: EquipmentCategory; item: CompanyEquipment | null } | null>(null);
   const [technicalForm, setTechnicalForm] = useState<{ category: EquipmentCategory; item: CompanyEquipment } | null>(null);
   const [categoryForm, setCategoryForm] = useState<{ open: boolean; category: EquipmentCategory | null }>({ open: false, category: null });
@@ -100,6 +128,16 @@ export function EquipamentosPage() {
 
   const selectedCategory = activeTab.kind === 'category' ? categories.find(c => c.id === activeTab.id) || null : null;
   const activeTabKey = activeTab.kind === 'category' ? activeTab.id : activeTab.kind;
+  useEffect(() => {
+    if (!isManager && (activeTab.kind === 'config' || activeTab.kind === 'notifications')) {
+      setActiveTab({ kind: 'dashboard' });
+    }
+  }, [activeTab.kind, isManager, setActiveTab]);
+  useEffect(() => {
+    if (!categoriesQuery.isLoading && activeTab.kind === 'category' && !selectedCategory) {
+      setActiveTab({ kind: 'dashboard' });
+    }
+  }, [activeTab.kind, categoriesQuery.isLoading, selectedCategory, setActiveTab]);
   // Limpa a busca ao trocar de aba/categoria.
   useEffect(() => { setCategorySearch(''); }, [activeTabKey]);
   const allCategoryEquipment = selectedCategory ? equipment.filter(item => item.categoryId === selectedCategory.id) : [];
@@ -311,7 +349,7 @@ export function EquipamentosPage() {
     });
 
     window.setTimeout(() => driverObj.drive(), 250);
-  }, [isManager, tutorialTarget, tutorialUserKey]);
+  }, [isManager, setActiveTab, tutorialTarget, tutorialUserKey]);
 
   useEffect(() => {
     if (!tutorialReady || !tutorialUserKey || tutorialStartedRef.current) return;
@@ -418,7 +456,7 @@ export function EquipamentosPage() {
         actions={
           <>
             <button className="topbar-chip" type="button" onClick={startEquipmentTutorial}>Ver tutorial</button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>Conta</button>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>Conta</button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>Sair</button>
           </>
         }

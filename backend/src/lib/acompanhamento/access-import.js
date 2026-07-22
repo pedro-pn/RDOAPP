@@ -12,7 +12,11 @@ import MDBReader from 'mdb-reader';
 
 import prisma from '../prisma.js';
 import { computeProgressForProjects } from './avanco.js';
-import { getSalaryCategoryCodes } from './salary.js';
+import { buildOmieCostCategoryWhere } from './cost-categories.js';
+import { getManualProjectCostsByProject } from './manual-costs.js';
+import { buildPresumedProfitTaxEstimate } from './presumed-profit-taxes.js';
+import { progressContributionWeight } from './progress-groups.js';
+import { getStockConsumptionCostByProject } from './stock-cost.js';
 
 const PROPOSAL_TABLE = 'proposta';
 
@@ -124,6 +128,12 @@ export function componentsFromRow(row) {
   };
 }
 
+export function shouldRecordManualProgressHistory(previousManualProgressPct, nextManualProgressPct) {
+  const previous = previousManualProgressPct == null ? null : Number(previousManualProgressPct);
+  const next = nextManualProgressPct == null ? null : Number(nextManualProgressPct);
+  return next !== null && previous !== next;
+}
+
 // JSON precisa de bigint serializável.
 function serializeRaw(row) {
   const out = {};
@@ -174,6 +184,28 @@ function budgetFieldsFromProposal(proposal) {
     mobilizationLeadDays: proposal.mobilizationLeadDays ?? null,
     isComplete: proposal.isComplete ?? false
   };
+}
+
+export function applyStockCostsToDashboardRows(rows, stockCosts) {
+  for (const row of rows) {
+    const stockCost = stockCosts.get(row.projectId)?.total ?? 0;
+    row.stockCost = stockCost;
+    if (stockCost > 0) {
+      row.realizedCost = (toNumber(row.realizedOmieCost) ?? 0) + stockCost;
+    }
+  }
+  return rows;
+}
+
+export function applyManualCostsToDashboardRows(rows, manualCosts) {
+  for (const row of rows) {
+    const manualCost = manualCosts.get(row.projectId)?.total ?? 0;
+    row.manualCost = manualCost;
+    if (manualCost > 0) {
+      row.realizedCost = (toNumber(row.realizedCost) ?? toNumber(row.realizedOmieCost) ?? 0) + manualCost;
+    }
+  }
+  return rows;
 }
 
 function normalizeSleepModeMap(value) {
@@ -253,6 +285,47 @@ async function upsertBudget(client, projectId, proposal) {
     create: { projectId, version: 1, source: 'ACCESS_IMPORT', approvedAt: new Date(), ...fields },
     update: fields
   });
+}
+
+// Reespelha todos os campos comerciais materializados no orçamento da proposta selecionada.
+// Campos operacionais/manuais do projeto (approvedAt, início, avanço manual, equipe etc.) são preservados.
+export async function refreshSelectedProjectBudgetsFromProposals(client, { codBds = null } = {}) {
+  const selectedCodBds = Array.isArray(codBds) ? Array.from(new Set(codBds.filter(Number.isInteger))) : null;
+  if (selectedCodBds && selectedCodBds.length === 0) return 0;
+
+  const budgets = await client.projectBudget.findMany({
+    where: {
+      sourceProposalCodBd: selectedCodBds
+        ? { in: selectedCodBds }
+        : { not: null }
+    },
+    select: {
+      projectId: true,
+      version: true,
+      sourceProposalCodBd: true
+    }
+  });
+  if (budgets.length === 0) return 0;
+
+  const sourceCodBds = Array.from(new Set(budgets.map(budget => budget.sourceProposalCodBd).filter(Number.isInteger)));
+  if (sourceCodBds.length === 0) return 0;
+
+  const proposals = await client.commercialProposal.findMany({
+    where: { codBd: { in: sourceCodBds } }
+  });
+  const proposalsByCodBd = new Map(proposals.map(proposal => [proposal.codBd, proposal]));
+
+  let refreshed = 0;
+  for (const budget of budgets) {
+    const proposal = proposalsByCodBd.get(budget.sourceProposalCodBd);
+    if (!proposal) continue;
+    await client.projectBudget.update({
+      where: { projectId_version: { projectId: budget.projectId, version: budget.version } },
+      data: budgetFieldsFromProposal(proposal)
+    });
+    refreshed += 1;
+  }
+  return refreshed;
 }
 
 // Lista as revisões (linhas do Access) cujo contrato bate com o do projeto e indica a vigente.
@@ -338,6 +411,17 @@ export async function setProjectSchedule(projectId, {
   laborCollaboratorIds
 } = {}) {
   return prisma.$transaction(async (tx) => {
+    let previousManualProgressPct;
+    if (manualProgressPct !== undefined) {
+      const currentProject = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { manualProgressPct: true }
+      });
+      previousManualProgressPct = currentProject?.manualProgressPct != null
+        ? Number(currentProject.manualProgressPct)
+        : null;
+    }
+
     if (approvedAt !== undefined) {
       const budget = await tx.projectBudget.findUnique({
         where: { projectId_version: { projectId, version: 1 } },
@@ -350,9 +434,10 @@ export async function setProjectSchedule(projectId, {
       });
     }
     const projectData = {};
+    const nextManualProgressPct = manualProgressPct == null ? null : Number(manualProgressPct);
     if (startDate !== undefined) projectData.startDate = startDate ? new Date(startDate) : null;
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
-    if (manualProgressPct !== undefined) projectData.manualProgressPct = manualProgressPct == null ? null : manualProgressPct;
+    if (manualProgressPct !== undefined) projectData.manualProgressPct = nextManualProgressPct;
     if (offshore !== undefined) projectData.offshore = Boolean(offshore);
     if (laborSleepModeByCollaborator !== undefined) {
       projectData.laborSleepModeByCollaborator = normalizeSleepModeMap(laborSleepModeByCollaborator);
@@ -372,6 +457,14 @@ export async function setProjectSchedule(projectId, {
     }
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
+    }
+    if (
+      manualProgressPct !== undefined
+      && shouldRecordManualProgressHistory(previousManualProgressPct, nextManualProgressPct)
+    ) {
+      await tx.projectManualProgressHistory.create({
+        data: { projectId, progressPct: nextManualProgressPct }
+      });
     }
     return { ok: true };
   });
@@ -404,15 +497,27 @@ export async function setProjectBudgetRevision(projectId, codBd) {
 // previsto (orçamento/revisão) e o realizado parcial (nº de RDOs = dias trabalhados, % prazo).
 export async function listCommercialDashboard({ categoryCode = null } = {}) {
   // Salários do Omie nunca entram no realizado (serão calculados no app via ponto).
-  const salaryCodes = categoryCode ? [] : await getSalaryCategoryCodes();
-  const notSalary = salaryCodes.length
-    ? { OR: [{ categoriaCodigo: null }, { categoriaCodigo: { notIn: salaryCodes } }] }
-    : {};
+  const categoryWhere = await buildOmieCostCategoryWhere({ categoryCode });
   const realizedWhere = {
     projectId: { not: null },
-    ...(categoryCode ? { categoriaCodigo: categoryCode } : notSalary)
+    ...categoryWhere
   };
-  const [proposals, projects, budgets, rdoGroups, omieTotals, omiePaid] = await Promise.all([
+  const invoicedWhere = {
+    projectId: { not: null },
+    valor: { not: null },
+    NOT: [{ statusTitulo: 'CANCELADO' }],
+    OR: [
+      { codigoTipoDocumento: 'NFS' },
+      {
+        AND: [
+          { OR: [{ codigoTipoDocumento: null }, { codigoTipoDocumento: '' }] },
+          { numeroDocumentoFiscal: { not: null } },
+          { numeroDocumentoFiscal: { not: '' } }
+        ]
+      }
+    ]
+  };
+  const [proposals, projects, budgets, rdoGroups, omieTotals, omiePaid, omieReceivables] = await Promise.all([
     prisma.commercialProposal.findMany({
       select: {
         codBd: true, codProp: true, nRev: true, salePrice: true, plannedCost: true,
@@ -423,7 +528,17 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     }),
     prisma.project.findMany({
       where: { deletedAt: null },
-      select: { id: true, code: true, name: true, clientName: true, contractCode: true, commercialProposalCode: true, startDate: true, isActive: true }
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        clientName: true,
+        clientCnpj: true,
+        contractCode: true,
+        commercialProposalCode: true,
+        startDate: true,
+        isActive: true
+      }
     }),
     prisma.projectBudget.findMany({
       where: { version: 1 },
@@ -434,7 +549,18 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     }),
     prisma.report.groupBy({ by: ['projectId'], where: { reportType: 'RDO', deletedAt: null }, _count: { _all: true } }),
     prisma.omiePurchase.groupBy({ by: ['projectId'], where: realizedWhere, _sum: { valor: true } }),
-    prisma.omiePurchase.groupBy({ by: ['projectId'], where: { ...realizedWhere, statusTitulo: 'PAGO' }, _sum: { valor: true } })
+    prisma.omiePurchase.groupBy({ by: ['projectId'], where: { ...realizedWhere, statusTitulo: 'PAGO' }, _sum: { valor: true } }),
+    prisma.omieReceivable.findMany({
+      where: invoicedWhere,
+      select: {
+        projectId: true,
+        valor: true,
+        valorIss: true,
+        aliquotaIss: true,
+        codigoLc116: true,
+        codigoServico: true
+      }
+    })
   ]);
 
   const latestByProp = new Map();
@@ -448,6 +574,24 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
   const rdoByProject = new Map(rdoGroups.map(g => [g.projectId, g._count._all]));
   const realizedByProject = new Map(omieTotals.map(g => [g.projectId, g._sum.valor]));
   const realizedPaidByProject = new Map(omiePaid.map(g => [g.projectId, g._sum.valor]));
+  const invoicedByProject = new Map();
+  for (const receivable of omieReceivables) {
+    const amount = toNumber(receivable.valor);
+    if (amount === null || amount <= 0) continue;
+    const projectId = receivable.projectId;
+    const current = invoicedByProject.get(projectId) ?? { total: 0, iss: 0, count: 0, invoices: [] };
+    const iss = toNumber(receivable.valorIss);
+    current.total += amount;
+    current.iss += iss ?? 0;
+    current.count += 1;
+    current.invoices.push({
+      amount,
+      iss,
+      issRatePct: toNumber(receivable.aliquotaIss),
+      serviceTaxCode: receivable.codigoLc116 ?? receivable.codigoServico ?? null
+    });
+    invoicedByProject.set(projectId, current);
+  }
 
   const rows = [];
   for (const project of projects) {
@@ -456,18 +600,30 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     const budget = budgetByProject.get(project.id) || null;
     const resolved = Boolean(project.commercialProposalCode) && Boolean(budget);
     const source = (budget && byCodBd.get(budget.sourceProposalCodBd)) || latestByProp.get(codProp);
+    const salePrice = budget?.salePrice ?? source?.salePrice ?? null;
+    const invoiced = invoicedByProject.get(project.id) ?? null;
     rows.push({
       projectId: project.id,
       code: project.code,
       name: project.name,
       clientName: project.clientName,
+      clientCnpj: project.clientCnpj,
       proposalCode: String(codProp),
       resolved,
       archived: !project.isActive, // segue o status do projeto nos relatórios (isActive=false => arquivado)
       startDate: project.startDate ?? null,
       approvedAt: budget?.approvedAt ?? null,
       mobilizationLeadDays: budget?.mobilizationLeadDays ?? source?.mobilizationLeadDays ?? null,
-      salePrice: budget?.salePrice ?? source?.salePrice ?? null,
+      salePrice,
+      invoicedRevenue: invoiced?.total ?? null,
+      invoicedIss: invoiced?.iss ?? null,
+      invoiceCount: invoiced?.count ?? 0,
+      presumedProfitTaxes: buildPresumedProfitTaxEstimate(salePrice, {
+        components: source?.components ?? null,
+        invoices: invoiced?.invoices ?? null,
+        invoicedAmount: invoiced?.total ?? null,
+        invoiceIss: invoiced?.iss ?? null
+      }),
       plannedTotalCost: budget?.plannedTotalCost ?? source?.plannedCost ?? null,
       expectedProfit: budget?.expectedProfit ?? source?.expectedProfit ?? null,
       expectedMargin: budget?.expectedMargin ?? source?.expectedMargin ?? null,
@@ -480,11 +636,23 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       serviceModality: source?.serviceModality ?? null,
       components: source?.components ?? {},
       rdoCount: rdoByProject.get(project.id) ?? 0,
+      realizedOmieCost: realizedByProject.get(project.id) ?? null,
       realizedCost: realizedByProject.get(project.id) ?? null,
       realizedPaid: realizedPaidByProject.get(project.id) ?? null,
+      stockCost: 0,
+      manualCost: 0,
       progressPct: null,
       progressMethod: null
     });
+  }
+
+  if (!categoryCode && rows.length > 0) {
+    const [stockCosts, manualCosts] = await Promise.all([
+      getStockConsumptionCostByProject(rows.map(row => row.projectId)),
+      getManualProjectCostsByProject(rows.map(row => row.projectId))
+    ]);
+    applyStockCostsToDashboardRows(rows, stockCosts);
+    applyManualCostsToDashboardRows(rows, manualCosts);
   }
 
   // Avanço físico (RDO ponderado por serviço; ou manual como fallback) dos projetos exibidos, em lote.
@@ -493,6 +661,7 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
     const p = progressByProject.get(row.projectId);
     row.progressPct = p?.progressPct ?? null;
     row.progressMethod = p?.progressMethod ?? null;
+    row.progressWeight = progressContributionWeight(p);
   }
 
   rows.sort((a, b) => Number(a.resolved) - Number(b.resolved) || a.code.localeCompare(b.code));
@@ -547,22 +716,26 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
       orderBy: { createdAt: 'desc' }
     });
     if (duplicate) {
-      const receipt = await prisma.accessImport.create({
-        data: {
-          fileName,
-          contentHash,
-          source,
-          status: 'SUCCESS',
-          rowsRead: 0,
-          created: 0,
-          updated: 0,
-          skipped: 0,
-          pendingProjectsCreated: 0,
-          summary: { skippedDuplicate: true, previousImportId: duplicate.id },
-          importedByUserId
-        }
+      let refreshedSelectedProposalFields = 0;
+      const receipt = await prisma.$transaction(async (tx) => {
+        refreshedSelectedProposalFields = await refreshSelectedProjectBudgetsFromProposals(tx);
+        return tx.accessImport.create({
+          data: {
+            fileName,
+            contentHash,
+            source,
+            status: 'SUCCESS',
+            rowsRead: 0,
+            created: 0,
+            updated: 0,
+            skipped: 0,
+            pendingProjectsCreated: 0,
+            summary: { skippedDuplicate: true, previousImportId: duplicate.id, refreshedSelectedProposalFields },
+            importedByUserId
+          }
+        });
       });
-      return { skippedDuplicate: true, contentHash, importId: receipt.id, previousImportId: duplicate.id };
+      return { skippedDuplicate: true, contentHash, importId: receipt.id, previousImportId: duplicate.id, refreshedSelectedProposalFields };
     }
 
     const rawRows = readProposals(buffer);
@@ -572,6 +745,8 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
 
     let created = 0;
     let updated = 0;
+    let refreshedSelectedProposalFields = 0;
+    const importedCodBds = Array.from(new Set(proposals.map(proposal => proposal.codBd)));
 
     // A importação apenas popula o staging (CommercialProposal). Não cria missões: a maioria das
     // propostas não fecha. A vinculação a um projeto acontece sob demanda, quando já existe uma
@@ -582,6 +757,7 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
         await tx.commercialProposal.upsert({ where: { codBd: p.codBd }, create: p, update: p });
         if (existing) updated += 1; else created += 1;
       }
+      refreshedSelectedProposalFields = await refreshSelectedProjectBudgetsFromProposals(tx, { codBds: importedCodBds });
 
       return tx.accessImport.create({
         data: {
@@ -594,7 +770,11 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
           updated,
           skipped: rawRows.length - proposals.length,
           pendingProjectsCreated: 0,
-          summary: { proposals: proposals.length, distinctProposals: new Set(proposals.map(p => p.codProp)).size },
+          summary: {
+            proposals: proposals.length,
+            distinctProposals: new Set(proposals.map(p => p.codProp)).size,
+            refreshedSelectedProposalFields
+          },
           importedByUserId
         }
       });
@@ -606,6 +786,7 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
       rowsRead: rawRows.length,
       created,
       updated,
+      refreshedSelectedProposalFields,
       skipped: rawRows.length - proposals.length,
       distinctProposals: new Set(proposals.map(p => p.codProp)).size
     };

@@ -3,19 +3,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   deletePontoImport,
-  getActiveCollaborators,
   getPontoColaboradores,
   getPontoImports,
+  getPontoLinkCollaborators,
   importPonto,
   linkPontoName
 } from '../../api/acompanhamentoPonto';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../ui/ToastContext';
+import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-');
   return d && m && y ? `${d}/${m}/${y}` : iso;
+}
+
+function collaboratorOptionLabel(collaborator: { name: string; role: string | null; isActive?: boolean }) {
+  const label = `${collaborator.name}${collaborator.role ? ` — ${collaborator.role}` : ''}`;
+  return collaborator.isActive === false ? `${label} (inativo)` : label;
 }
 
 export function PontoImportPanel() {
@@ -25,9 +31,21 @@ export function PontoImportPanel() {
   const { user } = useAuth();
   const isManager = user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('acompanhamento:manager'));
 
-  const { data: imports } = useQuery({ queryKey: ['ponto-imports'], queryFn: getPontoImports });
-  const { data: colaboradores } = useQuery({ queryKey: ['ponto-colaboradores'], queryFn: getPontoColaboradores });
-  const { data: activeCollaborators } = useQuery({ queryKey: ['ponto-collaborators-active'], queryFn: getActiveCollaborators, enabled: isManager });
+  const { data: imports } = useQuery({
+    queryKey: ['ponto-imports'],
+    queryFn: getPontoImports,
+    ...acompanhamentoRefreshQueryOptions
+  });
+  const { data: colaboradores } = useQuery({
+    queryKey: ['ponto-colaboradores'],
+    queryFn: getPontoColaboradores,
+    ...acompanhamentoRefreshQueryOptions
+  });
+  const { data: linkCollaborators } = useQuery({
+    queryKey: ['ponto-collaborators-link'],
+    queryFn: getPontoLinkCollaborators,
+    enabled: isManager
+  });
 
   const [links, setLinks] = useState<Record<string, string>>({});
 
@@ -101,8 +119,8 @@ export function PontoImportPanel() {
                     onChange={e => setLinks(prev => ({ ...prev, [u.normalizedName]: e.target.value }))}
                   >
                     <option value="">Selecione o colaborador…</option>
-                    {(activeCollaborators ?? []).map(c => (
-                      <option key={c.id} value={c.id}>{c.name}{c.role ? ` — ${c.role}` : ''}</option>
+                    {(linkCollaborators ?? []).map(c => (
+                      <option key={c.id} value={c.id}>{collaboratorOptionLabel(c)}</option>
                     ))}
                   </select>
                   <button
@@ -130,13 +148,13 @@ export function PontoImportPanel() {
             <tbody>
               {imports.map(im => (
                 <tr key={im.id}>
-                  <td>{im.fileName}</td>
-                  <td>{fmtDate(im.periodStart)} – {fmtDate(im.periodEnd)}</td>
-                  <td>{im.collaboratorsMatched}/{im.collaboratorsTotal}</td>
-                  <td>{im.rowsRead}</td>
-                  <td>{fmtDate(im.createdAt)}</td>
+                  <td data-label="Arquivo">{im.fileName}</td>
+                  <td data-label="Período">{fmtDate(im.periodStart)} – {fmtDate(im.periodEnd)}</td>
+                  <td data-label="Colab.">{im.collaboratorsMatched}/{im.collaboratorsTotal}</td>
+                  <td data-label="Linhas">{im.rowsRead}</td>
+                  <td data-label="Enviado">{fmtDate(im.createdAt)}</td>
                   {isManager ? (
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td data-label="Ações" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button
                         className="mini-btn danger"
                         type="button"

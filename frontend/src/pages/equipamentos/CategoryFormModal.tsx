@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 
 import type {
+  ChecklistDisplayMode,
   EquipmentCategory,
   EquipmentCategoryPayload,
   EquipmentFieldDefinition,
@@ -9,6 +10,7 @@ import type {
   TechnicalFieldDefinition
 } from '../../api/equipamentos';
 import { Modal } from '../../components/ui/Modal';
+import { ChecklistItemsEditor } from './ChecklistItemsEditor';
 import { TechnicalSchemaBuilder } from './TechnicalSchemaBuilder';
 
 interface Props {
@@ -28,6 +30,12 @@ const fieldTypes: Array<{ value: EquipmentFieldType; label: string }> = [
   { value: 'textarea', label: 'Texto longo' }
 ];
 
+const checklistDisplayModes: Array<{ value: ChecklistDisplayMode; label: string }> = [
+  { value: 'AUTO', label: 'Automático' },
+  { value: 'TAG', label: 'Tag/Código' },
+  { value: 'NAME', label: 'Nome' }
+];
+
 function emptyField(): EquipmentFieldDefinition {
   return { key: '', label: '', type: 'text', required: false, showInDashboard: false };
 }
@@ -37,6 +45,9 @@ export function CategoryFormModal({ open, category, saving, unitsCatalog, onClos
   const [supportsCalibration, setSupportsCalibration] = useState(Boolean(category?.supportsCalibration));
   const [supportsTechnicalDoc, setSupportsTechnicalDoc] = useState(category?.supportsTechnicalDoc ?? true);
   const [syncToRomaneio, setSyncToRomaneio] = useState(Boolean(category?.syncToRomaneio));
+  const [checklistEnabled, setChecklistEnabled] = useState(Boolean(category?.checklistEnabled));
+  const [checklistDisplayMode, setChecklistDisplayMode] = useState<ChecklistDisplayMode>(category?.checklistDisplayMode || 'AUTO');
+  const [checklistItems, setChecklistItems] = useState<string[]>(category?.checklistItems?.length ? category.checklistItems : []);
   const [fields, setFields] = useState<EquipmentFieldDefinition[]>(category?.fieldSchema?.length ? category.fieldSchema : []);
   const [technicalDocEnabled, setTechnicalDocEnabled] = useState(Boolean(category?.technicalDocEnabled));
   const [technicalSchema, setTechnicalSchema] = useState<TechnicalFieldDefinition[]>(category?.technicalSchema?.length ? category.technicalSchema : []);
@@ -52,6 +63,9 @@ export function CategoryFormModal({ open, category, saving, unitsCatalog, onClos
       supportsCalibration,
       supportsTechnicalDoc,
       syncToRomaneio,
+      checklistEnabled,
+      checklistDisplayMode,
+      checklistItems: checklistItems.map(item => item.trim()).filter(Boolean),
       technicalDocEnabled,
       fieldSchema: fields
         .filter(field => field.label.trim())
@@ -115,6 +129,30 @@ export function CategoryFormModal({ open, category, saving, unitsCatalog, onClos
             <input type="checkbox" checked={syncToRomaneio} onChange={e => setSyncToRomaneio(e.target.checked)} />
             <span>Sincronizar com o Romaneio</span>
           </label>
+          <label className="equip-toggle">
+            <input type="checkbox" checked={checklistEnabled} onChange={e => setChecklistEnabled(e.target.checked)} />
+            <span>Tem checklist</span>
+          </label>
+        </div>
+
+        <div className="equip-fields-builder">
+          <div className="admin-toolbar">
+            <div className="sec">Pontos do checklist</div>
+          </div>
+          <div className="field-group">
+            <label htmlFor="cat-checklist-display">Identificação no checklist</label>
+            <select
+              id="cat-checklist-display"
+              value={checklistDisplayMode}
+              onChange={e => setChecklistDisplayMode(e.target.value as ChecklistDisplayMode)}
+              disabled={!checklistEnabled}
+            >
+              {checklistDisplayModes.map(mode => (
+                <option key={mode.value} value={mode.value}>{mode.label}</option>
+              ))}
+            </select>
+          </div>
+          <ChecklistItemsEditor value={checklistItems} onChange={setChecklistItems} disabled={!checklistEnabled} />
         </div>
 
         <div className="equip-fields-builder">

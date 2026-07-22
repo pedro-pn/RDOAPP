@@ -7,11 +7,30 @@ import { z } from 'zod';
 import env from '../../config/env.js';
 import asyncHandler from '../../lib/async-handler.js';
 import { buildRomaneioCreatedEmailTemplate } from '../../lib/email-templates.js';
+import {
+  createAutomaticRomaneioStockMovementsInTransaction,
+  reverseMovementInTransaction
+} from '../../lib/estoque/stock-movements.js';
 import { getMissingMailerConfig, sendMail } from '../../lib/mailer.js';
 import { hasModuleRole } from '../../lib/module-roles.js';
 import prisma from '../../lib/prisma.js';
+import {
+  CHECKLIST_ITEM_STATUSES,
+  checklistItemStatusFromSnapshot,
+  normalizeChecklistItemStatus,
+  normalizeChecklistItems,
+  normalizeChecklistDisplayMode,
+  resolveChecklistCategoryName,
+  resolveChecklistDisplayName,
+  resolveEffectiveChecklist
+} from '../../lib/equipamentos/equipment-checklist.js';
+import { normalizeSignatureValue } from '../../lib/signature-image.js';
 import { ensureRomaneioCatalogSynced } from '../../lib/romaneio-catalog.js';
 import { buildRomaneioCatalogPdf } from '../../lib/romaneio-catalog-pdf.js';
+import {
+  saveRomaneioChecklistPdf,
+  shouldRegenerateChecklistPdf
+} from '../../lib/romaneio/romaneio-checklist-docx.js';
 import { saveRomaneioDocx } from '../../lib/romaneio-docx.js';
 import { convertDocxToPdf } from '../../lib/report-pdf-from-docx.js';
 import { requireAuth, requireModuleRole } from '../../middleware/auth.js';
@@ -19,6 +38,7 @@ import { requireAuth, requireModuleRole } from '../../middleware/auth.js';
 const router = Router();
 const ROMANEIO_DRAFT_MODULE = 'romaneio';
 const ROMANEIO_EMAIL_PENDING_STATUS = 'pendente';
+const CHECKLIST_SIGNATURE_REQUIRED_MESSAGE = 'Assinatura do responsável é obrigatória para romaneios com checklist.';
 const requireRomaneioAccess = requireModuleRole('romaneio:manager', 'romaneio:operator');
 const cargoWeightUnits = ['kg', 'ton'];
 export const ROMANEIO_TYPES = ['OUTBOUND', 'INBOUND'];
@@ -67,7 +87,17 @@ const itemSchema = z.object({
   measureType: z.nativeEnum(RomaneioMeasureType).default('UNIT'),
   quantity: z.coerce.number().positive(),
   unitLabel: z.string().trim().optional(),
-  isCustom: z.boolean().default(false)
+  isCustom: z.boolean().default(false),
+  isExtra: z.boolean().default(false)
+});
+
+const checklistPayloadSchema = z.object({
+  catalogItemId: z.string().trim().min(1),
+  checkedTexts: z.array(z.string()).optional(),
+  statuses: z.array(z.object({
+    text: z.string().trim().min(1),
+    status: z.enum(CHECKLIST_ITEM_STATUSES)
+  })).optional()
 });
 
 const createRomaneioSchema = z.object({
@@ -79,7 +109,9 @@ const createRomaneioSchema = z.object({
   vehiclePlate: z.string().trim().min(1),
   cargoWeight: cargoWeightSchema,
   cargoWeightUnit: z.enum(cargoWeightUnits).default('kg'),
-  items: z.array(itemSchema).min(1)
+  items: z.array(itemSchema).min(1),
+  checklists: z.array(checklistPayloadSchema).optional(),
+  checklistSignatureImage: z.string().startsWith('data:image/').max(2_000_000).optional().nullable()
 }).superRefine((data, ctx) => {
   if (!data.projectId && !data.projectCode) {
     ctx.addIssue({
@@ -135,7 +167,7 @@ const returnItemsQuerySchema = z.object({
   }
 });
 
-const RDO_OWNED_CATALOG_SOURCES = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS']);
+const MANAGED_CATALOG_SOURCES = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK']);
 const romaneioProjectSelect = {
   id: true,
   code: true,
@@ -373,6 +405,7 @@ function itemSnapshot(item, key, sortOrder) {
     maxQuantity: 0,
     unitLabel: item.unitLabel,
     isCustom: Boolean(item.isCustom),
+    isExtra: false,
     sortOrder
   };
 }
@@ -385,6 +418,7 @@ export function aggregateReturnableRomaneioItems(romaneios, { excludeRomaneioId 
     if (excludeRomaneioId && romaneio.id === excludeRomaneioId) return;
     const multiplier = (romaneio.type || 'OUTBOUND') === 'INBOUND' ? -1 : 1;
     (romaneio.items || []).forEach(item => {
+      if (item.isExtra) return;
       const quantity = numericQuantity(item.quantity);
       if (quantity <= 0) return;
       const key = romaneioItemReturnKey(item);
@@ -421,8 +455,32 @@ export function aggregateReturnableRomaneioItems(romaneios, { excludeRomaneioId 
 export function buildInboundRomaneioItems(inputItems, availableItems) {
   const availableByKey = new Map((availableItems || []).map(item => [romaneioItemReturnKey(item), item]));
   const requestedByKey = new Map();
+  const extraItems = [];
 
-  (inputItems || []).forEach(input => {
+  (inputItems || []).forEach((input, inputIndex) => {
+    const quantity = numericQuantity(input.quantity);
+    if (input.isExtra) {
+      if (quantity <= 0) {
+        const error = new Error('Quantidade de entrada inválida.');
+        error.statusCode = 400;
+        throw error;
+      }
+      extraItems.push({
+        catalogItemId: input.catalogItemId || null,
+        itemName: input.itemName,
+        itemCode: input.itemCode || null,
+        categoryName: input.categoryName,
+        kind: input.kind || 'EQUIPMENT',
+        measureType: input.measureType || 'UNIT',
+        quantity: Number(quantity.toFixed(3)),
+        unitLabel: input.unitLabel,
+        isCustom: Boolean(input.isCustom),
+        isExtra: true,
+        sortOrder: inputIndex
+      });
+      return;
+    }
+
     const key = romaneioItemReturnKey(input);
     const available = availableByKey.get(key);
     if (!available) {
@@ -430,39 +488,44 @@ export function buildInboundRomaneioItems(inputItems, availableItems) {
       error.statusCode = 400;
       throw error;
     }
-    const quantity = numericQuantity(input.quantity);
     const current = requestedByKey.get(key);
     if (current) {
       current.quantity += quantity;
       return;
     }
-    requestedByKey.set(key, { available, quantity });
+    requestedByKey.set(key, { available, quantity, sortOrder: inputIndex });
   });
 
-  return Array.from(requestedByKey.values()).map(({ available, quantity }, index) => {
-    if (quantity <= 0) {
-      const error = new Error('Quantidade de entrada inválida.');
-      error.statusCode = 400;
-      throw error;
-    }
-    if (quantity - numericQuantity(available.maxQuantity) > ROMANEIO_QUANTITY_EPSILON) {
-      const error = new Error('Quantidade de entrada maior que a quantidade disponível na saída.');
-      error.statusCode = 400;
-      throw error;
-    }
-    return {
-      catalogItemId: available.catalogItemId || null,
-      itemName: available.itemName,
-      itemCode: available.itemCode || null,
-      categoryName: available.categoryName,
-      kind: available.kind,
-      measureType: available.measureType,
-      quantity: Number(quantity.toFixed(3)),
-      unitLabel: available.unitLabel,
-      isCustom: available.isCustom,
-      sortOrder: index
-    };
-  });
+  return [
+    ...Array.from(requestedByKey.values()).map(({ available, quantity, sortOrder }) => {
+      if (quantity <= 0) {
+        const error = new Error('Quantidade de entrada inválida.');
+        error.statusCode = 400;
+        throw error;
+      }
+      if (quantity - numericQuantity(available.maxQuantity) > ROMANEIO_QUANTITY_EPSILON) {
+        const error = new Error('Quantidade de entrada maior que a quantidade disponível na saída.');
+        error.statusCode = 400;
+        throw error;
+      }
+      return {
+        catalogItemId: available.catalogItemId || null,
+        itemName: available.itemName,
+        itemCode: available.itemCode || null,
+        categoryName: available.categoryName,
+        kind: available.kind,
+        measureType: available.measureType,
+        quantity: Number(quantity.toFixed(3)),
+        unitLabel: available.unitLabel,
+        isCustom: available.isCustom,
+        isExtra: false,
+        sortOrder
+      };
+    }),
+    ...extraItems
+  ]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((item, index) => ({ ...item, sortOrder: index }));
 }
 
 export async function getReturnableRomaneioItemsForProject(projectId, authUser, { excludeRomaneioId = null } = {}) {
@@ -515,10 +578,13 @@ async function removeStoredFile(publicUrl) {
 }
 
 async function removeGeneratedRomaneioFiles(files) {
-  await Promise.all([
-    files?.docx?.targetPath ? fs.unlink(files.docx.targetPath).catch(() => undefined) : undefined,
-    files?.pdf?.targetPath ? fs.unlink(files.pdf.targetPath).catch(() => undefined) : undefined
-  ]);
+  const paths = [
+    files?.docx?.targetPath,
+    files?.pdf?.targetPath,
+    files?.checklist?.targetPath,
+    ...(files?.checklists || []).map(item => item.targetPath)
+  ].filter(Boolean);
+  await Promise.all(paths.map(filePath => fs.unlink(filePath).catch(() => undefined)));
 }
 
 function selectedFields() {
@@ -533,6 +599,9 @@ function selectedFields() {
       items: {
         orderBy: { sortOrder: 'asc' },
         include: { catalogItem: true }
+      },
+      checklists: {
+        orderBy: { sortOrder: 'asc' }
       }
     }
   };
@@ -609,9 +678,187 @@ export async function buildRomaneioItems(inputItems, { allowedInactiveCatalogIte
       quantity: input.quantity,
       unitLabel,
       isCustom: !catalog || input.isCustom,
+      isExtra: Boolean(input.isExtra),
       sortOrder: index
     };
   });
+}
+
+async function hasSavedChecklistSignature(authUser, client = prisma) {
+  if (!authUser?.collaboratorId) return false;
+  const collaborator = await client.collaborator.findUnique({
+    where: { id: authUser.collaboratorId },
+    select: { signatureImage: true }
+  });
+  return Boolean(collaborator?.signatureImage);
+}
+
+export async function resolveChecklistSignatureImage(authUser, payloadSignatureImage, client = prisma) {
+  if (payloadSignatureImage) return payloadSignatureImage;
+  if (!authUser?.collaboratorId) return null;
+  const collaborator = await client.collaborator.findUnique({
+    where: { id: authUser.collaboratorId },
+    select: { signatureImage: true }
+  });
+  return normalizeSignatureValue(collaborator?.signatureImage || null);
+}
+
+export async function resolveRequiredChecklistSignatureImage(authUser, payloadSignatureImage, fallbackSignatureImage = null, client = prisma) {
+  if (payloadSignatureImage) return payloadSignatureImage;
+  const fallbackSignature = await normalizeSignatureValue(fallbackSignatureImage || null);
+  if (fallbackSignature) return fallbackSignature;
+  const savedSignature = await resolveChecklistSignatureImage(authUser, null, client);
+  if (savedSignature) return savedSignature;
+
+  const error = new Error(CHECKLIST_SIGNATURE_REQUIRED_MESSAGE);
+  error.statusCode = 400;
+  throw error;
+}
+
+export async function buildRomaneioChecklistMap(client = prisma) {
+  const catalogItems = await client.romaneioCatalogItem.findMany({
+    where: {
+      isActive: true,
+      sourceType: { in: ['EQUIPAMENTOS', 'STOCK'] }
+    },
+    orderBy: [{ categoryName: 'asc' }, { code: 'asc' }, { name: 'asc' }]
+  });
+  const equipmentCatalogItems = catalogItems.filter(item => item.sourceType === 'EQUIPAMENTOS');
+  const stockCatalogItems = catalogItems.filter(item => item.sourceType === 'STOCK');
+  const equipmentIds = [...new Set(equipmentCatalogItems.map(item => item.sourceId).filter(Boolean))];
+  const stockItemIds = [...new Set(stockCatalogItems.map(item => item.sourceId).filter(Boolean))];
+  const equipmentRows = equipmentIds.length
+    ? await client.companyEquipment.findMany({
+        where: { id: { in: equipmentIds }, isActive: true },
+        include: { category: true }
+      })
+    : [];
+  const equipmentById = new Map(equipmentRows.map(item => [item.id, item]));
+  const stockRows = stockItemIds.length
+    ? await client.stockItem.findMany({
+        where: {
+          id: { in: stockItemIds },
+          isActive: true
+        },
+        include: { category: true }
+      })
+    : [];
+  const stockById = new Map(stockRows.map(item => [item.id, item]));
+  const map = {};
+  for (const catalogItem of catalogItems) {
+    const equipment = catalogItem.sourceType === 'EQUIPAMENTOS' && catalogItem.sourceId
+      ? equipmentById.get(catalogItem.sourceId)
+      : null;
+    const stockItem = catalogItem.sourceType === 'STOCK' && catalogItem.sourceId
+      ? stockById.get(catalogItem.sourceId)
+      : null;
+    const category = equipment?.category || null;
+    const stockCategory = stockItem?.category || null;
+    const items = equipment
+      ? resolveEffectiveChecklist(equipment, category)
+      : (stockCategory
+          ? (stockCategory.checklistEnabled
+              ? normalizeChecklistItems(stockItem?.checklistItems ?? stockCategory.checklistItems)
+              : [])
+          : (stockItem?.checklistEnabled ? normalizeChecklistItems(stockItem.checklistItems) : []));
+    if (!items.length) continue;
+    const displayMode = normalizeChecklistDisplayMode(category?.checklistDisplayMode);
+    const displayContext = { catalogItem, equipment, category: category || stockCategory };
+    map[catalogItem.id] = {
+      equipmentId: equipment?.id || stockItem?.id || catalogItem.sourceId || catalogItem.id,
+      equipmentCode: equipment?.code || stockItem?.code || catalogItem.code || '',
+      equipmentName: equipment?.name || stockItem?.name || catalogItem.name || '',
+      categoryName: resolveChecklistCategoryName(displayContext),
+      displayNameOrTag: resolveChecklistDisplayName({ ...displayContext, displayMode }),
+      displayMode,
+      items
+    };
+  }
+  return map;
+}
+
+function checklistPayloadState(checklistPayloads = []) {
+  return new Map(
+    (Array.isArray(checklistPayloads) ? checklistPayloads : [])
+      .filter(item => item?.catalogItemId)
+      .map(item => {
+        const statuses = new Map();
+        for (const entry of Array.isArray(item.statuses) ? item.statuses : []) {
+          const text = String(entry?.text || '').trim();
+          if (text) statuses.set(text, normalizeChecklistItemStatus(entry.status));
+        }
+        const checkedTexts = Array.isArray(item.checkedTexts)
+          ? new Set(item.checkedTexts.map(text => String(text)))
+          : null;
+        return [item.catalogItemId, {
+          statuses,
+          checkedTexts,
+          hasLegacyCheckedTexts: Array.isArray(item.checkedTexts)
+        }];
+      })
+  );
+}
+
+function checklistTextStatus(text, payloadState, defaultStatuses) {
+  const key = String(text);
+  if (payloadState?.statuses?.has(key)) return payloadState.statuses.get(key);
+  if (payloadState?.hasLegacyCheckedTexts) return payloadState.checkedTexts?.has(key) ? 'CONFORME' : 'NAO_CONFORME';
+  if (defaultStatuses?.has(key)) return defaultStatuses.get(key);
+  return 'CONFORME';
+}
+
+export function buildRomaneioChecklistSnapshots(itemData, checklistMap, checklistPayloads = []) {
+  const payloadByCatalogItemId = checklistPayloadState(checklistPayloads);
+
+  return (itemData || []).flatMap((item, index) => {
+    if (!item.catalogItemId) return [];
+    const checklist = checklistMap[item.catalogItemId];
+    if (!checklist?.items?.length) return [];
+    const payloadState = payloadByCatalogItemId.get(item.catalogItemId);
+    return [{
+      catalogItemId: item.catalogItemId,
+      equipmentId: checklist.equipmentId,
+      equipmentCode: checklist.equipmentCode || item.itemCode || '',
+      equipmentName: checklist.equipmentName || item.itemName || '',
+      categoryName: checklist.categoryName || item.categoryName || '',
+      displayNameOrTag: checklist.displayNameOrTag || resolveChecklistDisplayName({
+        romaneioItem: item,
+        displayMode: checklist.displayMode
+      }),
+      displayMode: normalizeChecklistDisplayMode(checklist.displayMode),
+      items: checklist.items.map(text => {
+        const status = checklistTextStatus(text, payloadState, checklist.defaultStatuses);
+        return { text, status, checked: status === 'CONFORME' };
+      }),
+      sortOrder: index
+    }];
+  });
+}
+
+export function buildRomaneioChecklistUpdateSnapshots(itemData, existingChecklists = [], checklistMap = {}, checklistPayloads = []) {
+  const mergedMap = { ...checklistMap };
+  for (const checklist of existingChecklists || []) {
+    if (!checklist.catalogItemId) continue;
+    const items = Array.isArray(checklist.items) ? checklist.items : [];
+    mergedMap[checklist.catalogItemId] = {
+      equipmentId: checklist.equipmentId || '',
+      equipmentCode: checklist.equipmentCode,
+      equipmentName: checklist.equipmentName,
+      categoryName: checklist.categoryName || '',
+      displayNameOrTag: checklist.displayNameOrTag || checklist.equipmentCode || checklist.equipmentName || '',
+      displayMode: normalizeChecklistDisplayMode(checklist.displayMode),
+      items: items.map(item => item.text).filter(Boolean),
+      defaultStatuses: new Map(items
+        .filter(item => item?.text)
+        .map(item => [item.text, checklistItemStatusFromSnapshot(item)]))
+    };
+  }
+  return buildRomaneioChecklistSnapshots(itemData, mergedMap, checklistPayloads);
+}
+
+async function saveRomaneioChecklistPdfFile(romaneio, checklistSnapshots) {
+  if (!checklistSnapshots?.length) return null;
+  return saveRomaneioChecklistPdf(romaneio, checklistSnapshots);
 }
 
 async function saveRomaneioPdf(romaneio) {
@@ -629,7 +876,7 @@ async function saveRomaneioPdf(romaneio) {
   };
 }
 
-async function notifyRecipients(romaneio, pdfPath) {
+async function notifyRecipients(romaneio, pdfPath, checklistPdfPaths = []) {
   const recipients = await prisma.romaneioNotificationRecipient.findMany({
     where: { isActive: true },
     orderBy: { email: 'asc' }
@@ -664,11 +911,18 @@ async function notifyRecipients(romaneio, pdfPath) {
     subject: template.subject,
     text: template.text,
     html: template.html,
-    attachments: [{
-      filename: path.basename(pdfPath),
-      path: pdfPath,
-      contentType: 'application/pdf'
-    }]
+    attachments: [
+      {
+        filename: path.basename(pdfPath),
+        path: pdfPath,
+        contentType: 'application/pdf'
+      },
+      ...checklistPdfPaths.filter(Boolean).map(itemPath => ({
+        filename: path.basename(itemPath),
+        path: itemPath,
+        contentType: 'application/pdf'
+      }))
+    ]
   });
   return { status: 'enviado', error: null };
 }
@@ -680,12 +934,72 @@ export function romaneioEmailFailureResult(error) {
   };
 }
 
+function authUserLabel(user) {
+  return String(user?.name || user?.email || user?.username || 'Conta autenticada').trim();
+}
+
+function stockMovementNoteForRomaneio(romaneio) {
+  return `Movimentação automática do romaneio ${romaneioTypeLabel(romaneio.type).toLowerCase()} ${romaneio.id}.`;
+}
+
+async function createRomaneioStockMovements(tx, romaneio, authUser) {
+  const stockItems = (romaneio.items || []).filter(item => item.catalogItem?.sourceType === 'STOCK');
+  if (!stockItems.length) return [];
+
+  const movements = [];
+  for (const item of stockItems) {
+    const created = await createAutomaticRomaneioStockMovementsInTransaction(tx, {
+      romaneioType: romaneio.type,
+      itemId: item.catalogItem.sourceId,
+      quantity: item.quantity,
+      date: romaneio.romaneioDate,
+      projectId: romaneio.projectId,
+      requestedBy: authUserLabel(authUser),
+      notes: stockMovementNoteForRomaneio(romaneio),
+      excludeFromProjectCost: romaneio.type === 'INBOUND' && item.isExtra,
+      createdById: authUser.id,
+      romaneioId: romaneio.id
+    });
+    movements.push(...created);
+  }
+  return movements;
+}
+
+async function reverseRomaneioStockMovements(tx, romaneioId, createdById) {
+  if (typeof tx.stockMovement?.findMany !== 'function') return [];
+  const movements = await tx.stockMovement.findMany({
+    where: {
+      romaneioId,
+      reason: { not: 'ESTORNO' }
+    },
+    include: {
+      reversedBy: { select: { id: true } }
+    },
+    orderBy: { createdAt: 'asc' }
+  });
+  const reversed = [];
+  for (const movement of movements) {
+    if (movement.reversedBy) continue;
+    reversed.push(await reverseMovementInTransaction(tx, {
+      movementId: movement.id,
+      notes: `Estorno automático por edição do romaneio ${romaneioId}.`,
+      createdById
+    }));
+  }
+  return reversed;
+}
+
 export async function cleanupFailedRomaneioCreate({
   romaneioId,
   files,
   client = prisma
 }) {
-  const paths = [files?.docx?.targetPath, files?.pdf?.targetPath].filter(Boolean);
+  const paths = [
+    files?.docx?.targetPath,
+    files?.pdf?.targetPath,
+    files?.checklist?.targetPath,
+    ...(files?.checklists || []).map(item => item.targetPath)
+  ].filter(Boolean);
   await Promise.all(paths.map(filePath => fs.rm(filePath, { force: true }).catch(() => undefined)));
   if (romaneioId) {
     await client.romaneio.delete({ where: { id: romaneioId } }).catch(() => undefined);
@@ -852,11 +1166,11 @@ router.put('/catalog/categories', requireAuth, requireRomaneioAccess, requireRom
     const rdoOwnedCount = await tx.romaneioCatalogItem.count({
       where: {
         categoryName: data.currentName,
-        sourceType: { in: Array.from(RDO_OWNED_CATALOG_SOURCES) }
+        sourceType: { in: Array.from(MANAGED_CATALOG_SOURCES) }
       }
     });
     if (rdoOwnedCount) {
-      const error = new Error('Categorias com itens sincronizados do RDO devem ser alteradas no módulo RDO.');
+      const error = new Error('Categorias com itens sincronizados devem ser alteradas no módulo de origem.');
       error.statusCode = 409;
       throw error;
     }
@@ -874,8 +1188,8 @@ router.put('/catalog/:id', requireAuth, requireRomaneioAccess, requireRomaneioMa
   const data = catalogSchema.partial().parse(req.body);
   const item = await prisma.$transaction(async tx => {
     const existing = await tx.romaneioCatalogItem.findUniqueOrThrow({ where: { id: req.params.id } });
-    if (RDO_OWNED_CATALOG_SOURCES.has(existing.sourceType)) {
-      const error = new Error('Itens sincronizados do RDO devem ser alterados no módulo RDO.');
+    if (MANAGED_CATALOG_SOURCES.has(existing.sourceType)) {
+      const error = new Error('Itens sincronizados devem ser alterados no módulo de origem.');
       error.statusCode = 409;
       throw error;
     }
@@ -895,8 +1209,8 @@ router.put('/catalog/:id', requireAuth, requireRomaneioAccess, requireRomaneioMa
 router.delete('/catalog/:id', requireAuth, requireRomaneioAccess, requireRomaneioManager, asyncHandler(async (req, res) => {
   await prisma.$transaction(async tx => {
     const existing = await tx.romaneioCatalogItem.findUniqueOrThrow({ where: { id: req.params.id } });
-    if (RDO_OWNED_CATALOG_SOURCES.has(existing.sourceType)) {
-      const error = new Error('Itens sincronizados do RDO devem ser removidos no módulo RDO.');
+    if (MANAGED_CATALOG_SOURCES.has(existing.sourceType)) {
+      const error = new Error('Itens sincronizados devem ser removidos no módulo de origem.');
       error.statusCode = 409;
       throw error;
     }
@@ -945,6 +1259,67 @@ router.get('/return-items', requireAuth, requireRomaneioAccess, asyncHandler(asy
     excludeRomaneioId: query.excludeRomaneioId || null
   });
   return res.json({ projectId: project.id, items });
+}));
+
+router.get('/checklist-map', requireAuth, requireRomaneioAccess, asyncHandler(async (req, res) => {
+  await ensureRomaneioCatalogSynced();
+  const [map, hasSavedSignature] = await Promise.all([
+    buildRomaneioChecklistMap(),
+    hasSavedChecklistSignature(req.auth.user)
+  ]);
+  res.json({ hasSavedSignature, map });
+}));
+
+async function ensureConsolidatedChecklistPdf(romaneio) {
+  if (!romaneio.checklists?.length) return romaneio;
+  const shouldGenerate = !romaneio.checklistPdfUrl || shouldRegenerateChecklistPdf(romaneio, romaneio);
+  if (!shouldGenerate) return romaneio;
+
+  const previousUrl = romaneio.checklistPdfUrl;
+  try {
+    const file = await saveRomaneioChecklistPdf(romaneio, romaneio.checklists);
+    const updated = await prisma.romaneio.update({
+      where: { id: romaneio.id },
+      data: {
+        checklistPdfUrl: file.publicUrl,
+        checklistProjectLabel: file.projectLabel
+      },
+      ...selectedFields()
+    });
+    if (previousUrl && previousUrl !== file.publicUrl) {
+      await removeStoredFile(previousUrl);
+    }
+    return updated;
+  } catch (error) {
+    console.error('Falha ao regenerar PDF consolidado do checklist do romaneio:', error);
+    return romaneio;
+  }
+}
+
+async function sendConsolidatedChecklistPdf(res, romaneio) {
+  const current = await ensureConsolidatedChecklistPdf(romaneio);
+  if (!current.checklists?.length) {
+    return res.status(404).json({ error: 'Checklist não encontrado.' });
+  }
+  return sendRomaneioStoredFile(res, current, 'checklistPdfUrl', 'application/pdf', 'pdf');
+}
+
+router.get('/:id/checklist/pdf', requireAuth, requireRomaneioAccess, asyncHandler(async (req, res) => {
+  const romaneio = await prisma.romaneio.findFirstOrThrow({
+    where: visibleRomaneioWhere({ id: req.params.id }, req.auth.user),
+    ...selectedFields()
+  });
+  return sendConsolidatedChecklistPdf(res, romaneio);
+}));
+
+router.get('/:id/checklists/:checklistId/pdf', requireAuth, requireRomaneioAccess, asyncHandler(async (req, res) => {
+  const romaneio = await prisma.romaneio.findFirstOrThrow({
+    where: visibleRomaneioWhere({ id: req.params.id }, req.auth.user),
+    ...selectedFields()
+  });
+  const checklist = romaneio.checklists.find(item => item.id === req.params.checklistId);
+  if (!checklist) return res.status(404).json({ error: 'Checklist não encontrado.' });
+  return sendConsolidatedChecklistPdf(res, romaneio);
 }));
 
 router.get('/:id/pdf', requireAuth, requireRomaneioAccess, asyncHandler(async (req, res) => {
@@ -1004,6 +1379,9 @@ router.get('/:id', requireAuth, requireRomaneioAccess, asyncHandler(async (req, 
 router.post('/', requireAuth, requireRomaneioAccess, asyncHandler(async (req, res) => {
   await ensureRomaneioCatalogSynced();
   const payload = createRomaneioSchema.parse(req.body);
+  if (payload.type !== 'INBOUND' && payload.items.some(item => item.isExtra)) {
+    return res.status(400).json({ error: 'Item extra só é permitido em romaneio de entrada.' });
+  }
 
   const project = await resolveRomaneioProjectReference(payload, req.auth.user, prisma, {
     createPending: payload.type !== 'INBOUND',
@@ -1026,42 +1404,85 @@ router.post('/', requireAuth, requireRomaneioAccess, asyncHandler(async (req, re
   if (itemData.some(item => !item.itemName || !item.categoryName)) {
     return res.status(400).json({ error: 'Todos os itens precisam de nome e categoria.' });
   }
+  const romaneioDate = parseDateOnly(payload.romaneioDate);
+  const previewProject = await prisma.project.findUniqueOrThrow({
+    where: { id: resolvedProjectId },
+    select: romaneioDocumentProjectSelect
+  });
+  const preview = {
+    id: 'preview',
+    projectId: resolvedProjectId,
+    project: previewProject,
+    createdByUserId: req.auth.user.id,
+    type: payload.type,
+    romaneioDate,
+    driverName: payload.driverName,
+    vehiclePlate: payload.vehiclePlate.toUpperCase(),
+    ...romaneioCargoWeightData(payload),
+    items: itemData
+  };
+  const checklistMap = payload.type === 'OUTBOUND' ? await buildRomaneioChecklistMap() : {};
+  const checklistSnapshots = payload.type === 'OUTBOUND'
+    ? buildRomaneioChecklistSnapshots(itemData, checklistMap, payload.checklists)
+    : [];
+  if (checklistSnapshots.length) {
+    preview.checklistResponsibleName = authUserLabel(req.auth.user);
+    preview.checklistSignatureImage = await resolveRequiredChecklistSignatureImage(req.auth.user, payload.checklistSignatureImage);
+    preview.checklists = checklistSnapshots;
+  }
 
   let created = null;
   let files = null;
   let completed = false;
   let filesPersisted = false;
   try {
-    created = await prisma.romaneio.create({
-      data: {
-        projectId: resolvedProjectId,
-        createdByUserId: req.auth.user.id,
-        type: payload.type,
-        romaneioDate: parseDateOnly(payload.romaneioDate),
-        driverName: payload.driverName,
-        vehiclePlate: payload.vehiclePlate.toUpperCase(),
-        ...romaneioCargoWeightData(payload),
-        items: { create: itemData }
-      },
-      ...selectedFields()
-    });
-
-    files = await saveRomaneioPdf(created);
-    created = await prisma.romaneio.update({
-      where: { id: created.id },
-      data: {
-        docxUrl: files.docx.publicUrl,
-        pdfUrl: files.pdf.publicUrl,
-        emailStatus: ROMANEIO_EMAIL_PENDING_STATUS,
-        emailError: null
-      },
-      ...selectedFields()
+    files = await saveRomaneioPdf(preview);
+    files.checklist = await saveRomaneioChecklistPdfFile(preview, checklistSnapshots);
+    created = await prisma.$transaction(async tx => {
+      const romaneio = await tx.romaneio.create({
+        data: {
+          projectId: resolvedProjectId,
+          createdByUserId: req.auth.user.id,
+          type: payload.type,
+          romaneioDate,
+          driverName: payload.driverName,
+          vehiclePlate: payload.vehiclePlate.toUpperCase(),
+          ...romaneioCargoWeightData(payload),
+          docxUrl: files.docx.publicUrl,
+          pdfUrl: files.pdf.publicUrl,
+          checklistResponsibleName: checklistSnapshots.length ? preview.checklistResponsibleName : null,
+          checklistSignatureImage: checklistSnapshots.length ? preview.checklistSignatureImage : null,
+          checklistPdfUrl: files.checklist?.publicUrl || null,
+          checklistProjectLabel: files.checklist?.projectLabel || null,
+          emailStatus: ROMANEIO_EMAIL_PENDING_STATUS,
+          emailError: null,
+          items: { create: itemData },
+          ...(checklistSnapshots.length ? {
+            checklists: {
+              create: checklistSnapshots.map(item => ({
+                catalogItemId: item.catalogItemId,
+                equipmentId: item.equipmentId,
+                equipmentCode: item.equipmentCode,
+                equipmentName: item.equipmentName,
+                categoryName: item.categoryName,
+                displayNameOrTag: item.displayNameOrTag,
+                displayMode: item.displayMode,
+                items: item.items,
+                sortOrder: item.sortOrder
+              }))
+            }
+          } : {})
+        },
+        ...selectedFields()
+      });
+      await createRomaneioStockMovements(tx, romaneio, req.auth.user);
+      return romaneio;
     });
     filesPersisted = true;
 
     let emailResult;
     try {
-      emailResult = await notifyRecipients(created, files.pdf.targetPath);
+      emailResult = await notifyRecipients(created, files.pdf.targetPath, [files.checklist?.targetPath]);
     } catch (error) {
       emailResult = romaneioEmailFailureResult(error);
     }
@@ -1088,6 +1509,9 @@ router.post('/', requireAuth, requireRomaneioAccess, asyncHandler(async (req, re
 router.put('/:id', requireAuth, requireRomaneioAccess, requireRomaneioEditor, asyncHandler(async (req, res) => {
   await ensureRomaneioCatalogSynced();
   const payload = createRomaneioSchema.parse(req.body);
+  if (payload.type !== 'INBOUND' && payload.items.some(item => item.isExtra)) {
+    return res.status(400).json({ error: 'Item extra só é permitido em romaneio de entrada.' });
+  }
   const existing = await prisma.romaneio.findFirstOrThrow({
     where: visibleRomaneioWhere({ id: req.params.id }, req.auth.user),
     ...selectedFields()
@@ -1133,13 +1557,33 @@ router.put('/:id', requireAuth, requireRomaneioAccess, requireRomaneioEditor, as
     ...romaneioCargoWeightData(payload),
     items: itemData
   };
+  const checklistMap = payload.type === 'OUTBOUND' ? await buildRomaneioChecklistMap() : {};
+  const checklistSnapshots = payload.type === 'OUTBOUND'
+    ? buildRomaneioChecklistUpdateSnapshots(itemData, existing.checklists, checklistMap, payload.checklists)
+    : [];
+  if (checklistSnapshots.length) {
+    preview.checklistResponsibleName = existing.checklistResponsibleName || authUserLabel(req.auth.user);
+    preview.checklistSignatureImage = await resolveRequiredChecklistSignatureImage(
+      req.auth.user,
+      payload.checklistSignatureImage,
+      existing.checklistSignatureImage
+    );
+    preview.checklists = checklistSnapshots;
+  } else {
+    preview.checklistResponsibleName = null;
+    preview.checklistSignatureImage = null;
+    preview.checklists = [];
+  }
 
   let files = null;
   try {
     files = await saveRomaneioPdf(preview);
+    files.checklist = await saveRomaneioChecklistPdfFile(preview, checklistSnapshots);
     const updated = await prisma.$transaction(async tx => {
+      await reverseRomaneioStockMovements(tx, existing.id, req.auth.user.id);
       await tx.romaneioItem.deleteMany({ where: { romaneioId: existing.id } });
-      return tx.romaneio.update({
+      await tx.romaneioChecklist.deleteMany({ where: { romaneioId: existing.id } });
+      const romaneio = await tx.romaneio.update({
         where: { id: existing.id },
         data: {
           projectId: resolvedProjectId,
@@ -1150,15 +1594,40 @@ router.put('/:id', requireAuth, requireRomaneioAccess, requireRomaneioEditor, as
           ...romaneioCargoWeightData(payload),
           docxUrl: files.docx.publicUrl,
           pdfUrl: files.pdf.publicUrl,
-          items: { create: itemData }
+          checklistResponsibleName: checklistSnapshots.length ? preview.checklistResponsibleName : null,
+          checklistSignatureImage: checklistSnapshots.length ? preview.checklistSignatureImage : null,
+          checklistPdfUrl: files.checklist?.publicUrl || null,
+          checklistProjectLabel: files.checklist?.projectLabel || null,
+          items: { create: itemData },
+          ...(checklistSnapshots.length ? {
+            checklists: {
+              create: checklistSnapshots.map(item => ({
+                catalogItemId: item.catalogItemId,
+                equipmentId: item.equipmentId,
+                equipmentCode: item.equipmentCode,
+                equipmentName: item.equipmentName,
+                categoryName: item.categoryName,
+                displayNameOrTag: item.displayNameOrTag,
+                displayMode: item.displayMode,
+                items: item.items,
+                sortOrder: item.sortOrder
+              }))
+            }
+          } : {})
         },
         ...selectedFields()
       });
+      await createRomaneioStockMovements(tx, romaneio, req.auth.user);
+      return romaneio;
     });
 
     await Promise.all([
       existing.docxUrl && existing.docxUrl !== files.docx.publicUrl ? removeStoredFile(existing.docxUrl) : undefined,
-      existing.pdfUrl && existing.pdfUrl !== files.pdf.publicUrl ? removeStoredFile(existing.pdfUrl) : undefined
+      existing.pdfUrl && existing.pdfUrl !== files.pdf.publicUrl ? removeStoredFile(existing.pdfUrl) : undefined,
+      existing.checklistPdfUrl && existing.checklistPdfUrl !== files.checklist?.publicUrl ? removeStoredFile(existing.checklistPdfUrl) : undefined,
+      ...(existing.checklists || [])
+        .filter(checklist => checklist.pdfUrl)
+        .map(checklist => removeStoredFile(checklist.pdfUrl))
     ]);
 
     res.json(updated);

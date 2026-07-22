@@ -25,7 +25,12 @@ function toNum(value?: string | number | null) {
 }
 function brl(value?: string | number | null) {
   const n = toNum(value);
-  return n === null ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return n === null ? '—' : n.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 function pct(value?: string | number | null) {
   const n = toNum(value);
@@ -136,6 +141,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['project-cards'] });
       queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] });
       queryClient.invalidateQueries({ queryKey: ['ponto-colaboradores'] });
     },
     onError: () => showToast('Não foi possível atualizar o cronograma.')
@@ -346,9 +352,10 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       </div>
       <div className="admin-inline-grid" style={{ marginTop: 8 }}>
         <div className="field-group acp-svc-weight-fg">
-          <label>Avanço manual <HelpTip icon help="Avanço informado à mão, em %. É usado só como fallback quando o projeto NÃO tem escopo previsto cadastrado (aí o avanço não pode vir dos RDOs). Se houver escopo, este valor é ignorado." /></label>
+          <label htmlFor={`acp-manual-progress-${projectId}`}>Avanço manual <HelpTip icon help="Avanço informado à mão, em %. É usado só como fallback quando o projeto NÃO tem escopo previsto cadastrado (aí o avanço não pode vir dos RDOs). Se houver escopo, este valor é ignorado." /></label>
           <div className="acp-pct-field">
             <input
+              id={`acp-manual-progress-${projectId}`}
               type="number" min="0" max="100" step="1" inputMode="numeric" placeholder="—"
               value={manualValue}
               onChange={e => setManualEdit(e.target.value)}
@@ -357,7 +364,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
           </div>
         </div>
         <div className="field-group">
-          <label htmlFor={`acp-offshore-${projectId}`}>Projeto offshore <HelpTip icon help="Projetos offshore acrescentam 10 pontos percentuais na transferência/viagem do custo de mão de obra (HH) dos colaboradores alocados, e os dias no projeto passam a contar como embarque." /></label>
+          <label htmlFor={`acp-offshore-${projectId}`}>Projeto offshore <HelpTip icon help="Projetos offshore usam a modalidade OFFSHORE do motor de mão de obra para os colaboradores alocados, com periculosidade integral e confinamento." /></label>
           <label className="acp-checkbox-inline">
             <input
               id={`acp-offshore-${projectId}`}
@@ -365,7 +372,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
               checked={offshoreValue}
               onChange={e => setOffshoreEdit(e.target.checked)}
             />
-            <span>{offshoreValue ? 'Sim (+10% transferência)' : 'Não'}</span>
+            <span>{offshoreValue ? 'Sim' : 'Não'}</span>
           </label>
         </div>
       </div>

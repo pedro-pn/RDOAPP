@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 import {
   createRomaneio,
   createRomaneioDraft,
+  fetchRomaneioChecklistMap,
   getRomaneio,
   listRomaneioCatalog,
   listRomaneioDrafts,
@@ -15,6 +16,8 @@ import {
   updateRomaneioDraft,
   type Romaneio,
   type RomaneioCatalogItem,
+  type RomaneioChecklistInfo,
+  type RomaneioChecklistItemStatus,
   type RomaneioCreatePayload,
   type RomaneioDraftPayload,
   type RomaneioItemKind,
@@ -25,6 +28,7 @@ import {
 
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
+import { SignatureDialog } from '../../components/reports/SignatureDialog';
 import { useToast } from '../../components/ui/ToastContext';
 import { Modal } from '../../components/ui/Modal';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -32,6 +36,7 @@ import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { autosaveDraftTargetId } from '../../utils/draftAutosave';
 import { defaultRomaneioUnit, romaneioMeasureLabel, romaneioUsesVariableQuantity } from '../../utils/romaneioMeasure';
+import { RomaneioChecklistModal } from './RomaneioChecklistModal';
 
 interface SelectedItem {
   key: string;
@@ -44,14 +49,25 @@ interface SelectedItem {
   quantity: number;
   unitLabel: string;
   isCustom: boolean;
+  isExtra?: boolean;
   returnMaxQuantity?: number;
 }
 
 const today = new Date().toISOString().slice(0, 10);
 const MANUAL_PROJECT_OPTION = '__manual_project__';
+const DEFAULT_CHECKLIST_STATUS: RomaneioChecklistItemStatus = 'CONFORME';
+const CHECKLIST_STATUS_VALUES: RomaneioChecklistItemStatus[] = ['CONFORME', 'NAO_CONFORME', 'NAO_APLICAVEL'];
+
+type ChecklistStatusMap = Record<string, RomaneioChecklistItemStatus>;
+type ChecklistStatusesByCatalogItem = Record<string, ChecklistStatusMap>;
 
 function itemLabel(item: RomaneioCatalogItem) {
   return [item.code, item.name].filter(Boolean).join(' - ');
+}
+
+function catalogItemTypeLabel(item: RomaneioCatalogItem) {
+  if (item.sourceType === 'STOCK') return 'Estoque';
+  return item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento';
 }
 
 function projectLabel(project: { code: string; name?: string | null }) {
@@ -91,8 +107,60 @@ function romaneioItemsToSelectedItems(romaneio: Romaneio): SelectedItem[] {
     measureType: item.measureType,
     quantity: Number(item.quantity),
     unitLabel: item.unitLabel,
-    isCustom: item.isCustom
+    isCustom: item.isCustom,
+    isExtra: item.isExtra
   }));
+}
+
+function normalizeChecklistItemStatus(value: unknown): RomaneioChecklistItemStatus {
+  return CHECKLIST_STATUS_VALUES.includes(value as RomaneioChecklistItemStatus)
+    ? value as RomaneioChecklistItemStatus
+    : DEFAULT_CHECKLIST_STATUS;
+}
+
+function checklistStatusFromSnapshotItem(item: { checked?: boolean; status?: RomaneioChecklistItemStatus | null }): RomaneioChecklistItemStatus {
+  if (item.status) return normalizeChecklistItemStatus(item.status);
+  if (typeof item.checked === 'boolean') return item.checked ? 'CONFORME' : 'NAO_CONFORME';
+  return DEFAULT_CHECKLIST_STATUS;
+}
+
+function checklistStatusesFromRomaneio(romaneio: Romaneio): ChecklistStatusesByCatalogItem {
+  const statuses: ChecklistStatusesByCatalogItem = {};
+  (romaneio.checklists || []).forEach(checklist => {
+    if (!checklist.catalogItemId) return;
+    statuses[checklist.catalogItemId] = checklist.items.reduce<ChecklistStatusMap>((acc, item) => {
+      acc[item.text] = checklistStatusFromSnapshotItem(item);
+      return acc;
+    }, {});
+  });
+  return statuses;
+}
+
+function coerceChecklistStatusesPayload(value: unknown): ChecklistStatusesByCatalogItem {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const statuses: ChecklistStatusesByCatalogItem = {};
+  Object.entries(value as Record<string, unknown>).forEach(([catalogItemId, rawStatusMap]) => {
+    if (!rawStatusMap || typeof rawStatusMap !== 'object' || Array.isArray(rawStatusMap)) return;
+    statuses[catalogItemId] = Object.entries(rawStatusMap as Record<string, unknown>)
+      .reduce<ChecklistStatusMap>((acc, [text, status]) => {
+        acc[text] = normalizeChecklistItemStatus(status);
+        return acc;
+      }, {});
+  });
+  return statuses;
+}
+
+function legacyChecklistSelectionsToStatuses(value: unknown): ChecklistStatusesByCatalogItem {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const statuses: ChecklistStatusesByCatalogItem = {};
+  Object.entries(value as Record<string, unknown>).forEach(([catalogItemId, checkedTexts]) => {
+    if (!Array.isArray(checkedTexts)) return;
+    statuses[catalogItemId] = checkedTexts.reduce<ChecklistStatusMap>((acc, text) => {
+      acc[String(text)] = 'CONFORME';
+      return acc;
+    }, {});
+  });
+  return statuses;
 }
 
 function returnItemsToSelectedItems(items: RomaneioReturnItem[]): SelectedItem[] {
@@ -109,9 +177,14 @@ function returnItemsToSelectedItems(items: RomaneioReturnItem[]): SelectedItem[]
       quantity: Number.isFinite(maxQuantity) ? maxQuantity : Number(item.quantity),
       unitLabel: item.unitLabel,
       isCustom: item.isCustom,
+      isExtra: false,
       returnMaxQuantity: Number.isFinite(maxQuantity) ? maxQuantity : Number(item.quantity)
     };
   });
+}
+
+function extraQuantityKey(itemId: string) {
+  return `extra:${itemId}`;
 }
 
 function romaneioTypeLabel(type: RomaneioType) {
@@ -130,8 +203,9 @@ function draftProjectDateKey(draft: { projectId?: string | null; reportDate?: st
 
 export function NewRomaneioPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const showToast = useToast();
   const queryClient = useQueryClient();
   const draftSaveTimerRef = useRef<number | null>(null);
@@ -150,8 +224,14 @@ export function NewRomaneioPage() {
   const [cargoWeight, setCargoWeight] = useState('');
   const [cargoWeightUnit, setCargoWeightUnit] = useState<'kg' | 'ton'>('kg');
   const [catalogSearch, setCatalogSearch] = useState('');
+  const [extraCategoryFilter, setExtraCategoryFilter] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => new Set());
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [checklistStatuses, setChecklistStatuses] = useState<ChecklistStatusesByCatalogItem>({});
+  const [activeChecklistItem, setActiveChecklistItem] = useState<SelectedItem | null>(null);
+  const [checklistSignatureImage, setChecklistSignatureImage] = useState('');
+  const [checklistSignatureOpen, setChecklistSignatureOpen] = useState(false);
+  const [extraItemModalOpen, setExtraItemModalOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState({
@@ -167,7 +247,16 @@ export function NewRomaneioPage() {
   const editId = searchParams.get('edit') || '';
   const isEditing = Boolean(editId);
   const projectsQuery = useQuery({ queryKey: ['romaneio-projects'], queryFn: () => listRomaneioProjects(true) });
-  const catalogQuery = useQuery({ queryKey: ['romaneio-catalog'], queryFn: listRomaneioCatalog, enabled: romaneioType === 'OUTBOUND' });
+  const catalogQuery = useQuery({
+    queryKey: ['romaneio-catalog'],
+    queryFn: listRomaneioCatalog,
+    enabled: romaneioType === 'OUTBOUND' || extraItemModalOpen
+  });
+  const checklistMapQuery = useQuery({
+    queryKey: ['romaneio-checklist-map'],
+    queryFn: fetchRomaneioChecklistMap,
+    enabled: romaneioType === 'OUTBOUND'
+  });
   const draftsQuery = useQuery({ queryKey: ['romaneio-drafts'], queryFn: listRomaneioDrafts, enabled: !isEditing });
   const editQuery = useQuery({
     queryKey: ['romaneio', editId],
@@ -224,9 +313,48 @@ export function NewRomaneioPage() {
     return Array.from(map.entries());
   }, [activeCatalog]);
 
+  const extraCategoryOptions = useMemo(() => (
+    Array.from(new Set((catalogQuery.data || [])
+      .filter(item => item.isActive)
+      .map(item => item.categoryName)
+      .filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  ), [catalogQuery.data]);
+
+  const extraCategoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    activeCatalog.forEach(item => {
+      counts.set(item.categoryName, (counts.get(item.categoryName) || 0) + 1);
+    });
+    return counts;
+  }, [activeCatalog]);
+
+  const extraVisibleCategories = useMemo(() => (
+    extraCategoryOptions
+      .map(category => ({ category, count: extraCategoryCounts.get(category) || 0 }))
+      .filter(item => item.count > 0)
+  ), [extraCategoryCounts, extraCategoryOptions]);
+
+  const selectedExtraCategory = extraCategoryFilter || extraVisibleCategories[0]?.category || '';
+  const extraCategoryItems = useMemo(() => (
+    selectedExtraCategory
+      ? activeCatalog.filter(item => item.categoryName === selectedExtraCategory)
+      : []
+  ), [activeCatalog, selectedExtraCategory]);
+
+  useEffect(() => {
+    if (!extraItemModalOpen) return;
+    if (extraCategoryFilter && extraVisibleCategories.some(item => item.category === extraCategoryFilter)) return;
+    setExtraCategoryFilter(extraVisibleCategories[0]?.category || '');
+  }, [extraCategoryFilter, extraItemModalOpen, extraVisibleCategories]);
+
   function clearSelectedItemsForContextChange() {
     setSelectedItems([]);
     setQuantities({});
+    setChecklistStatuses({});
+    setActiveChecklistItem(null);
+    setExtraItemModalOpen(false);
+    setExtraCategoryFilter('');
     hydratedReturnItemsKeyRef.current = '';
   }
 
@@ -280,6 +408,35 @@ export function NewRomaneioPage() {
       );
     });
     setQuantities(current => ({ ...current, [item.id]: '' }));
+    if (checklistMapQuery.data?.map[item.id]) {
+      setActiveChecklistItem(next);
+    }
+  }
+
+  function addExtraCatalogItem(item: RomaneioCatalogItem) {
+    const variableQuantity = romaneioUsesVariableQuantity(item.measureType);
+    const showQuantityInput = variableQuantity || !item.isSerialized;
+    const quantity = showQuantityInput ? Number(quantities[extraQuantityKey(item.id)] || '') : 1;
+    if (!quantity || quantity <= 0) {
+      showToast('Informe a quantidade do item extra.');
+      return;
+    }
+
+    setSelectedItems(current => [...current, {
+      key: `extra-${item.id}-${Date.now()}`,
+      catalogItemId: item.id,
+      itemCode: item.code || null,
+      itemName: item.name,
+      categoryName: item.categoryName,
+      kind: item.kind,
+      measureType: item.measureType,
+      quantity,
+      unitLabel: item.defaultUnitLabel || defaultRomaneioUnit(item.measureType),
+      isCustom: false,
+      isExtra: true
+    }]);
+    setQuantities(current => ({ ...current, [extraQuantityKey(item.id)]: '' }));
+    showToast('Item extra adicionado.');
   }
 
   function addCustomItem() {
@@ -306,6 +463,58 @@ export function NewRomaneioPage() {
       quantity: '1',
       unitLabel: 'unidade'
     });
+  }
+
+  function removeSelectedItem(key: string) {
+    const item = selectedItems.find(selected => selected.key === key);
+    setSelectedItems(current => current.filter(selected => selected.key !== key));
+    if (item?.catalogItemId) {
+      setChecklistStatuses(current => {
+        const next = { ...current };
+        delete next[item.catalogItemId || ''];
+        return next;
+      });
+    }
+  }
+
+  function liveChecklistInfo(item: SelectedItem): RomaneioChecklistInfo | null {
+    return item.catalogItemId ? checklistMapQuery.data?.map[item.catalogItemId] || null : null;
+  }
+
+  function snapshotChecklistInfo(item: SelectedItem): RomaneioChecklistInfo | null {
+    if (!isEditing || !item.catalogItemId) return null;
+    const checklist = (editQuery.data?.checklists || []).find(entry => entry.catalogItemId === item.catalogItemId);
+    if (!checklist) return null;
+    return {
+      equipmentId: checklist.equipmentId || '',
+      equipmentCode: checklist.equipmentCode,
+      equipmentName: checklist.equipmentName,
+      categoryName: checklist.categoryName || '',
+      displayNameOrTag: checklist.displayNameOrTag || checklist.equipmentCode || checklist.equipmentName,
+      displayMode: checklist.displayMode || 'AUTO',
+      items: checklist.items.map(entry => entry.text)
+    };
+  }
+
+  function checklistInfoForItem(item: SelectedItem): RomaneioChecklistInfo | null {
+    return snapshotChecklistInfo(item) || liveChecklistInfo(item);
+  }
+
+  function statusesForItem(item: SelectedItem): ChecklistStatusMap {
+    if (!item.catalogItemId) return {};
+    const currentStatuses = checklistStatuses[item.catalogItemId] || {};
+    const checklistInfo = checklistInfoForItem(item);
+    if (!checklistInfo?.items?.length) return currentStatuses;
+    return checklistInfo.items.reduce<ChecklistStatusMap>((acc, text) => {
+      acc[text] = normalizeChecklistItemStatus(currentStatuses[text]);
+      return acc;
+    }, {});
+  }
+
+  function saveChecklist(item: SelectedItem, statuses: ChecklistStatusMap) {
+    if (!item.catalogItemId) return;
+    setChecklistStatuses(current => ({ ...current, [item.catalogItemId || '']: statuses }));
+    setActiveChecklistItem(null);
   }
 
   function toggleCategory(category: string) {
@@ -352,6 +561,8 @@ export function NewRomaneioPage() {
         cargoWeight,
         cargoWeightUnit,
         selectedItems,
+        checklistStatuses,
+        checklistSignatureImage,
         quantities,
         custom
       }
@@ -366,6 +577,8 @@ export function NewRomaneioPage() {
     romaneioDate,
     romaneioType,
     selectedItems,
+    checklistStatuses,
+    checklistSignatureImage,
     selectedProject,
     typedProjectCode,
     vehiclePlate
@@ -393,6 +606,10 @@ export function NewRomaneioPage() {
     setCargoWeight(typeof payload.cargoWeight === 'string' || typeof payload.cargoWeight === 'number' ? String(payload.cargoWeight) : '');
     setCargoWeightUnit(payload.cargoWeightUnit === 'ton' ? 'ton' : 'kg');
     setSelectedItems(Array.isArray(payload.selectedItems) ? payload.selectedItems as SelectedItem[] : []);
+    setChecklistStatuses(Object.keys(coerceChecklistStatusesPayload(payload.checklistStatuses)).length
+      ? coerceChecklistStatusesPayload(payload.checklistStatuses)
+      : legacyChecklistSelectionsToStatuses(payload.checklistSelections));
+    setChecklistSignatureImage(typeof payload.checklistSignatureImage === 'string' ? payload.checklistSignatureImage : '');
     setQuantities(
       payload.quantities && typeof payload.quantities === 'object' && !Array.isArray(payload.quantities)
         ? payload.quantities as Record<string, string>
@@ -429,6 +646,8 @@ export function NewRomaneioPage() {
     setCargoWeight(romaneio.cargoWeight == null ? '' : String(romaneio.cargoWeight));
     setCargoWeightUnit(romaneio.cargoWeightUnit === 'ton' ? 'ton' : 'kg');
     setSelectedItems(romaneioItemsToSelectedItems(romaneio));
+    setChecklistStatuses(checklistStatusesFromRomaneio(romaneio));
+    setChecklistSignatureImage('');
     setDraftId(null);
   }, [editQuery.data, isEditing]);
 
@@ -447,13 +666,17 @@ export function NewRomaneioPage() {
     if (isEditing) {
       const maxByKey = new Map(returnItems.map(item => [item.key, Number(item.maxQuantity)]));
       setSelectedItems(current => current.map(item => {
+        if (item.isExtra) return item;
         const maxQuantity = maxByKey.get(selectedItemReturnKey(item));
         return maxQuantity == null ? item : { ...item, returnMaxQuantity: maxQuantity };
       }));
       return;
     }
 
-    setSelectedItems(returnItemsToSelectedItems(returnItems));
+    setSelectedItems(current => [
+      ...returnItemsToSelectedItems(returnItems),
+      ...current.filter(item => item.isExtra)
+    ]);
     setQuantities({});
   }, [romaneioType, returnItemsQuery.data, projectId, typedProjectCode, editId, isEditing]);
 
@@ -518,6 +741,8 @@ export function NewRomaneioPage() {
     cargoWeight,
     cargoWeightUnit,
     selectedItems,
+    checklistStatuses,
+    checklistSignatureImage,
     quantities,
     custom,
     selectedProject,
@@ -539,8 +764,32 @@ export function NewRomaneioPage() {
       measureType: item.measureType,
       quantity: item.quantity,
       unitLabel: item.unitLabel,
-      isCustom: item.isCustom
+      isCustom: item.isCustom,
+      isExtra: Boolean(item.isExtra)
     }));
+  }
+
+  function checklistsPayload() {
+    if (romaneioType !== 'OUTBOUND') return [];
+    return selectedItems
+      .flatMap(item => {
+        const checklistInfo = checklistInfoForItem(item);
+        if (!item.catalogItemId || !checklistInfo?.items.length) return [];
+        const statuses = statusesForItem(item);
+        return [{
+          catalogItemId: item.catalogItemId,
+          statuses: checklistInfo.items.map(text => ({
+            text,
+            status: normalizeChecklistItemStatus(statuses[text])
+          }))
+        }];
+      });
+  }
+
+  function hasChecklistSignatureForSubmit() {
+    return Boolean(checklistSignatureImage)
+      || Boolean(isEditing && editQuery.data?.checklistSignatureImage)
+      || checklistMapQuery.data?.hasSavedSignature === true;
   }
 
   function canSubmitRomaneio() {
@@ -567,6 +816,7 @@ export function NewRomaneioPage() {
         return false;
       }
       const invalidItem = selectedItems.find(item => {
+        if (item.isExtra) return false;
         const maxQuantity = item.returnMaxQuantity;
         return maxQuantity != null && Number(item.quantity) - maxQuantity > 0.0005;
       });
@@ -588,6 +838,12 @@ export function NewRomaneioPage() {
   async function confirmSubmit() {
     if (saveMutation.isPending || isSubmittingRef.current) return;
     if (!canSubmitRomaneio()) return;
+    const checklistPayload = checklistsPayload();
+    if (checklistPayload.length && !hasChecklistSignatureForSubmit()) {
+      showToast('Adicione a assinatura do responsável para gerar o checklist.');
+      setChecklistSignatureOpen(true);
+      return;
+    }
     setReviewOpen(false);
     isSubmittingRef.current = true;
     if (draftSaveTimerRef.current) {
@@ -605,6 +861,8 @@ export function NewRomaneioPage() {
         vehiclePlate,
         cargoWeight: cargoWeight ? Number(cargoWeight) : null,
         cargoWeightUnit,
+        checklists: checklistPayload,
+        checklistSignatureImage: checklistSignatureImage || null,
         items: selectedItemsPayload()
       });
       if (!isEditing) {
@@ -635,6 +893,12 @@ export function NewRomaneioPage() {
     navigate('/login', { replace: true });
   }
 
+  const activeChecklistInfo = activeChecklistItem ? checklistInfoForItem(activeChecklistItem) : null;
+  const selectedChecklistPayload = checklistsPayload();
+  const existingChecklistSignatureImage = isEditing ? editQuery.data?.checklistSignatureImage || '' : '';
+  const reviewChecklistSignatureImage = checklistSignatureImage || existingChecklistSignatureImage;
+  const needsChecklistSignature = selectedChecklistPayload.length > 0 && checklistMapQuery.data?.hasSavedSignature === false;
+
   return (
     <Shell>
       <TopBar
@@ -642,7 +906,7 @@ export function NewRomaneioPage() {
         subtitle={romaneioType === 'INBOUND' ? 'Retorno de equipamentos e consumíveis' : 'Formulário de equipamentos'}
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>
@@ -746,6 +1010,11 @@ export function NewRomaneioPage() {
               <div className="sec">{romaneioType === 'INBOUND' ? 'Itens retornando' : 'Itens selecionados'}</div>
               <div className="rel-meta">{selectedItems.length} item(ns)</div>
             </div>
+            {romaneioType === 'INBOUND' ? (
+              <button className="secondary-button" type="button" onClick={() => setExtraItemModalOpen(true)}>
+                Adicionar item extra
+              </button>
+            ) : null}
           </div>
           {!selectedItems.length && (
             <div className="rel-meta">
@@ -755,30 +1024,42 @@ export function NewRomaneioPage() {
             </div>
           )}
           <div className="romaneio-selected-list">
-            {selectedItems.map(item => (
-              <div className="romaneio-selected-row" key={item.key}>
-                <div>
-                  <strong>{[item.itemCode, item.itemName].filter(Boolean).join(' - ')}</strong>
-                  <div className="rel-meta">
-                    {item.categoryName} · {item.quantity} {item.unitLabel}
-                    {romaneioType === 'INBOUND' && item.returnMaxQuantity != null ? ` de ${item.returnMaxQuantity} ${item.unitLabel}` : ''}
+            {selectedItems.map(item => {
+              const checklistInfo = checklistInfoForItem(item);
+              const statusMap = checklistInfo ? statusesForItem(item) : {};
+              const conformeCount = checklistInfo ? checklistInfo.items.filter(text => statusMap[text] === 'CONFORME').length : 0;
+              const naoConformeCount = checklistInfo ? checklistInfo.items.filter(text => statusMap[text] === 'NAO_CONFORME').length : 0;
+              return (
+                <div className="romaneio-selected-row" key={item.key}>
+                  <div>
+                    <strong>{[item.itemCode, item.itemName].filter(Boolean).join(' - ')}</strong>
+                    <div className="rel-meta">
+                      {item.categoryName} · {item.quantity} {item.unitLabel}
+                      {romaneioType === 'INBOUND' && !item.isExtra && item.returnMaxQuantity != null ? ` de ${item.returnMaxQuantity} ${item.unitLabel}` : ''}
+                    </div>
+                    {item.isExtra ? <span className="romaneio-extra-badge">Item extra</span> : null}
+                    {checklistInfo && (
+                      <button className="mini-btn alt romaneio-checklist-chip" type="button" onClick={() => setActiveChecklistItem(item)}>
+                        Checklist {conformeCount}/{checklistInfo.items.length}{naoConformeCount ? ` · ${naoConformeCount} não conf.` : ''}
+                      </button>
+                    )}
+                  </div>
+                  <div className="romaneio-selected-actions">
+                    {romaneioType === 'INBOUND' && (
+                      <input
+                        type="number"
+                        min="0"
+                        max={item.isExtra ? undefined : item.returnMaxQuantity}
+                        step={romaneioUsesVariableQuantity(item.measureType) ? '0.1' : '1'}
+                        value={item.quantity}
+                        onChange={event => updateSelectedItemQuantity(item.key, event.target.value)}
+                      />
+                    )}
+                    <button className="mini-btn danger" type="button" onClick={() => removeSelectedItem(item.key)}>Remover</button>
                   </div>
                 </div>
-                <div className="romaneio-selected-actions">
-                  {romaneioType === 'INBOUND' && (
-                    <input
-                      type="number"
-                      min="0"
-                      max={item.returnMaxQuantity}
-                      step={romaneioUsesVariableQuantity(item.measureType) ? '0.1' : '1'}
-                      value={item.quantity}
-                      onChange={event => updateSelectedItemQuantity(item.key, event.target.value)}
-                    />
-                  )}
-                  <button className="mini-btn danger" type="button" onClick={() => setSelectedItems(current => current.filter(selected => selected.key !== item.key))}>Remover</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -823,7 +1104,7 @@ export function NewRomaneioPage() {
                             <div className="romaneio-catalog-row" key={item.id}>
                               <div>
                                 <strong>{itemLabel(item)}</strong>
-                                <div className="rel-meta">{item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento'} · {romaneioMeasureLabel(item.measureType)}</div>
+                                <div className="rel-meta">{catalogItemTypeLabel(item)} · {romaneioMeasureLabel(item.measureType)}</div>
                               </div>
                               <div className="romaneio-add-control">
                                 {showQuantityInput && (
@@ -898,6 +1179,93 @@ export function NewRomaneioPage() {
         </section>
       </form>
       <Modal
+        open={extraItemModalOpen}
+        onClose={() => setExtraItemModalOpen(false)}
+        ariaLabelledBy="romaneio-extra-item-title"
+        panelClassName="modal-card romaneio-extra-modal"
+      >
+        <div className="section-title" id="romaneio-extra-item-title">Adicionar item extra</div>
+        <div className="romaneio-extra-filters">
+          <label className="field-group">
+            <span>Pesquisar item</span>
+            <SearchBar value={catalogSearch} onChange={setCatalogSearch} placeholder="Código ou item" />
+          </label>
+        </div>
+        {catalogQuery.isLoading ? (
+          <div className="placeholder-copy">Carregando catálogo...</div>
+        ) : !extraVisibleCategories.length ? (
+          <div className="placeholder-copy">Nenhum item encontrado.</div>
+        ) : (
+          <div className="romaneio-extra-browser">
+            <div className="romaneio-extra-sidebar" aria-label="Categorias de itens extras">
+              {extraVisibleCategories.map(({ category, count }) => (
+                <button
+                  type="button"
+                  key={category}
+                  className={`romaneio-extra-category-btn${category === selectedExtraCategory ? ' active' : ''}`}
+                  onClick={() => setExtraCategoryFilter(category)}
+                >
+                  <span>{category}</span>
+                  <strong>{count}</strong>
+                </button>
+              ))}
+            </div>
+            <label className="field-group romaneio-extra-mobile-category">
+              <span>Categoria</span>
+              <select value={selectedExtraCategory} onChange={event => setExtraCategoryFilter(event.target.value)}>
+                {extraVisibleCategories.map(({ category, count }) => (
+                  <option key={category} value={category}>{category} ({count})</option>
+                ))}
+              </select>
+            </label>
+            <div className="romaneio-extra-list">
+              <div className="romaneio-extra-category">
+                <div className="romaneio-extra-category-title">
+                  <span>{selectedExtraCategory}</span>
+                  <span>{extraCategoryItems.length}</span>
+                </div>
+                <div className="romaneio-extra-items">
+                  {extraCategoryItems.map(item => {
+                    const variableQuantity = romaneioUsesVariableQuantity(item.measureType);
+                    const showQuantityInput = variableQuantity || !item.isSerialized;
+                    const quantityKey = extraQuantityKey(item.id);
+                    return (
+                      <div className="romaneio-catalog-row" key={item.id}>
+                        <div>
+                          <strong>{itemLabel(item)}</strong>
+                          <div className="rel-meta">{catalogItemTypeLabel(item)} · {romaneioMeasureLabel(item.measureType)}</div>
+                        </div>
+                        <div className="romaneio-add-control">
+                          {showQuantityInput ? (
+                            <input
+                              type="number"
+                              min="0"
+                              step={variableQuantity ? '0.1' : '1'}
+                              value={quantities[quantityKey] || ''}
+                              onChange={event => setQuantities(current => ({ ...current, [quantityKey]: event.target.value }))}
+                              placeholder={item.defaultUnitLabel || defaultRomaneioUnit(item.measureType)}
+                            />
+                          ) : null}
+                          {showQuantityInput ? (
+                            <span className="rel-meta">{item.defaultUnitLabel || defaultRomaneioUnit(item.measureType)}</span>
+                          ) : null}
+                          <button className="mini-btn" type="button" onClick={() => addExtraCatalogItem(item)}>
+                            Adicionar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="admin-form-actions">
+          <button className="secondary-button" type="button" onClick={() => setExtraItemModalOpen(false)}>Fechar</button>
+        </div>
+      </Modal>
+      <Modal
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
         ariaLabelledBy="romaneio-review-title"
@@ -924,12 +1292,24 @@ export function NewRomaneioPage() {
             <div className="romaneio-review-row" key={item.key}>
               <div>
                 <strong>{[item.itemCode, item.itemName].filter(Boolean).join(' - ')}</strong>
-                <div className="rel-meta">{item.categoryName}</div>
+                <div className="rel-meta">{item.categoryName}{item.isExtra ? ' · item extra' : ''}</div>
               </div>
               <span>{item.quantity} {item.unitLabel}</span>
             </div>
           ))}
         </div>
+        {needsChecklistSignature && (
+          <div className="romaneio-signature-summary">
+            <div>
+              <strong>Assinatura do responsável</strong>
+              <div className="rel-meta">{reviewChecklistSignatureImage ? 'Assinatura adicionada ao checklist.' : 'Checklist sem assinatura cadastrada.'}</div>
+            </div>
+            {reviewChecklistSignatureImage ? <img src={reviewChecklistSignatureImage} alt="Assinatura do responsável" /> : null}
+            <button className="secondary-button" type="button" onClick={() => setChecklistSignatureOpen(true)}>
+              {reviewChecklistSignatureImage ? 'Alterar assinatura' : 'Adicionar assinatura'}
+            </button>
+          </div>
+        )}
         <div className="admin-form-actions">
           <button className="secondary-button" type="button" onClick={() => setReviewOpen(false)}>
             Cancelar
@@ -939,6 +1319,31 @@ export function NewRomaneioPage() {
           </button>
         </div>
       </Modal>
+      {activeChecklistItem && activeChecklistInfo && (
+        <RomaneioChecklistModal
+          open={Boolean(activeChecklistItem)}
+          title={[
+            activeChecklistInfo.categoryName,
+            activeChecklistInfo.displayNameOrTag || activeChecklistInfo.equipmentCode,
+            activeChecklistInfo.equipmentName
+          ].filter(Boolean).join(' - ')}
+          items={activeChecklistInfo.items}
+          statuses={statusesForItem(activeChecklistItem)}
+          onClose={() => setActiveChecklistItem(null)}
+          onSave={statuses => saveChecklist(activeChecklistItem, statuses)}
+        />
+      )}
+      <SignatureDialog
+        open={checklistSignatureOpen}
+        title="Assinatura do responsável"
+        initialSignerName={user?.name || ''}
+        allowCachedSignerName={false}
+        onCancel={() => setChecklistSignatureOpen(false)}
+        onConfirm={payload => {
+          setChecklistSignatureImage(payload.signatureImageDataUrl);
+          setChecklistSignatureOpen(false);
+        }}
+      />
     </Shell>
   );
 }

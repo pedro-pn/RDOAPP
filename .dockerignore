@@ -1,9 +1,16 @@
 **/node_modules
 **/dist
+**/build
 **/.vite
 **/*.tsbuildinfo
 .git
+.dockerignore
+Dockerfile*
 .code-review-graph
+coverage
+*.log*
+.env
+.env.*
 tmp_*
 backend/tmp_*
 uploads

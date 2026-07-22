@@ -78,6 +78,13 @@ import {
   reportApprovalJobErrorText,
   scheduleReportApprovalPostProcessing
 } from '../../lib/reports/jobs.js';
+import {
+  MANUAL_REPORT_UPLOAD_KEY,
+  buildManualReportOperationalFields,
+  enrichNightCollaboratorsInSpecialConditions,
+  manualReportOperationalDataSchema,
+  updateManualReportOperationalData
+} from '../../lib/reports/manual-operational-data.js';
 import { RDO_ACCESS_ROLES, requireAuth, requireModuleRole } from '../../middleware/auth.js';
 
 const router = Router();
@@ -87,7 +94,6 @@ const REPORT_LIST_DEFAULT_PAGE_SIZE = 50;
 const REPORT_LIST_MAX_PAGE_SIZE = 100;
 const COLLABORATOR_EDIT_NOTE = 'Editado pelo colaborador';
 const CLIENT_REJECTION_KEY = '__clientRejectedAt';
-const MANUAL_REPORT_UPLOAD_KEY = '__manualUpload';
 export const MANUAL_DERIVED_SERVICE_REPORT_EDIT_KEY = '__manualDerivedServiceReportEdit';
 const MANUAL_REPORT_MAX_PDF_BYTES = 20 * 1024 * 1024;
 const DERIVED_SERVICE_REPORT_TYPES = new Set([
@@ -3663,13 +3669,15 @@ const manualReportUploadSchema = z.object({
   serviceEquipment: z.string().trim().max(180).optional(),
   serviceSystem: z.string().trim().max(180).optional(),
   pdfDataUrl: z.string().trim().min(1).max(30_000_000),
-  signatureMode: manualReportSignatureModeSchema.default('APPROVED')
+  signatureMode: manualReportSignatureModeSchema.default('APPROVED'),
+  operationalData: manualReportOperationalDataSchema.optional()
 });
 const manualReportPdfReplaceSchema = z.object({
+  projectId: z.string().min(1).optional(),
   fileName: z.string().trim().max(240).optional(),
   serviceEquipment: z.string().trim().max(180).optional(),
   serviceSystem: z.string().trim().max(180).optional(),
-  pdfDataUrl: z.string().trim().min(1).max(30_000_000),
+  pdfDataUrl: z.string().trim().min(1).max(30_000_000).optional(),
   signatureMode: manualReportSignatureModeSchema.default('APPROVED')
 });
 function uniqueIds(values) {
@@ -3683,53 +3691,6 @@ function cloneJson(value) {
 
 function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-}
-
-function textValue(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function nightCollaboratorInput(value) {
-  if (typeof value === 'string') return { name: value.trim(), role: '' };
-  const record = plainObject(value);
-  return {
-    id: textValue(record.id),
-    name: textValue(record.name),
-    role: textValue(record.role)
-  };
-}
-
-export async function enrichNightCollaboratorsInSpecialConditions(tx, specialConditions) {
-  const next = cloneJson(plainObject(specialConditions));
-  const noturnoDetails = plainObject(next.noturnoDetails);
-  const collaboratorIds = Array.isArray(noturnoDetails.collaboratorIds)
-    ? uniqueIds(noturnoDetails.collaboratorIds.filter(id => typeof id === 'string'))
-    : [];
-  if (!collaboratorIds.length) return next;
-
-  const collaborators = await tx.collaborator.findMany({
-    where: { id: { in: collaboratorIds } },
-    select: { id: true, name: true, role: true }
-  });
-  const byId = new Map(collaborators.map(collaborator => [collaborator.id, collaborator]));
-  const existing = Array.isArray(noturnoDetails.colaboradores)
-    ? noturnoDetails.colaboradores.map(nightCollaboratorInput)
-    : [];
-
-  next.noturnoDetails = {
-    ...noturnoDetails,
-    collaboratorIds,
-    colaboradores: collaboratorIds.map((id, index) => {
-      const current = existing[index] || {};
-      const collaborator = byId.get(id);
-      return {
-        id,
-        name: current.name || collaborator?.name || id,
-        role: current.role || collaborator?.role || ''
-      };
-    })
-  };
-  return next;
 }
 
 export async function assertRenderableReportSignatureImageDataUrl(value) {
@@ -6069,6 +6030,11 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
         }
       }
 
+      const operationalFields = await buildManualReportOperationalFields(tx, project, reportDate, data.operationalData, data.reportType);
+      const storedSpecialConditions = {
+        ...manualSpecialConditions,
+        ...operationalFields.specialConditions
+      };
       const created = await tx.report.create({
         data: {
           projectId: data.projectId,
@@ -6078,18 +6044,17 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
           sequenceNumber,
           status: signed ? ReportStatus.SIGNED : ReportStatus.APPROVED,
           reportDate,
-          arrivalTime: '00:00',
-          departureTime: '00:00',
-          lunchBreak: '00:00:00',
-          daytimeCount: 0,
-          daytimeWorkedMinutes: 0,
-          nighttimeWorkedMinutes: 0,
-          daytimeOvertimeMinutes: 0,
-          nighttimeOvertimeMinutes: 0,
-          totalOvertimeMinutes: 0,
+          ...operationalFields.data,
           approvedAt: new Date(),
-          specialConditions: manualSpecialConditions,
-          pendingDerivedTypes: []
+          specialConditions: storedSpecialConditions,
+          pendingDerivedTypes: [],
+          ...(operationalFields.collaboratorIds.length
+            ? {
+                collaborators: {
+                  create: operationalFields.collaboratorIds.map(collaboratorId => ({ collaboratorId }))
+                }
+              }
+            : {})
         },
         include
       });
@@ -6120,8 +6085,26 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
   res.status(201).json(reportWithSignatureEmailDelivery(item, signaturePreparation));
 }));
 
+router.put('/:id/manual-data', requireAuth, requireRdoManager, asyncHandler(async (req, res) => {
+  const result = await updateManualReportOperationalData({
+    prisma,
+    reportId: req.params.id,
+    body: req.body,
+    userId: req.auth.user.id,
+    include,
+    isReportUnavailable,
+    isManualUploaded: report => Boolean(manualReportUploadMeta(report).uploadedAt),
+    assertUniqueReportDate
+  });
+  if (result.status) return res.status(result.status).json(result.body);
+
+  statisticsProjectsCache.clear();
+  res.json(result.item);
+}));
+
 router.put('/:id/manual-pdf', requireAuth, requireRdoManager, asyncHandler(async (req, res) => {
   const data = manualReportPdfReplaceSchema.parse(req.body || {});
+  const hasNewPdf = Boolean(data.pdfDataUrl);
   const signed = data.signatureMode === 'SIGNED';
   const requiresSignature = data.signatureMode === 'REQUIRES_SIGNATURE';
   const allowsOptionalSignature = data.signatureMode === 'APPROVED';
@@ -6134,6 +6117,11 @@ router.put('/:id/manual-pdf', requireAuth, requireRdoManager, asyncHandler(async
   if (!manualReportUploadMeta(existing).uploadedAt) {
     return res.status(400).json({ error: 'Apenas relatórios enviados manualmente podem ter o PDF substituído por este fluxo.' });
   }
+  const targetProjectId = data.projectId || existing.projectId;
+  const targetProject = targetProjectId === existing.projectId ? existing.project : await prisma.project.findFirstOrThrow({
+    where: { id: targetProjectId, deletedAt: null },
+    include: { operator: true, authorizedUsers: true }
+  });
 
   const manualSpecialConditions = {
     ...(existing.specialConditions || {}),
@@ -6142,78 +6130,82 @@ router.put('/:id/manual-pdf', requireAuth, requireRdoManager, asyncHandler(async
     ...manualReportServiceData(existing.reportType, data, existing.specialConditions?.serviceData),
     [MANUAL_REPORT_UPLOAD_KEY]: {
       ...manualReportUploadMeta(existing),
-      originalFileName: String(data.fileName || '').trim() || manualReportUploadMeta(existing).originalFileName || null,
-      uploadedAt: new Date().toISOString(),
-      uploadedByUserId: req.auth.user.id,
-      signedOnUpload: signed,
-      requiresSignature,
-      allowsOptionalSignature,
-      signatureMode: data.signatureMode,
-      replacedAt: new Date().toISOString()
+      ...(hasNewPdf ? {
+        originalFileName: String(data.fileName || '').trim() || manualReportUploadMeta(existing).originalFileName || null,
+        uploadedAt: new Date().toISOString(),
+        uploadedByUserId: req.auth.user.id,
+        signedOnUpload: signed,
+        requiresSignature,
+        allowsOptionalSignature,
+        signatureMode: data.signatureMode,
+        replacedAt: new Date().toISOString()
+      } : {})
     }
   };
-  if (requiresSignature && !shouldCreateInternalSignatureRound({
+  if (hasNewPdf && requiresSignature && !shouldCreateInternalSignatureRound({
     ...existing,
+    projectId: targetProjectId,
+    project: targetProject,
     status: ReportStatus.APPROVED,
     specialConditions: manualSpecialConditions
   }, { allowLinkedServiceReport: true })) {
     return res.status(409).json({ error: 'Configure ao menos um assinante cliente no projeto antes de exigir assinatura.' });
   }
 
-  const savedPdf = await saveManualReportPdf({
-    project: existing.project,
-    reportType: existing.reportType,
-    sequenceNumber: existing.sequenceNumber || null,
-    reportDate: existing.reportDate,
-    fileName: data.fileName,
-    pdfDataUrl: data.pdfDataUrl
-  });
+  const savedPdf = hasNewPdf ? await saveManualReportPdf({
+    project: targetProject, reportType: existing.reportType,
+    sequenceNumber: existing.sequenceNumber || null, reportDate: existing.reportDate,
+    fileName: data.fileName, pdfDataUrl: data.pdfDataUrl
+  }) : null;
 
   let item;
   try {
     item = await prisma.$transaction(async tx => {
-      await supersedeActiveReportVersions(tx, existing.id, {
-        userId: req.auth.user.id,
-        evidence,
+      const projectChanged = targetProjectId !== existing.projectId;
+      const sequenceSwap = projectChanged && Number.isInteger(existing.sequenceNumber)
+        ? await prepareReportSequenceChange(tx, existing, targetProjectId, existing.reportType, existing.sequenceNumber)
+        : null;
+      if (hasNewPdf) await supersedeActiveReportVersions(tx, existing.id, {
+        userId: req.auth.user.id, evidence,
         description: 'Versao substituida por novo upload manual.'
       });
       const updated = await tx.report.update({
         where: { id: existing.id },
         data: {
-          status: signed ? ReportStatus.SIGNED : ReportStatus.APPROVED,
-          reviewedByUserId: req.auth.user.id,
-          approvedAt: new Date(),
-          returnedAt: null,
-          reviewNotes: null,
-          zapsignDocToken: null,
-          zapsignSignerToken: null,
-          zapsignRequestedAt: null,
-          zapsignSignedAt: null,
-          zapsignDocUrl: null,
+          projectId: targetProjectId,
+          ...(hasNewPdf ? {
+            status: signed ? ReportStatus.SIGNED : ReportStatus.APPROVED,
+            reviewedByUserId: req.auth.user.id,
+            approvedAt: new Date(),
+            returnedAt: null,
+            reviewNotes: null,
+            zapsignDocToken: null,
+            zapsignSignerToken: null,
+            zapsignRequestedAt: null,
+            zapsignSignedAt: null,
+            zapsignDocUrl: null
+          } : {}),
           specialConditions: manualSpecialConditions
         },
         include
       });
-      await createManualReportVersion(tx, updated, savedPdf, {
-        signed,
-        userId: req.auth.user.id,
-        evidence
+      if (sequenceSwap) await finishReportSequenceChange(tx, sequenceSwap);
+      if (projectChanged && Number.isInteger(existing.sequenceNumber)) {
+        await syncProjectReportSequence(tx, targetProjectId, existing.reportType, existing.sequenceNumber);
+      }
+      if (hasNewPdf) await createManualReportVersion(tx, updated, savedPdf, {
+        signed, userId: req.auth.user.id, evidence
       });
-      return tx.report.findUniqueOrThrow({
-        where: { id: existing.id },
-        include
-      });
+      return tx.report.findUniqueOrThrow({ where: { id: existing.id }, include });
     });
   } catch (error) {
-    await fs.unlink(savedPdf.targetPath).catch(() => undefined);
+    if (savedPdf) await fs.unlink(savedPdf.targetPath).catch(() => undefined);
     throw error;
   }
 
   let signaturePreparation = null;
-  if (requiresSignature) {
-    signaturePreparation = await ensureInternalSignatureRoundAndNotify(item, req.auth.user.id, evidence, {
-      allowLinkedServiceReport: true
-    });
+  if (hasNewPdf && requiresSignature) {
+    signaturePreparation = await ensureInternalSignatureRoundAndNotify(item, req.auth.user.id, evidence, { allowLinkedServiceReport: true });
     item = await prisma.report.findUniqueOrThrow({ where: { id: item.id }, include });
   }
   statisticsProjectsCache.clear();

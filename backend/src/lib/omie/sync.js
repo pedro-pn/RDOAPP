@@ -1,5 +1,6 @@
 /*
- * Sincronização Omie: projetos (cache codigo→OS), categorias e compras (contas a pagar).
+ * Sincronização Omie: projetos (cache codigo→OS), categorias, compras (contas a pagar)
+ * e receitas/faturamento (contas a receber).
  *
  * Ligação (confirmada): ContaPagar.codigo_projeto -> Projeto.codigo (Omie) -> nº da OS no nome
  * do projeto -> Project.code no app. O filtro por codigo_projeto em ListarContasPagar funciona,
@@ -7,6 +8,7 @@
  */
 
 import env from '../../config/env.js';
+import { isSedeCostCenterCode, SEDE_OMIE_CODES } from '../acompanhamento/sede-cost-centers.js';
 import { omieCall, omieConfigured } from './client.js';
 import prisma from '../prisma.js';
 
@@ -32,6 +34,29 @@ export function osNumberFromName(nome) {
 function num(value) {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function str(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text === '' ? null : text;
+}
+
+function boolFlag(value) {
+  if (value === 'S') return true;
+  if (value === 'N') return false;
+  return null;
+}
+
+function isCanceledStatus(value) {
+  return /CANCELAD[OA]|CANCELLED|CANCELED|^C$/i.test(str(value) ?? '');
+}
+
+function isCanceledReceivable(record, nfseInfo = null) {
+  return isCanceledStatus(record?.status_titulo)
+    || isCanceledStatus(record?.cStatusNFSe)
+    || isCanceledStatus(record?.Cabecalho?.cStatusNFSe)
+    || isCanceledStatus(nfseInfo?.status);
 }
 
 async function startRun(scope, triggeredBy) {
@@ -64,6 +89,94 @@ async function paginate(path, call, baseParam, recordsKey, onPage, label = call)
     page += 1;
   } while (page <= totalPages);
   return read;
+}
+
+async function paginateNfse(baseParam, onPage, label = 'ListarNFSEs') {
+  let page = 1;
+  let totalPages = 1;
+  let read = 0;
+  do {
+    const json = await omieCall('/servicos/nfse/', 'ListarNFSEs', {
+      ...baseParam,
+      nPagina: page,
+      nRegPorPagina: PAGE_SIZE
+    });
+    totalPages = json.nTotPaginas || 1;
+    const records = json.nfseEncontradas || [];
+    read += records.length;
+    await onPage(records);
+    if (totalPages > 1) {
+      console.log(`  [${label}] página ${page}/${totalPages} · lidos ${read}`);
+    }
+    page += 1;
+  } while (page <= totalPages);
+  return read;
+}
+
+function addUnique(map, key, info) {
+  const normalized = str(key);
+  if (!normalized) return;
+  if (!map.has(normalized)) {
+    map.set(normalized, info);
+    return;
+  }
+  if (map.get(normalized) !== info) map.set(normalized, null);
+}
+
+function extractNfseTaxInfo(nfse) {
+  const services = Array.isArray(nfse?.ListaServicos)
+    ? nfse.ListaServicos
+    : (nfse?.Servicos && typeof nfse.Servicos === 'object' ? [nfse.Servicos] : []);
+  const serviceWithCode = services.find(s => str(s?.CodigoLC116) || str(s?.CodigoServico)) ?? null;
+  const serviceWithRate = services.find(s => num(s?.nAliquotaISS) !== null) ?? null;
+  const values = nfse?.Valores && typeof nfse.Valores === 'object' ? nfse.Valores : {};
+
+  let weightedRate = 0;
+  let weightedAmount = 0;
+  for (const service of services) {
+    const rate = num(service?.nAliquotaISS);
+    if (rate === null) continue;
+    const amount = num(service?.nValorServico) ?? num(service?.nValorTotal) ?? 1;
+    const weight = amount > 0 ? amount : 1;
+    weightedRate += rate * weight;
+    weightedAmount += weight;
+  }
+
+  return {
+    codigoLc116: str(serviceWithCode?.CodigoLC116),
+    codigoServico: str(serviceWithCode?.CodigoServico),
+    status: str(nfse?.Cabecalho?.cStatusNFSe),
+    aliquotaIss: weightedAmount > 0 ? weightedRate / weightedAmount : (num(values.nAliquotaISS) ?? num(serviceWithRate?.nAliquotaISS)),
+    valorIss: num(values.nValorISS) ?? num(serviceWithRate?.nValorISS)
+  };
+}
+
+async function fetchOmieNfseTaxLookup() {
+  const lookup = { byFiscalNumber: new Map(), byOs: new Map(), byRps: new Map(), recordsRead: 0 };
+  const read = await paginateNfse({ cExibirDescricao: 'S' }, async (records) => {
+    for (const nfse of records) {
+      const info = extractNfseTaxInfo(nfse);
+      addUnique(lookup.byFiscalNumber, nfse?.Cabecalho?.nNumeroNFSe, info);
+      addUnique(lookup.byOs, nfse?.OrdemServico?.nCodigoOS, info);
+      addUnique(lookup.byRps, nfse?.RPS?.nNumeroRPS, info);
+    }
+  });
+  lookup.recordsRead = read;
+  return lookup;
+}
+
+function findNfseTaxInfo(receivable, lookup) {
+  if (!lookup) return null;
+
+  const fiscalMatch = lookup.byFiscalNumber.get(str(receivable.numero_documento_fiscal));
+  if (fiscalMatch) return fiscalMatch;
+
+  const osMatch = lookup.byOs.get(str(receivable.nCodOS));
+  if (osMatch) return osMatch;
+
+  const rpsNumber = str(receivable.numero_documento)?.match(/\d+/)?.[0] ?? null;
+  const rpsMatch = lookup.byRps.get(rpsNumber);
+  return rpsMatch || null;
 }
 
 export async function syncOmieProjects({ triggeredBy = 'SCRIPT' } = {}) {
@@ -125,10 +238,19 @@ export async function syncOmiePurchases({ triggeredBy = 'SCRIPT', sinceDays = nu
     const categoryName = new Map(categories.map(c => [c.codigo, c.descricao]));
 
     const linked = await prisma.omieProject.findMany({
-      where: { projectId: { not: null } },
+      where: {
+        OR: [
+          { projectId: { not: null } },
+          { osNumber: { in: SEDE_OMIE_CODES } },
+          { codigo: { in: SEDE_OMIE_CODES } }
+        ]
+      },
       select: { codigo: true, osNumber: true, projectId: true }
     });
     const linkedByCodigo = new Map(linked.map(op => [op.codigo, op]));
+    for (const codigo of SEDE_OMIE_CODES) {
+      if (!linkedByCodigo.has(codigo)) linkedByCodigo.set(codigo, { codigo, osNumber: codigo, projectId: null });
+    }
     if (linkedByCodigo.size === 0) {
       await finishRun(run.id, 'SUCCESS', { recordsRead: 0, recordsWritten: 0, summary: { note: 'Nenhum projeto Omie vinculado; rode omie:sync projetos.' } });
       return { read: 0, written: 0, projects: 0 };
@@ -145,13 +267,13 @@ export async function syncOmiePurchases({ triggeredBy = 'SCRIPT', sinceDays = nu
       for (const r of records) {
         const codigoProjeto = r.codigo_projeto != null ? String(r.codigo_projeto) : null;
         const op = codigoProjeto ? linkedByCodigo.get(codigoProjeto) : null;
-        if (!op) continue; // só títulos de projetos que existem no app
+        if (!op) continue; // só títulos de projetos do app ou centros fixos da Sede
         const omieId = String(r.codigo_lancamento_omie);
         const categoriaCodigo = r.codigo_categoria ?? null;
         const data = {
           omieId,
           codigoProjeto,
-          projectId: op.projectId,
+          projectId: op.projectId ?? null,
           osNumber: op.osNumber,
           valor: num(r.valor_documento),
           statusTitulo: r.status_titulo ?? null,
@@ -164,7 +286,7 @@ export async function syncOmiePurchases({ triggeredBy = 'SCRIPT', sinceDays = nu
           dataEmissao: parseOmieDate(r.data_emissao),
           dataVencimento: parseOmieDate(r.data_vencimento),
           dataPrevisao: parseOmieDate(r.data_previsao),
-          linkStatus: 'LINKED',
+          linkStatus: op.projectId ? 'LINKED' : isSedeCostCenterCode(op.osNumber ?? codigoProjeto) ? 'SEDE' : 'UNMATCHED',
           rawPayload: r,
           syncedAt: new Date()
         };
@@ -174,7 +296,118 @@ export async function syncOmiePurchases({ triggeredBy = 'SCRIPT', sinceDays = nu
       }
     });
 
-    await finishRun(run.id, 'SUCCESS', { recordsRead: read, recordsWritten: written, summary: { linkedProjects: linkedByCodigo.size, incremental: Boolean(sinceDays) } });
+    const tracked = [...linkedByCodigo.values()];
+    const linkedProjects = tracked.filter(op => op.projectId).length;
+    const sedeCenters = tracked.filter(op => !op.projectId && isSedeCostCenterCode(op.osNumber ?? op.codigo)).length;
+    await finishRun(run.id, 'SUCCESS', { recordsRead: read, recordsWritten: written, summary: { linkedProjects, sedeCenters, incremental: Boolean(sinceDays) } });
+    return { read, written, projects: linkedProjects, sedeCenters };
+  } catch (error) {
+    await finishRun(run.id, 'ERROR', { error: error.message });
+    throw error;
+  }
+}
+
+// Receitas/faturamento dos projetos do Omie que casam com um Project do app.
+// Usado no acompanhamento para trocar a base prevista pela venda realmente faturada no Omie.
+export async function syncOmieReceivables({ triggeredBy = 'SCRIPT', sinceDays = null } = {}) {
+  const run = await startRun('receivables', triggeredBy);
+  try {
+    const categories = await prisma.omieCategory.findMany({ select: { codigo: true, descricao: true } });
+    const categoryName = new Map(categories.map(c => [c.codigo, c.descricao]));
+
+    const linked = await prisma.omieProject.findMany({
+      where: { projectId: { not: null } },
+      select: { codigo: true, osNumber: true, projectId: true }
+    });
+    const linkedByCodigo = new Map(linked.map(op => [op.codigo, op]));
+    if (linkedByCodigo.size === 0) {
+      await finishRun(run.id, 'SUCCESS', { recordsRead: 0, recordsWritten: 0, summary: { note: 'Nenhum projeto Omie vinculado; rode omie:sync projetos.' } });
+      return { read: 0, written: 0, projects: 0 };
+    }
+
+    const baseParam = { apenas_importado_api: 'N' };
+    if (sinceDays && Number(sinceDays) > 0) {
+      baseParam.filtrar_apenas_alteracao = 'S';
+      baseParam.filtrar_por_data_de = omieDateStr(new Date(Date.now() - Number(sinceDays) * 86400000));
+    }
+
+    let nfseLookup = null;
+    let nfseLookupError = null;
+    try {
+      nfseLookup = await fetchOmieNfseTaxLookup();
+    } catch (error) {
+      nfseLookupError = error.message;
+      console.warn(`[omie] ListarNFSEs indisponível; receitas serão sincronizadas sem código/ISS da NFSe: ${error.message}`);
+    }
+
+    let written = 0;
+    let canceledIgnored = 0;
+    let nfseMatched = 0;
+    const read = await paginate('/financas/contareceber/', 'ListarContasReceber', baseParam, 'conta_receber_cadastro', async (records) => {
+      for (const r of records) {
+        const codigoProjeto = r.codigo_projeto != null ? String(r.codigo_projeto) : null;
+        const op = codigoProjeto ? linkedByCodigo.get(codigoProjeto) : null;
+        if (!op) continue;
+        const omieId = String(r.codigo_lancamento_omie);
+        const categoriaCodigo = r.codigo_categoria ?? null;
+        const nfseInfo = findNfseTaxInfo(r, nfseLookup);
+        if (nfseInfo) nfseMatched += 1;
+        if (isCanceledReceivable(r, nfseInfo)) {
+          await prisma.omieReceivable.deleteMany({ where: { omieId } });
+          canceledIgnored += 1;
+          continue;
+        }
+        const data = {
+          omieId,
+          codigoProjeto,
+          projectId: op.projectId ?? null,
+          osNumber: op.osNumber,
+          valor: num(r.valor_documento),
+          valorIss: num(r.valor_iss) ?? nfseInfo?.valorIss ?? null,
+          statusTitulo: r.status_titulo ?? null,
+          categoriaCodigo,
+          categoriaDescricao: categoriaCodigo ? categoryName.get(categoriaCodigo) ?? null : null,
+          clienteCodigo: r.codigo_cliente_fornecedor ? String(r.codigo_cliente_fornecedor) : null,
+          numeroDocumento: r.numero_documento ?? null,
+          numeroDocumentoFiscal: r.numero_documento_fiscal ?? null,
+          numeroPedido: r.numero_pedido ?? null,
+          codigoTipoDocumento: r.codigo_tipo_documento ?? null,
+          origem: r.id_origem ?? null,
+          dataEmissao: parseOmieDate(r.data_emissao),
+          dataVencimento: parseOmieDate(r.data_vencimento),
+          dataPrevisao: parseOmieDate(r.data_previsao),
+          dataRegistro: parseOmieDate(r.data_registro),
+          retemIss: boolFlag(r.retem_iss),
+          retemPis: boolFlag(r.retem_pis),
+          retemCofins: boolFlag(r.retem_cofins),
+          retemCsll: boolFlag(r.retem_csll),
+          retemIr: boolFlag(r.retem_ir),
+          rawPayload: r,
+          syncedAt: new Date()
+        };
+        if (nfseLookup) {
+          data.aliquotaIss = nfseInfo?.aliquotaIss ?? null;
+          data.codigoLc116 = nfseInfo?.codigoLc116 ?? null;
+          data.codigoServico = nfseInfo?.codigoServico ?? null;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await prisma.omieReceivable.upsert({ where: { omieId }, create: data, update: data });
+        written += 1;
+      }
+    });
+
+    await finishRun(run.id, 'SUCCESS', {
+      recordsRead: read,
+      recordsWritten: written,
+      summary: {
+        linkedProjects: linkedByCodigo.size,
+        incremental: Boolean(sinceDays),
+        nfseRead: nfseLookup?.recordsRead ?? 0,
+        nfseMatched,
+        canceledIgnored,
+        nfseLookupError
+      }
+    });
     return { read, written, projects: linkedByCodigo.size };
   } catch (error) {
     await finishRun(run.id, 'ERROR', { error: error.message });
@@ -186,7 +419,8 @@ export async function syncOmieAll({ triggeredBy = 'SCRIPT', sinceDays = null } =
   const projects = await syncOmieProjects({ triggeredBy });
   const categories = await syncOmieCategories({ triggeredBy });
   const purchases = await syncOmiePurchases({ triggeredBy, sinceDays });
-  return { projects, categories, purchases };
+  const receivables = await syncOmieReceivables({ triggeredBy, sinceDays });
+  return { projects, categories, purchases, receivables };
 }
 
 // === Job agendado (in-process, padrão do app) ===

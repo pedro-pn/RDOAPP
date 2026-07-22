@@ -2,16 +2,16 @@
 
 export const PARAM_FIELDS: Array<[string, string]> = [
   ['salarioBase', 'Salário base (R$)'],
-  ['insalubridade', 'Insalubridade (R$)'],
+  ['salarioMinimo', 'Salário mínimo (R$)'],
   ['cargaHoraria', 'Carga horária mensal'],
   ['diasUteis', 'Dias úteis'],
   ['periculosidadePct', 'Periculosidade (fração, ex.: 0,3)'],
   ['produtividadePct', 'Produtividade/Gratificação (fração)'],
   ['transferenciaPct', 'Transferência/Viagem (fração)'],
+  ['confinamentoPct', 'Confinamento/Offshore (fração)'],
   ['he70Pct', 'HE 70% (fração)'],
   ['he100Pct', 'HE 100% (fração)'],
   ['fgtsPct', 'FGTS (fração)'],
-  ['inssPatronalPct', 'INSS Patronal (fração)'],
   ['multaPct', 'Multa rescisória (fração)']
 ];
 
@@ -20,20 +20,26 @@ export const BENEFIT_FIELDS: Array<[string, string]> = [
   ['valeAlimentacao', 'Vale alimentação'],
   ['odonto', 'Odontológico'],
   ['seguroVida', 'Seguro de vida'],
-  ['cursos', 'Cursos']
+  ['cursos', 'Educação'],
+  ['moradia', 'Moradia']
 ];
 
 export const INPUT_FIELDS: Array<[string, string]> = [
-  ['diasCliente', 'Dias em cliente (periculosidade)'],
-  ['diasFora', 'Dias dormindo fora (viagem)'],
-  ['diasCasa', 'Dias dormindo em casa (produtividade)'],
+  ['diasCasa', 'Dias em Itajaí'],
+  ['diasFora', 'Dias em viagem'],
+  ['offshoreDays', 'Dias offshore'],
   ['he70Horas', 'Horas extras 70%'],
   ['he100Horas', 'Horas extras 100%']
 ];
 
 export function brl(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 // Numeração dos modelos base (planilhas): Modelo 1 = Operador, Modelo 2 = Auxiliar.

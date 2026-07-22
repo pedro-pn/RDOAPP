@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildReportCollaboratorRows } from '../src/lib/report-collaborators.js';
-import { enrichNightCollaboratorsInSpecialConditions } from '../src/routes/resources/reports.js';
+import { enrichNightCollaboratorsInSpecialConditions } from '../src/lib/reports/manual-operational-data.js';
 
 test('night collaborator snapshot carries role when collaborator link is absent', () => {
   const rows = buildReportCollaboratorRows({

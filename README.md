@@ -1,15 +1,17 @@
-# Filtrovali — Sistema de Relatórios
+# Filtrovali — Plataforma de Gestão de Campo
 
-Aplicação web para gestão de projetos de campo e relatórios técnicos da Filtrovali. Contempla criação, aprovação e assinatura digital de relatórios, com portal de acesso para clientes, geração de PDFs e envio de notificações por e-mail.
+Aplicação web modular para a gestão operacional da Filtrovali. Nasceu como sistema de relatórios técnicos de campo e evoluiu para uma plataforma com múltiplos módulos — relatórios e projetos (RDO), acompanhamento financeiro de projetos, romaneio de equipamentos, controle de estoque, cadastro de equipamentos, liberação de EPI e privacidade (LGPD) — todos acessados a partir de um hub central com controle de acesso por módulo.
 
 ## Índice
 
 - [Visão Geral](#visão-geral)
+- [Módulos](#módulos)
 - [Stack](#stack)
 - [Estrutura do Repositório](#estrutura-do-repositório)
-- [Perfis de Acesso](#perfis-de-acesso)
-- [Funcionalidades](#funcionalidades)
+- [Hub e Controle de Acesso](#hub-e-controle-de-acesso)
+- [Funcionalidades por Módulo](#funcionalidades-por-módulo)
 - [Tipos de Relatório](#tipos-de-relatório)
+- [Integrações](#integrações)
 - [Configuração do Ambiente](#configuração-do-ambiente)
   - [Desenvolvimento local (Node direto)](#desenvolvimento-local-node-direto)
   - [Desenvolvimento local (Docker)](#desenvolvimento-local-docker)
@@ -25,7 +27,7 @@ Aplicação web para gestão de projetos de campo e relatórios técnicos da Fil
 
 ## Visão Geral
 
-O sistema centraliza o ciclo completo dos relatórios técnicos de campo:
+A plataforma centraliza o ciclo operacional da Filtrovali em módulos independentes. O fluxo original de relatórios permanece no núcleo:
 
 1. Colaborador cria o relatório no campo.
 2. Gestor revisa e aprova.
@@ -33,6 +35,25 @@ O sistema centraliza o ciclo completo dos relatórios técnicos de campo:
 4. Relatório aprovado segue para assinatura eletrônica pelo sistema interno.
 5. Relatório assinado fica disponível para download em PDF.
 6. Ao arquivar o projeto, o cliente recebe uma pesquisa de satisfação NPS por e-mail.
+
+Em torno desse núcleo, os demais módulos cobrem custos e previsto x realizado de projetos, logística de equipamentos, estoque, cadastro técnico de equipamentos, entrega de EPI e atendimento a solicitações LGPD.
+
+---
+
+## Módulos
+
+Cada módulo tem sua própria área na aplicação, papéis de acesso e prefixo de rota. Usuários enxergam no hub (`/modulos`) apenas os módulos para os quais possuem papel.
+
+| Módulo | Prefixo API | Descrição |
+|---|---|---|
+| **Relatórios e Projetos (RDO)** | `/api/rdo` | Relatórios técnicos, aprovações, portal do cliente, projetos e estatísticas |
+| **Acompanhamento de Projetos** | `/api/acompanhamento` | Previsto x realizado, custos (mão de obra, EPI, estoque, Omie), cronograma |
+| **Romaneio de Equipamentos** | `/api/romaneio` | Romaneios de saída/retorno, catálogo, checklist e notificações |
+| **Estoque** | `/api/estoque` | Filtros, produtos químicos, lotes e movimentações |
+| **Equipamentos** | `/api/equipamentos` | Cadastro, calibração, documentação técnica e notificações de equipamentos |
+| **Liberação de EPI** | `/api/epi` | Fichas de entrega/devolução e assinatura por colaborador |
+| **Privacidade (LGPD)** | `/api/privacy` | Solicitações de titulares e protocolos LGPD |
+| **Gestão de Contas** | `/api/admin/accounts` | Administração inicial de usuários e acessos do hub |
 
 ---
 
@@ -44,12 +65,14 @@ O sistema centraliza o ciclo completo dos relatórios técnicos de campo:
 | Estado / Fetching | TanStack Query v5 + Zustand |
 | Formulários | React Hook Form + Zod |
 | Roteamento | React Router v7 |
-| Backend | Node.js 22 + Express 4 |
-| ORM | Prisma 6 |
+| Onboarding / tours | Driver.js |
+| Backend | Node.js 22 + Express 5 |
+| ORM | Prisma 7 (adapter `pg`) |
 | Banco | PostgreSQL 16 |
 | E-mail | Nodemailer (SMTP / Microsoft Exchange / Office 365) |
 | PDF | LibreOffice headless (Linux) |
 | Assinatura digital | Sistema interno |
+| Integração financeira | Omie (contas a pagar/receber, categorias, projetos) |
 | Proxy / SSL | Nginx + Let's Encrypt |
 | Containers | Docker + Docker Compose |
 
@@ -61,21 +84,28 @@ O sistema centraliza o ciclo completo dos relatórios técnicos de campo:
 .
 ├── backend/
 │   ├── prisma/               # Schema, migrations e seed
-│   ├── scripts/              # Utilitários de manutenção
+│   ├── scripts/              # Utilitários de manutenção, imports e sync
 │   ├── src/
 │   │   ├── config/           # Variáveis de ambiente
-│   │   ├── lib/              # Lógica de negócio (email, PDF, assinaturas, etc.)
-│   │   ├── middleware/       # Auth, requireManager, requireCoordinator
-│   │   └── routes/resources/ # Rotas REST (projects, reports, auth, users…)
+│   │   ├── lib/              # Lógica de negócio por domínio
+│   │   │   ├── acompanhamento/   # Custos, comercial, ponto, dashboards
+│   │   │   ├── job-roles/        # Cargos e parâmetros de custo
+│   │   │   └── ...               # email, PDF, assinaturas, estoque, romaneio…
+│   │   ├── middleware/       # Auth e autorização por módulo/papel
+│   │   ├── routes/
+│   │   │   ├── index.js          # Montagem dos routers por módulo
+│   │   │   └── resources/        # Rotas REST por recurso
+│   │   └── app.js / server.js
 │   ├── .env.example
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
 │   │   ├── api/              # Clientes HTTP por recurso
-│   │   ├── auth/             # AuthContext, PrivateRoute, RoleRoute
-│   │   ├── components/       # Componentes compartilhados
+│   │   ├── auth/             # AuthContext, navegação e acesso por módulo
+│   │   ├── modules/          # Registry de módulos e roteamento
+│   │   ├── components/       # Componentes compartilhados e por módulo
 │   │   ├── hooks/            # React Query hooks
-│   │   ├── pages/            # Páginas por perfil (gestor, coordenador, cliente…)
+│   │   ├── pages/            # Páginas por módulo e perfil (inclui hub)
 │   │   ├── store/            # Zustand stores
 │   │   └── utils/
 │   └── .env.example
@@ -84,15 +114,34 @@ O sistema centraliza o ciclo completo dos relatórios técnicos de campo:
 │   ├── PRODUCTION.md         # Guia detalhado de produção
 │   ├── backup-prod.sh
 │   └── restore-prod.sh
+├── specs/                    # Especificações spec-kit das features
 ├── Modelos/                  # Templates DOCX para geração de relatórios
 ├── docker-compose.yml        # Apenas PostgreSQL (dev Node direto)
 ├── docker-compose.local.yml  # PostgreSQL + backend em container (dev)
 └── docker-compose.prod.yml   # Produção: PostgreSQL + backend + Nginx
 ```
 
+O registry de módulos do frontend é gerado por `scripts/generate-module-registry.mjs` (`registry.generated.ts`) — não edite o arquivo gerado manualmente.
+
 ---
 
-## Perfis de Acesso
+## Hub e Controle de Acesso
+
+O acesso é organizado por **módulo** e **papel dentro do módulo** (`ModuleRole`), coexistindo com os papéis legados do módulo de relatórios.
+
+### Papéis por módulo
+
+| Módulo | Papéis |
+|---|---|
+| RDO | Gestor, Coordenador, Colaborador, Cliente |
+| Acompanhamento | Gestor, Visualizador |
+| Romaneio | Gestor, Operador |
+| Estoque | Gestor, Visualizador |
+| Equipamentos | Gestor, Visualizador |
+| EPI | Técnico, Colaborador |
+| Privacidade | Admin |
+
+### Perfis do módulo de Relatórios (RDO)
 
 | Perfil | Descrição |
 |---|---|
@@ -101,13 +150,21 @@ O sistema centraliza o ciclo completo dos relatórios técnicos de campo:
 | **COLLABORATOR** (Colaborador) | Cria e edita relatórios de campo; visibilidade limitada aos projetos vinculados |
 | **CLIENT** (Cliente) | Visualiza e avalia (aprova/reprova) os relatórios dos seus projetos via portal dedicado |
 
-Cada perfil acessa uma rota raiz diferente: `/gestor`, `/coordenador`, `/cliente` ou `/home`.
+### Navegação
+
+- O hub em `/modulos` lista apenas os módulos liberados para a conta.
+- No primeiro login com mais de um módulo, o usuário é levado ao hub com um tutorial de boas-vindas.
+- A plataforma memoriza o último módulo acessado por usuário e restaura na próxima entrada.
+- Contas de cliente entram direto no portal (`/rdo/cliente`).
+- Rotas legadas (`/gestor`, `/coordenador`, `/cliente`, `/home`, `/relatorios/...`) continuam válidas e são mapeadas para o módulo RDO.
 
 ---
 
-## Funcionalidades
+## Funcionalidades por Módulo
 
-### Projetos
+### Relatórios e Projetos (RDO)
+
+**Projetos**
 - Cadastro com dados do cliente (nome, CNPJ, e-mails principal e CC, signatários)
 - Categorização por segmento de cliente (`clientSegment`)
 - Arquivamento e desarquivamento
@@ -115,76 +172,116 @@ Cada perfil acessa uma rota raiz diferente: `/gestor`, `/coordenador`, `/cliente
 - Provisionamento automático de conta de cliente ao associar e-mail
 - Disparo automático de pesquisa de satisfação ao arquivar
 
-### Relatórios
+**Relatórios**
 - Criação assistida com rascunho automático
 - Múltiplos tipos (ver seção abaixo)
-- Fluxo de status: `PENDING → APPROVED → SIGNED`
-- Retorno para revisão (`RETURNED`)
+- Fluxo de status: `PENDING → APPROVED → SIGNED`, com retorno para revisão (`RETURNED`)
+- Versionamento e log de auditoria dos relatórios
+- Registro de **DDS (Diálogo Diário de Segurança) por turno** no RDO, com temas configuráveis
 - Download individual ou em lote (ZIP) em PDF
-- Anexos de fotos e arquivos
+- Anexos de fotos e arquivos (com conversão HEIC)
 - Numeração sequencial por tipo e projeto
 - Campos obrigatórios de diâmetro e comprimento por tubulação (RDO)
+- Upload manual de RDO com dados operacionais (horas, equipes, colaboradores históricos)
 
-### Assinatura Interna
-- Solicitação de assinatura para relatórios aprovados
-- Assinatura eletrônica com evidências de auditoria
-- Download de PDFs finais assinados
-- Download legado de PDFs já assinados anteriormente pela ZapSign
-
-### Portal do Cliente
+**Portal do Cliente**
 - Acesso sem VPN via usuário CNPJ
 - Visualização de relatórios dos projetos vinculados
 - Aprovação ou reprovação com **justificativa obrigatória**
 - Identificação do cliente que reprovou (nome + e-mail) na notificação ao gestor
 - Histórico de reprovações exibido por relatório
 
-### Pesquisa de Satisfação (NPS)
+**Pesquisa de Satisfação (NPS)**
 - Enviada automaticamente ao cliente por e-mail ao arquivar um projeto
 - Link público com token criptografado, válido por 30 dias (`/survey/:token`)
 - Tipos de pergunta: NPS (0–10), SCALE (1–5), SELECT, TEXT
-- Perguntas padrão: NPS, qualidade dos serviços, comunicação, prazos, documentação, campo aberto
-- Perguntas configuráveis pelo gestor
-- Lembretes automáticos com opção de opt-out
-- Notificação por e-mail ao gestor quando respondida
-- Follow-up de respostas: `OPEN`, `CONTACTED`, `RESOLVED`, `NOT_APPLICABLE`
+- Perguntas configuráveis pelo gestor; lembretes automáticos com opt-out
+- Notificação ao gestor quando respondida; follow-up: `OPEN`, `CONTACTED`, `RESOLVED`, `NOT_APPLICABLE`
 
-### Dashboard NPS
+**Dashboard NPS**
 - Restrito a Gestor e Coordenador
 - Filtros por ano, trimestre e mês
-- Score NPS com benchmark, distribuição (Promotores / Neutros / Detratores)
-- Médias por pergunta de escala e evolução mensal
-- Lista de pesquisas com status de follow-up e anotações
+- Score NPS com benchmark, distribuição (Promotores / Neutros / Detratores), médias por pergunta e evolução mensal
 
-### Dashboard de Estatísticas de Projetos
+**Dashboard de Estatísticas de Projetos**
 - Restrito a Gestor e Coordenador
 - Filtros: período (máx. 2 anos), projeto(s), segmento e status (ativo / arquivado / todos)
 - Granularidade: dia, semana, mês, ano
-- Métricas: dias executados, horas diurnas/noturnas, horas extras, dias e horas em standby
-- Médias de colaboradores diurnos e noturnos por RDO
-- Breakdown por tipo de serviço: filtragem (volume de óleo em L), flushing/limpeza/pressão (tubulações por diâmetro em metros)
-- Timeline gráfica de atividade
-- Exportação CSV em três seções: resumo geral, por projeto, por serviço
+- Métricas: dias executados, horas diurnas/noturnas, horas extras, dias e horas em standby, médias de colaboradores por RDO
+- Breakdown por serviço: filtragem (volume de óleo em L), flushing/limpeza/pressão (tubulações por diâmetro em metros)
+- Timeline gráfica e exportação CSV (resumo geral, por projeto, por serviço)
+- **Relatório de alocação** de colaboradores com envio por e-mail a destinatários configuráveis
+
+### Acompanhamento de Projetos
+
+- Dashboard de **previsto x realizado** por projeto, com cronograma e escopo previsto (sistemas/serviços)
+- Cards de projetos com barra de progresso de custo e histórico semanal de avanço
+- **Custos de mão de obra (HH)** calculados a partir da importação do ponto, com perfis e parâmetros por cargo, teto de horas extras, rateio mensal, hospedagem e EPI
+- **Custos manuais** lançados por projeto no dashboard
+- Contabilização de **estoque** e **EPI** consumidos como custo do projeto
+- Integração com o **Omie**: contas a pagar/receber e categorias de custo, com toggles por categoria e cálculo de impostos (INSS de NF, ISS/NFSe, motor de IRPJ e CSLL)
+- **Importação comercial** de propostas e projetos, com unificação de projetos, grupos de missões (mesclar/desmesclar) e revisões
+- Aba **Sede** (centro de custo) com filtros de período e resumo de custos pagos/pendentes
+- Aba de **projetos futuros**, separação entre projetos em andamento e arquivados
+- Histórico de vigências dos modelos de custo por cargo
+- Custos restritos ao papel de Gestor do módulo
+
+### Romaneio de Equipamentos
+
+- Romaneios de saída e retorno de equipamentos, com rascunhos
+- Catálogo de itens sincronizável (com origem externa) e categorias
+- **Checklist consolidado** no romaneio, com geração de PDF
+- Itens extras de entrada/retorno e mapa de checklist
+- Notificações por e-mail a destinatários configuráveis
+- Geração de romaneio em PDF e DOCX
+
+### Estoque
+
+- Categorias e itens (filtros e produtos químicos), com ativação/desativação
+- Controle de **lotes** e **movimentações** (entrada/saída) com motivos
+- Estorno de movimentações
+- Resumo de estoque
+- Integração com o romaneio e com os custos do Acompanhamento
+
+### Equipamentos
+
+- Cadastro de equipamentos e categorias, com catálogo de unidades
+- **Calibração** com certificados e notificações de vencimento
+- **Documentação técnica** (upload e geração de documento por equipamento)
+- Configuração de slots de equipamento no RDO
+- Exibição de equipamentos no dashboard do projeto
+- Destinatários e configuração de notificações
+
+### Liberação de EPI
+
+- Fichas de entrega e devolução por colaborador, com catálogo de EPIs
+- **Assinatura por link público** (token), com geração de PDF assinado
+- Solicitações de assinatura e log de auditoria
+- Arquivamento de registros e edição de perfil do colaborador
+
+### Privacidade (LGPD)
+
+- Registro e acompanhamento de **solicitações de titulares** (acesso, exclusão, etc.)
+- Verificação de identidade e controle de status das solicitações
+- Autoatendimento: exportação de dados e pedido de exclusão pela própria conta
+- Retenção de dados executada por script/job (dry-run e apply)
 
 ### E-mails Automáticos
-- Boas-vindas ao criar conta de cliente
-- Boas-vindas ao criar conta interna (colaborador, coordenador)
+
+- Boas-vindas ao criar conta de cliente ou conta interna
 - Novo projeto vinculado
-- Relatório aprovado disponível para avaliação
-- Relatório reprovado pelo cliente (notifica gestor com identificação do cliente)
-- Relatório revisado e disponível para nova avaliação
-- Convite de pesquisa de satisfação ao arquivar projeto
-- Lembrete de pesquisa de satisfação não respondida
-- Notificação ao gestor quando pesquisa é respondida
-- Recuperação de senha
+- Relatório aprovado, reprovado ou revisado
+- Convite e lembrete de pesquisa de satisfação; notificação ao gestor quando respondida
+- Notificações de romaneio, calibração de equipamentos e assinatura de EPI
+- Relatório de alocação de colaboradores
+- Recuperação de senha e troca de e-mail
 
-### Usuários e Colaboradores
-- Gerenciamento de usuários e colaboradores pelo gestor
-- Reenvio de credenciais de acesso ao cliente
-- Alteração de senha via token de recuperação
+### Usuários e Contas
 
-### Segmentos de Cliente
-- Categorias configuráveis pelo gestor para classificar projetos (ex: indústria, óleo & gás)
-- Usados como filtro no dashboard de estatísticas
+- Gerenciamento de usuários, colaboradores e papéis por módulo pelo gestor
+- Reenvio de credenciais e alteração de senha via token de recuperação
+- Troca de e-mail com token de confirmação
+- Segmentos de cliente configuráveis, usados como filtro nas estatísticas
 
 ---
 
@@ -199,6 +296,17 @@ Cada perfil acessa uma rota raiz diferente: `/gestor`, `/coordenador`, `/cliente
 | RLM | Relatório de Limpeza Mecânica |
 | RLF | Relatório de Limpeza por Flushing |
 | RLI | Relatório de Limpeza Industrial |
+
+---
+
+## Integrações
+
+- **Omie**: sincronização periódica de contas a pagar/receber, categorias e projetos para o módulo de Acompanhamento. Habilitada por `OMIE_SYNC_ENABLED` e credenciais `OMIE_APP_KEY` / `OMIE_APP_SECRET`.
+- **Importação comercial**: propostas e projetos importados via endpoint protegido por `COMMERCIAL_IMPORT_TOKEN`.
+- **Ponto**: importação de espelhos de ponto para cálculo de custo de mão de obra.
+- **Monitoramento operacional**: endpoint `/operations/status` e job de alerta configurável (backup/restore, webhooks) para saúde da stack.
+- **Error tracking**: captura de erros de cliente (`/operations/client-errors`) e provider configurável no backend/frontend.
+- **ZapSign (legado)**: apenas download de PDFs de relatórios já assinados anteriormente pela ZapSign, quando necessário.
 
 ---
 
@@ -335,25 +443,37 @@ Nginx :443 (SSL Let's Encrypt)
 | `DATABASE_CONNECTION_LIMIT` | Não | Limite de conexões do pool Prisma anexado à `DATABASE_URL` quando `connection_limit` ainda não estiver definido |
 | `PRISMA_SLOW_QUERY_MS` | Não | Ativa log de queries Prisma acima do limite informado em ms |
 | `SLOW_OPERATION_LOG_MS` | Não | Ativa log de operações internas lentas acima do limite informado em ms |
+| `PORT` | Não | Porta do backend (padrão: `4000`) |
 | `APP_URL` | Sim | URL base pública (use `https://app.filtrovali.com.br`; usado em links de e-mail) |
-| `ALLOWED_ORIGIN` | Sim | Origem(s) CORS permitida(s), separadas por vírgula. Inclua `https://app.filtrovali.com.br` e, durante a transição, `https://relatorios.filtrovali.com.br` |
-| `TRUST_PROXY` | Sim em produção | Configuração Express `trust proxy`. Na stack Docker com Nginx use `uniquelocal` ou CIDRs explícitos; use `false` apenas se o backend não estiver atrás de proxy |
+| `ALLOWED_ORIGIN` | Sim | Origem(s) CORS permitida(s), separadas por vírgula |
+| `TRUST_PROXY` | Sim em produção | Configuração Express `trust proxy`. Na stack Docker com Nginx use `uniquelocal` ou CIDRs explícitos |
 | `SURVEY_TOKEN_SECRET` | Sim em produção | Segredo longo e estável para tokens de pesquisa |
+| `SURVEY_TOKEN_SECRET_PREVIOUS` | Não | Segredos antigos aceitos durante rotação de tokens de pesquisa |
 | `SIGNATURE_TOKEN_SECRET` | Sim em produção | Segredo longo e estável para links de assinatura de RDO |
 | `SIGNATURE_TOKEN_SECRET_PREVIOUS` | Não | Segredos antigos aceitos durante rotação de tokens de assinatura |
+| `COMMERCIAL_IMPORT_TOKEN` | Não | Token que protege o endpoint de importação comercial do Acompanhamento |
+| `OMIE_APP_KEY` / `OMIE_APP_SECRET` | Não | Credenciais da API Omie |
+| `OMIE_SYNC_ENABLED` | Não | Ativa a sincronização automática com o Omie |
+| `OMIE_SYNC_INTERVAL_MINUTES` | Não | Intervalo entre sincronizações Omie |
+| `OMIE_SYNC_SINCE_DAYS` | Não | Janela de dias considerada na sincronização Omie |
 | `SMTP_HOST` | Sim | Servidor SMTP (ex: `smtp.office365.com`) |
 | `SMTP_PORT` | Sim | Porta SMTP (padrão: `587`) |
 | `SMTP_SECURE` | Não | `true` para SSL direto (porta 465) |
 | `SMTP_USER` | Sim | Usuário SMTP |
 | `SMTP_PASS` | Sim | Senha ou App Password |
 | `SMTP_FROM` | Sim | Remetente (ex: `Filtrovali <no-reply@…>`) |
-| `SEND_CLIENT_EMAILS` | Não | Use `false` em homologação/testes para bloquear todos os envios operacionais do sistema |
+| `SEND_CLIENT_EMAILS` | Não | Use `false` em homologação/testes para bloquear todos os envios operacionais |
+| `SMTP_TEST_DEST` | Não | E-mail destino do script `test-email.js` |
 | `ASSETS_DIR` | Não | Diretório de assets estáticos |
 | `REPORTS_DIR` | Não | Diretório de relatórios gerados |
 | `LIBREOFFICE_BINARY` | Não | Caminho do LibreOffice (padrão: `soffice`) |
-| `ZAPSIGN_API_TOKEN` | Não | Token usado apenas para baixar PDFs legados já assinados pela ZapSign quando necessário |
-| `ZAPSIGN_ORGANIZATION_ID` | Não | ID usado apenas para autenticação de download legado ZapSign quando necessário |
-| `SMTP_TEST_DEST` | Não | E-mail destino do script `test-email.js`; não redireciona envios operacionais quando `SEND_CLIENT_EMAILS=false` |
+| `OPERATIONS_ALERT_JOB_ENABLED` | Não | Ativa o job de alertas operacionais |
+| `OPERATIONS_ALERT_INTERVAL_MS` | Não | Intervalo do job de alertas operacionais |
+| `OPERATIONS_ALERT_WEBHOOK_URL` | Não | Webhook de alertas operacionais |
+| `OPERATIONS_REQUIRE_BACKUP_STATUS` / `OPERATIONS_BACKUP_STATUS_FILE` / `OPERATIONS_BACKUP_MAX_AGE_HOURS` | Não | Monitoramento de backup |
+| `OPERATIONS_REQUIRE_RESTORE_STATUS` / `OPERATIONS_RESTORE_STATUS_FILE` / `OPERATIONS_RESTORE_MAX_AGE_DAYS` | Não | Monitoramento de restore |
+| `ERROR_TRACKING_PROVIDER` / `ERROR_TRACKING_WEBHOOK_URL` | Não | Captura e encaminhamento de erros |
+| `ZAPSIGN_API_TOKEN` / `ZAPSIGN_ORGANIZATION_ID` | Não | Apenas para download de PDFs legados já assinados pela ZapSign |
 
 ### Frontend (`frontend/.env`)
 
@@ -361,28 +481,56 @@ Nginx :443 (SSL Let's Encrypt)
 |---|---|---|
 | `VITE_API_BASE_URL` | `/api` | Base URL da API (prefixo das chamadas HTTP) |
 | `VITE_ASSETS_BASE_URL` | _(vazio)_ | Base URL para assets estáticos do backend |
+| `VITE_ERROR_TRACKING_ENABLED` | `false` | Ativa o envio de erros de cliente |
+| `VITE_ERROR_TRACKING_ENDPOINT` | _(vazio)_ | Endpoint para captura de erros de cliente |
 
 ---
 
 ## Banco de Dados
 
-O schema Prisma (`backend/prisma/schema.prisma`) define os modelos principais:
+O schema Prisma (`backend/prisma/schema.prisma`) cobre todos os módulos. Modelos principais por domínio:
 
+**Relatórios e Projetos**
 | Modelo | Descrição |
 |---|---|
-| `Project` | Projeto de campo com dados do cliente, segmento e configurações |
-| `Report` | Relatório técnico com status e dados operacionais |
-| `ReportDraft` | Rascunho de relatório |
-| `ReportAttachment` | Anexos de relatórios |
-| `Collaborator` | Técnico de campo |
-| `User` | Usuário do sistema (todos os perfis) |
-| `UserSession` | Sessões JWT ativas |
-| `PasswordResetToken` | Tokens de recuperação de senha |
+| `Project` / `ProjectAuthorizedUser` / `ProjectReportSeq` | Projeto de campo, acesso autorizado e numeração sequencial |
+| `Report` / `ReportVersion` / `ReportDraft` / `ReportAttachment` | Relatório técnico, versões, rascunho e anexos |
+| `ReportService` / `ReportCollaborator` / `ReportAuditLog` | Serviços, colaboradores e auditoria do relatório |
+| `ReportSignature` / `ReportApprovalPostProcessingJob` | Assinatura interna e pós-processamento da aprovação |
 | `ClientReportReview` | Registro de aprovação/reprovação pelo cliente |
-| `ClientSegment` | Segmentos de cliente configuráveis (ex: indústria, óleo & gás) |
-| `SatisfactionSurvey` | Pesquisa de satisfação NPS enviada por projeto arquivado |
-| `SatisfactionSurveyQuestion` | Perguntas configuráveis da pesquisa de satisfação |
-| `Equipment` / `Unit` / `Manometer` / `ParticleCounter` | Equipamentos utilizados nos relatórios |
+| `DdsTheme` | Temas de DDS configuráveis |
+| `SatisfactionSurvey` / `SatisfactionSurveyQuestion` | Pesquisa de satisfação NPS e perguntas configuráveis |
+| `AllocationReport*` | Relatório de alocação e destinatários |
+| `ClientSegment` | Segmentos de cliente configuráveis |
+
+**Acompanhamento**
+| Modelo | Descrição |
+|---|---|
+| `CommercialProposal` / `AccessImport` | Propostas comerciais e importações |
+| `AcompanhamentoSetting` / `AcompanhamentoMissionGroup(+Member)` | Configurações e grupos de missões |
+| `CostProfile` / `CostParameterSet` / `JobRole` | Perfis e parâmetros de custo por cargo |
+| `PontoImport` / `PontoPeriodSummary` / `PontoNameAlias` | Importação e apuração do ponto |
+| `ProjectBudget` / `ProjectManualCost` / `ProjectManualProgressHistory` | Orçamento, custos manuais e histórico de avanço |
+| `ProjectPlanned*` | Escopo, serviços, sistemas e horas previstas |
+| `Omie*` / `IntegrationSyncRun` | Espelho de dados do Omie e execuções de sincronização |
+
+**Romaneio / Estoque / Equipamentos / EPI**
+| Modelo | Descrição |
+|---|---|
+| `Romaneio` / `RomaneioItem` / `RomaneioChecklist` / `RomaneioCatalog*` | Romaneios, itens, checklist e catálogo |
+| `StockItem` / `StockCategory` / `StockBatch` / `StockMovement` | Estoque, lotes e movimentações |
+| `Equipment` / `EquipmentCategory` / `EquipmentAttachment` / `CalibrationCertificate` | Equipamentos, documentação e calibração |
+| `CompanyEquipment` / `RdoEquipmentSlot` / `EquipmentNotification*` | Equipamentos da empresa, slots no RDO e notificações |
+| `EpiRecord` / `EpiCatalogItem` / `EpiSignatureRequest(+AuditLog)` | Fichas, catálogo e assinatura de EPI |
+| `Unit` / `Manometer` / `ParticleCounter` / `InhibitionSystem` / `InhibitionVessel` | Cadastros de apoio aos relatórios |
+
+**Contas, Privacidade e Infraestrutura**
+| Modelo | Descrição |
+|---|---|
+| `User` / `UserSession` / `ModuleRole` | Usuário, sessões JWT e papéis por módulo |
+| `Collaborator` / `PasswordResetToken` / `EmailChangeToken` | Colaborador e tokens de conta |
+| `DataSubjectRequest*` / `DataRetentionRun` | Solicitações LGPD e retenção de dados |
+| `JobRun` / `JobLock` | Execução e trava de jobs em background |
 
 ### Comandos Prisma
 
@@ -409,11 +557,11 @@ Os PDFs são gerados a partir de templates DOCX localizados em `Modelos/`, proce
 
 Relatórios com status `APPROVED` são assinados pelo sistema interno.
 
-- A solicitação individual usa `POST /api/reports/:id/request-signature`.
+- A solicitação individual usa `POST /api/rdo/reports/:id/request-signature`.
 - A identidade do signatário é validada pelos e-mails configurados no projeto.
 - Evidências e hash do PDF final ficam registrados para auditoria.
-- Relatórios antigos que já foram assinados pela ZapSign continuam disponíveis para download do PDF assinado.
-- Relatórios antigos que já tinham token ZapSign pendente são reconciliados em background para finalizar o status local caso a assinatura externa seja concluída após o deploy.
+- Relatórios antigos já assinados pela ZapSign continuam disponíveis para download do PDF assinado; tokens ZapSign pendentes são reconciliados em background.
+- A liberação de EPI usa um fluxo de assinatura próprio, por link público com token.
 
 ---
 
@@ -425,35 +573,62 @@ cd backend && node scripts/test-email.js
 
 # Importar dados mestres (equipamentos, unidades, etc.)
 npm run import:master-data
+npm run import:collaborators-csv
+npm run import:inhibition-systems-csv
 
-# Migrar assinaturas para formato data URL
+# Cargos e componentes comerciais
+npm run normalize:collaborator-roles
+npm run backfill:commercial-components
+
+# Integração Omie
+npm run omie:explore
+npm run omie:sync
+
+# Romaneio / equipamentos
+npm run sync:romaneio-catalog
+npm run backfill:equipment
+npm run backfill:equipment-notifications
+npm run backfill:equipment-technical
+
+# Assinaturas e arquivos de relatório
 npm run migrate:signatures
+npm run backfill:report-attachments
+npm run audit:report-files
+npm run repair:report-file-paths
+
+# Retenção de dados (LGPD)
+npm run retention:dry-run
+npm run retention:apply
 ```
 
 ---
 
 ## Rotas da API
 
-Prefixo base: `/api`
+Prefixo base: `/api`. As rotas do módulo de relatórios são servidas tanto sob `/api/rdo/*` quanto na raiz (`/api/*`) por compatibilidade.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/auth/login` | Autenticação |
-| `POST` | `/auth/logout` | Encerrar sessão |
-| `GET/POST` | `/projects` | Listar e criar projetos |
-| `GET/PATCH/DELETE` | `/projects/:id` | Detalhar, editar e arquivar projeto |
-| `GET/POST` | `/reports` | Listar e criar relatórios |
-| `GET/PATCH/DELETE` | `/reports/:id` | Detalhar, editar e excluir relatório |
-| `POST` | `/reports/:id/request-signature` | Solicitar assinatura individual |
-| `GET` | `/statistics/projects` | Dashboard de estatísticas de RDOs |
-| `GET` | `/statistics/projects/export` | Exportar estatísticas em CSV |
-| `GET` | `/statistics/overview` | Mini-dashboard com contagem geral |
-| `GET/POST` | `/surveys` | Listar e criar pesquisas de satisfação |
-| `GET` | `/surveys/dashboard` | Dashboard NPS com análises agregadas |
-| `GET` | `/surveys/public/:token` | Acessar pesquisa pública via token |
-| `POST` | `/surveys/public/:token/respond` | Responder pesquisa pública |
-| `GET/PUT` | `/surveys/questions` | Listar e configurar perguntas padrão |
-| `PATCH` | `/surveys/:id/follow-up` | Atualizar status de follow-up |
-| `GET/POST` | `/project-segments` | Listar e criar segmentos de cliente |
-| `GET/POST` | `/users` | Gerenciar usuários |
-| `GET/POST` | `/collaborators` | Gerenciar colaboradores |
+| `POST` | `/auth/login` · `/auth/logout` | Autenticação |
+| `GET/POST` | `/rdo/projects` · `GET/PATCH/DELETE /rdo/projects/:id` | Projetos |
+| `GET/POST` | `/rdo/reports` · `GET/PATCH/DELETE /rdo/reports/:id` | Relatórios |
+| `POST` | `/rdo/reports/:id/request-signature` | Solicitar assinatura individual |
+| `GET/POST` | `/rdo/dds-themes` | Temas de DDS |
+| `GET` | `/rdo/statistics/projects` · `/rdo/statistics/projects/export` · `/rdo/statistics/overview` | Estatísticas de RDOs |
+| `GET/POST` | `/rdo/statistics/allocation-report` (+ `/pdf`, `/send`, `/recipients`) | Relatório de alocação |
+| `GET/POST` | `/rdo/surveys` · `GET /rdo/surveys/dashboard` | Pesquisas e dashboard NPS |
+| `GET/POST` | `/rdo/surveys/public/:token` (+ `/respond`) | Pesquisa pública |
+| `GET/PUT` | `/rdo/surveys/questions` · `PATCH /rdo/surveys/:id/follow-up` | Perguntas e follow-up |
+| `GET/POST` | `/rdo/project-segments` | Segmentos de cliente |
+| `GET/POST` | `/acompanhamento/comercial/import` · `/imports` | Importação comercial |
+| `GET` | `/acompanhamento/comercial/dashboard` · `/projetos-cards` · `/sede` · `/pendencias` | Dashboards do Acompanhamento |
+| `GET/POST/PATCH/DELETE` | `/acompanhamento/comercial/projetos/:id/...` | Detalhe, avanço, cronograma, escopo, custos manuais e revisões |
+| `GET/PUT/POST` | `/acompanhamento/custo/perfis` · `/cargos` · `/config` · `/simular` · `/categorias-omie` | Parâmetros e simulação de custo |
+| `POST/GET` | `/acompanhamento/ponto/import` · `/imports` · `/colaboradores` · `/vincular` | Importação do ponto |
+| `GET/POST/PUT/DELETE` | `/romaneio` (+ `/drafts`, `/catalog`, `/notifications`, `/:id/pdf`, `/:id/checklist/pdf`) | Romaneios |
+| `GET/POST/PUT/PATCH/DELETE` | `/estoque/categorias` · `/itens` · `/movimentacoes` · `/lotes` · `/resumo` | Estoque |
+| `GET/POST/PUT/DELETE` | `/equipamentos` (+ `/categories`, `/rdo-slots`, `/notifications`, `/:id/technical-doc`) | Equipamentos |
+| `GET/POST/PUT/DELETE` | `/epi/collaborators` · `/catalog` · `/records` · `/public-sign/:token` | Liberação de EPI |
+| `GET/POST/PATCH` | `/privacy/requests` (+ `/me/data-export`, `/me/delete-request`) | Solicitações LGPD |
+| `GET/POST` | `/operations/status` · `/operations/client-errors` | Monitoramento operacional |
+| `GET/POST` | `/admin/accounts` · `/users` · `/rdo/collaborators` | Contas, usuários e colaboradores |

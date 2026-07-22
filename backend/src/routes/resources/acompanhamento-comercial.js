@@ -23,17 +23,84 @@ import {
   setProjectBudgetRevision,
   setProjectSchedule
 } from '../../lib/acompanhamento/access-import.js';
+import { createManualProjectCost, deleteManualProjectCost } from '../../lib/acompanhamento/manual-costs.js';
 import { getPlannedScope, setPlannedScope } from '../../lib/acompanhamento/planned-scope.js';
 import { computeProjectProgress } from '../../lib/acompanhamento/avanco.js';
+import { buildOmieCostCategoryWhere } from '../../lib/acompanhamento/cost-categories.js';
 import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
+import { groupProjectCards } from '../../lib/acompanhamento/project-card-groups.js';
+import { groupDashboardRows } from '../../lib/acompanhamento/dashboard-groups.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
+import { getMissionGroupDetail } from '../../lib/acompanhamento/project-detail-groups.js';
+import {
+  createMissionGroup,
+  dissolveMissionGroup,
+  listMissionGroups,
+  loadActiveMissionGroups,
+  MissionGroupError,
+  renameMissionGroup
+} from '../../lib/acompanhamento/mission-groups.js';
 import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
+import { listSedeCosts } from '../../lib/acompanhamento/sede-costs.js';
 import prisma from '../../lib/prisma.js';
 import { canViewAcompanhamentoLaborCosts, requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB (arquivo real ~1 MB)
+const monthParamSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Mês inválido. Use o formato YYYY-MM.');
+const sedeCostRangeQuerySchema = z.object({
+  from: monthParamSchema.optional(),
+  to: monthParamSchema.optional()
+}).superRefine((value, ctx) => {
+  if (Boolean(value.from) !== Boolean(value.to)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Informe mês inicial e final para filtrar a Sede.'
+    });
+  }
+  if (value.from && value.to && value.from > value.to) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['to'],
+      message: 'Período inválido: mês final anterior ao inicial.'
+    });
+  }
+});
+
+export function parseSedeCostRangeQuery(query) {
+  const { from, to } = sedeCostRangeQuerySchema.parse(query ?? {});
+  return from && to ? { fromMonth: from, toMonth: to } : null;
+}
+
+const missionGroupStatusQuerySchema = z.object({
+  status: z.enum(['ACTIVE', 'DISSOLVED', 'ALL']).optional().default('ACTIVE')
+});
+
+const missionGroupCreateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  projectIds: z.array(z.string().trim().min(1)).min(2).max(50)
+}).superRefine((value, ctx) => {
+  if (new Set(value.projectIds).size !== value.projectIds.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['projectIds'],
+      message: 'Selecione missões diferentes para unificar.'
+    });
+  }
+});
+
+const missionGroupRenameSchema = z.object({
+  name: z.string().trim().min(1, 'Informe um nome para o agrupamento.').max(120, 'Nome muito longo.')
+});
+
+function missionGroupErrorResponse(error, res) {
+  if (error instanceof MissionGroupError) {
+    const status = error.code === 'GROUP_NOT_FOUND' ? 404 : 400;
+    return res.status(status).json({ error: error.message, code: error.code });
+  }
+  throw error;
+}
 
 function sha256(value) {
   return createHash('sha256').update(String(value)).digest();
@@ -106,8 +173,11 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const categoryCode = typeof req.query.category === 'string' && req.query.category ? req.query.category : null;
-    const rows = await listCommercialDashboard({ categoryCode });
-    res.json(rows);
+    const [rows, groups] = await Promise.all([
+      listCommercialDashboard({ categoryCode }),
+      loadActiveMissionGroups()
+    ]);
+    res.json(groupDashboardRows(rows, groups));
   })
 );
 
@@ -117,8 +187,90 @@ router.get(
   requireAuth,
   requireAcompanhamentoAccess,
   asyncHandler(async (_req, res) => {
-    const cards = await listProjectCards();
-    res.json(cards);
+    const [cards, groups] = await Promise.all([
+      listProjectCards(),
+      loadActiveMissionGroups()
+    ]);
+    res.json(groupProjectCards(cards, groups));
+  })
+);
+
+router.get(
+  '/grupos-missoes',
+  requireAuth,
+  requireAcompanhamentoAccess,
+  asyncHandler(async (req, res) => {
+    const { status } = missionGroupStatusQuerySchema.parse(req.query ?? {});
+    const groups = await listMissionGroups({ status });
+    res.json(groups);
+  })
+);
+
+router.post(
+  '/grupos-missoes',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const data = missionGroupCreateSchema.parse(req.body);
+    try {
+      const group = await createMissionGroup({
+        ...data,
+        userId: req.auth?.user?.id ?? null
+      });
+      res.status(201).json(group);
+    } catch (error) {
+      return missionGroupErrorResponse(error, res);
+    }
+  })
+);
+
+router.patch(
+  '/grupos-missoes/:groupId',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const data = missionGroupRenameSchema.parse(req.body);
+    try {
+      const group = await renameMissionGroup({
+        groupId: req.params.groupId,
+        name: data.name
+      });
+      res.json(group);
+    } catch (error) {
+      return missionGroupErrorResponse(error, res);
+    }
+  })
+);
+
+router.get(
+  '/grupos-missoes/:groupId/detalhe',
+  requireAuth,
+  requireAcompanhamentoAccess,
+  asyncHandler(async (req, res) => {
+    try {
+      const includeCollaboratorCosts = canViewAcompanhamentoLaborCosts(req.auth?.user);
+      const detail = await getMissionGroupDetail(req.params.groupId, { includeCollaboratorCosts });
+      res.json(detail);
+    } catch (error) {
+      return missionGroupErrorResponse(error, res);
+    }
+  })
+);
+
+router.post(
+  '/grupos-missoes/:groupId/desmesclar',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    try {
+      const result = await dissolveMissionGroup({
+        groupId: req.params.groupId,
+        userId: req.auth?.user?.id ?? null
+      });
+      res.json(result);
+    } catch (error) {
+      return missionGroupErrorResponse(error, res);
+    }
   })
 );
 
@@ -129,7 +281,11 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const projectId = typeof req.query.projectId === 'string' && req.query.projectId ? req.query.projectId : null;
-    const where = projectId ? { projectId } : { projectId: { not: null } };
+    const categoryWhere = await buildOmieCostCategoryWhere();
+    const where = {
+      ...(projectId ? { projectId } : { projectId: { not: null } }),
+      ...categoryWhere
+    };
     const groups = await prisma.omiePurchase.groupBy({
       by: ['categoriaCodigo', 'categoriaDescricao'],
       where,
@@ -146,6 +302,17 @@ router.get(
       }))
       .sort((a, b) => Number(b.total ?? 0) - Number(a.total ?? 0));
     res.json(rows);
+  })
+);
+
+// Custos administrativos por códigos fixos do Omie, sem cadastrar esses códigos como Project.
+router.get(
+  '/sede',
+  requireAuth,
+  requireAcompanhamentoAccess,
+  asyncHandler(async (req, res) => {
+    const data = await listSedeCosts({ range: parseSedeCostRangeQuery(req.query) });
+    res.json(data);
   })
 );
 
@@ -202,6 +369,14 @@ const scheduleSchema = z.object({
   laborCollaboratorIds: z.array(z.string()).optional()
 });
 
+const manualCostSchema = z.object({
+  description: z.string().trim().min(1).max(120),
+  amount: z.number().positive().max(999999999.99),
+  costDate: z.string().trim().nullable().optional()
+    .refine(value => !value || !Number.isNaN(new Date(value).getTime()), 'Data do custo manual inválida.'),
+  note: z.string().trim().max(500).nullable().optional()
+});
+
 router.patch(
   '/projetos/:projectId/cronograma',
   requireAuth,
@@ -217,7 +392,36 @@ router.patch(
   })
 );
 
-// === Escopo previsto: quantitativo de serviços vendidos + previsão de hora extra (manual) ===
+router.post(
+  '/projetos/:projectId/custos-manuais',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const data = manualCostSchema.parse(req.body || {});
+    try {
+      const cost = await createManualProjectCost(req.params.projectId, data, { userId: req.auth?.user?.id ?? null });
+      res.status(201).json(cost);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  })
+);
+
+router.delete(
+  '/projetos/:projectId/custos-manuais/:costId',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    try {
+      const result = await deleteManualProjectCost(req.params.projectId, req.params.costId);
+      res.json(result);
+    } catch (error) {
+      res.status(404).json({ error: error.message });
+    }
+  })
+);
+
+// === Escopo previsto: quantitativo de serviços vendidos + previsão de horas (manual) ===
 
 // Só tubulação (m) e óleo (L): são os quantitativos que o RDO registra como realizado, para o
 // previsto poder entrar no cálculo de avanço. Tanques e peso (kg/t) não têm fonte no RDO.
@@ -237,16 +441,17 @@ const plannedServiceSchema = z.object({
   systems: z.array(plannedSystemSchema).max(20).default([])
 });
 
-const plannedOvertimeSchema = z.object({
+const plannedHoursSchema = z.object({
   jobRoleId: z.string().nullable().optional(),
   roleName: z.string().max(80).nullable().optional(),
-  collaboratorCount: z.number().int().positive().max(999),
+  collaboratorCount: z.number().int().positive().max(999).optional().default(1),
   hours: z.number().nonnegative().max(100000)
 });
 
 const plannedScopeSchema = z.object({
   services: z.array(plannedServiceSchema).max(50).default([]),
-  overtime: z.array(plannedOvertimeSchema).max(50).default([])
+  normalHours: z.array(plannedHoursSchema).max(50).default([]),
+  overtime: z.array(plannedHoursSchema).max(50).default([])
 });
 
 router.get(

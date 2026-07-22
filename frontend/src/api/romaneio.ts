@@ -3,8 +3,9 @@ import type { Project, ReportDraft } from '../types/domain';
 
 export type RomaneioItemKind = 'EQUIPMENT' | 'CONNECTION';
 export type RomaneioMeasureType = 'UNIT' | 'LENGTH' | 'WEIGHT';
-export type RomaneioCatalogSource = 'FILE' | 'MANUAL' | 'UNIT' | 'PARTICLE_COUNTER' | 'EQUIPAMENTOS';
+export type RomaneioCatalogSource = 'FILE' | 'MANUAL' | 'UNIT' | 'PARTICLE_COUNTER' | 'EQUIPAMENTOS' | 'STOCK';
 export type RomaneioType = 'OUTBOUND' | 'INBOUND';
+export type RomaneioChecklistItemStatus = 'CONFORME' | 'NAO_CONFORME' | 'NAO_APLICAVEL';
 
 export interface RomaneioCatalogItem {
   id: string;
@@ -33,8 +34,37 @@ export interface RomaneioItem {
   quantity: string | number;
   unitLabel: string;
   isCustom: boolean;
+  isExtra: boolean;
   sortOrder: number;
   catalogItem?: RomaneioCatalogItem | null;
+}
+
+export interface RomaneioChecklistInfo {
+  equipmentId: string;
+  equipmentCode: string;
+  equipmentName: string;
+  categoryName?: string | null;
+  displayNameOrTag?: string | null;
+  displayMode?: 'AUTO' | 'TAG' | 'NAME';
+  items: string[];
+}
+
+export interface RomaneioChecklist {
+  id: string;
+  romaneioId: string;
+  catalogItemId?: string | null;
+  equipmentId?: string | null;
+  equipmentCode: string;
+  equipmentName: string;
+  categoryName?: string | null;
+  displayNameOrTag?: string | null;
+  displayMode?: 'AUTO' | 'TAG' | 'NAME';
+  items: Array<{ text: string; checked?: boolean; status?: RomaneioChecklistItemStatus }>;
+  projectLabel?: string | null;
+  pdfUrl?: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface RomaneioReturnItem extends Omit<RomaneioItem, 'id' | 'catalogItem'> {
@@ -54,8 +84,13 @@ export interface Romaneio {
   cargoWeightUnit?: 'kg' | 'ton' | null;
   docxUrl?: string | null;
   pdfUrl?: string | null;
+  checklistPdfUrl?: string | null;
+  checklistProjectLabel?: string | null;
   emailStatus?: string | null;
   emailError?: string | null;
+  checklistResponsibleName?: string | null;
+  checklistSignatureImage?: string | null;
+  checklists?: RomaneioChecklist[];
   createdAt: string;
   updatedAt: string;
   project: Project;
@@ -81,6 +116,12 @@ export interface RomaneioCreatePayload {
   vehiclePlate: string;
   cargoWeight?: number | null;
   cargoWeightUnit?: 'kg' | 'ton';
+  checklists?: Array<{
+    catalogItemId: string;
+    statuses?: Array<{ text: string; status: RomaneioChecklistItemStatus }>;
+    checkedTexts?: string[];
+  }>;
+  checklistSignatureImage?: string | null;
   items: Array<{
     catalogItemId?: string | null;
     itemName?: string;
@@ -91,6 +132,7 @@ export interface RomaneioCreatePayload {
     quantity: number;
     unitLabel?: string;
     isCustom?: boolean;
+    isExtra?: boolean;
   }>;
 }
 
@@ -163,6 +205,11 @@ export async function listRomaneioCatalog() {
   return data;
 }
 
+export async function fetchRomaneioChecklistMap() {
+  const { data } = await apiClient.get<{ hasSavedSignature: boolean; map: Record<string, RomaneioChecklistInfo> }>(romaneioApiPath('/checklist-map'));
+  return data;
+}
+
 export async function listRomaneioReturnItems(filters: { projectId?: string | null; projectCode?: string | null; excludeRomaneioId?: string | null }) {
   const { data } = await apiClient.get<{ projectId: string | null; items: RomaneioReturnItem[] }>(romaneioApiPath('/return-items'), {
     params: filters
@@ -210,5 +257,10 @@ export async function removeRomaneioRecipient(id: string) {
 
 export async function downloadRomaneioFile(id: string, format: 'pdf' | 'docx') {
   const { data } = await apiClient.get<Blob>(romaneioApiPath(`/${id}/${format}`), { responseType: 'blob' });
+  return data;
+}
+
+export async function downloadRomaneioChecklistPdf(romaneioId: string) {
+  const { data } = await apiClient.get<Blob>(romaneioApiPath(`/${romaneioId}/checklist/pdf`), { responseType: 'blob' });
   return data;
 }

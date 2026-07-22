@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type FormEvent, type KeyboardEvent, type SetStateAction } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { formatCnpj, normalizeCnpjInput } from '../../utils/formatCnpj';
@@ -17,6 +17,12 @@ import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { rdoPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
+import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
+import {
+  buildManualReportOperationalData,
+  emptyManualReportOperationalFields,
+  validateManualReportOperationalFields
+} from '../../components/reports/manualReportOperationalData';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
 import { ImageDropzone } from '../../components/ui/ImageDropzone';
@@ -29,6 +35,7 @@ import { useToast } from '../../components/ui/ToastContext';
 import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
 import { ProjectRevisionPicker } from '../../components/projects/ProjectRevisionPicker';
 import { JobRoleManager } from '../../components/projects/JobRoleManager';
+import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { getCommercialPendencias } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
@@ -116,18 +123,6 @@ function parseGestorTab(value: string | null): GestorTab {
   return gestorTabs.includes(value as GestorTab) ? value as GestorTab : 'pendentes';
 }
 
-function restoreScrollTop(container: HTMLElement, top: number) {
-  let attempts = 0;
-  const apply = () => {
-    container.scrollTop = top;
-    attempts += 1;
-    if (attempts < 8 && Math.abs(container.scrollTop - top) > 2) {
-      window.requestAnimationFrame(apply);
-    }
-  };
-  window.requestAnimationFrame(apply);
-}
-
 type GestorUiPrefs = {
   projectSortDir: 'asc' | 'desc';
   closedArchivedProjectIds: string[];
@@ -200,7 +195,7 @@ interface ProjectReportSequenceFormState {
   nextNumber: string;
 }
 
-interface ManualReportUploadFileState {
+interface ManualReportUploadFileState extends ManualReportOperationalFieldsValue {
   id: string;
   fileName: string;
   pdfDataUrl: string;
@@ -210,7 +205,7 @@ interface ManualReportUploadFileState {
   serviceSystem: string;
 }
 
-interface ManualReportFormState {
+interface ManualReportFormState extends ManualReportOperationalFieldsValue {
   projectId: string;
   reportType: ReportType;
   sequenceNumber: string;
@@ -302,6 +297,7 @@ const emptyManualReportForm: ManualReportFormState = {
   serviceSystem: '',
   fileName: '',
   pdfDataUrl: '',
+  ...emptyManualReportOperationalFields(),
   files: []
 };
 
@@ -462,6 +458,14 @@ function asServices(value: unknown): RdoServiceDraft[] {
         ? item.data as Record<string, unknown>
         : {}
     }));
+}
+
+function asDdsThemes(value: unknown): { id: string; name: string; custom?: boolean }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map(item => ({ id: asString(item.id), name: asString(item.name), ...(item.custom === true ? { custom: true } : {}) }))
+    .filter(item => item.id && item.name);
 }
 
 function draftDateLabel(draft: ReportDraft) {
@@ -1117,14 +1121,13 @@ function renderProjectCard(
 
 export function GestorPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const { hydrate, reset } = useRdoStore();
   const showToast = useToast();
-  const pageScrollRef = useRef<HTMLDivElement | null>(null);
-  const restoredScrollKeysRef = useRef<Set<string>>(new Set());
   const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
-  const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos'>('colaboradores');
+  const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [gestorSearch, setGestorSearch] = usePersistentSearch(`gestor-search:${user?.id || 'anonymous'}:${tab}`);
   // Só o valor enviado às queries é adiado; a filtragem client-side segue instantânea.
@@ -1334,44 +1337,6 @@ export function GestorPage() {
     tab
   ]);
 
-  const gestorScrollStorageKey = `gestor-scroll:${user?.id || user?.username || 'anonymous'}:${tab}`;
-
-  useEffect(() => {
-    const container = pageScrollRef.current;
-    if (!container) return;
-
-    const saveScroll = () => {
-      sessionStorage.setItem(gestorScrollStorageKey, String(container.scrollTop));
-    };
-    container.addEventListener('scroll', saveScroll, { passive: true });
-    return () => {
-      saveScroll();
-      container.removeEventListener('scroll', saveScroll);
-    };
-  }, [gestorScrollStorageKey]);
-
-  useEffect(() => {
-    const container = pageScrollRef.current;
-    if (!container || reportListQuery.isLoading) return;
-    if (restoredScrollKeysRef.current.has(gestorScrollStorageKey)) return;
-
-    const stored = Number(sessionStorage.getItem(gestorScrollStorageKey) || '0');
-    if (!Number.isFinite(stored) || stored <= 0) {
-      restoredScrollKeysRef.current.add(gestorScrollStorageKey);
-      return;
-    }
-
-    restoredScrollKeysRef.current.add(gestorScrollStorageKey);
-    restoreScrollTop(container, stored);
-  }, [
-    gestorScrollStorageKey,
-    reportListQuery.isLoading,
-    pendingReports.length,
-    approvedReports.length,
-    archivedReports.length,
-    draftsQuery.data?.length
-  ]);
-
   const clientGroupingProjects = useMemo(
     () => [...(activeProjectsQuery.data || []), ...(archivedProjectsQuery.data || [])],
     [activeProjectsQuery.data, archivedProjectsQuery.data]
@@ -1536,6 +1501,14 @@ export function GestorPage() {
       noturnoStart: asString(payload.noturnoStart),
       noturnoEnd: asString(payload.noturnoEnd),
       noturnoInterval: asString(payload.noturnoInterval, '01:00:00'),
+      ddsDay: asBoolean(payload.ddsDay),
+      ddsDayStart: asString(payload.ddsDayStart),
+      ddsDayEnd: asString(payload.ddsDayEnd),
+      ddsDayThemes: asDdsThemes(payload.ddsDayThemes),
+      ddsNight: asBoolean(payload.ddsNight),
+      ddsNightStart: asString(payload.ddsNightStart),
+      ddsNightEnd: asString(payload.ddsNightEnd),
+      ddsNightThemes: asDdsThemes(payload.ddsNightThemes),
       overtimeReason: asString(payload.overtimeReason),
       dailyDescription: asString(payload.dailyDescription),
       generalUploads: Array.isArray(payload.generalUploads) ? payload.generalUploads : [],
@@ -2079,6 +2052,7 @@ export function GestorPage() {
       serviceSystem: manualReportServiceField(report, ['Sistema']),
       fileName: '',
       pdfDataUrl: '',
+      ...emptyManualReportOperationalFields(),
       files: []
     });
     setManualReportModalOpen(true);
@@ -2136,7 +2110,8 @@ export function GestorPage() {
         sequenceNumber: '',
         reportDate: baseDate,
         serviceEquipment,
-        serviceSystem
+        serviceSystem,
+        ...emptyManualReportOperationalFields()
       })));
       setManualReportForm(current => ({
         ...current,
@@ -2164,15 +2139,11 @@ export function GestorPage() {
   async function handleManualReportSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (manualReportSubmitting) return;
-    if (manualReportTarget && !manualReportForm.pdfDataUrl) {
-      showToast('Selecione um PDF.', 'error');
-      return;
-    }
     if (!manualReportTarget && !manualReportForm.files.length) {
       showToast('Selecione ao menos um PDF.', 'error');
       return;
     }
-    if (!manualReportTarget && !manualReportForm.projectId) {
+    if (!manualReportForm.projectId) {
       showToast('Selecione um projeto.', 'error');
       return;
     }
@@ -2203,6 +2174,18 @@ export function GestorPage() {
       showToast('Informe numerações maiores que zero.', 'error');
       return;
     }
+    if (!manualReportTarget) {
+      const invalidOperationalData = uploadFiles
+        .map((file, index) => validateManualReportOperationalFields(file, {
+          reportType: manualReportForm.reportType,
+          label: `PDF ${index + 1}`
+        }))
+        .find(Boolean);
+      if (invalidOperationalData) {
+        showToast(invalidOperationalData, 'error');
+        return;
+      }
+    }
 
     setManualReportSubmitting(true);
     const uploadedFileIds: string[] = [];
@@ -2211,13 +2194,16 @@ export function GestorPage() {
         await reportMutations.replaceManualReportPdf.mutateAsync({
           id: manualReportTarget.id,
           payload: {
+            projectId: manualReportForm.projectId,
             fileName: manualReportForm.fileName,
             ...replacementServiceMetadata,
-            pdfDataUrl: manualReportForm.pdfDataUrl,
-            signatureMode: manualReportForm.signatureMode
+            ...(manualReportForm.pdfDataUrl ? {
+              pdfDataUrl: manualReportForm.pdfDataUrl,
+              signatureMode: manualReportForm.signatureMode
+            } : {})
           }
         });
-        showToast('PDF substituído.', 'success');
+        showToast(manualReportForm.pdfDataUrl ? 'PDF substituído.' : 'Relatório atualizado.', 'success');
       } else {
         for (const file of uploadFiles) {
           const serviceMetadata = manualReportForm.reportType !== 'RDO'
@@ -2226,6 +2212,7 @@ export function GestorPage() {
                 serviceSystem: file.serviceSystem.trim()
               }
             : {};
+          const operationalData = buildManualReportOperationalData(file, manualReportForm.reportType);
           await reportMutations.uploadManualReport.mutateAsync({
             projectId: manualReportForm.projectId,
             reportType: manualReportForm.reportType,
@@ -2234,7 +2221,8 @@ export function GestorPage() {
             fileName: file.fileName,
             ...serviceMetadata,
             pdfDataUrl: file.pdfDataUrl,
-            signatureMode: manualReportForm.signatureMode
+            signatureMode: manualReportForm.signatureMode,
+            ...(operationalData ? { operationalData } : {})
           });
           uploadedFileIds.push(file.id);
         }
@@ -2308,7 +2296,7 @@ export function GestorPage() {
             disabled={reportMutations.replaceManualReportPdf.isPending}
             onClick={() => openManualReportReplace(report)}
           >
-            Substituir PDF
+            Editar manual
           </button>
         ) : null}
         {canReview && report.status !== 'APPROVED' ? (
@@ -2572,14 +2560,13 @@ export function GestorPage() {
       >
         <form className="admin-form admin-form-grid manual-report-form" onSubmit={handleManualReportSubmit}>
           <div className="section-title" id="manual-report-upload-title">
-            {replacing ? 'Substituir PDF' : 'Upload de relatório antigo'}
+            {replacing ? 'Editar relatório manual' : 'Upload de relatório antigo'}
           </div>
           <div className="field-group">
             <label htmlFor="manual-report-project">Projeto</label>
             <select
               id="manual-report-project"
               value={manualReportForm.projectId}
-              disabled={replacing}
               onChange={event => setManualReportForm(current => ({ ...current, projectId: event.target.value }))}
               required
             >
@@ -2671,6 +2658,7 @@ export function GestorPage() {
             <select
               id="manual-report-signature-mode"
               value={manualReportForm.signatureMode}
+              disabled={replacing && !manualReportForm.pdfDataUrl}
               onChange={event => setManualReportForm(current => ({ ...current, signatureMode: event.target.value as ManualReportFormState['signatureMode'] }))}
             >
               <option value="APPROVED">Aprovado (assinatura opcional)</option>
@@ -2681,7 +2669,7 @@ export function GestorPage() {
           <div className="field-group-wide">
             <PdfDropzone
               id="manual-report-pdf"
-              label={replacing ? 'PDF' : 'PDFs'}
+              label={replacing ? 'PDF (opcional)' : 'PDFs'}
               fileName={selectedPdfLabel}
               onFile={file => void handleManualReportFile(file)}
               multiple={!replacing}
@@ -2756,6 +2744,15 @@ export function GestorPage() {
                         </>
                       ) : null}
                     </div>
+                    <ManualReportOperationalFields
+                      value={file}
+                      collaborators={collaboratorsQuery.data || []}
+                      disabled={submitting}
+                      includeInactiveCollaborators
+                      showNightShift
+                      showStandby={manualReportForm.reportType === 'RDO'}
+                      onChange={patch => updateManualReportUploadFile(file.id, patch)}
+                    />
                   </div>
                 );
               })}
@@ -2765,8 +2762,8 @@ export function GestorPage() {
             <button className="secondary-button" type="button" disabled={submitting} onClick={closeManualReportModal}>
               Cancelar
             </button>
-            <button className="primary-button" type="submit" disabled={submitting || (replacing ? !manualReportForm.pdfDataUrl : !manualReportForm.files.length)}>
-              {submitting ? 'Salvando...' : replacing ? 'Substituir PDF' : manualReportForm.files.length > 1 ? 'Adicionar relatórios' : 'Adicionar relatório'}
+            <button className="primary-button" type="submit" disabled={submitting || (replacing ? !manualReportForm.projectId : !manualReportForm.files.length)}>
+              {submitting ? 'Salvando...' : replacing ? 'Salvar alterações' : manualReportForm.files.length > 1 ? 'Adicionar relatórios' : 'Adicionar relatório'}
             </button>
           </div>
         </form>
@@ -3354,8 +3351,11 @@ export function GestorPage() {
           <button className={`nav-tab ${equipeSubTab === 'cargos' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'cargos'} onClick={() => setEquipeSubTab('cargos')}>
             Cargos
           </button>
+          <button className={`nav-tab ${equipeSubTab === 'dds' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'dds'} onClick={() => setEquipeSubTab('dds')}>
+            Temas de DDS
+          </button>
         </div>
-        {equipeSubTab === 'cargos' ? <JobRoleManager /> : renderColaboradoresSubTab()}
+        {equipeSubTab === 'cargos' ? <JobRoleManager /> : equipeSubTab === 'dds' ? <DdsThemeManager /> : renderColaboradoresSubTab()}
       </>
     );
   }
@@ -4197,7 +4197,7 @@ export function GestorPage() {
         showLogo
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>
@@ -4240,7 +4240,7 @@ export function GestorPage() {
         </div>
       </div>
 
-      <main className="page-scroll" ref={pageScrollRef}>
+      <main className="page-scroll">
         {renderReportSummary()}
         {renderGestorSearch()}
         {renderTabContent()}

@@ -17,6 +17,7 @@ import {
 import { generateTechnicalDatasheetPdf } from '../../lib/equipment-technical-docx.js';
 import { notifyCalibrationUpdatedSafely } from '../../lib/calibration-reminders.js';
 import { normalizeFieldSchema, normalizeTechnicalSchema, slugifySystemKey } from '../../lib/equipment-categories.js';
+import { normalizeChecklistDisplayMode, normalizeChecklistItems } from '../../lib/equipamentos/equipment-checklist.js';
 import {
   getEquipmentNotificationConfig,
   listEquipmentNotificationRecipients,
@@ -66,6 +67,7 @@ const fieldDefinitionSchema = z.object({
 // Campos do datasheet (Dados Técnicos): validação pesada fica em normalizeTechnicalSchema;
 // aqui o schema é permissivo para não duplicar regras (tipos/grupos/unidades).
 const technicalFieldSchema = z.record(z.any());
+const checklistItemsSchema = z.array(z.string().trim().min(1).max(300)).max(100);
 
 const categorySchema = z.object({
   name: z.string().trim().min(1),
@@ -73,6 +75,9 @@ const categorySchema = z.object({
   fieldSchema: z.array(fieldDefinitionSchema).optional(),
   technicalSchema: z.array(technicalFieldSchema).optional(),
   technicalDocEnabled: z.boolean().optional(),
+  checklistEnabled: z.boolean().optional(),
+  checklistDisplayMode: z.enum(['AUTO', 'TAG', 'NAME']).optional(),
+  checklistItems: checklistItemsSchema.optional(),
   supportsCalibration: z.boolean().optional(),
   supportsTechnicalDoc: z.boolean().optional(),
   syncToRomaneio: z.boolean().optional()
@@ -85,6 +90,7 @@ const equipmentSchema = z.object({
   attributes: z.record(z.any()).optional(),
   technicalData: z.record(z.any()).optional(),
   technicalFieldOverrides: z.record(z.boolean()).optional(),
+  checklistItems: checklistItemsSchema.nullable().optional(),
   bumpRevision: z.boolean().optional(),
   hasCalibration: z.boolean().optional(),
   calibratedAt: z.string().optional().nullable(),
@@ -265,6 +271,9 @@ router.post('/categories', requireEquipamentosManager, asyncHandler(async (req, 
       order: data.order ?? 0,
       fieldSchema: normalizeFieldSchema(data.fieldSchema),
       technicalSchema: normalizeTechnicalSchema(data.technicalSchema),
+      checklistEnabled: data.checklistEnabled ?? false,
+      checklistDisplayMode: normalizeChecklistDisplayMode(data.checklistDisplayMode),
+      checklistItems: normalizeChecklistItems(data.checklistItems),
       technicalDocEnabled: data.technicalDocEnabled ?? false,
       supportsCalibration: data.supportsCalibration ?? false,
       supportsTechnicalDoc: data.supportsTechnicalDoc ?? true,
@@ -284,6 +293,9 @@ router.put('/categories/:id', requireEquipamentosManager, asyncHandler(async (re
     ...(data.order !== undefined ? { order: data.order } : {}),
     ...(data.fieldSchema !== undefined ? { fieldSchema: normalizeFieldSchema(data.fieldSchema) } : {}),
     ...(data.technicalSchema !== undefined ? { technicalSchema: normalizeTechnicalSchema(data.technicalSchema) } : {}),
+    ...(data.checklistEnabled !== undefined ? { checklistEnabled: data.checklistEnabled } : {}),
+    ...(data.checklistDisplayMode !== undefined ? { checklistDisplayMode: normalizeChecklistDisplayMode(data.checklistDisplayMode) } : {}),
+    ...(data.checklistItems !== undefined ? { checklistItems: normalizeChecklistItems(data.checklistItems) } : {}),
     ...(data.technicalDocEnabled !== undefined ? { technicalDocEnabled: data.technicalDocEnabled } : {}),
     ...(data.supportsCalibration !== undefined ? { supportsCalibration: data.supportsCalibration } : {}),
     ...(data.supportsTechnicalDoc !== undefined ? { supportsTechnicalDoc: data.supportsTechnicalDoc } : {}),
@@ -426,6 +438,7 @@ router.post('/', requireEquipamentosManager, asyncHandler(async (req, res) => {
     attributes: fields.attributes ?? {},
     technicalData: fields.technicalData ?? {},
     technicalFieldOverrides: fields.technicalFieldOverrides ?? {},
+    checklistItems: fields.checklistItems == null ? null : normalizeChecklistItems(fields.checklistItems),
     technicalRevision: 0,
     technicalUpdatedAt: startsWithTechnicalContent ? new Date() : null,
     hasCalibration: fields.hasCalibration ?? false,
@@ -483,6 +496,9 @@ router.put('/:id', requireEquipamentosManager, asyncHandler(async (req, res) => 
     ...(fields.categoryId !== undefined ? { categoryId: fields.categoryId } : {}),
     ...(fields.attributes !== undefined ? { attributes: fields.attributes } : {}),
     ...(fields.technicalFieldOverrides !== undefined ? { technicalFieldOverrides: fields.technicalFieldOverrides } : {}),
+    ...(fields.checklistItems !== undefined ? {
+      checklistItems: fields.checklistItems === null ? null : normalizeChecklistItems(fields.checklistItems)
+    } : {}),
     ...(fields.hasTechnicalDoc !== undefined ? { hasTechnicalDoc: fields.hasTechnicalDoc } : {})
   };
   // Após o primeiro preenchimento, alterações nos Dados Técnicos geram nova revisão.

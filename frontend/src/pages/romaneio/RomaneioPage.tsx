@@ -1,9 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import {
   createRomaneioCatalogItem,
+  downloadRomaneioChecklistPdf,
   downloadRomaneioCatalogPdf,
   downloadRomaneioFile,
   listRomaneioCatalog,
@@ -31,11 +32,13 @@ import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { downloadBlob } from '../../utils/download';
 import { defaultRomaneioUnit, romaneioMeasureLabel } from '../../utils/romaneioMeasure';
+import { useUrlParamState } from '../../hooks/useUrlParamState';
 
 type Tab = 'romaneios' | 'equipamentos' | 'notificacoes';
+const TABS: Tab[] = ['romaneios', 'equipamentos', 'notificacoes'];
 const NEW_CATEGORY_VALUE = '__new_category__';
 
-const rdoOwnedCatalogSources = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS']);
+const managedCatalogSources = new Set(['UNIT', 'PARTICLE_COUNTER', 'EQUIPAMENTOS', 'STOCK']);
 
 function formatDate(value: string) {
   if (!value) return '';
@@ -83,7 +86,16 @@ function catalogEmpty(): RomaneioCatalogPayload {
 }
 
 function isRdoOwnedCatalogItem(item: RomaneioCatalogItem) {
-  return rdoOwnedCatalogSources.has(item.sourceType);
+  return managedCatalogSources.has(item.sourceType);
+}
+
+function catalogItemTypeLabel(item: RomaneioCatalogItem) {
+  if (item.sourceType === 'STOCK') return 'Estoque';
+  return item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento';
+}
+
+function managedCatalogSourceLabel(item: RomaneioCatalogItem) {
+  return item.sourceType === 'STOCK' ? 'Gerenciado pelo módulo Estoque' : 'Gerenciado pelo módulo Equipamentos';
 }
 
 function normalizeSearch(value: unknown) {
@@ -94,14 +106,23 @@ function normalizeSearch(value: unknown) {
     .trim();
 }
 
+function parseRomaneioTab(value: string | null): Tab {
+  return TABS.includes(value as Tab) ? value as Tab : 'romaneios';
+}
+
 export function RomaneioPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const showToast = useToast();
   const queryClient = useQueryClient();
   const isManager = user?.moduleRoles?.includes('romaneio:manager');
   const canEditRomaneio = user?.role === 'MANAGER' || user?.role === 'COORDINATOR';
-  const [tab, setTab] = useState<Tab>('romaneios');
+  const [tab, setTab] = useUrlParamState<Tab>({
+    param: 'tab',
+    defaultValue: 'romaneios',
+    parse: parseRomaneioTab
+  });
   const [search, setSearch] = useState('');
   const [projectId, setProjectId] = useState('');
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -125,6 +146,10 @@ export function RomaneioPage() {
   const catalogQuery = useQuery({ queryKey: ['romaneio-catalog'], queryFn: listRomaneioCatalog, enabled: isManager || tab !== 'notificacoes' });
   const draftsQuery = useQuery({ queryKey: ['romaneio-drafts'], queryFn: listRomaneioDrafts });
   const recipientsQuery = useQuery({ queryKey: ['romaneio-recipients'], queryFn: listRomaneioRecipients, enabled: isManager && tab === 'notificacoes' });
+
+  useEffect(() => {
+    if (!isManager && tab === 'notificacoes') setTab('romaneios');
+  }, [isManager, setTab, tab]);
 
   const saveCatalogMutation = useMutation({
     mutationFn: () => createRomaneioCatalogItem(catalogForm),
@@ -221,7 +246,7 @@ export function RomaneioPage() {
         item.code,
         item.name,
         item.categoryName,
-        item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento',
+        catalogItemTypeLabel(item),
         item.defaultUnitLabel,
         romaneioMeasureLabel(item.measureType)
       ].filter(Boolean).join(' '));
@@ -292,6 +317,16 @@ export function RomaneioPage() {
     }
   }
 
+  async function downloadChecklistFile(item: Romaneio, sourceUrl?: string | null) {
+    try {
+      const blob = await downloadRomaneioChecklistPdf(item.id);
+      const fileName = decodeURIComponent(sourceUrl?.split('/').pop() || 'checklist.pdf');
+      downloadBlob(blob, fileName);
+    } catch {
+      showToast('Não foi possível baixar o checklist.');
+    }
+  }
+
   async function downloadCatalogPdf() {
     setIsDownloadingCatalogPdf(true);
     try {
@@ -341,7 +376,7 @@ export function RomaneioPage() {
         subtitle="Equipamentos por projeto"
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location.pathname) })}>
+            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>
@@ -453,6 +488,11 @@ export function RomaneioPage() {
                           )}
                           {item.pdfUrl && <button className="secondary-button" type="button" onClick={() => downloadFile(item.id, 'pdf', item.pdfUrl)}>PDF</button>}
                           {item.docxUrl && <button className="secondary-button" type="button" onClick={() => downloadFile(item.id, 'docx', item.docxUrl)}>DOCX</button>}
+                          {item.checklistPdfUrl && (
+                            <button className="secondary-button" type="button" onClick={() => downloadChecklistFile(item, item.checklistPdfUrl)}>
+                              Checklist
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="rel-meta">{item.items.slice(0, 4).map(part => [part.itemCode, part.itemName].filter(Boolean).join(' - ')).join(' · ')}</div>
@@ -582,7 +622,7 @@ export function RomaneioPage() {
                               <div className="romaneio-catalog-row-main">
                                 <div>
                                   <strong>{[item.code, item.name].filter(Boolean).join(' - ')}</strong>
-                                  <div className="rel-meta">{item.kind === 'CONNECTION' ? 'Conexão' : 'Equipamento'} · {romaneioMeasureLabel(item.measureType)}</div>
+                                  <div className="rel-meta">{catalogItemTypeLabel(item)} · {romaneioMeasureLabel(item.measureType)}</div>
                                 </div>
                                 {isManager && !isRdoOwnedCatalogItem(item) ? (
                                   <div className="report-card-actions">
@@ -590,7 +630,7 @@ export function RomaneioPage() {
                                     <button className="mini-btn danger" type="button" onClick={() => removeCatalogMutation.mutate(item.id)}>Remover</button>
                                   </div>
                                 ) : isManager && isRdoOwnedCatalogItem(item) ? (
-                                  <div className="rel-meta">Gerenciado pelo módulo Equipamentos</div>
+                                  <div className="rel-meta">{managedCatalogSourceLabel(item)}</div>
                                 ) : null}
                               </div>
                               {isManager && editingCatalogId === item.id && (

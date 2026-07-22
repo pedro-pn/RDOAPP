@@ -2,14 +2,15 @@
  * Aba "Projetos" do módulo Acompanhamento — um card por projeto com indicadores cruzando o previsto
  * (comercial + escopo manual) e o realizado (RDOs). Reaproveita listCommercialDashboard como base
  * (mesmos projetos casados com proposta, já com plannedDays/workedDays/startDate/avanço) e enriquece
- * com agregações dos RDOs: dias trabalhados (datas distintas), colaboradores distintos e status do
- * último dia (trabalhado / parado por standby de jornada cheia).
+ * com agregações dos RDOs: dias trabalhados (datas distintas), horas normais/extra, colaboradores
+ * distintos e status do último dia (trabalhado / parado por standby de jornada cheia).
  */
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
 import { laborCostByProject } from './labor-cost.js';
 import { getEquipmentUsageByProject } from './equipment-usage.js';
+import { reportAllCollaboratorIds, reportPersonTimeMetrics } from './report-time.js';
 import prisma from '../prisma.js';
 
 function toNum(value) {
@@ -48,6 +49,55 @@ function journeyMinutes(project, reportDate) {
   return parseMinutes(hours);
 }
 
+function toHours(minutes) {
+  return Math.round((Math.max(0, minutes) / 60) * 10) / 10;
+}
+
+export function buildWorkedHoursProgress({
+  normalWorkedMinutes = 0,
+  overtimeWorkedMinutes = 0,
+  plannedNormalHours = 0,
+  plannedOvertimeHours = 0
+} = {}) {
+  const normalWorkedHours = toHours(normalWorkedMinutes);
+  const overtimeWorkedHours = toHours(overtimeWorkedMinutes);
+  const totalWorkedHours = Math.round((normalWorkedHours + overtimeWorkedHours) * 10) / 10;
+  const plannedNormal = Math.max(0, toNum(plannedNormalHours) ?? 0);
+  const plannedOvertime = Math.max(0, toNum(plannedOvertimeHours) ?? 0);
+  const plannedTotalHours = plannedNormal + plannedOvertime;
+  const hasPlan = plannedTotalHours > 0;
+
+  return {
+    normalWorkedHours,
+    overtimeWorkedHours,
+    totalWorkedHours,
+    plannedNormalHours: plannedNormal,
+    plannedOvertimeHours: plannedOvertime,
+    plannedTotalHours: hasPlan ? plannedTotalHours : null,
+    normalPct: hasPlan ? Math.round((normalWorkedHours / plannedTotalHours) * 100) : null,
+    overtimePct: hasPlan ? Math.round((overtimeWorkedHours / plannedTotalHours) * 100) : null,
+    totalPct: hasPlan ? Math.round((totalWorkedHours / plannedTotalHours) * 100) : null
+  };
+}
+
+export const PROJECT_CARD_CATEGORIES = {
+  IN_PROGRESS: 'ANDAMENTO',
+  FUTURE: 'FUTURO',
+  ARCHIVED: 'ARQUIVADO'
+};
+
+export function deriveProjectCardCategory({ archived = false, workedDays = 0, workedHours = null, progressPct = null } = {}) {
+  if (archived) return PROJECT_CARD_CATEGORIES.ARCHIVED;
+
+  const days = toNum(workedDays) ?? 0;
+  const hours = toNum(workedHours?.totalWorkedHours) ?? 0;
+  const progress = toNum(progressPct) ?? 0;
+
+  return days <= 0 && hours <= 0 && progress <= 0
+    ? PROJECT_CARD_CATEGORIES.FUTURE
+    : PROJECT_CARD_CATEGORIES.IN_PROGRESS;
+}
+
 // Status do último RDO: parado quando houve standby cobrindo a jornada cheia; senão trabalhado.
 export function lastDayStatus(lastReport, project) {
   if (!lastReport) return { date: null, status: 'SEM_RDO' };
@@ -67,45 +117,97 @@ export async function listProjectCards() {
   const projectIds = rows.map(r => r.projectId);
   if (projectIds.length === 0) return [];
 
-  const [projects, reports, collaborators, labor] = await Promise.all([
+  const [projects, reports, collaborators, labor, plannedNormalHours, plannedOvertime] = await Promise.all([
     prisma.project.findMany({
       where: { id: { in: projectIds } },
       select: { id: true, workdayHours: true, weekendWorkdayHours: true }
     }),
     prisma.report.findMany({
       where: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null },
-      select: { projectId: true, reportDate: true, specialConditions: true },
+      select: {
+        id: true,
+        projectId: true,
+        reportDate: true,
+        specialConditions: true,
+        daytimeCount: true,
+        daytimeWorkedMinutes: true,
+        nighttimeWorkedMinutes: true,
+        daytimeOvertimeMinutes: true,
+        nighttimeOvertimeMinutes: true,
+        totalOvertimeMinutes: true
+      },
       orderBy: { reportDate: 'asc' }
     }),
     prisma.reportCollaborator.findMany({
       where: { report: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null } },
-      select: { collaboratorId: true, report: { select: { projectId: true } } }
+      select: { reportId: true, collaboratorId: true }
     }),
-    laborCostByProject() // custo de mão de obra (HH) do ponto vigente — separado do realizado Omie
+    laborCostByProject(), // custo de mão de obra (HH) do ponto vigente — separado do realizado Omie
+    prisma.projectPlannedNormalHours.findMany({
+      where: { projectId: { in: projectIds } },
+      select: { projectId: true, hours: true }
+    }),
+    prisma.projectPlannedOvertime.findMany({
+      where: { projectId: { in: projectIds } },
+      select: { projectId: true, hours: true }
+    })
   ]);
   const laborByProject = labor.byProjectId;
   const equipmentByProject = await getEquipmentUsageByProject(projectIds);
   const now = new Date();
 
   const projById = new Map(projects.map(p => [p.id, p]));
+  const dayCollaboratorIdsByReport = new Map();
+  for (const c of collaborators) {
+    if (!dayCollaboratorIdsByReport.has(c.reportId)) dayCollaboratorIdsByReport.set(c.reportId, []);
+    dayCollaboratorIdsByReport.get(c.reportId).push(c.collaboratorId);
+  }
 
   // Agrega por projeto: datas distintas de RDO, colaboradores distintos e o último RDO.
   const agg = new Map();
   const ensure = (id) => {
-    if (!agg.has(id)) agg.set(id, { dates: new Set(), collabs: new Set(), lastReport: null });
+    if (!agg.has(id)) {
+      agg.set(id, {
+        dates: new Set(),
+        collabs: new Set(),
+        lastReport: null,
+        normalWorkedMinutes: 0,
+        overtimeWorkedMinutes: 0
+      });
+    }
     return agg.get(id);
   };
   for (const r of reports) {
     const a = ensure(r.projectId);
     a.dates.add(dateKey(r.reportDate));
     if (!a.lastReport || new Date(r.reportDate) > new Date(a.lastReport.reportDate)) a.lastReport = r;
-  }
-  for (const c of collaborators) {
-    if (c.report?.projectId) ensure(c.report.projectId).collabs.add(c.collaboratorId);
+    const dayCollaboratorIds = dayCollaboratorIdsByReport.get(r.id) || [];
+    const metrics = reportPersonTimeMetrics(r, dayCollaboratorIds);
+    a.overtimeWorkedMinutes += metrics.overtimeWorkedMinutes;
+    a.normalWorkedMinutes += metrics.normalWorkedMinutes;
+    for (const collaboratorId of reportAllCollaboratorIds(r, dayCollaboratorIds)) {
+      a.collabs.add(collaboratorId);
+    }
   }
 
+  const sumHoursByProject = (items) => {
+    const out = new Map();
+    for (const item of items) {
+      out.set(item.projectId, (out.get(item.projectId) || 0) + (toNum(item.hours) ?? 0));
+    }
+    return out;
+  };
+  const plannedNormalByProject = sumHoursByProject(plannedNormalHours);
+  const plannedOvertimeByProject = sumHoursByProject(plannedOvertime);
+
   return rows.map(row => {
-    const a = agg.get(row.projectId) || { dates: new Set(), collabs: new Set(), lastReport: null };
+    const a = agg.get(row.projectId) || {
+      dates: new Set(),
+      collabs: new Set(),
+      lastReport: null,
+      normalWorkedMinutes: 0,
+      overtimeWorkedMinutes: 0
+    };
     const workedDays = a.dates.size;
     const totalDays = toNum(row.workedDays) ?? toNum(row.plannedDays);
     const daysConsumedPct = totalDays && totalDays > 0 ? Math.round((workedDays / totalDays) * 100) : null;
@@ -125,39 +227,67 @@ export async function listProjectCards() {
       })
       .sort((x, y) => y.days - x.days);
 
-    // Realizado total = compras Omie (sem salário) + mão de obra do ponto.
+    // Realizado total = compras Omie (sem salário) + consumo do estoque + mão de obra do ponto.
     const laborCost = laborByProject.get(row.projectId)?.laborCost ?? null;
+    const stockCost = toNum(row.stockCost) ?? 0;
+    const plannedCost = toNum(row.plannedTotalCost);
     const gastoTotal = (toNum(row.realizedCost) ?? 0) + (laborCost ?? 0);
+    const costConsumedPct = plannedCost && plannedCost > 0 ? Math.round((gastoTotal / plannedCost) * 100) : null;
     const alerts = computeAlerts({
       startDate: row.startDate ?? null,
       plannedDays,
       gasto: gastoTotal,
-      plannedCost: toNum(row.plannedTotalCost),
+      plannedCost,
       lastRdoDate: lastDay.date,
       lastDayStatus: lastDay.status,
       progressPct: row.progressPct ?? null,
       now: projectReferenceDate
     });
+    const workedHours = buildWorkedHoursProgress({
+      normalWorkedMinutes: a.normalWorkedMinutes,
+      overtimeWorkedMinutes: a.overtimeWorkedMinutes,
+      plannedNormalHours: plannedNormalByProject.get(row.projectId) || 0,
+      plannedOvertimeHours: plannedOvertimeByProject.get(row.projectId) || 0
+    });
+    const archived = Boolean(row.archived);
 
     return {
       projectId: row.projectId,
       code: row.code,
       name: row.name,
       clientName: row.clientName,
-      archived: Boolean(row.archived), // arquivado = projeto inativo nos relatórios
+      clientCnpj: row.clientCnpj ?? null,
+      archived, // arquivado = projeto inativo nos relatórios
+      category: deriveProjectCardCategory({
+        archived,
+        workedDays,
+        workedHours,
+        progressPct: row.progressPct ?? null
+      }),
       workedDays,
       totalDays,
       daysConsumedPct,
+      workedHours,
       progressPct: row.progressPct ?? null,
       progressMethod: row.progressMethod ?? null,
+      progressWeight: row.progressWeight ?? null,
+      plannedCost,
+      invoicedRevenue: row.invoicedRevenue ?? null,
+      invoiceCount: row.invoiceCount ?? 0,
+      presumedProfitTaxes: row.presumedProfitTaxes ?? null,
+      realizedCost: gastoTotal,
+      costConsumedPct,
       lastDay,
       collaboratorsCount: a.collabs.size,
+      collaboratorIds: Array.from(a.collabs),
       startDate: row.startDate ?? null,
       expectedEndDate,
-      // Custo de mão de obra (HH) do ponto vigente — NÃO somado ao realizado Omie (em validação).
+      // Custo de mão de obra (HH) do ponto vigente.
       // laborCost = com adicional offshore; laborCostBase = sem offshore (para comparação).
       laborCost,
       laborCostBase: laborByProject.get(row.projectId)?.laborCostBase ?? null,
+      stockCost,
+      manualCost: toNum(row.manualCost) ?? 0,
       equipment, // equipamentos (módulo Equipamentos) em obra: { name, days, since }
       alerts
     };
