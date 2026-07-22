@@ -101,6 +101,13 @@ invalidos. Ao tentar salvar, cada campo obrigatorio com erro deve ficar vermelho
 `aria-invalid` quando aplicavel. A validacao nativa do navegador nao substitui esse
 padrao.
 
+Reordenacao por drag and drop deve seguir o padrao compartilhado do app: handle dedicado
+de arraste, placeholder com espaco e legenda da posicao atual, fantasma visual seguindo
+o cursor/toque, reorganizacao ao vivo durante o arraste, cancelamento restaurando a ordem
+inicial e persistencia apenas da ordem final ao soltar. Em mobile, o gesto deve funcionar
+por Pointer Events ou mecanismo equivalente com `touch-action: none`; drag nativo do
+navegador nao pode ser o unico suporte.
+
 Funcao nova visivel ao usuario deve incluir divulgacao temporaria no padrao do app:
 
 - card centralizado via Driver.js, no mesmo modelo usado para novidades como DDS;

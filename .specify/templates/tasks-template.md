@@ -38,6 +38,11 @@ description: "Task list template for feature implementation"
   empty/invalid highlights the specific fields in red using the shared
   `.field-group.field-invalid` + `.field-error` pattern, with `aria-invalid` where
   applicable. Do not rely only on native browser validation UI.
+- For frontend surfaces with user-facing drag and drop reordering, include a task to
+  verify the shared pattern: dedicated handle, live reordering, placeholder/space with
+  position legend, visual ghost, cancel restores the initial order, drop persists only
+  the final order, and mobile/touch works via Pointer Events or equivalent with
+  `touch-action: none`.
 
 ## Path Conventions
 
@@ -190,6 +195,9 @@ Examples of foundational tasks (adjust based on your project):
   mandatory fields empty and verify the exact fields receive
   `.field-group.field-invalid`, `aria-invalid` where applicable, and `.field-error`
   text below the control
+- [ ] TXXX Reorder drag/drop UI: verify each changed reorderable list uses the shared
+  handle + live placeholder/ghost pattern, restores the initial order on cancel, saves
+  only after drop, and works on mobile/touch
 - [ ] TXXX Navigation continuity: represent module-internal tabs/sections/detail views
   in URL/query params (or document a localStorage exception) and verify refresh/deep-link
   restores the same page without stale incompatible params

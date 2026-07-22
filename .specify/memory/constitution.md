@@ -1,14 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 1.6.0 → 1.7.0
-- Modified principles: Princípio VI expandido para erro visual obrigatório em campos obrigatórios
+- Version change: 1.7.0 → 1.8.0
+- Modified principles: Princípio VI expandido para padronizar reordenação por drag and drop
 - Added sections: nenhuma
 - Removed sections: nenhuma
 - Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir erro vermelho em campos obrigatórios
-  - ✅ .specify/templates/spec-template.md — contrato visual passou a declarar erro de campo obrigatório
-  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a auditar obrigatórios vazios
-  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para validação visual de obrigatórios
+  - ✅ .specify/templates/plan-template.md — gate visual passou a exigir o padrão de drag and drop de reordenação
+  - ✅ .specify/templates/spec-template.md — contrato visual passou a declarar reordenação por drag and drop
+  - ✅ .specify/templates/tasks-template.md — tarefas de frontend passaram a auditar drag and drop de reordenação
+  - ✅ docs/PADRAO_MODULO.md — padrão de frontend atualizado para reordenação por drag and drop
 - Follow-up TODOs: nenhum
 -->
 
@@ -103,6 +103,13 @@ Nenhuma página, modal ou card pode nascer fora da formatação padrão do app. 
   receber o estado visual de erro do app: wrapper `.field-group.field-invalid`, controle
   com `aria-invalid` quando aplicável e mensagem `.field-error` abaixo do campo. A
   validação nativa do navegador não pode substituir esse padrão visual.
+- Toda reordenação visível ao usuário por drag and drop DEVE seguir o padrão compartilhado
+  do app: handle dedicado de arraste, item original substituído por placeholder com
+  espaço e legenda da posição atual, fantasma visual acompanhando o cursor/toque,
+  reorganização ao vivo durante o arraste, suporte mobile/touch via Pointer Events ou
+  equivalente com `touch-action: none`, cancelamento restaurando a ordem inicial e
+  persistência apenas da ordem final ao soltar. Drag and drop nativo do navegador não
+  pode ser o único mecanismo quando houver uso em mobile.
 - Listas suspensas customizadas (combobox, multiselect, filtros com menu) DEVEM usar
   componente existente do kit ou uma classe compartilhada baseada nos tokens. É
   proibido criar dropdown local sem estados de foco, disabled, erro e mobile definidos.
@@ -137,10 +144,13 @@ Racional: divergências visuais quase nunca são intencionais — surgem quando 
 construída sem olhar o kit e os tokens existentes, e depois custam passadas inteiras de
 padronização. Novidades sem divulgação deixam usuários sem descobrir fluxos novos; aviso
 e tutorial temporários tornam a adoção previsível sem criar pop-ups permanentes para
-funções pontuais. Abas que voltam para o início após F5 quebram o contexto operacional
-do usuário em campo e tornam a experiência inconsistente entre módulos. A regra torna a
-checagem objetiva em review: componente do kit usado? token usado? tela análoga
-seguida? novidade temporária implementada quando aplicável? refresh preserva a página?
+funções pontuais. Reordenações diferentes entre módulos geram erro em telas de campo,
+especialmente no toque; por isso todo drag and drop de ordenação precisa usar a mesma
+interação com handle, placeholder, fantasma e reorganização ao vivo. Abas que voltam
+para o início após F5 quebram o contexto operacional do usuário em campo e tornam a
+experiência inconsistente entre módulos. A regra torna a checagem objetiva em review:
+componente do kit usado? token usado? tela análoga seguida? novidade temporária
+implementada quando aplicável? drag and drop segue o padrão? refresh preserva a página?
 
 ## Restrições de Stack
 
@@ -182,4 +192,4 @@ corrigido.
   DEVEM verificar aderência aos Princípios I–VI; violações exigem justificativa
   registrada na seção Complexity Tracking do plano da feature.
 
-**Version**: 1.7.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-22
+**Version**: 1.8.0 | **Ratified**: 2026-07-03 | **Last Amended**: 2026-07-22
