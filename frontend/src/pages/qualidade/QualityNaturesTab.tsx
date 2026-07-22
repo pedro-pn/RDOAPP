@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent, type PointerEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -27,6 +27,13 @@ type ConfirmState = {
   confirmLabel?: string;
   danger?: boolean;
   onConfirm: () => void;
+};
+
+type TouchDragState = {
+  pointerId: number;
+  ghost: HTMLElement;
+  offsetX: number;
+  offsetY: number;
 };
 
 function setNatureDragImage(event: DragEvent<HTMLButtonElement>) {
@@ -68,6 +75,28 @@ function sameNatureOrder(left: string[], right: string[]) {
   return left.length === right.length && left.every((id, index) => id === right[index]);
 }
 
+function natureIdFromPoint(clientX: number, clientY: number) {
+  const element = document.elementFromPoint(clientX, clientY);
+  const row = element?.closest?.('.quality-nature-row');
+  if (!(row instanceof HTMLElement)) return null;
+  return row.dataset.natureId || null;
+}
+
+function createTouchDragGhost(row: HTMLElement, clientX: number, clientY: number): TouchDragState['ghost'] {
+  const rect = row.getBoundingClientRect();
+  const ghost = row.cloneNode(true) as HTMLElement;
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.classList.add('quality-nature-touch-ghost');
+  ghost.style.position = 'fixed';
+  ghost.style.top = '0';
+  ghost.style.left = '0';
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.pointerEvents = 'none';
+  ghost.style.transform = `translate3d(${clientX - (clientX - rect.left)}px, ${clientY - (clientY - rect.top)}px, 0)`;
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
 export function QualityNaturesTab({ isManager }: Props) {
   const showToast = useToast();
   const queryClient = useQueryClient();
@@ -83,6 +112,7 @@ export function QualityNaturesTab({ isManager }: Props) {
   const dropHandled = useRef(false);
   const dragStartOrderIds = useRef<string[]>([]);
   const orderedNaturesRef = useRef<QualityNature[]>([]);
+  const touchDrag = useRef<TouchDragState | null>(null);
   const [orderedNatures, setOrderedNatures] = useState<QualityNature[]>([]);
 
   const naturesQuery = useQuery({
@@ -188,17 +218,29 @@ export function QualityNaturesTab({ isManager }: Props) {
     setOrderedNatures(rows);
   }
 
-  function handleNatureDragStart(event: DragEvent<HTMLButtonElement>, natureId: string) {
-    if (reorderDisabled) {
-      event.preventDefault();
-      return;
-    }
+  function startNatureDrag(natureId: string) {
     dropHandled.current = false;
     orderedNaturesRef.current = orderedNatures;
     dragStartOrderIds.current = orderedNatures.map(nature => nature.id);
     dragNatureId.current = natureId;
     setDraggedNatureId(natureId);
     setDragOverNatureId(natureId);
+  }
+
+  function persistNatureOrder(rows: QualityNature[]) {
+    const nextIds = rows.map(nature => nature.id);
+    applyOrderedNatures(rows);
+    if (sameNatureOrder(nextIds, dragStartOrderIds.current)) return;
+    queryClient.setQueryData(['qualidade', 'naturezas', { includeInactive }], rows);
+    reorderMutation.mutate(nextIds);
+  }
+
+  function handleNatureDragStart(event: DragEvent<HTMLButtonElement>, natureId: string) {
+    if (reorderDisabled) {
+      event.preventDefault();
+      return;
+    }
+    startNatureDrag(natureId);
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', natureId);
     setNatureDragImage(event);
@@ -224,11 +266,7 @@ export function QualityNaturesTab({ isManager }: Props) {
     const next = fromId === targetId
       ? orderedNaturesRef.current
       : reorderNatureRows(orderedNaturesRef.current, fromId, targetId);
-    const nextIds = next.map(nature => nature.id);
-    applyOrderedNatures(next);
-    if (sameNatureOrder(nextIds, dragStartOrderIds.current)) return;
-    queryClient.setQueryData(['qualidade', 'naturezas', { includeInactive }], next);
-    reorderMutation.mutate(nextIds);
+    persistNatureOrder(next);
   }
 
   function handleNatureDragEnd() {
@@ -236,6 +274,62 @@ export function QualityNaturesTab({ isManager }: Props) {
       applyOrderedNatures(naturesQuery.data || []);
     }
     dropHandled.current = false;
+    clearDragState();
+  }
+
+  function handleNaturePointerDown(event: PointerEvent<HTMLButtonElement>, natureId: string) {
+    if (event.pointerType === 'mouse') return;
+    if (reorderDisabled) {
+      event.preventDefault();
+      return;
+    }
+
+    const row = event.currentTarget.closest('.quality-nature-row');
+    if (!(row instanceof HTMLElement)) return;
+    const rect = row.getBoundingClientRect();
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    startNatureDrag(natureId);
+    document.body.classList.add('quality-nature-touch-reordering');
+    touchDrag.current = {
+      pointerId: event.pointerId,
+      ghost: createTouchDragGhost(row, event.clientX, event.clientY),
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
+  }
+
+  function handleNaturePointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const state = touchDrag.current;
+    const fromId = dragNatureId.current;
+    if (!state || state.pointerId !== event.pointerId || !fromId || reorderDisabled) return;
+
+    event.preventDefault();
+    state.ghost.style.transform = `translate3d(${event.clientX - state.offsetX}px, ${event.clientY - state.offsetY}px, 0)`;
+
+    const targetId = natureIdFromPoint(event.clientX, event.clientY);
+    if (!targetId) return;
+    setDragOverNatureId(targetId);
+    const next = reorderNatureRows(orderedNaturesRef.current, fromId, targetId);
+    if (next !== orderedNaturesRef.current) applyOrderedNatures(next);
+  }
+
+  function finishNaturePointerDrag(event: PointerEvent<HTMLButtonElement>, persist: boolean) {
+    const state = touchDrag.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    state.ghost.remove();
+    touchDrag.current = null;
+    document.body.classList.remove('quality-nature-touch-reordering');
+
+    if (persist) {
+      persistNatureOrder(orderedNaturesRef.current);
+    } else {
+      applyOrderedNatures(naturesQuery.data || []);
+    }
     clearDragState();
   }
 
@@ -324,6 +418,7 @@ export function QualityNaturesTab({ isManager }: Props) {
             ].filter(Boolean).join(' ')}
             key={nature.id}
             role="listitem"
+            data-nature-id={nature.id}
             onDragOver={event => handleNatureDragOver(event, nature.id)}
             onDragLeave={() => setDragOverNatureId(current => current === nature.id ? null : current)}
             onDrop={event => handleNatureDrop(event, nature.id)}
@@ -340,6 +435,10 @@ export function QualityNaturesTab({ isManager }: Props) {
                   disabled={reorderDisabled}
                   onDragStart={event => handleNatureDragStart(event, nature.id)}
                   onDragEnd={handleNatureDragEnd}
+                  onPointerDown={event => handleNaturePointerDown(event, nature.id)}
+                  onPointerMove={handleNaturePointerMove}
+                  onPointerUp={event => finishNaturePointerDrag(event, true)}
+                  onPointerCancel={event => finishNaturePointerDrag(event, false)}
                 >
                   ⠿
                 </button>
