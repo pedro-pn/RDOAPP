@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -52,6 +52,22 @@ function setNatureDragImage(event: DragEvent<HTMLButtonElement>) {
   window.setTimeout(() => preview.remove(), 0);
 }
 
+function reorderNatureRows(rows: QualityNature[], fromId: string, targetId: string) {
+  if (fromId === targetId) return rows;
+  const fromIndex = rows.findIndex(nature => nature.id === fromId);
+  const targetIndex = rows.findIndex(nature => nature.id === targetId);
+  if (fromIndex < 0 || targetIndex < 0) return rows;
+
+  const next = [...rows];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(targetIndex, 0, moved);
+  return next.map((nature, position) => ({ ...nature, position }));
+}
+
+function sameNatureOrder(left: string[], right: string[]) {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
 export function QualityNaturesTab({ isManager }: Props) {
   const showToast = useToast();
   const queryClient = useQueryClient();
@@ -64,6 +80,10 @@ export function QualityNaturesTab({ isManager }: Props) {
   const dragNatureId = useRef<string | null>(null);
   const [draggedNatureId, setDraggedNatureId] = useState<string | null>(null);
   const [dragOverNatureId, setDragOverNatureId] = useState<string | null>(null);
+  const dropHandled = useRef(false);
+  const dragStartOrderIds = useRef<string[]>([]);
+  const orderedNaturesRef = useRef<QualityNature[]>([]);
+  const [orderedNatures, setOrderedNatures] = useState<QualityNature[]>([]);
 
   const naturesQuery = useQuery({
     queryKey: ['qualidade', 'naturezas', { includeInactive }],
@@ -126,12 +146,19 @@ export function QualityNaturesTab({ isManager }: Props) {
     onError: error => showToast(error instanceof Error ? error.message : 'Não foi possível remover.', 'error')
   });
 
-  const natures = useMemo(() => {
+  useEffect(() => {
+    if (dragNatureId.current) return;
     const rows = naturesQuery.data || [];
+    orderedNaturesRef.current = rows;
+    setOrderedNatures(rows);
+  }, [naturesQuery.data]);
+
+  const natures = useMemo(() => {
+    const rows = orderedNatures;
     const query = search.trim().toLowerCase();
     if (!query) return rows;
     return rows.filter(nature => nature.name.toLowerCase().includes(query));
-  }, [naturesQuery.data, search]);
+  }, [orderedNatures, search]);
   const saving = createMutation.isPending || updateMutation.isPending;
   const canReorder = isManager && !search.trim() && natures.length > 1;
   const reorderDisabled = !canReorder || reorderMutation.isPending;
@@ -156,11 +183,19 @@ export function QualityNaturesTab({ isManager }: Props) {
     setDragOverNatureId(null);
   }
 
+  function applyOrderedNatures(rows: QualityNature[]) {
+    orderedNaturesRef.current = rows;
+    setOrderedNatures(rows);
+  }
+
   function handleNatureDragStart(event: DragEvent<HTMLButtonElement>, natureId: string) {
     if (reorderDisabled) {
       event.preventDefault();
       return;
     }
+    dropHandled.current = false;
+    orderedNaturesRef.current = orderedNatures;
+    dragStartOrderIds.current = orderedNatures.map(nature => nature.id);
     dragNatureId.current = natureId;
     setDraggedNatureId(natureId);
     setDragOverNatureId(natureId);
@@ -170,28 +205,38 @@ export function QualityNaturesTab({ isManager }: Props) {
   }
 
   function handleNatureDragOver(event: DragEvent<HTMLElement>, natureId: string) {
-    if (!dragNatureId.current || reorderDisabled) return;
+    const fromId = dragNatureId.current;
+    if (!fromId || reorderDisabled) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     setDragOverNatureId(natureId);
+    const next = reorderNatureRows(orderedNaturesRef.current, fromId, natureId);
+    if (next !== orderedNaturesRef.current) applyOrderedNatures(next);
   }
 
   function handleNatureDrop(event: DragEvent<HTMLElement>, targetId: string) {
     event.preventDefault();
     const fromId = dragNatureId.current;
+    dropHandled.current = true;
     clearDragState();
-    if (!fromId || fromId === targetId || reorderDisabled) return;
+    if (!fromId || reorderDisabled) return;
 
-    const fromIndex = natures.findIndex(nature => nature.id === fromId);
-    const targetIndex = natures.findIndex(nature => nature.id === targetId);
-    if (fromIndex < 0 || targetIndex < 0) return;
+    const next = fromId === targetId
+      ? orderedNaturesRef.current
+      : reorderNatureRows(orderedNaturesRef.current, fromId, targetId);
+    const nextIds = next.map(nature => nature.id);
+    applyOrderedNatures(next);
+    if (sameNatureOrder(nextIds, dragStartOrderIds.current)) return;
+    queryClient.setQueryData(['qualidade', 'naturezas', { includeInactive }], next);
+    reorderMutation.mutate(nextIds);
+  }
 
-    const next = [...natures];
-    const [moved] = next.splice(fromIndex, 1);
-    next.splice(targetIndex, 0, moved);
-    const nextWithPositions = next.map((nature, position) => ({ ...nature, position }));
-    queryClient.setQueryData(['qualidade', 'naturezas', { includeInactive }], nextWithPositions);
-    reorderMutation.mutate(nextWithPositions.map(nature => nature.id));
+  function handleNatureDragEnd() {
+    if (!dropHandled.current) {
+      applyOrderedNatures(naturesQuery.data || []);
+    }
+    dropHandled.current = false;
+    clearDragState();
   }
 
   function confirmActive(nature: QualityNature, isActive: boolean) {
@@ -274,7 +319,7 @@ export function QualityNaturesTab({ isManager }: Props) {
             className={[
               'quality-nature-row',
               nature.isActive ? '' : 'inactive',
-              draggedNatureId === nature.id ? 'dragging' : '',
+              draggedNatureId === nature.id ? 'drag-placeholder' : '',
               dragOverNatureId === nature.id && draggedNatureId !== nature.id ? 'drag-over' : ''
             ].filter(Boolean).join(' ')}
             key={nature.id}
@@ -294,7 +339,7 @@ export function QualityNaturesTab({ isManager }: Props) {
                   draggable={!reorderDisabled}
                   disabled={reorderDisabled}
                   onDragStart={event => handleNatureDragStart(event, nature.id)}
-                  onDragEnd={clearDragState}
+                  onDragEnd={handleNatureDragEnd}
                 >
                   ⠿
                 </button>

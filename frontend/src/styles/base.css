@@ -11955,10 +11955,32 @@ input.app-search-input::-webkit-search-cancel-button {
   background: var(--bg);
 }
 
-.quality-nature-row.dragging {
-  opacity: .38;
-  transform: scale(.992);
-  box-shadow: 0 12px 28px rgba(9, 90, 44, .16);
+.quality-nature-row.drag-placeholder {
+  position: relative;
+  min-height: 54px;
+  border-style: dashed;
+  border-color: var(--g);
+  background: color-mix(in srgb, var(--g) 7%, var(--wh));
+  box-shadow: inset 0 0 0 1px rgba(9, 90, 44, .14);
+}
+
+.quality-nature-row.drag-placeholder > * {
+  visibility: hidden;
+}
+
+.quality-nature-row.drag-placeholder::after {
+  content: 'Soltar aqui';
+  position: absolute;
+  inset: 8px 10px;
+  display: flex;
+  align-items: center;
+  padding-left: 36px;
+  border-radius: calc(var(--rs) - 2px);
+  color: var(--g);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .quality-nature-row.drag-over {
