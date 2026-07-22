@@ -7,10 +7,13 @@ import {
   availableHubModulesForUser,
   hasSeenAcompanhamentoNovelty,
   markAcompanhamentoNoveltySeen,
+  markQualidadeNoveltySeen,
+  shouldShowQualidadeNovelty,
   userHasAcompanhamentoModule
 } from '../auth/moduleNavigation';
 import { HubTutorial } from '../components/HubTutorial';
 import { AcompanhamentoHubNovelty } from '../components/AcompanhamentoHubNovelty';
+import { QualidadeHubNovelty } from '../components/QualidadeHubNovelty';
 import { roleHomePath } from '../auth/rolePath';
 import { Shell } from '../layout/Shell';
 import { TopBar } from '../layout/TopBar';
@@ -140,12 +143,21 @@ export function HubPage() {
   const isAdmin = user?.accountType === 'ADMIN';
   const modules = useMemo(() => hubModulesForUser(user), [user]);
   const availableModules = useMemo(() => availableHubModulesForUser(user), [user]);
-  const shouldRedirect = !isAdmin && availableModules.length === 1;
+  const baseShouldRedirect = !isAdmin && availableModules.length === 1;
 
   // Novidade do módulo Acompanhamento: badge "Novo" + destaque no 1º acesso ao hub.
   const [acompNoveltyActive, setAcompNoveltyActive] = useState(
     () => userHasAcompanhamentoModule(user) && !hasSeenAcompanhamentoNovelty(user)
   );
+  const [qualityNoveltyActive, setQualityNoveltyActive] = useState(
+    () => shouldShowQualidadeNovelty(user)
+  );
+  const shouldRedirect = baseShouldRedirect && !acompNoveltyActive && !qualityNoveltyActive;
+
+  useEffect(() => {
+    setAcompNoveltyActive(userHasAcompanhamentoModule(user) && !hasSeenAcompanhamentoNovelty(user));
+    setQualityNoveltyActive(shouldShowQualidadeNovelty(user));
+  }, [user]);
 
   const firstName = user?.name?.split(' ')[0] || 'Usuário';
   const initials = user?.name
@@ -235,11 +247,17 @@ export function HubPage() {
                     if (module.id === 'acompanhamento') {
                       markAcompanhamentoNoveltySeen(user);
                       setAcompNoveltyActive(false);
+                    } else if (module.id === 'qualidade') {
+                      markQualidadeNoveltySeen(user);
+                      setQualityNoveltyActive(false);
                     }
                     navigate(path);
                   } : undefined}
                 >
                   {module.id === 'acompanhamento' && acompNoveltyActive && (
+                    <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
+                  )}
+                  {module.id === 'qualidade' && qualityNoveltyActive && (
                     <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
                   )}
                   <div className="hub-card-accent" style={{ background: accent }} />
@@ -277,6 +295,13 @@ export function HubPage() {
           user={user}
           enabled={!shouldRedirect && acompNoveltyActive}
           onSeen={() => setAcompNoveltyActive(false)}
+        />
+      )}
+      {user && (
+        <QualidadeHubNovelty
+          user={user}
+          enabled={!shouldRedirect && qualityNoveltyActive}
+          onSeen={() => setQualityNoveltyActive(false)}
         />
       )}
     </Shell>

@@ -5,6 +5,7 @@ import type { AuthUser } from '../types/auth';
 const LAST_MODULE_KEY_PREFIX = 'filtrovali:last-module:';
 const HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX = 'filtrovali:hub-first-login-tutorial:';
 const ACOMPANHAMENTO_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-novelty:';
+const QUALIDADE_NOVELTY_KEY_PREFIX = 'filtrovali:qualidade-novelty:v1:';
 const ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-grouping-novelty:v1:';
 const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-group-rename-novelty:v1:';
 const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
@@ -23,6 +24,10 @@ function hubFirstLoginTutorialStorageKey(user: Pick<AuthUser, 'id'>) {
 
 function acompanhamentoNoveltyStorageKey(user: Pick<AuthUser, 'id'>) {
   return `${ACOMPANHAMENTO_NOVELTY_KEY_PREFIX}${user.id}`;
+}
+
+function qualidadeNoveltyStorageKey(user: Pick<AuthUser, 'id'>) {
+  return `${QUALIDADE_NOVELTY_KEY_PREFIX}${user.id}`;
 }
 
 function safeLocalStorageGet(key: string) {
@@ -83,6 +88,25 @@ export function hasSeenAcompanhamentoNovelty(user: Pick<AuthUser, 'id'> | null |
 export function markAcompanhamentoNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(acompanhamentoNoveltyStorageKey(user), '1');
+}
+
+// Novidade do módulo Qualidade no hub: destaque único p/ contas com acesso ativo.
+// Validade global de 10 dias corridos após a implantação (22/07/2026 a 01/08/2026).
+const QUALIDADE_NOVELTY_EXPIRES_AT = new Date('2026-08-01T23:59:59-03:00');
+
+export function userHasQualidadeModule(user: AuthUser | null | undefined) {
+  return availableHubModulesForUser(user).some(module => module.id === 'qualidade');
+}
+
+export function shouldShowQualidadeNovelty(user: AuthUser | null | undefined) {
+  if (!user || !userHasQualidadeModule(user)) return false;
+  if (Date.now() > QUALIDADE_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(qualidadeNoveltyStorageKey(user)) !== '1';
+}
+
+export function markQualidadeNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(qualidadeNoveltyStorageKey(user), '1');
 }
 
 // Novidade da unificação de projetos no Acompanhamento.
@@ -212,6 +236,7 @@ export function rememberedModulePath(user: AuthUser | null | undefined) {
 export function preferredEntryPath(user: AuthUser | null | undefined) {
   if (!user) return '/login';
   if (isClientAccount(user)) return '/rdo/cliente';
+  if (shouldShowQualidadeNovelty(user)) return '/modulos';
   if (shouldOpenHubOnFirstLogin(user)) return '/modulos';
   const remembered = rememberedModulePath(user);
   if (remembered) return remembered;

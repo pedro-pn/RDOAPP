@@ -48,8 +48,8 @@ export function ProjectQualityDeviationsNovelty({ user, enabled, onSeen }: Proje
       const steps: DriveStep[] = [
         {
           popover: {
-            title: 'Novo recurso: Desvios no projeto',
-            description: 'O detalhe do projeto agora mostra os desvios de qualidade vinculados a esta missão.'
+            title: 'Novo recurso: lista de desvios',
+            description: 'O card do projeto agora mostra uma lista com os desvios de qualidade vinculados a esta missão.'
           }
         }
       ];
@@ -58,8 +58,8 @@ export function ProjectQualityDeviationsNovelty({ user, enabled, onSeen }: Proje
         steps.push({
           element: DEVIATIONS_SELECTOR,
           popover: {
-            title: 'Desvios',
-            description: 'A lista traz somente registros do tipo Desvio deste projeto, com link para o módulo Qualidade.',
+            title: 'Lista de desvios',
+            description: 'A lista traz somente registros do tipo Desvio deste projeto, com status, impacto, recorrência e link para o módulo Qualidade.',
             side: 'top',
             align: 'start'
           }
@@ -70,7 +70,7 @@ export function ProjectQualityDeviationsNovelty({ user, enabled, onSeen }: Proje
       markAcompanhamentoProjectDeviationsNoveltySeen(noveltyUser);
       const driverObj = driver({
         showProgress: false,
-        nextBtnText: 'Ver seção',
+        nextBtnText: 'Ver lista',
         prevBtnText: 'Voltar',
         doneBtnText: 'Entendi',
         allowClose: true,
