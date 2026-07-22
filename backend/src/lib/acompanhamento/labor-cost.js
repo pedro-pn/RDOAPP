@@ -13,19 +13,24 @@
  *  - HH = folha ÷ (horas do ponto + horas de folga).
  *
  * CUSTO POR PROJETO: recalcula o motor com as horas de RDO do projeto para os adicionais/HE
- * (composição), e rateia o FIXO (base do motor sem dias + EPI, proporcional no mês
+ * (composição), e rateia o FIXO (base do motor sem dias + custos anuais, proporcional no mês
  * parcial) pelas horas. SOBRA = folha − Σ projetos, quebrada em SEDE (ponto batido não alocado) e
  * FOLGA (dia de semana sem ponto). Prova real: Σ projetos + sede + folga = folha.
  */
 
 import prisma from '../prisma.js';
 import { computeMonthlyCost } from './cost-engine.js';
-import { getEpiAnnualCost } from './settings.js';
+import { getAnnualCollaboratorCosts } from './settings.js';
 
 const HORAS_POR_DIA = 8.8;
 
 function dateKeyUTC(value) {
   return new Date(value).toISOString().slice(0, 10);
+}
+
+function yearKeyUTC(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : String(d.getUTCFullYear());
 }
 
 function parseHm(value) {
@@ -108,8 +113,8 @@ function countFolgaWeekdays(rangeStart, rangeEnd, workedDatesSet) {
   return count;
 }
 
-function totalCost(params, inputs, epiMensal) {
-  return computeMonthlyCost(params, inputs).totalMensal + epiMensal;
+function totalCost(params, inputs, fixedAnnualCostMensal) {
+  return computeMonthlyCost(params, inputs).totalMensal + fixedAnnualCostMensal;
 }
 
 function dateFromYmd(value) {
@@ -579,14 +584,75 @@ function monthsOf(period) {
   });
 }
 
+function yearsForPeriod(start, end) {
+  const startYear = Number(yearKeyUTC(start));
+  const endYear = Number(yearKeyUTC(end));
+  if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) return [];
+  const years = [];
+  for (let year = startYear; year <= endYear; year += 1) years.push(String(year));
+  return years;
+}
+
+export function offshoreYearsByCollaboratorFromReports(reports = []) {
+  const map = new Map();
+  for (const report of reports) {
+    if (!report?.project?.offshore) continue;
+    const year = yearKeyUTC(report.reportDate);
+    if (!year) continue;
+    for (const link of report.collaborators || []) {
+      const collaboratorId = link.collaboratorId;
+      if (!collaboratorId) continue;
+      if (!map.has(collaboratorId)) map.set(collaboratorId, new Set());
+      map.get(collaboratorId).add(year);
+    }
+  }
+  return map;
+}
+
+async function getOffshoreYearsByCollaborator(periodStart, periodEnd) {
+  const years = yearsForPeriod(periodStart, periodEnd);
+  if (years.length === 0) return new Map();
+  const minYear = Number(years[0]);
+  const maxYear = Number(years[years.length - 1]);
+  const reports = await prisma.report.findMany({
+    where: {
+      deletedAt: null,
+      reportDate: {
+        gte: new Date(`${minYear}-01-01T00:00:00.000Z`),
+        lt: new Date(`${maxYear + 1}-01-01T00:00:00.000Z`)
+      },
+      project: { offshore: true }
+    },
+    select: {
+      reportDate: true,
+      project: { select: { offshore: true } },
+      collaborators: { select: { collaboratorId: true } }
+    }
+  });
+  return offshoreYearsByCollaboratorFromReports(reports);
+}
+
+export function examsTrainingAnnualCostForMonth({
+  collaboratorId,
+  monthKey,
+  offshoreYearsByCollaborator,
+  examsTrainingAnnualCost = 0,
+  offshoreExamsTrainingAnnualCost = 0
+}) {
+  const year = String(monthKey || '').slice(0, 4);
+  const offshoreYears = offshoreYearsByCollaborator?.get(collaboratorId);
+  return offshoreYears?.has(year) ? offshoreExamsTrainingAnnualCost : examsTrainingAnnualCost;
+}
+
 /*
  * Função pura (testável): folha + custo por projeto + sobra (sede/folga) de um colaborador num mês.
  *   projects: [{ pid, rdoDaysHours, awayDaysHours, homeDaysHours, offshoreDaysHours, rdoWorkedHours, offshore }]
  *   fixedCoverage: fração do mês coberta (1 = mês cheio; <1 no mês parcial → fixo proporcional).
  * Garante: Σ projetos + sede + folga = folha.
  */
-export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Horas, he100Horas, folgaHours, projects, fixedCoverage = 1 }) {
+export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMensal = 0, normalHours, he70Horas, he100Horas, folgaHours, projects, fixedCoverage = 1 }) {
   const dpd = HORAS_POR_DIA;
+  const fixedAnnualCostMensal = epiMensal + examsTrainingMensal;
   const hourGroups = projects.map(projectHours);
   const projectDaysHours = hourGroups.reduce((s, p) => s + p.clientHours, 0);
   const awayDaysHours = hourGroups.reduce((s, p) => s + p.awayHours, 0);
@@ -603,10 +669,10 @@ export function computeCollaboratorCost({ params, epiMensal, normalHours, he70Ho
     he70Horas,
     he100Horas
   };
-  const fixedBaseFull = totalCost(params, {}, epiMensal); // base + encargos + benefícios + EPI (mês cheio)
+  const fixedBaseFull = totalCost(params, {}, fixedAnnualCostMensal); // base + encargos + benefícios + custos anuais (mês cheio)
   const fixedBase = fixedBaseFull * fixedCoverage;         // proporcional no mês parcial
-  const variavelMensal = totalCost(params, folhaInputs, epiMensal) - fixedBaseFull;
-  const variavelMensalBase = totalCost(params, { ...folhaInputs, diasFora: (awayDaysHours + offshoreDaysHours) / dpd, offshoreDays: 0 }, epiMensal) - fixedBaseFull;
+  const variavelMensal = totalCost(params, folhaInputs, fixedAnnualCostMensal) - fixedBaseFull;
+  const variavelMensalBase = totalCost(params, { ...folhaInputs, diasFora: (awayDaysHours + offshoreDaysHours) / dpd, offshoreDays: 0 }, fixedAnnualCostMensal) - fixedBaseFull;
   const folha = fixedBase + variavelMensal;
   const folhaBase = fixedBase + variavelMensalBase;
 
@@ -686,7 +752,7 @@ export async function computeCollaboratorRates(importId = null) {
   const periodEndExclusive = endExclusive(pontoScope.periodEnd);
   const fileStart = pontoScope.periodStart;
   const fileEnd = pontoScope.periodEnd;
-  const [periodRows, roleParams, rdoData, epiAnnualCost] = await Promise.all([
+  const [periodRows, roleParams, rdoData, offshoreYearsByCollaborator, annualCosts] = await Promise.all([
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
@@ -696,10 +762,11 @@ export async function computeCollaboratorRates(importId = null) {
     }),
     getRoleParamsResolver(),
     getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
-    getEpiAnnualCost()
+    getOffshoreYearsByCollaborator(pontoScope.periodStart, pontoScope.periodEnd),
+    getAnnualCollaboratorCosts()
   ]);
   const periods = mergePontoPeriods(periodRows);
-  const epiMensal = epiAnnualCost / 12;
+  const epiMensal = annualCosts.epiAnnualCost / 12;
 
   const rates = [];
   const byCollaboratorId = new Map();
@@ -777,9 +844,16 @@ export async function computeCollaboratorRates(importId = null) {
             rdoWorkedHours: rdoWorkedByPid.get(pid) || 0,
             offshore: Boolean(rdo.byProject.get(pid)?.offshore)
           }));
+          const examsTrainingMensal = examsTrainingAnnualCostForMonth({
+            collaboratorId: period.collaboratorId,
+            monthKey: mk,
+            offshoreYearsByCollaborator,
+            examsTrainingAnnualCost: annualCosts.examsTrainingAnnualCost,
+            offshoreExamsTrainingAnnualCost: annualCosts.offshoreExamsTrainingAnnualCost
+          }) / 12;
 
           const res = computeCollaboratorCost({
-            params: segment.params, epiMensal, normalHours: normalHoursS, he70Horas: he70S, he100Horas: he100S,
+            params: segment.params, epiMensal, examsTrainingMensal, normalHours: normalHoursS, he70Horas: he70S, he100Horas: he100S,
             folgaHours: folgaS, projects, fixedCoverage: segCov.fraction
           });
 
@@ -863,7 +937,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   if (!pontoScope) throw new Error('Sem import de ponto.');
   const importIds = pontoScope.pontoImports.map(item => item.id);
   const periodEndExclusive = endExclusive(pontoScope.periodEnd);
-  const [periodRows, roleParams, rdoData, epiAnnualCost] = await Promise.all([
+  const [periodRows, roleParams, rdoData, offshoreYearsByCollaborator, annualCosts] = await Promise.all([
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
@@ -873,7 +947,8 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     }),
     getRoleParamsResolver(),
     getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
-    getEpiAnnualCost()
+    getOffshoreYearsByCollaborator(pontoScope.periodStart, pontoScope.periodEnd),
+    getAnnualCollaboratorCosts()
   ]);
   const query = String(nameQuery || '').trim().toLowerCase();
   const period = mergePontoPeriods(periodRows).find(item => (
@@ -921,14 +996,27 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     he100Horas: he100M
   };
   const breakdown = computeMonthlyCost(params, inputs);
-  const epiMensal = epiAnnualCost / 12;
-  const fixedBaseFull = computeMonthlyCost(params, {}).totalMensal + epiMensal;
-  const variavel = (breakdown.totalMensal + epiMensal) - fixedBaseFull;
+  const epiMensal = annualCosts.epiAnnualCost / 12;
+  const offshoreExamsTrainingApplied = Boolean(offshoreYearsByCollaborator
+    .get(period.collaboratorId)
+    ?.has(String(monthKey).slice(0, 4)));
+  const examsTrainingAnnualCost = examsTrainingAnnualCostForMonth({
+    collaboratorId: period.collaboratorId,
+    monthKey,
+    offshoreYearsByCollaborator,
+    examsTrainingAnnualCost: annualCosts.examsTrainingAnnualCost,
+    offshoreExamsTrainingAnnualCost: annualCosts.offshoreExamsTrainingAnnualCost
+  });
+  const examsTrainingMensal = examsTrainingAnnualCost / 12;
+  const fixedAnnualCostMensal = epiMensal + examsTrainingMensal;
+  const fixedBaseFull = computeMonthlyCost(params, {}).totalMensal + fixedAnnualCostMensal;
+  const variavel = (breakdown.totalMensal + fixedAnnualCostMensal) - fixedBaseFull;
   const folha = fixedBaseFull * cov.fraction + variavel;
 
   return {
     name: period.collaborator.name, role, monthKey,
-    fixedCoverage: cov.fraction, folgaHours, epiMensal,
+    fixedCoverage: cov.fraction, folgaHours, epiMensal, examsTrainingMensal, examsTrainingAnnualCost,
+    offshoreExamsTrainingApplied,
     normalHoursMes: normalHoursM,
     params, inputs, breakdown,
     fixoMensal: fixedBaseFull * cov.fraction, variavelMensal: variavel, folha

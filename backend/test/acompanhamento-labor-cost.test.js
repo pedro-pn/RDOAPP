@@ -4,8 +4,10 @@ import test from 'node:test';
 import {
   buildRoleParamsResolver,
   computeCollaboratorCost,
+  examsTrainingAnnualCostForMonth,
   effectiveParameterSetAt,
   mergePontoPeriods,
+  offshoreYearsByCollaboratorFromReports,
   rdoDataByCollaboratorFromReports,
   serviceIntervalsWorkedMinutes,
   splitOvertime
@@ -84,6 +86,49 @@ test('prova real: Σ projetos + sede + folga = folha', () => {
   assert.ok(near(somaProjetos + sedeMaisFolga(r.idle), r.folha), 'Σ projetos + sede + folga = folha');
   assert.ok(near(r.idle.folga.hours, 8.8 * 3), 'folga = horas de folga informadas');
   assert.ok(r.idle.sede.hours > 0, 'sede = normais não alocadas (44h sem projeto)');
+});
+
+test('exames e treinamentos entram como custo fixo mensal igual ao EPI', () => {
+  const base = {
+    params: PARAMS, epiMensal: 0, normalHours: 176, he70Horas: 0, he100Horas: 0, folgaHours: 0,
+    projects: []
+  };
+  const withoutCost = computeCollaboratorCost(base);
+  const withCost = computeCollaboratorCost({ ...base, examsTrainingMensal: 1200 / 12 });
+  const partial = computeCollaboratorCost({ ...base, examsTrainingMensal: 1200 / 12, fixedCoverage: 0.5 });
+
+  assert.ok(near(withCost.folha - withoutCost.folha, 100));
+  assert.ok(near(partial.folha - computeCollaboratorCost({ ...base, fixedCoverage: 0.5 }).folha, 50));
+});
+
+test('exames e treinamentos usam valor offshore quando colaborador teve offshore no ano', () => {
+  const offshoreYears = offshoreYearsByCollaboratorFromReports([
+    {
+      reportDate: '2026-03-10T00:00:00.000Z',
+      project: { offshore: true },
+      collaborators: [{ collaboratorId: 'col-1' }]
+    },
+    {
+      reportDate: '2026-04-10T00:00:00.000Z',
+      project: { offshore: false },
+      collaborators: [{ collaboratorId: 'col-2' }]
+    },
+    {
+      reportDate: '2025-12-10T00:00:00.000Z',
+      project: { offshore: true },
+      collaborators: [{ collaboratorId: 'col-3' }]
+    }
+  ]);
+
+  const params = {
+    offshoreYearsByCollaborator: offshoreYears,
+    examsTrainingAnnualCost: 1200,
+    offshoreExamsTrainingAnnualCost: 3600
+  };
+  assert.equal(examsTrainingAnnualCostForMonth({ ...params, collaboratorId: 'col-1', monthKey: '2026-07' }), 3600);
+  assert.equal(examsTrainingAnnualCostForMonth({ ...params, collaboratorId: 'col-2', monthKey: '2026-07' }), 1200);
+  assert.equal(examsTrainingAnnualCostForMonth({ ...params, collaboratorId: 'col-3', monthKey: '2026-07' }), 1200);
+  assert.equal(examsTrainingAnnualCostForMonth({ ...params, collaboratorId: 'col-3', monthKey: '2025-12' }), 3600);
 });
 
 test('mês parcial: fixo proporcional à cobertura', () => {

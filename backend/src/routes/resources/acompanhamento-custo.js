@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
 import { computeMonthlyCost } from '../../lib/acompanhamento/cost-engine.js';
-import { getEpiAnnualCost, setEpiAnnualCost } from '../../lib/acompanhamento/settings.js';
+import { getAnnualCollaboratorCosts, setAnnualCollaboratorCosts } from '../../lib/acompanhamento/settings.js';
 import prisma from '../../lib/prisma.js';
 import { requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
@@ -184,18 +184,22 @@ router.put('/cargos/:jobRoleId/parametros', requireAuth, requireAcompanhamentoMa
   res.status(201).json({ jobRoleId: role.id, profileId: profile.id, effectiveDate: created.effectiveDate, params: created.params });
 }));
 
-// === Configuração global de custo (EPI por colaborador) ===
+// === Configuração global de custos anuais por colaborador ===
 
 router.get('/config', requireAuth, requireAcompanhamentoManager, asyncHandler(async (_req, res) => {
-  res.json({ epiAnnualCost: await getEpiAnnualCost() });
+  res.json(await getAnnualCollaboratorCosts());
 }));
 
-const configSchema = z.object({ epiAnnualCost: z.number().min(0).max(1000000) });
+const configSchema = z.object({
+  epiAnnualCost: z.number().min(0).max(1000000).optional(),
+  examsTrainingAnnualCost: z.number().min(0).max(1000000).optional(),
+  offshoreExamsTrainingAnnualCost: z.number().min(0).max(1000000).optional()
+});
 
 router.put('/config', requireAuth, requireAcompanhamentoManager, asyncHandler(async (req, res) => {
-  const { epiAnnualCost } = configSchema.parse(req.body);
-  const value = await setEpiAnnualCost(epiAnnualCost, req.auth?.user?.id ?? null);
-  res.json({ epiAnnualCost: value });
+  const current = await getAnnualCollaboratorCosts();
+  const values = configSchema.parse(req.body);
+  res.json(await setAnnualCollaboratorCosts({ ...current, ...values }, req.auth?.user?.id ?? null));
 }));
 
 // === Categorias Omie consideradas nos cálculos do acompanhamento ===
