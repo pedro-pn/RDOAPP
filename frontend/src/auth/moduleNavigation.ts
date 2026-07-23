@@ -11,6 +11,7 @@ const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhament
 const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
 const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
 const ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-project-deviations-novelty:v1:';
+const ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-additional-proposals-novelty:v1:';
 // v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
 const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
 
@@ -182,6 +183,21 @@ export function shouldShowAcompanhamentoProjectDeviationsNovelty(user: Pick<Auth
 export function markAcompanhamentoProjectDeviationsNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade de propostas adicionais no dashboard do projeto.
+// Validade global de 10 dias corridos após a implantação (23/07/2026 a 02/08/2026).
+const ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_EXPIRES_AT = new Date('2026-08-02T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoAdditionalProposalsNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoAdditionalProposalsNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 // Novidade do registro de DDS no formulário de RDO: destaque único na primeira abertura do formulário.

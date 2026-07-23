@@ -336,12 +336,28 @@ export function groupProjectDetails(group, memberDetails = []) {
       estoque: sumValues(details, item => item.detail.consumo?.estoque, { nullWhenEmpty: false }),
       manual: sumValues(details, item => item.detail.consumo?.manual, { nullWhenEmpty: false }),
       previsto,
+      previstoOriginal: sumValues(details, item => item.detail.consumo?.previstoOriginal),
+      previstoAdicional: sumValues(details, item => item.detail.consumo?.previstoAdicional),
       pct: ratioPct(gasto, previsto)
     },
     faturamento: {
       previsto: sumValues(details, item => item.detail.faturamento?.previsto),
+      previstoOriginal: sumValues(details, item => item.detail.faturamento?.previstoOriginal),
+      previstoAdicional: sumValues(details, item => item.detail.faturamento?.previstoAdicional),
       realizado: sumValues(details, item => item.detail.faturamento?.realizado),
       notas: sumValues(details, item => item.detail.faturamento?.notas, { nullWhenEmpty: false })
+    },
+    budgetBreakdown: {
+      original: {
+        salePrice: sumValues(details, item => item.detail.faturamento?.previstoOriginal),
+        plannedTotalCost: sumValues(details, item => item.detail.consumo?.previstoOriginal)
+      },
+      additionals: details.flatMap(item => item.detail.budgetBreakdown?.additionals ?? []),
+      additionalCount: sumValues(details, item => item.detail.budgetBreakdown?.additionalCount, { nullWhenEmpty: false }),
+      additionalTotals: {
+        salePrice: sumValues(details, item => item.detail.faturamento?.previstoAdicional),
+        plannedTotalCost: sumValues(details, item => item.detail.consumo?.previstoAdicional)
+      }
     },
     maoDeObra: {
       custo: laborCost,

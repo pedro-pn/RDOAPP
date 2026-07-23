@@ -1738,6 +1738,104 @@ a {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+.project-revision-picker {
+  display: flex;
+  flex-direction: column;
+}
+.project-revision-picker .det-row:last-child {
+  border-bottom: none;
+}
+.acp-additional-proposal-row .det-label {
+  color: var(--tx);
+}
+.acp-budget-value,
+.acp-budget-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.acp-budget-value {
+  align-items: flex-end;
+}
+.acp-budget-cell strong {
+  font-weight: 600;
+}
+.acp-budget-split,
+.acp-table-split {
+  color: var(--mu);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.acp-table-split {
+  display: block;
+  white-space: normal;
+}
+.acp-pcard-metric > .acp-budget-split {
+  text-align: right;
+}
+.acp-proposal-details {
+  margin-top: 10px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--wh);
+  padding: 8px 10px;
+}
+.acp-proposal-count {
+  float: right;
+  color: var(--mu);
+  font-weight: 500;
+}
+.acp-proposal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.acp-proposal-item {
+  border-top: 1px solid #edf2ef;
+  padding-top: 8px;
+}
+.acp-proposal-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.acp-proposal-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.acp-proposal-item-head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.acp-proposal-item-head span {
+  color: var(--mu);
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+.acp-proposal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin-top: 6px;
+}
+.acp-proposal-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.acp-proposal-grid span {
+  color: var(--mu);
+}
+.acp-proposal-grid strong {
+  font-weight: 600;
+  text-align: right;
+}
 
 /* === Dashboard Acompanhamento === */
 /* Área de conteúdo do módulo: ocupa o restante e PODE encolher (min-width:0),
@@ -2700,6 +2798,7 @@ a {
 .acp-det-collabs-summary::before { content: '▸'; display: inline-block; margin-right: 6px; transition: transform .15s; }
 .acp-det-collabs-details[open] > .acp-det-collabs-summary::before,
 .acp-det-equips-details[open] > .acp-det-collabs-summary::before,
+.acp-proposal-details[open] > .acp-det-collabs-summary::before,
 .acp-det-tax-details[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
 .acp-det-tax-body { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
 .acp-det-tax-summary-value { float: right; color: var(--tx); font-size: 13px; letter-spacing: 0; }
@@ -6181,6 +6280,10 @@ textarea.pre {
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
+}
+
+.nav-tab-count-commercial {
+  background: var(--rd);
 }
 
 /* ── Welcome card do cliente ── */

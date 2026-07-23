@@ -451,13 +451,18 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       estoque: stockCost.total,
       manual: manualCost.total,
       previsto: previstoCusto,
+      previstoOriginal: toNum(row.originalPlannedTotalCost),
+      previstoAdicional: toNum(row.additionalPlannedTotalCost),
       pct: previstoCusto && previstoCusto > 0 ? Math.round((gasto / previstoCusto) * 100) : null
     },
     faturamento: {
       previsto: row.salePrice ?? null,
+      previstoOriginal: row.originalSalePrice ?? null,
+      previstoAdicional: row.additionalSalePrice ?? null,
       realizado: row.invoicedRevenue ?? null,
       notas: row.invoiceCount ?? 0
     },
+    budgetBreakdown: row.budgetBreakdown ?? null,
     presumedProfitTaxes: row.presumedProfitTaxes ?? null,
     maoDeObra,
     workedHours,

@@ -20,6 +20,8 @@ import {
   listCommercialDashboard,
   listCommercialPendencias,
   listProjectRevisions,
+  removeProjectAdditionalProposal,
+  setProjectAdditionalProposalRevision,
   setProjectBudgetRevision,
   setProjectSchedule
 } from '../../lib/acompanhamento/access-import.js';
@@ -343,6 +345,7 @@ router.get(
 );
 
 const revisionSchema = z.object({ codBd: z.number().int() });
+const proposalCodeParamSchema = z.coerce.number().int();
 
 router.post(
   '/projetos/:projectId/revisao',
@@ -353,6 +356,38 @@ router.post(
     try {
       const budget = await setProjectBudgetRevision(req.params.projectId, codBd);
       res.json(budget);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  })
+);
+
+router.post(
+  '/projetos/:projectId/propostas-adicionais/revisao',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const { codBd } = revisionSchema.parse(req.body);
+    try {
+      const selection = await setProjectAdditionalProposalRevision(req.params.projectId, codBd, {
+        selectedByUserId: req.auth?.user?.id ?? null
+      });
+      res.json(selection);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  })
+);
+
+router.delete(
+  '/projetos/:projectId/propostas-adicionais/:codProp',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const codProp = proposalCodeParamSchema.parse(req.params.codProp);
+    try {
+      const result = await removeProjectAdditionalProposal(req.params.projectId, codProp);
+      res.json(result);
     } catch (error) {
       res.status(400).json({ error: error.message });
     }

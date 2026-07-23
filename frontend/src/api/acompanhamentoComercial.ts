@@ -3,6 +3,7 @@ import { apiClient } from './client';
 export interface CommercialRevision {
   codBd: number;
   codProp: number;
+  parentCodProp?: number | null;
   nRev: number;
   proposalDate?: string | null;
   modifiedInAccessAt?: string | null;
@@ -22,6 +23,33 @@ export interface CommercialRevision {
   isComplete?: boolean;
 }
 
+export interface CommercialRevisionGroup {
+  proposalCode: string;
+  parentProposalCode?: string | null;
+  currentCodBd: number | null;
+  revisions: CommercialRevision[];
+}
+
+export interface BudgetBreakdownSlice {
+  codBd?: number | null;
+  codProp?: number | null;
+  parentCodProp?: number | null;
+  nRev?: number | null;
+  salePrice?: string | number | null;
+  plannedTotalCost?: string | number | null;
+  expectedProfit?: string | number | null;
+  expectedMargin?: string | number | null;
+  taxes?: string | number | null;
+}
+
+export interface BudgetBreakdown {
+  original?: BudgetBreakdownSlice | null;
+  additionals: BudgetBreakdownSlice[];
+  additionalCount: number;
+  additionalTotals?: BudgetBreakdownSlice | null;
+  totals?: BudgetBreakdownSlice | null;
+}
+
 export interface ProjectRevisions {
   proposalCode: string | null;
   currentCodBd: number | null;
@@ -35,6 +63,8 @@ export interface ProjectRevisions {
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
   laborCollaboratorIds?: string[];
   laborCollaborators?: LaborCollaborator[];
+  additionalProposals?: CommercialRevisionGroup[];
+  currentAdditionalCodBds?: number[];
   revisions: CommercialRevision[];
 }
 
@@ -135,6 +165,12 @@ export interface CommercialPendencia {
   projectId: string;
   proposalCode: string;
   revisionCount: number;
+  originalRevisionCount?: number;
+  additionalProposalCount?: number;
+  additionalRevisionCount?: number;
+  pendingCount?: number;
+  pendingAdditionalProposalCount?: number;
+  originalPending?: boolean;
   resolved: boolean;
 }
 
@@ -185,12 +221,22 @@ export interface DashboardRow {
   approvedAt?: string | null;
   mobilizationLeadDays?: number | null;
   salePrice?: string | number | null;
+  originalSalePrice?: string | number | null;
+  additionalSalePrice?: string | number | null;
   invoicedRevenue?: string | number | null;
   invoicedIss?: string | number | null;
   invoiceCount?: number | null;
   plannedTotalCost?: string | number | null;
+  originalPlannedTotalCost?: string | number | null;
+  additionalPlannedTotalCost?: string | number | null;
   expectedProfit?: string | number | null;
+  originalExpectedProfit?: string | number | null;
+  additionalExpectedProfit?: string | number | null;
   expectedMargin?: string | number | null;
+  taxes?: string | number | null;
+  originalTaxes?: string | number | null;
+  additionalTaxes?: string | number | null;
+  budgetBreakdown?: BudgetBreakdown | null;
   plannedDays?: number | null;
   workedDays?: number | null;
   numOperators?: number | null;
@@ -327,6 +373,21 @@ export async function setProjectRevision(projectId: string, codBd: number) {
   return data;
 }
 
+export async function setProjectAdditionalRevision(projectId: string, codBd: number) {
+  const { data } = await apiClient.post(
+    `/acompanhamento/comercial/projetos/${projectId}/propostas-adicionais/revisao`,
+    { codBd }
+  );
+  return data;
+}
+
+export async function removeProjectAdditionalRevision(projectId: string, codProp: number) {
+  const { data } = await apiClient.delete(
+    `/acompanhamento/comercial/projetos/${projectId}/propostas-adicionais/${codProp}`
+  );
+  return data;
+}
+
 export async function setProjectSchedule(projectId: string, payload: ProjectSchedulePayload) {
   const { data } = await apiClient.patch(
     `/acompanhamento/comercial/projetos/${projectId}/cronograma`,
@@ -457,6 +518,11 @@ export interface ProjectCard {
   progressMethod?: ProgressMethod | null;
   progressWeight?: number | null;
   plannedCost: number | null;
+  originalPlannedCost?: number | null;
+  additionalPlannedCost?: number | null;
+  originalSalePrice?: number | null;
+  additionalSalePrice?: number | null;
+  budgetBreakdown?: BudgetBreakdown | null;
   invoicedRevenue: number | null;
   invoiceCount: number;
   presumedProfitTaxes: PresumedProfitTaxEstimate | null;
@@ -538,9 +604,18 @@ export interface ProjectDetail {
     estoque: number;
     manual: number;
     previsto: number | null;
+    previstoOriginal?: number | null;
+    previstoAdicional?: number | null;
     pct: number | null;
   };
-  faturamento: { previsto: string | number | null; realizado: string | number | null; notas: number };
+  faturamento: {
+    previsto: string | number | null;
+    previstoOriginal?: string | number | null;
+    previstoAdicional?: string | number | null;
+    realizado: string | number | null;
+    notas: number;
+  };
+  budgetBreakdown?: BudgetBreakdown | null;
   maoDeObra: { custo: number | null; custoBase: number | null; horas: number | null; periodStart: string | null; periodEnd: string | null };
   presumedProfitTaxes: PresumedProfitTaxEstimate | null;
   workedHours: WorkedHoursProgress;

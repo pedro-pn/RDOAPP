@@ -325,6 +325,22 @@ function buildGroupCard(group, memberCardsByProjectId) {
     progressMethod: progress.progressMethod,
     progressWeight: sumValues(visibleCards, card => card.progressWeight),
     plannedCost,
+    originalPlannedCost: sumValues(visibleCards, card => card.originalPlannedCost),
+    additionalPlannedCost: sumValues(visibleCards, card => card.additionalPlannedCost),
+    originalSalePrice: sumValues(visibleCards, card => card.originalSalePrice),
+    additionalSalePrice: sumValues(visibleCards, card => card.additionalSalePrice),
+    budgetBreakdown: {
+      original: {
+        salePrice: sumValues(visibleCards, card => card.originalSalePrice),
+        plannedTotalCost: sumValues(visibleCards, card => card.originalPlannedCost)
+      },
+      additionals: visibleCards.flatMap(card => card.budgetBreakdown?.additionals ?? []),
+      additionalCount: sumValues(visibleCards, card => card.budgetBreakdown?.additionalCount, { nullWhenEmpty: false }),
+      additionalTotals: {
+        salePrice: sumValues(visibleCards, card => card.additionalSalePrice),
+        plannedTotalCost: sumValues(visibleCards, card => card.additionalPlannedCost)
+      }
+    },
     invoicedRevenue: sumValues(visibleCards, card => card.invoicedRevenue),
     invoiceCount: sumValues(visibleCards, card => card.invoiceCount, { nullWhenEmpty: false }),
     presumedProfitTaxes: combinePresumedProfitTaxes(visibleCards),

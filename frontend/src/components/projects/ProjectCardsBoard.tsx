@@ -284,6 +284,11 @@ function Card({
             {card.costConsumedPct != null ? ` · ${card.costConsumedPct}% consumido` : ''}
           </span>
         </div>
+        {card.additionalPlannedCost != null && Math.abs(card.additionalPlannedCost) > 0.005 ? (
+          <div className="acp-budget-split">
+            Original {brl(card.originalPlannedCost)} · Adicional {brl(card.additionalPlannedCost)}
+          </div>
+        ) : null}
         <Bar value={card.costConsumedPct} />
       </div>
 

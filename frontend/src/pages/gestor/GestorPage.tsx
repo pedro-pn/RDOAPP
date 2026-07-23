@@ -45,7 +45,7 @@ import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
 import { ProjectRevisionPicker } from '../../components/projects/ProjectRevisionPicker';
 import { JobRoleManager } from '../../components/projects/JobRoleManager';
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
-import { getCommercialPendencias } from '../../api/acompanhamentoComercial';
+import { getCommercialPendencias, type CommercialPendencia } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
 import { useCollaboratorMutations } from '../../hooks/useCollaborators';
@@ -94,6 +94,8 @@ import {
   scalePreviewValues,
   type SurveyQuestionDraft
 } from './gestorSurveyHelpers';
+import { commercialPendenciaAlertText, commercialPendenciaMapByProject, pendingCommercialProposalCountForProjects } from './commercialPendencias';
+import { ProjectTabPendingBadges } from './ProjectTabPendingBadges';
 
 type GestorTab =
   | 'pendentes'
@@ -1003,7 +1005,7 @@ function renderProjectCard(
     surveyPending?: boolean;
     children?: ReactNode;
     segments?: ClientSegment[];
-    commercialPendencia?: { proposalCode: string; revisionCount: number; resolved: boolean } | null;
+    commercialPendencia?: CommercialPendencia | null;
   }
 ) {
   const survey = latestSurvey(project);
@@ -1012,6 +1014,7 @@ function renderProjectCard(
   const canResendSurvey = !project.isActive && !!survey && !survey.respondedAt;
   const pendingRegistration = projectRegistrationPending(project);
   const title = projectTitle(project);
+  const commercialPendenciaText = options.commercialPendencia ? commercialPendenciaAlertText(options.commercialPendencia) : null;
   return (
     <article className="card admin-card project-admin-card" key={project.id}>
       <div className="project-admin-head">
@@ -1035,9 +1038,9 @@ function renderProjectCard(
           Projeto criado automaticamente pelo romaneio. Complete o cadastro antes de usar em relatórios, ou exclua se o código não deve permanecer.
         </div>
       ) : null}
-      {options.commercialPendencia && !options.commercialPendencia.resolved ? (
+      {commercialPendenciaText ? (
         <div className="project-registration-alert">
-          Há {options.commercialPendencia.revisionCount} proposta(s) importada(s) do comercial para o contrato {options.commercialPendencia.proposalCode}. Abra os detalhes e escolha a revisão que vale para esta missão.
+          {commercialPendenciaText}
         </div>
       ) : null}
       {options.children}
@@ -1237,13 +1240,7 @@ export function GestorPage() {
   const gestorBootstrapQuery = useGestorBootstrap();
   const activeProjectsQuery = { data: gestorBootstrapQuery.data?.activeProjects, isLoading: gestorBootstrapQuery.isLoading };
   const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
-  const commercialPendenciaByProject = useMemo(() => {
-    const map = new Map<string, { proposalCode: string; revisionCount: number; resolved: boolean }>();
-    for (const pendencia of commercialPendenciasQuery.data || []) {
-      map.set(pendencia.projectId, { proposalCode: pendencia.proposalCode, revisionCount: pendencia.revisionCount, resolved: pendencia.resolved });
-    }
-    return map;
-  }, [commercialPendenciasQuery.data]);
+  const commercialPendenciaByProject = useMemo(() => commercialPendenciaMapByProject(commercialPendenciasQuery.data || []), [commercialPendenciasQuery.data]);
   const jobRolesQuery = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
   const jobRoleNames = useMemo(() => (jobRolesQuery.data || []).map(role => role.name), [jobRolesQuery.data]);
   const renderRoleOptions = (value: string) => {
@@ -1325,6 +1322,12 @@ export function GestorPage() {
     .filter(project => project.isActive !== false)
     .filter(projectRegistrationPending)
     .length;
+  const activeProjectIdsForCommercialPendencias = new Set(
+    (activeProjectsQuery.data || [])
+      .filter(project => project.isActive !== false)
+      .map(project => project.id)
+  );
+  const pendingCommercialProposalCount = pendingCommercialProposalCountForProjects(commercialPendenciasQuery.data || [], activeProjectIdsForCommercialPendencias);
 
   useEffect(() => {
     if (tab !== 'arquivados') return;
@@ -4292,9 +4295,7 @@ export function GestorPage() {
           </button>
           <button className={`nav-tab ${tab === 'projetos' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'projetos'} onClick={() => setTab('projetos')}>
             Projetos
-            {pendingProjectRegistrationCount ? (
-              <span className="nav-tab-count">{pendingProjectRegistrationCount}</span>
-            ) : null}
+            <ProjectTabPendingBadges pendingProjectRegistrationCount={pendingProjectRegistrationCount} pendingCommercialProposalCount={pendingCommercialProposalCount} />
           </button>
           <button className={`nav-tab ${tab === 'arquivados' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'arquivados'} onClick={() => setTab('arquivados')}>
             Arquivados
