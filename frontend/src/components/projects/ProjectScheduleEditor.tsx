@@ -36,6 +36,24 @@ function pct(value?: string | number | null) {
   const n = toNum(value);
   return n === null ? '—' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
+function sumRevisionValue(revisions: CommercialRevision[], getter: (revision: CommercialRevision) => string | number | null | undefined, decimals = 2) {
+  let total = 0;
+  let seen = false;
+  for (const revision of revisions) {
+    const n = toNum(getter(revision));
+    if (n === null) continue;
+    total += n;
+    seen = true;
+  }
+  if (!seen) return null;
+  return decimals === 0 ? Math.round(total) : Math.round((total + Number.EPSILON) * 100) / 100;
+}
+function expectedMarginFrom(revisions: CommercialRevision[]) {
+  const sale = sumRevisionValue(revisions, revision => revision.salePrice);
+  const profit = sumRevisionValue(revisions, revision => revision.expectedProfit);
+  if (sale === null || sale <= 0 || profit === null) return revisions[0]?.expectedMargin ?? null;
+  return Math.round(((profit / sale) * 100 + Number.EPSILON) * 100) / 100;
+}
 function toDateInput(iso?: string | null) {
   return iso ? iso.slice(0, 10) : '';
 }
@@ -221,7 +239,17 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const leadDays = data?.mobilizationLeadDays ?? null;
   const deadline = approvalValue && leadDays != null ? addDays(approvalValue, leadDays) : '';
   const late = Boolean(startValue && deadline && startValue > deadline);
-  const plannedDays = currentRevision.plannedDays ?? null;
+  const additionalRevisions = (data?.additionalProposals ?? [])
+    .map(group => group.revisions.find(revision => revision.codBd === group.currentCodBd))
+    .filter((revision): revision is CommercialRevision => Boolean(revision));
+  const commercialRevisions = [currentRevision, ...additionalRevisions];
+  const additionalSalePrice = sumRevisionValue(additionalRevisions, revision => revision.salePrice);
+  const additionalPlannedCost = sumRevisionValue(additionalRevisions, revision => revision.plannedCost);
+  const plannedSalePrice = sumRevisionValue(commercialRevisions, revision => revision.salePrice);
+  const plannedCost = sumRevisionValue(commercialRevisions, revision => revision.plannedCost);
+  const expectedMargin = expectedMarginFrom(commercialRevisions);
+  const plannedDays = sumRevisionValue(commercialRevisions, revision => revision.plannedDays, 0);
+  const plannedWorkedDays = sumRevisionValue(commercialRevisions, revision => revision.workedDays, 0);
   const consumed = startValue && plannedDays ? daysBetween(startValue, new Date()) : null;
   const consumedPct = consumed != null && plannedDays ? Math.round((consumed / plannedDays) * 100) : null;
   const activeCollaborators = activeCollaboratorsQuery.data ?? [];
@@ -330,10 +358,15 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   return (
     <div className="det-section">
       <div className="det-row"><span className="det-label">Previsto (comercial)</span>
-        <span className="det-val">Venda {brl(currentRevision.salePrice)} · Custo {brl(currentRevision.plannedCost)} · Margem {pct(currentRevision.expectedMargin)}</span>
+        <span className="det-val acp-budget-value">
+          <span>Venda {brl(plannedSalePrice)} · Custo {brl(plannedCost)} · Margem {pct(expectedMargin)}</span>
+          {additionalRevisions.length > 0 ? (
+            <small className="acp-budget-split">Original {brl(currentRevision.salePrice)} / {brl(currentRevision.plannedCost)} · Adicional {brl(additionalSalePrice)} / {brl(additionalPlannedCost)}</small>
+          ) : null}
+        </span>
       </div>
       <div className="det-row"><span className="det-label">Dias / equipe</span>
-        <span className="det-val">{currentRevision.plannedDays ?? '—'} corridos · {currentRevision.workedDays ?? '—'} trab. · {currentRevision.numOperators ?? '—'} op / {currentRevision.numSupervisors ?? '—'} enc · {currentRevision.numPerDay ?? '—'} d / {currentRevision.numPerNight ?? '—'} n</span>
+        <span className="det-val">{plannedDays ?? '—'} corridos · {plannedWorkedDays ?? '—'} trab. · {currentRevision.numOperators ?? '—'} op / {currentRevision.numSupervisors ?? '—'} enc · {currentRevision.numPerDay ?? '—'} d / {currentRevision.numPerNight ?? '—'} n</span>
       </div>
 
       <div className="admin-inline-grid" style={{ marginTop: 8 }}>

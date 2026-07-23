@@ -479,6 +479,7 @@ model Project {
   stockMovements         StockMovement[]
   manualProgressHistory  ProjectManualProgressHistory[]
   manualCosts            ProjectManualCost[]
+  additionalProposals    ProjectAdditionalProposal[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
   qualityRecords         QualityRecord[]
 
@@ -1130,6 +1131,7 @@ model User {
   notificationPreferenceTokens        NotificationPreferenceToken[]
   accessImports                       AccessImport[]                      @relation("AccessImportUser")
   selectedBudgets                     ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
+  selectedProjectAdditionalProposals  ProjectAdditionalProposal[]         @relation("ProjectAdditionalProposalSelectedBy")
   stockMovements                      StockMovement[]                     @relation("StockMovementCreator")
   projectManualCosts                  ProjectManualCost[]                 @relation("ProjectManualCostCreator")
   createdAcompanhamentoMissionGroups  AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
@@ -1748,6 +1750,7 @@ model CommercialProposal {
   id                   String           @id @default(cuid())
   codBd                Int              @unique // cod_bd (PK do Access) — chave de idempotência
   codProp              Int // cod_prop (nº da proposta)
+  parentCodProp        Int? // cod_proposta_mae/cod_prop_mae: proposta principal quando esta linha é adicional
   nRev                 Int              @default(0) // n_rev (revisão)
   codNectar            Int? // cod_nectar (código externo CRM)
   proposalDate         DateTime? // data_proposta
@@ -1782,6 +1785,7 @@ model CommercialProposal {
   updatedAt            DateTime         @updatedAt
 
   @@index([codProp, nRev])
+  @@index([parentCodProp, codProp, nRev])
   @@index([clientCnpj])
   @@index([lastImportId])
 }
@@ -1838,6 +1842,26 @@ model ProjectBudget {
   @@index([projectId])
   @@index([sourceProposalCodBd])
   @@index([selectionStatus])
+}
+
+// Revisão de proposta adicional selecionada para compor o orçamento previsto de um projeto.
+// Uma proposta adicional pode ter várias revisões; para cada codProp adicional guardamos só a revisão vigente.
+model ProjectAdditionalProposal {
+  id                  String   @id @default(cuid())
+  projectId           String
+  codProp             Int
+  sourceProposalCodBd Int
+  selectedByUserId    String?
+  selectedAt          DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  selectedBy          User?    @relation("ProjectAdditionalProposalSelectedBy", fields: [selectedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, codProp])
+  @@index([projectId])
+  @@index([sourceProposalCodBd])
+  @@index([selectedByUserId])
 }
 
 // Serviço vendido (escopo) previsto. Hoje é preenchido manualmente no cronograma — idealmente viria

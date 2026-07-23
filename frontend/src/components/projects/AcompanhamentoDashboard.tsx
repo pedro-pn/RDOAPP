@@ -75,6 +75,32 @@ function fmt(value: number | null, unit: Unit) {
   return value.toLocaleString('pt-BR');
 }
 
+function hasAdditionalValue(value?: string | number | null) {
+  const n = toNum(value);
+  return n !== null && Math.abs(n) > 0.005;
+}
+
+function BudgetValue({
+  total,
+  original,
+  additional
+}: {
+  total?: string | number | null;
+  original?: string | number | null;
+  additional?: string | number | null;
+}) {
+  return (
+    <span className="acp-budget-cell">
+      <strong>{brl(toNum(total))}</strong>
+      {hasAdditionalValue(additional) ? (
+        <small className="acp-table-split">
+          Orig. {brl(toNum(original))} · Adic. {brl(toNum(additional))}
+        </small>
+      ) : null}
+    </span>
+  );
+}
+
 export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boolean }) {
   const [search, setSearch] = useState('');
   const [modality, setModality] = useState<'todas' | 'INLOCO' | 'POP_SEDE'>('todas');
@@ -267,8 +293,12 @@ export function AcompanhamentoDashboard({ canManage = false }: { canManage?: boo
                   </td>
                   <td data-label="Cliente">{row.clientName || '—'}</td>
                   <td data-label="Contrato">{row.proposalCode}</td>
-                  <td data-label="Venda">{brl(toNum(row.salePrice))}</td>
-                  <td data-label="Custo prev.">{brl(toNum(row.plannedTotalCost))}</td>
+                  <td data-label="Venda">
+                    <BudgetValue total={row.salePrice} original={row.originalSalePrice} additional={row.additionalSalePrice} />
+                  </td>
+                  <td data-label="Custo prev.">
+                    <BudgetValue total={row.plannedTotalCost} original={row.originalPlannedTotalCost} additional={row.additionalPlannedTotalCost} />
+                  </td>
                   <td data-label="Realizado">{brl(toNum(row.realizedPaid))}</td>
                   <td data-label="Margem">{pct(row.expectedMargin)}</td>
                   <td data-label="Dias (prev/trab)">{row.plannedDays ?? '—'} / {row.workedDays ?? '—'}</td>

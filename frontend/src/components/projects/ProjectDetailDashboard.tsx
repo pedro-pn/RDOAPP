@@ -10,6 +10,7 @@ import {
   getMissionGroupDetail,
   getPlannedScope,
   getProjectDetail,
+  type BudgetBreakdownSlice,
   type DayStatus,
   type ManualProjectCost,
   type ManualProjectCostPayload,
@@ -175,6 +176,61 @@ function mutationErrorMessage(error: unknown, fallback: string) {
     if (message) return message;
   }
   return error instanceof Error ? error.message : fallback;
+}
+
+function hasMoney(value?: string | number | null) {
+  const n = toNum(value);
+  return n !== null && Math.abs(n) > 0.005;
+}
+
+function proposalContributionLabel(proposal: BudgetBreakdownSlice, fallback: string) {
+  const code = proposal.codProp ? `Proposta ${proposal.codProp}` : fallback;
+  const revision = proposal.nRev !== null && proposal.nRev !== undefined ? ` · Rev ${proposal.nRev}` : '';
+  return `${code}${revision}`;
+}
+
+function ProposalContributionDetails({
+  original,
+  additionals
+}: {
+  original?: BudgetBreakdownSlice | null;
+  additionals?: BudgetBreakdownSlice[];
+}) {
+  const rows = [
+    original ? { ...original, contributionKind: 'ORIGINAL' as const } : null,
+    ...(additionals ?? []).map(item => ({ ...item, contributionKind: 'ADDITIONAL' as const }))
+  ].filter((item): item is BudgetBreakdownSlice & { contributionKind: 'ORIGINAL' | 'ADDITIONAL' } => Boolean(item));
+
+  if (rows.length <= 1 || !(additionals ?? []).some(item => (
+    hasMoney(item.salePrice) || hasMoney(item.plannedTotalCost) || hasMoney(item.expectedProfit) || hasMoney(item.taxes)
+  ))) {
+    return null;
+  }
+
+  return (
+    <details className="acp-proposal-details">
+      <summary className="acp-det-collabs-summary">
+        Composição das propostas
+        <span className="acp-proposal-count">{rows.length} propostas</span>
+      </summary>
+      <div className="acp-proposal-list">
+        {rows.map((proposal, index) => (
+          <div className="acp-proposal-item" key={`${proposal.contributionKind}-${proposal.codBd ?? proposal.codProp ?? index}`}>
+            <div className="acp-proposal-item-head">
+              <strong>{proposalContributionLabel(proposal, proposal.contributionKind === 'ORIGINAL' ? 'Proposta original' : 'Proposta adicional')}</strong>
+              <span>{proposal.contributionKind === 'ORIGINAL' ? 'Original' : 'Adicional'}</span>
+            </div>
+            <div className="acp-proposal-grid">
+              <div><span>Venda</span><strong>{brl(toNum(proposal.salePrice))}</strong></div>
+              <div><span>Custo</span><strong>{brl(toNum(proposal.plannedTotalCost))}</strong></div>
+              <div><span>Lucro</span><strong>{brl(toNum(proposal.expectedProfit))}</strong></div>
+              <div><span>Impostos</span><strong>{brl(toNum(proposal.taxes))}</strong></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 function Bar({ value, tone }: { value: number | null; tone?: 'cost' }) {
@@ -628,6 +684,8 @@ export function ProjectDetailDashboard({
               const moCusto = mo?.custo ?? null;
               const totalRealizado = data.consumo.gasto + (moCusto ?? 0);
               const previsto = data.consumo.previsto;
+              const previstoOriginal = data.consumo.previstoOriginal ?? null;
+              const previstoAdicional = data.consumo.previstoAdicional ?? null;
               const totalPct = previsto && previsto > 0 ? Math.round((totalRealizado / previsto) * 100) : null;
               const omieCost = data.consumo.omie ?? Math.max(0, data.consumo.gasto - (data.consumo.estoque ?? 0));
               const paidOmieCost = data.consumo.pago ?? 0;
@@ -655,7 +713,17 @@ export function ProjectDetailDashboard({
                       <strong>{brl(pendingOmieCost)}</strong>
                     </div>
                   </div>
+                  <ProposalContributionDetails
+                    original={data.budgetBreakdown?.original}
+                    additionals={data.budgetBreakdown?.additionals}
+                  />
                   <div style={{ margin: '8px 0' }}>
+                    {previstoAdicional != null && Math.abs(previstoAdicional) > 0.005 ? (
+                      <>
+                        <div style={rowStyle}><span className="placeholder-copy">Previsto original</span><span>{brl(previstoOriginal)}</span></div>
+                        <div style={rowStyle}><span className="placeholder-copy">Previsto adicional</span><span>{brl(previstoAdicional)}</span></div>
+                      </>
+                    ) : null}
                     <div style={rowStyle}><span className="placeholder-copy">Compras (Omie)</span><span>{brl(omieCost)}</span></div>
                     {stockCost > 0 ? (
                       <div style={rowStyle}><span className="placeholder-copy">Estoque (químicos/filtros)</span><span>{brl(stockCost)}</span></div>
@@ -808,6 +876,8 @@ export function ProjectDetailDashboard({
           {data.presumedProfitTaxes ? (() => {
             const taxes = data.presumedProfitTaxes;
             const expectedRevenue = toNum(data.faturamento.previsto);
+            const expectedOriginalRevenue = toNum(data.faturamento.previstoOriginal);
+            const expectedAdditionalRevenue = toNum(data.faturamento.previstoAdicional);
             const invoicedRevenue = toNum(data.faturamento.realizado);
             const hasOmieInvoice = taxes.basisSource === 'OMIE_INVOICED';
             const rowStyle = { display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13 } as const;
@@ -824,6 +894,12 @@ export function ProjectDetailDashboard({
                       <span>{brl(taxes.basisAmount)}</span>
                     </div>
                     <div style={rowStyle}><span className="placeholder-copy">Venda prevista</span><span>{brl(expectedRevenue)}</span></div>
+                    {expectedAdditionalRevenue != null && Math.abs(expectedAdditionalRevenue) > 0.005 ? (
+                      <>
+                        <div style={rowStyle}><span className="placeholder-copy">Venda original</span><span>{brl(expectedOriginalRevenue)}</span></div>
+                        <div style={rowStyle}><span className="placeholder-copy">Venda adicional</span><span>{brl(expectedAdditionalRevenue)}</span></div>
+                      </>
+                    ) : null}
                     {hasOmieInvoice ? (
                       <>
                         <div style={rowStyle}><span className="placeholder-copy">Faturado Omie ({data.faturamento.notas} NF)</span><span>{brl(invoicedRevenue)}</span></div>
