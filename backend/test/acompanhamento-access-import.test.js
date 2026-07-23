@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   applyManualCostsToDashboardRows,
   applyStockCostsToDashboardRows,
+  buildCommercialPendencias,
   buildBudgetBreakdown,
   contractToProposalCode,
   deriveSale,
@@ -160,6 +161,68 @@ test('buildBudgetBreakdown soma valores da proposta original com adicionais e ma
   assert.equal(breakdown.taxes, 6000);
   assert.equal(breakdown.additionals.length, 1);
   assert.equal(breakdown.additionalTotals.salePrice, 25000);
+});
+
+test('buildCommercialPendencias considera proposta principal e adicionais pendentes', () => {
+  const pendencias = buildCommercialPendencias({
+    projects: [
+      { id: 'project-1', code: '5782', contractCode: '4136 - Rev. 0', commercialProposalCode: null },
+      { id: 'project-2', code: '5783', contractCode: '5000', commercialProposalCode: '5000' },
+      { id: 'project-3', code: '5784', contractCode: '7000', commercialProposalCode: null }
+    ],
+    proposalRevisionCounts: [
+      { codProp: 4136, _count: { _all: 2 } },
+      { codProp: 5000, _count: { _all: 1 } }
+    ],
+    additionalRevisionCounts: [
+      { parentCodProp: 4136, codProp: 94136, _count: { _all: 2 } },
+      { parentCodProp: 4136, codProp: 94137, _count: { _all: 1 } },
+      { parentCodProp: 5000, codProp: 95000, _count: { _all: 1 } },
+      { parentCodProp: 7000, codProp: 97000, _count: { _all: 1 } }
+    ],
+    selectedAdditionalProposals: [
+      { projectId: 'project-2', codProp: 95000 }
+    ]
+  });
+
+  assert.deepEqual(pendencias, [
+    {
+      projectId: 'project-1',
+      proposalCode: '4136',
+      revisionCount: 5,
+      originalRevisionCount: 2,
+      additionalProposalCount: 2,
+      additionalRevisionCount: 3,
+      pendingCount: 3,
+      pendingAdditionalProposalCount: 2,
+      originalPending: true,
+      resolved: false
+    },
+    {
+      projectId: 'project-2',
+      proposalCode: '5000',
+      revisionCount: 2,
+      originalRevisionCount: 1,
+      additionalProposalCount: 1,
+      additionalRevisionCount: 1,
+      pendingCount: 0,
+      pendingAdditionalProposalCount: 0,
+      originalPending: false,
+      resolved: true
+    },
+    {
+      projectId: 'project-3',
+      proposalCode: '7000',
+      revisionCount: 1,
+      originalRevisionCount: 0,
+      additionalProposalCount: 1,
+      additionalRevisionCount: 1,
+      pendingCount: 1,
+      pendingAdditionalProposalCount: 1,
+      originalPending: false,
+      resolved: false
+    }
+  ]);
 });
 
 test('mapProposalRow marca isComplete=false quando sem valor de venda', () => {

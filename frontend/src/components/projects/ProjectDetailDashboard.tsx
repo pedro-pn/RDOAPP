@@ -22,6 +22,7 @@ import { HelpTip } from '../ui/HelpTip';
 import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
+import { ProjectAdditionalProposalsNovelty } from './ProjectAdditionalProposalsNovelty';
 import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
 import { ProjectQualityDeviationsNovelty } from './ProjectQualityDeviationsNovelty';
 import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
@@ -209,7 +210,7 @@ function ProposalContributionDetails({
 
   return (
     <details className="acp-proposal-details">
-      <summary className="acp-det-collabs-summary">
+      <summary className="acp-det-collabs-summary" data-acp-proposal-contributions>
         Composição das propostas
         <span className="acp-proposal-count">{rows.length} propostas</span>
       </summary>
@@ -487,6 +488,7 @@ export function ProjectDetailDashboard({
   const [progressHistoryNoveltyActive, setProgressHistoryNoveltyActive] = useState(true);
   const [manualCostNoveltyActive, setManualCostNoveltyActive] = useState(true);
   const [qualityDeviationsNoveltyActive, setQualityDeviationsNoveltyActive] = useState(true);
+  const [additionalProposalsNoveltyActive, setAdditionalProposalsNoveltyActive] = useState(true);
   const [expandedQualityDeviationIds, setExpandedQualityDeviationIds] = useState<Set<string>>(() => new Set());
   const [manualCostFormOpen, setManualCostFormOpen] = useState(false);
   const [manualCostError, setManualCostError] = useState<string | null>(null);
@@ -612,6 +614,9 @@ export function ProjectDetailDashboard({
       : '';
   const manualCosts = data.manualCosts ?? [];
   const canAddManualCost = canManageManualCosts && !isGroup && Boolean(projectId);
+  const hasAdditionalProposalContribution = (data.budgetBreakdown?.additionals ?? []).some(item => (
+    hasMoney(item.salePrice) || hasMoney(item.plannedTotalCost) || hasMoney(item.expectedProfit) || hasMoney(item.taxes)
+  ));
   const headerBits = [
     isGroup ? `Grupo ${h.code}` : `Missão ${h.code}`,
     h.clientName,
@@ -1183,6 +1188,11 @@ export function ProjectDetailDashboard({
         user={progressHistoryNoveltyUser}
         enabled={qualityDeviationsNoveltyActive && !isGroup}
         onSeen={() => setQualityDeviationsNoveltyActive(false)}
+      />
+      <ProjectAdditionalProposalsNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={additionalProposalsNoveltyActive && hasAdditionalProposalContribution}
+        onSeen={() => setAdditionalProposalsNoveltyActive(false)}
       />
     </div>
   );

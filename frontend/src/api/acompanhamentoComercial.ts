@@ -165,6 +165,12 @@ export interface CommercialPendencia {
   projectId: string;
   proposalCode: string;
   revisionCount: number;
+  originalRevisionCount?: number;
+  additionalProposalCount?: number;
+  additionalRevisionCount?: number;
+  pendingCount?: number;
+  pendingAdditionalProposalCount?: number;
+  originalPending?: boolean;
   resolved: boolean;
 }
 

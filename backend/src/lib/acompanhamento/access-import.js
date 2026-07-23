@@ -933,33 +933,100 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
   return rows;
 }
 
-// Projetos cujo contrato bate com alguma proposta importada — sinalização na aba Projetos.
-// resolved = já houve escolha de revisão (commercialProposalCode preenchido).
-export async function listCommercialPendencias() {
-  const grouped = await prisma.commercialProposal.groupBy({
-    by: ['codProp'],
-    _count: { _all: true }
-  });
-  if (grouped.length === 0) return [];
-  const countByProp = new Map(grouped.map(g => [g.codProp, g._count._all]));
+function groupedCountValue(group) {
+  return group?._count?._all ?? group?.count ?? group?.revisionCount ?? 0;
+}
 
-  const projects = await prisma.project.findMany({
-    where: { deletedAt: null },
-    select: { id: true, code: true, contractCode: true, commercialProposalCode: true }
-  });
+function addSelectedAdditional(selectedByProject, selection) {
+  if (!selection?.projectId || !Number.isInteger(selection.codProp)) return;
+  if (!selectedByProject.has(selection.projectId)) selectedByProject.set(selection.projectId, new Set());
+  selectedByProject.get(selection.projectId).add(selection.codProp);
+}
+
+export function buildCommercialPendencias({
+  projects = [],
+  proposalRevisionCounts = [],
+  additionalRevisionCounts = [],
+  selectedAdditionalProposals = []
+} = {}) {
+  const originalCountByProp = new Map();
+  for (const group of proposalRevisionCounts) {
+    if (!Number.isInteger(group?.codProp)) continue;
+    originalCountByProp.set(group.codProp, groupedCountValue(group));
+  }
+
+  const additionalsByParent = new Map();
+  for (const group of additionalRevisionCounts) {
+    if (!Number.isInteger(group?.parentCodProp) || !Number.isInteger(group?.codProp)) continue;
+    if (!additionalsByParent.has(group.parentCodProp)) additionalsByParent.set(group.parentCodProp, []);
+    additionalsByParent.get(group.parentCodProp).push({
+      codProp: group.codProp,
+      revisionCount: groupedCountValue(group)
+    });
+  }
+
+  const selectedByProject = new Map();
+  selectedAdditionalProposals.forEach(selection => addSelectedAdditional(selectedByProject, selection));
 
   const result = [];
   for (const project of projects) {
     const codProp = projectProposalCode(project);
-    if (!Number.isInteger(codProp) || !countByProp.has(codProp)) continue;
+    if (!Number.isInteger(codProp)) continue;
+    const originalRevisionCount = originalCountByProp.get(codProp) ?? 0;
+    const additionalGroups = additionalsByParent.get(codProp) ?? [];
+    if (originalRevisionCount === 0 && additionalGroups.length === 0) continue;
+
+    const selectedAdditionals = selectedByProject.get(project.id) ?? new Set();
+    const originalPending = originalRevisionCount > 0 && !project.commercialProposalCode;
+    const pendingAdditionalProposalCount = additionalGroups.filter(group => !selectedAdditionals.has(group.codProp)).length;
+    const additionalRevisionCount = additionalGroups.reduce((sum, group) => sum + group.revisionCount, 0);
+    const pendingCount = (originalPending ? 1 : 0) + pendingAdditionalProposalCount;
+
     result.push({
       projectId: project.id,
       proposalCode: String(codProp),
-      revisionCount: countByProp.get(codProp),
-      resolved: Boolean(project.commercialProposalCode)
+      revisionCount: originalRevisionCount + additionalRevisionCount,
+      originalRevisionCount,
+      additionalProposalCount: additionalGroups.length,
+      additionalRevisionCount,
+      pendingCount,
+      pendingAdditionalProposalCount,
+      originalPending,
+      resolved: pendingCount === 0
     });
   }
   return result;
+}
+
+// Projetos cujo contrato bate com alguma proposta importada — sinalização na aba Projetos.
+// resolved = proposta principal e adicionais já foram escolhidas quando necessário.
+export async function listCommercialPendencias() {
+  const [originalGrouped, additionalGrouped, projects, selectedAdditionals] = await Promise.all([
+    prisma.commercialProposal.groupBy({
+      by: ['codProp'],
+      where: { parentCodProp: null },
+      _count: { _all: true }
+    }),
+    prisma.commercialProposal.groupBy({
+      by: ['parentCodProp', 'codProp'],
+      where: { parentCodProp: { not: null } },
+      _count: { _all: true }
+    }),
+    prisma.project.findMany({
+      where: { deletedAt: null },
+      select: { id: true, code: true, contractCode: true, commercialProposalCode: true }
+    }),
+    prisma.projectAdditionalProposal.findMany({
+      select: { projectId: true, codProp: true }
+    })
+  ]);
+
+  return buildCommercialPendencias({
+    projects,
+    proposalRevisionCounts: originalGrouped,
+    additionalRevisionCounts: additionalGrouped,
+    selectedAdditionalProposals: selectedAdditionals
+  });
 }
 
 /**

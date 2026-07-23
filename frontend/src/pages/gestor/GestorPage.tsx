@@ -45,7 +45,7 @@ import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
 import { ProjectRevisionPicker } from '../../components/projects/ProjectRevisionPicker';
 import { JobRoleManager } from '../../components/projects/JobRoleManager';
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
-import { getCommercialPendencias } from '../../api/acompanhamentoComercial';
+import { getCommercialPendencias, type CommercialPendencia } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
 import { useCollaboratorMutations } from '../../hooks/useCollaborators';
@@ -987,6 +987,24 @@ function userToForm(user: InternalUserSummary): UserFormState {
   };
 }
 
+function commercialPendenciaPendingCount(pendencia: CommercialPendencia | null | undefined) {
+  if (!pendencia) return 0;
+  if (Number.isFinite(pendencia.pendingCount)) return Math.max(0, Number(pendencia.pendingCount));
+  return pendencia.resolved ? 0 : 1;
+}
+
+function commercialPendenciaAlertText(pendencia: CommercialPendencia) {
+  const pendingCount = commercialPendenciaPendingCount(pendencia);
+  if (pendingCount <= 0) return null;
+
+  const details: string[] = [];
+  if (pendencia.originalPending) details.push('principal');
+  const pendingAdditional = Math.max(0, Number(pendencia.pendingAdditionalProposalCount ?? 0));
+  if (pendingAdditional > 0) details.push(`${pendingAdditional} adicional${pendingAdditional === 1 ? '' : 'is'}`);
+  const detailText = details.length ? ` (${details.join(' + ')})` : '';
+  return `Há ${pendingCount} proposta${pendingCount === 1 ? '' : 's'} comercial${pendingCount === 1 ? '' : 'is'} pendente${pendingCount === 1 ? '' : 's'} para o contrato ${pendencia.proposalCode}${detailText}. Abra os detalhes e escolha as revisões que valem para esta missão.`;
+}
+
 function renderProjectCard(
   project: Project,
   options: {
@@ -1003,7 +1021,7 @@ function renderProjectCard(
     surveyPending?: boolean;
     children?: ReactNode;
     segments?: ClientSegment[];
-    commercialPendencia?: { proposalCode: string; revisionCount: number; resolved: boolean } | null;
+    commercialPendencia?: CommercialPendencia | null;
   }
 ) {
   const survey = latestSurvey(project);
@@ -1012,6 +1030,9 @@ function renderProjectCard(
   const canResendSurvey = !project.isActive && !!survey && !survey.respondedAt;
   const pendingRegistration = projectRegistrationPending(project);
   const title = projectTitle(project);
+  const commercialPendenciaText = options.commercialPendencia
+    ? commercialPendenciaAlertText(options.commercialPendencia)
+    : null;
   return (
     <article className="card admin-card project-admin-card" key={project.id}>
       <div className="project-admin-head">
@@ -1035,9 +1056,9 @@ function renderProjectCard(
           Projeto criado automaticamente pelo romaneio. Complete o cadastro antes de usar em relatórios, ou exclua se o código não deve permanecer.
         </div>
       ) : null}
-      {options.commercialPendencia && !options.commercialPendencia.resolved ? (
+      {commercialPendenciaText ? (
         <div className="project-registration-alert">
-          Há {options.commercialPendencia.revisionCount} proposta(s) importada(s) do comercial para o contrato {options.commercialPendencia.proposalCode}. Abra os detalhes e escolha a revisão que vale para esta missão.
+          {commercialPendenciaText}
         </div>
       ) : null}
       {options.children}
@@ -1238,9 +1259,9 @@ export function GestorPage() {
   const activeProjectsQuery = { data: gestorBootstrapQuery.data?.activeProjects, isLoading: gestorBootstrapQuery.isLoading };
   const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
   const commercialPendenciaByProject = useMemo(() => {
-    const map = new Map<string, { proposalCode: string; revisionCount: number; resolved: boolean }>();
+    const map = new Map<string, CommercialPendencia>();
     for (const pendencia of commercialPendenciasQuery.data || []) {
-      map.set(pendencia.projectId, { proposalCode: pendencia.proposalCode, revisionCount: pendencia.revisionCount, resolved: pendencia.resolved });
+      map.set(pendencia.projectId, pendencia);
     }
     return map;
   }, [commercialPendenciasQuery.data]);
@@ -1325,6 +1346,17 @@ export function GestorPage() {
     .filter(project => project.isActive !== false)
     .filter(projectRegistrationPending)
     .length;
+  const activeProjectIdsForCommercialPendencias = new Set(
+    (activeProjectsQuery.data || [])
+      .filter(project => project.isActive !== false)
+      .map(project => project.id)
+  );
+  const pendingCommercialProposalCount = (commercialPendenciasQuery.data || [])
+    .reduce((sum, pendencia) => (
+      activeProjectIdsForCommercialPendencias.has(pendencia.projectId)
+        ? sum + commercialPendenciaPendingCount(pendencia)
+        : sum
+    ), 0);
 
   useEffect(() => {
     if (tab !== 'arquivados') return;
@@ -4293,7 +4325,22 @@ export function GestorPage() {
           <button className={`nav-tab ${tab === 'projetos' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'projetos'} onClick={() => setTab('projetos')}>
             Projetos
             {pendingProjectRegistrationCount ? (
-              <span className="nav-tab-count">{pendingProjectRegistrationCount}</span>
+              <span
+                className="nav-tab-count"
+                title="Cadastros pendentes"
+                aria-label={`${pendingProjectRegistrationCount} cadastro${pendingProjectRegistrationCount === 1 ? '' : 's'} pendente${pendingProjectRegistrationCount === 1 ? '' : 's'}`}
+              >
+                {pendingProjectRegistrationCount}
+              </span>
+            ) : null}
+            {pendingCommercialProposalCount ? (
+              <span
+                className="nav-tab-count nav-tab-count-commercial"
+                title="Propostas comerciais pendentes"
+                aria-label={`${pendingCommercialProposalCount} proposta${pendingCommercialProposalCount === 1 ? '' : 's'} comercial${pendingCommercialProposalCount === 1 ? '' : 'is'} pendente${pendingCommercialProposalCount === 1 ? '' : 's'}`}
+              >
+                {pendingCommercialProposalCount}
+              </span>
             ) : null}
           </button>
           <button className={`nav-tab ${tab === 'arquivados' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'arquivados'} onClick={() => setTab('arquivados')}>
