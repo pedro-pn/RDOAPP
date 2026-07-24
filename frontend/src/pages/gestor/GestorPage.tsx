@@ -44,6 +44,7 @@ import { useToast } from '../../components/ui/ToastContext';
 import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
 import { ProjectRevisionPicker } from '../../components/projects/ProjectRevisionPicker';
 import { JobRoleManager } from '../../components/projects/JobRoleManager';
+import { CollaboratorListToolbarActions, CollaboratorStatusPill } from '../../components/projects/CollaboratorListControls';
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { getCommercialPendencias, type CommercialPendencia } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
@@ -3457,25 +3458,10 @@ export function GestorPage() {
           <div className="admin-toolbar">
             <div className="sec">Equipe</div>
             {!showCollaboratorForm && !collaboratorEditingId ? (
-              <div className="admin-toolbar-actions">
-                <button
-                  className="mini-btn alt"
-                  type="button"
-                  onClick={() => {
-                    resetCollaboratorForm();
-                    setShowInactiveCollaborators(current => !current);
-                  }}
-                >
-                  {showInactiveCollaborators ? 'Ver ativos' : `Ver inativos${inactiveCollaboratorsCount ? ` (${inactiveCollaboratorsCount})` : ''}`}
-                </button>
-                <button
-                  className="mini-btn"
-                  type="button"
-                  onClick={openNewCollaboratorForm}
-                >
-                  + Novo colaborador
-                </button>
-              </div>
+              <CollaboratorListToolbarActions showInactive={showInactiveCollaborators} inactiveCount={inactiveCollaboratorsCount} onNew={openNewCollaboratorForm} onToggleInactive={() => {
+                resetCollaboratorForm();
+                setShowInactiveCollaborators(current => !current);
+              }} />
             ) : null}
           </div>
           {showCollaboratorForm && !collaboratorEditingId ? (
@@ -3557,9 +3543,7 @@ export function GestorPage() {
                         {collaborator.role || '-'}{collaborator.email ? ` - ${collaborator.email}` : ''}
                       </div>
                     </div>
-                    <span className={`status-pill ${collaborator.isActive === false ? 'status-returned' : 'status-approved'}`}>
-                      {collaborator.isActive === false ? 'Inativo' : 'Ativo'}
-                    </span>
+                    <CollaboratorStatusPill isActive={collaborator.isActive} />
                     <div className="admin-actions collaborator-card-actions">
                       <button
                         className="mini-btn alt"
@@ -3572,15 +3556,7 @@ export function GestorPage() {
                       >
                         Editar
                       </button>
-                      {collaborator.isActive !== false ? (
-                        <button
-                          className="mini-btn danger"
-                          type="button"
-                          onClick={() => void handleCollaboratorToggle(collaborator)}
-                        >
-                          Remover
-                        </button>
-                      ) : null}
+                      {collaborator.isActive !== false ? <button className="mini-btn danger" type="button" onClick={() => void handleCollaboratorToggle(collaborator)}>Remover</button> : null}
                     </div>
                   </div>
 	                  {collaboratorEditingId === collaborator.id ? (
