@@ -44,6 +44,7 @@ import { useToast } from '../../components/ui/ToastContext';
 import { PrivacyNotice } from '../../components/privacy/PrivacyNotice';
 import { ProjectRevisionPicker } from '../../components/projects/ProjectRevisionPicker';
 import { JobRoleManager } from '../../components/projects/JobRoleManager';
+import { CollaboratorListToolbarActions, CollaboratorStatusPill } from '../../components/projects/CollaboratorListControls';
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { getCommercialPendencias, type CommercialPendencia } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
@@ -1175,6 +1176,7 @@ export function GestorPage() {
   const [collaboratorForm, setCollaboratorForm] = useState<CollaboratorFormState>(emptyCollaboratorForm);
   const [collaboratorEditingId, setCollaboratorEditingId] = useState<string | null>(null);
   const [showCollaboratorForm, setShowCollaboratorForm] = useState(false);
+  const [showInactiveCollaborators, setShowInactiveCollaborators] = useState(false);
 
   const [userForm, setUserForm] = useState<UserFormState>(emptyUserForm);
   const [userEditingId, setUserEditingId] = useState<string | null>(null);
@@ -3442,22 +3444,24 @@ export function GestorPage() {
       return <div className="page-card placeholder-copy">Carregando colaboradores...</div>;
     }
 
-    const collaborators = (collaboratorsQuery.data || [])
-      .filter(collaborator => collaborator.isActive !== false)
+    const allCollaborators = collaboratorsQuery.data || [];
+    const inactiveCollaboratorsCount = allCollaborators.filter(collaborator => collaborator.isActive === false).length;
+    const collaborators = allCollaborators
+      .filter(collaborator => showInactiveCollaborators ? collaborator.isActive === false : collaborator.isActive !== false)
       .filter(collaborator => matchesSearch(collaboratorSearchParts(collaborator), gestorSearch));
+    const emptyCollaboratorsMessage = showInactiveCollaborators
+      ? 'Nenhum colaborador inativo.'
+      : 'Nenhum colaborador ativo.';
 
     return (
       <>
           <div className="admin-toolbar">
             <div className="sec">Equipe</div>
             {!showCollaboratorForm && !collaboratorEditingId ? (
-	              <button
-	                className="mini-btn"
-	                type="button"
-	                onClick={openNewCollaboratorForm}
-	              >
-	                + Novo colaborador
-	              </button>
+              <CollaboratorListToolbarActions showInactive={showInactiveCollaborators} inactiveCount={inactiveCollaboratorsCount} onNew={openNewCollaboratorForm} onToggleInactive={() => {
+                resetCollaboratorForm();
+                setShowInactiveCollaborators(current => !current);
+              }} />
             ) : null}
           </div>
           {showCollaboratorForm && !collaboratorEditingId ? (
@@ -3539,6 +3543,7 @@ export function GestorPage() {
                         {collaborator.role || '-'}{collaborator.email ? ` - ${collaborator.email}` : ''}
                       </div>
                     </div>
+                    <CollaboratorStatusPill isActive={collaborator.isActive} />
                     <div className="admin-actions collaborator-card-actions">
                       <button
                         className="mini-btn alt"
@@ -3551,13 +3556,7 @@ export function GestorPage() {
                       >
                         Editar
                       </button>
-                      <button
-                        className="mini-btn danger"
-                        type="button"
-                        onClick={() => void handleCollaboratorToggle(collaborator)}
-                      >
-                        Remover
-                      </button>
+                      {collaborator.isActive !== false ? <button className="mini-btn danger" type="button" onClick={() => void handleCollaboratorToggle(collaborator)}>Remover</button> : null}
                     </div>
                   </div>
 	                  {collaboratorEditingId === collaborator.id ? (
@@ -3622,7 +3621,7 @@ export function GestorPage() {
             </div>
           ) : (
             <div className="card admin-card">
-              <div className="placeholder-copy">Nenhum colaborador ativo.</div>
+              <div className="placeholder-copy">{emptyCollaboratorsMessage}</div>
             </div>
           )}
       </>
