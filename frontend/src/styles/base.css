@@ -1380,6 +1380,14 @@ a {
   margin-bottom: 0;
 }
 
+.admin-toolbar-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .admin-create-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1399,6 +1407,7 @@ a {
 
 .admin-toolbar > .mini-btn,
 .admin-toolbar .admin-form-actions > .mini-btn,
+.admin-toolbar-actions > .mini-btn,
 .admin-create-toolbar > .mini-btn,
 .admin-inline-form .admin-form-actions > .mini-btn:not(.alt) {
   padding: 9px 16px;
