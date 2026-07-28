@@ -1,4 +1,4 @@
-import { Route } from 'react-router-dom';
+import { Route } from 'react-router';
 
 import { RoleRoute } from '../auth/RoleRoute';
 import { AcompanhamentoPage } from '../pages/acompanhamento/AcompanhamentoPage';

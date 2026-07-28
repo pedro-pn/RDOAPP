@@ -1,5 +1,5 @@
 import { useState, type DragEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { getSignatureValidation } from '../api/signatureValidation';
