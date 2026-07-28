@@ -83,3 +83,12 @@ backend/scripts/faltantes-fotos.csv
 PLANO_AUDITORIA_SEGURANCA.md
 FINDINGS_PENTEST.md
 RELATORIO_PENTEST_FILTROVALI.md
+
+# Configuracoes de ferramentas de IA especificas da maquina (caminhos absolutos).
+# As variantes portateis (.mcp.json, .opencode.json, .codebuddy/, .qoder/settings.json,
+# .gemini/, .claude/) sao versionadas.
+.kiro/settings/mcp.json
+.qoder/mcp.json
+opencode.jsonc
+.claude/settings.json.bak
+*.bak
