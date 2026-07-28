@@ -95,6 +95,15 @@ Campos selecionaveis (`select`, combobox, multiselect e dropdown de filtro) deve
 o estilo compartilhado do app: borda, raio, padding, foco, disabled, erro e mobile
 consistentes. Select nativo com aparencia crua do navegador e bloqueante em review.
 
+Excecao de identidade portada (Principio VI da constitution): modulo que reproduz
+fielmente um aplicativo ja aprovado pode manter a identidade visual de origem, desde que
+declare a excecao na spec, escope todo o CSS sob uma raiz do modulo sem vazamento nos
+dois sentidos, centralize paleta e medidas em custom properties prefixadas sem redefinir
+tokens globais, e preserve os comportamentos obrigatorios (aria-invalid com mensagem,
+estados de select, drag and drop compartilhado, navegacao em URL, tutorial de primeiro
+acesso e ausencia de scroll horizontal no mobile). A excecao vale so para porte fiel;
+modulo novo sem app de origem continua obrigado ao kit e aos tokens.
+
 Formularios devem usar o estado visual compartilhado para obrigatorios vazios ou
 invalidos. Ao tentar salvar, cada campo obrigatorio com erro deve ficar vermelho com
 `.field-group.field-invalid`, mensagem `.field-error` abaixo do controle e

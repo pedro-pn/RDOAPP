@@ -60,6 +60,14 @@
   use the shared invalid state when save is attempted empty/invalid: `.field-group`
   plus `.field-invalid`, `aria-invalid` where applicable, and a `.field-error` message;
   native browser validation UI is not sufficient.
+  *Ported-identity exception*: a module that faithfully reproduces an approved existing
+  app may keep its original visual identity if the plan declares it and all four
+  conditions hold — CSS fully scoped to a module root with no leakage either way,
+  palette/measurements declared as prefixed custom properties in a single block without
+  redefining global tokens, mandatory behaviors preserved (`aria-invalid` with visible
+  message, select states, shared drag and drop, URL params, first-access tutorial, no
+  page-level horizontal scroll on mobile), and the exception re-evaluated once the
+  module stops being a port.
 - User-facing drag and drop reordering uses the shared app pattern: dedicated drag
   handle, live reordering while dragging, placeholder/space with position legend,
   visual ghost, cancel restores the initial order, drop persists only the final order,

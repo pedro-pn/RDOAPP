@@ -108,6 +108,12 @@
   components/classes. "Clone of X" is not enough unless X was checked against the
   current constitution and visual standard.
 
+  If this feature relies on the ported-identity exception (Princípio VI), state it
+  explicitly here: name the source app being reproduced, the module CSS root that scopes
+  every selector, the prefix of the module custom properties, and confirm that the
+  mandatory behaviors are still delivered. Without that declaration the exception does
+  not apply and the standard kit/tokens rules hold.
+
   For new user-facing functions, describe the 10-day novelty campaign and guided
   tutorial for first access. If this is a new module, describe the permanent first-access
   module tutorial instead. If no novelty/tutorial applies, state the reason.

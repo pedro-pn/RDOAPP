@@ -208,6 +208,10 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Visual consistency pass: verify every Visual/UI Contract surface in desktop
   and mobile; dropdowns/selects have default, focus, disabled, error and empty states;
   desktop module width is not compressed; mobile layout has no horizontal page scroll
+- [ ] TXXX Ported-identity audit *(only when the spec declares the exception)*: verify
+  no module selector affects other modules and `base.css` does not affect the module;
+  verify palette/measurements live in a single prefixed custom-property block with no
+  stray hex/px duplicating them and no global token redefined
 - [ ] TXXX Run quickstart.md validation
 
 ---
