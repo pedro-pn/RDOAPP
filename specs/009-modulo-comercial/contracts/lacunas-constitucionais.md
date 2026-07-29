@@ -24,6 +24,7 @@ continuam obrigatórios.
 | L3 | Estado de navegação fora da URL | `CUSTO`, `PROP` | Média |
 | L4 | Sem tutorial permanente de primeiro acesso | todas | Média |
 | L5 | Login sem estado de campo inválido | `LOGIN` | Baixa |
+| L6 | Paleta em `:root` duplicado e sem prefixo | CSS | Alta |
 
 ## L1 — Validação por campo inexistente na tela de custos
 
@@ -114,6 +115,48 @@ etapa e da baseline clicável da E0-7.
 **Nota.** É a lacuna de menor impacto: o formulário tem dois campos e o erro de
 credencial é global, não por campo. Ainda assim, campo obrigatório vazio precisa
 do estado compartilhado — validação nativa do navegador não basta.
+
+## L6 — Paleta em `:root` duplicado e sem prefixo
+
+**Evidência.** `app/globals.css` tem **dois** blocos `:root`, nas linhas 26 e 56,
+que redefinem os mesmos sete nomes de token com valores diferentes:
+
+```css
+/* linha 26 — paleta azul/marinho */
+:root{--navy:#12284b;--blue:#1f5790;--ink:#172033;--muted:#687386;--line:#dce2ea;--bg:#f4f6f9;--green:#198754}
+
+/* linha 56 — paleta verde */
+:root{--navy:#214b35;--blue:#2f6446;--ink:#1f2923;--muted:#66736b;--line:#d9e2dc;--bg:#f3f6f4;--green:#2f6446;...}
+```
+
+Mesma especificidade, então o segundo vence: **o app renderiza em verde, e a
+paleta azul da linha 26 é código morto**. Os nomes `--navy` e `--blue` seguem
+apontando para tons de verde, o que torna o CSS enganoso de ler.
+
+**Por que é grave.** A alínea (b) do Princípio VI exige que a paleta seja
+declarada como custom properties **prefixadas**, **em um bloco único**, sem
+redefinir tokens globais. A referência viola as três coisas de uma vez. Pior:
+nomes genéricos como `--ink`, `--line`, `--bg` e `--muted` em `:root` colidem
+com os tokens globais do `variables.css` do filtroAPP — copiar este CSS como
+está vaza a paleta do módulo para o app inteiro.
+
+**O que o porte precisa fazer.** Um bloco único sob `.comercial-app`, com nomes
+`--com-*` escolhidos **pela função e não pela cor** — o plano já previu isso na
+§5.6, e a duplicação encontrada aqui reforça: `--navy` valendo verde é
+exatamente o sintoma de nome escolhido por cor.
+
+**Cuidado ao portar:** a paleta correta é a da linha 56. Copiar a da linha 26
+por ela vir primeiro no arquivo muda a identidade visual inteira, e é um erro
+que não gera nenhum aviso.
+
+### Nota sobre a tipografia (não é lacuna)
+
+`app/layout.tsx:51` aplica as variáveis do Geist ao `<body>`, mas
+`globals.css:26` fixa `body{font-family:Arial,Helvetica,sans-serif}`. A regra
+de `font-family` vence a variável, que ninguém consome. **As fontes Geist são
+baixadas e nunca usadas.** Isso confirma a decisão já registrada na §5.6 do
+plano: Geist não entra no porte, o chrome herda a fonte do filtroAPP e o
+documento mantém Arial.
 
 ## O que já existe e pode ser copiado
 
