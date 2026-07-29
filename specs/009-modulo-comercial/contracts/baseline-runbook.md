@@ -14,6 +14,7 @@ poder ser refeito:
 | Dependências instaladas | Feito (pnpm 11.18.0, 47 s) |
 | `pnpm dev` de pé | Feito — `http://localhost:3000` |
 | Usuário de acesso local | Feito — `baseline` / `baseline-e0` |
+| Proposta semeada | Feito — número **4418**, levantamento cheio |
 | Capturas de tela | **Pendente — precisa de você** |
 | Roteiro clicável gravado | **Pendente — precisa de você** |
 
@@ -73,6 +74,45 @@ produção.
 > Se o banco local for apagado, rode `pnpm dev`, faça uma tentativa de login
 > qualquer (para o app criar as tabelas) e rode o script de novo.
 
+### "Nova proposta" exige o Nectar, e não tem fallback
+
+Com a sessão aberta as telas abrem, mas **vazias**: sem proposta no banco não há
+o que mostrar. E criar a primeira esbarra em
+`app/api/nectar/next-number/route.ts:24-30` — a numeração vem de uma chamada real
+ao CRM Nectar e o endpoint devolve **503 "Token do Nectar não configurado."**
+sem `NECTAR_API_TOKEN`. Não há caminho local.
+
+O caminho **"Revisar proposta"**, porém, não toca o Nectar: lê `proposal_history`
+por `base` e `cost_estimates` por `proposalCode`, ambos locais
+(`app/custos/page.tsx:250-252`). Semeando essas duas tabelas, a revisão abre as
+telas com dados de verdade:
+
+```bash
+node specs/009-modulo-comercial/contracts/semear-proposta-baseline.mjs
+```
+
+Semeia a proposta **4418** com o payload do **golden 12** (precificação
+`filtrovali_net_revenue_v1` com mão de obra, insumos e logística — o caminho de
+produção). O levantamento abre preenchido: 1 fase com 2 alocações, volume de
+tubulação, 9 produtos químicos dosados e os 4 slots de logística.
+
+Verificado ponta a ponta: `/api/proposals?base=4418` devolve a proposta com
+`nextRevision: 1`, `/api/cost-estimates?proposalCode=4418` devolve o payload
+completo, e `/historico` lista 1 proposta.
+
+> **Cross-check dos goldens.** O servidor recalcula o levantamento a partir do
+> payload e devolveu `salePrice` 129.660,62 e `totalCost` 46.840,16 — o mesmo
+> valor, ao centavo, que o golden 12 fixou rodando o motor isolado. Dois
+> caminhos independentes chegando ao mesmo número é evidência de que os goldens
+> representam o comportamento real do app, e não só o da função pura.
+
+**Limitação da baseline.** O fluxo "Nova proposta" (reserva de numeração) não
+pode ser capturado sem um `NECTAR_API_TOKEN` válido. As telas de criação a
+partir da revisão são idênticas — muda só o cabeçalho de modo — mas o passo de
+reserva do número fica sem baseline. Se você tiver um token de teste do Nectar,
+dá para capturar também; senão, isso entra como item conhecido na lista de
+desvios (E0-8).
+
 ## O que falta — e por que preciso de você
 
 Não tenho navegador neste ambiente. Consigo provar que o servidor responde e que
@@ -93,7 +133,12 @@ Com o servidor de pé e a sessão aberta, capturar em **duas larguras**:
 | Login | `/login` | Estado limpo e estado com erro de credencial |
 | Proposta | `/` | Cada uma das etapas do stepper |
 | Custos | `/custos` | Cada uma das 5 abas (Premissas, Mão de obra, Materiais e insumos, Mob. e desmob., Resumo e QQP) |
-| Histórico | `/historico` | Lista com e sem registro |
+| Histórico | `/historico` | Lista com registro |
+
+Para as telas de custos e proposta saírem com conteúdo, entre por
+**"Revisar proposta" → 4418**. Sem isso o formulário abre vazio e a baseline não
+serve para conferir espaçamento nem quebra em mobile, que é o motivo de ela
+existir.
 
 Salvar em `specs/009-modulo-comercial/contracts/baseline/` com o nome
 `<TELA>-<secao>-<largura>.png` — por exemplo `CUSTO-premissas-390.png`. Os
