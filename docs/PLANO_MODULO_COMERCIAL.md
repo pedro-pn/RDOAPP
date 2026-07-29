@@ -549,16 +549,16 @@ executável, a paridade vira opinião — e é ela que também gera os PDFs gold
 fluxo real.
 
 **Peça 3 — Amarrar no spec-kit, senão ele inventa.**
-`/speckit.specify` escreve a partir do prompt. Se o prompt for "reescrever o app
+`/speckit-specify` escreve a partir do prompt. Se o prompt for "reescrever o app
 comercial", ele produz requisitos genéricos, plausíveis e incompletos. Portanto:
 
-- rodar `/speckit.specify` **com o inventário como entrada**, declarando que a
+- rodar `/speckit-specify` **com o inventário como entrada**, declarando que a
   fonte da verdade é `contracts/ui-inventory.md` + o código de referência;
 - cada requisito funcional do `spec.md` cita os IDs do inventário que cobre;
-- `/speckit.checklist` gera `checklists/paridade-ux.md`, uma linha por
+- `/speckit-checklist` gera `checklists/paridade-ux.md`, uma linha por
   tela/fluxo/campo;
 - cada tarefa de UI no `tasks.md` referencia os IDs que precisa satisfazer;
-- `/speckit.analyze` roda ao final para achar item de inventário sem tarefa —
+- `/speckit-analyze` roda ao final para achar item de inventário sem tarefa —
   é exatamente o cruzamento que pega o que sumiu.
 
 **Peça 4 — Aceite por comparação lado a lado, não por opinião.**
@@ -591,7 +591,12 @@ oráculo.
 2. Congelar `~/comercialAPP` como referência: `git init` + commit, marcar
    somente-leitura. **Nenhum desenvolvimento novo lá.**
 3. Definir os nomes finais dos models (§4.2).
-4. Branch `feat/modulo-comercial` a partir de `main`.
+4. Branch `feat/modulo-comercial` a partir de `main`, criada **à mão**:
+   `git checkout -b feat/modulo-comercial`. Nenhum comando do spec-kit cria
+   branch aqui — `create-new-feature.sh` só faz isso através de um hook
+   `before_specify` em `.specify/extensions.yml`, arquivo que este repo não tem.
+   O nome da branch é livre: os comandos localizam a feature por
+   `.specify/feature.json`, não pelo branch (`common.sh`).
 5. **Gerar os arquivos de referência (goldens)** — pré-requisito de E5 e E7:
    - `lib/cost-model.ts` é TypeScript puro sem imports, então dá para executá-lo
      direto (`tsx`/`tsc`) num script que recebe N payloads representativos e
@@ -624,22 +629,35 @@ versionados e revisados; inventário revisado; lista de desvios aprovada.
 Este documento **não substitui** o fluxo exigido pela constitution. Módulo novo é
 feature de porte grande e DEVE passar por spec-kit com artefatos em `specs/`.
 
-1. `/speckit.specify` **tendo `contracts/ui-inventory.md` e os goldens como
+> Os comandos são skills em `.claude/skills/`, invocados com **hífen**
+> (`/speckit-specify`), não com ponto.
+>
+> `.specify/feature.json` aponta para a última feature trabalhada. Rodar
+> `/speckit-plan` ou qualquer comando seguinte **antes** do `/speckit-specify`
+> faz o spec-kit operar sobre a feature anterior. O `/speckit-specify` reescreve
+> esse ponteiro.
+>
+> O `/speckit-specify` cria o diretório com `mkdir -p` e não falha se ele já
+> existir — então os artefatos da E0 podem ser gravados em
+> `specs/009-modulo-comercial/contracts/` antes de ele rodar, que é justamente a
+> ordem exigida aqui.
+
+1. `/speckit-specify` **tendo `contracts/ui-inventory.md` e os goldens como
    entrada declarada** → cria `spec.md`. Este documento entra como
    insumo/`research.md`, não como spec.
-2. `/speckit.clarify` — fechar as questões em aberto da §9.
-3. `/speckit.plan` — gera `plan.md` com **Constitution Check** e
+2. `/speckit-clarify` — fechar as questões em aberto da §9.
+3. `/speckit-plan` — gera `plan.md` com **Constitution Check** e
    **Complexity Tracking** preenchidos a partir da §10.
-4. `/speckit.tasks` — gera `tasks.md`; as etapas E1–E11 viram tarefas numeradas,
+4. `/speckit-tasks` — gera `tasks.md`; as etapas E1–E11 viram tarefas numeradas,
    cada tarefa de UI citando os IDs do inventário que precisa satisfazer.
-5. `/speckit.checklist` — gera `checklists/paridade-ux.md` (§5.7, Peça 3).
-6. `/speckit.analyze` — cruza spec × tasks × inventário e aponta item sem
+5. `/speckit-checklist` — gera `checklists/paridade-ux.md` (§5.7, Peça 3).
+6. `/speckit-analyze` — cruza spec × tasks × inventário e aponta item sem
    cobertura. **Nenhum item de inventário pode ficar órfão.**
-7. **PR de emenda à constitution** (§10.1), com justificativa e aprovação do
-   mantenedor. Atualizar `.specify/memory/constitution.md` para 1.9.0 e o
-   Sync Impact Report; revisar se `plan-template.md`, `spec-template.md`,
-   `tasks-template.md` e `docs/PADRAO_MODULO.md` precisam refletir a exceção.
-8. Só então `implement`.
+7. ~~**PR de emenda à constitution** (§10.1)~~ — **concluído**. A emenda 1.9.0
+   (exceção de identidade portada no Princípio VI) foi mergeada na PR #138,
+   junto com a sincronização de `plan-template.md`, `spec-template.md`,
+   `tasks-template.md` e `docs/PADRAO_MODULO.md`. Nada a fazer nesta etapa.
+8. `/speckit-implement` — só então.
 
 **Aceite:** `specs/009-modulo-comercial/` completo, Constitution Check aprovado,
 `analyze` sem item de inventário descoberto e **emenda 1.9.0 mergeada**.
@@ -921,7 +939,7 @@ Com tudo no mesmo backend, o caminho encurta muito em relação ao plano anterio
 | PDF sair diferente ao trocar jsPDF por `pdf-lib` | Alto — documento vai ao cliente | Mesma Helvetica padrão nos dois; o risco se concentra no helper de quebra de linha. PDFs de referência gerados em E0 e comparados página a página no aceite de E5 |
 | Anotação em massa de `@@schema` mexer sem querer na operação | Médio | SQL da migration revisado à mão (não pode haver `ALTER` em tabela de `public`) + suíte do backend verde antes de seguir |
 | Telas grandes reprovando no `architecture:check` | Médio | Decomposição é requisito das etapas E7/E8, não polimento posterior |
-| **Perder campo, condição ou mensagem na reescrita da UI** | **Alto** — ~800 strings visíveis; ausência não gera erro, só some | Inventário extraído do código como oráculo, referência executável, `/speckit.analyze` cruzando inventário × tarefas, checklist de paridade na Definição de Pronto (§5.7) |
+| **Perder campo, condição ou mensagem na reescrita da UI** | **Alto** — ~800 strings visíveis; ausência não gera erro, só some | Inventário extraído do código como oráculo, referência executável, `/speckit-analyze` cruzando inventário × tarefas, checklist de paridade na Definição de Pronto (§5.7) |
 | Referência não subir localmente | Médio — tira a base de comparação | Bloqueio conhecido é um arquivo (§5.7, Peça 2); se persistir, cair para inventário + screenshots do que existir e registrar a perda de cobertura |
 | **Vazamento de CSS entre o módulo e o resto do app** | Alto — quebraria telas da operação | Escopo total sob `.comercial-app` e variáveis `--com-*`; verificação nos dois sentidos é critério de aceite de E6 |
 | **Emenda à constitution não ser aprovada** | Alto — invalida §5.6 e parte de E6/E7/E8 | Decidir em E-1, antes de qualquer código de UI. Se reprovada, volta o plano de reconstruir com o kit: +2 dias e a paridade visual deixa de ser critério |
@@ -969,7 +987,7 @@ são o caminho crítico.
 ## 9. Questões de produto — **todas respondidas** (ver §12.5)
 
 Ficam registradas aqui como enunciado; as respostas e o impacto no escopo estão
-na §12.5. Levar as duas coisas para o `spec.md` no `/speckit.specify`.
+na §12.5. Levar as duas coisas para o `spec.md` no `/speckit-specify`.
 
 1. **Quem enxerga custo e margem?** A tela de levantamento expõe custo interno,
    comissão de representante e margem. `comercial:viewer` vê isso ou só vê a
@@ -1109,7 +1127,7 @@ Além do aceite de cada etapa, vale a "Definição de pronto" de
       referência rodando
 - [ ] Comparação por screenshot das 3 telas em desktop e mobile sem diferença
       não explicada
-- [ ] `/speckit.analyze` sem item do inventário de UI descoberto
+- [ ] `/speckit-analyze` sem item do inventário de UI descoberto
 - [ ] Toda divergência em relação à referência é um dos 5 desvios aprovados
       (§5.7) — nenhuma divergência não listada
 - [ ] CSS do módulo totalmente escopado: nenhum vazamento nos dois sentidos
@@ -1165,7 +1183,7 @@ entre os 600.000 do seed e os 100.000 da constante.
 | Pendência | Trava | Quem resolve |
 |---|---|---|
 | ~~Emenda 1.9.0 (§10.1)~~ | ~~E6 em diante~~ | ✅ **aplicada em 2026-07-28** |
-| Perguntas da §9 | `/speckit.clarify` (E-1) | Mantenedor |
+| Perguntas da §9 | `/speckit-clarify` (E-1) | Mantenedor |
 | Nomes dos models (§4.2) | E3 | Padrão adotado se não houver objeção |
 | Ambiente (§12.1) | E0 | Desenvolvedor + operador (Docker) |
 
@@ -1179,7 +1197,8 @@ divergência numérica significa proposta com preço errado — e o único que n
 depende nem de a referência subir nem de decisão do mantenedor: `cost-model.ts`
 é TypeScript puro sem imports e roda direto.
 
-Em paralelo, o mantenedor toca a emenda e as respostas da §9.
+Em paralelo, o mantenedor toca as respostas da §9. (A emenda já saiu — ver E-1,
+passo 7.)
 
 ### 12.5 Decisões registradas
 
