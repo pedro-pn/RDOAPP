@@ -83,18 +83,53 @@ estiver errada, o documento precisa ser corrigido antes do spec-kit.
       têm **↑/↓**, sem arrastar?
 - [ ] **L6** — o app renderiza **verde**, e não azul?
 
-## Uma quinta coisa, achada agora
+## Resultado das confirmações
 
-`app/page.tsx:92` declara **7 etapas** e `globals.css` estilo `.stepper` usa
-`grid-template-columns: repeat(6, 1fr)`. A sétima etapa ("Revisão") deve quebrar
-para uma segunda linha.
+Capturas recebidas em 29/07/2026: 15 telas de desktop. Estão nesta pasta com o
+nome normalizado.
 
-- [ ] Confirmar na captura `PROP-cliente-1440.png` se o stepper quebra em duas
-      linhas.
+| Item | Resultado |
+|---|---|
+| **L6** — paleta verde | **Confirmado.** Toda a interface em verde; a paleta azul do `:root` da linha 26 é código morto, como previsto |
+| **L7** — mobile | **Confirmado, e pior que o previsto.** Não existe layout mobile: o desktop carrega no celular com rolagem horizontal. Virou lacuna L7 |
+| Stepper de 7 etapas | **Refutado.** Cabe em uma linha só |
 
-Se quebrar, é **defeito da referência, não identidade a preservar** — o porte
-corrige. Registrar na lista de desvios (E0-8) para ninguém reproduzir por
-engano achando que é proposital.
+### Correção: o stepper não quebra
+
+Eu havia levantado que `app/page.tsx:92` declara 7 etapas contra um
+`grid-template-columns: repeat(6, 1fr)`. **Estava errado**, e o erro foi de
+leitura minha: `globals.css` tem dois blocos `:root` conflitantes (lacuna L6) e a
+regra `repeat(6, 1fr)` está no **bloco morto**. O bloco ativo, depois da linha
+56, redefine `.stepper{grid-template-columns:repeat(7,1fr)}`.
+
+Não há defeito e não há nada a registrar na lista de desvios. Fica como lembrete
+de que, neste CSS, **toda regra tem de ser lida no bloco ativo** — a duplicação
+da L6 já produziu uma conclusão errada.
+
+## O que as capturas mostraram de novo
+
+- **`PROP-cliente-1440.png`** — o rodapé do formulário traz contador de
+  pendências ("Preencha 1 campo obrigatório") com o botão "Salvar e continuar"
+  desabilitado, e o cabeçalho avisa "Campos com * são obrigatórios". Existe,
+  portanto, bloqueio de avanço e contagem agregada — mas o campo pendente
+  (`Consultor de Vendas *`, `CNPJ *`) **não fica marcado**. Reforça a L1: o app
+  sabe o que falta e não mostra onde.
+- **`CUSTO-mao-de-obra-1440.png`** — a faixa de KPIs tem 7 cartões em linha e as
+  5 abas ficam numa tira horizontal. São os dois primeiros candidatos a overflow
+  quando a L7 for atacada.
+- A proposta semeada dispara a mensagem "Esta proposta foi gerada antes do
+  armazenamento completo dos campos", porque o seed deixa `company_id` e contato
+  vazios. É comportamento real da revisão de proposta antiga, útil de ter na
+  baseline.
+
+## Pendente
+
+- [ ] Capturas mobile — **não existem para capturar** (lacuna L7). Serão
+      produzidas pelo porte, não copiadas da referência.
+- [ ] Prioridade 2: `LOGIN-erro`, `CUSTO-erro-salvar`, `PROP-preview`
+- [ ] Confirmar **L3** (F5 na aba volta para "Premissas") e **L2** (listas de `/`
+      só com ↑/↓)
+- [ ] `roteiro.md` com o caminho clicável
 
 ## Roteiro clicável
 

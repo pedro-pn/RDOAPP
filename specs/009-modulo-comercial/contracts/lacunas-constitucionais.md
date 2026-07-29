@@ -25,6 +25,7 @@ continuam obrigatórios.
 | L4 | Sem tutorial permanente de primeiro acesso | todas | Média |
 | L5 | Login sem estado de campo inválido | `LOGIN` | Baixa |
 | L6 | Paleta em `:root` duplicado e sem prefixo | CSS | Alta |
+| L7 | Sem layout mobile: scroll horizontal de página | todas | Alta |
 
 ## L1 — Validação por campo inexistente na tela de custos
 
@@ -157,6 +158,55 @@ de `font-family` vence a variável, que ninguém consome. **As fontes Geist são
 baixadas e nunca usadas.** Isso confirma a decisão já registrada na §5.6 do
 plano: Geist não entra no porte, o chrome herda a fonte do filtroAPP e o
 documento mantém Arial.
+
+## L7 — Sem layout mobile: scroll horizontal de página
+
+**Evidência.** Verificação visual do mantenedor na baseline (E0-7): em largura de
+celular a página **carrega o layout de desktop e gera rolagem horizontal**. Não
+foi possível capturar uma versão mobile porque ela não existe.
+
+**Não é ausência total de CSS responsivo.** O `globals.css` tem 13 breakpoints
+(`max-width` de 520 a 1320 px), então houve trabalho de responsividade. O que
+quebra são **pisos de largura fixa**: 39 regras com `min-width` em pixel, das
+quais a mais grave é `.preview{min-width:390px}` — sozinha ela garante overflow
+em qualquer viewport de 390 px, porque não sobra espaço para padding nenhum.
+Outras: `min-width:370px`, `320px`, `300px`, `280px`, `260px`, e quatro de
+`190px` em `input`, além de `select{min-width:180px!important}`.
+
+Ou seja: a intenção responsiva existe, e os pisos fixos a anulam.
+
+**O que a constitution exige.** É explícito e a exceção de identidade portada
+**não dispensa**: UI mobile-first, tabela larga com alternativa mobile, modal com
+rodapé fixo, **ausência de scroll horizontal de página**, grade de cards caindo
+na largura útil de celular (`minmax(min(100%, ...), 1fr)`), filho de flex/grid
+podendo encolher (`min-width: 0`), e aba/filtro que envolve, rola internamente
+ou vira select no mobile — sem alargar a página.
+
+### Decisão do mantenedor: mobile fica para o fim
+
+Registrado: o app é majoritariamente de desktop, então a revisão mobile foi
+adiada para o fim do porte, mantendo a padronização visual do desktop.
+
+Isso é **sequenciamento, não dispensa** — segue sendo condição de aceite do
+módulo. Duas consequências que precisam estar no `tasks.md`:
+
+1. **Vira gate de release.** O `architecture-check.mjs` já cobra contrato visual,
+   e o módulo não pode ser considerado pronto com scroll horizontal de página.
+2. **Adiar não pode virar retrabalho.** Recriar layout responsivo no fim, sobre
+   465 controles e 15 tabelas, custa muito mais que construir com primitivas
+   seguras desde o começo.
+
+**Recomendação para não pagar duas vezes:** adiar o *ajuste fino* mobile, não as
+primitivas. Concretamente, ao escrever cada tela do porte (E4–E7):
+
+- nunca portar `min-width` em pixel de container — os 39 do original são a causa
+  raiz desta lacuna;
+- `min-width: 0` em filho de flex/grid desde o início;
+- tabela larga nascer dentro de container com `overflow-x: auto` próprio;
+- grade de cards com `minmax(min(100%, Npx), 1fr)`, nunca `repeat(N, 1fr)` fixo.
+
+Com isso a passada final de mobile é **ajuste de espaçamento e ordem**, não
+reescrita de layout. Sem isso, é reescrita.
 
 ## O que já existe e pode ser copiado
 
