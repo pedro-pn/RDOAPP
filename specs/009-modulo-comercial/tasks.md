@@ -112,9 +112,9 @@ nas duas pontas.
 - [ ] T009 [P] Copiar **sem alterar** `cost-model.ts` da referência para `shared/comercial/cost-model.ts`. É o arquivo que os 16 goldens verificam — qualquer edição aqui invalida a prova.
 - [ ] T010 [P] Copiar sem alterar `technical-services.ts` e `scope-content.ts` para `shared/comercial/`.
 - [ ] T011 [P] Copiar sem alterar `proposal-visuals.ts` e `nectar-pipelines.ts` para `shared/comercial/`.
-- [ ] T012 [P] Copiar sem alterar `finalization.ts` para `shared/comercial/finalization.ts` — contém os 4 estágios anunciados ao usuário (FR-032).
+- [ ] T012 [P] Copiar sem alterar `finalization.ts` para `shared/comercial/finalization.ts` — contém os 4 estágios anunciados ao usuário (FR-032).  ↳ `FR-032`
 - [ ] T013 Criar `shared/comercial/tsconfig.json` gerando `dist/` com `.js` + `.d.ts`, e ligar ao build do backend e do frontend.
-- [ ] T014 Escrever `backend/test/comercial-goldens.test.js` rodando os 16 cenários de `specs/009-modulo-comercial/contracts/goldens/` contra `shared/comercial/cost-model`. **Nunca regerar golden para fazer passar** — se falha, o defeito é do porte.
+- [ ] T014 Escrever `backend/test/comercial-goldens.test.js` rodando os 16 cenários de `specs/009-modulo-comercial/contracts/goldens/` contra `shared/comercial/cost-model`. **Nunca regerar golden para fazer passar** — se falha, o defeito é do porte.  ↳ `FR-007` `FR-008` `SC-002`
 
 **Checkpoint**: `npm run architecture:check` verde, card do módulo aparece no hub para quem tem papel, e os 16 goldens passam dígito a dígito.
 
@@ -127,20 +127,20 @@ antes desta fase fechar.**
 
 ### Banco e dois schemas `(E3)`
 
-- [ ] T015 Declarar `schemas = ["public", "comercial"]` no datasource de `backend/prisma/schema.prisma`.
+- [ ] T015 Declarar `schemas = ["public", "comercial"]` no datasource de `backend/prisma/schema.prisma`.  ↳ `FR-039`
 - [ ] T016 Escrever `scripts/annotate-prisma-schemas.mjs` que insere `@@schema("public")` em todo model e enum de `backend/prisma/schema.prisma` sem anotação (~100 models, ~40 enums). Edição mecânica de alto volume — à mão introduz erro silencioso.
-- [ ] T017 Declarar os models novos com `@@schema("comercial")` conforme [data-model.md](./data-model.md): `CostEstimate`, `CostEstimateVersion`, `Proposal`, `ProposalDocument`, `SalesAttribution`, `ProposalAuditLog`.
+- [ ] T017 Declarar os models novos com `@@schema("comercial")` conforme [data-model.md](./data-model.md): `CostEstimate`, `CostEstimateVersion`, `Proposal`, `ProposalDocument`, `SalesAttribution`, `ProposalAuditLog`.  ↳ `FR-039`
 - [ ] T018 Aplicar as conversões obrigatórias de tipo: dinheiro em `Decimal @db.Decimal(14,2)` e margem em `Decimal @db.Decimal(6,2)` — **nunca `Float`**, que produz centavo errado e aqui vira preço errado.
 - [ ] T019 Criar em `backend/prisma/schema.prisma` os índices de listagem: `(createdByUserId, createdAt)` em `CostEstimate` e `Proposal` — é a consulta da filtragem por autoria —, mais `(proposalCode, revisionNumber)` e `(status)`.
-- [ ] T020 Rodar `prisma migrate dev` e **revisar o SQL gerado**: deve conter `CREATE SCHEMA comercial` e `CREATE TABLE comercial.*`, e **nenhum `ALTER`** nas tabelas da operação. Se houver `ALTER`, parar e investigar.
-- [ ] T021 Criar em `backend/prisma/migrations/` a sequence de numeração do schema `comercial`, semeada acima do maior número existente **no CRM Nectar e em `CommercialProposal`**. O valor de partida é levantado uma vez e fica registrado na migration.
+- [ ] T020 Rodar `prisma migrate dev` e **revisar o SQL gerado**: deve conter `CREATE SCHEMA comercial` e `CREATE TABLE comercial.*`, e **nenhum `ALTER`** nas tabelas da operação. Se houver `ALTER`, parar e investigar.  ↳ `FR-040`
+- [ ] T021 Criar em `backend/prisma/migrations/` a sequence de numeração do schema `comercial`, semeada acima do maior número existente **no CRM Nectar e em `CommercialProposal`**. O valor de partida é levantado uma vez e fica registrado na migration.  ↳ `FR-035`
 - [ ] T022 [P] Escrever `shared/schemas/comercial.js` com o contrato Zod do payload `Json` do levantamento, e teste em `backend/test/`. Campo `Json` sem contrato validado vira depósito sem forma.
 - [ ] T023 Rodar a suíte existente `backend/test/*.test.js` — prova de que a anotação em massa não mexeu na operação.
 
 ### Controle de acesso `(E4/E5, pré-requisito)`
 
-- [ ] T024 Implementar `backend/lib/comercial/access.js` com verificação de autoria em **duas** entidades — `CostEstimate` e `Proposal` — e o helper de **filtro de listagem por autoria**. Middleware de papel sabe o papel, não sabe a autoria do registro alcançado.
-- [ ] T025 Implementar em `backend/lib/comercial/access.js` a **supressão de valores na origem** para `comercial:viewer`: `totalValue`, custo e margem **omitidos da serialização**, não ocultados no cliente. Valor que chega ao navegador não está restrito.
+- [ ] T024 Implementar `backend/lib/comercial/access.js` com verificação de autoria em **duas** entidades — `CostEstimate` e `Proposal` — e o helper de **filtro de listagem por autoria**. Middleware de papel sabe o papel, não sabe a autoria do registro alcançado.  ↳ `FR-029`
+- [ ] T025 Implementar em `backend/lib/comercial/access.js` a **supressão de valores na origem** para `comercial:viewer`: `totalValue`, custo e margem **omitidos da serialização**, não ocultados no cliente. Valor que chega ao navegador não está restrito.  ↳ `FR-030`
 
 ### Base visual do módulo `(E6)`
 
@@ -165,21 +165,21 @@ existir.
 ### Backend `(E4)`
 
 - [ ] T031 [US1] Implementar `backend/lib/comercial/cost-estimates.js`: salvar, versionar com hash do payload, atribuições de venda, buscar por id e por `proposalCode`.
-- [ ] T032 [US1] Implementar as rotas `GET|POST /api/comercial/levantamentos` em `backend/src/routes/comercial/`, sob `requireComercialEstimator`, com validação Zod e **filtro de autoria na listagem** (T024). Contrato em [contracts/api-contracts.md](./contracts/api-contracts.md).
-- [ ] T033 [US1] Implementar `GET|PUT /api/comercial/levantamentos/:id` com verificação de autoria: `comercial:seller` pedindo levantamento de outro autor recebe **403**, não `404` genérico nem tela vazia.
+- [ ] T032 [US1] Implementar as rotas `GET|POST /api/comercial/levantamentos` em `backend/src/routes/comercial/`, sob `requireComercialEstimator`, com validação Zod e **filtro de autoria na listagem** (T024). Contrato em [contracts/api-contracts.md](./contracts/api-contracts.md).  ↳ `FR-027`
+- [ ] T033 [US1] Implementar `GET|PUT /api/comercial/levantamentos/:id` com verificação de autoria: `comercial:seller` pedindo levantamento de outro autor recebe **403**, não `404` genérico nem tela vazia.  ↳ `FR-027a` `FR-030b`
 - [ ] T034 [US1] **Recalcular no servidor** com `calculateEstimate` no `POST`/`PUT`: os totais gravados são sempre os do servidor, nunca os enviados pelo cliente. É propriedade de segurança — impede forjar margem.
-- [ ] T035 [US1] Fazer o `422` devolver `issues: [{ path, message, severity }]` — **um item por pendência, com o endereço do campo**. `validateCostEstimate` já produz isso; a referência concatenava tudo numa string só e jogava o `path` fora.
-- [ ] T036 [US1] [P] Escrever `backend/test/comercial-levantamentos.test.js`: fluxo salvar → versionar → reler; recálculo no servidor ignorando totais forjados; e a numeração (não regride, não colide).
+- [ ] T035 [US1] Fazer o `422` devolver `issues: [{ path, message, severity }]` — **um item por pendência, com o endereço do campo**. `validateCostEstimate` já produz isso; a referência concatenava tudo numa string só e jogava o `path` fora.  ↳ `FR-009`
+- [ ] T036 [US1] [P] Escrever `backend/test/comercial-levantamentos.test.js`: fluxo salvar → versionar → reler; recálculo no servidor ignorando totais forjados; e a numeração (não regride, não colide).  ↳ `SC-010`
 
 ### Frontend — as 5 seções `(E7)`
 
-- [ ] T037 [US1] Criar o container `frontend/src/pages/comercial/custos/CustosPage.tsx` com a tira horizontal de 5 seções e o diálogo "Como deseja começar?" — cobre `CUSTO-CTL-001..027` e `CUSTO-H-001..017`. **As abas continuam livres**: a cadeia do rodapé guia, não prende.
+- [ ] T037 [US1] Criar o container `frontend/src/pages/comercial/custos/CustosPage.tsx` com a tira horizontal de 5 seções e o diálogo "Como deseja começar?" — cobre `CUSTO-CTL-001..027` e `CUSTO-H-001..017`. **As abas continuam livres**: a cadeia do rodapé guia, não prende.  ↳ `FR-001` `FR-002`
 - [ ] T038 [US1] [P] Implementar `custos/sections/PremissasSection.tsx` — `CUSTO-CTL-028..038`, com todos os rótulos, unidades, obrigatoriedades, valores padrão e máscaras do inventário.
 - [ ] T039 [US1] [P] Implementar `custos/sections/MaoDeObraSection.tsx` — `CUSTO-CTL-039..137` (99 controles).
 - [ ] T040 [US1] [P] Implementar `custos/sections/InsumosSection.tsx` — `CUSTO-CTL-138..228` (91 controles).
-- [ ] T041 [US1] [P] Implementar `custos/sections/LogisticaSection.tsx` — `CUSTO-CTL-229..394` (166 controles), incluindo o **espelhamento da desmobilização**.
+- [ ] T041 [US1] [P] Implementar `custos/sections/LogisticaSection.tsx` — `CUSTO-CTL-229..394` (166 controles), incluindo o **espelhamento da desmobilização**.  ↳ `FR-003`
 - [ ] T042 [US1] [P] Implementar `custos/sections/ResumoQQPSection.tsx` — `CUSTO-CTL-395..465`, com a faixa de 7 indicadores.
-- [ ] T043 [US1] Conferir os **541 textos** `CUSTO-TXT-001..541` item a item contra o inventário: erro, aviso, estado vazio e ajuda, sem reescrita.
+- [ ] T043 [US1] Conferir os **541 textos** `CUSTO-TXT-001..541` item a item contra o inventário: erro, aviso, estado vazio e ajuda, sem reescrita.  ↳ `FR-004` `SC-011`
 - [ ] T044 [US1] Implementar `frontend/src/pages/comercial/custos/CustosFooter.tsx` — o **rodapé-guia** com a cadeia de prioridade fixa — mão de obra → materiais e insumos → mob./desmob. → comissões → "Salvar levantamento e criar proposta →" —, com o botão mudando de texto **e de destino**. É o comportamento que o mantenedor confirmou usar na prática.
 - [ ] T045 [US1] Implementar `frontend/src/pages/comercial/custos/ConfirmarPropostaModal.tsx` — "Confirme a proposta", com as três saídas: confirmar o código, trocar para nova, informar outro número. **"Trocar para nova" é mantida** apesar de o mantenedor a considerar saída morta — remover quebraria a regra de aceite "se algo sumiu, é bug".
 - [ ] T046 [US1] Ligar os formulários de `frontend/src/pages/comercial/custos/sections/` a `react-hook-form` + `zodResolver` (T003), preservando o **recálculo ao vivo a cada tecla** — é calculadora, não CRUD, e está no Complexity Tracking.
@@ -187,9 +187,9 @@ existir.
 ### L1 — validação por campo
 
 - [ ] T047 [US1] **(L1)** Escrever o resolvedor de `path` → id de campo em `frontend/src/pages/comercial/custos/fieldPath.ts`, ligando cada `issue.path` do `422` ao seu controle nas 5 seções.
-- [ ] T048 [US1] **(L1)** Destacar **cada** campo pendente em vermelho via `.field-group.field-invalid` + `.field-error`, com `aria-invalid` e mensagem visível. O **banner-resumo no topo permanece**, com a contagem — o destaque é acréscimo, não substituição.
-- [ ] T049 [US1] **(L1)** Distinguir em `frontend/src/pages/comercial/components/Field.tsx` os **dois estados** da mensagem: vazio → "Campo obrigatório"; preenchido e inválido → "E-mail inválido" / "CNPJ inválido". Marcar sem distinguir resolve o *onde* e mantém o engano.
-- [ ] T050 [US1] [P] Escrever `frontend/test/comercial-validacao.test.mjs`: salvar com campo vazio marca o campo certo; campo inválido recebe mensagem de inválido, não de vazio.
+- [ ] T048 [US1] **(L1)** Destacar **cada** campo pendente em vermelho via `.field-group.field-invalid` + `.field-error`, com `aria-invalid` e mensagem visível. O **banner-resumo no topo permanece**, com a contagem — o destaque é acréscimo, não substituição.  ↳ `FR-010` `FR-012` `FR-014`
+- [ ] T049 [US1] **(L1)** Distinguir em `frontend/src/pages/comercial/components/Field.tsx` os **dois estados** da mensagem: vazio → "Campo obrigatório"; preenchido e inválido → "E-mail inválido" / "CNPJ inválido". Marcar sem distinguir resolve o *onde* e mantém o engano.  ↳ `FR-011`
+- [ ] T050 [US1] [P] Escrever `frontend/test/comercial-validacao.test.mjs`: salvar com campo vazio marca o campo certo; campo inválido recebe mensagem de inválido, não de vazio.  ↳ `SC-005`
 
 **Checkpoint**: US1 entregável isolada — precifica de ponta a ponta, com os goldens verdes.
 
@@ -207,37 +207,37 @@ da finalização.
 
 - [ ] T051 [US2] Implementar `backend/lib/comercial/proposals.js`: histórico, revisões e vínculo com o levantamento.
 - [ ] T052 [US2] Implementar `GET|POST /api/comercial/propostas` e `GET|PUT /api/comercial/propostas/:id`, com autoria (T024) e **a resposta variando por papel** (T025): `viewer` recebe a listagem sem `totalValue` e sem link do documento comercial.
-- [ ] T053 [US2] Implementar `GET /api/comercial/propostas/proximo-numero` consumindo a sequence do schema `comercial` (T021). **Não toca o Nectar** — cai a varredura de `next-number` da referência.
-- [ ] T053a [US2] Implementar `GET /api/comercial/propostas/:codigo/revisao` em `backend/lib/comercial/proposals.js`, devolvendo `base_number`, `nextRevision`, o vínculo com o CRM e **`snapshotAvailable`** (FR-064, FR-065). O caminho **sem snapshot é normal, não erro** — proposta antiga não pode falhar.
-- [ ] T053b [US2] Reutilizar o **card existente do CRM** quando houver vínculo salvo (FR-066), informando qual card e em qual funil. Sem vínculo, funil e card ficam para a última etapa.
+- [ ] T053 [US2] Implementar `GET /api/comercial/propostas/proximo-numero` consumindo a sequence do schema `comercial` (T021). **Não toca o Nectar** — cai a varredura de `next-number` da referência.  ↳ `FR-035`
+- [ ] T053a [US2] Implementar `GET /api/comercial/propostas/:codigo/revisao` em `backend/lib/comercial/proposals.js`, devolvendo `base_number`, `nextRevision`, o vínculo com o CRM e **`snapshotAvailable`** (FR-064, FR-065). O caminho **sem snapshot é normal, não erro** — proposta antiga não pode falhar.  ↳ `FR-064` `FR-065`
+- [ ] T053b [US2] Reutilizar o **card existente do CRM** quando houver vínculo salvo (FR-066), informando qual card e em qual funil. Sem vínculo, funil e card ficam para a última etapa.  ↳ `FR-066`
 - [ ] T054 [US2] [P] Escrever `backend/test/comercial-propostas.test.js` cobrindo criação, revisão e vínculo com levantamento.
 
 ### Frontend — as 7 etapas `(E8)`
 
-- [ ] T055 [US2] Criar o container `frontend/src/pages/comercial/proposta/PropostaPage.tsx` com o stepper de 7 etapas — `PROP-CTL-001..010` e `PROP-H-001..003`. O stepper cabe em uma linha só (confirmado na baseline).
+- [ ] T055 [US2] Criar o container `frontend/src/pages/comercial/proposta/PropostaPage.tsx` com o stepper de 7 etapas — `PROP-CTL-001..010` e `PROP-H-001..003`. O stepper cabe em uma linha só (confirmado na baseline).  ↳ `FR-001` `FR-002`
 - [ ] T056 [US2] Implementar `frontend/src/pages/comercial/proposta/PropostaFooter.tsx` com o contador de pendências e a trava de avanço: "Preencha N campo(s) obrigatório(s)" com o botão desabilitado. **Não dá para pular etapa incompleta.**
 - [ ] T057 [US2] [P] Implementar `proposta/steps/ClienteStep.tsx` — `PROP-CTL-011..025`. Trava: proposta, cliente, contato, **e-mail válido**, **CNPJ válido**, site, consultor de vendas, orçamentista.
 - [ ] T058 [US2] [P] Implementar `proposta/steps/EscopoStep.tsx` — `PROP-CTL-026..033`. Trava: título, e **todo** item de escopo com título *e* descrição.
-- [ ] T058a [US2] Implementar `frontend/src/pages/comercial/proposta/steps/ScopeContentEditor.tsx` — o **editor de blocos de conteúdo** de cada item de escopo, cobrindo `PROP-CTL-113..128`: incluir tabela, incluir fotos, legenda, remover, e as setas ↑/↓ de ordenação. **Este subsistema quase se perdeu**: os controles caíam na faixa da prévia porque o componente é definido depois dela no fonte.
-- [ ] T058b [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/scopePhoto.ts` a **otimização da imagem no cliente** (FR-048): recusar acima de 10 MB ou 24 megapixels; redimensionar para 1600 px no maior lado; achatar sobre fundo branco; recomprimir em qualidade 0,82 e, se ainda passar de 1,5 MB, em 0,64; recusar com o **nome do arquivo na mensagem** se ainda assim não couber.
-- [ ] T058c [US2] Aplicar em `ScopeContentEditor.tsx` os limites da referência (FR-046): **8 fotos** e **8 tabelas** por item, tabela com **6 colunas**, **40 linhas** e **300 caracteres** por célula, legenda de **240**. Controle desabilitado ao atingir o limite, com mensagem que o nomeia.
-- [ ] T058d [US2] Implementar em `ScopeContentEditor.tsx` o estado vazio e o texto de ajuda que anuncia os limites (FR-053), no texto da referência.
+- [ ] T058a [US2] Implementar `frontend/src/pages/comercial/proposta/steps/ScopeContentEditor.tsx` — o **editor de blocos de conteúdo** de cada item de escopo, cobrindo `PROP-CTL-113..128`: incluir tabela, incluir fotos, legenda, remover, e as setas ↑/↓ de ordenação. **Este subsistema quase se perdeu**: os controles caíam na faixa da prévia porque o componente é definido depois dela no fonte.  ↳ `FR-045`
+- [ ] T058b [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/scopePhoto.ts` a **otimização da imagem no cliente** (FR-048): recusar acima de 10 MB ou 24 megapixels; redimensionar para 1600 px no maior lado; achatar sobre fundo branco; recomprimir em qualidade 0,82 e, se ainda passar de 1,5 MB, em 0,64; recusar com o **nome do arquivo na mensagem** se ainda assim não couber.  ↳ `FR-047` `FR-048`
+- [ ] T058c [US2] Aplicar em `ScopeContentEditor.tsx` os limites da referência (FR-046): **8 fotos** e **8 tabelas** por item, tabela com **6 colunas**, **40 linhas** e **300 caracteres** por célula, legenda de **240**. Controle desabilitado ao atingir o limite, com mensagem que o nomeia.  ↳ `FR-046`
+- [ ] T058d [US2] Implementar em `ScopeContentEditor.tsx` o estado vazio e o texto de ajuda que anuncia os limites (FR-053), no texto da referência.  ↳ `FR-053`
 - [ ] T059 [US2] [P] Implementar `proposta/steps/ResponsabilidadesStep.tsx` — `PROP-CTL-034..042`. Trava: ao menos uma linha na matriz.
 - [ ] T060 [US2] [P] Implementar `proposta/steps/PrazosStep.tsx` — `PROP-CTL-043..048`. Trava: mobilização, permanência, execução, atendimento, jornada.
-- [ ] T061 [US2] [P] Implementar `proposta/steps/TecnicaStep.tsx` — `PROP-CTL-049..057`, com os requisitos condicionais dos serviços técnicos selecionados.
+- [ ] T061 [US2] [P] Implementar `proposta/steps/TecnicaStep.tsx` — `PROP-CTL-049..057`, com os requisitos condicionais dos serviços técnicos selecionados.  ↳ `FR-003`
 - [ ] T062 [US2] [P] Implementar `proposta/steps/ComercialStep.tsx` — `PROP-CTL-058..071`. Trava: ao menos um preço com descrição + unidade + valor, condição de pagamento, validade.
 - [ ] T063 [US2] [P] Implementar `proposta/steps/RevisaoStep.tsx` — `PROP-CTL-072..085`, com funil do Nectar e escolha de card.
-- [ ] T063a [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` os controles `PROP-CTL-080` ("Pasta existente no OneDrive") e `PROP-CTL-081` ("Arquivos adicionais do cliente"), com o texto de ajuda da referência.
+- [ ] T063a [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` os controles `PROP-CTL-080` ("Pasta existente no OneDrive") e `PROP-CTL-081` ("Arquivos adicionais do cliente"), com o texto de ajuda da referência.  ↳ `FR-057` `FR-058`
 - [ ] T064 [US2] Implementar a prévia lateral `proposta/Preview.tsx` — `PROP-CTL-086..137` e `PROP-H-004..022` (fac-símile). Abas Comercial/Técnica, contador de páginas, "Imprimir prévia". **Presente nas 7 etapas** e com **Arial/Helvetica preservada** — o documento não muda de fonte (desvio nº 5), então não tem desculpa para divergir.
-- [ ] T065 [US2] Preservar em `frontend/src/pages/comercial/proposta/Preview.tsx` o índice dos documentos: **13 itens no comercial, 10 no técnico**, na mesma ordem.
-- [ ] T066 [US2] Conferir os **330 textos** `PROP-TXT-001..330` item a item contra o inventário.
+- [ ] T065 [US2] Preservar em `frontend/src/pages/comercial/proposta/Preview.tsx` o índice dos documentos: **13 itens no comercial, 10 no técnico**, na mesma ordem.  ↳ `FR-005`
+- [ ] T066 [US2] Conferir os **330 textos** `PROP-TXT-001..330` item a item contra o inventário.  ↳ `FR-004` `SC-011`
 - [ ] T067 [US2] **(L1)** Aplicar a validação por campo às 7 etapas de `frontend/src/pages/comercial/proposta/steps/`, com "E-mail inválido"/"CNPJ inválido" distintos de "Campo obrigatório". **É o ponto de travamento mais provável do app**: o contador acusa pendência num campo visivelmente preenchido.
 
 ### L2 — reordenação
 
-- [ ] T068 [US2] **(L2)** Aplicar `frontend/src/utils/reorderDrag.ts` (auditado em T001) às **três** listas reordenáveis — itens de serviço do escopo, serviços técnicos e **blocos de conteúdo do `ScopeContentEditor` (T058a)** —, com alça dedicada, reordenação ao vivo, espaço indicando o destino, fantasma, cancelar restaurando a ordem inicial e persistência só ao soltar.
-- [ ] T069 [US2] **(L2)** Garantir o funcionamento em toque de `frontend/src/utils/reorderDrag.ts` nas três listas, via Pointer Events com `touch-action: none`.
-- [ ] T070 [US2] **(L2)** **Manter os botões ↑/↓** ao lado da alça em `frontend/src/pages/comercial/proposta/steps/EscopoStep.tsx` e `TecnicaStep.tsx`, com `aria-label`, como caminho de teclado — `PROP-CTL-029`, `PROP-CTL-030` e equivalentes. O desvio nº 6 é **acréscimo puro**: nenhum controle da referência é removido.
+- [ ] T068 [US2] **(L2)** Aplicar `frontend/src/utils/reorderDrag.ts` (auditado em T001) às **três** listas reordenáveis — itens de serviço do escopo, serviços técnicos e **blocos de conteúdo do `ScopeContentEditor` (T058a)** —, com alça dedicada, reordenação ao vivo, espaço indicando o destino, fantasma, cancelar restaurando a ordem inicial e persistência só ao soltar.  ↳ `FR-015` `FR-052`
+- [ ] T069 [US2] **(L2)** Garantir o funcionamento em toque de `frontend/src/utils/reorderDrag.ts` nas três listas, via Pointer Events com `touch-action: none`.  ↳ `FR-016`
+- [ ] T070 [US2] **(L2)** **Manter os botões ↑/↓** ao lado da alça em `frontend/src/pages/comercial/proposta/steps/EscopoStep.tsx` e `TecnicaStep.tsx`, com `aria-label`, como caminho de teclado — `PROP-CTL-029`, `PROP-CTL-030` e equivalentes. O desvio nº 6 é **acréscimo puro**: nenhum controle da referência é removido.  ↳ `FR-017`
 - [ ] T071 [US2] [P] Escrever `frontend/test/comercial-reorder.test.mjs` cobrindo o padrão compartilhado e o cancelamento.
 
 **Checkpoint**: US2 entregável — monta proposta completa, sem finalizar.
@@ -254,30 +254,30 @@ documentos e o registro no histórico.
 - [ ] T072 [US3] Implementar `backend/lib/comercial/proposal-pdf.js` — porte de `app/proposal-pdf.ts` para `pdf-lib`, com as primitivas traduzidas 1:1 e helper próprio de quebra de linha sobre `widthOfTextAtSize`.
 - [ ] T073 [US3] [P] Implementar `backend/lib/comercial/pdf-images.js` com `sharp` para o preparo das imagens.
 - [ ] T074 [US3] [P] Implementar `backend/lib/comercial/storage.js` — gravação e leitura em disco sob `COMERCIAL_DIR`.
-- [ ] T074a [US3] Implementar `POST /api/comercial/escopo/fotos` em `backend/src/routes/comercial/`, com a **cadeia de recusa completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 2 MB por requisição, arquivo ausente, tipo fora de JPEG/PNG/WebP, 1,5 MB por foto, e **assinatura de bytes** que não bate com o tipo declarado. Cada caso com a sua mensagem.
-- [ ] T074b [US3] Implementar em `backend/lib/comercial/scope-assets.js` a gravação sob `COMERCIAL_DIR` no padrão `escopo/AAAA/MM/<uuid>.<ext>`, guardando o nome original saneado, e o `GET /api/comercial/escopo/fotos/:id` com verificação de autoria. **As fotos sobrevivem às revisões** (FR-051).
-- [ ] T074c [US3] [P] Escrever `backend/test/comercial-escopo-fotos.test.js` cobrindo a cadeia de recusa — em especial **arquivo renomeado para `.jpg` que não é imagem**, recusado pela assinatura de bytes e não pelo nome.
-- [ ] T075 [US3] Implementar `POST /api/comercial/propostas/documentos`, gerando os dois PDFs e **gravando antes de qualquer tentativa de integração**.
+- [ ] T074a [US3] Implementar `POST /api/comercial/escopo/fotos` em `backend/src/routes/comercial/`, com a **cadeia de recusa completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 2 MB por requisição, arquivo ausente, tipo fora de JPEG/PNG/WebP, 1,5 MB por foto, e **assinatura de bytes** que não bate com o tipo declarado. Cada caso com a sua mensagem.  ↳ `FR-049` `FR-050`
+- [ ] T074b [US3] Implementar em `backend/lib/comercial/scope-assets.js` a gravação sob `COMERCIAL_DIR` no padrão `escopo/AAAA/MM/<uuid>.<ext>`, guardando o nome original saneado, e o `GET /api/comercial/escopo/fotos/:id` com verificação de autoria. **As fotos sobrevivem às revisões** (FR-051).  ↳ `FR-051` `FR-067`
+- [ ] T074c [US3] [P] Escrever `backend/test/comercial-escopo-fotos.test.js` cobrindo a cadeia de recusa — em especial **arquivo renomeado para `.jpg` que não é imagem**, recusado pela assinatura de bytes e não pelo nome.  ↳ `FR-049`
+- [ ] T075 [US3] Implementar `POST /api/comercial/propostas/documentos`, gerando os dois PDFs e **gravando antes de qualquer tentativa de integração**.  ↳ `FR-033`
 - [ ] T076 [US3] Implementar `backend/lib/comercial/jobs.js` — Nectar e SharePoint — e `POST /api/comercial/propostas/finalizar`, atualizando `integrationStatus` depois.
-- [ ] T076a [US3] Implementar `backend/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.
-- [ ] T076b [US3] Implementar em `backend/lib/comercial/cost-csv.js` os **dois formatos por versão de esquema** (FR-055), escolhidos pelo `schemaVersion` do levantamento: esquema 2 em diante e legado. **Proposta antiga não pode quebrar a finalização.**
+- [ ] T076a [US3] Implementar `backend/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.  ↳ `FR-054`
+- [ ] T076b [US3] Implementar em `backend/lib/comercial/cost-csv.js` os **dois formatos por versão de esquema** (FR-055), escolhidos pelo `schemaVersion` do levantamento: esquema 2 em diante e legado. **Proposta antiga não pode quebrar a finalização.**  ↳ `FR-055`
 - [ ] T076c [US3] Enviar a planilha junto com os dois PDFs em `backend/lib/comercial/jobs.js` — são **três** arquivos ao destino, não dois.
-- [ ] T076d [US3] Implementar `POST /api/comercial/propostas/:id/anexos` em `backend/src/routes/comercial/` e o model `ProposalAttachment` — os **arquivos adicionais do cliente** (`PROP-CTL-081`), que vão para a mesma pasta dos documentos. Um por requisição.
-- [ ] T076e [US3] Validar em `backend/lib/comercial/jobs.js` o **limite agregado** do envio (FR-059): dois PDFs + planilha + todos os anexos, somados. Validar cada um isoladamente deixa passar o conjunto.
-- [ ] T076f [US3] Aceitar a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional) em `backend/lib/comercial/jobs.js`: havendo valor, grava dentro dela em vez de criar pasta nova.
-- [ ] T077 [US3] **Contrato de falha (FR-034)** em `backend/lib/comercial/jobs.js`: se a integração falhar depois dos documentos gravados, a resposta é erro **mas informa que eles continuam disponíveis para download**, com os links. É comportamento da referência e precisa sobreviver ao porte — o trabalho não se perde.
-- [ ] T078 [US3] Implementar em `backend/lib/comercial/access.js` a permissão de finalização: o **autor** finaliza a sua, o **gestor** finaliza qualquer uma; `comercial:viewer` nunca.
-- [ ] T079 [US3] Implementar `GET /api/comercial/documentos/:id` com a regra de papel: `viewer` pedindo `COMERCIAL` recebe **403 na rota** — não é botão escondido. Liberar o PDF comercial contornaria a restrição de valores por outra porta.
-- [ ] T079a [US3] Implementar a **exclusividade da finalização** (FR-069) em `backend/lib/comercial/proposals.js`: verificar o estado **antes de gerar qualquer coisa** e devolver **409** informando **quando e por quem** foi finalizada. Sem isso, dois cliques com segundos de diferença geram dois pares de documentos, duas oportunidades no CRM e duas pastas — e as duas requisições respondem sucesso.
-- [ ] T079b [US3] Implementar o **aviso de escrita concorrente** (FR-070) em `backend/lib/comercial/access.js`: comparar o `updatedAt` carregado pelo cliente com o atual e devolver **409** nomeando quem alterou e quando. **Aviso, não trava** — o cliente decide recarregar ou prosseguir.
+- [ ] T076d [US3] Implementar `POST /api/comercial/propostas/:id/anexos` em `backend/src/routes/comercial/` e o model `ProposalAttachment` — os **arquivos adicionais do cliente** (`PROP-CTL-081`), que vão para a mesma pasta dos documentos. Um por requisição.  ↳ `FR-057`
+- [ ] T076e [US3] Validar em `backend/lib/comercial/jobs.js` o **limite agregado** do envio (FR-059): dois PDFs + planilha + todos os anexos, somados. Validar cada um isoladamente deixa passar o conjunto.  ↳ `FR-059`
+- [ ] T076f [US3] Aceitar a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional) em `backend/lib/comercial/jobs.js`: havendo valor, grava dentro dela em vez de criar pasta nova.  ↳ `FR-058`
+- [ ] T077 [US3] **Contrato de falha (FR-034)** em `backend/lib/comercial/jobs.js`: se a integração falhar depois dos documentos gravados, a resposta é erro **mas informa que eles continuam disponíveis para download**, com os links. É comportamento da referência e precisa sobreviver ao porte — o trabalho não se perde.  ↳ `FR-034`
+- [ ] T078 [US3] Implementar em `backend/lib/comercial/access.js` a permissão de finalização: o **autor** finaliza a sua, o **gestor** finaliza qualquer uma; `comercial:viewer` nunca.  ↳ `FR-028`
+- [ ] T079 [US3] Implementar `GET /api/comercial/documentos/:id` com a regra de papel: `viewer` pedindo `COMERCIAL` recebe **403 na rota** — não é botão escondido. Liberar o PDF comercial contornaria a restrição de valores por outra porta.  ↳ `FR-030a`
+- [ ] T079a [US3] Implementar a **exclusividade da finalização** (FR-069) em `backend/lib/comercial/proposals.js`: verificar o estado **antes de gerar qualquer coisa** e devolver **409** informando **quando e por quem** foi finalizada. Sem isso, dois cliques com segundos de diferença geram dois pares de documentos, duas oportunidades no CRM e duas pastas — e as duas requisições respondem sucesso.  ↳ `FR-069`
+- [ ] T079b [US3] Implementar o **aviso de escrita concorrente** (FR-070) em `backend/lib/comercial/access.js`: comparar o `updatedAt` carregado pelo cliente com o atual e devolver **409** nomeando quem alterou e quando. **Aviso, não trava** — o cliente decide recarregar ou prosseguir.  ↳ `FR-070`
 - [ ] T080 [US3] Registrar `ProposalAuditLog` em `backend/lib/comercial/proposals.js` nas duas ações irreversíveis — finalização e envio externo —, no padrão de `ReportAuditLog`.
-- [ ] T081 [US3] Implementar na tela os **4 estágios** anunciados ao usuário, na ordem da referência, a partir de `shared/comercial/finalization.ts`.
-- [ ] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.
-- [ ] T083 [US3] Implementar `frontend/src/pages/comercial/proposta/FinalizacaoPanel.tsx` com o download final: técnica + comercial juntas ou separadas.
-- [ ] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga registro** — não existe `DELETE`.
-- [ ] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.
-- [ ] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).
-- [ ] T085 [US3] [P] Escrever `backend/test/comercial-finalizacao.test.js`, incluindo o caso **integração falha depois dos PDFs prontos → documentos continuam baixáveis**.
+- [ ] T081 [US3] Implementar na tela os **4 estágios** anunciados ao usuário, na ordem da referência, a partir de `shared/comercial/finalization.ts`.  ↳ `FR-032`
+- [ ] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.  ↳ `FR-031`
+- [ ] T083 [US3] Implementar `frontend/src/pages/comercial/proposta/FinalizacaoPanel.tsx` com o download final: técnica + comercial juntas ou separadas.  ↳ `FR-033`
+- [ ] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga registro** — não existe `DELETE`.  ↳ `FR-060` `FR-061` `FR-063`
+- [ ] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.  ↳ `FR-062`
+- [ ] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).  ↳ `FR-068`
+- [ ] T085 [US3] [P] Escrever `backend/test/comercial-finalizacao.test.js`, incluindo o caso **integração falha depois dos PDFs prontos → documentos continuam baixáveis**.  ↳ `SC-009`
 
 **Checkpoint**: MVP completo. US1 + US2 + US3 entregam o produto.
 
@@ -290,14 +290,14 @@ documentos e o registro no histórico.
 **Independent Test**: preencher parcialmente, recarregar, e conferir que o estado volta
 pela URL e que o não salvo é oferecido de volta.
 
-- [ ] T086 [US4] **(L3)** Levar modo, base da proposta e seção ativa para o endereço em `/comercial/custos`, limpando parâmetros incompatíveis na troca. Hoje o F5 **volta ao diálogo de modo e apaga o levantamento inteiro** — captura em `contracts/baseline/L3-f5-perde-levantamento.png`.
-- [ ] T087 [US4] **(L3)** Levar a etapa ativa para o endereço em `/comercial/propostas`.
-- [ ] T088 [US4] **(L3)** Fazer o diálogo "Como deseja começar?" de `frontend/src/pages/comercial/custos/CustosPage.tsx` **não reaparecer** quando o modo já vem no endereço (FR-044) — ele serve para escolher o modo, não para confirmá-lo. Os dois passos (menu → diálogo) coexistem, sem atalho.
-- [ ] T089 [US4] **(L3)** Implementar o rascunho local em `frontend/src/pages/comercial/useLocalDraft.ts`: autossalvamento com *debounce*, chave por modo + código de proposta, **nas duas telas** — levantamento e proposta.
-- [ ] T090 [US4] **(L3)** Oferecer em `frontend/src/pages/comercial/useLocalDraft.ts` a recuperação **explicitamente** ("recuperar rascunho não salvo?") em vez de restaurar em silêncio. Restaurar sem avisar é pior que perder, porque o usuário não sabe o que está vendo.
-- [ ] T091 [US4] **(L3)** Descartar o rascunho de `frontend/src/pages/comercial/useLocalDraft.ts` ao salvar no servidor — não pode sobrar para reaparecer depois.
-- [ ] T092 [US4] **(L3)** Implementar `beforeunload` em `frontend/src/pages/comercial/useLocalDraft.ts`, nas duas telas, quando houver alteração pendente. *"Fechar a página sem querer"* é explícito no requisito, não só recarregar.
-- [ ] T093 [US4] [P] Escrever `frontend/test/comercial-rascunho.test.mjs`: estado volta pela URL, rascunho é oferecido e não aplicado sozinho, e é descartado ao salvar.
+- [ ] T086 [US4] **(L3)** Levar modo, base da proposta e seção ativa para o endereço em `/comercial/custos`, limpando parâmetros incompatíveis na troca. Hoje o F5 **volta ao diálogo de modo e apaga o levantamento inteiro** — captura em `contracts/baseline/L3-f5-perde-levantamento.png`.  ↳ `FR-018`
+- [ ] T087 [US4] **(L3)** Levar a etapa ativa para o endereço em `/comercial/propostas`.  ↳ `FR-018`
+- [ ] T088 [US4] **(L3)** Fazer o diálogo "Como deseja começar?" de `frontend/src/pages/comercial/custos/CustosPage.tsx` **não reaparecer** quando o modo já vem no endereço (FR-044) — ele serve para escolher o modo, não para confirmá-lo. Os dois passos (menu → diálogo) coexistem, sem atalho.  ↳ `FR-043` `FR-044`
+- [ ] T089 [US4] **(L3)** Implementar o rascunho local em `frontend/src/pages/comercial/useLocalDraft.ts`: autossalvamento com *debounce*, chave por modo + código de proposta, **nas duas telas** — levantamento e proposta.  ↳ `FR-019`
+- [ ] T090 [US4] **(L3)** Oferecer em `frontend/src/pages/comercial/useLocalDraft.ts` a recuperação **explicitamente** ("recuperar rascunho não salvo?") em vez de restaurar em silêncio. Restaurar sem avisar é pior que perder, porque o usuário não sabe o que está vendo.  ↳ `FR-020`
+- [ ] T091 [US4] **(L3)** Descartar o rascunho de `frontend/src/pages/comercial/useLocalDraft.ts` ao salvar no servidor — não pode sobrar para reaparecer depois.  ↳ `FR-021`
+- [ ] T092 [US4] **(L3)** Implementar `beforeunload` em `frontend/src/pages/comercial/useLocalDraft.ts`, nas duas telas, quando houver alteração pendente. *"Fechar a página sem querer"* é explícito no requisito, não só recarregar.  ↳ `FR-022`
+- [ ] T093 [US4] [P] Escrever `frontend/test/comercial-rascunho.test.mjs`: estado volta pela URL, rascunho é oferecido e não aplicado sozinho, e é descartado ao salvar.  ↳ `SC-006`
 
 ---
 
@@ -308,11 +308,11 @@ pela URL e que o não salvo é oferecido de volta.
 **Independent Test**: entrar com usuário que nunca abriu o módulo — tutorial aparece uma
 vez, é dispensável e não volta sozinho.
 
-- [ ] T094 [US5] Implementar o menu de entrada `frontend/src/pages/comercial/ComercialPage.tsx` (**desvio nº 9**) com dois cartões — levantar custos e ver/criar propostas —, reusando a linguagem de cartões de `frontend/src/pages/HubPage.tsx`. **Sem baseline visual**: não existe na referência para ser fotografado.
-- [ ] T095 [US5] Ocultar em `frontend/src/pages/hubModules.ts` o card do módulo no hub do filtroAPP para quem não tem nenhum dos três papéis.
-- [ ] T096 [US5] **(L4)** Implementar o **tutorial permanente de primeiro acesso** com `driver.js`, dispensável e rechamável, sem reaparecer sozinho. O marcador de "já viu" é **por usuário, persistido no servidor** (FR-025a) — não em `localStorage`, senão dois usuários da mesma máquina compartilham o marcador e o mesmo usuário vê o tutorial de novo em outro computador. **`localStorage` fica só para a campanha de novidade** (FR-025b): o tutorial acompanha a pessoa, a campanha acompanha o dispositivo. Módulo novo mantém onboarding permanente — a campanha de novidade de 10 dias é para função nova dentro de módulo existente, não se aplica.
-- [ ] T097 [US5] **(L4)** Escrever o roteiro do tutorial a partir de `contracts/baseline/roteiro.md`, cobrindo no mínimo: (a) a **cadeia de prioridade do rodapé** de `/comercial/custos`, que é o caminho que o mantenedor confirmou usar; (b) a **armadilha de e-mail/CNPJ inválido** da etapa 1.
-- [ ] T098 [US5] **(L5)** Corrigir `frontend/src/pages/LoginPage.tsx` do filtroAPP para usar `.field-group.field-invalid` + `.field-error` + `aria-invalid` em campo obrigatório vazio. **Hoje tem zero `aria-invalid`.** O módulo reusa este login, e o template exige que dívida na fonte seja corrigida **na fonte** — não contornada no módulo. Beneficia o app inteiro.
+- [ ] T094 [US5] Implementar o menu de entrada `frontend/src/pages/comercial/ComercialPage.tsx` (**desvio nº 9**) com dois cartões — levantar custos e ver/criar propostas —, reusando a linguagem de cartões de `frontend/src/pages/HubPage.tsx`. **Sem baseline visual**: não existe na referência para ser fotografado.  ↳ `FR-023` `FR-043`
+- [ ] T095 [US5] Ocultar em `frontend/src/pages/hubModules.ts` o card do módulo no hub do filtroAPP para quem não tem nenhum dos três papéis.  ↳ `FR-024`
+- [ ] T096 [US5] **(L4)** Implementar o **tutorial permanente de primeiro acesso** com `driver.js`, dispensável e rechamável, sem reaparecer sozinho. O marcador de "já viu" é **por usuário, persistido no servidor** (FR-025a) — não em `localStorage`, senão dois usuários da mesma máquina compartilham o marcador e o mesmo usuário vê o tutorial de novo em outro computador. **`localStorage` fica só para a campanha de novidade** (FR-025b): o tutorial acompanha a pessoa, a campanha acompanha o dispositivo. Módulo novo mantém onboarding permanente — a campanha de novidade de 10 dias é para função nova dentro de módulo existente, não se aplica.  ↳ `FR-025` `FR-025a` `FR-025b`
+- [ ] T097 [US5] **(L4)** Escrever o roteiro do tutorial a partir de `contracts/baseline/roteiro.md`, cobrindo no mínimo: (a) a **cadeia de prioridade do rodapé** de `/comercial/custos`, que é o caminho que o mantenedor confirmou usar; (b) a **armadilha de e-mail/CNPJ inválido** da etapa 1.  ↳ `FR-026`
+- [ ] T098 [US5] **(L5)** Corrigir `frontend/src/pages/LoginPage.tsx` do filtroAPP para usar `.field-group.field-invalid` + `.field-error` + `aria-invalid` em campo obrigatório vazio. **Hoje tem zero `aria-invalid`.** O módulo reusa este login, e o template exige que dívida na fonte seja corrigida **na fonte** — não contornada no módulo. Beneficia o app inteiro.  ↳ `FR-013`
 - [ ] T098a [US5] Registrar em `specs/009-modulo-comercial/contracts/ui-inventory.md` que `LOGIN-CTL-001..007`, `LOGIN-H-001` e `LOGIN-TXT-001..012` **não são portados**, com o motivo: o módulo reusa o login do filtroAPP, premissa desde o início do projeto. Sem esse registro o `/speckit-analyze` os acusa como itens órfãos — e o silêncio deles não pode ser confundido com esquecimento.
 
 ---
@@ -329,10 +329,10 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 > `comercial:seller`. Um cadastro paralelo seria uma segunda verdade para alguém
 > esquecer de atualizar.
 
-- [ ] T099 [US6] Implementar `GET /api/comercial/consultores` em `backend/lib/comercial/consultores.js`, derivando a lista dos **usuários ativos com o papel `comercial:seller`**. Sem `POST`, `PUT` nem `DELETE`.
-- [ ] T100 [US6] Fazer a resposta de `backend/lib/comercial/consultores.js` **variar por papel** (FR-041b): `comercial:manager` recebe a lista completa; `comercial:seller` recebe **apenas ele mesmo**. Filtrar no cliente não serve — um vendedor não deve nem receber os nomes dos outros.
-- [ ] T101 [US6] Gravar `sellerUserId` **e** `sellerName` em `Proposal` (`backend/lib/comercial/proposals.js`): o nome é o do **momento da emissão**. Desativar ou renomear um usuário **não altera proposta já emitida** — o PDF já foi ao cliente com aquele nome.
-- [ ] T102 [US6] [P] Ligar o campo `PROP-CTL-016` em `frontend/src/pages/comercial/proposta/steps/ClienteStep.tsx` à rota derivada, **pré-selecionando** a única opção quando o usuário é `comercial:seller`. O controle continua o mesmo `SelectField` do inventário — muda o conjunto de opções, não o elemento. Espelha o que a referência já faz com o orçamentista (`PROP-CTL-018`, preenchido pelo login).
+- [ ] T099 [US6] Implementar `GET /api/comercial/consultores` em `backend/lib/comercial/consultores.js`, derivando a lista dos **usuários ativos com o papel `comercial:seller`**. Sem `POST`, `PUT` nem `DELETE`.  ↳ `FR-041`
+- [ ] T100 [US6] Fazer a resposta de `backend/lib/comercial/consultores.js` **variar por papel** (FR-041b): `comercial:manager` recebe a lista completa; `comercial:seller` recebe **apenas ele mesmo**. Filtrar no cliente não serve — um vendedor não deve nem receber os nomes dos outros.  ↳ `FR-041b`
+- [ ] T101 [US6] Gravar `sellerUserId` **e** `sellerName` em `Proposal` (`backend/lib/comercial/proposals.js`): o nome é o do **momento da emissão**. Desativar ou renomear um usuário **não altera proposta já emitida** — o PDF já foi ao cliente com aquele nome.  ↳ `FR-041a`
+- [ ] T102 [US6] [P] Ligar o campo `PROP-CTL-016` em `frontend/src/pages/comercial/proposta/steps/ClienteStep.tsx` à rota derivada, **pré-selecionando** a única opção quando o usuário é `comercial:seller`. O controle continua o mesmo `SelectField` do inventário — muda o conjunto de opções, não o elemento. Espelha o que a referência já faz com o orçamentista (`PROP-CTL-018`, preenchido pelo login).  ↳ `FR-041b`
 
 ---
 
@@ -340,16 +340,16 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
 ### L7 — layout mobile `(E8.5)`
 
-- [ ] T103 **(L7)** Escrever o layout mobile das 4 telas. A referência **não tem layout mobile** para portar — 39 regras de `min-width` em pixel, a pior `.preview{min-width:390px}`. **Em largura de celular não há paridade pixel-a-pixel a perseguir**; o desktop continua pixel-a-pixel.
+- [ ] T103 **(L7)** Escrever o layout mobile das 4 telas. A referência **não tem layout mobile** para portar — 39 regras de `min-width` em pixel, a pior `.preview{min-width:390px}`. **Em largura de celular não há paridade pixel-a-pixel a perseguir**; o desktop continua pixel-a-pixel.  ↳ `FR-036`
 - [ ] T104 **(L7)** Resolver em `frontend/src/styles/comercial.css` os dois estouros conhecidos: a **faixa de 7 indicadores de custo** e a **tira de 5 seções** — quebrar, rolar internamente por design, ou virar `select`/menu mobile, sem alargar a página.
-- [ ] T105 **(L7)** Converter em `frontend/src/styles/comercial.css` as tabelas largas em cards empilhados em tela estreita, com valores monetários, status e ações quebrando ou truncando **sem alargar o card**.
+- [ ] T105 **(L7)** Converter em `frontend/src/styles/comercial.css` as tabelas largas em cards empilhados em tela estreita, com valores monetários, status e ações quebrando ou truncando **sem alargar o card**.  ↳ `FR-037` `FR-038`
 - [ ] T106 **(L7)** Remover de `frontend/src/styles/comercial.css` a `min-width` em pixel da prévia lateral — é a regra que sozinha estoura qualquer viewport de 390 px.
-- [ ] T107 [P] Escrever `frontend/test/comercial-mobile.test.mjs` verificando **zero rolagem horizontal de página** nas 4 telas em 390 px.
+- [ ] T107 [P] Escrever `frontend/test/comercial-mobile.test.mjs` verificando **zero rolagem horizontal de página** nas 4 telas em 390 px.  ↳ `SC-004`
 
 ### Testes e CI `(E9)`
 
-- [ ] T108 Escrever `backend/test/comercial-permissoes.test.js` com a **matriz completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 3 papéis × 2 entidades × (criar, ler, editar, finalizar), mais documentos.
-- [ ] T109 Escrever em `backend/test/comercial-permissoes.test.js` o caso crítico da matriz: **`seller` A lendo a listagem enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e não no índice, este é o único teste que pega — e é o vazamento mais provável.
+- [ ] T108 Escrever `backend/test/comercial-permissoes.test.js` com a **matriz completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 3 papéis × 2 entidades × (criar, ler, editar, finalizar), mais documentos.  ↳ `FR-027b` `SC-008`
+- [ ] T109 Escrever em `backend/test/comercial-permissoes.test.js` o caso crítico da matriz: **`seller` A lendo a listagem enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e não no índice, este é o único teste que pega — e é o vazamento mais provável.  ↳ `SC-008a`
 - [ ] T110 Escrever em `backend/test/comercial-permissoes.test.js` o caso `viewer` pedindo documento `COMERCIAL` → **403 na rota**, e `TECNICA` → 200.
 - [ ] T110a Escrever em `backend/test/comercial-concorrencia.test.js` os dois casos de concorrência: **finalizar proposta já finalizada → 409** com autor e data, e **salvar registro alterado por outro → 409** com aviso.
 - [ ] T110b [P] Escrever em `backend/test/comercial-permissoes.test.js` a prova de que **não existe rota de exclusão** em nenhuma superfície do módulo.
@@ -358,15 +358,15 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
 ### Aceite de paridade
 
-- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **9 desvios aprovados**. Divergência não listada é defeito, não escolha.
+- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **9 desvios aprovados**. Divergência não listada é defeito, não escolha.  ↳ `FR-006` `SC-003`
 - [ ] T114 Comparar as capturas de `contracts/baseline/*-1440.png` com as mesmas telas no módulo. **Diferença esperada e aceita**: a fonte do chrome (desvio nº 5) e o reflow que ela causa.
-- [ ] T115 Conferir os **616 controles e 916 textos** item a item contra `contracts/ui-inventory.md`, marcando o checklist de paridade. É item da Definição de Pronto, não conferência informal.
+- [ ] T115 Conferir os **616 controles e 916 textos** item a item contra `contracts/ui-inventory.md`, marcando o checklist de paridade. É item da Definição de Pronto, não conferência informal.  ↳ `SC-001`
 - [ ] T116 Rodar `/speckit-analyze` e resolver **todo** item de inventário órfão.
 
 ### Produção `(E10)`
 
 - [ ] T117 Escrever `deploy/COMERCIAL.md` com o **roteiro para o operador**: migration, `GRANT USAGE ON SCHEMA comercial`, envs novas em `backend/.env.production` (`chmod 600`), `client_max_body_size` e o vhost `comercial.filtrovali.com.br` → `app.filtrovali.com.br/comercial`. **Princípio I: nenhum comando de servidor é executado por agente — o roteiro é escrito, não rodado.**
-- [ ] T117a Registrar o tratamento de dados do módulo no **ROPA** (FR-056), com a retenção indefinida do FR-042 e a base legal. **Antes do go-live** — é obrigação de LGPD, não documentação opcional.
+- [ ] T117a Registrar o tratamento de dados do módulo no **ROPA** (FR-056), com a retenção indefinida do FR-042 e a base legal. **Antes do go-live** — é obrigação de LGPD, não documentação opcional.  ↳ `FR-042` `FR-056`
 - [ ] T118 [P] Incluir a pasta de `COMERCIAL_DIR` em `deploy/backup-prod.sh`, **incluindo as fotos de escopo**.
 - [ ] T119 Documentar em `deploy/COMERCIAL.md` a concessão de papéis: `comercial:manager` a Aliander e Erike, `comercial:seller` aos vendedores, `comercial:viewer` a quem só consulta.
 
