@@ -28,8 +28,8 @@ cada tarefa para preservar a ordem de execução acordada na §6 do
 | 1 — Setup | E1 + E2 | 2,75 |
 | 2 — Foundational | E3 + base da E6 | ~3 |
 | 3 — US1 levantamento | E4 + E7 | 12,5–13,5 |
-| 4 — US2 proposta | E5 + E8 (parcial) | ~8 |
-| 5 — US3 finalização | E5 + E8 (parcial) | ~5 |
+| 4 — US2 proposta | E5 + E8 (parcial) | ~10 |
+| 5 — US3 finalização | E5 + E8 (parcial) | ~6 |
 | 6 — US4 continuidade | L3, dentro de E7/E8 | 2,5 |
 | 7 — US5 entrada e onboarding | E6 + E8 | ~2 |
 | 8 — US6 lista de vendedores | E4 | ~0,25 |
@@ -54,15 +54,29 @@ o `/speckit-analyze` acusa item órfão, e ausência de campo não gera erro: s�
 | `CUSTO-H-001..017`, `CUSTO-TXT-001..541` | T038–T042, T043 |
 | `PROP-CTL-001..010` (shell e modo) | T055 |
 | `PROP-CTL-011..025` (E1 Cliente) | T057, T102 |
-| `PROP-CTL-026..033` (E2 Escopo) | T058 |
+| `PROP-CTL-026..033` **+ `113..128`** (E2 Escopo, incl. blocos de conteúdo) | T058, **T058a–T058d** |
 | `PROP-CTL-034..042` (E3 Responsabilidades) | T059 |
 | `PROP-CTL-043..048` (E4 Prazos) | T060 |
-| `PROP-CTL-049..057` (E5 Técnica) | T061 |
+| `PROP-CTL-049..057` **+ `098..112`** (E5 Técnica, incl. editor de serviços) | T061 |
 | `PROP-CTL-058..071` (E6 Comercial) | T062 |
-| `PROP-CTL-072..085` (E7 Revisão) | T063 |
-| `PROP-CTL-086..137` (prévia) | T064 |
+| `PROP-CTL-072..085` **+ `129..130`** (E7 Revisão, incl. funil e cards) | T063 |
+| `PROP-CTL-086..089` **+ `131..137`** (prévia) | T064 |
+| `PROP-CTL-090..097` (primitivas `Step`/`Field`/`Area`/`SelectField`) | T030 |
 | `PROP-H-001..003` (chrome), `PROP-H-004..022` (fac-símile) | T055, T064 |
-| `PROP-TXT-001..330` | T057–T064 |
+| `PROP-TXT-001..330` | T057–T064, T058a–T058d |
+
+> **Correção de 31/07 — as faixas não seguem a ordem do arquivo.** A primeira versão
+> desta tabela mapeou `PROP-CTL-086..137` inteiro para a prévia, porque esses IDs vêm
+> depois dela **no fonte**. Só que ali estão **definições de componente**, e cada uma
+> renderiza em outro lugar: `ScopeContentEditor` (`113..128`) é a **etapa 2**,
+> `TechnicalServicesEditor` (`098..112`) é a **etapa 5**, `PipelineSelector` e
+> `OpportunityList` (`129..130`) são a **etapa 7**, e as primitivas (`090..097`) valem
+> para todas. Só `086..089` e `131..137` são prévia de verdade.
+>
+> **Foi esse erro que escondeu o subsistema de blocos de conteúdo** (tabelas e fotos do
+> escopo): os 16 controles estavam "cobertos" por uma tarefa que fala de abas e contador
+> de páginas. Cobertura por faixa prova que ninguém esqueceu de listar o controle — não
+> prova que alguém entendeu o que ele faz.
 | `HIST-CTL-001..007`, `HIST-H-001`, `HIST-TXT-001..033` | T084 |
 | `LOGIN-CTL-001..007`, `LOGIN-H-001`, `LOGIN-TXT-001..012` | **T098** — **não portados**, com motivo registrado |
 
@@ -202,6 +216,10 @@ da finalização.
 - [ ] T056 [US2] Implementar `frontend/src/pages/comercial/proposta/PropostaFooter.tsx` com o contador de pendências e a trava de avanço: "Preencha N campo(s) obrigatório(s)" com o botão desabilitado. **Não dá para pular etapa incompleta.**
 - [ ] T057 [US2] [P] Implementar `proposta/steps/ClienteStep.tsx` — `PROP-CTL-011..025`. Trava: proposta, cliente, contato, **e-mail válido**, **CNPJ válido**, site, consultor de vendas, orçamentista.
 - [ ] T058 [US2] [P] Implementar `proposta/steps/EscopoStep.tsx` — `PROP-CTL-026..033`. Trava: título, e **todo** item de escopo com título *e* descrição.
+- [ ] T058a [US2] Implementar `frontend/src/pages/comercial/proposta/steps/ScopeContentEditor.tsx` — o **editor de blocos de conteúdo** de cada item de escopo, cobrindo `PROP-CTL-113..128`: incluir tabela, incluir fotos, legenda, remover, e as setas ↑/↓ de ordenação. **Este subsistema quase se perdeu**: os controles caíam na faixa da prévia porque o componente é definido depois dela no fonte.
+- [ ] T058b [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/scopePhoto.ts` a **otimização da imagem no cliente** (FR-048): recusar acima de 10 MB ou 24 megapixels; redimensionar para 1600 px no maior lado; achatar sobre fundo branco; recomprimir em qualidade 0,82 e, se ainda passar de 1,5 MB, em 0,64; recusar com o **nome do arquivo na mensagem** se ainda assim não couber.
+- [ ] T058c [US2] Aplicar em `ScopeContentEditor.tsx` os limites da referência (FR-046): **8 fotos** e **8 tabelas** por item, tabela com **6 colunas**, **40 linhas** e **300 caracteres** por célula, legenda de **240**. Controle desabilitado ao atingir o limite, com mensagem que o nomeia.
+- [ ] T058d [US2] Implementar em `ScopeContentEditor.tsx` o estado vazio e o texto de ajuda que anuncia os limites (FR-053), no texto da referência.
 - [ ] T059 [US2] [P] Implementar `proposta/steps/ResponsabilidadesStep.tsx` — `PROP-CTL-034..042`. Trava: ao menos uma linha na matriz.
 - [ ] T060 [US2] [P] Implementar `proposta/steps/PrazosStep.tsx` — `PROP-CTL-043..048`. Trava: mobilização, permanência, execução, atendimento, jornada.
 - [ ] T061 [US2] [P] Implementar `proposta/steps/TecnicaStep.tsx` — `PROP-CTL-049..057`, com os requisitos condicionais dos serviços técnicos selecionados.
@@ -214,7 +232,7 @@ da finalização.
 
 ### L2 — reordenação
 
-- [ ] T068 [US2] **(L2)** Aplicar `frontend/src/utils/reorderDrag.ts` (auditado em T001) às **três** listas reordenáveis — itens de serviço do escopo, serviços técnicos e blocos de conteúdo —, com alça dedicada, reordenação ao vivo, espaço indicando o destino, fantasma, cancelar restaurando a ordem inicial e persistência só ao soltar.
+- [ ] T068 [US2] **(L2)** Aplicar `frontend/src/utils/reorderDrag.ts` (auditado em T001) às **três** listas reordenáveis — itens de serviço do escopo, serviços técnicos e **blocos de conteúdo do `ScopeContentEditor` (T058a)** —, com alça dedicada, reordenação ao vivo, espaço indicando o destino, fantasma, cancelar restaurando a ordem inicial e persistência só ao soltar.
 - [ ] T069 [US2] **(L2)** Garantir o funcionamento em toque de `frontend/src/utils/reorderDrag.ts` nas três listas, via Pointer Events com `touch-action: none`.
 - [ ] T070 [US2] **(L2)** **Manter os botões ↑/↓** ao lado da alça em `frontend/src/pages/comercial/proposta/steps/EscopoStep.tsx` e `TecnicaStep.tsx`, com `aria-label`, como caminho de teclado — `PROP-CTL-029`, `PROP-CTL-030` e equivalentes. O desvio nº 6 é **acréscimo puro**: nenhum controle da referência é removido.
 - [ ] T071 [US2] [P] Escrever `frontend/test/comercial-reorder.test.mjs` cobrindo o padrão compartilhado e o cancelamento.
@@ -233,8 +251,14 @@ documentos e o registro no histórico.
 - [ ] T072 [US3] Implementar `backend/lib/comercial/proposal-pdf.js` — porte de `app/proposal-pdf.ts` para `pdf-lib`, com as primitivas traduzidas 1:1 e helper próprio de quebra de linha sobre `widthOfTextAtSize`.
 - [ ] T073 [US3] [P] Implementar `backend/lib/comercial/pdf-images.js` com `sharp` para o preparo das imagens.
 - [ ] T074 [US3] [P] Implementar `backend/lib/comercial/storage.js` — gravação e leitura em disco sob `COMERCIAL_DIR`.
+- [ ] T074a [US3] Implementar `POST /api/comercial/escopo/fotos` em `backend/src/routes/comercial/`, com a **cadeia de recusa completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 2 MB por requisição, arquivo ausente, tipo fora de JPEG/PNG/WebP, 1,5 MB por foto, e **assinatura de bytes** que não bate com o tipo declarado. Cada caso com a sua mensagem.
+- [ ] T074b [US3] Implementar em `backend/lib/comercial/scope-assets.js` a gravação sob `COMERCIAL_DIR` no padrão `escopo/AAAA/MM/<uuid>.<ext>`, guardando o nome original saneado, e o `GET /api/comercial/escopo/fotos/:id` com verificação de autoria. **As fotos sobrevivem às revisões** (FR-051).
+- [ ] T074c [US3] [P] Escrever `backend/test/comercial-escopo-fotos.test.js` cobrindo a cadeia de recusa — em especial **arquivo renomeado para `.jpg` que não é imagem**, recusado pela assinatura de bytes e não pelo nome.
 - [ ] T075 [US3] Implementar `POST /api/comercial/propostas/documentos`, gerando os dois PDFs e **gravando antes de qualquer tentativa de integração**.
 - [ ] T076 [US3] Implementar `backend/lib/comercial/jobs.js` — Nectar e SharePoint — e `POST /api/comercial/propostas/finalizar`, atualizando `integrationStatus` depois.
+- [ ] T076a [US3] Implementar `backend/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.
+- [ ] T076b [US3] Implementar em `backend/lib/comercial/cost-csv.js` os **dois formatos por versão de esquema** (FR-055), escolhidos pelo `schemaVersion` do levantamento: esquema 2 em diante e legado. **Proposta antiga não pode quebrar a finalização.**
+- [ ] T076c [US3] Enviar a planilha junto com os dois PDFs em `backend/lib/comercial/jobs.js` — são **três** arquivos ao destino, não dois.
 - [ ] T077 [US3] **Contrato de falha (FR-034)** em `backend/lib/comercial/jobs.js`: se a integração falhar depois dos documentos gravados, a resposta é erro **mas informa que eles continuam disponíveis para download**, com os links. É comportamento da referência e precisa sobreviver ao porte — o trabalho não se perde.
 - [ ] T078 [US3] Implementar em `backend/lib/comercial/access.js` a permissão de finalização: o **autor** finaliza a sua, o **gestor** finaliza qualquer uma; `comercial:viewer` nunca.
 - [ ] T079 [US3] Implementar `GET /api/comercial/documentos/:id` com a regra de papel: `viewer` pedindo `COMERCIAL` recebe **403 na rota** — não é botão escondido. Liberar o PDF comercial contornaria a restrição de valores por outra porta.
@@ -330,7 +354,8 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 ### Produção `(E10)`
 
 - [ ] T117 Escrever `deploy/COMERCIAL.md` com o **roteiro para o operador**: migration, `GRANT USAGE ON SCHEMA comercial`, envs novas em `backend/.env.production` (`chmod 600`), `client_max_body_size` e o vhost `comercial.filtrovali.com.br` → `app.filtrovali.com.br/comercial`. **Princípio I: nenhum comando de servidor é executado por agente — o roteiro é escrito, não rodado.**
-- [ ] T118 [P] Incluir a pasta de `COMERCIAL_DIR` em `deploy/backup-prod.sh`.
+- [ ] T117a Registrar o tratamento de dados do módulo no **ROPA** (FR-056), com a retenção indefinida do FR-042 e a base legal. **Antes do go-live** — é obrigação de LGPD, não documentação opcional.
+- [ ] T118 [P] Incluir a pasta de `COMERCIAL_DIR` em `deploy/backup-prod.sh`, **incluindo as fotos de escopo**.
 - [ ] T119 Documentar em `deploy/COMERCIAL.md` a concessão de papéis: `comercial:manager` a Aliander e Erike, `comercial:seller` aos vendedores, `comercial:viewer` a quem só consulta.
 
 ---

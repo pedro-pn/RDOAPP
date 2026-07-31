@@ -178,13 +178,15 @@ backend/
     ├── proposal-pdf.js        # porte para pdf-lib
     ├── pdf-images.js          # sharp
     ├── storage.js             # disco sob COMERCIAL_DIR
+    ├── scope-assets.js        # fotos do escopo: assinatura de bytes, escopo/AAAA/MM/
+    ├── cost-csv.js            # planilha anexada à finalização
     └── jobs.js                # Nectar + SharePoint
 
 frontend/src/
 ├── pages/comercial/
 │   ├── ComercialPage.tsx      # menu de entrada (desvio nº 9)
 │   ├── custos/                # container + 5 seções
-│   ├── proposta/              # container + 7 etapas + prévia
+│   ├── proposta/              # container + 7 etapas + prévia + blocos de conteúdo
 │   └── historico/
 ├── styles/comercial.css       # escopado, --com-* em bloco único
 └── utils/reorderDrag.ts       # REUSO, após auditoria
@@ -221,18 +223,26 @@ estavam precificadas. Elas entram assim:
 | E2 | `shared/comercial` | 2 d | 2 d | — |
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d | — |
 | E4 | Backend — levantamentos, consultores, numeração | 3 d | **3,25 d** | autoria em `CostEstimate` + filtro na listagem, **menos** o CRUD de vendedores (a lista virou consulta) |
-| E5 | Backend — propostas, PDFs, integrações | 5,5 d | **6,25 d** | autoria em `Proposal` + **supressão de valores na origem** + bloqueio do link comercial |
+| E5 | Backend — propostas, PDFs, integrações | 5,5 d | **7,25 d** | autoria + supressão na origem + **rota de fotos do escopo** (+0,5 d) + **planilha de custos** (+0,5 d) |
 | E6 | Frontend — base, histórico, CSS, menu | 3–3,5 d | **3,25–3,75 d** | histórico variando por papel |
 | E7 | Frontend — levantamento de custos | 9–10 d | 9–10 d | L1 (+3 d), L3 (+1 d) |
-| E8 | Frontend — proposta | 9–10 d | **8,75–9,75 d** | L2 (+1,5 d), L4 (+1 d), L3 (+1,5 d), **menos** a tela de cadastro de vendedores |
+| E8 | Frontend — proposta | 9–10 d | **10,75–11,75 d** | L2, L4, L3, **mais o editor de blocos de conteúdo** (+2 d), **menos** a tela de vendedores |
 | **E8.5** | Passada de mobile sobre as 4 telas | 3–4 d | 3–4 d | L7 |
-| E9 | Testes e CI | 2,5 d | **3 d** | matriz de 3 papéis × 2 entidades, incl. listagem cruzada |
-| E10 | Produção | 1,5 d | 1,5 d | — |
-| | **Até produção** | 45,5–49,5 d | **47–51 d** | **+1,5 d** |
+| E9 | Testes e CI | 2,5 d | **3,25 d** | matriz de permissão + cadeia de recusa do upload |
+| E10 | Produção | 1,5 d | **1,75 d** | registro no ROPA |
+| | **Até produção** | 45,5–49,5 d | **50,5–54,5 d** | **+5 d** |
 | E11 | Substituir o import do Access | 3–5 d | 3–5 d | — |
 
-**≈ 47 a 51 dias úteis (~10 semanas).**
+**≈ 50,5 a 54,5 dias úteis (~11 semanas).**
 
+> **O `/speckit-analyze` achou um subsistema inteiro fora do escopo: +3,5 d.** Os blocos
+> de conteúdo do escopo — tabelas e **fotos**, com upload, otimização no cliente,
+> verificação de assinatura de bytes e 16 controles — não tinham requisito, rota, modelo
+> nem tarefa. Escaparam porque os controles caem numa faixa de ID que a tabela de
+> cobertura mandava para a prévia: o componente é **definido** depois dela no fonte, mas
+> **renderiza** na etapa 2. Junto vieram a planilha de custos da finalização (+0,5 d) e o
+> registro no ROPA (+0,25 d).
+>
 > A unificação de vendedor com usuário (31/07) **devolveu 0,75 d**: some o model, o
 > CRUD e a tela de cadastro, e entra uma consulta derivada. É a primeira decisão desta
 > série que reduz escopo em vez de aumentar.

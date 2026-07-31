@@ -157,6 +157,17 @@ um levantamento semeado, sem depender da finalização.
    funciona por teclado — as setas continuam existindo ao lado da alça.
 7. **Given** qualquer etapa, **When** o usuário observa a lateral, **Then** a prévia do
    documento está presente com as abas Comercial/Técnica e o contador de páginas.
+8. **Given** um item de escopo na etapa 2, **When** o orçamentista aciona "＋ Incluir
+   fotos", **Then** pode enviar até 8 imagens JPEG/PNG/WebP, cada uma com legenda.
+9. **Given** uma foto de 8 MB e 6000 px, **When** ela é selecionada, **Then** é
+   redimensionada para 1600 px no maior lado e recomprimida até caber em 1,5 MB — e só
+   é recusada, com o nome do arquivo na mensagem, se ainda assim não couber.
+10. **Given** um arquivo renomeado para `.jpg` que não é imagem, **When** o envio
+    acontece, **Then** o servidor recusa pela **assinatura de bytes**, não pelo nome.
+11. **Given** um item com 8 fotos, **When** o orçamentista tenta incluir a nona,
+    **Then** o controle está desabilitado e a mensagem informa o limite.
+12. **Given** uma proposta com fotos, **When** ela é revisada depois, **Then** as
+    imagens continuam lá — revisar não exige reenviar.
 
 ---
 
@@ -484,6 +495,49 @@ funcionalidade:
 - **FR-042**: As propostas DEVEM ser retidas por prazo indefinido, como registro
   comercial, com a entrada correspondente no registro de tratamento de dados.
 
+#### Blocos de conteúdo do escopo — tabelas e fotos
+
+Subsistema completo da referência (`ScopeContentEditor`, `PROP-CTL-113..128`), com rota
+própria (`app/api/scope-assets/route.ts`). Cada item de serviço do escopo pode ter
+tabelas e fotos próprias.
+
+- **FR-045**: Cada item de escopo DEVE aceitar **blocos de conteúdo** de dois tipos —
+  tabela e foto —, exibidos na ordem definida pelo usuário.
+- **FR-046**: Os limites da referência DEVEM ser preservados: **8 fotos** e **8 tabelas**
+  por item; tabela com no máximo **6 colunas**, **40 linhas** e **300 caracteres** por
+  célula; legenda de foto com até **240 caracteres**.
+- **FR-047**: O upload DEVE aceitar **JPEG, PNG e WebP**. O arquivo original NÃO PODE
+  passar de **10 MB** nem de **24 megapixels**.
+- **FR-048**: A imagem DEVE ser **otimizada antes do envio**: redimensionada para no
+  máximo **1600 px** no maior lado, achatada sobre fundo branco e recomprimida em
+  qualidade 0,82; se ainda passar de 1,5 MB, recomprimida em 0,64; se ainda assim
+  passar, **recusada com mensagem** que nomeia o arquivo.
+- **FR-049**: O servidor DEVE recusar arquivo cujo **conteúdo não corresponda ao tipo
+  declarado**, verificando a assinatura de bytes — não basta confiar no `Content-Type`.
+- **FR-050**: O servidor DEVE recusar envio acima de **1,5 MB** por foto e **2 MB** por
+  requisição, com mensagem específica para cada caso.
+- **FR-051**: As fotos DEVEM ser **preservadas para revisões futuras** — revisar uma
+  proposta não pode exigir reenviar as imagens.
+- **FR-052**: Os blocos de conteúdo DEVEM ser reordenáveis, com as setas ↑/↓ da
+  referência **mais** o arrastar exigido pela L2.
+- **FR-053**: O estado vazio DEVE informar que nenhuma tabela ou foto foi adicionada, e
+  o texto de ajuda DEVE anunciar os limites — como na referência.
+
+#### Planilha de custos anexada à finalização
+
+- **FR-054**: A finalização DEVE gerar a **planilha de custos do levantamento vinculado**
+  (`Levantamento de Custos - {código}.csv`) e enviá-la junto com os dois documentos.
+  Codificação **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas — é
+  o formato que o destino espera.
+- **FR-055**: A planilha DEVE ter **dois formatos por versão de esquema**: o do esquema
+  2 em diante e o legado, escolhidos pelo `schemaVersion` do levantamento. Proposta
+  antiga não pode quebrar a finalização.
+
+#### Proteção de dados
+
+- **FR-056**: O tratamento de dados do módulo DEVE ser registrado no **ROPA**, com a
+  retenção indefinida do FR-042, antes do go-live.
+
 #### Fluxo de entrada
 
 - **FR-043**: O menu de entrada e o diálogo de modo do levantamento DEVEM **coexistir
@@ -535,6 +589,9 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   `comercial:seller`. A lista da etapa Cliente é derivada dos usuários. A proposta
   guarda o vínculo **e o nome no momento da emissão**, para que desativar ou renomear
   o usuário não altere documento já emitido.
+- **Bloco de conteúdo de escopo**: tabela ou foto pertencente a um item de serviço, com
+  ordem própria. A foto tem arquivo, legenda e nome original; a tabela tem título,
+  colunas e linhas. **Sobrevive às revisões** — revisar não exige reenviar imagem.
 - **Numeração**: a sequência que atribui código novo, semeada acima do maior número
   existente nas duas origens.
 - **Registro de integração**: o estado de envio de cada documento aos sistemas externos,

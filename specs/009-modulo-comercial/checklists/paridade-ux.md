@@ -44,13 +44,19 @@ e ausência não aparece em revisão de código.
 
 - [ ] PAR-009 - `PROP-CTL-001..010` — shell, stepper de 7 etapas e diálogo de modo/revisão
 - [ ] PAR-010 - `PROP-CTL-011..025` — etapa 1 **Cliente** (15 controles)
-- [ ] PAR-011 - `PROP-CTL-026..033` — etapa 2 **Escopo** (8 controles)
+- [ ] PAR-011 - `PROP-CTL-026..033` — etapa 2 **Escopo**, parte inline (8 controles)
+- [ ] PAR-011a - `PROP-CTL-113..128` — etapa 2, **editor de blocos de conteúdo** (16 controles): incluir tabela, incluir fotos, legenda, remover, setas ↑/↓
+- [ ] PAR-011b - Limites: **8 fotos**, **8 tabelas**, **6 colunas**, **40 linhas**, **300 caracteres** por célula, **240** de legenda — com o controle desabilitado e a mensagem que nomeia o limite
+- [ ] PAR-011c - Otimização no cliente: recusa acima de 10 MB ou 24 megapixels, redimensiona para 1600 px, recomprime em 0,82 e depois 0,64, e **nomeia o arquivo** na mensagem de recusa
+- [ ] PAR-011d - Servidor recusa por **assinatura de bytes**: `.jpg` que não é imagem não entra
+- [ ] PAR-011e - As fotos **sobrevivem à revisão** — revisar não exige reenviar
 - [ ] PAR-012 - `PROP-CTL-034..042` — etapa 3 **Responsabilidades** (9 controles)
 - [ ] PAR-013 - `PROP-CTL-043..048` — etapa 4 **Prazos** (6 controles)
-- [ ] PAR-014 - `PROP-CTL-049..057` — etapa 5 **Técnica** (9 controles)
+- [ ] PAR-014 - `PROP-CTL-049..057` **+ `098..112`** — etapa 5 **Técnica**, incl. o editor de serviços (24 controles)
 - [ ] PAR-015 - `PROP-CTL-058..071` — etapa 6 **Comercial** (14 controles)
-- [ ] PAR-016 - `PROP-CTL-072..085` — etapa 7 **Revisão** (14 controles)
-- [ ] PAR-017 - `PROP-CTL-086..137` — **prévia** (52 controles), presente nas 7 etapas
+- [ ] PAR-016 - `PROP-CTL-072..085` **+ `129..130`** — etapa 7 **Revisão**, incl. funil e cards (16 controles)
+- [ ] PAR-017 - `PROP-CTL-086..089` **+ `131..137`** — **prévia** (11 controles), presente nas 7 etapas
+- [ ] PAR-017a - `PROP-CTL-090..097` — primitivas `Step`/`Field`/`Area`/`SelectField`, usadas por todas as etapas
 - [ ] PAR-018 - `PROP-H-001..003` — títulos do chrome
 - [ ] PAR-019 - `PROP-H-004..022` — **fac-símile do documento**: 13 itens no comercial, 10 no técnico, na mesma ordem
 - [ ] PAR-020 - `PROP-TXT-001..330` — todos os textos
@@ -77,6 +83,8 @@ e ausência não aparece em revisão de código.
 - [ ] PAR-030 - As validações pré-finalização, com **mensagem específica por problema**
 - [ ] PAR-031 - **Falha de integração após os PDFs prontos**: a mensagem informa que eles continuam disponíveis para download. O trabalho não se perde
 - [ ] PAR-032 - Download final: técnica + comercial juntas ou separadas
+- [ ] PAR-032a - A finalização envia **três** arquivos ao destino, não dois: os dois PDFs **mais a planilha de custos** `Levantamento de Custos - {código}.csv`, em UTF-8 com BOM e separador ponto e vírgula
+- [ ] PAR-032b - A planilha tem **dois formatos por versão de esquema** — proposta antiga não quebra a finalização
 - [ ] PAR-033 - Modal "Confirme a proposta" com as três saídas, **incluindo "Trocar para nova"** — mantida apesar de ser saída morta na prática, porque removê-la quebraria a regra "se algo sumiu, é bug"
 
 ---

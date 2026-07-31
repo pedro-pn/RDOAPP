@@ -132,6 +132,46 @@ comportamento da referência e precisa sobreviver ao porte.
 
 ---
 
+### `ScopeAsset` — foto de item de escopo
+
+Arquivo enviado para um item de serviço do escopo. **As tabelas não viram model** — vivem
+no `payload` da `Proposal`, como blocos, junto com a referência à foto e sua ordem.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | |
+| `storagePath` | `String` | caminho sob `COMERCIAL_DIR`, no padrão `escopo/AAAA/MM/<uuid>.<ext>` da referência |
+| `contentType` | `String` | `image/jpeg` \| `image/png` \| `image/webp` |
+| `originalName` | `String` | nome original saneado |
+| `byteSize` | `Int` | máximo **1.500.000** |
+| `createdByUserId` | `String` | |
+| `createdAt` | `DateTime` | |
+
+**Por que a foto é model e a tabela não.** A foto é um arquivo com ciclo de vida próprio:
+é enviada antes de a proposta existir, precisa sobreviver a revisões (FR-051) e tem de
+ser alcançável por caminho. A tabela é dado estruturado que só faz sentido dentro da
+proposta.
+
+**Validação de conteúdo (FR-049)**: a **assinatura de bytes** tem de bater com o
+`contentType` declarado. Um `.jpg` que não é imagem é recusado pelo conteúdo, não pelo
+nome — confiar no `Content-Type` do cliente é confiar em quem envia.
+
+**Limites (FR-046, FR-047, FR-050)**, todos vindos da referência:
+
+| Limite | Valor |
+|---|---|
+| Fotos por item de escopo | 8 |
+| Tabelas por item de escopo | 8 |
+| Colunas por tabela | 6 |
+| Linhas por tabela | 40 |
+| Caracteres por célula | 300 |
+| Caracteres de legenda | 240 |
+| Arquivo original | 10 MB e 24 megapixels |
+| Arquivo após otimização | 1,5 MB |
+| Requisição | 2 MB |
+
+---
+
 ### `SalesAttribution` — representantes e indicações
 
 | Campo | Tipo | Notas |
@@ -246,6 +286,7 @@ entidade do domínio e tem ciclo de vida próprio (FR-019 a FR-022).
 | `ProposalDocument` — comercial | ✔ | as suas | **✗** |
 | Lista de consultores | completa | **só o próprio nome** | ✗ |
 | Custo, margem, valor | ✔ | os seus | **✗** |
+| `ScopeAsset` — enviar | ✔ | nas suas propostas | ✗ |
 
 Esta matriz é o oráculo dos testes de permissão da E9: **3 papéis × 2 entidades ×
 (criar, ler, editar, finalizar)**, mais o caso de leitura cruzada entre dois

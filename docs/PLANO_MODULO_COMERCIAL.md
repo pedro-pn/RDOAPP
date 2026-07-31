@@ -327,6 +327,36 @@ cost-model, com teste — o padrão exige contrato validado para campo `Json`.
 O padrão do repo reprova página acima de 700–900 linhas. As duas telas grandes
 **precisam** ser decompostas — isso não é refatoração opcional, é requisito de CI.
 
+### 5.2.1 Blocos de conteúdo do escopo — achado do `/speckit-analyze`
+
+Cada item de serviço do escopo pode ter **tabelas e fotos próprias**
+(`ScopeContentEditor`, `PROP-CTL-113..128`, mais `app/api/scope-assets/route.ts`). É um
+subsistema completo, e **ele não estava em lugar nenhum do levantamento**: nem requisito,
+nem rota, nem modelo, nem tarefa.
+
+**Por que escapou.** A tabela de cobertura do `tasks.md` mapeia faixas de ID para
+tarefas, e as faixas foram derivadas da **ordem de linha** no fonte. Só que
+`ScopeContentEditor` é **definido na linha 1319**, depois da prévia — e **renderiza na
+etapa 2**. Os 16 controles ficaram "cobertos" por uma tarefa que fala de abas e contador
+de páginas.
+
+> **A lição vale para o resto do porte.** Cobertura por faixa de ID prova que ninguém
+> esqueceu de *listar* o controle. Não prova que alguém entendeu o que ele faz. Em
+> arquivo de 1.760 linhas com componentes definidos no fim, ordem de definição ≠ ordem
+> de renderização.
+
+Faixas corrigidas: `090..097` são primitivas compartilhadas, `098..112` é a etapa 5,
+`113..128` é a etapa 2, `129..130` é a etapa 7, e só `086..089` + `131..137` são prévia.
+
+**Limites, todos da referência** (`app/scope-content.ts:37-41`): 8 fotos e 8 tabelas por
+item; 6 colunas, 40 linhas e 300 caracteres por célula; legenda de 240.
+
+**Pipeline da imagem**: o cliente recusa acima de 10 MB ou 24 megapixels, redimensiona
+para 1600 px no maior lado, achata sobre fundo branco e recomprime em 0,82 — e em 0,64
+se ainda passar de 1,5 MB. O servidor **revalida tudo**, incluindo a **assinatura de
+bytes** contra o tipo declarado. O cliente otimiza para caber; o servidor verifica porque
+o cliente pode ser contornado.
+
 ### 5.3 Geração do PDF passa para o backend
 
 **Problema do desenho atual.** O `finalize` recebe os dois PDFs (até 22 MB) em um
@@ -1028,14 +1058,14 @@ Com tudo no mesmo backend, o caminho encurta muito em relação ao plano anterio
 | E2 | `shared/comercial` (cópia + build + testes) | 2 d | 2 d |
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d |
 | E4 | Backend — levantamentos, consultores e numeração | 3 d | **3,25 d** (autoria + filtro; menos o CRUD de vendedores) |
-| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | **6,25 d** (autoria + supressão de valores na origem) |
+| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | **7,25 d** (autoria + supressão na origem + fotos do escopo + planilha de custos) |
 | E6 | Frontend — base, histórico e porte do CSS | 2 d | **3,25-3,75 d** (L6 + primitivas de mobile + menu + histórico por papel) |
 | E7 | Frontend — levantamento de custos | 5-6 d | **9-10 d** (L1 +3 d, L3 +1 d) |
-| E8 | Frontend — assistente da proposta | 5-6 d | **8,75-9,75 d** (L2 +1,5 d, L4 +1 d, L3 +1,5 d; menos a tela de vendedores) |
+| E8 | Frontend — assistente da proposta | 5-6 d | **10,75-11,75 d** (L2, L4, L3, mais o editor de blocos de conteúdo +2 d) |
 | **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3-4 d** (L7) |
-| E9 | Testes e CI | 2 d | **3 d** (matriz de 3 papéis × 2 entidades) |
-| E10 | Produção (roteiro para o operador) | 1,5 d | 1,5 d |
-| | **Até produção** | 32-35,5 d | **47-51 dias úteis (~10 semanas)** |
+| E9 | Testes e CI | 2 d | **3,25 d** (matriz de permissão + cadeia de recusa do upload) |
+| E10 | Produção (roteiro para o operador) | 1,5 d | **1,75 d** (registro no ROPA) |
+| | **Até produção** | 32-35,5 d | **50,5-54,5 dias úteis (~11 semanas)** |
 | E11 | Substituir o import do Access | 3-5 d | 3-5 d |
 
 Ordem de execução: **E0 → E-1** → E1 → E2 → E3 → (E4 e E6 em paralelo) → E5 →
@@ -1084,6 +1114,13 @@ dobro.
 > De 47,75-51,75 para **47-51 d**: −0,75 d da unificação de vendedor com usuário
 > (§12.5.1). Somem o model, o CRUD e a tela de cadastro; entra uma consulta derivada.
 > **É a primeira decisão desta série que reduz escopo em vez de aumentar.**
+>
+> De 47-51 para **50,5-54,5 d**: +3,5 d dos **blocos de conteúdo do escopo** — tabelas e
+> fotos, com upload, otimização no cliente e verificação de assinatura de bytes —, mais
+> +0,5 d da planilha de custos anexada à finalização e +0,25 d do registro no ROPA.
+> **Nenhum dos três tinha requisito nem tarefa**; foram achados pelo `/speckit-analyze`.
+> Não é escopo novo: é escopo que já existia na referência e tinha escapado do
+> levantamento. Ver §5.2.1.
 
 ---
 

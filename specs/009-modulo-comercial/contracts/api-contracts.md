@@ -102,6 +102,12 @@ referência e precisa sobreviver ao porte.
 Os quatro estágios anunciados ao usuário vêm de `shared/comercial/finalization.ts`,
 copiado sem alterar.
 
+**Além dos dois PDFs, a finalização envia a planilha de custos** (FR-054):
+`Levantamento de Custos - {código}.csv`, em **UTF-8 com BOM**, separador **ponto e
+vírgula**, células entre aspas com aspas internas duplicadas. O conteúdo tem **dois
+formatos**, escolhidos pelo `schemaVersion` do levantamento vinculado — esquema 2 em
+diante, e legado (FR-055). Proposta antiga não pode quebrar a finalização.
+
 ### `GET /api/comercial/propostas/proximo-numero`
 
 `requireComercialEstimator`. Consome a sequence do schema `comercial` (D5). Não toca
@@ -119,6 +125,42 @@ o Nectar.
   nega. Liberar o PDF comercial contornaria o FR-030 por outra porta, porque ele traz
   tabela de preços, condições de pagamento e valor total.
 - `viewer` pedindo `TECNICA` → permitido.
+
+---
+
+## Fotos do escopo
+
+Porte de `app/api/scope-assets/route.ts` da referência.
+
+### `POST /api/comercial/escopo/fotos`
+
+`requireComercialEstimator`. `multipart/form-data`, campo `file`.
+
+**Cadeia de recusa**, na ordem, com mensagem própria para cada caso:
+
+| Condição | Status | Mensagem |
+|---|---|---|
+| requisição acima de 2 MB | **413** | "A foto processada excedeu o limite de envio." |
+| sem arquivo | **400** | "Selecione uma foto para o escopo." |
+| tipo fora de JPEG/PNG/WebP | **415** | "Use uma imagem JPEG, PNG ou WebP." |
+| arquivo vazio ou acima de 1,5 MB | **413** | "A foto processada deve ter no máximo 1,5 MB." |
+| **assinatura de bytes** não bate com o tipo | **415** | "O conteúdo do arquivo não corresponde a uma imagem válida." |
+
+A verificação de assinatura **não é opcional**: sem ela, qualquer arquivo renomeado para
+`.jpg` entra. Confiar no `Content-Type` é confiar em quem envia.
+
+Caminho de gravação no padrão da referência: `escopo/AAAA/MM/<uuid>.<ext>`, guardando o
+nome original saneado.
+
+### `GET /api/comercial/escopo/fotos/:id`
+
+`requireComercialEstimator` + autoria da proposta a que a foto pertence. As fotos
+**sobrevivem às revisões** (FR-051) — revisar não exige reenviar.
+
+> **A otimização acontece no cliente, antes do envio** (FR-048): redimensionar para
+> 1600 px no maior lado, achatar sobre fundo branco, recomprimir em 0,82 e, se ainda
+> passar de 1,5 MB, em 0,64. O servidor **não confia nisso** — revalida tudo. O cliente
+> otimiza para caber; o servidor verifica porque pode ser contornado.
 
 ---
 
@@ -164,6 +206,8 @@ Oráculo dos testes da E9. Cada célula é um caso:
 | `GET /documentos/:id` (técnica) | 200 | 200 | **403** | 200 |
 | `GET /documentos/:id` (comercial) | 200 | 200 | **403** | **403** |
 | `GET /consultores` | lista completa | **só ele mesmo** | — | **403** |
+| `POST /escopo/fotos` | 201 | 201 | — | **403** |
+| `GET /escopo/fotos/:id` | 200 | 200 | **403** | **403** |
 
 O caso que mais importa e que passa despercebido: **`seller` A lendo a listagem
 enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e
