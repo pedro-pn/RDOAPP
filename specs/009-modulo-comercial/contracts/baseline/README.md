@@ -93,6 +93,24 @@ nome normalizado.
 | **L6** — paleta verde | **Confirmado.** Toda a interface em verde; a paleta azul do `:root` da linha 26 é código morto, como previsto |
 | **L7** — mobile | **Confirmado, e pior que o previsto.** Não existe layout mobile: o desktop carrega no celular com rolagem horizontal. Virou lacuna L7 |
 | Stepper de 7 etapas | **Refutado.** Cabe em uma linha só |
+| **L1** — erro em banner | **Confirmado** (31/07). Banner único, campos não marcados. Decisão: campo obrigatório vazio fica destacado em vermelho, no padrão `.field-invalid` do filtroAPP |
+| **L2** — só ↑/↓ | **Confirmado** (31/07). Não é possível arrastar. Decisão: arrastar igual ao filtroAPP, com fantasma e mostrando o novo local |
+| **L3** — F5 | **Confirmado, e pior que o previsto** (31/07). Ver abaixo |
+
+### L3: o F5 não volta para "Premissas" — volta para o começo
+
+`L3-f5-perde-levantamento.png` mostra o que acontece de verdade: o F5 reabre o
+diálogo **"Como deseja começar?"**. Não é a aba que se perde, é o levantamento
+inteiro.
+
+A causa está em `app/custos/page.tsx:64-72`: `estimateMode` nasce `null` (é o que
+reabre o diálogo) e `draft` volta ao payload padrão. O arquivo não tem nenhuma
+ocorrência de `localStorage`, `sessionStorage` ou `beforeunload` — não há
+autossalvamento nem confirmação de saída.
+
+Consequência: um F5 acidental no meio de um levantamento de 465 controles apaga
+tudo o que não foi salvo. A L3 subiu de gravidade Média para **Alta** e ganhou um
+segundo requisito (rascunho local), além do estado em URL que já estava previsto.
 
 ### Correção: o stepper não quebra
 
@@ -127,8 +145,7 @@ da L6 já produziu uma conclusão errada.
 - [ ] Capturas mobile — **não existem para capturar** (lacuna L7). Serão
       produzidas pelo porte, não copiadas da referência.
 - [ ] Prioridade 2: `LOGIN-erro`, `CUSTO-erro-salvar`, `PROP-preview`
-- [ ] Confirmar **L3** (F5 na aba volta para "Premissas") e **L2** (listas de `/`
-      só com ↑/↓)
+- [x] Confirmar **L1**, **L2** e **L3** — feito em 31/07/2026
 - [ ] `roteiro.md` com o caminho clicável
 
 ## Roteiro clicável

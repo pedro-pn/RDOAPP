@@ -67,10 +67,25 @@ na §5.7 mas não precificada na §8**. A lista completa:
 
 | Lacuna | Acréscimo | Onde |
 |---|---|---|
-| L1 | Validação por campo com `aria-invalid` e mensagem visível | `CUSTO` (465 controles) |
-| L3 | Seção e etapa em query param | `CUSTO`, `PROP` |
+| L1 | Campo inválido **destacado em vermelho** (`.field-invalid`) + `aria-invalid` e mensagem visível | `CUSTO` (465 controles) |
+| L3 | Modo, base e seção em query param **+ rascunho local**, para o F5 não apagar o levantamento | `CUSTO`, `PROP` |
 | L4 | Tutorial permanente de primeiro acesso + campanha de novidade de 10 dias | todas |
 | L5 | Estado de campo inválido no login | `LOGIN` |
+
+**Decidido por você em 31/07:** o campo obrigatório vazio fica destacado em
+vermelho, no padrão `.field-invalid` do filtroAPP (`base.css:4085-4102`: rótulo
+vermelho, borda vermelha, fundo `#fff5f5`). O banner único **não some** — vira
+resumo no topo, e cada pendência ganha endereço.
+
+**A L3 cresceu depois da confirmação na tela.** O documento previa "o F5 volta
+para Premissas". O que acontece é que **o F5 volta para o diálogo de escolha de
+modo e o levantamento inteiro se perde** — captura em
+`baseline/L3-f5-perde-levantamento.png`. `app/custos/page.tsx:64-72` monta
+`estimateMode` como `null` e `draft` como payload padrão, sem `localStorage`,
+`sessionStorage` nem `beforeunload`. Um F5 acidental em 465 controles apaga tudo.
+Por isso a L3 subiu para gravidade **Alta** e ganhou o rascunho local: a URL
+sozinha recupera o caminho "Revisar proposta" (dá para refazer o fetch), mas não
+recupera nem um "Levantar custos" começado do zero nem edições não salvas.
 
 São **acréscimos, não substituições**: nenhum comportamento da referência é
 removido por eles. A L1 é a mais séria — é a tela onde o preço é formado, e hoje
@@ -88,21 +103,32 @@ Nota da E0-6: as fontes Geist que o rascunho baixa **nunca são usadas** —
 `globals.css:26` fixa `font-family:Arial` e vence a variável do `layout.tsx:51`.
 O desvio é menor do que parecia: só o chrome muda, e o documento não muda nada.
 
-### 6. Drag and drop substitui os botões ↑/↓ — *novo*
+### 6. Drag and drop nas listas reordenáveis — *novo*
 
-Três listas reordenáveis em `app/page.tsx` (itens de serviço do escopo, serviços
-técnicos, blocos de conteúdo) usam par de botões ↑/↓. O app inteiro tem **zero**
+**Confirmado por você em 31/07:** só as setas funcionam, não é possível arrastar.
+**Decisão:** tem de dar para arrastar, igual ao filtroAPP, com fantasma e
+mostrando o novo local.
+
+Três listas em `app/page.tsx` (itens de serviço do escopo, serviços técnicos,
+blocos de conteúdo) usam par de botões ↑/↓. O app inteiro tem **zero**
 ocorrências de `onDrag`, `draggable`, `onPointerDown` ou `touch-action`.
 
-A constitution exige o padrão compartilhado: alça dedicada, reordenação ao vivo
-durante o arraste, placeholder com legenda de posição, fantasma visual,
-cancelamento restaurando a ordem inicial, persistência só da ordem final, e toque
-via Pointer Events.
+**A peça já existe no filtroAPP** — `frontend/src/utils/reorderDrag.ts`, em uso em
+quatro telas. Fantasma (`.app-reorder-drag-ghost`), destino marcado com
+placeholder tracejado e legenda **"Soltar aqui"** (`base.css:12194-12215`), alça
+com `aria-label`, toque por Pointer Events e rolagem na borda. É literalmente o
+comportamento pedido.
 
-**Este é o único desvio que remove um controle existente da referência.** Por
-isso vale a pena ser explícito: os ↑/↓ somem. Se você quiser mantê-los como
-alternativa acessível ao lado da alça, é uma decisão sua e eu implemento — mas
-precisa ser dita aqui, senão o aceite lado a lado vai marcar como bug.
+**Uma pergunta aberta: os ↑/↓ ficam ou somem?** Você pediu para dar para
+arrastar, o que não decide isso. **Recomendo manter as setas ao lado da alça** —
+elas são o caminho de teclado da reordenação e o código já está escrito. Se a
+resposta for manter, este item deixa de remover qualquer controle da referência e
+vira acréscimo puro.
+
+**Auditoria antes de reusar** (exigida pelo `plan-template.md`): verificar
+cancelamento por `Escape` restaurando a ordem inicial — não achei tratamento de
+`Escape` no consumidor que li. Se faltar, o conserto é na origem e beneficia as
+quatro telas que já usam o utilitário.
 
 ### 7. Paleta em bloco único, prefixada, com escopo — *novo*
 
@@ -166,32 +192,40 @@ quebrado, e login sem senha real).
 | E4 | Backend — levantamentos, vendedores, numeração | 3 d | 3 d | — |
 | E5 | Backend — propostas, autoria, PDFs, integrações | 5,5 d | 5,5 d | — |
 | E6 | Frontend — base, histórico, porte do CSS | 2 d | **2,5–3 d** | L6 (auditar bloco ativo) + primitivas seguras de mobile |
-| E7 | Frontend — levantamento de custos | 5–6 d | **8–9 d** | **L1** (+3 d) e L3 |
-| E8 | Frontend — assistente da proposta + vendedores | 5–6 d | **8–9 d** | **L2** (+1,5 d), **L4** (+1 d), L3 |
+| E7 | Frontend — levantamento de custos | 5–6 d | **9–10 d** | **L1** (+3 d) e **L3** (+1 d, com o rascunho local) |
+| E8 | Frontend — assistente da proposta + vendedores | 5–6 d | **8–9 d** | **L2** (+1,5 d), **L4** (+1 d), L3 (+0,5 d) |
 | **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3–4 d** | **L7** |
 | E9 | Testes e CI | 2 d | **2,5 d** | Testes de validação por campo e de ausência de scroll horizontal |
 | E10 | Produção | 1,5 d | 1,5 d | — |
-| | **Até produção** | **32–35,5 d** | **43–47 d** | **+11 dias úteis (~2 semanas)** |
+| | **Até produção** | **32–35,5 d** | **44–48 d** | **+12 dias úteis (~2,5 semanas)** |
 | E11 | Substituir o import do Access | 3–5 d | 3–5 d | — |
 
-**~7 semanas → ~9 semanas.**
+**~7 semanas → ~9,5 semanas.**
 
 ### De onde vem cada delta
 
 **L1 → +3 d em E7.** Não são 465 edições manuais: os campos saem de poucos
 componentes repetidos por alocação e por item. O custo real é (a) generalizar o
 componente `Field` de `app/page.tsx:1187` — que já faz o certo e é o **único**
-`aria-invalid` do app — (b) escrever o resolvedor de `path` → id de campo, e (c)
-ligar as 5 seções. ~1 d de encanamento, ~1,5 d de ligação, ~0,5 d de teste.
+`aria-invalid` do app — para consumir o `.field-invalid` do filtroAPP, (b)
+escrever o resolvedor de `path` → id de campo, e (c) ligar as 5 seções. ~1 d de
+encanamento, ~1,5 d de ligação, ~0,5 d de teste. As classes vermelhas em si não
+custam nada: já existem no `base.css`.
 
-**L2 → +1,5 d em E8.** 0,5 d para auditar se o componente de drag and drop que já
-existe no filtroAPP atende a constitution atual (o `plan-template.md` exige essa
-checagem antes de reusar, e manda corrigir a origem se houver dívida visual) e
-1 d para aplicar nas três listas. **Risco de +1 d** se a auditoria reprovar o
-componente compartilhado — aí o conserto é na origem e beneficia o app todo.
+**L2 → +1,5 d em E8.** 0,5 d para auditar o `reorderDrag.ts` do filtroAPP contra
+a constitution (o `plan-template.md` exige a checagem antes de reusar, e manda
+corrigir a origem se houver dívida) e 1 d para aplicar nas três listas. **Risco de
++1 d** se a auditoria reprovar — aí o conserto é no utilitário compartilhado e
+beneficia as quatro telas que já o usam.
 
-**L3 → +0,5 d, dividido entre E7 e E8.** Barato: 5 seções em `CUSTO`, 7 etapas em
-`PROP`, query param e limpeza de params incompatíveis na troca.
+**L3 → +1,5 d, sendo +1 d em E7 e +0,5 d em E8.** Era +0,5 d quando a lacuna era
+só "volta para Premissas". Com o F5 apagando o levantamento, são duas peças:
+query param (barato — 5 seções em `CUSTO`, 7 etapas em `PROP`, mais a limpeza de
+params incompatíveis na troca) e **rascunho local com oferta de recuperação**
+(~1 d: autossalvamento com *debounce*, chave por modo + código de proposta,
+descarte ao salvar no servidor, e o diálogo "recuperar rascunho não salvo?" —
+restaurar em silêncio é pior que perder, porque o usuário não sabe o que está
+vendo).
 
 **L4 → +1 d em E8.** O `driver.js` já está nas dependências do frontend; a peça
 existe. O que custa é escrever o roteiro — e ele depende do `roteiro.md` da E0-7,
@@ -230,8 +264,8 @@ inteiro se for feita errado.
 
 Independente desta aprovação:
 
-- [ ] Confirmar **L3** — trocar de aba em `/custos` e apertar F5: volta para
-      "Premissas"?
-- [ ] Confirmar **L2** — as listas reordenáveis de `/` só têm ↑/↓, sem arrastar?
+- [x] Confirmar **L1**, **L2** e **L3** — feito em 31/07/2026. As três se
+      confirmaram, e a **L3 veio pior** que o documentado
+- [ ] Responder se os **↑/↓ ficam ao lado da alça** (desvio nº 6)
 - [ ] Capturas de prioridade 2 — `LOGIN-erro`, `CUSTO-erro-salvar`, `PROP-preview`
 - [ ] `roteiro.md` — o caminho clicável (é insumo do roteiro da L4)

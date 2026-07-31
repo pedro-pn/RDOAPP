@@ -21,13 +21,19 @@ continuam obrigatórios.
 |---|---|---|---|
 | L1 | Validação por campo inexistente na maior tela | `CUSTO` | Alta |
 | L2 | Reordenação por botão ↑/↓ em vez de drag and drop | `PROP` | Média |
-| L3 | Estado de navegação fora da URL | `CUSTO`, `PROP` | Média |
+| L3 | Estado fora da URL **e levantamento perdido no F5** | `CUSTO`, `PROP` | **Alta** |
 | L4 | Sem tutorial permanente de primeiro acesso | todas | Média |
 | L5 | Login sem estado de campo inválido | `LOGIN` | Baixa |
 | L6 | Paleta em `:root` duplicado e sem prefixo | CSS | Alta |
 | L7 | Sem layout mobile: scroll horizontal de página | todas | Alta |
 
 ## L1 — Validação por campo inexistente na tela de custos
+
+> **Confirmada na tela em 31/07/2026.** O erro sai em **banner único**, como o
+> código indicava.
+>
+> **Decisão do mantenedor:** o campo obrigatório não preenchido tem de ficar
+> **destacado em vermelho, igual ao filtroAPP**.
 
 **Evidência.** `app/custos/page.tsx` tem 465 controles e 29 `select`, e
 **zero** ocorrências de `aria-invalid`. A tela nunca chama `validateCostEstimate`
@@ -50,11 +56,36 @@ errado, e o formulário não aponta onde.
 **O que o porte precisa fazer.** `validateCostEstimate` já devolve
 `{ path, message, severity }` por item — o `path` é exatamente o endereço do
 campo. A informação existe e a referência a joga fora. O porte liga cada `path`
-ao seu campo com `.field-group` + `.field-invalid`, `aria-invalid` e `.field-error`,
-no padrão do filtroAPP. **Isto é trabalho novo, não porte**, e não está
-dimensionado nas etapas E4–E7 do plano.
+ao seu campo. **Isto é trabalho novo, não porte**, e não está dimensionado nas
+etapas E4–E7 do plano.
+
+**O padrão do filtroAPP já existe e é o alvo** — `frontend/src/styles/base.css:4085-4102`:
+
+```css
+.field-invalid label { color: var(--rd); }
+.field-invalid input,
+.field-invalid select,
+.field-invalid textarea,
+.field-invalid-panel { border-color: var(--rd) !important; background-color: #fff5f5 !important; }
+```
+
+Ou seja: rótulo em vermelho, borda vermelha e fundo rosa claro no controle, mais
+`.field-invalid-panel` para grupo (checkbox, radio) que não tem borda própria. É
+exatamente o "destacado em vermelho" pedido, e já está em uso em 10 arquivos do
+frontend. O módulo consome esse padrão em vez de inventar outro — **as classes
+`.field-*` são de comportamento, não de identidade visual**, então a exceção do
+Princípio VI não se aplica a elas.
+
+O banner único **não some**: continua como resumo no topo, com o número de
+pendências. O que muda é que cada pendência passa a ter endereço.
 
 ## L2 — Reordenação por botão ↑/↓ em vez de drag and drop
+
+> **Confirmada na tela em 31/07/2026.** Só as setas funcionam; não é possível
+> arrastar.
+>
+> **Decisão do mantenedor:** tem de dar para arrastar, **igual ao filtroAPP,
+> com fantasma e mostrando o novo local**.
 
 **Evidência.** Três listas reordenáveis em `app/page.tsx`, todas com o mesmo
 padrão de par de botões:
@@ -71,29 +102,74 @@ arraste, placeholder com legenda de posição, fantasma visual, cancelamento
 restaurando a ordem inicial, persistência só da ordem final, e funcionamento em
 toque via Pointer Events com `touch-action: none`.
 
-**O que o porte precisa fazer.** Substituir os três pares de ↑/↓ pelo padrão
-compartilhado. Vale conferir antes se o componente de drag and drop já existente
-no filtroAPP atende a constitution atual — o `plan-template.md` exige essa
-checagem antes de reusar, e manda corrigir a origem se ela tiver dívida visual.
+**O que o porte precisa fazer.** Usar o padrão compartilhado que o filtroAPP já
+tem — `frontend/src/utils/reorderDrag.ts` (109 linhas), em uso em quatro telas
+(`QualityNaturesTab`, `CategoryManager`, `TechnicalSchemaBuilder`, `GestorPage`).
+A primeira leitura bate com o que foi pedido:
 
-## L3 — Estado de navegação fora da URL
+| Exigência | Onde já está |
+|---|---|
+| Fantasma visual | `createPointerDragGhost` + `.app-reorder-drag-ghost` / `.app-reorder-touch-ghost` (`base.css:12293`) |
+| Mostrar o novo local | `.drag-placeholder` tracejado com legenda **"Soltar aqui"** via `::after` (`base.css:12194-12215`) |
+| Alça dedicada | `.quality-nature-drag-handle` com `aria-label="Arrastar … para reordenar"` (`QualityNaturesTab.tsx:375-377`) |
+| Toque | `reorderIdFromPoint` por Pointer Events + `touch-action: none` |
+| Rolar na borda | `scrollReorderContainerEdge` |
 
-**Evidência.** `app/custos/page.tsx:67`:
+**Auditoria pendente antes de reusar** — o `plan-template.md` exige a checagem, e
+manda corrigir a origem se houver dívida. Dois pontos a verificar:
+
+- **Cancelamento por `Escape` restaurando a ordem inicial**: não achei tratamento
+  de `Escape` no consumidor lido. Se faltar mesmo, o conserto é no utilitário
+  compartilhado e beneficia as quatro telas que já o usam.
+- **Persistência só da ordem final**, não a cada movimento durante o arraste.
+
+**Os ↑/↓ somem ou ficam?** Você pediu para *dar para arrastar*, o que não decide
+isso. Recomendo **manter as setas ao lado da alça**: é o caminho de teclado da
+reordenação e sai de graça, já que o código existe. Fica registrado como pergunta
+aberta no desvio nº 6 da E0-8.
+
+## L3 — Estado fora da URL, e o levantamento inteiro se perde no F5
+
+> **Confirmada na tela em 31/07/2026, e é pior do que este documento afirmava.**
+> A previsão era "volta para Premissas". O que acontece de verdade é que o F5
+> **volta para o diálogo de escolha de modo** — a captura está em
+> `baseline/L3-f5-perde-levantamento.png`. O levantamento carregado desaparece
+> por inteiro. A gravidade subiu de Média para **Alta**.
+
+**Evidência.** `app/custos/page.tsx:64-72` — três estados que nascem vazios a
+cada montagem e nenhuma persistência:
 
 ```ts
+const [estimateMode, setEstimateMode] = useState<EstimateMode | null>(null);
 const [activeSection, setActiveSection] = useState<CostSection>("premises");
+const [draft, setDraft] = useState<AnyRecord>(() => ensureDraft({
+  ...(createDefaultCostEstimatePayload() as AnyRecord), ...
+}));
 ```
 
-São cinco seções (`premises`, `labor`, `inputs`, `logistics`, `summary`). Nenhuma
-ocorrência de `useSearchParams`, `pushState`, `replaceState` ou `location.hash` em
-nenhuma das quatro telas.
+`estimateMode` em `null` é o que faz o diálogo "Como deseja começar?" reabrir. E
+`draft` volta ao payload padrão: **zero** ocorrências de `localStorage`,
+`sessionStorage` ou `beforeunload` no arquivo, e nenhuma de `useSearchParams`,
+`pushState`, `replaceState` ou `location.hash` em nenhuma das quatro telas.
 
-**Consequência.** Recarregar a página joga o usuário de volta em "Premissas",
-no meio de um levantamento longo. E não há como mandar link para uma seção.
+**Consequência.** Um F5 acidental no meio de um levantamento de 465 controles
+apaga tudo o que não foi salvo, sem aviso e sem confirmação de saída. Não é só
+perda de navegação — é perda de trabalho, na tela onde o preço é formado.
 
-**O que o porte precisa fazer.** Representar seção em query param, limpando
-params incompatíveis na troca, como manda o princípio de persistência de
-navegação.
+**O que o porte precisa fazer.** São duas coisas, e só a primeira é a exigência
+literal da constitution:
+
+1. **Navegação em query param** — modo, base da proposta e seção na URL,
+   limpando params incompatíveis na troca. Isso já resolve o caminho "Revisar
+   proposta", porque `?modo=revisao&base=4418&secao=labor` permite recarregar do
+   servidor. Também destrava mandar link para uma seção.
+2. **Rascunho local** — a URL sozinha não salva o que ainda não foi para o
+   servidor: nem o "Levantar custos" começado do zero, nem as edições não salvas
+   de uma revisão. Precisa de autossalvamento em `localStorage` por
+   modo + código de proposta, com oferta explícita de recuperação ("recuperar
+   rascunho não salvo?") em vez de restaurar em silêncio.
+
+Sem o item 2, a URL conserta o sintoma e mantém a perda de trabalho.
 
 ## L4 — Sem tutorial permanente de primeiro acesso
 
