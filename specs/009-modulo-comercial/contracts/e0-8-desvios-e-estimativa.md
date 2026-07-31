@@ -24,7 +24,7 @@ que estavam subdimensionados. Os itens **6 a 8** são novos.
 | 3 | Layout mobile inexistente será **criado** | **Reescrito** (era "corrigir `nowrap` das tabelas") |
 | 4 | Acréscimos exigidos pela constitution | **Reescrito** (lista completa, L1/L3/L4/L5) |
 | 5 | Fonte do chrome herda a do app | Inalterado |
-| 6 | Drag and drop **substitui** os botões ↑/↓ | **Novo** (L2) |
+| 6 | Drag and drop **ao lado** dos botões ↑/↓ | **Novo** (L2) |
 | 7 | Paleta em bloco único, prefixada, com escopo | **Novo** (L6) |
 | 8 | Fluxo "Nova proposta" sem baseline visual | **Novo** — limitação, não escolha |
 
@@ -107,7 +107,12 @@ O desvio é menor do que parecia: só o chrome muda, e o documento não muda nad
 
 **Confirmado por você em 31/07:** só as setas funcionam, não é possível arrastar.
 **Decisão:** tem de dar para arrastar, igual ao filtroAPP, com fantasma e
-mostrando o novo local.
+mostrando o novo local, **e as setas continuam**.
+
+Com isso este item **deixa de ser substituição e vira acréscimo puro**: nenhum
+controle da referência é removido. A lista de desvios volta a não ter nenhuma
+remoção — toda divergência é adição exigida pela constitution, mudança de stack,
+ou escrita de CSS.
 
 Três listas em `app/page.tsx` (itens de serviço do escopo, serviços técnicos,
 blocos de conteúdo) usam par de botões ↑/↓. O app inteiro tem **zero**
@@ -119,11 +124,18 @@ placeholder tracejado e legenda **"Soltar aqui"** (`base.css:12194-12215`), alç
 com `aria-label`, toque por Pointer Events e rolagem na borda. É literalmente o
 comportamento pedido.
 
-**Uma pergunta aberta: os ↑/↓ ficam ou somem?** Você pediu para dar para
-arrastar, o que não decide isso. **Recomendo manter as setas ao lado da alça** —
-elas são o caminho de teclado da reordenação e o código já está escrito. Se a
-resposta for manter, este item deixa de remover qualquer controle da referência e
-vira acréscimo puro.
+**Setas mantidas — decidido em 31/07.** Alça de arrastar e par ↑/↓ convivem na
+mesma linha. As setas são o caminho de teclado da reordenação, então isso também
+resolve a acessibilidade do drag and drop sem trabalho extra.
+
+Duas consequências para o `tasks.md`:
+
+- **Uma fonte de verdade para a ordem.** Arraste e clique na seta têm de chamar a
+  mesma função de reordenar (`reorderRowsById`), senão as duas divergem em lista
+  filtrada ou com item recém-inserido.
+- **Setas nas pontas ficam desabilitadas**, não some — o primeiro item sem ↑, o
+  último sem ↓, com `disabled` e não com o botão oculto, para a linha não mudar
+  de largura entre um item e outro.
 
 **Auditoria antes de reusar** (exigida pelo `plan-template.md`): verificar
 cancelamento por `Escape` restaurando a ordem inicial — não achei tratamento de
@@ -266,6 +278,6 @@ Independente desta aprovação:
 
 - [x] Confirmar **L1**, **L2** e **L3** — feito em 31/07/2026. As três se
       confirmaram, e a **L3 veio pior** que o documentado
-- [ ] Responder se os **↑/↓ ficam ao lado da alça** (desvio nº 6)
+- [x] Os **↑/↓ ficam** ao lado da alça (desvio nº 6) — decidido em 31/07
 - [ ] Capturas de prioridade 2 — `LOGIN-erro`, `CUSTO-erro-salvar`, `PROP-preview`
 - [ ] `roteiro.md` — o caminho clicável (é insumo do roteiro da L4)

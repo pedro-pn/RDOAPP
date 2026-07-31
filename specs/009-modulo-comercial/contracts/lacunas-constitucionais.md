@@ -123,10 +123,15 @@ manda corrigir a origem se houver dívida. Dois pontos a verificar:
   compartilhado e beneficia as quatro telas que já o usam.
 - **Persistência só da ordem final**, não a cada movimento durante o arraste.
 
-**Os ↑/↓ somem ou ficam?** Você pediu para *dar para arrastar*, o que não decide
-isso. Recomendo **manter as setas ao lado da alça**: é o caminho de teclado da
-reordenação e sai de graça, já que o código existe. Fica registrado como pergunta
-aberta no desvio nº 6 da E0-8.
+**As setas ficam** (decidido em 31/07/2026). Alça de arrastar e par ↑/↓ convivem
+na mesma linha, então a exigência de operar por teclado sai atendida junto. Duas
+regras que precisam ir para o `tasks.md`:
+
+- arraste e clique na seta chamam a **mesma** função de reordenar
+  (`reorderRowsById`), senão as duas divergem em lista filtrada ou com item
+  recém-inserido;
+- seta da ponta fica **`disabled`**, não oculta — o primeiro item sem ↑ e o
+  último sem ↓ — para a linha não mudar de largura entre um item e outro.
 
 ## L3 — Estado fora da URL, e o levantamento inteiro se perde no F5
 
