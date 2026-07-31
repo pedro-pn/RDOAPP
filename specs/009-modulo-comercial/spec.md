@@ -420,10 +420,11 @@ funcionalidade:
 - **FR-029**: Escrita em levantamento e em proposta DEVE ser permitida apenas ao **autor
   ou a um gestor**. A verificação de autoria vale para **as duas entidades**, não só
   para a proposta, e é regra nova — não existe na referência.
-- **FR-030**: `comercial:viewer` DEVE ser **somente leitura** e **sem valores**: consulta
-  propostas emitidas e o histórico, sem ver preço, valor total, custo nem margem em
-  nenhuma coluna, campo ou painel. Não cria, não edita, não finaliza e não altera o
-  cadastro de vendedores.
+- **FR-030**: `comercial:viewer` DEVE ser **somente leitura** e **sem valores**: sua
+  única superfície é a **listagem do histórico**, sem ver preço, valor total, custo nem
+  margem em nenhuma coluna. Não cria, não edita, não finaliza, não altera o cadastro de
+  vendedores e **não tem tela de detalhe de proposta** — nenhuma tela nova nasce por
+  causa deste papel.
 - **FR-030a**: `comercial:viewer` PODE baixar a **proposta técnica** e NÃO PODE baixar a
   **proposta comercial** — esta carrega a tabela de preços, as condições de pagamento e
   o valor total, e liberá-la contornaria o FR-030 por outra porta.
@@ -577,13 +578,11 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   o levantamento deixa de ser exclusivo do gestor (passa a incluir o vendedor, limitado
   à própria autoria) e a finalização deixa de ser exclusiva do gestor (o autor finaliza
   a própria). O papel intermediário `comercial:seller` não existia no plano.
-- **A superfície de consulta do papel `comercial:viewer` é o histórico**, não uma tela
-  de proposta em modo leitura. A referência não tem tela de detalhe de proposta somente
-  leitura — só o assistente de edição e a listagem —, e criar uma seria escopo novo
-  relevante, não previsto em nenhuma estimativa. O viewer consulta pela listagem, com a
-  coluna de valor suprimida na origem, e baixa apenas a proposta técnica. **Se a
-  intenção for uma tela de detalhe sem valores, isso é trabalho novo e precisa entrar na
-  estimativa.**
+- **A superfície de consulta do papel `comercial:viewer` é o histórico** — confirmado
+  pelo mantenedor em 31/07: *"não precisa de tela nova. Ele só vê a lista e pode baixar
+  a proposta técnica."* Não há tela de detalhe de proposta em modo leitura, nem na
+  referência nem no porte. **Nenhum escopo novo de tela entra por causa do papel de
+  consulta** — o que entra é a resposta do histórico variando por papel.
 - A supressão de valores para o papel de consulta acontece **na origem dos dados**, não
   por ocultação na tela. Um valor que chega ao navegador e é escondido por estilo
   continua acessível.
