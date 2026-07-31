@@ -64,9 +64,18 @@ Um diálogo modal bloqueia a tela até você escolher (`app/custos/page.tsx:440-
 
 | Opção | O que faz |
 |---|---|
-| **Levantar custos** | Calcula custos, impostos e margem antes da proposta |
-| **Nova proposta** | Gera o conjunto técnico e comercial com número novo |
-| **Revisar proposta** | Carrega os dados salvos e calcula a próxima revisão |
+| **Nova proposta** | Reserva o próximo número e inicia um levantamento por fases |
+| **Revisar proposta** | Carrega o último levantamento e preserva toda a composição |
+
+> **Correção de 31/07, feita durante a implementação.** Este quadro listava **três**
+> opções, com os textos de outra tela. São **dois diálogos diferentes**:
+>
+> - o de **`/`** tem três opções, e "Levantar custos" é um **link** para `/custos` —
+>   não é modo, é navegação (`app/page.tsx:801`)
+> - o de **`/custos`** tem as duas acima (`app/custos/page.tsx:447-453`)
+>
+> A referência declara `type EstimateMode = "new" | "revision"`. **Não existe modo
+> "levantar".** O erro chegou a virar valor de enum no Prisma antes de ser pego.
 
 Duas coisas para saber:
 
@@ -119,9 +128,14 @@ Salvar abre um segundo modal, **"Confirme a proposta"**
 (`app/custos/page.tsx:468-492`), avisando que levantamento, proposta técnica e
 comercial vão usar o mesmo código. Três saídas:
 
-- **Confirmar `<código>`** — salva e abre a criação das propostas
-- **Trocar para nova** — reserva outra numeração (volta a depender do Nectar)
-- **Informar outro número** — volta para o diálogo de modo
+- **Confirmar `<código>`** — "Salvar e abrir a criação das propostas."
+- **Trocar para nova** — "Reservar outra numeração." (volta a depender do Nectar)
+- **Trocar para revisão** — "Selecionar uma proposta existente."
+
+> **Correção de 31/07, na implementação.** A terceira saída estava registrada aqui
+> como "Informar outro número". O rótulo real é **"Trocar para revisão"**
+> (`app/custos/page.tsx:485-491`). Como o aceite lado a lado compara texto por
+> texto, rótulo errado no roteiro viraria "divergência" inventada na revisão.
 
 **[?]** Alguém já usou "Trocar para nova" nesse ponto, ou é saída morta?
 

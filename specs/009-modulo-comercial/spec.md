@@ -606,10 +606,21 @@ Não existe proteção na referência. É trabalho novo.
 #### Fluxo de entrada
 
 - **FR-043**: O menu de entrada e o diálogo de modo do levantamento DEVEM **coexistir
-  como dois passos**. O menu escolhe a tela; o diálogo "Como deseja começar?" continua
-  oferecendo os três modos (Levantar custos, Nova proposta, Revisar proposta) como na
-  referência. O menu NÃO PODE oferecer atalho que dispense o diálogo — isso alteraria o
-  fluxo da referência e exigiria um décimo desvio, que não existe.
+  como dois passos**. O menu escolhe a tela; o diálogo "Como deseja começar?" de
+  `/comercial/custos` continua oferecendo **os dois modos da referência — "Nova
+  proposta" e "Revisar proposta"**. O menu NÃO PODE oferecer atalho que dispense o
+  diálogo.
+
+  > **Correção de 31/07.** Uma versão anterior deste requisito dizia "três modos
+  > (Levantar custos, Nova proposta, Revisar proposta)". Errado, e o erro nasceu na
+  > E0: são **dois diálogos diferentes**. O de `/` tem três opções, e uma delas —
+  > "Levantar custos" — é um **link para a tela de custos, não um modo**. O de
+  > `/custos` tem duas. A referência declara `type EstimateMode = "new" | "revision"`;
+  > não existe modo "levantar".
+  >
+  > Isso reforça o desvio nº 9 em vez de enfraquecê-lo: a referência **já** tinha um
+  > seletor de três caminhos na entrada, e o menu do módulo é a promoção dele a tela
+  > própria.
 - **FR-044**: Quando o endereço já trouxer o modo (por recuperação de estado, FR-018), o
   diálogo NÃO deve reaparecer — ele existe para escolher o modo, não para confirmá-lo.
 

@@ -2326,10 +2326,12 @@ model IntegrationSyncRun {
 //     módulo (FR-060).
 // ===========================================================================
 
+/// Os dois modos da referencia (`type EstimateMode = "new" | "revision"`).
+/// NAO existe um modo "levantar": no diálogo de `/` a opção "Levantar custos"
+/// é um LINK para a tela de custos, não um modo de levantamento.
 enum CostEstimateMode {
-  LEVANTAR
   NOVA
-  REVISAR
+  REVISAO
 
   @@schema("comercial")
 }

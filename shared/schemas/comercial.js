@@ -11,7 +11,10 @@
  * divergiria em silêncio.
  */
 
-export const COST_ESTIMATE_MODES = ['LEVANTAR', 'NOVA', 'REVISAR'];
+/** Os dois modos da referência (`EstimateMode = "new" | "revision"`).
+ *  Não existe modo "levantar": na tela de proposta, "Levantar custos" é um
+ *  link para `/custos`, não um modo. */
+export const COST_ESTIMATE_MODES = ['NOVA', 'REVISAO'];
 export const COST_ESTIMATE_STATUSES = ['RASCUNHO', 'SALVO'];
 export const PROPOSAL_STATUSES = [
   'RASCUNHO',
