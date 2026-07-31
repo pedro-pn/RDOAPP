@@ -1,0 +1,24 @@
+{
+  "name": "@filtrovali/shared-comercial",
+  "private": true,
+  "type": "module",
+  "description": "Regra de negócio do módulo Comercial, portada sem alteração de ~/comercialAPP (6f5b072). Os 16 goldens verificam este código.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./cost-model": "./dist/cost-model.js",
+    "./technical-services": "./dist/technical-services.js",
+    "./scope-content": "./dist/scope-content.js",
+    "./proposal-visuals": "./dist/proposal-visuals.js",
+    "./finalization": "./dist/finalization.js",
+    "./nectar-pipelines": "./dist/nectar-pipelines.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
