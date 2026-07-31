@@ -530,6 +530,83 @@ export const moduleRegistry = [
         ]
       }
     ]
+  },
+  {
+    "id": "comercial",
+    "prismaModule": "COMERCIAL",
+    "badge": "COM",
+    "title": "Comercial",
+    "copy": "Levantamento de custos, propostas técnica e comercial, e histórico de emissões.",
+    "hub": {
+      "enabled": true,
+      "roles": [
+        "comercial:manager",
+        "comercial:seller",
+        "comercial:viewer"
+      ],
+      "path": "/comercial"
+    },
+    "pathPrefixes": [
+      "/comercial"
+    ],
+    "routes": {
+      "index": "/comercial",
+      "custos": "/comercial/custos",
+      "propostas": "/comercial/propostas",
+      "historico": "/comercial/historico"
+    },
+    "routeGroups": {
+      "default": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "comercial:manager",
+          "comercial:seller",
+          "comercial:viewer"
+        ]
+      },
+      "estimator": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "comercial:manager",
+          "comercial:seller"
+        ]
+      }
+    },
+    "roles": [
+      {
+        "code": "COMERCIAL_MANAGER",
+        "public": "comercial:manager",
+        "label": "Comercial - Gestor",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      },
+      {
+        "code": "COMERCIAL_SELLER",
+        "public": "comercial:seller",
+        "label": "Comercial - Vendedor",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      },
+      {
+        "code": "COMERCIAL_VIEWER",
+        "public": "comercial:viewer",
+        "label": "Comercial - Consulta",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      }
+    ]
   }
 ] as const;
 

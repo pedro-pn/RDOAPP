@@ -15,6 +15,10 @@ export const EQUIPAMENTOS_ACCESS_ROLES = publicModuleRolesForModule('equipamento
 export const ESTOQUE_ACCESS_ROLES = publicModuleRolesForModule('estoque');
 export const ACOMPANHAMENTO_ACCESS_ROLES = publicModuleRolesForModule('acompanhamento');
 export const QUALIDADE_ACCESS_ROLES = publicModuleRolesForModule('qualidade');
+export const COMERCIAL_ACCESS_ROLES = publicModuleRolesForModule('comercial');
+// Quem levanta custo: gestor e vendedor. O papel de consulta NÃO entra —
+// custo e margem não aparecem para ele em nenhuma superfície (§12.5.1).
+export const COMERCIAL_ESTIMATOR_ROLES = ['comercial:manager', 'comercial:seller'];
 export const INTERNAL_ACCOUNT_ROLES = Array.from(new Set([
   ...publicModuleRolesForAccountType(AccountTypes.ADMIN),
   ...publicModuleRolesForAccountType(AccountTypes.INTERNAL)
@@ -212,4 +216,55 @@ export function isAcompanhamentoManager(user) {
 // Configuração de parâmetros continua restrita ao gestor; esta permissão é só leitura operacional.
 export function canViewAcompanhamentoLaborCosts(user) {
   return Boolean(user) && (user.accountType === 'ADMIN' || hasModuleRole(user, ACOMPANHAMENTO_ACCESS_ROLES));
+}
+
+// ---------------------------------------------------------------------------
+// Comercial — três papéis (§12.5.1 do docs/PLANO_MODULO_COMERCIAL.md)
+//
+//   comercial:manager  Gestor    alcança tudo; edita e finaliza qualquer uma
+//   comercial:seller   Vendedor  cria; alcança apenas o que é seu
+//   comercial:viewer   Consulta  somente leitura, e sem ver valores
+//
+// ATENÇÃO: middleware de papel NÃO basta. Ele sabe o papel, não sabe a autoria
+// do registro alcançado. Toda rota que toca um registro específico precisa
+// passar também pela verificação de autoria (lib/comercial/access.js), e toda
+// listagem precisa filtrar por autoria quando o solicitante é vendedor — é ali
+// que o vazamento entre vendedores acontece, não na rota de item.
+// ---------------------------------------------------------------------------
+
+export function requireComercialAccess(req, res, next) {
+  if (!req.auth || !hasModuleRole(req.auth.user, COMERCIAL_ACCESS_ROLES)) {
+    return res.status(403).json({ error: 'Acesso restrito ao módulo Comercial.' });
+  }
+
+  next();
+}
+
+// Gestor OU vendedor. É o gate do levantamento de custos e da criação de propostas.
+export function requireComercialEstimator(req, res, next) {
+  if (!req.auth || !hasModuleRole(req.auth.user, COMERCIAL_ESTIMATOR_ROLES)) {
+    return res.status(403).json({ error: 'Acesso restrito a orçamentistas do Comercial.' });
+  }
+
+  next();
+}
+
+export function requireComercialManager(req, res, next) {
+  if (!req.auth || !hasModuleRole(req.auth.user, 'comercial:manager')) {
+    return res.status(403).json({ error: 'Acesso restrito ao gestor do Comercial.' });
+  }
+
+  next();
+}
+
+// Gestor do Comercial? Alcança registro de qualquer autor.
+export function isComercialManager(user) {
+  return Boolean(user) && hasModuleRole(user, 'comercial:manager');
+}
+
+// Pode ver custo, margem e valor? Gestor e vendedor sim; consulta nunca.
+// O vendedor só vê os valores do que é dele — isso é autoria, resolvida em
+// lib/comercial/access.js, não aqui.
+export function canViewComercialValues(user) {
+  return Boolean(user) && hasModuleRole(user, COMERCIAL_ESTIMATOR_ROLES);
 }

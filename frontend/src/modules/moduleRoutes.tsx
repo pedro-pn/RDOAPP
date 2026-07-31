@@ -11,6 +11,7 @@ import { QualidadePage } from '../pages/qualidade/QualidadePage';
 import { NewRomaneioPage } from '../pages/romaneio/NewRomaneioPage';
 import { RomaneioPage } from '../pages/romaneio/RomaneioPage';
 import { moduleRouteAccess, moduleRoutePath } from './registry';
+import { ComercialPage } from '../pages/comercial/ComercialPage';
 // module:scaffold import
 
 const ADMIN_ACCOUNTS_ACCESS = moduleRouteAccess('admin', 'accounts');
@@ -21,6 +22,7 @@ const EQUIPAMENTOS_ACCESS = moduleRouteAccess('equipamentos');
 const ESTOQUE_ACCESS = moduleRouteAccess('estoque');
 const QUALIDADE_ACCESS = moduleRouteAccess('qualidade');
 const ACOMPANHAMENTO_ACCESS = moduleRouteAccess('acompanhamento');
+const COMERCIAL_ACCESS = moduleRouteAccess('comercial');
 // module:scaffold access
 
 export const moduleRouteElements = (
@@ -58,6 +60,10 @@ export const moduleRouteElements = (
       <Route path={moduleRoutePath('acompanhamento', 'index')} element={<AcompanhamentoPage />} />
     </Route>
 
-    {/* module:scaffold routes */}
+    <Route element={<RoleRoute {...COMERCIAL_ACCESS} />}>
+      <Route path={moduleRoutePath('comercial', 'index')} element={<ComercialPage />} />
+    </Route>
+
+    {/* module:scaffold routes */}    {/* module:scaffold routes */}
   </>
 );
