@@ -125,6 +125,9 @@ Cada linha é uma divergência que o revisor **vai** encontrar.
 - [ ] PAR-061 - `comercial:viewer` baixa a **técnica** e recebe **403 na rota** ao pedir a **comercial**
 - [ ] PAR-062 - `comercial:viewer` não tem tela de detalhe de proposta — sua superfície é a listagem
 - [ ] PAR-063 - O card do módulo não aparece no hub para quem não tem nenhum dos três papéis
+- [ ] PAR-063a - No campo "Consultor de Vendas" (`PROP-CTL-016`), `comercial:seller` recebe **apenas o próprio nome**, já pré-selecionado, e `comercial:manager` recebe a lista completa. **A decisão é do servidor** — um vendedor não deve nem receber os nomes dos outros
+- [ ] PAR-063b - A lista de consultores é **derivada dos usuários** com o papel `comercial:seller`: conceder o papel faz aparecer, sem passo de cadastro. **Não existe tela de cadastro de vendedores** — sua ausência é decisão registrada, não esquecimento
+- [ ] PAR-063c - Desativar ou renomear um usuário **não altera proposta já emitida**: o `sellerName` gravado é o do momento da emissão
 
 ---
 

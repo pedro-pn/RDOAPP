@@ -261,7 +261,7 @@ staging do Access — os novos precisam de nomes distintos.
 | `CostEstimate` | `cost_estimates` | Levantamento atual |
 | `CostEstimateVersion` | `cost_estimate_versions` | Versão imutável, com hash do payload |
 | `SalesAttribution` | `sales_attributions` | Representantes e indicações internas |
-| `Seller` | — (era constante `SELLERS`) | **Novo** (§12.5, decisão 4): vendedor com nome, ativo/inativo e ordem. Substitui a lista fixa de `page.tsx:93` |
+| ~~`Seller`~~ | — | **Cancelado pela §12.5.1**: a lista de consultores é derivada dos usuários com o papel `comercial:seller`. `Proposal` guarda `sellerUserId` (→ `public.User`, entre schemas) **e** `sellerName`, o nome do momento da emissão |
 | `ProposalNumberSeq` ou sequence | — (era Nectar) | **Novo** (§12.5, decisão 5): origem do número da proposta, semeada acima do maior existente |
 
 Conversões obrigatórias:
@@ -781,8 +781,11 @@ inesperado; `prisma generate` ok; suíte existente do backend continua verde
 3. **Recalcular no servidor** com `calculateEstimate` — os totais gravados são
    sempre os do servidor, nunca os enviados pelo cliente (é a regra atual e é
    uma propriedade de segurança: impede forjar margem).
-4. **Cadastro de vendedores** (§12.5, decisão 4): model `Seller`, CRUD sob
-   `requireComercialManager`, semeado com os 6 nomes de `page.tsx:93`.
+4. **Lista de consultores derivada** (§12.5.1): `GET /api/comercial/consultores`
+   devolve os usuários ativos com o papel `comercial:seller`. **Sem model, sem CRUD,
+   sem semeadura.** A resposta varia por papel: gestor recebe a lista completa,
+   vendedor recebe **apenas ele mesmo**. A proposta grava `sellerUserId` **e**
+   `sellerName` — o nome do momento da emissão protege o histórico.
 5. **Numeração local** (§12.5, decisão 5): sequence no schema `comercial` e
    `GET /propostas/proximo-numero`. Migration semeia acima do maior número
    existente no Nectar **e** em `CommercialProposal` — o valor de partida é
@@ -816,8 +819,9 @@ inesperado; `prisma generate` ok; suíte existente do backend continua verde
 6. `lib/comercial/sharepoint.js` — token, site, drive, árvore de pastas, upload.
 7. `lib/comercial/cost-csv.js` — CSV do levantamento (portar `costEstimateV2Rows`).
 8. `lib/comercial/finalize.js` + `jobs.js` — persistir, responder, integrar
-   depois, atualizar `integrationStatus`. Rota sob **`requireComercialManager`**
-   (§12.5, decisão 2).
+   depois, atualizar `integrationStatus`. Rota sob **`requireComercialEstimator`
+   mais verificação de autoria** (§12.5.1): o autor finaliza a sua, o gestor
+   finaliza qualquer uma.
 9. Rota `POST /propostas/anexos` para anexos extras (base64, um por vez).
 10. Envs novas em `backend/src/config/env.js` (zod) + `.env.example` +
    `backend/test/env.test.js`: `NECTAR_API_TOKEN`,
@@ -1023,15 +1027,15 @@ Com tudo no mesmo backend, o caminho encurta muito em relação ao plano anterio
 | E1 | Scaffold do módulo | 0,5 d | **0,75 d** (3º papel + enum) |
 | E2 | `shared/comercial` (cópia + build + testes) | 2 d | 2 d |
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d |
-| E4 | Backend — levantamentos, vendedores e numeração | 3 d | **3,5 d** (autoria + filtro na listagem) |
+| E4 | Backend — levantamentos, consultores e numeração | 3 d | **3,25 d** (autoria + filtro; menos o CRUD de vendedores) |
 | E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | **6,25 d** (autoria + supressão de valores na origem) |
 | E6 | Frontend — base, histórico e porte do CSS | 2 d | **3,25-3,75 d** (L6 + primitivas de mobile + menu + histórico por papel) |
 | E7 | Frontend — levantamento de custos | 5-6 d | **9-10 d** (L1 +3 d, L3 +1 d) |
-| E8 | Frontend — assistente da proposta + tela de vendedores | 5-6 d | **9-10 d** (L2 +1,5 d, L4 +1 d, L3 +1,5 d) |
+| E8 | Frontend — assistente da proposta | 5-6 d | **8,75-9,75 d** (L2 +1,5 d, L4 +1 d, L3 +1,5 d; menos a tela de vendedores) |
 | **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3-4 d** (L7) |
 | E9 | Testes e CI | 2 d | **3 d** (matriz de 3 papéis × 2 entidades) |
 | E10 | Produção (roteiro para o operador) | 1,5 d | 1,5 d |
-| | **Até produção** | 32-35,5 d | **47,75-51,75 dias úteis (~10 semanas)** |
+| | **Até produção** | 32-35,5 d | **47-51 dias úteis (~10 semanas)** |
 | E11 | Substituir o import do Access | 3-5 d | 3-5 d |
 
 Ordem de execução: **E0 → E-1** → E1 → E2 → E3 → (E4 e E6 em paralelo) → E5 →
@@ -1050,7 +1054,7 @@ dobro.
 > `react-hook-form` + Zod e a decomposição das telas grandes. A decisão de manter
 > a identidade visual devolveu ~2 dias (portar CSS é mais barato que reconstruir
 > com o kit) e acrescentou ~0,5 dia de governança (a emenda). As respostas da
-> §12.5 somaram ~2 dias: cadastro de vendedores e regra de autoria são escopo
+> §12.5 somaram ~2 dias: lista de vendedores e regra de autoria são escopo
 > novo, que não existe no rascunho.
 >
 > De ~7 para ~9,5 semanas (44-48 d, aprovado em 31/07): aqui **é escopo**, e é
@@ -1076,6 +1080,10 @@ dobro.
 > `Proposal` (+0,75 d, E5), histórico variando por papel (+0,25 d, E6) e a matriz de
 > permissão de 3 papéis × 2 entidades (+0,5 d, E9). Como os dois anteriores, **é
 > decisão de produto, não exigência da constitution** — negociável se o prazo apertar.
+>
+> De 47,75-51,75 para **47-51 d**: −0,75 d da unificação de vendedor com usuário
+> (§12.5.1). Somem o model, o CRUD e a tela de cadastro; entra uma consulta derivada.
+> **É a primeira decisão desta série que reduz escopo em vez de aumentar.**
 
 ---
 
@@ -1308,7 +1316,7 @@ passo 7.)
 | 1 | `comercial:viewer` vê custo e margem? | **Não** — e **revista em 31/07**: o levantamento passa a ser de gestor *e* vendedor, este só com os seus. Ver §12.5.1 | 2026-07-28 → 2026-07-31 |
 | 2 | Quem finaliza a proposta? | ~~Só `comercial:manager`~~ — **revista em 31/07**: o autor finaliza a sua; o gestor, qualquer uma. Ver §12.5.1 | 2026-07-28 → 2026-07-31 |
 | 3 | Pode editar proposta de outro? | **Só o autor ou um manager** — e a autoria passa a valer também no levantamento | 2026-07-28 → 2026-07-31 |
-| 4 | Lista de vendedores | **Vira cadastro no módulo** | 2026-07-28 |
+| 4 | Lista de vendedores | ~~Vira cadastro no módulo~~ — **revista em 31/07**: é **derivada dos usuários** com o papel `comercial:seller`. Ver §12.5.1 | 2026-07-28 → 2026-07-31 |
 | 5 | Fonte da numeração | **O próprio módulo** (sequence no Postgres) | 2026-07-28 |
 | 6 | Retenção das propostas | **Indefinida**, como registro comercial; só entrada no ROPA | 2026-07-28 |
 | 7 | Card do módulo no hub | Resolvida por convenção: oculto para quem não tem role | 2026-07-28 |
@@ -1354,9 +1362,36 @@ restrição por outra porta.
 4. Supressão de valores **na origem**, para o papel de consulta. Valor que chega ao
    navegador e é escondido por CSS não é restrição.
 
-Requisitos correspondentes: FR-027 a FR-030b do `specs/009-modulo-comercial/spec.md`.
-- Cadastro de vendedores é **escopo além do porte** (decisão 4): model, rotas,
-  tela e permissão.
+### Vendedor e usuário são a mesma pessoa — 2026-07-31
+
+A decisão 4 dizia que a lista de vendedores viraria cadastro do módulo. **Revogada.**
+Todo consultor de vendas é um usuário do app com o papel `comercial:seller`, então a
+lista se mantém sozinha: quem entra no quadro aparece, quem sai some. Um cadastro
+paralelo seria uma segunda verdade para alguém esquecer de atualizar.
+
+| Antes (decisão 4) | Agora (§12.5.1) |
+|---|---|
+| model `Seller` + CRUD + tela | **nada disso** — a lista é uma consulta |
+| semeado com 6 nomes fixos | derivado dos usuários ativos com o papel |
+| `Proposal.sellerId` → `Seller` | `sellerUserId` → `public.User` **+** `sellerName` |
+
+**Dois campos, não um.** O vínculo permite filtrar; o **nome desnormalizado** protege
+o histórico. Desativar ou renomear um usuário não pode alterar proposta já emitida —
+o PDF já foi ao cliente com aquele nome.
+
+**O campo `PROP-CTL-016` passa a variar por papel:** o vendedor vê **apenas o próprio
+nome**, pré-selecionado; o gestor vê a lista completa. O controle é o mesmo do
+inventário — muda o conjunto de opções, decidido no servidor. Isso espelha o que a
+referência **já faz** com o orçamentista (`PROP-CTL-018`, preenchido pelo login).
+
+**Efeito no escopo: −0,75 d.** É a primeira decisão desta série que reduz em vez de
+aumentar. Some o model da E3, o CRUD da E4 e a tela da E8; entra uma consulta derivada.
+
+Requisitos correspondentes: FR-027 a FR-030b e FR-041 a FR-041b do
+`specs/009-modulo-comercial/spec.md`.
+- ~~Cadastro de vendedores é escopo além do porte (decisão 4): model, rotas, tela e
+  permissão.~~ — **superado pela §12.5.1**: a lista é derivada dos usuários, e o
+  model, o CRUD e a tela **deixam de existir**.
 - Numeração por sequence (decisão 5) simplifica o código — cai a varredura do
   Nectar em `next-number` —, mas exige semear a sequence acima do maior número
   já existente **no Nectar e em `CommercialProposal`**, e cria um risco novo

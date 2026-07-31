@@ -122,18 +122,28 @@ o Nectar.
 
 ---
 
-## Vendedores
+## Consultores de vendas
 
-### `GET /api/comercial/vendedores`
+> **Não há CRUD.** A lista é **derivada dos usuários** com o papel `comercial:seller`
+> (decisão de 31/07, que revoga a decisão 4 da §12.5). Não existe `POST`, `PUT` nem
+> `DELETE` — quem entra no quadro aparece, quem sai some.
 
-`requireComercialAccess` — a lista alimenta a seleção da etapa Cliente.
+### `GET /api/comercial/consultores`
 
-### `POST|PUT /api/comercial/vendedores/:id`
+`requireComercialEstimator`. Alimenta o campo `PROP-CTL-016` da etapa Cliente.
 
-`requireComercialManager`.
+**A resposta varia por papel, e a decisão é do servidor** (FR-041b):
 
-Desativar um vendedor **não altera propostas já emitidas** (FR-041): elas guardam o
-vínculo e continuam exibindo o nome.
+| Papel | Recebe |
+|---|---|
+| `comercial:manager` | todos os usuários ativos com `comercial:seller` |
+| `comercial:seller` | **apenas ele mesmo** |
+
+Filtrar no cliente não serve: um vendedor não deve nem receber os nomes dos outros.
+
+A proposta grava `sellerUserId` **e** `sellerName`. Desativar ou renomear um usuário
+**não altera proposta já emitida** (FR-041a) — o nome gravado é o do momento da
+emissão, e o PDF já foi ao cliente com ele.
 
 ---
 
@@ -153,7 +163,7 @@ Oráculo dos testes da E9. Cada célula é um caso:
 | `POST /propostas/finalizar` | 200 | 200 | **403** | **403** |
 | `GET /documentos/:id` (técnica) | 200 | 200 | **403** | 200 |
 | `GET /documentos/:id` (comercial) | 200 | 200 | **403** | **403** |
-| `POST /vendedores` | 201 | **403** | — | **403** |
+| `GET /consultores` | lista completa | **só ele mesmo** | — | **403** |
 
 O caso que mais importa e que passa despercebido: **`seller` A lendo a listagem
 enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e

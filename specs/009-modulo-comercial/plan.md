@@ -21,7 +21,8 @@ E0 a partir da referência congelada em `6f5b072`:
 
 O que **não** é porte: sete lacunas constitucionais (L1–L7) que a referência não tem e
 a constitution exige, e as decisões de produto da §12.5/§12.5.1 do plano técnico —
-três papéis com autoria verificada, cadastro de vendedores e numeração própria.
+três papéis com autoria verificada, lista de vendedores derivada dos usuários e
+numeração própria.
 
 Documento de fundo: `docs/PLANO_MODULO_COMERCIAL.md` (research). Decisões
 consolidadas: [research.md](./research.md).
@@ -184,8 +185,7 @@ frontend/src/
 │   ├── ComercialPage.tsx      # menu de entrada (desvio nº 9)
 │   ├── custos/                # container + 5 seções
 │   ├── proposta/              # container + 7 etapas + prévia
-│   ├── historico/
-│   └── vendedores/
+│   └── historico/
 ├── styles/comercial.css       # escopado, --com-* em bloco único
 └── utils/reorderDrag.ts       # REUSO, após auditoria
 
@@ -220,20 +220,24 @@ estavam precificadas. Elas entram assim:
 | E1 | Scaffold do módulo | 0,5 d | **0,75 d** | terceiro papel + enum `COMERCIAL_SELLER` |
 | E2 | `shared/comercial` | 2 d | 2 d | — |
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d | — |
-| E4 | Backend — levantamentos, vendedores, numeração | 3 d | **3,5 d** | autoria em `CostEstimate` + **filtro de autoria na listagem** |
+| E4 | Backend — levantamentos, consultores, numeração | 3 d | **3,25 d** | autoria em `CostEstimate` + filtro na listagem, **menos** o CRUD de vendedores (a lista virou consulta) |
 | E5 | Backend — propostas, PDFs, integrações | 5,5 d | **6,25 d** | autoria em `Proposal` + **supressão de valores na origem** + bloqueio do link comercial |
 | E6 | Frontend — base, histórico, CSS, menu | 3–3,5 d | **3,25–3,75 d** | histórico variando por papel |
 | E7 | Frontend — levantamento de custos | 9–10 d | 9–10 d | L1 (+3 d), L3 (+1 d) |
-| E8 | Frontend — proposta + vendedores | 9–10 d | 9–10 d | L2 (+1,5 d), L4 (+1 d), L3 (+1,5 d) |
+| E8 | Frontend — proposta | 9–10 d | **8,75–9,75 d** | L2 (+1,5 d), L4 (+1 d), L3 (+1,5 d), **menos** a tela de cadastro de vendedores |
 | **E8.5** | Passada de mobile sobre as 4 telas | 3–4 d | 3–4 d | L7 |
 | E9 | Testes e CI | 2,5 d | **3 d** | matriz de 3 papéis × 2 entidades, incl. listagem cruzada |
 | E10 | Produção | 1,5 d | 1,5 d | — |
-| | **Até produção** | 45,5–49,5 d | **47,75–51,75 d** | **+2,25 d** |
+| | **Até produção** | 45,5–49,5 d | **47–51 d** | **+1,5 d** |
 | E11 | Substituir o import do Access | 3–5 d | 3–5 d | — |
 
-**≈ 48 a 52 dias úteis (~10 semanas).**
+**≈ 47 a 51 dias úteis (~10 semanas).**
 
-> Os +2,25 d são **decisão de produto**, não exigência da constitution. Junto com o
+> A unificação de vendedor com usuário (31/07) **devolveu 0,75 d**: some o model, o
+> CRUD e a tela de cadastro, e entra uma consulta derivada. É a primeira decisão desta
+> série que reduz escopo em vez de aumentar.
+>
+> Os +1,5 d líquidos são **decisão de produto**, não exigência da constitution. Junto com o
 > menu de entrada e o rascunho da proposta, são os únicos itens do quadro que voltam a
 > ser negociáveis se o prazo apertar. Tudo o mais — L1 a L7 — é obrigatório.
 

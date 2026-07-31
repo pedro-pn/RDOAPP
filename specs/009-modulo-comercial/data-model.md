@@ -95,7 +95,8 @@ margem.
 | `revisionNumber` | `Int` | |
 | `costEstimateId` | `String?` | vínculo com o levantamento que lhe deu origem |
 | `clientName`, `cnpj`, `contact`, `email`, `site` | `String` | etapa Cliente |
-| `sellerId` | `String` | FK → `Seller` |
+| `sellerUserId` | `String` | FK → `public.User` (entre schemas) |
+| `sellerName` | `String` | nome no momento da emissão — protege o histórico |
 | `estimatorName` | `String` | preenchido pelo login |
 | `payload` | `Json` | escopo, matriz, prazos, técnica, preços; contrato validado |
 | `totalValue` | `Decimal @db.Decimal(14,2)` | **suprimido na origem** para `comercial:viewer` (FR-030) |
@@ -143,19 +144,48 @@ comportamento da referência e precisa sobreviver ao porte.
 
 ---
 
-### `Seller` — cadastro de vendedores *(novo, §12.5 decisão 4)*
+### Consultor de vendas — **não é model**
 
-Substitui a lista fixa de `page.tsx:93`.
+> **Decisão de 31/07 que revoga a decisão 4 da §12.5.** Não existe model `Seller`, nem
+> CRUD, nem tela de cadastro. Todo consultor de vendas é um **usuário do app com o papel
+> `comercial:seller`**, então a lista se mantém sozinha: quem entra no quadro aparece,
+> quem sai some. Um cadastro paralelo seria uma segunda verdade para alguém esquecer de
+> atualizar.
 
-| Campo | Tipo | Notas |
+A lista da etapa Cliente é uma **consulta**, não uma tabela:
+
+```
+usuários ativos que têm o papel comercial:seller
+```
+
+**Papéis são aditivos**: um gestor que também vende carrega `comercial:seller` além de
+`comercial:manager`, e por isso aparece na lista. Gestor sem esse papel não aparece —
+ele escolhe entre vendedores, não se inclui por padrão.
+
+Na `Proposal`, isso vira **dois campos, não um**:
+
+| Campo | Tipo | Por quê |
 |---|---|---|
-| `id` | `String @id @default(cuid())` | |
-| `name` | `String` | |
-| `active` | `Boolean @default(true)` | **desativar não altera proposta já emitida** (FR-041) |
-| `sortOrder` | `Int` | |
-| `createdByUserId` | `String` | |
+| `sellerUserId` | `String` | vínculo com o usuário — **referência entre schemas** (`comercial.Proposal` → `public.User`), suportada pelo `multiSchema` do Prisma |
+| `sellerName` | `String` | **o nome no momento da emissão** |
 
-**Semeado** com os 6 nomes da referência. Escrita restrita a `comercial:manager`.
+**Por que os dois.** O vínculo permite filtrar e saber quem é. O nome desnormalizado
+protege o histórico: desativar ou renomear um usuário **não pode** alterar proposta já
+emitida (FR-041a) — o documento é registro histórico, e o PDF já foi ao cliente com
+aquele nome. Guardar só a FK faria propostas antigas mudarem de conteúdo quando alguém
+casa e troca de sobrenome.
+
+**Comportamento por papel no campo `PROP-CTL-016`** (FR-041b), decidido **no servidor**:
+
+| Papel | Opções recebidas |
+|---|---|
+| `comercial:seller` | **apenas o próprio nome**, já pré-selecionado |
+| `comercial:manager` | a lista completa |
+
+O controle continua sendo o mesmo `SelectField` do inventário — muda o conjunto de
+opções, não o elemento. Isso espelha o que a referência **já faz** com o orçamentista
+(`PROP-CTL-018`, `readOnly`, preenchido pelo login): o app já tinha o padrão de campo de
+pessoa preenchido pela sessão.
 
 ---
 
@@ -214,7 +244,7 @@ entidade do domínio e tem ciclo de vida próprio (FR-019 a FR-022).
 | `Proposal` — finalizar | qualquer | só as suas | ✗ |
 | `ProposalDocument` — técnica | ✔ | as suas | ✔ |
 | `ProposalDocument` — comercial | ✔ | as suas | **✗** |
-| `Seller` — escrever | ✔ | ✗ | ✗ |
+| Lista de consultores | completa | **só o próprio nome** | ✗ |
 | Custo, margem, valor | ✔ | os seus | **✗** |
 
 Esta matriz é o oráculo dos testes de permissão da E9: **3 papéis × 2 entidades ×

@@ -56,7 +56,12 @@ Decisões já registradas na E0 e na §12.5 do plano, que esta spec incorpora:
 - **O menu de entrada e o diálogo de modo coexistem** (decidido em 31/07): dois passos
   de escolha, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em
   9 desvios.
-- **Cadastro de vendedores**: vira cadastro próprio do módulo, não lista fixa.
+- **A lista de vendedores é derivada dos usuários, não um cadastro** (decidido em
+  31/07, revendo a decisão 4 da §12.5): todo consultor de vendas é um usuário do app
+  com o papel `comercial:seller`, então a lista se atualiza sozinha. Não há model
+  `Seller`, nem CRUD, nem tela de cadastro.
+- **O campo "Consultor de Vendas" se comporta por papel**: o vendedor vê **apenas o
+  próprio nome**, já pré-selecionado; o gestor vê a lista completa.
 - **Numeração**: gerada pelo próprio módulo (sequência no banco), não pelo CRM
   externo. Muda em relação à referência, que dependia de chamada ao CRM.
 - **Retenção**: indefinida, como registro comercial; entra no ROPA.
@@ -253,23 +258,31 @@ tutorial aparece uma vez, é dispensável e não volta sozinho.
 
 ---
 
-### User Story 6 - Manter o cadastro de vendedores (Priority: P3)
+### User Story 6 - A lista de vendedores se mantém sozinha (Priority: P3)
 
-Um orçamentista mantém a lista de consultores de vendas usada pelas propostas, em vez de
-ela ser fixa no código.
+Ninguém mantém uma lista de vendedores. Todo consultor de vendas é um usuário do app com
+o papel de vendedor, e a lista da etapa Cliente é derivada disso. Quem entra no quadro
+aparece; quem sai, some — sem cadastro paralelo para esquecer de atualizar.
 
-**Why this priority**: escopo além do porte, decidido na §12.5. Não bloqueia nenhuma das
-histórias acima — as propostas funcionam com a lista existente.
+**Why this priority**: é consequência da unificação decidida em 31/07, não uma
+funcionalidade à parte. Não bloqueia nada, e o custo é uma consulta, não uma tela.
 
-**Independent Test**: cadastrar, editar e desativar um vendedor, e conferir que a
-mudança aparece na seleção da etapa Cliente.
+**Independent Test**: conceder `comercial:seller` a um usuário e conferir que ele passa a
+aparecer na seleção da etapa Cliente para um gestor — sem nenhum passo de cadastro.
 
 **Acceptance Scenarios**:
 
-1. **Given** um vendedor novo cadastrado, **When** o orçamentista abre a etapa Cliente,
-   **Then** ele aparece na seleção de consultor de vendas.
-2. **Given** um vendedor citado por propostas já emitidas, **When** ele é desativado,
-   **Then** as propostas antigas continuam mostrando o nome corretamente.
+1. **Given** um usuário que acabou de receber o papel `comercial:seller`, **When** um
+   gestor abre a etapa Cliente, **Then** ele aparece na seleção de consultor de vendas,
+   sem nenhum cadastro intermediário.
+2. **Given** um `comercial:seller` montando uma proposta, **When** ele chega à etapa
+   Cliente, **Then** o campo Consultor de Vendas já vem preenchido com o próprio nome, e
+   é a **única** opção disponível.
+3. **Given** um `comercial:manager` montando uma proposta, **When** ele chega à etapa
+   Cliente, **Then** vê a lista completa e pode escolher qualquer vendedor.
+4. **Given** um vendedor citado por propostas já emitidas, **When** o usuário dele é
+   desativado ou renomeado, **Then** as propostas antigas continuam mostrando o nome
+   original — o documento é registro histórico.
 
 ---
 
@@ -422,8 +435,7 @@ funcionalidade:
   para a proposta, e é regra nova — não existe na referência.
 - **FR-030**: `comercial:viewer` DEVE ser **somente leitura** e **sem valores**: sua
   única superfície é a **listagem do histórico**, sem ver preço, valor total, custo nem
-  margem em nenhuma coluna. Não cria, não edita, não finaliza, não altera o cadastro de
-  vendedores e **não tem tela de detalhe de proposta** — nenhuma tela nova nasce por
+  margem em nenhuma coluna. Não cria, não edita, não finaliza e **não tem tela de detalhe de proposta** — nenhuma tela nova nasce por
   causa deste papel.
 - **FR-030a**: `comercial:viewer` PODE baixar a **proposta técnica** e NÃO PODE baixar a
   **proposta comercial** — esta carrega a tabela de preços, as condições de pagamento e
@@ -459,8 +471,16 @@ funcionalidade:
 - **FR-039**: Os dados do módulo DEVEM viver em schema próprio, separado do schema do
   filtroAPP, na mesma instância de banco.
 - **FR-040**: Não há migração de dados — a referência nunca esteve em produção.
-- **FR-041**: A lista de consultores de vendas DEVE ser um cadastro do módulo, e
-  desativar um vendedor NÃO PODE alterar propostas já emitidas.
+- **FR-041**: A lista de consultores de vendas DEVE ser **derivada dos usuários com o
+  papel `comercial:seller`**, atualizando-se sozinha conforme o quadro muda. Não existe
+  cadastro paralelo de vendedores.
+- **FR-041a**: A proposta DEVE guardar o **nome do consultor no momento da emissão**,
+  além do vínculo com o usuário. Desativar ou renomear um usuário NÃO PODE alterar
+  proposta já emitida — o documento é registro histórico.
+- **FR-041b**: No campo "Consultor de Vendas" (`PROP-CTL-016`), `comercial:seller` DEVE
+  ver **apenas o próprio nome**, já pré-selecionado; `comercial:manager` DEVE ver a
+  lista completa e poder escolher. O controle continua sendo o mesmo do inventário — o
+  que muda é o conjunto de opções, decidido no servidor.
 - **FR-042**: As propostas DEVEM ser retidas por prazo indefinido, como registro
   comercial, com a entrada correspondente no registro de tratamento de dados.
 
@@ -497,7 +517,7 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
 | `PROP` — assistente de 7 etapas (137 controles) | `contracts/ui-inventory.md` §PROP; capturas `baseline/PROP-*-1440.png`; `frontend/src/utils/reorderDrag.ts` | padrão compartilhado de campo inválido; utilitário compartilhado de reordenação | destaque por campo com mensagens distintas para vazio e inválido (FR-011); trava de avanço por etapa com contagem | alça + reordenação ao vivo + espaço de destino + fantasma + cancelar restaura + persiste ao soltar + toque; **setas ↑/↓ mantidas** | etapa ativa no endereço; rascunho local com oferta de recuperação e aviso ao sair | tutorial permanente do módulo cobre a armadilha de e-mail/CNPJ | prévia lateral não pode impor largura mínima em pixel; tabelas de preço empilham em tela estreita |
 | `CUSTO` — levantamento, 5 seções (465 controles) | `contracts/ui-inventory.md` §CUSTO; capturas `baseline/CUSTO-*-1440.png`; `baseline/L3-f5-perde-levantamento.png` | padrão compartilhado de campo inválido; primitivas responsivas do projeto | destaque por campo resolvido a partir do endereço de cada pendência da validação; banner-resumo mantido | N/A | modo, base e seção no endereço; rascunho local com oferta de recuperação e aviso ao sair | tutorial permanente cobre a cadeia de prioridade do rodapé | faixa de 7 indicadores e tira de 5 seções são os pontos de estouro conhecidos: quebrar, rolar internamente ou virar seleção em tela estreita |
 | `HIST` — histórico (7 controles) | `contracts/ui-inventory.md` §HIST; captura `baseline/HIST-lista-1440.png` | tabela do padrão do projeto | N/A | N/A | filtros no endereço quando houver | N/A | tabela vira cards empilhados em tela estreita; valores monetários e status não podem alargar o card |
-| Cadastro de vendedores (novo, §12.5) | telas de cadastro equivalentes do filtroAPP | componentes e classes padrão do projeto | padrão compartilhado de campo inválido | N/A | endereço próprio | coberto pelo tutorial do módulo | tabela vira cards em tela estreita |
+| Campo "Consultor de Vendas" (`PROP-CTL-016`) | `contracts/ui-inventory.md` §PROP | mesmo `SelectField` do inventário | opções decididas no servidor: **vendedor vê só o próprio nome, pré-selecionado; gestor vê a lista completa** | N/A | N/A | N/A | herda a etapa Cliente |
 
 ### Key Entities *(include if feature involves data)*
 
@@ -511,8 +531,10 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
 - **Revisão de proposta**: uma versão numerada de uma proposta, derivada da anterior.
 - **Documento gerado**: o arquivo comercial ou técnico produzido na finalização, com seu
   vínculo à proposta e à revisão.
-- **Vendedor / consultor de vendas**: cadastro próprio do módulo, referenciado pelas
-  propostas, com estado ativo/inativo que não altera propostas já emitidas.
+- **Consultor de vendas**: **não é entidade própria** — é o usuário com o papel
+  `comercial:seller`. A lista da etapa Cliente é derivada dos usuários. A proposta
+  guarda o vínculo **e o nome no momento da emissão**, para que desativar ou renomear
+  o usuário não altere documento já emitido.
 - **Numeração**: a sequência que atribui código novo, semeada acima do maior número
   existente nas duas origens.
 - **Registro de integração**: o estado de envio de cada documento aos sistemas externos,
@@ -570,7 +592,7 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   nº 8), porque exigia chamada real ao sistema externo. Sua paridade será conferida
   contra o código. Com a numeração passando a ser do próprio módulo, esse passo deixa de
   depender de credencial externa.
-- As decisões da §12.5 do plano (permissões, autoria, cadastro de vendedores, numeração,
+- As decisões da §12.5 do plano (permissões, autoria, lista de vendedores, numeração,
   retenção) são **escopo além do porte fiel** e já foram aprovadas. Elas divergem da
   referência sem constar da lista de 9 desvios porque aquela lista trata de paridade de
   UI/UX, não de regra de negócio.

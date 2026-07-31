@@ -32,7 +32,7 @@ cada tarefa para preservar a ordem de execução acordada na §6 do
 | 5 — US3 finalização | E5 + E8 (parcial) | ~5 |
 | 6 — US4 continuidade | L3, dentro de E7/E8 | 2,5 |
 | 7 — US5 entrada e onboarding | E6 + E8 | ~2 |
-| 8 — US6 vendedores | E4 + E8 | ~1 |
+| 8 — US6 lista de vendedores | E4 | ~0,25 |
 | 9 — Polish | E8.5 + E9 + E10 | 7,5–8,5 |
 | Depois | E11 | 3–5 |
 
@@ -45,7 +45,7 @@ o `/speckit-analyze` acusa item órfão, e ausência de campo não gera erro: s�
 
 | Faixa | Onde é coberta |
 |---|---|
-| `CUSTO-CTL-001..027` (shell e modais) | T031, T034 |
+| `CUSTO-CTL-001..027` (shell e modais) | T037, T045 |
 | `CUSTO-CTL-028..038` (Premissas) | T038 |
 | `CUSTO-CTL-039..137` (Mão de obra) | T039 |
 | `CUSTO-CTL-138..228` (Insumos) | T040 |
@@ -53,7 +53,7 @@ o `/speckit-analyze` acusa item órfão, e ausência de campo não gera erro: s�
 | `CUSTO-CTL-395..465` (Resumo e QQP) | T042 |
 | `CUSTO-H-001..017`, `CUSTO-TXT-001..541` | T038–T042, T043 |
 | `PROP-CTL-001..010` (shell e modo) | T055 |
-| `PROP-CTL-011..025` (E1 Cliente) | T057 |
+| `PROP-CTL-011..025` (E1 Cliente) | T057, T102 |
 | `PROP-CTL-026..033` (E2 Escopo) | T058 |
 | `PROP-CTL-034..042` (E3 Responsabilidades) | T059 |
 | `PROP-CTL-043..048` (E4 Prazos) | T060 |
@@ -63,7 +63,7 @@ o `/speckit-analyze` acusa item órfão, e ausência de campo não gera erro: s�
 | `PROP-CTL-086..137` (prévia) | T064 |
 | `PROP-H-001..003` (chrome), `PROP-H-004..022` (fac-símile) | T055, T064 |
 | `PROP-TXT-001..330` | T057–T064 |
-| `HIST-CTL-001..007`, `HIST-H-001`, `HIST-TXT-001..033` | T032 |
+| `HIST-CTL-001..007`, `HIST-H-001`, `HIST-TXT-001..033` | T084 |
 | `LOGIN-CTL-001..007`, `LOGIN-H-001`, `LOGIN-TXT-001..012` | **T098** — **não portados**, com motivo registrado |
 
 > **Os IDs `LOGIN-*` não têm tela de destino.** O módulo não traz login próprio: reusa
@@ -88,7 +88,7 @@ nas duas pontas.
 ### Scaffold `(E1)`
 
 - [ ] T004 Rodar `npm run new:module -- comercial --title "Comercial"` e conferir a árvore gerada em `frontend/src/pages/comercial/` e `backend/src/routes/comercial/`.
-- [ ] T005 Registrar o módulo em `shared/modules/registry.json`: badge `COM`, `pathPrefixes: ["/comercial"]`, `hub.path: "/comercial"`, rotas `index` (`/comercial`), `custos`, `propostas`, `historico`, `vendedores`, e os **três** papéis — `comercial:manager` ("Comercial — Gestor"), `comercial:seller` ("Comercial — Vendedor"), `comercial:viewer` ("Comercial — Consulta").
+- [ ] T005 Registrar o módulo em `shared/modules/registry.json`: badge `COM`, `pathPrefixes: ["/comercial"]`, `hub.path: "/comercial"`, rotas `index` (`/comercial`), `custos`, `propostas`, `historico`, e os **três** papéis — `comercial:manager` ("Comercial — Gestor"), `comercial:seller` ("Comercial — Vendedor"), `comercial:viewer` ("Comercial — Consulta").
 - [ ] T006 Rodar `npm run modules:generate` e conferir `frontend/src/modules/registry.generated.ts`.
 - [ ] T007 Criar migration dos enums `AppModule.COMERCIAL` e `ModuleRoleCode.COMERCIAL_MANAGER|COMERCIAL_SELLER|COMERCIAL_VIEWER` em `backend/prisma/migrations/`.
 - [ ] T008 Implementar `requireComercialAccess`, `requireComercialEstimator` (gestor **ou** vendedor) e `requireComercialManager` em `backend/src/middleware/auth.js`, no padrão de `requireQualidadeAccess`.
@@ -115,7 +115,7 @@ antes desta fase fechar.**
 
 - [ ] T015 Declarar `schemas = ["public", "comercial"]` no datasource de `backend/prisma/schema.prisma`.
 - [ ] T016 Escrever `scripts/annotate-prisma-schemas.mjs` que insere `@@schema("public")` em todo model e enum de `backend/prisma/schema.prisma` sem anotação (~100 models, ~40 enums). Edição mecânica de alto volume — à mão introduz erro silencioso.
-- [ ] T017 Declarar os models novos com `@@schema("comercial")` conforme [data-model.md](./data-model.md): `CostEstimate`, `CostEstimateVersion`, `Proposal`, `ProposalDocument`, `SalesAttribution`, `Seller`, `ProposalAuditLog`.
+- [ ] T017 Declarar os models novos com `@@schema("comercial")` conforme [data-model.md](./data-model.md): `CostEstimate`, `CostEstimateVersion`, `Proposal`, `ProposalDocument`, `SalesAttribution`, `ProposalAuditLog`.
 - [ ] T018 Aplicar as conversões obrigatórias de tipo: dinheiro em `Decimal @db.Decimal(14,2)` e margem em `Decimal @db.Decimal(6,2)` — **nunca `Float`**, que produz centavo errado e aqui vira preço errado.
 - [ ] T019 Criar em `backend/prisma/schema.prisma` os índices de listagem: `(createdByUserId, createdAt)` em `CostEstimate` e `Proposal` — é a consulta da filtragem por autoria —, mais `(proposalCode, revisionNumber)` e `(status)`.
 - [ ] T020 Rodar `prisma migrate dev` e **revisar o SQL gerado**: deve conter `CREATE SCHEMA comercial` e `CREATE TABLE comercial.*`, e **nenhum `ALTER`** nas tabelas da operação. Se houver `ALTER`, parar e investigar.
@@ -283,17 +283,22 @@ vez, é dispensável e não volta sozinho.
 
 ---
 
-## Phase 8: US6 — Cadastro de vendedores (P3) `(E4 + E8)`
+## Phase 8: US6 — A lista de vendedores se mantém sozinha (P3) `(E4 + E8)`
 
-**Goal**: a lista de consultores deixa de ser fixa no código.
+**Goal**: a lista de consultores é derivada dos usuários, sem cadastro paralelo.
 
-**Independent Test**: cadastrar, editar e desativar um vendedor e ver a mudança na
-seleção da etapa Cliente.
+**Independent Test**: conceder `comercial:seller` a um usuário e conferir que ele passa
+a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastro.
 
-- [ ] T099 [US6] Implementar CRUD de `Seller` em `backend/lib/comercial/sellers.js` e as rotas `GET /api/comercial/vendedores` (`requireComercialAccess`) e `POST|PUT /api/comercial/vendedores/:id` (`requireComercialManager`).
-- [ ] T100 [US6] Semear a tabela com os 6 nomes da constante `SELLERS` da referência (`page.tsx:93`).
-- [ ] T101 [US6] Garantir em `backend/lib/comercial/sellers.js` que **desativar um vendedor não altera proposta já emitida** — o vínculo é guardado e o nome continua aparecendo.
-- [ ] T102 [US6] [P] Implementar a tela `frontend/src/pages/comercial/vendedores/`, com `.field-group` + `.field-invalid` e tabela virando cards em tela estreita.
+> **Decisão de 31/07 que revoga a decisão 4 da §12.5.** Não há model `Seller`, nem CRUD,
+> nem tela de cadastro: todo consultor de vendas é um usuário com o papel
+> `comercial:seller`. Um cadastro paralelo seria uma segunda verdade para alguém
+> esquecer de atualizar.
+
+- [ ] T099 [US6] Implementar `GET /api/comercial/consultores` em `backend/lib/comercial/consultores.js`, derivando a lista dos **usuários ativos com o papel `comercial:seller`**. Sem `POST`, `PUT` nem `DELETE`.
+- [ ] T100 [US6] Fazer a resposta de `backend/lib/comercial/consultores.js` **variar por papel** (FR-041b): `comercial:manager` recebe a lista completa; `comercial:seller` recebe **apenas ele mesmo**. Filtrar no cliente não serve — um vendedor não deve nem receber os nomes dos outros.
+- [ ] T101 [US6] Gravar `sellerUserId` **e** `sellerName` em `Proposal` (`backend/lib/comercial/proposals.js`): o nome é o do **momento da emissão**. Desativar ou renomear um usuário **não altera proposta já emitida** — o PDF já foi ao cliente com aquele nome.
+- [ ] T102 [US6] [P] Ligar o campo `PROP-CTL-016` em `frontend/src/pages/comercial/proposta/steps/ClienteStep.tsx` à rota derivada, **pré-selecionando** a única opção quando o usuário é `comercial:seller`. O controle continua o mesmo `SelectField` do inventário — muda o conjunto de opções, não o elemento. Espelha o que a referência já faz com o orçamentista (`PROP-CTL-018`, preenchido pelo login).
 
 ---
 
