@@ -4,6 +4,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Dois schemas na mesma instância: `public` é a operação do filtroAPP,
+  // `comercial` é o módulo Comercial. Nenhum dado se move — as tabelas já
+  // estão em `public`, e a anotação `@@schema` só informa ao Prisma onde
+  // elas já estão. Ver §4.1 do docs/PLANO_MODULO_COMERCIAL.md.
+  schemas  = ["public", "comercial"]
 }
 
 enum ReportType {
@@ -14,6 +19,8 @@ enum ReportType {
   RLM
   RLF
   RLI
+
+  @@schema("public")
 }
 
 enum ReportStatus {
@@ -21,11 +28,15 @@ enum ReportStatus {
   APPROVED
   RETURNED
   SIGNED
+
+  @@schema("public")
 }
 
 enum ClientReviewAction {
   APPROVED
   REJECTED
+
+  @@schema("public")
 }
 
 enum ReportVersionStatus {
@@ -33,17 +44,23 @@ enum ReportVersionStatus {
   ACTIVE
   SUPERSEDED
   REJECTED
+
+  @@schema("public")
 }
 
 enum ReportSignerRole {
   COLLABORATOR
   MANAGER
   CLIENT
+
+  @@schema("public")
 }
 
 enum ReportSignatureType {
   ELECTRONIC
   DIGITAL_A1
+
+  @@schema("public")
 }
 
 enum ReportSignatureStatus {
@@ -52,6 +69,8 @@ enum ReportSignatureStatus {
   REJECTED
   INVALIDATED
   EXPIRED
+
+  @@schema("public")
 }
 
 enum ReportAuditAction {
@@ -63,6 +82,8 @@ enum ReportAuditAction {
   TOKEN_ACCESSED
   TOKEN_EXPIRED
   REPORT_LOCKED
+
+  @@schema("public")
 }
 
 enum UserRole {
@@ -70,12 +91,16 @@ enum UserRole {
   MANAGER
   COORDINATOR
   CLIENT
+
+  @@schema("public")
 }
 
 enum AccountType {
   ADMIN
   INTERNAL
   CLIENT
+
+  @@schema("public")
 }
 
 enum AppModule {
@@ -88,6 +113,8 @@ enum AppModule {
   ACOMPANHAMENTO
   QUALIDADE
   COMERCIAL
+
+  @@schema("public")
 }
 
 enum ModuleRoleCode {
@@ -111,16 +138,22 @@ enum ModuleRoleCode {
   COMERCIAL_MANAGER
   COMERCIAL_SELLER
   COMERCIAL_VIEWER
+
+  @@schema("public")
 }
 
 enum StockItemType {
   FILTRO
   PRODUTO_QUIMICO
+
+  @@schema("public")
 }
 
 enum StockMovementType {
   ENTRADA
   SAIDA
+
+  @@schema("public")
 }
 
 enum StockMovementReason {
@@ -131,17 +164,23 @@ enum StockMovementReason {
   PERDA
   DESCARTE_VALIDADE
   ESTORNO
+
+  @@schema("public")
 }
 
 enum RomaneioItemKind {
   EQUIPMENT
   CONNECTION
+
+  @@schema("public")
 }
 
 enum RomaneioMeasureType {
   UNIT
   LENGTH
   WEIGHT
+
+  @@schema("public")
 }
 
 enum RomaneioCatalogSource {
@@ -151,11 +190,15 @@ enum RomaneioCatalogSource {
   PARTICLE_COUNTER
   EQUIPAMENTOS
   STOCK
+
+  @@schema("public")
 }
 
 enum RomaneioType {
   OUTBOUND
   INBOUND
+
+  @@schema("public")
 }
 
 enum DataSubjectRequestType {
@@ -170,6 +213,8 @@ enum DataSubjectRequestType {
   CONSENT_REVOCATION
   OPPOSITION
   OTHER
+
+  @@schema("public")
 }
 
 enum DataSubjectRequestStatus {
@@ -178,6 +223,8 @@ enum DataSubjectRequestStatus {
   COMPLETED
   REJECTED
   CANCELLED
+
+  @@schema("public")
 }
 
 // === Módulo Acompanhamento de Projetos — importação comercial (Access) ===
@@ -185,12 +232,16 @@ enum DataSubjectRequestStatus {
 enum ServiceModality {
   INLOCO
   POP_SEDE
+
+  @@schema("public")
 }
 
 enum BudgetSelectionStatus {
   UNKNOWN
   CHOSEN
   LOST
+
+  @@schema("public")
 }
 
 // Unidade de medida do quantitativo previsto de serviços (escopo vendido).
@@ -202,22 +253,30 @@ enum PlannedMeasureUnit {
   T // toneladas (reservado)
   UN // unidades (reservado)
   L // litros (óleo)
+
+  @@schema("public")
 }
 
 enum AccessImportSource {
   SCRIPT
   MANUAL
+
+  @@schema("public")
 }
 
 enum AccessImportStatus {
   SUCCESS
   PARTIAL
   ERROR
+
+  @@schema("public")
 }
 
 enum AcompanhamentoMissionGroupStatus {
   ACTIVE
   DISSOLVED
+
+  @@schema("public")
 }
 
 enum QualityRecordType {
@@ -226,23 +285,31 @@ enum QualityRecordType {
   INCIDENTE
   RECLAMACAO_CLIENTE
   MELHORIA
+
+  @@schema("public")
 }
 
 enum QualityEvidenceKind {
   LINK
   ATTACHMENT
+
+  @@schema("public")
 }
 
 enum QualityImpact {
   ALTO
   MEDIO
   BAIXO
+
+  @@schema("public")
 }
 
 enum QualityDisposition {
   TRATAR
   MONITORAR
   ARQUIVAR_DIVULGAR
+
+  @@schema("public")
 }
 
 enum QualityStatus {
@@ -252,6 +319,8 @@ enum QualityStatus {
   EM_ACAO
   FECHADO
   DIVULGADO
+
+  @@schema("public")
 }
 
 model Collaborator {
@@ -277,6 +346,8 @@ model Collaborator {
   signatureNoticeLogs       CollaboratorSignatureNoticeLog[]
   pontoPeriods              PontoPeriodSummary[]
   pontoNameAliases          PontoNameAlias[]
+
+  @@schema("public")
 }
 
 model CollaboratorSignatureNoticeLog {
@@ -291,6 +362,8 @@ model CollaboratorSignatureNoticeLog {
   @@index([collaboratorId])
   @@index([userId])
   @@index([createdAt])
+
+  @@schema("public")
 }
 
 model ClientSegment {
@@ -301,6 +374,8 @@ model ClientSegment {
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("public")
 }
 
 // Motor de custo de colaborador: perfil + parâmetros versionados.
@@ -315,6 +390,8 @@ model CostProfile {
   updatedAt     DateTime           @updatedAt
   parameterSets CostParameterSet[]
   jobRole       JobRole?           @relation(fields: [jobRoleId], references: [id], onDelete: SetNull)
+
+  @@schema("public")
 }
 
 model CostParameterSet {
@@ -331,6 +408,8 @@ model CostParameterSet {
   @@unique([costProfileId, version])
   @@index([costProfileId])
   @@index([costProfileId, effectiveDate])
+
+  @@schema("public")
 }
 
 // Configurações globais do módulo Acompanhamento (chave/valor). Ex.: custo de EPI por colaborador.
@@ -339,6 +418,8 @@ model AcompanhamentoSetting {
   numberValue     Float?
   updatedByUserId String?
   updatedAt       DateTime @default(now()) @updatedAt
+
+  @@schema("public")
 }
 
 // === Ponto (jornada) importado do Pontomais — base do custo de mão de obra (HH) ===
@@ -362,6 +443,8 @@ model PontoImport {
 
   @@index([createdAt])
   @@index([contentHash])
+
+  @@schema("public")
 }
 
 // Resumo por colaborador × import: horas normais + split HE70/HE100 (só existe no "Resumo" da
@@ -387,6 +470,8 @@ model PontoPeriodSummary {
   @@unique([importId, normalizedName])
   @@index([collaboratorId])
   @@index([importId])
+
+  @@schema("public")
 }
 
 // Lembra vínculos manuais nome-do-ponto → colaborador (variações de caixa/apelido entre imports).
@@ -401,6 +486,8 @@ model PontoNameAlias {
   collaborator    Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
 
   @@index([collaboratorId])
+
+  @@schema("public")
 }
 
 // Lista gerenciável de cargos (substitui o texto livre em Collaborator.role).
@@ -416,6 +503,8 @@ model JobRole {
   costProfile        CostProfile?
 
   @@index([isActive, order])
+
+  @@schema("public")
 }
 
 // Lista gerenciável de temas de DDS abordados nos RDOs (gestores e coordenadores).
@@ -428,6 +517,8 @@ model DdsTheme {
   updatedAt DateTime @updatedAt
 
   @@index([isActive, order])
+
+  @@schema("public")
 }
 
 model Project {
@@ -490,6 +581,8 @@ model Project {
   @@index([deletedAt])
   @@index([registrationPending])
   @@index([commercialProposalCode])
+
+  @@schema("public")
 }
 
 model ProjectManualProgressHistory {
@@ -501,6 +594,8 @@ model ProjectManualProgressHistory {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, recordedAt])
+
+  @@schema("public")
 }
 
 model ProjectManualCost {
@@ -519,6 +614,8 @@ model ProjectManualCost {
 
   @@index([projectId, deletedAt])
   @@index([createdByUserId])
+
+  @@schema("public")
 }
 
 model AcompanhamentoMissionGroup {
@@ -537,6 +634,8 @@ model AcompanhamentoMissionGroup {
   @@index([status, createdAt])
   @@index([createdByUserId])
   @@index([dissolvedByUserId])
+
+  @@schema("public")
 }
 
 model AcompanhamentoMissionGroupMember {
@@ -552,6 +651,8 @@ model AcompanhamentoMissionGroupMember {
   @@unique([groupId, projectId])
   @@index([groupId, order])
   @@index([projectId])
+
+  @@schema("public")
 }
 
 model ProjectReportSeq {
@@ -562,6 +663,8 @@ model ProjectReportSeq {
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, reportType])
+
+  @@schema("public")
 }
 
 model ProjectAuthorizedUser {
@@ -573,6 +676,8 @@ model ProjectAuthorizedUser {
 
   @@id([projectId, userId])
   @@index([userId])
+
+  @@schema("public")
 }
 
 model Report {
@@ -631,6 +736,8 @@ model Report {
   @@index([reportType, status, reportDate])
   @@index([projectId, reportType, status, reportDate])
   @@index([deletedAt])
+
+  @@schema("public")
 }
 
 model ReportApprovalPostProcessingJob {
@@ -651,6 +758,8 @@ model ReportApprovalPostProcessingJob {
 
   @@index([status, lockedAt])
   @@index([createdAt])
+
+  @@schema("public")
 }
 
 model ClientReportReview {
@@ -666,6 +775,8 @@ model ClientReportReview {
   clientUser   User?              @relation("ClientReportReviewer", fields: [clientUserId], references: [id], onDelete: SetNull)
 
   @@index([reportId, createdAt])
+
+  @@schema("public")
 }
 
 model ReportVersion {
@@ -688,6 +799,8 @@ model ReportVersion {
   @@unique([reportId, versionNumber])
   @@index([reportId])
   @@index([reportId, status])
+
+  @@schema("public")
 }
 
 model ReportSignature {
@@ -732,6 +845,8 @@ model ReportSignature {
   @@index([versionId])
   @@index([status])
   @@index([status, lastReminderAt, reminderClaimedAt])
+
+  @@schema("public")
 }
 
 model ReportAuditLog {
@@ -753,6 +868,8 @@ model ReportAuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+
+  @@schema("public")
 }
 
 model ReportCollaborator {
@@ -762,6 +879,8 @@ model ReportCollaborator {
   collaborator   Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
 
   @@id([reportId, collaboratorId])
+
+  @@schema("public")
 }
 
 model ReportService {
@@ -782,6 +901,8 @@ model ReportService {
   attachments ReportAttachment[]
 
   @@index([reportId])
+
+  @@schema("public")
 }
 
 model Equipment {
@@ -793,6 +914,8 @@ model Equipment {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   reportServices ReportService[]
+
+  @@schema("public")
 }
 
 model InhibitionVessel {
@@ -802,6 +925,8 @@ model InhibitionVessel {
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model InhibitionSystem {
@@ -813,6 +938,8 @@ model InhibitionSystem {
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model Unit {
@@ -822,6 +949,8 @@ model Unit {
   category  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model Manometer {
@@ -835,6 +964,8 @@ model Manometer {
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   calibrationCertificates CalibrationCertificate[]
+
+  @@schema("public")
 }
 
 model ParticleCounter {
@@ -850,11 +981,15 @@ model ParticleCounter {
   calibrationCertificates CalibrationCertificate[]
 
   @@index([category])
+
+  @@schema("public")
 }
 
 enum CalibrationEquipmentType {
   MANOMETER
   PARTICLE_COUNTER
+
+  @@schema("public")
 }
 
 model CalibrationCertificate {
@@ -872,6 +1007,8 @@ model CalibrationCertificate {
 
   @@index([manometerId, createdAt])
   @@index([particleCounterId, createdAt])
+
+  @@schema("public")
 }
 
 model CalibrationNotificationLog {
@@ -885,6 +1022,8 @@ model CalibrationNotificationLog {
 
   @@unique([equipmentType, equipmentId, milestone, targetDate])
   @@index([category, milestone, sentAt])
+
+  @@schema("public")
 }
 
 // === Módulo Equipamentos ===
@@ -909,6 +1048,8 @@ model EquipmentCategory {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   equipment            CompanyEquipment[]
+
+  @@schema("public")
 }
 
 model CompanyEquipment {
@@ -934,6 +1075,8 @@ model CompanyEquipment {
 
   @@index([categoryId])
   @@index([expiresAt])
+
+  @@schema("public")
 }
 
 enum EquipmentAttachmentKind {
@@ -942,6 +1085,8 @@ enum EquipmentAttachmentKind {
   TECHNICAL_TEMPLATE
   TECHNICAL_DOC_GENERATED
   TECHNICAL_PHOTO
+
+  @@schema("public")
 }
 
 // Destinatários das notificações de calibração do módulo Equipamentos: contas
@@ -953,6 +1098,8 @@ model EquipmentNotificationRecipient {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("public")
 }
 
 // Configuração (singleton) dos e-mails de calibração: marcos, repetição e on/off.
@@ -964,6 +1111,8 @@ model EquipmentNotificationConfig {
   repeatExpired  Boolean  @default(true)
   repeatGapDays  Int      @default(5)
   updatedAt      DateTime @updatedAt
+
+  @@schema("public")
 }
 
 // Mapeamento configurável: cada "slot" de equipamento do formulário de RDO
@@ -977,6 +1126,8 @@ model RdoEquipmentSlot {
   updatedAt   DateTime @updatedAt
 
   @@index([categoryId])
+
+  @@schema("public")
 }
 
 model EquipmentAttachment {
@@ -991,6 +1142,8 @@ model EquipmentAttachment {
   equipment   CompanyEquipment        @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@index([equipmentId, kind, createdAt])
+
+  @@schema("public")
 }
 
 // === Modulo Estoque ===
@@ -1022,6 +1175,8 @@ model StockItem {
   movements        StockMovement[]
 
   @@index([categoryId])
+
+  @@schema("public")
 }
 
 model StockCategory {
@@ -1037,6 +1192,8 @@ model StockCategory {
 
   @@unique([type, name])
   @@index([type, isActive, name])
+
+  @@schema("public")
 }
 
 model StockBatch {
@@ -1052,6 +1209,8 @@ model StockBatch {
 
   @@unique([itemId, lotNumber])
   @@index([expiryDate])
+
+  @@schema("public")
 }
 
 model StockMovement {
@@ -1087,6 +1246,8 @@ model StockMovement {
   @@index([projectId])
   @@index([romaneioId])
   @@index([type])
+
+  @@schema("public")
 }
 
 model User {
@@ -1143,8 +1304,16 @@ model User {
   createdQualityRecords               QualityRecord[]                     @relation("QualityRecordCreator")
   updatedQualityRecords               QualityRecord[]                     @relation("QualityRecordUpdater")
   deletedQualityRecords               QualityRecord[]                     @relation("QualityRecordDeletedBy")
+  // Módulo Comercial — relações ENTRE SCHEMAS: estes models vivem em
+  // `comercial` e apontam para `User`, que vive em `public`. É suportado pelo
+  // multiSchema e não move nada: as duas tabelas seguem onde já estão.
+  comercialCostEstimates              CostEstimate[]                      @relation("ComercialCostEstimateAuthor")
+  comercialProposalsCreated           Proposal[]                          @relation("ComercialProposalAuthor")
+  comercialProposalsAsSeller          Proposal[]                          @relation("ComercialProposalSeller")
 
   @@index([clientCnpj])
+
+  @@schema("public")
 }
 
 // === Modulo Qualidade ===
@@ -1160,6 +1329,8 @@ model QualityNature {
 
   @@index([isActive, position, name])
   @@index([position])
+
+  @@schema("public")
 }
 
 model QualityRecord {
@@ -1206,6 +1377,8 @@ model QualityRecord {
   @@index([updatedById])
   @@index([deletedAt])
   @@index([deletedById])
+
+  @@schema("public")
 }
 
 model QualityEvidence {
@@ -1225,6 +1398,8 @@ model QualityEvidence {
   @@index([recordId, position])
   @@index([kind])
   @@index([storagePath])
+
+  @@schema("public")
 }
 
 model QualityRecordSeq {
@@ -1233,6 +1408,8 @@ model QualityRecordSeq {
   lastSeq Int               @default(0)
 
   @@id([type, year])
+
+  @@schema("public")
 }
 
 model NotificationPreferenceToken {
@@ -1246,6 +1423,8 @@ model NotificationPreferenceToken {
 
   @@index([userId, usedAt, expiresAt])
   @@index([expiresAt])
+
+  @@schema("public")
 }
 
 model EpiCatalogItem {
@@ -1260,6 +1439,8 @@ model EpiCatalogItem {
   @@unique([name, ca])
   @@index([isActive])
   @@index([name])
+
+  @@schema("public")
 }
 
 model EpiRecord {
@@ -1294,6 +1475,8 @@ model EpiRecord {
   @@index([returnSourceRecordId])
   @@index([archivedAt])
   @@index([collaboratorId, lendDate, createdAt])
+
+  @@schema("public")
 }
 
 model EpiSignatureRequest {
@@ -1323,6 +1506,8 @@ model EpiSignatureRequest {
   @@index([collaboratorId])
   @@index([status])
   @@index([expiresAt])
+
+  @@schema("public")
 }
 
 model EpiSignatureRequestAuditLog {
@@ -1337,6 +1522,8 @@ model EpiSignatureRequestAuditLog {
   @@index([requestId])
   @@index([action])
   @@index([createdAt])
+
+  @@schema("public")
 }
 
 model Romaneio {
@@ -1372,6 +1559,8 @@ model Romaneio {
   @@index([createdAt])
   @@index([projectId, romaneioDate, createdAt])
   @@index([projectId, type])
+
+  @@schema("public")
 }
 
 model RomaneioItem {
@@ -1393,6 +1582,8 @@ model RomaneioItem {
 
   @@index([romaneioId])
   @@index([catalogItemId])
+
+  @@schema("public")
 }
 
 model RomaneioChecklist {
@@ -1417,6 +1608,8 @@ model RomaneioChecklist {
   @@index([romaneioId])
   @@index([romaneioId, sortOrder])
   @@index([catalogItemId])
+
+  @@schema("public")
 }
 
 model RomaneioCatalogItem {
@@ -1442,6 +1635,8 @@ model RomaneioCatalogItem {
   @@index([categoryName])
   @@index([kind])
   @@index([isActive])
+
+  @@schema("public")
 }
 
 model RomaneioCatalogSyncState {
@@ -1450,6 +1645,8 @@ model RomaneioCatalogSyncState {
   syncedAt   DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@schema("public")
 }
 
 model RomaneioNotificationRecipient {
@@ -1461,6 +1658,8 @@ model RomaneioNotificationRecipient {
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+
+  @@schema("public")
 }
 
 model AllocationReportRecipient {
@@ -1472,6 +1671,8 @@ model AllocationReportRecipient {
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+
+  @@schema("public")
 }
 
 model AllocationReportDelivery {
@@ -1486,6 +1687,8 @@ model AllocationReportDelivery {
 
   @@index([sentAt])
   @@index([status])
+
+  @@schema("public")
 }
 
 model AllocationReportRecipientDelivery {
@@ -1503,6 +1706,8 @@ model AllocationReportRecipientDelivery {
   @@index([yearMonth])
   @@index([status])
   @@index([sentAt])
+
+  @@schema("public")
 }
 
 model ModuleRole {
@@ -1514,6 +1719,8 @@ model ModuleRole {
   createdAt DateTime       @default(now())
 
   @@unique([userId, module, role])
+
+  @@schema("public")
 }
 
 model DataRetentionRun {
@@ -1531,6 +1738,8 @@ model DataRetentionRun {
 
   @@index([status, startedAt])
   @@index([startedAt])
+
+  @@schema("public")
 }
 
 model JobRun {
@@ -1549,6 +1758,8 @@ model JobRun {
   @@index([name, startedAt])
   @@index([name, status, startedAt])
   @@index([status, startedAt])
+
+  @@schema("public")
 }
 
 model JobLock {
@@ -1560,6 +1771,8 @@ model JobLock {
   updatedAt DateTime @updatedAt
 
   @@index([expiresAt])
+
+  @@schema("public")
 }
 
 model SatisfactionSurvey {
@@ -1598,6 +1811,8 @@ model SatisfactionSurvey {
   @@index([expirationNotifiedAt, expiresAt])
   @@index([respondedAt])
   @@index([sentAt])
+
+  @@schema("public")
 }
 
 model SatisfactionSurveyQuestion {
@@ -1612,6 +1827,8 @@ model SatisfactionSurveyQuestion {
   updatedAt DateTime @updatedAt
 
   @@index([isActive, order])
+
+  @@schema("public")
 }
 
 model PasswordResetToken {
@@ -1624,6 +1841,8 @@ model PasswordResetToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
+
+  @@schema("public")
 }
 
 model EmailChangeToken {
@@ -1639,6 +1858,8 @@ model EmailChangeToken {
   @@index([userId])
   @@index([email])
   @@index([expiresAt])
+
+  @@schema("public")
 }
 
 model ReportDraft {
@@ -1654,6 +1875,8 @@ model ReportDraft {
   project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([updatedAt])
+
+  @@schema("public")
 }
 
 model UserSession {
@@ -1665,6 +1888,8 @@ model UserSession {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
+
+  @@schema("public")
 }
 
 model DataSubjectRequest {
@@ -1704,6 +1929,8 @@ model DataSubjectRequest {
   @@index([status])
   @@index([createdAt])
   @@index([status, createdAt])
+
+  @@schema("public")
 }
 
 model DataSubjectRequestResponseAttempt {
@@ -1728,6 +1955,8 @@ model DataSubjectRequestResponseAttempt {
   @@index([requestId])
   @@index([createdByUserId])
   @@index([status])
+
+  @@schema("public")
 }
 
 model ReportAttachment {
@@ -1745,6 +1974,8 @@ model ReportAttachment {
   @@index([reportId])
   @@index([reportServiceId])
   @@index([storagePath])
+
+  @@schema("public")
 }
 
 // === Importação do banco comercial Access (propostas_bd.accdb) ===
@@ -1792,6 +2023,8 @@ model CommercialProposal {
   @@index([parentCodProp, codProp, nRev])
   @@index([clientCnpj])
   @@index([lastImportId])
+
+  @@schema("public")
 }
 
 // Log de cada importação do banco Access.
@@ -1815,6 +2048,8 @@ model AccessImport {
   @@index([status, createdAt])
   @@index([contentHash])
   @@index([createdAt])
+
+  @@schema("public")
 }
 
 // Orçamento previsto derivado da proposta vigente (maior revisão por cod_prop).
@@ -1846,6 +2081,8 @@ model ProjectBudget {
   @@index([projectId])
   @@index([sourceProposalCodBd])
   @@index([selectionStatus])
+
+  @@schema("public")
 }
 
 // Revisão de proposta adicional selecionada para compor o orçamento previsto de um projeto.
@@ -1866,6 +2103,8 @@ model ProjectAdditionalProposal {
   @@index([projectId])
   @@index([sourceProposalCodBd])
   @@index([selectedByUserId])
+
+  @@schema("public")
 }
 
 // Serviço vendido (escopo) previsto. Hoje é preenchido manualmente no cronograma — idealmente viria
@@ -1885,6 +2124,8 @@ model ProjectPlannedService {
   systems     ProjectPlannedServiceSystem[]
 
   @@index([projectId])
+
+  @@schema("public")
 }
 
 // Sistema/quantitativo de um serviço previsto: tubulações (m) ou óleo (L).
@@ -1901,6 +2142,8 @@ model ProjectPlannedServiceSystem {
   service      ProjectPlannedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@index([serviceId])
+
+  @@schema("public")
 }
 
 // Previsão de horas normais vendidas: por cargo e total de horas previstas.
@@ -1920,6 +2163,8 @@ model ProjectPlannedNormalHours {
 
   @@index([projectId])
   @@index([jobRoleId])
+
+  @@schema("public")
 }
 
 // Previsão de hora extra vendida: por cargo e total de horas previstas.
@@ -1939,6 +2184,8 @@ model ProjectPlannedOvertime {
 
   @@index([projectId])
   @@index([jobRoleId])
+
+  @@schema("public")
 }
 
 // === Integração Omie (compras realizadas por projeto) ===
@@ -1956,6 +2203,8 @@ model OmieProject {
 
   @@index([osNumber])
   @@index([projectId])
+
+  @@schema("public")
 }
 
 model OmieCategory {
@@ -1964,6 +2213,8 @@ model OmieCategory {
   descricao                       String?
   includeInAcompanhamentoCosts    Boolean  @default(true)
   syncedAt                        DateTime @default(now())
+
+  @@schema("public")
 }
 
 // Título a pagar do Omie = gasto realizado vinculado a um projeto.
@@ -1993,6 +2244,8 @@ model OmiePurchase {
   @@index([codigoProjeto])
   @@index([categoriaCodigo])
   @@index([statusTitulo])
+
+  @@schema("public")
 }
 
 // Título a receber do Omie = faturamento/receita real vinculada a um projeto.
@@ -2034,6 +2287,8 @@ model OmieReceivable {
   @@index([codigoTipoDocumento])
   @@index([statusTitulo])
   @@index([dataEmissao])
+
+  @@schema("public")
 }
 
 model IntegrationSyncRun {
@@ -2051,4 +2306,252 @@ model IntegrationSyncRun {
 
   @@index([integration, startedAt])
   @@index([status])
+
+  @@schema("public")
+}
+
+// ===========================================================================
+// Módulo Comercial — schema `comercial`
+//
+// Porte de ~/comercialAPP (congelado em 6f5b072). Modelagem em
+// specs/009-modulo-comercial/data-model.md.
+//
+// Regras que valem para todos os models daqui:
+//   - dinheiro em Decimal(14,2) e margem em Decimal(6,2). NUNCA Float:
+//     float em dinheiro produz centavo errado, e aqui centavo errado vira
+//     preço errado numa proposta que já foi ao cliente.
+//   - `createdByUserId` sustenta a regra de autoria (FR-029): vendedor
+//     alcança só o que é seu, gestor alcança tudo.
+//   - `archivedAt` em vez de exclusão. NÃO HÁ DELETE em nenhuma rota do
+//     módulo (FR-060).
+// ===========================================================================
+
+enum CostEstimateMode {
+  LEVANTAR
+  NOVA
+  REVISAR
+
+  @@schema("comercial")
+}
+
+enum CostEstimateStatus {
+  RASCUNHO
+  SALVO
+
+  @@schema("comercial")
+}
+
+enum ProposalStatus {
+  RASCUNHO
+  FINALIZANDO
+  FINALIZADA
+  FALHA_INTEGRACAO
+
+  @@schema("comercial")
+}
+
+enum ProposalDocumentKind {
+  COMERCIAL
+  TECNICA
+
+  @@schema("comercial")
+}
+
+enum SalesAttributionKind {
+  REPRESENTANTE
+  INDICACAO
+
+  @@schema("comercial")
+}
+
+enum ProposalAuditAction {
+  FINALIZADA
+  INTEGRACAO_ENVIADA
+  INTEGRACAO_FALHOU
+  ARQUIVADA
+  DESARQUIVADA
+
+  @@schema("comercial")
+}
+
+/// Levantamento de custos. É ele que carimba o código que os dois documentos usam.
+model CostEstimate {
+  id              String               @id @default(cuid())
+  proposalCode    String
+  revisionNumber  Int                  @default(0)
+  title           String
+  mode            CostEstimateMode
+  status          CostEstimateStatus   @default(RASCUNHO)
+  /// Payload completo do levantamento. Contrato validado por
+  /// shared/schemas/comercial.js e por normalizeCostEstimatePayload.
+  payload         Json
+  /// Totais SEMPRE recalculados no servidor com calculateEstimate.
+  /// Os valores enviados pelo cliente são ignorados — é o que impede forjar margem.
+  totalCost       Decimal              @db.Decimal(14, 2)
+  salePrice       Decimal              @db.Decimal(14, 2)
+  marginPercent   Decimal              @db.Decimal(6, 2)
+  createdByUserId String
+  createdBy       User                 @relation("ComercialCostEstimateAuthor", fields: [createdByUserId], references: [id])
+  archivedAt      DateTime?
+  archivedByUserId String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  versions        CostEstimateVersion[]
+  attributions    SalesAttribution[]
+  proposals       Proposal[]
+
+  /// Consulta da listagem filtrada por autoria: vendedor vê só os seus.
+  @@index([createdByUserId, archivedAt, createdAt])
+  @@index([proposalCode, revisionNumber])
+  @@schema("comercial")
+}
+
+/// Versão imutável do levantamento. Nunca sofre update — versão que muda não é versão.
+model CostEstimateVersion {
+  id             String       @id @default(cuid())
+  costEstimateId String
+  costEstimate   CostEstimate @relation(fields: [costEstimateId], references: [id], onDelete: Cascade)
+  /// Hash do payload: é o que torna a versão verificável.
+  payloadHash    String
+  snapshot       Json
+  createdAt      DateTime     @default(now())
+
+  @@index([costEstimateId, createdAt])
+  @@schema("comercial")
+}
+
+/// Proposta gerada pelo app.
+/// ATENÇÃO: distinta de `CommercialProposal`, que já existe e é o staging do
+/// import do Access. Confundir as duas é erro fácil de cometer e caro de achar.
+model Proposal {
+  id                 String                @id @default(cuid())
+  proposalCode       String
+  revisionNumber     Int                   @default(0)
+  costEstimateId     String?
+  costEstimate       CostEstimate?         @relation(fields: [costEstimateId], references: [id])
+
+  clientName         String
+  cnpj               String
+  contact            String
+  email              String
+  site               String
+  department         String?
+
+  /// Vínculo com o usuário que é o consultor de vendas...
+  sellerUserId       String
+  seller             User                  @relation("ComercialProposalSeller", fields: [sellerUserId], references: [id])
+  /// ...e o nome no momento da emissão. Os dois, não um: desativar ou renomear
+  /// um usuário NÃO PODE alterar proposta já emitida (FR-041a). O PDF já foi ao
+  /// cliente com aquele nome.
+  sellerName         String
+  estimatorName      String
+
+  payload            Json
+  totalValue         Decimal               @db.Decimal(14, 2)
+  status             ProposalStatus        @default(RASCUNHO)
+
+  /// Finalização é exclusiva (FR-069): a segunda tentativa usa estes campos
+  /// para dizer quando e por quem já foi finalizada.
+  finalizedAt        DateTime?
+  finalizedByUserId  String?
+
+  createdByUserId    String
+  createdBy          User                  @relation("ComercialProposalAuthor", fields: [createdByUserId], references: [id])
+  archivedAt         DateTime?
+  archivedByUserId   String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  documents          ProposalDocument[]
+  attachments        ProposalAttachment[]
+  scopeAssets        ScopeAsset[]
+  auditLogs          ProposalAuditLog[]
+
+  @@unique([proposalCode, revisionNumber])
+  @@index([createdByUserId, archivedAt, createdAt])
+  @@index([sellerUserId, createdAt])
+  @@index([status])
+  @@schema("comercial")
+}
+
+/// Documento gerado na finalização (comercial ou técnica).
+/// Gravado ANTES de qualquer tentativa de integração: se a integração falhar
+/// depois, os documentos continuam baixáveis (FR-034).
+model ProposalDocument {
+  id          String               @id @default(cuid())
+  proposalId  String
+  proposal    Proposal             @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  kind        ProposalDocumentKind
+  storagePath String
+  byteSize    Int
+  createdAt   DateTime             @default(now())
+
+  @@index([proposalId, kind])
+  @@schema("comercial")
+}
+
+/// Arquivo adicional do cliente (ART, folha de dados, especificação).
+/// Vai para a MESMA pasta dos dois documentos no destino externo.
+model ProposalAttachment {
+  id              String   @id @default(cuid())
+  proposalId      String
+  proposal        Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  storagePath     String
+  originalName    String
+  /// Conta no limite AGREGADO do envio (FR-059): dois PDFs + planilha + anexos.
+  byteSize        Int
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@index([proposalId])
+  @@schema("comercial")
+}
+
+/// Foto de item de escopo. Renderizada dentro do PDF, diferente do anexo.
+/// Sobrevive às revisões (FR-051): revisar não exige reenviar imagem.
+model ScopeAsset {
+  id              String   @id @default(cuid())
+  proposalId      String
+  proposal        Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  /// Padrão da referência: escopo/AAAA/MM/<uuid>.<ext>
+  storagePath     String
+  contentType     String
+  originalName    String
+  /// Máximo 1.500.000 após a otimização no cliente (FR-050).
+  byteSize        Int
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@index([proposalId])
+  @@schema("comercial")
+}
+
+/// Representantes e indicações internas.
+model SalesAttribution {
+  id             String               @id @default(cuid())
+  costEstimateId String
+  costEstimate   CostEstimate         @relation(fields: [costEstimateId], references: [id], onDelete: Cascade)
+  kind           SalesAttributionKind
+  beneficiary    String
+  /// Pontos-base — já inteiro na origem, não converter para Decimal.
+  commissionBps  Int
+  createdAt      DateTime             @default(now())
+
+  @@index([costEstimateId])
+  @@schema("comercial")
+}
+
+/// Auditoria das ações irreversíveis: finalização e envio externo.
+model ProposalAuditLog {
+  id          String              @id @default(cuid())
+  proposalId  String
+  proposal    Proposal            @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  action      ProposalAuditAction
+  actorUserId String
+  detail      Json?
+  createdAt   DateTime            @default(now())
+
+  @@index([proposalId, createdAt])
+  @@schema("comercial")
 }
