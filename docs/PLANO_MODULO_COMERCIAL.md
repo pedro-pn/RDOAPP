@@ -1016,18 +1016,18 @@ Com tudo no mesmo backend, o caminho encurta muito em relação ao plano anterio
 |---|---|---|---|
 | E0 | Preparação, goldens, inventário de UI e referência rodando | 2 d | **3 d** (realizado) |
 | E-1 | Fluxo spec-kit + PR de emenda à constitution (§10.1) | 2-2,5 d | 2-2,5 d |
-| E1 | Scaffold do módulo | 0,5 d | 0,5 d |
+| E1 | Scaffold do módulo | 0,5 d | **0,75 d** (3º papel + enum) |
 | E2 | `shared/comercial` (cópia + build + testes) | 2 d | 2 d |
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d |
-| E4 | Backend — levantamentos, vendedores e numeração | 3 d | 3 d |
-| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | 5,5 d |
-| E6 | Frontend — base, histórico e porte do CSS | 2 d | **3-3,5 d** (L6 + primitivas de mobile + menu do módulo) |
+| E4 | Backend — levantamentos, vendedores e numeração | 3 d | **3,5 d** (autoria + filtro na listagem) |
+| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | **6,25 d** (autoria + supressão de valores na origem) |
+| E6 | Frontend — base, histórico e porte do CSS | 2 d | **3,25-3,75 d** (L6 + primitivas de mobile + menu + histórico por papel) |
 | E7 | Frontend — levantamento de custos | 5-6 d | **9-10 d** (L1 +3 d, L3 +1 d) |
 | E8 | Frontend — assistente da proposta + tela de vendedores | 5-6 d | **9-10 d** (L2 +1,5 d, L4 +1 d, L3 +1,5 d) |
 | **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3-4 d** (L7) |
-| E9 | Testes e CI | 2 d | **2,5 d** |
+| E9 | Testes e CI | 2 d | **3 d** (matriz de 3 papéis × 2 entidades) |
 | E10 | Produção (roteiro para o operador) | 1,5 d | 1,5 d |
-| | **Até produção** | 32-35,5 d | **45,5-49,5 dias úteis (~9 a 10 semanas)** |
+| | **Até produção** | 32-35,5 d | **47,75-51,75 dias úteis (~10 semanas)** |
 | E11 | Substituir o import do Access | 3-5 d | 3-5 d |
 
 Ordem de execução: **E0 → E-1** → E1 → E2 → E3 → (E4 e E6 em paralelo) → E5 →
@@ -1065,6 +1065,13 @@ dobro.
 > o rascunho local estendido à proposta (+1 d, porque *"fechar a página sem
 > querer"* também conta). São, por isso, os únicos itens do quadro que voltam a ser
 > negociáveis se o prazo apertar.
+>
+> De 45,5-49,5 para **47,75-51,75 d** (~10 semanas): +2,25 d da §12.5.1, precificados
+> no `/speckit-plan`. Papel novo e enum (+0,25 d, E1), autoria e filtro de listagem
+> em `CostEstimate` (+0,5 d, E4), autoria e supressão de valores na origem em
+> `Proposal` (+0,75 d, E5), histórico variando por papel (+0,25 d, E6) e a matriz de
+> permissão de 3 papéis × 2 entidades (+0,5 d, E9). Como os dois anteriores, **é
+> decisão de produto, não exigência da constitution** — negociável se o prazo apertar.
 
 ---
 
