@@ -41,16 +41,18 @@ não como especificação.
 
 Decisões já registradas na E0 e na §12.5 do plano, que esta spec incorpora:
 
-- **Papéis**: `comercial:manager` ("Comercial — Orçamentista") e `comercial:viewer`
-  ("Comercial — Consulta"). O levantamento de custos inteiro é restrito ao manager —
-  o viewer não alcança custo nem margem em nenhuma superfície.
-- **Finalização** de proposta: só `comercial:manager`.
-- **Papel de consulta é somente leitura** (decidido em 31/07): o viewer abre propostas
-  emitidas, consulta o histórico e baixa documentos. Não cria, não edita, não finaliza.
-  Toda escrita no módulo pertence ao manager.
-- **Edição** de proposta alheia: só o autor ou um manager. Regra nova, inexistente
-  na referência — mas ver a ressalva no FR-029: com o viewer somente leitura, ela
-  deixa de restringir alguma coisa.
+- **Três papéis, não dois** (decidido em 31/07, revendo as decisões 1 e 2 da §12.5):
+  **Gestor** edita e finaliza qualquer proposta; **Vendedor** cria, edita e finaliza
+  **só as suas**; **Consulta** só lê, e **sem ver valores**.
+- **Levantamento de custos**: gestor e vendedor. O vendedor levanta o custo do próprio
+  serviço e vê custo e margem **apenas do que ele mesmo levantou**. O papel de consulta
+  não alcança levantamento por nenhum caminho.
+- **Finalização**: o autor finaliza a própria proposta; o gestor finaliza qualquer uma.
+  Sem isso, toda proposta de vendedor ficaria parada esperando um gestor.
+- **Autoria vale para duas entidades** — levantamento e proposta —, não só para a
+  proposta como a §12.5 previa. Regra nova, inexistente na referência.
+- **O papel de consulta não baixa a proposta comercial**, só a técnica: o documento
+  comercial traz tabela de preços, condições de pagamento e valor total.
 - **O menu de entrada e o diálogo de modo coexistem** (decidido em 31/07): dois passos
   de escolha, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em
   9 desvios.
@@ -107,6 +109,11 @@ sem que o assistente de proposta exista.
 6. **Given** um usuário com apenas `comercial:viewer`, **When** ele tenta alcançar
    qualquer superfície de levantamento, **Then** o acesso é negado — custo e margem não
    aparecem para ele em lugar nenhum.
+7. **Given** um `comercial:seller`, **When** ele abre a lista de levantamentos, **Then**
+   vê apenas os de sua própria autoria; o levantamento de outro vendedor não aparece nem
+   é alcançável por endereço direto.
+8. **Given** um `comercial:manager`, **When** ele abre a lista de levantamentos,
+   **Then** vê os de todos os autores.
 
 ---
 
@@ -172,10 +179,16 @@ ponta com integrações simuladas.
 3. **Given** um usuário com `comercial:viewer`, **When** ele abre o módulo, **Then** não
    encontra caminho para criar, editar nem finalizar proposta — só consultar, e as
    superfícies de escrita não são alcançáveis nem por endereço direto.
-4. **Given** uma proposta de outro autor, **When** um usuário que não é o autor nem
-   manager tenta editá-la, **Then** a escrita é negada.
-5. **Given** a proposta finalizada, **When** o usuário abre o histórico, **Then** ela
-   aparece com status de integração, valor, revisão e os arquivos.
+4. **Given** uma proposta de outro autor, **When** um `comercial:seller` tenta editá-la
+   ou finalizá-la, **Then** a ação é negada; **When** um `comercial:manager` faz o
+   mesmo, **Then** é permitida.
+5. **Given** uma proposta que o próprio `comercial:seller` montou, **When** ele aciona a
+   finalização, **Then** ela roda normalmente — o autor conclui o próprio trabalho.
+6. **Given** a proposta finalizada, **When** o autor ou um gestor abre o histórico,
+   **Then** ela aparece com status de integração, valor, revisão e os dois arquivos.
+7. **Given** a mesma proposta, **When** um `comercial:viewer` abre o histórico, **Then**
+   ela aparece **sem valor, sem custo e sem margem**, e apenas a proposta técnica está
+   disponível para download — a comercial não.
 
 ---
 
@@ -281,8 +294,17 @@ mudança aparece na seleção da etapa Cliente.
   seções, que são os dois pontos de estouro conhecidos.
 - **Reordenação por toque**: arrastar precisa funcionar em tela sensível ao toque, não
   só com mouse.
-- **Sessão sem permissão de manager**: viewer alcançando endereço de levantamento
-  diretamente recebe negativa, não tela vazia.
+- **Sessão sem permissão**: quem alcança endereço de levantamento sem o papel recebe
+  negativa, não tela vazia. Vale também para um vendedor tentando abrir levantamento de
+  outro autor.
+- **Proposta sem autor identificável**: proposta semeada ou importada sem autor
+  registrado precisa de regra explícita — cair no caso "só gestor edita" é o
+  comportamento seguro.
+- **Vendedor desativado com propostas em aberto**: as propostas continuam existindo e
+  passam a ser alcançáveis apenas por gestor.
+- **Papel de consulta olhando o histórico**: a coluna de valor e os rótulos de custo e
+  margem não podem existir na resposta, não apenas ficar ocultos na tela — esconder no
+  cliente não é restrição.
 
 ## Requirements *(mandatory)*
 
@@ -376,26 +398,38 @@ mudança aparece na seleção da etapa Cliente.
 
 #### Permissões e autoria
 
-- **FR-027**: Todo o levantamento de custos DEVE ser restrito a `comercial:manager`.
-  `comercial:viewer` NÃO PODE alcançar custo nem margem em nenhuma superfície, incluindo
-  histórico e documentos.
-- **FR-028**: Só `comercial:manager` PODE finalizar uma proposta.
-- **FR-029**: Escrita em proposta DEVE ser permitida apenas ao autor ou a um manager.
+O módulo tem **três** papéis, e a diferença entre dois deles é a **autoria**, não a
+funcionalidade:
 
-  > **Consequência a resolver no `/speckit-clarify`.** Com o FR-030 tornando o viewer
-  > somente leitura, **todo autor é manager** — e como qualquer manager pode editar
-  > proposta de qualquer um, esta regra passa a não restringir nada. Ou ela é
-  > redundante e sai (economizando a verificação de autoria e seu teste, que a §12.5
-  > mandou criar), ou o que se queria dizer é que **um manager só edita as próprias
-  > propostas**, com exceção para um papel administrativo. São produtos diferentes;
-  > não dá para deduzir qual pela §12.5.
-- **FR-030**: `comercial:viewer` DEVE ser **somente leitura**: pode abrir propostas já
-  emitidas, consultar o histórico e baixar os documentos, e NÃO PODE criar nem editar
-  proposta, nem alterar o cadastro de vendedores.
-- **FR-030a**: Como consequência do FR-030 combinado com o FR-027, **toda escrita no
-  módulo pertence a `comercial:manager`**. As superfícies de criação e edição não devem
-  ser apenas desabilitadas para o viewer — elas não devem ser alcançáveis por ele, nem
-  por endereço direto.
+| Papel | Título | Levantamentos | Propostas | Valores |
+|---|---|---|---|---|
+| `comercial:manager` | Comercial — Gestor | cria; vê **todos** | cria, edita e finaliza **qualquer uma** | vê tudo |
+| `comercial:seller` | Comercial — Vendedor | cria; vê **só os seus** | cria, edita e finaliza **só as suas** | vê os seus |
+| `comercial:viewer` | Comercial — Consulta | nenhum acesso | **somente leitura** | **não vê valor nenhum** |
+
+- **FR-027**: O levantamento de custos DEVE ser restrito a `comercial:manager` e
+  `comercial:seller`. `comercial:viewer` NÃO PODE alcançá-lo por nenhum caminho.
+- **FR-027a**: `comercial:seller` DEVE ver, editar e finalizar **apenas os levantamentos
+  e propostas de sua própria autoria**. Custo, margem e preço de venda de trabalho
+  alheio NÃO PODEM aparecer para ele em nenhuma superfície, incluindo listagens.
+- **FR-027b**: `comercial:manager` DEVE alcançar levantamentos e propostas de **qualquer
+  autor**, com poder de edição e finalização.
+- **FR-028**: A finalização DEVE ser permitida ao autor da proposta (`comercial:seller`
+  ou `comercial:manager`) e a qualquer `comercial:manager`. `comercial:viewer` nunca
+  finaliza.
+- **FR-029**: Escrita em levantamento e em proposta DEVE ser permitida apenas ao **autor
+  ou a um gestor**. A verificação de autoria vale para **as duas entidades**, não só
+  para a proposta, e é regra nova — não existe na referência.
+- **FR-030**: `comercial:viewer` DEVE ser **somente leitura** e **sem valores**: consulta
+  propostas emitidas e o histórico, sem ver preço, valor total, custo nem margem em
+  nenhuma coluna, campo ou painel. Não cria, não edita, não finaliza e não altera o
+  cadastro de vendedores.
+- **FR-030a**: `comercial:viewer` PODE baixar a **proposta técnica** e NÃO PODE baixar a
+  **proposta comercial** — esta carrega a tabela de preços, as condições de pagamento e
+  o valor total, e liberá-la contornaria o FR-030 por outra porta.
+- **FR-030b**: As superfícies de criação e edição não devem ser apenas desabilitadas
+  para quem não tem o papel — elas não devem ser alcançáveis, nem por endereço direto.
+  O mesmo vale para o levantamento de outro autor no caso do `comercial:seller`.
 
 #### Finalização e documentos
 
@@ -468,8 +502,8 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
 
 - **Levantamento de custos**: o cálculo completo de um serviço — premissas, mão de obra,
   materiais e insumos, logística de mobilização/desmobilização, impostos, comissões,
-  margem e preço de venda. Carimba o código usado pelos documentos. Restrito ao
-  orçamentista.
+  margem e preço de venda. Carimba o código usado pelos documentos. **Tem autor** — é
+  por ele que se decide quem pode abri-lo e editá-lo.
 - **Proposta**: o conjunto comercial + técnico de um cliente, com dados do cliente,
   escopo, matriz de responsabilidades, prazos, conteúdo técnico, preços e condições.
   Tem autor, revisão e vínculo com o levantamento que lhe deu origem.
@@ -482,6 +516,8 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   existente nas duas origens.
 - **Registro de integração**: o estado de envio de cada documento aos sistemas externos,
   exibido no histórico.
+- **Papel do usuário no módulo**: gestor, vendedor ou consulta. Determina o alcance
+  (todos os registros, só os próprios, ou nenhum) e a visibilidade de valores.
 - **Rascunho local**: conteúdo não salvo de um levantamento ou proposta, guardado no
   navegador do usuário, com chave por modo e código, descartado ao salvar.
 
@@ -503,8 +539,11 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   é oferecida, ou houve aviso antes de sair.
 - **SC-007**: Um orçamentista que nunca usou o módulo conclui um levantamento completo
   sem ajuda externa, apoiado apenas no tutorial e na cadeia de orientação do rodapé.
-- **SC-008**: **Zero** acessos bem-sucedidos de um usuário de consulta a custo, a margem
-  ou a qualquer operação de escrita, incluindo tentativa por endereço direto.
+- **SC-008**: **Zero** acessos bem-sucedidos de um usuário de consulta a valor, custo,
+  margem, à proposta comercial ou a qualquer operação de escrita — incluindo tentativa
+  por endereço direto.
+- **SC-008a**: **Zero** vazamentos entre vendedores: um `comercial:seller` não alcança
+  levantamento nem proposta de outro autor, por listagem ou por endereço direto.
 - **SC-009**: Falha de integração após a geração dos documentos resulta em **100%** dos
   documentos ainda baixáveis.
 - **SC-010**: **Zero** colisões de numeração entre o módulo e o sistema externo após a
@@ -534,6 +573,20 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   retenção) são **escopo além do porte fiel** e já foram aprovadas. Elas divergem da
   referência sem constar da lista de 9 desvios porque aquela lista trata de paridade de
   UI/UX, não de regra de negócio.
+- **As decisões 1 e 2 da §12.5 foram revistas em 31/07** e o plano precisa acompanhar:
+  o levantamento deixa de ser exclusivo do gestor (passa a incluir o vendedor, limitado
+  à própria autoria) e a finalização deixa de ser exclusiva do gestor (o autor finaliza
+  a própria). O papel intermediário `comercial:seller` não existia no plano.
+- **A superfície de consulta do papel `comercial:viewer` é o histórico**, não uma tela
+  de proposta em modo leitura. A referência não tem tela de detalhe de proposta somente
+  leitura — só o assistente de edição e a listagem —, e criar uma seria escopo novo
+  relevante, não previsto em nenhuma estimativa. O viewer consulta pela listagem, com a
+  coluna de valor suprimida na origem, e baixa apenas a proposta técnica. **Se a
+  intenção for uma tela de detalhe sem valores, isso é trabalho novo e precisa entrar na
+  estimativa.**
+- A supressão de valores para o papel de consulta acontece **na origem dos dados**, não
+  por ocultação na tela. Um valor que chega ao navegador e é escondido por estilo
+  continua acessível.
 - Os padrões que o filtroAPP já tem — utilitário de reordenação, classes de campo
   inválido, biblioteca de tutorial guiado, linguagem de cartões do hub — são
   reaproveitados em vez de reescritos. Se algum deles não passar na auditoria contra a

@@ -39,22 +39,44 @@ mudar o produto entregue.
 
 | Questão | Onde | Resposta |
 |---|---|---|
-| Alcance do papel de consulta | FR-030 | **Somente leitura.** O viewer consulta propostas emitidas, histórico e documentos. Toda escrita do módulo pertence ao manager (FR-030a) |
+| Alcance do papel de consulta | FR-030 | **Somente leitura** — mantido, e endurecido na iteração 2 (também não vê valores) |
 | Menu de entrada × diálogo de modo | FR-043 | **Os dois passos coexistem**, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em 9 desvios. O diálogo não reaparece quando o modo já vem no endereço (FR-044) |
 
 **Checklist completo.** Nenhum marcador remanescente.
 
-### Uma consequência derivada, para o `/speckit-clarify`
+> A conclusão de que "toda escrita pertence ao manager", tirada desta iteração,
+> **caiu na iteração 2** — ela dependia de existirem só dois papéis.
 
-A resposta ao FR-030 **esvaziou o FR-029**. A §12.5 decidiu que escrita em proposta é
-"só do autor ou de um manager"; com o viewer somente leitura, todo autor é manager, e
-qualquer manager pode editar proposta de qualquer um — a regra deixa de restringir
-alguma coisa.
+### Iteração 2 — 2026-07-31, modelo de permissão reaberto
 
-Não é bloqueante e não muda arquitetura, mas muda o trabalho: ou a verificação de
-autoria sai (e com ela o teste que a §12.5 mandou criar), ou o que se queria dizer é
-que **um manager só edita as próprias propostas**. Está registrado como ressalva
-dentro do próprio FR-029.
+A ressalva do FR-029 (a regra de autoria tinha ficado vazia) foi levada ao mantenedor
+e a resposta **substituiu o modelo inteiro**: são **três** papéis, não dois. Os nomes
+anteriores confundiam porque `manager` acumulava "gestor" e "orçamentista".
+
+| Papel | Levantamentos | Propostas | Valores |
+|---|---|---|---|
+| `comercial:manager` — Gestor | cria; vê todos | edita e finaliza qualquer uma | vê tudo |
+| `comercial:seller` — Vendedor | cria; vê só os seus | cria, edita e finaliza só as suas | vê os seus |
+| `comercial:viewer` — Consulta | nenhum acesso | somente leitura | **nenhum** |
+
+O FR-029 volta a ter função: com o vendedor podendo criar, a verificação de autoria
+passa a restringir de fato — e agora vale para **duas entidades**, levantamento e
+proposta, não só a proposta como a §12.5 previa.
+
+**Isto revê as decisões 1 e 2 da §12.5 do plano**, que ficaram desatualizadas:
+
+| Decisão §12.5 | Era | Agora |
+|---|---|---|
+| 1 — quem vê custo e margem | só o gestor | gestor (todos) e vendedor (só os seus) |
+| 2 — quem finaliza | só o gestor | o autor finaliza a sua; o gestor, qualquer uma |
+
+**Consequências de escopo**, todas fora do que a estimativa de 45,5-49,5 d cobre:
+
+1. Verificação de autoria em **duas** entidades, não uma — a §12.5 orçou uma.
+2. Filtragem por autoria nas **listagens**, não só nas rotas de escrita.
+3. Papel novo no registro de módulos, com migração de enum própria.
+4. Supressão de valores **na origem** para o papel de consulta, incluindo bloqueio do
+   download da proposta comercial. Esconder no cliente não é restrição.
 
 ### Ressalvas registradas, não bloqueantes
 

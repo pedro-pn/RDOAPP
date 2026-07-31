@@ -707,17 +707,21 @@ feature de porte grande e DEVE passar por spec-kit com artefatos em `specs/`.
 ### E1 — Scaffold do módulo (0,5 dia)
 
 1. `npm run new:module -- comercial --title "Comercial"`.
-2. Ajustar `shared/modules/registry.json`: badge `COM`, roles
-   `comercial:manager` (orçamentista sênior/gestor) e `comercial:viewer`,
+2. Ajustar `shared/modules/registry.json`: badge `COM`, **três** roles (§12.5.1) —
+   `comercial:manager` ("Comercial — Gestor"), `comercial:seller` ("Comercial —
+   Vendedor") e `comercial:viewer` ("Comercial — Consulta") —,
    `pathPrefixes: ["/comercial"]`, `hub.path: "/comercial"`, e as rotas
    `index` (`/comercial`, o menu do desvio nº 9), `custos`
    (`/comercial/custos`), `propostas` (`/comercial/propostas`) e `historico`
    (`/comercial/historico`).
 3. `npm run modules:generate`.
 4. Migration dos enums `AppModule.COMERCIAL` e
-   `ModuleRoleCode.COMERCIAL_MANAGER|COMERCIAL_VIEWER`.
-5. `requireComercialAccess` / `requireComercialManager` em
-   `backend/src/middleware/auth.js`, no padrão de `requireQualidadeAccess`.
+   `ModuleRoleCode.COMERCIAL_MANAGER|COMERCIAL_SELLER|COMERCIAL_VIEWER`.
+5. `requireComercialAccess` / `requireComercialEstimator` (gestor **ou** vendedor) /
+   `requireComercialManager` em `backend/src/middleware/auth.js`, no padrão de
+   `requireQualidadeAccess`. O `requireComercialEstimator` **não basta sozinho**: as
+   rotas que alcançam um registro específico precisam da checagem de autoria
+   (§12.5.1), que middleware de role não faz.
 
 **Aceite:** `npm run architecture:check` verde; card do módulo aparece no hub
 para quem tem a role; rota `/comercial` protegida responde.
@@ -766,9 +770,10 @@ inesperado; `prisma generate` ok; suíte existente do backend continua verde
 
 1. `lib/comercial/cost-estimates.js`: salvar, versionar (hash do payload),
    atribuições de venda, buscar por id e por `proposalCode`.
-2. Rota `GET|POST /api/comercial/levantamentos` sob **`requireComercialManager`**
-   (§12.5, decisão 1 — o viewer não alcança custo nem margem), fina: valida,
-   autoriza, delega.
+2. Rota `GET|POST /api/comercial/levantamentos` sob
+   **`requireComercialEstimator`** (§12.5.1 — gestor e vendedor; o viewer não
+   alcança custo nem margem), fina: valida, autoriza, delega. A **listagem filtra
+   por autoria** quando o solicitante é vendedor — não basta proteger a escrita.
 3. **Recalcular no servidor** com `calculateEstimate` — os totais gravados são
    sempre os do servidor, nunca os enviados pelo cliente (é a regra atual e é
    uma propriedade de segurança: impede forjar margem).
@@ -778,19 +783,25 @@ inesperado; `prisma generate` ok; suíte existente do backend continua verde
    `GET /propostas/proximo-numero`. Migration semeia acima do maior número
    existente no Nectar **e** em `CommercialProposal` — o valor de partida é
    levantado uma vez, na E4, e registrado na migration.
-6. Teste de permissão (viewer bloqueado no levantamento) + teste do fluxo
-   (salvar → versionar → reler) + teste da numeração (não regride, não colide).
+6. Testes de permissão: viewer bloqueado no levantamento; **vendedor não alcança
+   levantamento de outro autor, nem por id direto nem pela listagem**; gestor
+   alcança todos. Mais o teste do fluxo (salvar → versionar → reler) e o da
+   numeração (não regride, não colide).
 
 **Aceite:** salvar e reler um levantamento reproduz os mesmos totais dos goldens;
-`comercial:viewer` recebe 403 em todas as rotas de levantamento.
+`comercial:viewer` recebe 403 em todas as rotas de levantamento; um
+`comercial:seller` recebe 403 ao pedir levantamento de outro autor.
 
 ### E5 — Backend: propostas, PDFs e integrações (5 dias)
 
 1. `lib/comercial/storage.js` — gravação/leitura em disco (§5.5).
 2. `lib/comercial/proposals.js` — histórico, revisões, vínculo com levantamento.
-   **Regra de autoria** (§12.5, decisão 3): escrita só pelo `createdByUserId` ou
-   por `comercial:manager`. É regra nova, inexistente no rascunho — vive em
-   `lib/comercial/access.js` e tem teste próprio.
+   **Regra de autoria** (§12.5.1): escrita só pelo `createdByUserId` ou por
+   `comercial:manager`, **nas duas entidades** — levantamento e proposta. É regra
+   nova, inexistente no rascunho — vive em `lib/comercial/access.js` e tem teste
+   próprio. O histórico **filtra por autoria** para o vendedor e **omite valor,
+   custo e margem na origem** para o viewer, que também não recebe o link da
+   proposta comercial (só a técnica).
 3. **`lib/comercial/proposal-pdf.js`** — porte de `app/proposal-pdf.ts` para
    `pdf-lib` (§5.3): primitivas traduzidas 1:1, helper próprio de quebra de linha
    sobre `widthOfTextAtSize`, e `lib/comercial/pdf-images.js` com `sharp` no
@@ -938,8 +949,9 @@ Roteiro a entregar ao operador (com "rode no servidor"):
 7. Emissão/renovação do certificado incluindo o novo nome (SAN).
 8. Deploy em staging (`docker-compose.staging.yml`), roteiro funcional completo,
    depois produção.
-9. Conceder `comercial:manager` a Aliander e Erike; `comercial:viewer` a quem
-   precisar consultar.
+9. Conceder `comercial:manager` a Aliander e Erike; `comercial:seller` aos
+   vendedores que montam as próprias propostas; `comercial:viewer` a quem precisar
+   só consultar, fora do comercial (§12.5.1).
 
 **Aceite:** roteiro dos 7 itens executado em produção — login, criação e revisão
 de custos, geração técnica/comercial/conjunta, download pelo histórico, fotos e
@@ -1060,6 +1072,10 @@ dobro.
 
 Ficam registradas aqui como enunciado; as respostas e o impacto no escopo estão
 na §12.5. Levar as duas coisas para o `spec.md` no `/speckit-specify`.
+
+> **As perguntas 1, 2 e 3 foram reabertas e reescritas em 31/07** — ver §12.5.1.
+> As respostas originais assumiam dois papéis; são três. O `spec.md` já reflete a
+> versão nova (FR-027 a FR-030b).
 
 1. **Quem enxerga custo e margem?** A tela de levantamento expõe custo interno,
    comissão de representante e margem. `comercial:viewer` vê isso ou só vê a
@@ -1208,7 +1224,9 @@ Além do aceite de cada etapa, vale a "Definição de pronto" de
 - [ ] Identidade visual idêntica à referência, sob a exceção da emenda 1.9.0
 - [ ] Sem scroll horizontal de página em mobile
 - [ ] Estrutura de pastas conforme o padrão
-- [ ] Permissão modular (`comercial:manager` / `comercial:viewer`)
+- [ ] Permissão modular nos três papéis (`comercial:manager` / `comercial:seller` /
+      `comercial:viewer`), com autoria verificada em levantamento **e** proposta, e
+      filtragem por autoria também nas listagens (§12.5.1)
 - [ ] Nenhum arquivo crítico acima do budget
 - [ ] Nenhum arquivo novo solto em `backend/src/lib/`
 - [ ] Nenhum job exportado de rota
@@ -1276,9 +1294,9 @@ passo 7.)
 
 | # | Questão | Resposta | Data |
 |---|---|---|---|
-| 1 | `comercial:viewer` vê custo e margem? | **Não.** O levantamento inteiro é restrito a `comercial:manager` | 2026-07-28 |
-| 2 | Quem finaliza a proposta? | **Só `comercial:manager`** | 2026-07-28 |
-| 3 | Pode editar proposta de outro? | **Só o autor ou um manager** | 2026-07-28 |
+| 1 | `comercial:viewer` vê custo e margem? | **Não** — e **revista em 31/07**: o levantamento passa a ser de gestor *e* vendedor, este só com os seus. Ver §12.5.1 | 2026-07-28 → 2026-07-31 |
+| 2 | Quem finaliza a proposta? | ~~Só `comercial:manager`~~ — **revista em 31/07**: o autor finaliza a sua; o gestor, qualquer uma. Ver §12.5.1 | 2026-07-28 → 2026-07-31 |
+| 3 | Pode editar proposta de outro? | **Só o autor ou um manager** — e a autoria passa a valer também no levantamento | 2026-07-28 → 2026-07-31 |
 | 4 | Lista de vendedores | **Vira cadastro no módulo** | 2026-07-28 |
 | 5 | Fonte da numeração | **O próprio módulo** (sequence no Postgres) | 2026-07-28 |
 | 6 | Retenção das propostas | **Indefinida**, como registro comercial; só entrada no ROPA | 2026-07-28 |
@@ -1287,13 +1305,45 @@ passo 7.)
 **Consequências no escopo (+2 dias, já refletidos no cronograma):**
 
 - **Papéis deixam de ser "gestor × visualizador" e viram "orçamentista ×
-  consulta".** Considerar renomear os rótulos no registry para
+  consulta".** ~~Considerar renomear os rótulos no registry para
   `comercial:manager` = "Comercial — Orçamentista" e `comercial:viewer` =
-  "Comercial — Consulta", já que o viewer não faz orçamento.
-- Rotas de levantamento ficam sob `requireComercialManager` (decisão 1); o viewer
-  só alcança propostas, histórico e PDFs.
+  "Comercial — Consulta"~~ — **superado pela §12.5.1**: são três papéis.
+- ~~Rotas de levantamento ficam sob `requireComercialManager` (decisão 1); o viewer
+  só alcança propostas, histórico e PDFs.~~ — **superado pela §12.5.1**.
 - Autoria passa a ser verificada em escrita (decisão 3) — **não existe no
-  rascunho**, é regra nova, com teste próprio.
+  rascunho**, é regra nova, com teste próprio. **A §12.5.1 estende isso ao
+  levantamento e às listagens**, o que dobra o alcance da regra.
+
+### 12.5.1 Revisão do modelo de permissão — 2026-07-31
+
+Durante o `/speckit-specify` ficou visível que as decisões 1 a 3 não fechavam: com
+só dois papéis e o viewer somente leitura, todo autor seria gestor, e como gestor
+edita tudo, a regra de autoria da decisão 3 **não restringiria nada**. Levado ao
+mantenedor, o modelo foi substituído. Os nomes antigos confundiam porque `manager`
+acumulava "gestor" e "orçamentista".
+
+| Papel | Título | Levantamentos | Propostas | Valores |
+|---|---|---|---|---|
+| `comercial:manager` | Comercial — Gestor | cria; vê **todos** | edita e finaliza **qualquer uma** | vê tudo |
+| `comercial:seller` | Comercial — Vendedor | cria; vê **só os seus** | cria, edita e finaliza **só as suas** | vê os seus |
+| `comercial:viewer` | Comercial — Consulta | nenhum acesso | **somente leitura** | **nenhum** |
+
+O papel de consulta é para quem não é do comercial: consulta propostas **sem ver
+valor, custo nem margem**, e baixa **apenas a proposta técnica** — a comercial traz
+tabela de preços, condições de pagamento e valor total, e liberá-la contornaria a
+restrição por outra porta.
+
+**Consequências de escopo, ainda não precificadas:**
+
+1. Verificação de autoria em **duas** entidades — levantamento e proposta. A decisão
+   3 orçou uma.
+2. Filtragem por autoria nas **listagens**, não só nas rotas de escrita. É onde
+   vazamento entre vendedores costuma acontecer.
+3. **Papel novo** no `registry.json`, com migração de enum própria (`ModuleRoleCode`).
+4. Supressão de valores **na origem**, para o papel de consulta. Valor que chega ao
+   navegador e é escondido por CSS não é restrição.
+
+Requisitos correspondentes: FR-027 a FR-030b do `specs/009-modulo-comercial/spec.md`.
 - Cadastro de vendedores é **escopo além do porte** (decisão 4): model, rotas,
   tela e permissão.
 - Numeração por sequence (decisão 5) simplifica o código — cai a varredura do
