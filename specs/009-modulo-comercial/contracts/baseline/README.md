@@ -144,19 +144,36 @@ da L6 já produziu uma conclusão errada.
 
 - [ ] Capturas mobile — **não existem para capturar** (lacuna L7). Serão
       produzidas pelo porte, não copiadas da referência.
-- [ ] Prioridade 2: **`CUSTO-erro-salvar`** (o que importa — é a foto do "antes"
-      da L1) e `LOGIN-erro` (opcional, L5 é gravidade Baixa)
+- [x] ~~Prioridade 2: `CUSTO-erro-salvar`, `LOGIN-erro`~~ — **dispensadas** pelo
+      mantenedor em 31/07
 - [x] ~~`PROP-preview`~~ — **já capturado**. O painel de prévia é um `<aside>`
       irmão do formulário (`app/page.tsx:1155`), então aparece nas 7 capturas de
       `PROP`, com as abas Comercial/Técnica e o contador de páginas
 - [x] Confirmar **L1**, **L2** e **L3** — feito em 31/07/2026
-- [ ] `roteiro.md` com o caminho clicável
+- [x] `roteiro.md` com o caminho clicável — escrito e **revisado** em 31/07
 
-## Roteiro clicável
+**A E0 está fechada.** A única captura que continua faltando é a mobile, e ela
+não existe para ser capturada.
 
-Junto com as capturas, anote o caminho que um levantamento real percorre: o que
-se preenche primeiro, o que destrava o quê, onde o app exige confirmação.
+## Roteiro clicável — feito
 
-Vira o teste de paridade de UX e o roteiro do tutorial de primeiro acesso
-(lacuna L4). Pode ser texto corrido em `roteiro.md` nesta pasta — não precisa de
-formato.
+`roteiro.md` documenta o arco `/login → /custos → (salvar) → / → (finalizar) →
+/historico`, com as travas de cada etapa citando a linha do código de referência.
+Revisado pelo mantenedor em 31/07: **nenhuma mecânica foi contestada**, e saíram
+três mudanças de escopo.
+
+| Decisão da revisão | Efeito |
+|---|---|
+| Entrada do módulo vira **menu** (`/comercial`); a proposta vai para `/comercial/propostas` | **desvio nº 9**, +0,5 d em E6 |
+| Rascunho local vale **também para a proposta**, e cobre "fechar a página" | **L3 cresce**, +1 d em E8 |
+| E-mail/CNPJ inválidos têm de dizer que estão **inválidos**, não "campo obrigatório" | requisito na **L1**, sem custo extra |
+
+Estimativa: **44-48 d → 45,5-49,5 d**.
+
+Confirmado também: "Trocar para nova" é saída morta na prática (**mantida**, mas
+sem prioridade de aceite) e o **rodapé-guia de `/custos` é o caminho realmente
+usado** — o que faz dele o roteiro do tutorial da L4. As abas continuam livres.
+
+Fica em aberto de propósito, sem bloquear nada: *o que todo mundo erra na
+primeira vez* não tem resposta hoje. É pergunta para refazer depois de semanas de
+uso real.

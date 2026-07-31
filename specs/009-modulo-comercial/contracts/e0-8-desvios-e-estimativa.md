@@ -15,7 +15,8 @@ Nada aqui é irreversível: é o combinado que o `/speckit-specify` vai consumir
 
 A numeração 1 a 5 é a mesma da §5.7 do plano, para as referências existentes
 continuarem valendo. Os itens **3** e **4** foram reescritos porque a E0 mostrou
-que estavam subdimensionados. Os itens **6 a 8** são novos.
+que estavam subdimensionados. Os itens **6 a 9** são novos — o **9** entrou depois
+da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 
 | # | Desvio | Situação |
 |---|---|---|
@@ -27,6 +28,7 @@ que estavam subdimensionados. Os itens **6 a 8** são novos.
 | 6 | Drag and drop **ao lado** dos botões ↑/↓ | **Novo** (L2) |
 | 7 | Paleta em bloco único, prefixada, com escopo | **Novo** (L6) |
 | 8 | Fluxo "Nova proposta" sem baseline visual | **Novo** — limitação, não escolha |
+| 9 | Entrada do módulo vira **menu**; proposta sai da raiz | **Novo** (revisão do roteiro, 31/07) |
 
 ### 1. PDF gerado no backend
 
@@ -176,6 +178,43 @@ Consequência prática: a paridade visual desse passo específico será conferid
 contra o código, não contra screenshot. Se você tiver um token de teste do Nectar,
 eu capturo e este item some da lista.
 
+### 9. A entrada do módulo é um menu, e a proposta sai da raiz — *novo*
+
+> **Decisão do mantenedor, 31/07/2026**, na revisão do `baseline/roteiro.md`:
+> *"seria necessario ele cair em `/`, porém ao invés de ser a pagina de proposta,
+> ser um menu para ele escolher se quer levantar custo ou ver/criar propostas, ai
+> sim, ser direcionado para `/custos` e um `/propostas`"*.
+
+Na referência, o login desemboca no assistente de proposta, em `/`. Quem vai
+levantar custos — que é o começo real do fluxo, já que é o levantamento que
+carimba o código — tem de sair de lá e navegar até `/custos`.
+
+**Metade disto já era inevitável.** No filtroAPP todo módulo mora atrás de um
+prefixo (`/rdo`, `/estoque`, `/qualidade`, registrados em
+`shared/modules/registry.json`), então a proposta nunca ia continuar na raiz do
+app. O que a decisão acrescenta é a **tela de escolha**, que a referência não tem.
+
+| Rota | Tela | Origem |
+|---|---|---|
+| `/comercial` | menu com dois cartões | **nova** |
+| `/comercial/custos` | levantamento | o `/custos` da referência |
+| `/comercial/propostas` | assistente de 7 etapas | o `/` da referência |
+| `/comercial/historico` | histórico | o `/historico` da referência |
+
+**Por que é barato (~0,5 d, na E6):** o `/modulos` do filtroAPP
+(`frontend/src/pages/HubPage.tsx`) já é um seletor de cartões, com estilo pronto.
+O menu do módulo reusa a mesma linguagem visual. Nenhum outro módulo do filtroAPP
+tem menu interno — os demais usam página única com abas — mas `custos` e
+`propostas` são fluxos de tela cheia, não abas.
+
+**Efeito no aceite lado a lado:** o menu **não tem baseline**, pelo mesmo motivo do
+desvio nº 8 — não existe na referência para ser fotografado. As capturas `PROP-*`
+continuam valendo integralmente; muda só o endereço da tela que elas retratam.
+
+**Este desvio também não remove controle nenhum.** Nenhuma das quatro telas perde
+função; ganha-se uma porta de entrada. A regra de aceite continua sendo "se algo
+sumiu, é bug".
+
 ---
 
 ## Parte B — Revisão da estimativa
@@ -203,16 +242,22 @@ quebrado, e login sem senha real).
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d | — |
 | E4 | Backend — levantamentos, vendedores, numeração | 3 d | 3 d | — |
 | E5 | Backend — propostas, autoria, PDFs, integrações | 5,5 d | 5,5 d | — |
-| E6 | Frontend — base, histórico, porte do CSS | 2 d | **2,5–3 d** | L6 (auditar bloco ativo) + primitivas seguras de mobile |
+| E6 | Frontend — base, histórico, porte do CSS | 2 d | **3–3,5 d** | L6 (auditar bloco ativo) + primitivas seguras de mobile + **menu do módulo** (desvio 9) |
 | E7 | Frontend — levantamento de custos | 5–6 d | **9–10 d** | **L1** (+3 d) e **L3** (+1 d, com o rascunho local) |
-| E8 | Frontend — assistente da proposta + vendedores | 5–6 d | **8–9 d** | **L2** (+1,5 d), **L4** (+1 d), L3 (+0,5 d) |
+| E8 | Frontend — assistente da proposta + vendedores | 5–6 d | **9–10 d** | **L2** (+1,5 d), **L4** (+1 d), **L3** (+1,5 d, com rascunho na proposta) |
 | **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3–4 d** | **L7** |
 | E9 | Testes e CI | 2 d | **2,5 d** | Testes de validação por campo e de ausência de scroll horizontal |
 | E10 | Produção | 1,5 d | 1,5 d | — |
-| | **Até produção** | **32–35,5 d** | **44–48 d** | **+12 dias úteis (~2,5 semanas)** |
+| | **Até produção** | **32–35,5 d** | **45,5–49,5 d** | **+14 dias úteis (~3 semanas)** |
 | E11 | Substituir o import do Access | 3–5 d | 3–5 d | — |
 
-**~7 semanas → ~9,5 semanas.**
+**~7 semanas → ~9 a 10 semanas.**
+
+> **Revisão de 31/07, depois da aprovação.** O quadro aprovado fechava em
+> **44–48 d**. A sua revisão do `baseline/roteiro.md` acrescentou **+1,5 d**: o
+> menu de entrada do módulo (+0,5 d, E6) e o rascunho local da proposta (+1 d,
+> E8). A terceira decisão daquela revisão — distinguir "vazio" de "inválido" nas
+> mensagens — **cabe nos +3 d da L1** e não move o total.
 
 ### De onde vem cada delta
 
@@ -230,7 +275,7 @@ corrigir a origem se houver dívida) e 1 d para aplicar nas três listas. **Risc
 +1 d** se a auditoria reprovar — aí o conserto é no utilitário compartilhado e
 beneficia as quatro telas que já o usam.
 
-**L3 → +1,5 d, sendo +1 d em E7 e +0,5 d em E8.** Era +0,5 d quando a lacuna era
+**L3 → +2,5 d, sendo +1 d em E7 e +1,5 d em E8.** Era +0,5 d quando a lacuna era
 só "volta para Premissas". Com o F5 apagando o levantamento, são duas peças:
 query param (barato — 5 seções em `CUSTO`, 7 etapas em `PROP`, mais a limpeza de
 params incompatíveis na troca) e **rascunho local com oferta de recuperação**
@@ -239,9 +284,22 @@ descarte ao salvar no servidor, e o diálogo "recuperar rascunho não salvo?" �
 restaurar em silêncio é pior que perder, porque o usuário não sabe o que está
 vendo).
 
+O acréscimo de +1 d em E8 veio da sua revisão do roteiro: o rascunho local passa a
+valer **também para a proposta**, e *"mesmo se fechar a página"* torna o
+`beforeunload` obrigatório nas duas telas. As 7 etapas acumulam tanto trabalho não
+salvo quanto as 5 seções do levantamento, e nada delas vai ao servidor antes da
+finalização.
+
+**Desvio 9 → +0,5 d em E6.** O menu de entrada do módulo. Sai barato porque o
+`HubPage.tsx` do filtroAPP já é um seletor de cartões com estilo pronto; o custo é
+a tela, os dois destinos e o registro em `shared/modules/registry.json`. A troca
+de `/` por `/comercial/propostas` não custa nada — o prefixo de módulo já era
+obrigatório no filtroAPP.
+
 **L4 → +1 d em E8.** O `driver.js` já está nas dependências do frontend; a peça
-existe. O que custa é escrever o roteiro — e ele depende do `roteiro.md` da E0-7,
-que ainda está pendente.
+existe. O que custa é escrever o roteiro. **Destravado em 31/07**: o `roteiro.md`
+ficou pronto e revisado, e o script sai da cadeia do rodapé de `/custos` mais a
+armadilha do e-mail/CNPJ da etapa 1.
 
 **L5 → 0 d.** Absorvido pela L1: o mesmo componente generalizado resolve o login.
 
@@ -279,5 +337,20 @@ Independente desta aprovação:
 - [x] Confirmar **L1**, **L2** e **L3** — feito em 31/07/2026. As três se
       confirmaram, e a **L3 veio pior** que o documentado
 - [x] Os **↑/↓ ficam** ao lado da alça (desvio nº 6) — decidido em 31/07
-- [ ] Capturas de prioridade 2 — `LOGIN-erro`, `CUSTO-erro-salvar`, `PROP-preview`
-- [ ] `roteiro.md` — o caminho clicável (é insumo do roteiro da L4)
+- [x] Capturas de prioridade 2 — **dispensadas** por você em 31/07
+- [x] `roteiro.md` — escrito e **revisado** em 31/07. Rendeu o desvio nº 9, o
+      crescimento da L3 para a proposta e o requisito de mensagem da L1
+
+**A E0 está fechada.** O que sobrou de aberto é uma pergunta que só o uso real
+responde — *o que todo mundo erra na primeira vez* — e ela não bloqueia nada:
+entra no roteiro do tutorial depois, sem invalidar o que já está escrito.
+
+### Se 9 semanas não couber — atualização
+
+A alavanca "adiar o tutorial (L4)" ficou **mais barata de decidir**, porque o
+roteiro já está escrito: adiar agora custa só a implementação, não a pesquisa.
+
+Nenhuma das três alavancas alcança os +1,5 d que entraram em 31/07. O menu de
+entrada e o rascunho da proposta são decisões suas de produto, não exigências da
+constitution — se o prazo apertar, **essas duas voltam a ser negociáveis**, e são
+as únicas do quadro que estão nessa condição.

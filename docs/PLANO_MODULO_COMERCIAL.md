@@ -500,13 +500,14 @@ componentes decompostos), não o que o usuário vê e faz.
 #### Desvios deliberados (lista fechada — **aprovada em 31/07/2026**)
 
 > Eram cinco. A E0 executou a referência e mostrou que dois estavam
-> subdimensionados e que faltavam três. **São oito**, aprovados pelo mantenedor
-> em 31/07/2026. O detalhamento de cada um, com evidência e decisão, está em
+> subdimensionados e que faltavam três — viraram oito, aprovados pelo mantenedor
+> em 31/07/2026. **A revisão do `baseline/roteiro.md`, no mesmo dia, acrescentou o
+> nono.** O detalhamento de cada um, com evidência e decisão, está em
 > `specs/009-modulo-comercial/contracts/e0-8-desvios-e-estimativa.md`.
 >
-> **Nenhum dos oito remove um controle existente da referência.** Toda
-> divergência é acréscimo exigido pela constitution, imposição da stack, ou forma
-> de escrever CSS.
+> **Nenhum dos nove remove um controle existente da referência.** Toda
+> divergência é acréscimo exigido pela constitution, imposição da stack, decisão
+> de produto do mantenedor, ou forma de escrever CSS.
 
 1. **PDF gerado no backend** — o download passa a ter uma ida ao servidor
    (§5.3, imposto pela stack fixada na constitution).
@@ -521,7 +522,9 @@ componentes decompostos), não o que o usuário vê e faz.
 4. **Acréscimos exigidos pela constitution** — *reescrito*: eram três, são
    quatro. Campo inválido **destacado em vermelho** no padrão `.field-invalid` do
    filtroAPP com `aria-invalid` e mensagem visível (L1); modo, base e seção em
-   query param **mais rascunho local** (L3); tutorial permanente de primeiro
+   query param **mais rascunho local nas duas telas** — levantamento e proposta —
+   com `beforeunload`, porque "fechar a página sem querer" também conta (L3);
+   tutorial permanente de primeiro
    acesso (L4); estado de campo inválido no login (L5). São acréscimos, não
    substituições.
 5. **Fonte do chrome herda a do app** (`'Segoe UI', system-ui`) em vez do
@@ -540,6 +543,14 @@ componentes decompostos), não o que o usuário vê e faz.
    `app/api/nectar/next-number/route.ts:24-30` exige chamada real ao CRM e
    devolve 503 sem `NECTAR_API_TOKEN`. A paridade desse passo será conferida
    contra o código, não contra screenshot.
+9. **Entrada do módulo vira menu; a proposta sai da raiz** — *novo*, decisão do
+   mantenedor na revisão do roteiro (31/07). `/comercial` passa a ser um menu de
+   dois cartões — levantar custos ou ver/criar propostas — e as telas atendem em
+   `/comercial/custos` e `/comercial/propostas`. Metade disto já era inevitável
+   (no filtroAPP todo módulo mora atrás de um prefixo); o que a decisão acrescenta
+   é a tela de escolha, que a referência não tem. Reusa a linguagem de cartões do
+   `frontend/src/pages/HubPage.tsx`. **Sem baseline visual**, pelo mesmo motivo do
+   nº 8: não existe na referência para ser fotografada.
 
 **Nada fora desta lista pode divergir.** Divergência não listada é bug, não
 escolha.
@@ -592,7 +603,7 @@ comercial", ele produz requisitos genéricos, plausíveis e incompletos. Portant
 **Peça 4 — Aceite por comparação lado a lado, não por opinião.**
 No aceite de E7 e E8: referência rodando de um lado, módulo novo do outro,
 percorrendo um roteiro escrito. Cada divergência é classificada como bug ou como
-um dos 8 desvios da lista. O checklist de paridade precisa estar 100% marcado —
+um dos 9 desvios da lista. O checklist de paridade precisa estar 100% marcado —
 e ele é item da Definição de Pronto, não uma conferência informal.
 
 **Peça 5 — Comparação visual por screenshot (só faz sentido com paridade total).**
@@ -698,7 +709,10 @@ feature de porte grande e DEVE passar por spec-kit com artefatos em `specs/`.
 1. `npm run new:module -- comercial --title "Comercial"`.
 2. Ajustar `shared/modules/registry.json`: badge `COM`, roles
    `comercial:manager` (orçamentista sênior/gestor) e `comercial:viewer`,
-   `pathPrefixes: ["/comercial"]`, rotas `index`, `proposta`, `custos`.
+   `pathPrefixes: ["/comercial"]`, `hub.path: "/comercial"`, e as rotas
+   `index` (`/comercial`, o menu do desvio nº 9), `custos`
+   (`/comercial/custos`), `propostas` (`/comercial/propostas`) e `historico`
+   (`/comercial/historico`).
 3. `npm run modules:generate`.
 4. Migration dos enums `AppModule.COMERCIAL` e
    `ModuleRoleCode.COMERCIAL_MANAGER|COMERCIAL_VIEWER`.
@@ -855,7 +869,7 @@ Porta de `app/custos/page.tsx` (3.382 linhas) decomposta:
 **Aceite:** os números da tela batem com os goldens (§E0-5) campo a campo;
 **comparação lado a lado e por screenshot** (§5.7, Peças 4 e 5) com a parte do
 `checklists/paridade-ux.md` referente ao levantamento 100% marcada e toda
-divergência classificada como bug ou como um dos 8 desvios aprovados; nenhum
+divergência classificada como bug ou como um dos 9 desvios aprovados; nenhum
 arquivo acima de 900 linhas; sem scroll horizontal de página em mobile.
 
 ### E8 — Frontend: assistente da proposta (5 a 6 dias)
@@ -995,13 +1009,13 @@ Com tudo no mesmo backend, o caminho encurta muito em relação ao plano anterio
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d |
 | E4 | Backend — levantamentos, vendedores e numeração | 3 d | 3 d |
 | E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | 5,5 d |
-| E6 | Frontend — base, histórico e porte do CSS | 2 d | **2,5-3 d** (L6 + primitivas de mobile) |
+| E6 | Frontend — base, histórico e porte do CSS | 2 d | **3-3,5 d** (L6 + primitivas de mobile + menu do módulo) |
 | E7 | Frontend — levantamento de custos | 5-6 d | **9-10 d** (L1 +3 d, L3 +1 d) |
-| E8 | Frontend — assistente da proposta + tela de vendedores | 5-6 d | **8-9 d** (L2 +1,5 d, L4 +1 d, L3 +0,5 d) |
+| E8 | Frontend — assistente da proposta + tela de vendedores | 5-6 d | **9-10 d** (L2 +1,5 d, L4 +1 d, L3 +1,5 d) |
 | **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3-4 d** (L7) |
 | E9 | Testes e CI | 2 d | **2,5 d** |
 | E10 | Produção (roteiro para o operador) | 1,5 d | 1,5 d |
-| | **Até produção** | 32-35,5 d | **44-48 dias úteis (~9,5 semanas)** |
+| | **Até produção** | 32-35,5 d | **45,5-49,5 dias úteis (~9 a 10 semanas)** |
 | E11 | Substituir o import do Access | 3-5 d | 3-5 d |
 
 Ordem de execução: **E0 → E-1** → E1 → E2 → E3 → (E4 e E6 em paralelo) → E5 →
@@ -1023,7 +1037,8 @@ dobro.
 > §12.5 somaram ~2 dias: cadastro de vendedores e regra de autoria são escopo
 > novo, que não existe no rascunho.
 >
-> De ~7 para ~9,5 semanas: aqui **é escopo**, e é escopo que só apareceu porque a
+> De ~7 para ~9,5 semanas (44-48 d, aprovado em 31/07): aqui **é escopo**, e é
+> escopo que só apareceu porque a
 > E0 executou a referência em vez de lê-la. Sete lacunas constitucionais, das
 > quais três (L1, L3, L7) são de gravidade Alta. As duas maiores: **validação por
 > campo na tela onde o preço é formado** (+3 d — hoje as pendências saem grudadas
@@ -1031,6 +1046,13 @@ dobro.
 > mobile, que não existe** (+3-4 d). A terceira só apareceu na tela: **F5 na tela
 > de custos apaga o levantamento inteiro** (+1 d de rascunho local). Nenhuma das
 > três estava nos números anteriores, e nenhuma é opcional.
+>
+> De 44-48 para **45,5-49,5 d**: +1,5 d vindos da revisão do `baseline/roteiro.md`
+> em 31/07. Diferente de tudo acima, **estes dois são decisão de produto, não
+> exigência da constitution** — o menu de entrada do módulo (+0,5 d, desvio nº 9) e
+> o rascunho local estendido à proposta (+1 d, porque *"fechar a página sem
+> querer"* também conta). São, por isso, os únicos itens do quadro que voltam a ser
+> negociáveis se o prazo apertar.
 
 ---
 
@@ -1178,7 +1200,7 @@ Além do aceite de cada etapa, vale a "Definição de pronto" de
 - [ ] Comparação por screenshot das 3 telas em desktop e mobile sem diferença
       não explicada
 - [ ] `/speckit-analyze` sem item do inventário de UI descoberto
-- [ ] Toda divergência em relação à referência é um dos 8 desvios aprovados
+- [ ] Toda divergência em relação à referência é um dos 9 desvios aprovados
       (§5.7) — nenhuma divergência não listada
 - [ ] CSS do módulo totalmente escopado: nenhum vazamento nos dois sentidos
 - [ ] Nenhum comando de servidor executado por agente ou desenvolvedor

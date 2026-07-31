@@ -79,6 +79,31 @@ Princípio VI não se aplica a elas.
 O banner único **não some**: continua como resumo no topo, com o número de
 pendências. O que muda é que cada pendência passa a ter endereço.
 
+### Vazio e inválido são dois estados, não um
+
+> **Decisão do mantenedor, 31/07/2026**, na revisão do `baseline/roteiro.md`:
+> *"corrigir para dizer que é invalido (e-mail e cnpj), não apenas mensagem
+> genérica"*.
+
+A etapa 1 da proposta conta e-mail e CNPJ como pendência **só quando inválidos**
+(`app/page.tsx:472-486`: `emailValid ? form.email : ""`). Do ponto de vista do
+contador do rodapé, digitar errado é indistinguível de não ter digitado — e o
+usuário vê "Preencha 1 campo obrigatório" olhando para um formulário que parece
+cheio. **É o ponto de travamento mais provável do app**, confirmado pelo
+mantenedor.
+
+Marcar de vermelho resolve o *onde* e não resolve o *quê*: o campo fica
+destacado, o usuário olha, vê texto lá dentro e continua sem entender. A
+marcação precisa carregar mensagem por estado:
+
+| Estado do campo | Mensagem |
+|---|---|
+| vazio | "Campo obrigatório" |
+| preenchido, formato inválido | **"E-mail inválido"** / **"CNPJ inválido"** |
+
+Cabe no orçamento já previsto para a L1 — é camada de mensagem sobre o mesmo
+resolvedor de `path` → campo, não encanamento novo.
+
 ## L2 — Reordenação por botão ↑/↓ em vez de drag and drop
 
 > **Confirmada na tela em 31/07/2026.** Só as setas funcionam; não é possível
@@ -176,6 +201,25 @@ literal da constitution:
 
 Sem o item 2, a URL conserta o sintoma e mantém a perda de trabalho.
 
+### O rascunho vale para a proposta também, e não é só o F5
+
+> **Decisão do mantenedor, 31/07/2026**, na revisão do `baseline/roteiro.md`:
+> *"Custos e propostas devem ter um rascunho que permanece salvo mesmo se fechar
+> ou atualizar a página sem querer."*
+
+Duas ampliações sobre o que estava escrito acima:
+
+- **`PROP` entra no item 2.** O previsto para a proposta era só o estado da etapa
+  na URL. Mas as 7 etapas acumulam tanto trabalho não salvo quanto as 5 seções do
+  levantamento — itens de escopo com título e descrição, matriz de
+  responsabilidades, tabela de preços — e nada disso vai ao servidor antes da
+  finalização. O rascunho local passa a valer para as duas telas.
+- **"Fechar a página" é explícito.** Não é só recarregar. Isso torna o
+  `beforeunload` obrigatório, e não opcional, nas duas telas: aviso ao sair com
+  alterações pendentes, além do autossalvamento.
+
+Custo: **+1 d na E8**, sobre o +0,5 d que ela já tinha para os query params.
+
 ## L4 — Sem tutorial permanente de primeiro acesso
 
 **Evidência.** Zero ocorrências de `localStorage` nas quatro telas — logo, não há
@@ -189,6 +233,22 @@ expiração global exatamente 10 dias após a data de implementação.
 **Observação.** O filtroAPP já tem `driver.js` nas dependências do frontend, então
 a peça existe. O que falta é o roteiro — e o roteiro depende do inventário desta
 etapa e da baseline clicável da E0-7.
+
+**Destravada em 31/07/2026.** O `baseline/roteiro.md` foi escrito e revisado. O
+script do tutorial se apoia em dois achados dele:
+
+1. **A cadeia do rodapé de `/custos`** (`app/custos/page.tsx:595-604`): o botão
+   primário já muda de texto e de destino conforme o que falta — mão de obra →
+   materiais e insumos → mob./desmob. → comissões → salvar. O app já conhece o
+   caminho; o tutorial só precisa narrá-lo. O mantenedor confirmou que é assim
+   que se usa na prática.
+2. **A armadilha do e-mail/CNPJ** da etapa 1 da proposta — ver a subseção de
+   estados da L1.
+
+Fica em aberto, de propósito: *o que todo mundo erra na primeira vez* não tem
+resposta hoje (*"ainda não tenho essa informação"*). É pergunta para refazer
+depois de algumas semanas de uso real do módulo, e pode acrescentar passos ao
+roteiro sem invalidar os dois acima.
 
 ## L5 — Login sem estado de campo inválido
 
@@ -315,3 +375,12 @@ controles.
 Isto precisa entrar como tarefa explícita no `/speckit-tasks` e como linha do
 Complexity Tracking no `plan.md`, e a estimativa de 32–35,5 dias úteis da §8
 merece revisão. Levar para a E0-8 junto com a lista de desvios.
+
+> **Feito.** A revisão saiu na E0-8, aprovada em 31/07/2026:
+> **32–35,5 d → 45,5–49,5 d**, com a etapa nova E8.5 para a L7. A conta de cada
+> delta está em `e0-8-desvios-e-estimativa.md`, Parte B.
+>
+> As sete lacunas continuam sendo a maior fatia do acréscimo. Os últimos 1,5 d
+> vieram da revisão do `baseline/roteiro.md` no mesmo dia, e são **decisão de
+> produto, não exigência da constitution**: o menu de entrada do módulo (desvio
+> nº 9) e o rascunho local estendido à proposta (que está descrito acima, na L3).
