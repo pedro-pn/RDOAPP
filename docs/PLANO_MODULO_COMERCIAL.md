@@ -497,21 +497,49 @@ componentes decompostos), não o que o usuário vê e faz.
 - Estágios da finalização e o que cada um informa ao usuário.
 - Resultados numéricos — cobertos pelos goldens (§E0-5).
 
-#### Desvios deliberados (lista fechada — aprovar antes de E6)
+#### Desvios deliberados (lista fechada — **aprovada em 31/07/2026**)
 
-Sobraram cinco, e só o último é escolha de aparência:
+> Eram cinco. A E0 executou a referência e mostrou que dois estavam
+> subdimensionados e que faltavam três. **São oito**, aprovados pelo mantenedor
+> em 31/07/2026. O detalhamento de cada um, com evidência e decisão, está em
+> `specs/009-modulo-comercial/contracts/e0-8-desvios-e-estimativa.md`.
+>
+> **Nenhum dos oito remove um controle existente da referência.** Toda
+> divergência é acréscimo exigido pela constitution, imposição da stack, ou forma
+> de escrever CSS.
 
 1. **PDF gerado no backend** — o download passa a ter uma ida ao servidor
    (§5.3, imposto pela stack fixada na constitution).
 2. **Tailwind removido** — não era usado; nenhum efeito visual.
-3. **Correção de scroll horizontal no celular** onde o `nowrap` das tabelas de
-   custo estoura a viewport, preservando o desktop (§5.6, item 5).
-4. **Adições exigidas pela constitution que o rascunho não tem**: tutorial
-   permanente de primeiro acesso, `aria-invalid` nos campos inválidos, estado
-   navegacional em query params. São acréscimos, não substituições.
+3. **Layout mobile será criado** — *reescrito*. Não é o ajuste pontual de
+   `nowrap` que este item dizia antes: **não existe layout mobile** (lacuna L7),
+   e a causa raiz são 39 regras de `min-width` em pixel, a pior
+   `.preview{min-width:390px}`. Em largura de celular **não há paridade
+   pixel-a-pixel a perseguir** — não há do que ser fiel. O desktop continua
+   pixel-a-pixel. Por decisão do mantenedor o ajuste fino mobile fica para o fim
+   do porte (etapa E8.5): é sequenciamento, não dispensa.
+4. **Acréscimos exigidos pela constitution** — *reescrito*: eram três, são
+   quatro. Campo inválido **destacado em vermelho** no padrão `.field-invalid` do
+   filtroAPP com `aria-invalid` e mensagem visível (L1); modo, base e seção em
+   query param **mais rascunho local** (L3); tutorial permanente de primeiro
+   acesso (L4); estado de campo inválido no login (L5). São acréscimos, não
+   substituições.
 5. **Fonte do chrome herda a do app** (`'Segoe UI', system-ui`) em vez do
    `Arial, Helvetica` do rascunho — decisão do mantenedor. O fac-símile do
    documento **mantém Arial/Helvetica** para continuar fiel ao PDF (§5.6).
+6. **Drag and drop ao lado dos ↑/↓** — *novo* (L2). As três listas reordenáveis
+   ganham a alça do `frontend/src/utils/reorderDrag.ts`, com fantasma e
+   placeholder de destino. **As setas continuam**, e passam a ser o caminho de
+   teclado da reordenação.
+7. **Paleta em bloco único, prefixada, com escopo** — *novo* (L6). O
+   `globals.css` tem dois `:root` conflitantes e o segundo vence: o app renderiza
+   verde e a paleta azul é código morto. **A cor renderizada não muda** — muda
+   como o CSS é escrito, para não vazar `--ink`/`--line`/`--bg`/`--muted` sobre
+   os tokens globais do filtroAPP.
+8. **Fluxo "Nova proposta" sem baseline visual** — *novo*. Não é escolha:
+   `app/api/nectar/next-number/route.ts:24-30` exige chamada real ao CRM e
+   devolve 503 sem `NECTAR_API_TOKEN`. A paridade desse passo será conferida
+   contra o código, não contra screenshot.
 
 **Nada fora desta lista pode divergir.** Divergência não listada é bug, não
 escolha.
@@ -564,7 +592,7 @@ comercial", ele produz requisitos genéricos, plausíveis e incompletos. Portant
 **Peça 4 — Aceite por comparação lado a lado, não por opinião.**
 No aceite de E7 e E8: referência rodando de um lado, módulo novo do outro,
 percorrendo um roteiro escrito. Cada divergência é classificada como bug ou como
-um dos 5 desvios da lista. O checklist de paridade precisa estar 100% marcado —
+um dos 8 desvios da lista. O checklist de paridade precisa estar 100% marcado —
 e ele é item da Definição de Pronto, não uma conferência informal.
 
 **Peça 5 — Comparação visual por screenshot (só faz sentido com paridade total).**
@@ -827,7 +855,7 @@ Porta de `app/custos/page.tsx` (3.382 linhas) decomposta:
 **Aceite:** os números da tela batem com os goldens (§E0-5) campo a campo;
 **comparação lado a lado e por screenshot** (§5.7, Peças 4 e 5) com a parte do
 `checklists/paridade-ux.md` referente ao levantamento 100% marcada e toda
-divergência classificada como bug ou como um dos 5 desvios aprovados; nenhum
+divergência classificada como bug ou como um dos 8 desvios aprovados; nenhum
 arquivo acima de 900 linhas; sem scroll horizontal de página em mobile.
 
 ### E8 — Frontend: assistente da proposta (5 a 6 dias)
@@ -953,26 +981,39 @@ Com tudo no mesmo backend, o caminho encurta muito em relação ao plano anterio
 
 ## 8. Cronograma
 
-| Etapa | Escopo | Esforço |
-|---|---|---|
-| E0 | Preparação, goldens, inventário de UI e referência rodando | 2 d |
-| E-1 | Fluxo spec-kit + PR de emenda à constitution (§10.1) | 2-2,5 d |
-| E1 | Scaffold do módulo | 0,5 d |
-| E2 | `shared/comercial` (cópia + build + testes) | 2 d |
-| E3 | Banco e dois schemas | 1,5 d |
-| E4 | Backend — levantamentos, vendedores e numeração | 3 d |
-| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d |
-| E6 | Frontend — base, histórico e porte do CSS | 2 d |
-| E7 | Frontend — levantamento de custos | 5-6 d |
-| E8 | Frontend — assistente da proposta + tela de vendedores | 5-6 d |
-| E9 | Testes e CI | 2 d |
-| E10 | Produção (roteiro para o operador) | 1,5 d |
-| | **Até produção** | **32-35,5 dias úteis (~7 semanas)** |
-| E11 | Substituir o import do Access | 3-5 d |
+> **Revisado em 31/07/2026, depois da E0.** As lacunas L1 a L7 são funcionalidade
+> que a referência não tem e que a constitution exige — não são reescrita de UI,
+> que é como estas etapas estavam dimensionadas. A conta de cada delta está em
+> `specs/009-modulo-comercial/contracts/e0-8-desvios-e-estimativa.md`.
+
+| Etapa | Escopo | Antes | Esforço |
+|---|---|---|---|
+| E0 | Preparação, goldens, inventário de UI e referência rodando | 2 d | **3 d** (realizado) |
+| E-1 | Fluxo spec-kit + PR de emenda à constitution (§10.1) | 2-2,5 d | 2-2,5 d |
+| E1 | Scaffold do módulo | 0,5 d | 0,5 d |
+| E2 | `shared/comercial` (cópia + build + testes) | 2 d | 2 d |
+| E3 | Banco e dois schemas | 1,5 d | 1,5 d |
+| E4 | Backend — levantamentos, vendedores e numeração | 3 d | 3 d |
+| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | 5,5 d |
+| E6 | Frontend — base, histórico e porte do CSS | 2 d | **2,5-3 d** (L6 + primitivas de mobile) |
+| E7 | Frontend — levantamento de custos | 5-6 d | **9-10 d** (L1 +3 d, L3 +1 d) |
+| E8 | Frontend — assistente da proposta + tela de vendedores | 5-6 d | **8-9 d** (L2 +1,5 d, L4 +1 d, L3 +0,5 d) |
+| **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3-4 d** (L7) |
+| E9 | Testes e CI | 2 d | **2,5 d** |
+| E10 | Produção (roteiro para o operador) | 1,5 d | 1,5 d |
+| | **Até produção** | 32-35,5 d | **44-48 dias úteis (~9,5 semanas)** |
+| E11 | Substituir o import do Access | 3-5 d | 3-5 d |
 
 Ordem de execução: **E0 → E-1** → E1 → E2 → E3 → (E4 e E6 em paralelo) → E5 →
-E7 → E8 → E9 → E10. E0 antes do spec-kit; E2 é pré-requisito de tudo; E7 e E8
-são o caminho crítico.
+E7 → E8 → **E8.5** → E9 → E10. E0 antes do spec-kit; E2 é pré-requisito de tudo;
+E7 e E8 são o caminho crítico.
+
+**A E8.5 não é dispensa de mobile.** Ela só é barata se as telas nascerem com as
+primitivas certas em E6-E8: nunca `min-width` em pixel de container,
+`min-width: 0` em filho de flex/grid, tabela larga já dentro do próprio
+`overflow-x: auto`, grade de cards com `minmax(min(100%, Npx), 1fr)`. Com isso a
+E8.5 é ajuste de espaçamento e ordem; sem isso, é reescrita de layout e custa o
+dobro.
 
 > **Como a estimativa evoluiu.** Da primeira versão (~5 semanas) para ~7: o que
 > pesa é conformidade, não escopo — spec-kit, goldens, inventário de UI,
@@ -981,6 +1022,15 @@ são o caminho crítico.
 > com o kit) e acrescentou ~0,5 dia de governança (a emenda). As respostas da
 > §12.5 somaram ~2 dias: cadastro de vendedores e regra de autoria são escopo
 > novo, que não existe no rascunho.
+>
+> De ~7 para ~9,5 semanas: aqui **é escopo**, e é escopo que só apareceu porque a
+> E0 executou a referência em vez de lê-la. Sete lacunas constitucionais, das
+> quais três (L1, L3, L7) são de gravidade Alta. As duas maiores: **validação por
+> campo na tela onde o preço é formado** (+3 d — hoje as pendências saem grudadas
+> num banner único, e nos goldens o cenário 01 devolve 12 de uma vez) e **layout
+> mobile, que não existe** (+3-4 d). A terceira só apareceu na tela: **F5 na tela
+> de custos apaga o levantamento inteiro** (+1 d de rascunho local). Nenhuma das
+> três estava nos números anteriores, e nenhuma é opcional.
 
 ---
 
@@ -1128,7 +1178,7 @@ Além do aceite de cada etapa, vale a "Definição de pronto" de
 - [ ] Comparação por screenshot das 3 telas em desktop e mobile sem diferença
       não explicada
 - [ ] `/speckit-analyze` sem item do inventário de UI descoberto
-- [ ] Toda divergência em relação à referência é um dos 5 desvios aprovados
+- [ ] Toda divergência em relação à referência é um dos 8 desvios aprovados
       (§5.7) — nenhuma divergência não listada
 - [ ] CSS do módulo totalmente escopado: nenhum vazamento nos dois sentidos
 - [ ] Nenhum comando de servidor executado por agente ou desenvolvedor

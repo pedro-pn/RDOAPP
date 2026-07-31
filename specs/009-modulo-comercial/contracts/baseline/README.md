@@ -144,7 +144,11 @@ da L6 já produziu uma conclusão errada.
 
 - [ ] Capturas mobile — **não existem para capturar** (lacuna L7). Serão
       produzidas pelo porte, não copiadas da referência.
-- [ ] Prioridade 2: `LOGIN-erro`, `CUSTO-erro-salvar`, `PROP-preview`
+- [ ] Prioridade 2: **`CUSTO-erro-salvar`** (o que importa — é a foto do "antes"
+      da L1) e `LOGIN-erro` (opcional, L5 é gravidade Baixa)
+- [x] ~~`PROP-preview`~~ — **já capturado**. O painel de prévia é um `<aside>`
+      irmão do formulário (`app/page.tsx:1155`), então aparece nas 7 capturas de
+      `PROP`, com as abas Comercial/Técnica e o contador de páginas
 - [x] Confirmar **L1**, **L2** e **L3** — feito em 31/07/2026
 - [ ] `roteiro.md` com o caminho clicável
 
