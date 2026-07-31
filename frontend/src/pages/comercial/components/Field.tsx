@@ -1,0 +1,255 @@
+import { useId } from 'react';
+import type { ReactNode } from 'react';
+
+/**
+ * Campo de formulário do módulo Comercial — a base da lacuna L1.
+ *
+ * Generaliza o componente `Field` da referência (`app/page.tsx:1187`), que é o
+ * **único** lugar do app de origem que faz `aria-invalid` certo. A tela de
+ * custos, com 465 controles, tem zero.
+ *
+ * O que este componente resolve, e por que importa:
+ *
+ * A referência concatena todas as pendências numa string e joga fora o `path`
+ * que a validação já devolve. O usuário recebe um banner com doze erros
+ * grudados e nenhuma pista de qual campo é qual. Aqui cada pendência tem
+ * endereço.
+ *
+ * **Vazio e inválido são dois estados, não um.** Marcar de vermelho resolve o
+ * *onde* e não resolve o *quê*: o campo fica destacado, o usuário olha, vê
+ * texto lá dentro e continua sem entender. Por isso `error` aceita a mensagem
+ * específica ("E-mail inválido") em vez de só um booleano.
+ *
+ * As classes vêm do `base.css` compartilhado, não do CSS do módulo: estado de
+ * campo inválido é **comportamento**, e a exceção de identidade portada do
+ * Princípio VI é só de aparência.
+ */
+
+type FieldProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  /** Mensagem específica. Vazio/ausente = campo válido. */
+  error?: string | null;
+  required?: boolean;
+  type?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  readOnly?: boolean;
+  maxLength?: number;
+  /** Texto de apoio permanente, exibido mesmo sem erro. */
+  hint?: string;
+  inputMode?: 'text' | 'numeric' | 'decimal' | 'email' | 'tel' | 'url';
+};
+
+export function Field({
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  type = 'text',
+  placeholder = '',
+  disabled,
+  readOnly,
+  maxLength,
+  hint,
+  inputMode
+}: FieldProps) {
+  const id = useId();
+  const errorId = `${id}-erro`;
+  const hintId = `${id}-dica`;
+  const invalid = Boolean(error);
+
+  return (
+    <div className={groupClass(invalid)}>
+      <label htmlFor={id}>
+        {label}
+        {required && <span className="survey-required-marker">*</span>}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        disabled={disabled}
+        readOnly={readOnly}
+        maxLength={maxLength}
+        inputMode={inputMode}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(invalid ? errorId : null, hint ? hintId : null)}
+        onChange={event => onChange(event.target.value)}
+      />
+      {hint && !invalid && (
+        <small id={hintId} className="field-hint">
+          {hint}
+        </small>
+      )}
+      {invalid && (
+        <small id={errorId} className="field-error" role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+
+type AreaProps = Omit<FieldProps, 'type' | 'inputMode'> & { rows?: number };
+
+export function Area({
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  placeholder = '',
+  disabled,
+  readOnly,
+  maxLength,
+  hint,
+  rows = 4
+}: AreaProps) {
+  const id = useId();
+  const errorId = `${id}-erro`;
+  const hintId = `${id}-dica`;
+  const invalid = Boolean(error);
+
+  return (
+    <div className={groupClass(invalid)}>
+      <label htmlFor={id}>
+        {label}
+        {required && <span className="survey-required-marker">*</span>}
+      </label>
+      <textarea
+        id={id}
+        value={value}
+        rows={rows}
+        placeholder={placeholder}
+        disabled={disabled}
+        readOnly={readOnly}
+        maxLength={maxLength}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(invalid ? errorId : null, hint ? hintId : null)}
+        onChange={event => onChange(event.target.value)}
+      />
+      {hint && !invalid && (
+        <small id={hintId} className="field-hint">
+          {hint}
+        </small>
+      )}
+      {invalid && (
+        <small id={errorId} className="field-error" role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+
+type SelectFieldProps = Omit<FieldProps, 'type' | 'placeholder' | 'inputMode'> & {
+  options: Array<{ value: string; label: string }>;
+  /** Texto da opção vazia. Ausente = sem opção vazia. */
+  emptyLabel?: string;
+};
+
+export function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  error,
+  required,
+  disabled,
+  emptyLabel,
+  hint
+}: SelectFieldProps) {
+  const id = useId();
+  const errorId = `${id}-erro`;
+  const hintId = `${id}-dica`;
+  const invalid = Boolean(error);
+
+  return (
+    <div className={groupClass(invalid)}>
+      <label htmlFor={id}>
+        {label}
+        {required && <span className="survey-required-marker">*</span>}
+      </label>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(invalid ? errorId : null, hint ? hintId : null)}
+        onChange={event => onChange(event.target.value)}
+      >
+        {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
+        {options.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {hint && !invalid && (
+        <small id={hintId} className="field-hint">
+          {hint}
+        </small>
+      )}
+      {invalid && (
+        <small id={errorId} className="field-error" role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Grupo sem controle próprio — checkbox, radio, lista.
+ * Usa `.field-invalid-panel` porque esses grupos não têm borda para pintar.
+ */
+export function FieldPanel({
+  label,
+  error,
+  required,
+  children
+}: {
+  label: string;
+  error?: string | null;
+  required?: boolean;
+  children: ReactNode;
+}) {
+  const id = useId();
+  const errorId = `${id}-erro`;
+  const invalid = Boolean(error);
+
+  return (
+    <div className="field-group">
+      <span className="field-group-label">
+        {label}
+        {required && <span className="survey-required-marker">*</span>}
+      </span>
+      <div
+        className={invalid ? 'field-invalid-panel' : undefined}
+        role="group"
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? errorId : undefined}
+      >
+        {children}
+      </div>
+      {invalid && (
+        <small id={errorId} className="field-error" role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+
+function groupClass(invalid: boolean) {
+  return invalid ? 'field-group field-invalid' : 'field-group';
+}
+
+function describedBy(...ids: Array<string | null>) {
+  const present = ids.filter(Boolean);
+  return present.length ? present.join(' ') : undefined;
+}

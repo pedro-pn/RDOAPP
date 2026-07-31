@@ -1,0 +1,264 @@
+/* ==========================================================================
+   Módulo Comercial — identidade portada
+   ==========================================================================
+
+   Exceção de identidade portada do Princípio VI (emenda 1.9.0), declarada no
+   plan.md da feature 009. As quatro alíneas, e como este arquivo as atende:
+
+   (a) TODO seletor daqui vive sob `.com-root`. Nada escapa para o resto do
+       app, e `base.css` não alcança o interior. Regra sem `.com-root` neste
+       arquivo é bug.
+
+   (b) A paleta é UM bloco único de custom properties prefixadas `--com-*`,
+       logo abaixo. Hex solto espalhado pelos seletores não atende a alínea —
+       usar `var(--com-*)` sempre.
+
+   (c) NENHUM comportamento é dispensado. Campo inválido, drag and drop,
+       navegação em URL, tutorial e ausência de scroll horizontal continuam
+       obrigatórios, e vêm das classes compartilhadas do `base.css`, não daqui.
+
+   (d) Reavaliar quando o módulo deixar de ser porte.
+
+   -------------------------------------------------------------------------
+   Sobre os nomes: por FUNÇÃO, nunca por cor.
+
+   A referência nomeia por cor e as cores mentem. No `globals.css` congelado
+   há dois blocos `:root` conflitantes: o da linha 26 é azul e é CÓDIGO MORTO;
+   o da linha 56 vence por cascata e é verde. O resultado é que `--blue` vale
+   `#2f6446`, que é verde, e `--navy` vale `#214b35`, que também é verde.
+   Quatro nomes para duas cores.
+
+   Nome funcional sobrevive a troca de paleta; nome de cor vira mentira no
+   primeiro ajuste. E o mantenedor sinalizou que esta identidade pode virar o
+   padrão do app — com a paleta em bloco único e nomeada por função, a
+   promoção é renomear tokens, não reescrever CSS.
+   ========================================================================== */
+
+.com-root {
+  /* --- Paleta (bloco único, alínea b) ------------------------------------ */
+
+  /* Verde escuro da marca: cabeçalho de documento, rodapé, logotipo.
+     Era `--navy` e `--green-dark` na referência — o mesmo #214b35. */
+  --com-marca-forte: #214b35;
+
+  /* Verde de ação: botão primário, etapa ativa, links.
+     Era `--blue` e `--green` — o mesmo #2f6446. Sim, `--blue` era verde. */
+  --com-acao: #2f6446;
+
+  /* Fundo suave da ação: caixas de destaque, estado concluído. */
+  --com-acao-suave: #e8f0eb;
+
+  --com-texto: #1f2923;
+  --com-texto-fraco: #66736b;
+  --com-borda: #d9e2dc;
+  --com-fundo: #f3f6f4;
+  --com-superficie: #ffffff;
+
+  /* Vermelho de acento da referência. NÃO é o vermelho de campo inválido:
+     aquele vem de `--rd` do `base.css`, porque estado de erro é
+     comportamento compartilhado, não identidade do módulo. */
+  --com-erro: #c8131c;
+
+  /* --- Medidas ----------------------------------------------------------- */
+  --com-raio: 10px;
+  --com-raio-controle: 7px;
+  --com-espaco: 16px;
+
+  /* --- Base -------------------------------------------------------------- */
+  background: var(--com-fundo);
+  color: var(--com-texto);
+
+  /* Nenhuma página do módulo pode rolar horizontalmente (Princípio II).
+     Isto é rede de segurança, não solução: o conteúdo tem de caber por
+     desenho. Se algo aqui está sendo cortado, conserte o filho. */
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* ==========================================================================
+   Primitivas responsivas
+
+   Existem porque a referência NÃO tem layout mobile: são 39 regras de
+   `min-width` em pixel, a pior `.preview{min-width:390px}`, que sozinha
+   estoura qualquer celular. O porte não repete isso.
+
+   A passada de ajuste fino é a etapa E8.5, no fim. Ela só é barata se as
+   telas nascerem com estas primitivas — senão vira reescrita de layout e
+   custa o dobro.
+   ========================================================================== */
+
+/* Filho de flex/grid encolhe. Sem isto, conteúdo largo empurra o contêiner
+   e o estouro aparece na página inteira, longe de onde foi causado. */
+.com-root :where(.com-col, .com-row, .com-grid) > * {
+  min-width: 0;
+}
+
+.com-root .com-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--com-espaco);
+}
+
+.com-root .com-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--com-espaco);
+  min-width: 0;
+}
+
+/* Grade de cards que cabe em qualquer largura.
+   `min(100%, N)` é o que impede o piso fixo de estourar a viewport — é a
+   forma exigida pela constitution, e a que falta na referência. */
+.com-root .com-grid {
+  display: grid;
+  gap: var(--com-espaco);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+
+.com-root .com-grid-2 {
+  display: grid;
+  gap: var(--com-espaco);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+
+/* Tabela larga rola DENTRO do próprio contêiner, nunca na página. */
+.com-root .com-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio-controle);
+  max-width: 100%;
+}
+
+.com-root .com-table-wrap > table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+/* Valor monetário, rótulo longo, status: quebram ou truncam, mas NUNCA
+   alargam o contêiner. `nowrap` sem `max-width` é o que corta borda de card
+   em celular. */
+.com-root .com-truncar {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.com-root .com-quebrar {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Tira de seções e abas: cabe, quebra ou rola por desenho — nunca empurra a
+   página. Vale para a tira de 5 seções do levantamento e para os 7
+   indicadores de custo, que são os dois pontos de estouro conhecidos. */
+.com-root .com-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.com-root .com-tabs.com-tabs-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.com-root .com-tabs > * {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* ==========================================================================
+   Superfícies
+   ========================================================================== */
+
+.com-root .com-painel {
+  background: var(--com-superficie);
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+  min-width: 0;
+}
+
+.com-root .com-secao-titulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--com-espaco);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--com-borda);
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+.com-root .com-secao-titulo h2 {
+  margin: 0 0 6px;
+  font-size: 23px;
+}
+
+.com-root .com-secao-titulo p {
+  margin: 0;
+  color: var(--com-texto-fraco);
+}
+
+/* ==========================================================================
+   Ações
+   ========================================================================== */
+
+.com-root .com-btn {
+  border: 0;
+  border-radius: var(--com-raio-controle);
+  padding: 11px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.com-root .com-btn-primario {
+  background: var(--com-acao);
+  color: #fff;
+}
+
+.com-root .com-btn-primario:disabled {
+  background: #b7c0cc;
+  cursor: not-allowed;
+}
+
+.com-root .com-btn-fantasma {
+  background: var(--com-superficie);
+  border: 1px solid var(--com-borda);
+  color: var(--com-texto);
+}
+
+.com-root .com-btn-fantasma:disabled {
+  opacity: 0.4;
+}
+
+/* Foco visível — acessibilidade não entra na exceção de identidade. */
+.com-root :where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--com-acao);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Mobile
+
+   Sem `min-width` em pixel de contêiner em lugar nenhum deste arquivo — é a
+   regra que a referência quebra 39 vezes.
+   ========================================================================== */
+
+@media (max-width: 700px) {
+  .com-root .com-secao-titulo {
+    flex-direction: column;
+  }
+
+  .com-root .com-btn {
+    width: 100%;
+  }
+}

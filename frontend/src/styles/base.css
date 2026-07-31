@@ -4100,6 +4100,39 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   padding: 8px;
 }
 
+/* Mensagem de campo inválido.
+   A constitution exige `aria-invalid` COM MENSAGEM VISÍVEL — marcar o campo de
+   vermelho diz onde está o problema, não qual é. Sem isto, um campo preenchido
+   porém inválido (e-mail com formato errado, CNPJ curto) fica vermelho e o
+   usuário olha, vê texto lá dentro e não entende o que se espera dele.
+   Use com `aria-describedby` apontando para o id desta mensagem. */
+.field-error {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rd);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* Texto de apoio permanente do campo. Ocupa o mesmo lugar da mensagem de erro
+   e cede a vez para ela — dois textos empilhados competem pela atenção. */
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--mu);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* Rótulo de grupo sem controle próprio (checkbox, radio, lista), onde não há
+   `label` para associar. */
+.field-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mu);
+}
+
 .checkbox-line {
   display: flex;
   align-items: center;
