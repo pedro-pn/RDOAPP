@@ -9,6 +9,7 @@ import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { rdoPath } from '../../auth/rolePath';
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
+import { ReportPdfBatchActions, ReportSelectionCheckbox } from '../../components/reports/ReportPdfBatchActions';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
@@ -149,6 +150,7 @@ export function CoordinatorPage() {
   const [closedArchivedTypeKeys, setClosedArchivedTypeKeys] = useState<string[]>([]);
   const [archivedVisibleByType, setArchivedVisibleByType] = useState<Record<string, number>>({});
   const [archivedTypeSortDirections, setArchivedTypeSortDirections] = useState<Record<string, ProjectSortDirection>>({});
+  const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
   const showToast = useToast();
   const pendingReportFilters = {
     summary: true,
@@ -247,6 +249,33 @@ export function CoordinatorPage() {
     }
   }
 
+  function renderBatchReportActions(reports: ReportSummary[]) {
+    return (
+      <ReportPdfBatchActions
+        reports={reports}
+        selectedIds={selectedReportIds}
+        onSelectionChange={setSelectedReportIds}
+      />
+    );
+  }
+
+  function renderSelectableReport(report: ReportSummary) {
+    return (
+      <ReportSummaryCard
+        key={report.id}
+        report={report}
+        leadingControl={(
+          <ReportSelectionCheckbox
+            reportId={report.id}
+            selectedIds={selectedReportIds}
+            onSelectionChange={setSelectedReportIds}
+          />
+        )}
+        actions={renderReportActions(report)}
+      />
+    );
+  }
+
   function toggleArchivedProject(projectId: string) {
     setClosedArchivedProjectIds(current =>
       current.includes(projectId) ? current.filter(id => id !== projectId) : [...current, projectId]
@@ -317,6 +346,7 @@ export function CoordinatorPage() {
         sortDirection={projectSortDir}
         showTypeSort
         storageKey={`coordinator-report-groups:${user?.id || user?.username || 'anonymous'}:${tab}`}
+        renderTypeActions={tab === 'approved' ? renderBatchReportActions : undefined}
         onLoadMoreType={reportsQuery.loadMoreGroup}
         onEnsureTypePage={reportsQuery.ensureGroupPage}
         isTypePageReady={reportsQuery.isGroupPageReady}
@@ -326,9 +356,9 @@ export function CoordinatorPage() {
         isTypePageErrored={reportsQuery.isGroupError}
         getTypeTotal={reportsQuery.groupTotal}
         getProjectTypeTotals={reportsQuery.projectTypeTotals}
-        renderReport={report => (
-          <ReportSummaryCard key={report.id} report={report} actions={renderReportActions(report)} />
-        )}
+        renderReport={report => tab === 'approved'
+          ? renderSelectableReport(report)
+          : <ReportSummaryCard key={report.id} report={report} actions={renderReportActions(report)} />}
       />
     );
   }
@@ -393,11 +423,10 @@ export function CoordinatorPage() {
             </div>
             {!typeClosed ? (
               <>
+                {visibleReports.length ? renderBatchReportActions(visibleReports) : null}
                 {visibleReports.length ? (
                   <div className="report-type-list">
-                    {visibleReports.map(report => (
-                      <ReportSummaryCard key={report.id} report={report} actions={renderReportActions(report)} />
-                    ))}
+                    {visibleReports.map(renderSelectableReport)}
                   </div>
                 ) : null}
                 {needsOrderedPage ? (
