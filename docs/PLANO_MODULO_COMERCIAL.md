@@ -594,7 +594,7 @@ comercial", ele produz requisitos genéricos, plausíveis e incompletos. Portant
 - rodar `/speckit-specify` **com o inventário como entrada**, declarando que a
   fonte da verdade é `contracts/ui-inventory.md` + o código de referência;
 - cada requisito funcional do `spec.md` cita os IDs do inventário que cobre;
-- `/speckit-checklist` gera `checklists/paridade-ux.md`, uma linha por
+- `checklists/paridade-ux.md`, uma linha por
   tela/fluxo/campo;
 - cada tarefa de UI no `tasks.md` referencia os IDs que precisa satisfazer;
 - `/speckit-analyze` roda ao final para achar item de inventário sem tarefa —
@@ -689,7 +689,11 @@ feature de porte grande e DEVE passar por spec-kit com artefatos em `specs/`.
    **Complexity Tracking** preenchidos a partir da §10.
 4. `/speckit-tasks` — gera `tasks.md`; as etapas E1–E11 viram tarefas numeradas,
    cada tarefa de UI citando os IDs do inventário que precisa satisfazer.
-5. `/speckit-checklist` — gera `checklists/paridade-ux.md` (§5.7, Peça 3).
+5. `/speckit-checklist` — gera `checklists/ux.md`, que na definição do skill é
+   **teste unitário do texto dos requisitos**, não conferência de tela.
+   **`checklists/paridade-ux.md` (§5.7, Peça 3) é escrito à mão**, porque é
+   artefato de aceite: conferência elemento a elemento contra a referência
+   congelada. Os dois existem e servem a propósitos diferentes.
 6. `/speckit-analyze` — cruza spec × tasks × inventário e aponta item sem
    cobertura. **Nenhum item de inventário pode ficar órfão.**
 7. ~~**PR de emenda à constitution** (§10.1)~~ — **concluído**. A emenda 1.9.0
