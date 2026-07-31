@@ -78,11 +78,25 @@ comportamento do sistema; testa se o `spec.md` está bem escrito.
 - [ ] CHK041 - A premissa de que a auditoria do `reorderDrag.ts` pode **reprovar** está orçada (+1 d). O que acontece com o cronograma e com as 4 telas que já o usam está documentado? [Assumption, Research §D6]
 - [ ] CHK042 - Está registrado que os IDs `LOGIN-*` **não têm destino** no porte, e por quê? Sem esse registro, o silêncio deles vira indistinguível de esquecimento. [Traceability, Tasks §T098a]
 
+## Resolvidos em 31/07 pelo mantenedor
+
+- [x] **CHK019** — marcador do tutorial: **por usuário, no servidor**. `localStorage`
+      fica só para a campanha de novidade. *"O tutorial acompanha a pessoa, a campanha
+      acompanha o dispositivo."* → FR-025a, FR-025b
+- [x] **CHK001** — exclusão: **não existe**. Só **arquivar**, sem exclusão definitiva.
+      → FR-060 a FR-063
+- [x] **CHK005/CHK006** — concorrência: finalização **exclusiva** (409 informando quando
+      e por quem); escrita concorrente **avisa antes de sobrescrever**, sem travar.
+      → FR-069, FR-070
+- [x] **CHK030** — fluxo de revisão: **não precisou de decisão**. A referência define
+      tudo — número base, próxima revisão, os dois caminhos de `snapshotAvailable` e o
+      reuso do card do CRM. Escrito a partir da evidência. → FR-064 a FR-068
+
 ## Ambiguities & Conflicts — resumo do que precisa de decisão
 
 Os itens abaixo são os que, se não resolvidos, produzem retrabalho:
 
-- [ ] CHK043 - **CHK019** (marcador do tutorial: por usuário ou por navegador) — decide onde o estado mora, e a escolha errada é percebida só em produção.
-- [ ] CHK044 - **CHK001** (não há requisito de exclusão) — decide se existem rotas e telas que hoje não estão em nenhuma das 121 tarefas.
-- [ ] CHK045 - **CHK005/CHK006** (edição e finalização concorrentes) — a finalização é irreversível e consome integração externa.
-- [ ] CHK046 - **CHK030** (fluxo de revisão sem história própria) — está no modelo de dados e no diálogo de modo, mas ninguém escreveu o que ele exige.
+- [x] ~~CHK043~~ - **CHK019** (marcador do tutorial: por usuário ou por navegador) — decide onde o estado mora, e a escolha errada é percebida só em produção.
+- [x] ~~CHK044~~ - **CHK001** (não há requisito de exclusão) — decide se existem rotas e telas que hoje não estão em nenhuma das 121 tarefas.
+- [x] ~~CHK045~~ - **CHK005/CHK006** (edição e finalização concorrentes) — a finalização é irreversível e consome integração externa.
+- [x] ~~CHK046~~ - **CHK030** (fluxo de revisão sem história própria) — está no modelo de dados e no diálogo de modo, mas ninguém escreveu o que ele exige.

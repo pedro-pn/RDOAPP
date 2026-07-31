@@ -414,8 +414,16 @@ aparecer na seleção da etapa Cliente para um gestor — sem nenhum passo de ca
 
 #### Onboarding (L4)
 
-- **FR-025**: O módulo DEVE ter tutorial permanente de primeiro acesso, marcado por
-  usuário, dispensável e rechamável, sem reaparecer sozinho depois de visto.
+- **FR-025**: O módulo DEVE ter tutorial permanente de primeiro acesso, dispensável e
+  rechamável, sem reaparecer sozinho depois de visto.
+- **FR-025a**: O marcador de "já viu" do tutorial DEVE ser **por usuário, persistido no
+  servidor** — não no navegador. Decisão do mantenedor em 31/07: *"tutorial inicial
+  sempre por usuário; por local apenas campanhas de novas funcionalidades"*. Guardá-lo no
+  navegador faria dois usuários da mesma máquina compartilharem o marcador, e o mesmo
+  usuário ver o tutorial de novo em outro computador.
+- **FR-025b**: A **campanha de novidade de 10 dias**, quando aplicável, continua marcada
+  **no navegador**, como a constitution descreve. São dois mecanismos com propósitos
+  diferentes: o tutorial acompanha a pessoa, a campanha acompanha o dispositivo.
 - **FR-026**: O roteiro do tutorial DEVE cobrir, no mínimo, a cadeia de prioridade do
   rodapé do levantamento e a armadilha de e-mail/CNPJ inválido da primeira etapa da
   proposta.
@@ -532,6 +540,63 @@ tabelas e fotos próprias.
 - **FR-055**: A planilha DEVE ter **dois formatos por versão de esquema**: o do esquema
   2 em diante e o legado, escolhidos pelo `schemaVersion` do levantamento. Proposta
   antiga não pode quebrar a finalização.
+
+#### Anexos e destino no SharePoint
+
+Existem na referência (`PROP-CTL-080`, `PROP-CTL-081`) e escaparam do levantamento
+junto com os blocos de conteúdo.
+
+- **FR-057**: A etapa de revisão DEVE aceitar **arquivos adicionais do cliente**
+  (opcional, múltiplos), salvos **na mesma pasta dos dois documentos**. Servem para ART,
+  folha de dados e especificação que o cliente enviou.
+- **FR-058**: A etapa de revisão DEVE aceitar uma **pasta existente no OneDrive**
+  (opcional), para gravar dentro dela em vez de criar pasta nova.
+- **FR-059**: O tamanho total do envio DEVE ser validado considerando **os dois PDFs, a
+  planilha e os anexos juntos**, com mensagem própria ao estourar.
+
+#### Arquivamento — não há exclusão
+
+> **Decisão do mantenedor, 31/07**: *"vamos manter apenas uma opção de arquivar, sem
+> exclusão definitiva"*.
+
+- **FR-060**: Levantamentos e propostas PODEM ser **arquivados**. **Não existe exclusão
+  definitiva** em nenhuma superfície do módulo.
+- **FR-061**: Arquivar DEVE ser permitido ao **autor ou a um gestor**, a mesma regra de
+  escrita do FR-029.
+- **FR-062**: Item arquivado NÃO aparece na listagem padrão, mas continua alcançável por
+  filtro explícito, e pode ser **desarquivado**.
+- **FR-063**: Arquivar uma proposta **não apaga** seus documentos nem suas fotos de
+  escopo — o registro comercial e o histórico permanecem (FR-042).
+
+#### Revisão de proposta
+
+Comportamento derivado da referência, não inventado.
+
+- **FR-064**: Informado o número de uma proposta existente, o sistema DEVE devolver o
+  **número base** e a **próxima revisão**, e o código passa a ser `{base} Rev {N}`.
+- **FR-065**: A carga DEVE distinguir dois casos, com mensagem própria: **snapshot
+  completo disponível** ("Proposta anterior carregada por completo") e **apenas os campos
+  do histórico** ("Dados disponíveis no histórico carregados") — proposta antiga, gerada
+  antes do armazenamento completo, não pode falhar.
+- **FR-066**: Havendo vínculo salvo com o CRM, o **card existente DEVE ser reutilizado**,
+  informando ao usuário qual card e em qual funil. Sem vínculo, funil e card são
+  escolhidos na última etapa.
+- **FR-067**: A revisão DEVE preservar os **blocos de conteúdo do escopo**, incluindo as
+  fotos (FR-051) — revisar não exige reenviar.
+- **FR-068**: Revisões anteriores DEVEM permanecer no histórico, com seus documentos
+  baixáveis.
+
+#### Edição e finalização concorrentes
+
+Não existe proteção na referência. É trabalho novo.
+
+- **FR-069**: A finalização DEVE ser **exclusiva**: uma proposta já finalizada, ou em
+  finalização, recusa nova tentativa informando **quando e por quem** foi finalizada.
+  Sem isso, dois usuários geram dois pares de documentos, duas oportunidades no CRM e
+  duas pastas — e as duas operações "dão certo".
+- **FR-070**: Ao salvar uma proposta ou levantamento alterado por outra pessoa desde a
+  abertura, o sistema DEVE **avisar antes de sobrescrever**, nomeando quem alterou e
+  quando, e oferecendo recarregar ou prosseguir. Aviso, não trava.
 
 #### Proteção de dados
 

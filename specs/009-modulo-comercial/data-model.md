@@ -54,6 +54,7 @@ vão usar.
 | `salePrice` | `Decimal @db.Decimal(14,2)` | idem |
 | `marginPercent` | `Decimal @db.Decimal(6,2)` | idem |
 | `status` | enum `CostEstimateStatus` | explícito |
+| `archivedAt` / `archivedByUserId` | `DateTime?` / `String?` | arquivamento — **não há exclusão** |
 | `createdByUserId` | `String` | **sustenta a regra de autoria** (FR-029); indexado |
 | `createdAt` / `updatedAt` | `DateTime` | |
 
@@ -100,7 +101,9 @@ margem.
 | `estimatorName` | `String` | preenchido pelo login |
 | `payload` | `Json` | escopo, matriz, prazos, técnica, preços; contrato validado |
 | `totalValue` | `Decimal @db.Decimal(14,2)` | **suprimido na origem** para `comercial:viewer` (FR-030) |
-| `status` | enum `ProposalStatus` | inclui o estado de finalização |
+| `status` | enum `ProposalStatus` | inclui o estado de finalização — é o que torna a finalização **exclusiva** (FR-069) |
+| `finalizedAt` / `finalizedByUserId` | `DateTime?` / `String?` | quem finalizou e quando; a segunda tentativa usa isto na mensagem |
+| `archivedAt` / `archivedByUserId` | `DateTime?` / `String?` | arquivamento — **não há exclusão** |
 | `createdByUserId` | `String` | **autoria**; indexado |
 | `createdAt` / `updatedAt` | `DateTime` | |
 
@@ -229,6 +232,59 @@ pessoa preenchido pela sessão.
 
 ---
 
+### `ProposalAttachment` — arquivo adicional do cliente
+
+Anexos que o usuário junta na etapa de revisão (`PROP-CTL-081`) e que vão **para a mesma
+pasta dos dois documentos** no destino externo. ART, folha de dados, especificação que o
+cliente mandou.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `String @id @default(cuid())` | |
+| `proposalId` | `String` | FK → `Proposal` |
+| `storagePath` | `String` | sob `COMERCIAL_DIR` |
+| `originalName` | `String` | saneado |
+| `byteSize` | `Int` | conta no limite **agregado** do envio (FR-059) |
+| `createdByUserId` | `String` | |
+
+**Distinto de `ScopeAsset`**: o anexo é do cliente e vai ao destino externo; a foto de
+escopo é conteúdo do documento e é renderizada dentro do PDF.
+
+---
+
+### Arquivamento — `archivedAt` em `CostEstimate` e `Proposal`
+
+> **Decisão do mantenedor, 31/07**: só arquivar, **sem exclusão definitiva**.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `archivedAt` | `DateTime?` | nulo = ativo |
+| `archivedByUserId` | `String?` | quem arquivou |
+
+**Não há `DELETE` em nenhuma rota do módulo.** Arquivar esconde da listagem padrão e
+mantém tudo — documentos, fotos e histórico — alcançável por filtro explícito
+(FR-062, FR-063). Desarquivar limpa os dois campos.
+
+Os índices de listagem passam a considerar o estado: `(createdByUserId, archivedAt, createdAt)`.
+
+---
+
+### Tutorial visto — marcador **por usuário, no servidor**
+
+> **Decisão do mantenedor, 31/07**: *"tutorial inicial sempre por usuário; por local
+> apenas campanhas de novas funcionalidades"*.
+
+O marcador de "já viu o tutorial do módulo" é persistido **por usuário**, não em
+`localStorage`. Isso resolve o conflito registrado no `checklists/ux.md` (CHK019): no
+navegador, dois usuários da mesma máquina compartilhariam o marcador, e o mesmo usuário
+veria o tutorial de novo em outro computador.
+
+**A campanha de novidade de 10 dias continua no navegador**, como a constitution
+descreve. São dois mecanismos com propósitos diferentes: **o tutorial acompanha a
+pessoa, a campanha acompanha o dispositivo.**
+
+---
+
 ### `ProposalAuditLog` — auditoria
 
 No padrão de `ReportAuditLog`. Registra finalização e envio externo — as duas ações
@@ -287,6 +343,9 @@ entidade do domínio e tem ciclo de vida próprio (FR-019 a FR-022).
 | Lista de consultores | completa | **só o próprio nome** | ✗ |
 | Custo, margem, valor | ✔ | os seus | **✗** |
 | `ScopeAsset` — enviar | ✔ | nas suas propostas | ✗ |
+| `ProposalAttachment` — enviar | ✔ | nas suas propostas | ✗ |
+| Arquivar / desarquivar | qualquer | só os seus | ✗ |
+| **Excluir definitivamente** | **✗** | **✗** | **✗** |
 
 Esta matriz é o oráculo dos testes de permissão da E9: **3 papéis × 2 entidades ×
 (criar, ler, editar, finalizar)**, mais o caso de leitura cruzada entre dois

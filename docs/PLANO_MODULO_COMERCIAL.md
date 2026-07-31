@@ -1058,14 +1058,14 @@ Com tudo no mesmo backend, o caminho encurta muito em relação ao plano anterio
 | E2 | `shared/comercial` (cópia + build + testes) | 2 d | 2 d |
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d |
 | E4 | Backend — levantamentos, consultores e numeração | 3 d | **3,25 d** (autoria + filtro; menos o CRUD de vendedores) |
-| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | **7,25 d** (autoria + supressão na origem + fotos do escopo + planilha de custos) |
+| E5 | Backend — propostas, autoria, PDFs (`pdf-lib`) e integrações | 5,5 d | **9 d** (autoria, supressão na origem, fotos, planilha, anexos, arquivamento, concorrência e revisão) |
 | E6 | Frontend — base, histórico e porte do CSS | 2 d | **3,25-3,75 d** (L6 + primitivas de mobile + menu + histórico por papel) |
 | E7 | Frontend — levantamento de custos | 5-6 d | **9-10 d** (L1 +3 d, L3 +1 d) |
 | E8 | Frontend — assistente da proposta | 5-6 d | **10,75-11,75 d** (L2, L4, L3, mais o editor de blocos de conteúdo +2 d) |
 | **E8.5** | **Passada de mobile sobre as 4 telas** | — | **3-4 d** (L7) |
-| E9 | Testes e CI | 2 d | **3,25 d** (matriz de permissão + cadeia de recusa do upload) |
+| E9 | Testes e CI | 2 d | **3,5 d** (permissão, recusa do upload, concorrência, ausência de exclusão) |
 | E10 | Produção (roteiro para o operador) | 1,5 d | **1,75 d** (registro no ROPA) |
-| | **Até produção** | 32-35,5 d | **50,5-54,5 dias úteis (~11 semanas)** |
+| | **Até produção** | 32-35,5 d | **52,5-56,5 dias úteis (~11 semanas)** |
 | E11 | Substituir o import do Access | 3-5 d | 3-5 d |
 
 Ordem de execução: **E0 → E-1** → E1 → E2 → E3 → (E4 e E6 em paralelo) → E5 →
@@ -1121,6 +1121,13 @@ dobro.
 > **Nenhum dos três tinha requisito nem tarefa**; foram achados pelo `/speckit-analyze`.
 > Não é escopo novo: é escopo que já existia na referência e tinha escapado do
 > levantamento. Ver §5.2.1.
+>
+> De 50,5-54,5 para **52,5-56,5 d**: +2 d da segunda leva. Os **anexos do cliente** e a
+> **pasta do OneDrive** (`PROP-CTL-080/081`) também existiam na referência — o plano os
+> marcava como "novo" porque a *rota* seria nova, não a funcionalidade; a leitura
+> apressada disso quase os deixou de fora. Junto entraram três decisões do mantenedor:
+> **arquivar sem exclusão definitiva**, **tutorial marcado por usuário e não por
+> navegador**, e **proteção de concorrência** na finalização.
 
 ---
 

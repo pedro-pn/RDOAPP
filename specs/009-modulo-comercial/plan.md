@@ -223,17 +223,17 @@ estavam precificadas. Elas entram assim:
 | E2 | `shared/comercial` | 2 d | 2 d | — |
 | E3 | Banco e dois schemas | 1,5 d | 1,5 d | — |
 | E4 | Backend — levantamentos, consultores, numeração | 3 d | **3,25 d** | autoria em `CostEstimate` + filtro na listagem, **menos** o CRUD de vendedores (a lista virou consulta) |
-| E5 | Backend — propostas, PDFs, integrações | 5,5 d | **7,25 d** | autoria + supressão na origem + **rota de fotos do escopo** (+0,5 d) + **planilha de custos** (+0,5 d) |
+| E5 | Backend — propostas, PDFs, integrações | 5,5 d | **9 d** | autoria + supressão na origem + fotos do escopo + planilha + **anexos e OneDrive** (+0,5 d) + **arquivamento** (+0,5 d) + **concorrência** (+0,5 d) + **revisão** (+0,25 d) |
 | E6 | Frontend — base, histórico, CSS, menu | 3–3,5 d | **3,25–3,75 d** | histórico variando por papel |
 | E7 | Frontend — levantamento de custos | 9–10 d | 9–10 d | L1 (+3 d), L3 (+1 d) |
 | E8 | Frontend — proposta | 9–10 d | **10,75–11,75 d** | L2, L4, L3, **mais o editor de blocos de conteúdo** (+2 d), **menos** a tela de vendedores |
 | **E8.5** | Passada de mobile sobre as 4 telas | 3–4 d | 3–4 d | L7 |
-| E9 | Testes e CI | 2,5 d | **3,25 d** | matriz de permissão + cadeia de recusa do upload |
+| E9 | Testes e CI | 2,5 d | **3,5 d** | matriz de permissão, cadeia de recusa do upload, concorrência e ausência de exclusão |
 | E10 | Produção | 1,5 d | **1,75 d** | registro no ROPA |
-| | **Até produção** | 45,5–49,5 d | **50,5–54,5 d** | **+5 d** |
+| | **Até produção** | 45,5–49,5 d | **52,5–56,5 d** | **+7 d** |
 | E11 | Substituir o import do Access | 3–5 d | 3–5 d | — |
 
-**≈ 50,5 a 54,5 dias úteis (~11 semanas).**
+**≈ 52,5 a 56,5 dias úteis (~11 semanas).**
 
 > **O `/speckit-analyze` achou um subsistema inteiro fora do escopo: +3,5 d.** Os blocos
 > de conteúdo do escopo — tabelas e **fotos**, com upload, otimização no cliente,
@@ -242,6 +242,12 @@ estavam precificadas. Elas entram assim:
 > cobertura mandava para a prévia: o componente é **definido** depois dela no fonte, mas
 > **renderiza** na etapa 2. Junto vieram a planilha de custos da finalização (+0,5 d) e o
 > registro no ROPA (+0,25 d).
+>
+> **Segunda leva de achados, 31/07: +2 d.** Os **anexos do cliente** e a **pasta do
+> OneDrive** (`PROP-CTL-080/081`) também existiam na referência e escaparam — o plano os
+> marcava como "novo" porque a *rota* seria nova, não a funcionalidade. Junto entraram as
+> decisões do mantenedor: **arquivar sem exclusão**, **tutorial marcado por usuário** e
+> **proteção de concorrência** na finalização.
 >
 > A unificação de vendedor com usuário (31/07) **devolveu 0,75 d**: some o model, o
 > CRUD e a tela de cadastro, e entra uma consulta derivada. É a primeira decisão desta

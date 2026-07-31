@@ -128,6 +128,76 @@ o Nectar.
 
 ---
 
+## Arquivamento — **não há `DELETE`**
+
+> Decisão do mantenedor, 31/07: só arquivar. **Nenhuma rota do módulo apaga registro.**
+
+### `POST /api/comercial/levantamentos/:id/arquivar` · `.../desarquivar`
+### `POST /api/comercial/propostas/:id/arquivar` · `.../desarquivar`
+
+`requireComercialEstimator` + autoria (FR-061). Arquivado some da listagem padrão e
+volta com `?arquivados=1`. Documentos, fotos e histórico **permanecem**.
+
+---
+
+## Anexos do cliente
+
+`PROP-CTL-081` — "Arquivos adicionais do cliente (opcional)". Vão para **a mesma pasta
+dos dois documentos** no destino externo.
+
+### `POST /api/comercial/propostas/:id/anexos`
+
+`requireComercialEstimator` + autoria. Um arquivo por requisição — a referência mandava
+tudo junto no `finalize`, e separar evita estourar o limite de corpo em proposta com
+muitos anexos.
+
+**O limite é agregado** (FR-059): os dois PDFs + a planilha + todos os anexos, somados.
+Validar cada anexo isoladamente deixa passar o conjunto.
+
+### `POST /api/comercial/propostas/finalizar` — campo adicional
+
+Aceita também a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional): havendo
+valor, grava dentro dela em vez de criar pasta nova.
+
+---
+
+## Revisão de proposta
+
+### `GET /api/comercial/propostas/:codigo/revisao`
+
+`requireComercialEstimator`. Devolve `base_number`, `nextRevision`, o vínculo com o CRM
+se existir, e **`snapshotAvailable`**.
+
+| `snapshotAvailable` | Mensagem ao usuário |
+|---|---|
+| `true` | "Proposta anterior carregada por completo." |
+| `false` | "Dados disponíveis no histórico carregados." |
+
+**Proposta antiga não pode falhar** — o caminho sem snapshot é normal, não erro
+(FR-065). Havendo card salvo, ele é **reutilizado**, e a resposta diz qual e em que funil
+(FR-066).
+
+---
+
+## Concorrência
+
+### Finalização é exclusiva (FR-069)
+
+`POST /propostas/finalizar` verifica o estado **antes de gerar qualquer coisa**. Se já
+finalizada ou em finalização: **409**, informando **quando e por quem**.
+
+Sem isso, dois usuários clicando com segundos de diferença produzem dois pares de
+documentos, duas oportunidades no CRM e duas pastas — e as duas requisições respondem
+sucesso.
+
+### Escrita avisa antes de sobrescrever (FR-070)
+
+`PUT` de levantamento e de proposta compara o `updatedAt` que o cliente carregou com o
+atual. Divergiu: **409** nomeando quem alterou e quando. É **aviso, não trava** — o
+cliente decide recarregar ou prosseguir.
+
+---
+
 ## Fotos do escopo
 
 Porte de `app/api/scope-assets/route.ts` da referência.
@@ -208,6 +278,11 @@ Oráculo dos testes da E9. Cada célula é um caso:
 | `GET /consultores` | lista completa | **só ele mesmo** | — | **403** |
 | `POST /escopo/fotos` | 201 | 201 | — | **403** |
 | `GET /escopo/fotos/:id` | 200 | 200 | **403** | **403** |
+| `POST /propostas/:id/anexos` | 201 | 201 | **403** | **403** |
+| `POST /propostas/:id/arquivar` | 200 | 200 | **403** | **403** |
+| `POST /propostas/finalizar` **já finalizada** | **409** | **409** | — | **403** |
+| `PUT /propostas/:id` **alterada por outro** | **409** | **409** | **403** | **403** |
+| **qualquer `DELETE`** | **não existe** | **não existe** | **não existe** | **não existe** |
 
 O caso que mais importa e que passa despercebido: **`seller` A lendo a listagem
 enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e
