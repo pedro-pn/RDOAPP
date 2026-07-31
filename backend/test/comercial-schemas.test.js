@@ -74,7 +74,7 @@ test('a criação de levantamento NÃO aceita totais do cliente', () => {
   const entrada = {
     proposalCode: '4418',
     title: 'Limpeza química',
-    mode: 'LEVANTAR',
+    mode: 'NOVA',
     payload: { schemaVersion: 2 },
     totalCost: '1,00',
     salePrice: '999999,00',

@@ -115,7 +115,7 @@ test('totais enviados pelo cliente são IGNORADOS', async () => {
   await createCostEstimate(prisma, vendedorA, {
     proposalCode: '4418',
     title: 'Levantamento',
-    mode: 'LEVANTAR',
+    mode: 'NOVA',
     payload: golden.payload,
     // Um cliente malicioso mandando margem inflada:
     totalCost: 1,
@@ -175,7 +175,7 @@ test('salvar levantamento inválido levanta erro 422 com as pendências', async 
       createCostEstimate(prisma, vendedorA, {
         proposalCode: '4418',
         title: 'Inválido',
-        mode: 'LEVANTAR',
+        mode: 'NOVA',
         payload: golden.payload
       }),
     error => {
@@ -253,7 +253,7 @@ test('criar levantamento grava a primeira versão com hash', async () => {
   await createCostEstimate(prisma, vendedorA, {
     proposalCode: '4418',
     title: 'Levantamento',
-    mode: 'LEVANTAR',
+    mode: 'NOVA',
     payload: golden.payload
   });
 
@@ -268,7 +268,7 @@ test('salvar sem mudar o conteúdo NÃO cria versão nova', async () => {
   await createCostEstimate(prisma, vendedorA, {
     proposalCode: '4418',
     title: 'Levantamento',
-    mode: 'LEVANTAR',
+    mode: 'NOVA',
     payload: golden.payload
   });
   const id = prisma.store.estimates[0].id;
