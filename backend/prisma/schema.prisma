@@ -362,7 +362,6 @@ model CollaboratorSignatureNoticeLog {
   @@index([collaboratorId])
   @@index([userId])
   @@index([createdAt])
-
   @@schema("public")
 }
 
@@ -408,7 +407,6 @@ model CostParameterSet {
   @@unique([costProfileId, version])
   @@index([costProfileId])
   @@index([costProfileId, effectiveDate])
-
   @@schema("public")
 }
 
@@ -443,7 +441,6 @@ model PontoImport {
 
   @@index([createdAt])
   @@index([contentHash])
-
   @@schema("public")
 }
 
@@ -470,7 +467,6 @@ model PontoPeriodSummary {
   @@unique([importId, normalizedName])
   @@index([collaboratorId])
   @@index([importId])
-
   @@schema("public")
 }
 
@@ -486,7 +482,6 @@ model PontoNameAlias {
   collaborator    Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
 
   @@index([collaboratorId])
-
   @@schema("public")
 }
 
@@ -503,7 +498,6 @@ model JobRole {
   costProfile        CostProfile?
 
   @@index([isActive, order])
-
   @@schema("public")
 }
 
@@ -517,7 +511,6 @@ model DdsTheme {
   updatedAt DateTime @updatedAt
 
   @@index([isActive, order])
-
   @@schema("public")
 }
 
@@ -535,53 +528,52 @@ model Project {
   laborSleepModeByCollaborator   Json    @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
   laborCollaboratorIds           Json    @default("[]") // Acompanhamento: colaboradores adicionados manualmente ao cronograma
 
-  clientName             String
-  clientCnpj             String
-  clientEmailPrimary     String                      @default("")
-  clientSignerFirstName  String                      @default("")
-  clientSignerLastName   String                      @default("")
-  clientEmailCc          String[]                    @default([])
-  clientSigners          Json[]                      @default([])
-  contractCode           String
-  location               String
-  workdayHours           String                      @default("09:00")
-  weekendWorkdayHours    String                      @default("08:00")
-  includesSaturday       Boolean                     @default(false)
-  includesSunday         Boolean                     @default(false)
-  operatorId             String?
-  clientSegment          String?
-  commercialProposalCode String? // = cod_prop do Access; reconciliação proposta↔projeto
-  mobilizationDate       DateTime? // data de mobilização (manual, gestor/coordenador)
-  startDate              DateTime? // início real da execução (manual, gestor/coordenador)
-  manualProgressPct      Decimal?                    @db.Decimal(5, 2) // avanço informado à mão (fallback quando não há escopo)
-  createdAt              DateTime                    @default(now())
-  updatedAt              DateTime                    @updatedAt
-  deletedAt              DateTime?
-  operator               Collaborator?               @relation("ProjectOperator", fields: [operatorId], references: [id], onDelete: SetNull)
-  reportSequences        ProjectReportSeq[]
-  authorizedUsers        ProjectAuthorizedUser[]
-  reports                Report[]
-  drafts                 ReportDraft[]
-  surveys                SatisfactionSurvey[]
-  romaneios              Romaneio[]
-  budgets                ProjectBudget[]
-  omieProjects           OmieProject[]
-  omiePurchases          OmiePurchase[]
-  omieReceivables        OmieReceivable[]
-  plannedServices        ProjectPlannedService[]
-  plannedNormalHours     ProjectPlannedNormalHours[]
-  plannedOvertime        ProjectPlannedOvertime[]
-  stockMovements         StockMovement[]
-  manualProgressHistory  ProjectManualProgressHistory[]
-  manualCosts            ProjectManualCost[]
-  additionalProposals    ProjectAdditionalProposal[]
+  clientName                 String
+  clientCnpj                 String
+  clientEmailPrimary         String                             @default("")
+  clientSignerFirstName      String                             @default("")
+  clientSignerLastName       String                             @default("")
+  clientEmailCc              String[]                           @default([])
+  clientSigners              Json[]                             @default([])
+  contractCode               String
+  location                   String
+  workdayHours               String                             @default("09:00")
+  weekendWorkdayHours        String                             @default("08:00")
+  includesSaturday           Boolean                            @default(false)
+  includesSunday             Boolean                            @default(false)
+  operatorId                 String?
+  clientSegment              String?
+  commercialProposalCode     String? // = cod_prop do Access; reconciliação proposta↔projeto
+  mobilizationDate           DateTime? // data de mobilização (manual, gestor/coordenador)
+  startDate                  DateTime? // início real da execução (manual, gestor/coordenador)
+  manualProgressPct          Decimal?                           @db.Decimal(5, 2) // avanço informado à mão (fallback quando não há escopo)
+  createdAt                  DateTime                           @default(now())
+  updatedAt                  DateTime                           @updatedAt
+  deletedAt                  DateTime?
+  operator                   Collaborator?                      @relation("ProjectOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  reportSequences            ProjectReportSeq[]
+  authorizedUsers            ProjectAuthorizedUser[]
+  reports                    Report[]
+  drafts                     ReportDraft[]
+  surveys                    SatisfactionSurvey[]
+  romaneios                  Romaneio[]
+  budgets                    ProjectBudget[]
+  omieProjects               OmieProject[]
+  omiePurchases              OmiePurchase[]
+  omieReceivables            OmieReceivable[]
+  plannedServices            ProjectPlannedService[]
+  plannedNormalHours         ProjectPlannedNormalHours[]
+  plannedOvertime            ProjectPlannedOvertime[]
+  stockMovements             StockMovement[]
+  manualProgressHistory      ProjectManualProgressHistory[]
+  manualCosts                ProjectManualCost[]
+  additionalProposals        ProjectAdditionalProposal[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
-  qualityRecords         QualityRecord[]
+  qualityRecords             QualityRecord[]
 
   @@index([deletedAt])
   @@index([registrationPending])
   @@index([commercialProposalCode])
-
   @@schema("public")
 }
 
@@ -594,7 +586,6 @@ model ProjectManualProgressHistory {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, recordedAt])
-
   @@schema("public")
 }
 
@@ -614,27 +605,25 @@ model ProjectManualCost {
 
   @@index([projectId, deletedAt])
   @@index([createdByUserId])
-
   @@schema("public")
 }
 
 model AcompanhamentoMissionGroup {
-  id                String                            @id @default(cuid())
+  id                String                             @id @default(cuid())
   name              String
-  status            AcompanhamentoMissionGroupStatus  @default(ACTIVE)
+  status            AcompanhamentoMissionGroupStatus   @default(ACTIVE)
   createdByUserId   String?
   dissolvedByUserId String?
-  createdAt         DateTime                          @default(now())
-  updatedAt         DateTime                          @updatedAt
+  createdAt         DateTime                           @default(now())
+  updatedAt         DateTime                           @updatedAt
   dissolvedAt       DateTime?
-  createdBy         User?                             @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  dissolvedBy       User?                             @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
+  createdBy         User?                              @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  dissolvedBy       User?                              @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
   members           AcompanhamentoMissionGroupMember[]
 
   @@index([status, createdAt])
   @@index([createdByUserId])
   @@index([dissolvedByUserId])
-
   @@schema("public")
 }
 
@@ -651,7 +640,6 @@ model AcompanhamentoMissionGroupMember {
   @@unique([groupId, projectId])
   @@index([groupId, order])
   @@index([projectId])
-
   @@schema("public")
 }
 
@@ -663,7 +651,6 @@ model ProjectReportSeq {
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, reportType])
-
   @@schema("public")
 }
 
@@ -676,7 +663,6 @@ model ProjectAuthorizedUser {
 
   @@id([projectId, userId])
   @@index([userId])
-
   @@schema("public")
 }
 
@@ -736,7 +722,6 @@ model Report {
   @@index([reportType, status, reportDate])
   @@index([projectId, reportType, status, reportDate])
   @@index([deletedAt])
-
   @@schema("public")
 }
 
@@ -758,7 +743,6 @@ model ReportApprovalPostProcessingJob {
 
   @@index([status, lockedAt])
   @@index([createdAt])
-
   @@schema("public")
 }
 
@@ -775,7 +759,6 @@ model ClientReportReview {
   clientUser   User?              @relation("ClientReportReviewer", fields: [clientUserId], references: [id], onDelete: SetNull)
 
   @@index([reportId, createdAt])
-
   @@schema("public")
 }
 
@@ -799,7 +782,6 @@ model ReportVersion {
   @@unique([reportId, versionNumber])
   @@index([reportId])
   @@index([reportId, status])
-
   @@schema("public")
 }
 
@@ -845,7 +827,6 @@ model ReportSignature {
   @@index([versionId])
   @@index([status])
   @@index([status, lastReminderAt, reminderClaimedAt])
-
   @@schema("public")
 }
 
@@ -868,7 +849,6 @@ model ReportAuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
-
   @@schema("public")
 }
 
@@ -879,7 +859,6 @@ model ReportCollaborator {
   collaborator   Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
 
   @@id([reportId, collaboratorId])
-
   @@schema("public")
 }
 
@@ -901,7 +880,6 @@ model ReportService {
   attachments ReportAttachment[]
 
   @@index([reportId])
-
   @@schema("public")
 }
 
@@ -981,7 +959,6 @@ model ParticleCounter {
   calibrationCertificates CalibrationCertificate[]
 
   @@index([category])
-
   @@schema("public")
 }
 
@@ -1007,7 +984,6 @@ model CalibrationCertificate {
 
   @@index([manometerId, createdAt])
   @@index([particleCounterId, createdAt])
-
   @@schema("public")
 }
 
@@ -1022,7 +998,6 @@ model CalibrationNotificationLog {
 
   @@unique([equipmentType, equipmentId, milestone, targetDate])
   @@index([category, milestone, sentAt])
-
   @@schema("public")
 }
 
@@ -1075,7 +1050,6 @@ model CompanyEquipment {
 
   @@index([categoryId])
   @@index([expiresAt])
-
   @@schema("public")
 }
 
@@ -1126,7 +1100,6 @@ model RdoEquipmentSlot {
   updatedAt   DateTime @updatedAt
 
   @@index([categoryId])
-
   @@schema("public")
 }
 
@@ -1142,7 +1115,6 @@ model EquipmentAttachment {
   equipment   CompanyEquipment        @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@index([equipmentId, kind, createdAt])
-
   @@schema("public")
 }
 
@@ -1175,7 +1147,6 @@ model StockItem {
   movements        StockMovement[]
 
   @@index([categoryId])
-
   @@schema("public")
 }
 
@@ -1192,7 +1163,6 @@ model StockCategory {
 
   @@unique([type, name])
   @@index([type, isActive, name])
-
   @@schema("public")
 }
 
@@ -1209,110 +1179,107 @@ model StockBatch {
 
   @@unique([itemId, lotNumber])
   @@index([expiryDate])
-
   @@schema("public")
 }
 
 model StockMovement {
-  id                String              @id @default(cuid())
-  itemId            String
-  batchId           String
-  romaneioId        String?
-  type              StockMovementType
-  reason            StockMovementReason
-  quantity          Decimal             @db.Decimal(12, 3)
-  date              DateTime
-  projectId         String?
-  nfNumber          String?
-  supplier          String?
-  unitCost          Decimal?            @db.Decimal(12, 2)
-  requestedBy       String?
-  notes             String?
-  nfAttachmentToken String?
-  excludeFromProjectCost Boolean        @default(false)
-  reversalOfId      String?             @unique
-  createdById       String
-  createdAt         DateTime            @default(now())
-  item              StockItem           @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  batch             StockBatch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
-  project           Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  romaneio          Romaneio?           @relation(fields: [romaneioId], references: [id], onDelete: SetNull)
-  createdBy         User                @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  reversalOf        StockMovement?      @relation("StockMovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
-  reversedBy        StockMovement?      @relation("StockMovementReversal")
+  id                     String              @id @default(cuid())
+  itemId                 String
+  batchId                String
+  romaneioId             String?
+  type                   StockMovementType
+  reason                 StockMovementReason
+  quantity               Decimal             @db.Decimal(12, 3)
+  date                   DateTime
+  projectId              String?
+  nfNumber               String?
+  supplier               String?
+  unitCost               Decimal?            @db.Decimal(12, 2)
+  requestedBy            String?
+  notes                  String?
+  nfAttachmentToken      String?
+  excludeFromProjectCost Boolean             @default(false)
+  reversalOfId           String?             @unique
+  createdById            String
+  createdAt              DateTime            @default(now())
+  item                   StockItem           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  batch                  StockBatch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  project                Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  romaneio               Romaneio?           @relation(fields: [romaneioId], references: [id], onDelete: SetNull)
+  createdBy              User                @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reversalOf             StockMovement?      @relation("StockMovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy             StockMovement?      @relation("StockMovementReversal")
 
   @@index([itemId, date])
   @@index([batchId])
   @@index([projectId])
   @@index([romaneioId])
   @@index([type])
-
   @@schema("public")
 }
 
 model User {
-  id                                  String                              @id @default(cuid())
-  username                            String                              @unique
-  name                                String
-  email                               String?
-  emailVerifiedAt                     DateTime?
-  passwordHash                        String
-  role                                UserRole
-  accountType                         AccountType                         @default(INTERNAL)
-  isActive                            Boolean                             @default(true)
-  clientCnpj                          String?
-  privacyPolicyAcceptedAt             DateTime?
-  privacyPolicyVersion                String?
-  notifyReportsByEmail                Boolean                             @default(true)
-  notifySignaturesByEmail             Boolean                             @default(true)
-  notifySignatureRemindersByEmail     Boolean                             @default(true)
-  notifySurveyRemindersByEmail        Boolean                             @default(true)
-  notifyCalibrationRemindersByEmail   Boolean                             @default(true)
-  collaboratorId                      String?                             @unique
-  createdAt                           DateTime                            @default(now())
-  updatedAt                           DateTime                            @updatedAt
-  collaborator                        Collaborator?                       @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
-  moduleRoles                         ModuleRole[]
-  sessions                            UserSession[]
-  passwordResetTokens                 PasswordResetToken[]
-  emailChangeTokens                   EmailChangeToken[]
-  drafts                              ReportDraft[]
-  authorizedProjects                  ProjectAuthorizedUser[]
-  createdReports                      Report[]                            @relation("ReportCreator")
-  reviewedReports                     Report[]                            @relation("ReportReviewer")
-  clientReportReviews                 ClientReportReview[]                @relation("ClientReportReviewer")
-  reportVersions                      ReportVersion[]                     @relation("ReportVersionCreator")
-  reportSignatures                    ReportSignature[]                   @relation("ReportSignatureUser")
-  reportAuditLogs                     ReportAuditLog[]                    @relation("ReportAuditLogUser")
-  collaboratorSignatureNoticeLogs     CollaboratorSignatureNoticeLog[]    @relation("CollaboratorSignatureNoticeUser")
-  sentSurveys                         SatisfactionSurvey[]
-  createdRomaneios                    Romaneio[]                          @relation("RomaneioCreator")
-  createdEpiRecords                   EpiRecord[]                         @relation("EpiRecordCreator")
-  epiSignatureRequests                EpiSignatureRequest[]               @relation("EpiSignatureRequester")
-  dataSubjectRequests                 DataSubjectRequest[]                @relation("DataSubjectRequestUser")
-  completedDataSubjectRequests        DataSubjectRequest[]                @relation("DataSubjectRequestCompletedByUser")
-  identityVerifiedDataSubjectRequests DataSubjectRequest[]                @relation("DataSubjectRequestIdentityVerifiedByUser")
-  dataSubjectResponseAttempts         DataSubjectRequestResponseAttempt[] @relation("DataSubjectRequestResponseAttemptUser")
-  notificationPreferenceTokens        NotificationPreferenceToken[]
-  accessImports                       AccessImport[]                      @relation("AccessImportUser")
-  selectedBudgets                     ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
-  selectedProjectAdditionalProposals  ProjectAdditionalProposal[]         @relation("ProjectAdditionalProposalSelectedBy")
-  stockMovements                      StockMovement[]                     @relation("StockMovementCreator")
-  projectManualCosts                  ProjectManualCost[]                 @relation("ProjectManualCostCreator")
-  createdAcompanhamentoMissionGroups  AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
-  dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupDissolvedBy")
-  createdQualityRecords               QualityRecord[]                     @relation("QualityRecordCreator")
-  updatedQualityRecords               QualityRecord[]                     @relation("QualityRecordUpdater")
-  deletedQualityRecords               QualityRecord[]                     @relation("QualityRecordDeletedBy")
+  id                                   String                              @id @default(cuid())
+  username                             String                              @unique
+  name                                 String
+  email                                String?
+  emailVerifiedAt                      DateTime?
+  passwordHash                         String
+  role                                 UserRole
+  accountType                          AccountType                         @default(INTERNAL)
+  isActive                             Boolean                             @default(true)
+  clientCnpj                           String?
+  privacyPolicyAcceptedAt              DateTime?
+  privacyPolicyVersion                 String?
+  notifyReportsByEmail                 Boolean                             @default(true)
+  notifySignaturesByEmail              Boolean                             @default(true)
+  notifySignatureRemindersByEmail      Boolean                             @default(true)
+  notifySurveyRemindersByEmail         Boolean                             @default(true)
+  notifyCalibrationRemindersByEmail    Boolean                             @default(true)
+  collaboratorId                       String?                             @unique
+  createdAt                            DateTime                            @default(now())
+  updatedAt                            DateTime                            @updatedAt
+  collaborator                         Collaborator?                       @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
+  moduleRoles                          ModuleRole[]
+  sessions                             UserSession[]
+  passwordResetTokens                  PasswordResetToken[]
+  emailChangeTokens                    EmailChangeToken[]
+  drafts                               ReportDraft[]
+  authorizedProjects                   ProjectAuthorizedUser[]
+  createdReports                       Report[]                            @relation("ReportCreator")
+  reviewedReports                      Report[]                            @relation("ReportReviewer")
+  clientReportReviews                  ClientReportReview[]                @relation("ClientReportReviewer")
+  reportVersions                       ReportVersion[]                     @relation("ReportVersionCreator")
+  reportSignatures                     ReportSignature[]                   @relation("ReportSignatureUser")
+  reportAuditLogs                      ReportAuditLog[]                    @relation("ReportAuditLogUser")
+  collaboratorSignatureNoticeLogs      CollaboratorSignatureNoticeLog[]    @relation("CollaboratorSignatureNoticeUser")
+  sentSurveys                          SatisfactionSurvey[]
+  createdRomaneios                     Romaneio[]                          @relation("RomaneioCreator")
+  createdEpiRecords                    EpiRecord[]                         @relation("EpiRecordCreator")
+  epiSignatureRequests                 EpiSignatureRequest[]               @relation("EpiSignatureRequester")
+  dataSubjectRequests                  DataSubjectRequest[]                @relation("DataSubjectRequestUser")
+  completedDataSubjectRequests         DataSubjectRequest[]                @relation("DataSubjectRequestCompletedByUser")
+  identityVerifiedDataSubjectRequests  DataSubjectRequest[]                @relation("DataSubjectRequestIdentityVerifiedByUser")
+  dataSubjectResponseAttempts          DataSubjectRequestResponseAttempt[] @relation("DataSubjectRequestResponseAttemptUser")
+  notificationPreferenceTokens         NotificationPreferenceToken[]
+  accessImports                        AccessImport[]                      @relation("AccessImportUser")
+  selectedBudgets                      ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
+  selectedProjectAdditionalProposals   ProjectAdditionalProposal[]         @relation("ProjectAdditionalProposalSelectedBy")
+  stockMovements                       StockMovement[]                     @relation("StockMovementCreator")
+  projectManualCosts                   ProjectManualCost[]                 @relation("ProjectManualCostCreator")
+  createdAcompanhamentoMissionGroups   AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
+  dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupDissolvedBy")
+  createdQualityRecords                QualityRecord[]                     @relation("QualityRecordCreator")
+  updatedQualityRecords                QualityRecord[]                     @relation("QualityRecordUpdater")
+  deletedQualityRecords                QualityRecord[]                     @relation("QualityRecordDeletedBy")
   // Módulo Comercial — relações ENTRE SCHEMAS: estes models vivem em
   // `comercial` e apontam para `User`, que vive em `public`. É suportado pelo
   // multiSchema e não move nada: as duas tabelas seguem onde já estão.
-  comercialCostEstimates              CostEstimate[]                      @relation("ComercialCostEstimateAuthor")
-  comercialProposalsCreated           Proposal[]                          @relation("ComercialProposalAuthor")
-  comercialProposalsAsSeller          Proposal[]                          @relation("ComercialProposalSeller")
+  comercialCostEstimates               CostEstimate[]                      @relation("ComercialCostEstimateAuthor")
+  comercialProposalsCreated            Proposal[]                          @relation("ComercialProposalAuthor")
+  comercialProposalsAsSeller           Proposal[]                          @relation("ComercialProposalSeller")
 
   @@index([clientCnpj])
-
   @@schema("public")
 }
 
@@ -1329,7 +1296,6 @@ model QualityNature {
 
   @@index([isActive, position, name])
   @@index([position])
-
   @@schema("public")
 }
 
@@ -1377,7 +1343,6 @@ model QualityRecord {
   @@index([updatedById])
   @@index([deletedAt])
   @@index([deletedById])
-
   @@schema("public")
 }
 
@@ -1398,7 +1363,6 @@ model QualityEvidence {
   @@index([recordId, position])
   @@index([kind])
   @@index([storagePath])
-
   @@schema("public")
 }
 
@@ -1408,7 +1372,6 @@ model QualityRecordSeq {
   lastSeq Int               @default(0)
 
   @@id([type, year])
-
   @@schema("public")
 }
 
@@ -1423,7 +1386,6 @@ model NotificationPreferenceToken {
 
   @@index([userId, usedAt, expiresAt])
   @@index([expiresAt])
-
   @@schema("public")
 }
 
@@ -1439,7 +1401,6 @@ model EpiCatalogItem {
   @@unique([name, ca])
   @@index([isActive])
   @@index([name])
-
   @@schema("public")
 }
 
@@ -1475,7 +1436,6 @@ model EpiRecord {
   @@index([returnSourceRecordId])
   @@index([archivedAt])
   @@index([collaboratorId, lendDate, createdAt])
-
   @@schema("public")
 }
 
@@ -1506,7 +1466,6 @@ model EpiSignatureRequest {
   @@index([collaboratorId])
   @@index([status])
   @@index([expiresAt])
-
   @@schema("public")
 }
 
@@ -1522,7 +1481,6 @@ model EpiSignatureRequestAuditLog {
   @@index([requestId])
   @@index([action])
   @@index([createdAt])
-
   @@schema("public")
 }
 
@@ -1559,7 +1517,6 @@ model Romaneio {
   @@index([createdAt])
   @@index([projectId, romaneioDate, createdAt])
   @@index([projectId, type])
-
   @@schema("public")
 }
 
@@ -1582,33 +1539,31 @@ model RomaneioItem {
 
   @@index([romaneioId])
   @@index([catalogItemId])
-
   @@schema("public")
 }
 
 model RomaneioChecklist {
-  id            String               @id @default(cuid())
-  romaneioId    String
-  catalogItemId String?
-  equipmentId   String?
-  equipmentCode String
-  equipmentName String
-  categoryName  String?
-  displayNameOrTag String @default("")
-  displayMode   String   @default("AUTO")
-  items         Json
-  projectLabel  String?
-  pdfUrl        String?
-  sortOrder     Int                  @default(0)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  romaneio      Romaneio             @relation(fields: [romaneioId], references: [id], onDelete: Cascade)
-  catalogItem   RomaneioCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
+  id               String               @id @default(cuid())
+  romaneioId       String
+  catalogItemId    String?
+  equipmentId      String?
+  equipmentCode    String
+  equipmentName    String
+  categoryName     String?
+  displayNameOrTag String               @default("")
+  displayMode      String               @default("AUTO")
+  items            Json
+  projectLabel     String?
+  pdfUrl           String?
+  sortOrder        Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  romaneio         Romaneio             @relation(fields: [romaneioId], references: [id], onDelete: Cascade)
+  catalogItem      RomaneioCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
 
   @@index([romaneioId])
   @@index([romaneioId, sortOrder])
   @@index([catalogItemId])
-
   @@schema("public")
 }
 
@@ -1635,7 +1590,6 @@ model RomaneioCatalogItem {
   @@index([categoryName])
   @@index([kind])
   @@index([isActive])
-
   @@schema("public")
 }
 
@@ -1658,7 +1612,6 @@ model RomaneioNotificationRecipient {
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
-
   @@schema("public")
 }
 
@@ -1671,7 +1624,6 @@ model AllocationReportRecipient {
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
-
   @@schema("public")
 }
 
@@ -1687,7 +1639,6 @@ model AllocationReportDelivery {
 
   @@index([sentAt])
   @@index([status])
-
   @@schema("public")
 }
 
@@ -1706,7 +1657,6 @@ model AllocationReportRecipientDelivery {
   @@index([yearMonth])
   @@index([status])
   @@index([sentAt])
-
   @@schema("public")
 }
 
@@ -1719,7 +1669,6 @@ model ModuleRole {
   createdAt DateTime       @default(now())
 
   @@unique([userId, module, role])
-
   @@schema("public")
 }
 
@@ -1738,7 +1687,6 @@ model DataRetentionRun {
 
   @@index([status, startedAt])
   @@index([startedAt])
-
   @@schema("public")
 }
 
@@ -1758,7 +1706,6 @@ model JobRun {
   @@index([name, startedAt])
   @@index([name, status, startedAt])
   @@index([status, startedAt])
-
   @@schema("public")
 }
 
@@ -1771,7 +1718,6 @@ model JobLock {
   updatedAt DateTime @updatedAt
 
   @@index([expiresAt])
-
   @@schema("public")
 }
 
@@ -1811,7 +1757,6 @@ model SatisfactionSurvey {
   @@index([expirationNotifiedAt, expiresAt])
   @@index([respondedAt])
   @@index([sentAt])
-
   @@schema("public")
 }
 
@@ -1827,7 +1772,6 @@ model SatisfactionSurveyQuestion {
   updatedAt DateTime @updatedAt
 
   @@index([isActive, order])
-
   @@schema("public")
 }
 
@@ -1841,7 +1785,6 @@ model PasswordResetToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
-
   @@schema("public")
 }
 
@@ -1858,7 +1801,6 @@ model EmailChangeToken {
   @@index([userId])
   @@index([email])
   @@index([expiresAt])
-
   @@schema("public")
 }
 
@@ -1875,7 +1817,6 @@ model ReportDraft {
   project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([updatedAt])
-
   @@schema("public")
 }
 
@@ -1888,7 +1829,6 @@ model UserSession {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
-
   @@schema("public")
 }
 
@@ -1929,7 +1869,6 @@ model DataSubjectRequest {
   @@index([status])
   @@index([createdAt])
   @@index([status, createdAt])
-
   @@schema("public")
 }
 
@@ -1955,7 +1894,6 @@ model DataSubjectRequestResponseAttempt {
   @@index([requestId])
   @@index([createdByUserId])
   @@index([status])
-
   @@schema("public")
 }
 
@@ -1974,7 +1912,6 @@ model ReportAttachment {
   @@index([reportId])
   @@index([reportServiceId])
   @@index([storagePath])
-
   @@schema("public")
 }
 
@@ -2023,7 +1960,6 @@ model CommercialProposal {
   @@index([parentCodProp, codProp, nRev])
   @@index([clientCnpj])
   @@index([lastImportId])
-
   @@schema("public")
 }
 
@@ -2048,7 +1984,6 @@ model AccessImport {
   @@index([status, createdAt])
   @@index([contentHash])
   @@index([createdAt])
-
   @@schema("public")
 }
 
@@ -2081,7 +2016,6 @@ model ProjectBudget {
   @@index([projectId])
   @@index([sourceProposalCodBd])
   @@index([selectionStatus])
-
   @@schema("public")
 }
 
@@ -2103,7 +2037,6 @@ model ProjectAdditionalProposal {
   @@index([projectId])
   @@index([sourceProposalCodBd])
   @@index([selectedByUserId])
-
   @@schema("public")
 }
 
@@ -2124,7 +2057,6 @@ model ProjectPlannedService {
   systems     ProjectPlannedServiceSystem[]
 
   @@index([projectId])
-
   @@schema("public")
 }
 
@@ -2142,7 +2074,6 @@ model ProjectPlannedServiceSystem {
   service      ProjectPlannedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@index([serviceId])
-
   @@schema("public")
 }
 
@@ -2163,7 +2094,6 @@ model ProjectPlannedNormalHours {
 
   @@index([projectId])
   @@index([jobRoleId])
-
   @@schema("public")
 }
 
@@ -2184,7 +2114,6 @@ model ProjectPlannedOvertime {
 
   @@index([projectId])
   @@index([jobRoleId])
-
   @@schema("public")
 }
 
@@ -2203,16 +2132,15 @@ model OmieProject {
 
   @@index([osNumber])
   @@index([projectId])
-
   @@schema("public")
 }
 
 model OmieCategory {
-  id                              String   @id @default(cuid())
-  codigo                          String   @unique // codigo_categoria (ex.: 2.04.92)
-  descricao                       String?
-  includeInAcompanhamentoCosts    Boolean  @default(true)
-  syncedAt                        DateTime @default(now())
+  id                           String   @id @default(cuid())
+  codigo                       String   @unique // codigo_categoria (ex.: 2.04.92)
+  descricao                    String?
+  includeInAcompanhamentoCosts Boolean  @default(true)
+  syncedAt                     DateTime @default(now())
 
   @@schema("public")
 }
@@ -2244,7 +2172,6 @@ model OmiePurchase {
   @@index([codigoProjeto])
   @@index([categoriaCodigo])
   @@index([statusTitulo])
-
   @@schema("public")
 }
 
@@ -2287,7 +2214,6 @@ model OmieReceivable {
   @@index([codigoTipoDocumento])
   @@index([statusTitulo])
   @@index([dataEmissao])
-
   @@schema("public")
 }
 
@@ -2306,7 +2232,6 @@ model IntegrationSyncRun {
 
   @@index([integration, startedAt])
   @@index([status])
-
   @@schema("public")
 }
 
@@ -2378,30 +2303,30 @@ enum ProposalAuditAction {
 
 /// Levantamento de custos. É ele que carimba o código que os dois documentos usam.
 model CostEstimate {
-  id              String               @id @default(cuid())
-  proposalCode    String
-  revisionNumber  Int                  @default(0)
-  title           String
-  mode            CostEstimateMode
-  status          CostEstimateStatus   @default(RASCUNHO)
+  id               String             @id @default(cuid())
+  proposalCode     String
+  revisionNumber   Int                @default(0)
+  title            String
+  mode             CostEstimateMode
+  status           CostEstimateStatus @default(RASCUNHO)
   /// Payload completo do levantamento. Contrato validado por
   /// shared/schemas/comercial.js e por normalizeCostEstimatePayload.
-  payload         Json
+  payload          Json
   /// Totais SEMPRE recalculados no servidor com calculateEstimate.
   /// Os valores enviados pelo cliente são ignorados — é o que impede forjar margem.
-  totalCost       Decimal              @db.Decimal(14, 2)
-  salePrice       Decimal              @db.Decimal(14, 2)
-  marginPercent   Decimal              @db.Decimal(6, 2)
-  createdByUserId String
-  createdBy       User                 @relation("ComercialCostEstimateAuthor", fields: [createdByUserId], references: [id])
-  archivedAt      DateTime?
+  totalCost        Decimal            @db.Decimal(14, 2)
+  salePrice        Decimal            @db.Decimal(14, 2)
+  marginPercent    Decimal            @db.Decimal(6, 2)
+  createdByUserId  String
+  createdBy        User               @relation("ComercialCostEstimateAuthor", fields: [createdByUserId], references: [id])
+  archivedAt       DateTime?
   archivedByUserId String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
-  versions        CostEstimateVersion[]
-  attributions    SalesAttribution[]
-  proposals       Proposal[]
+  versions     CostEstimateVersion[]
+  attributions SalesAttribution[]
+  proposals    Proposal[]
 
   /// Consulta da listagem filtrada por autoria: vendedor vê só os seus.
   @@index([createdByUserId, archivedAt, createdAt])
@@ -2427,48 +2352,48 @@ model CostEstimateVersion {
 /// ATENÇÃO: distinta de `CommercialProposal`, que já existe e é o staging do
 /// import do Access. Confundir as duas é erro fácil de cometer e caro de achar.
 model Proposal {
-  id                 String                @id @default(cuid())
-  proposalCode       String
-  revisionNumber     Int                   @default(0)
-  costEstimateId     String?
-  costEstimate       CostEstimate?         @relation(fields: [costEstimateId], references: [id])
+  id             String        @id @default(cuid())
+  proposalCode   String
+  revisionNumber Int           @default(0)
+  costEstimateId String?
+  costEstimate   CostEstimate? @relation(fields: [costEstimateId], references: [id])
 
-  clientName         String
-  cnpj               String
-  contact            String
-  email              String
-  site               String
-  department         String?
+  clientName String
+  cnpj       String
+  contact    String
+  email      String
+  site       String
+  department String?
 
   /// Vínculo com o usuário que é o consultor de vendas...
-  sellerUserId       String
-  seller             User                  @relation("ComercialProposalSeller", fields: [sellerUserId], references: [id])
+  sellerUserId  String
+  seller        User   @relation("ComercialProposalSeller", fields: [sellerUserId], references: [id])
   /// ...e o nome no momento da emissão. Os dois, não um: desativar ou renomear
   /// um usuário NÃO PODE alterar proposta já emitida (FR-041a). O PDF já foi ao
   /// cliente com aquele nome.
-  sellerName         String
-  estimatorName      String
+  sellerName    String
+  estimatorName String
 
-  payload            Json
-  totalValue         Decimal               @db.Decimal(14, 2)
-  status             ProposalStatus        @default(RASCUNHO)
+  payload    Json
+  totalValue Decimal        @db.Decimal(14, 2)
+  status     ProposalStatus @default(RASCUNHO)
 
   /// Finalização é exclusiva (FR-069): a segunda tentativa usa estes campos
   /// para dizer quando e por quem já foi finalizada.
-  finalizedAt        DateTime?
-  finalizedByUserId  String?
+  finalizedAt       DateTime?
+  finalizedByUserId String?
 
-  createdByUserId    String
-  createdBy          User                  @relation("ComercialProposalAuthor", fields: [createdByUserId], references: [id])
-  archivedAt         DateTime?
-  archivedByUserId   String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  createdByUserId  String
+  createdBy        User      @relation("ComercialProposalAuthor", fields: [createdByUserId], references: [id])
+  archivedAt       DateTime?
+  archivedByUserId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  documents          ProposalDocument[]
-  attachments        ProposalAttachment[]
-  scopeAssets        ScopeAsset[]
-  auditLogs          ProposalAuditLog[]
+  documents   ProposalDocument[]
+  attachments ProposalAttachment[]
+  scopeAssets ScopeAsset[]
+  auditLogs   ProposalAuditLog[]
 
   @@unique([proposalCode, revisionNumber])
   @@index([createdByUserId, archivedAt, createdAt])
@@ -2555,5 +2480,25 @@ model ProposalAuditLog {
   createdAt   DateTime            @default(now())
 
   @@index([proposalId, createdAt])
+  @@schema("comercial")
+}
+
+/// Estado da numeração de propostas do módulo Comercial.
+///
+/// Linha única (`id = "singleton"`). Existe porque a sequence do Postgres não
+/// sabe dizer se já foi semeada: `last_value = 1` tanto significa "recém-criada"
+/// quanto "emitiu o número 1". Emitir numeração antes de conhecer o maior número
+/// já usado no CRM Nectar e em CommercialProposal geraria código repetido — e
+/// esse código vai no documento que chega ao cliente.
+///
+/// A semeadura é operação de servidor: roda uma vez, manualmente, e marca
+/// `seededAt`. Até lá a rota de numeração recusa em vez de inventar.
+model ProposalNumberingState {
+  id            String    @id @default("singleton")
+  seededAt      DateTime?
+  seededByLabel String?
+  /// Maior número encontrado no levantamento que originou a semeadura.
+  seedValue     Int?
+
   @@schema("comercial")
 }

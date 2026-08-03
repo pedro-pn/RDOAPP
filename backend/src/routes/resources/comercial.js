@@ -13,6 +13,7 @@ import {
   listCostEstimates,
   updateCostEstimate
 } from '../../lib/comercial/cost-estimates.js';
+import { nextProposalNumber, numberingStatus } from '../../lib/comercial/numbering.js';
 import { comercialStatus } from '../../lib/comercial/service.js';
 import prisma from '../../lib/prisma.js';
 import {
@@ -57,6 +58,40 @@ function handleComercialError(error, res) {
 router.get('/status', (_req, res) => {
   res.json(comercialStatus());
 });
+
+// ---------------------------------------------------------------------------
+// Numeração
+// ---------------------------------------------------------------------------
+
+/**
+ * O próximo número de proposta. **Consome** — dois pedidos devolvem números
+ * diferentes, e um número consumido não volta.
+ *
+ * `503` enquanto a numeração não tiver sido semeada no ambiente. É recusa
+ * deliberada: emitir sem saber o maior número já usado produziria código repetido
+ * no documento que chega ao cliente.
+ */
+router.get(
+  '/propostas/proximo-numero',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const numero = await nextProposalNumber(prisma);
+      res.json({ numero });
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.get(
+  '/numeracao/status',
+  requireComercialEstimator,
+  asyncHandler(async (_req, res) => {
+    res.json(await numberingStatus(prisma));
+  })
+);
 
 // ---------------------------------------------------------------------------
 // Levantamentos de custos

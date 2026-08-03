@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import type { ComercialIssue } from '../../../api/comercial';
+
 import {
   calculateEstimate,
   createDefaultCostEstimatePayload,
@@ -26,23 +28,56 @@ type AnyRecord = Record<string, unknown>;
 export type Levantamento = ReturnType<typeof useLevantamento>;
 
 export function useLevantamento(estimatorName: string) {
-  const [draft, setDraft] = useState<AnyRecord>(() =>
+  const [draft, setDraftBruto] = useState<AnyRecord>(() =>
     normalizeCostEstimatePayload({
       ...(createDefaultCostEstimatePayload() as AnyRecord),
       estimatorName
     })
   );
 
-  const patchDraft = useCallback((patch: AnyRecord) => {
-    setDraft(current => ({ ...current, ...patch }));
+  /**
+   * Pendências que vieram do `422`.
+   *
+   * O servidor revalida o payload inteiro e recalcula os totais — ele é quem
+   * decide. Um `422` precisa chegar ao **campo**, não a um banner.
+   *
+   * O que ele acrescenta de fato são as pendências que a tela **não tem como
+   * ver**: o contrato Zod e os limites do servidor. O resto da validação é
+   * literalmente a mesma função nos dois lados (`validateCostEstimate`, de
+   * `shared/comercial`), rodando aqui a cada tecla.
+   */
+  const [issuesDoServidor, setIssuesDoServidor] = useState<ComercialIssue[]>([]);
+
+  /**
+   * Qualquer edição descarta a recusa anterior.
+   *
+   * Sem isso a mensagem do servidor gruda no campo mesmo depois de corrigido —
+   * o usuário conserta, o vermelho fica, e ele conclui que não adiantou. Pode
+   * descartar sem medo justamente porque a validação compartilhada continua
+   * rodando: o que era erro de verdade reaparece no mesmo instante, vindo do
+   * cliente.
+   */
+  const setDraft = useCallback<typeof setDraftBruto>(valor => {
+    setDraftBruto(valor);
+    setIssuesDoServidor(atual => (atual.length ? [] : atual));
   }, []);
 
-  const patchAssumptions = useCallback((patch: AnyRecord) => {
-    setDraft(current => ({
-      ...current,
-      assumptions: { ...((current.assumptions as AnyRecord) || {}), ...patch }
-    }));
-  }, []);
+  const patchDraft = useCallback(
+    (patch: AnyRecord) => {
+      setDraft(current => ({ ...current, ...patch }));
+    },
+    [setDraft]
+  );
+
+  const patchAssumptions = useCallback(
+    (patch: AnyRecord) => {
+      setDraft(current => ({
+        ...current,
+        assumptions: { ...((current.assumptions as AnyRecord) || {}), ...patch }
+      }));
+    },
+    [setDraft]
+  );
 
   const result = useMemo(() => calculateEstimate(draft) as AnyRecord, [draft]);
   const validation = useMemo(() => validateCostEstimate(draft) as AnyRecord, [draft]);
@@ -80,13 +115,19 @@ export function useLevantamento(estimatorName: string) {
    */
   const errosPorCampo = useMemo(() => {
     const mapa = new Map<string, string>();
+    // O servidor entra PRIMEIRO: ele é a autoridade. Quando os dois discordam
+    // sobre o mesmo campo, mostrar a mensagem do cliente faria o usuário
+    // corrigir o que a tela pediu e continuar sendo recusado pela API.
+    for (const item of issuesDoServidor) {
+      if (item.path && !mapa.has(item.path)) mapa.set(item.path, item.message);
+    }
     for (const item of (validation.errors as Array<AnyRecord>) || []) {
       const caminho = typeof item === 'string' ? null : (item.path as string | null);
       const mensagem = typeof item === 'string' ? item : (item.message as string);
       if (caminho && !mapa.has(caminho)) mapa.set(caminho, mensagem);
     }
     return mapa;
-  }, [validation]);
+  }, [validation, issuesDoServidor]);
 
   /** Pendências sem endereço de campo — vão para o banner-resumo, não para um campo. */
   const errosSemCampo = useMemo(() => {
@@ -114,22 +155,28 @@ export function useLevantamento(estimatorName: string) {
         )
       }));
     },
-    []
+    [setDraft]
   );
 
-  const removeCollection = useCallback((colecao: string, id: string) => {
-    setDraft(atual => ({
-      ...atual,
-      [colecao]: (atual[colecao] as AnyRecord[]).filter(item => item.id !== id)
-    }));
-  }, []);
+  const removeCollection = useCallback(
+    (colecao: string, id: string) => {
+      setDraft(atual => ({
+        ...atual,
+        [colecao]: (atual[colecao] as AnyRecord[]).filter(item => item.id !== id)
+      }));
+    },
+    [setDraft]
+  );
 
-  const addToCollection = useCallback((colecao: string, item: AnyRecord) => {
-    setDraft(atual => ({
-      ...atual,
-      [colecao]: [...((atual[colecao] as AnyRecord[]) || []), item]
-    }));
-  }, []);
+  const addToCollection = useCallback(
+    (colecao: string, item: AnyRecord) => {
+      setDraft(atual => ({
+        ...atual,
+        [colecao]: [...((atual[colecao] as AnyRecord[]) || []), item]
+      }));
+    },
+    [setDraft]
+  );
 
   /** Edita uma coleção ANINHADA — `laborContexts[x].assignments[y]`. */
   const updateNested = useCallback(
@@ -148,7 +195,7 @@ export function useLevantamento(estimatorName: string) {
         )
       }));
     },
-    []
+    [setDraft]
   );
 
   const removeNested = useCallback(
@@ -167,7 +214,7 @@ export function useLevantamento(estimatorName: string) {
         )
       }));
     },
-    []
+    [setDraft]
   );
 
   const addNested = useCallback(
@@ -181,7 +228,7 @@ export function useLevantamento(estimatorName: string) {
         )
       }));
     },
-    []
+    [setDraft]
   );
 
   /** Resultado calculado de uma fase, por id. */
@@ -214,6 +261,16 @@ export function useLevantamento(estimatorName: string) {
     resultadoDaFase,
     errosVisiveis,
     revelarErros,
+    /**
+     * Recebe as pendências do `422` e já as revela: se o servidor recusou, o
+     * usuário tentou avançar por definição.
+     */
+    aplicarIssuesDoServidor: (issues: ComercialIssue[]) => {
+      setIssuesDoServidor(issues);
+      setErrosVisiveis(true);
+    },
+    limparIssuesDoServidor: () => setIssuesDoServidor([]),
+    issuesDoServidor,
     /** Mensagem do campo, ou `undefined` se ele está válido — ou ainda oculto. */
     erroDe: (caminho: string) =>
       errosVisiveis ? errosPorCampo.get(caminho) : undefined,

@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
+import {
+  ComercialValidationError,
+  criarLevantamento,
+  reservarProximoNumero
+} from '../../../api/comercial';
 import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { useAuth } from '../../../auth/AuthContext';
@@ -8,6 +13,7 @@ import { FaixaIndicadores } from './FaixaIndicadores';
 import { footerAction, saveBlockedByContent, type CostSection } from './footerChain';
 import { numberValue } from './formato';
 import { pendenciasDe } from './pendencias';
+import { primeiraSecaoPendente } from './secaoDoCaminho';
 import { InsumosSection } from './sections/InsumosSection';
 import { LogisticaSection } from './sections/LogisticaSection';
 import { MaoDeObraSection } from './sections/MaoDeObraSection';
@@ -40,6 +46,21 @@ const SECOES: Array<{ value: CostSection; label: string }> = [
 
 type EstimateMode = 'new' | 'revision';
 
+/**
+ * Mensagem legível de um erro de rede.
+ *
+ * O `503` da numeração é traduzido em texto próprio: ele **não** é falha, é o
+ * ambiente dizendo que a numeração ainda não foi semeada. Quem lê "erro do servidor"
+ * abre chamado; quem lê o que falta chama o operador.
+ */
+function mensagemDeErro(error: unknown, padrao: string): string {
+  const resposta = (error as { response?: { status?: number; data?: { error?: string } } })
+    ?.response;
+  if (resposta?.data?.error) return resposta.data.error;
+  if (error instanceof Error && error.message) return error.message;
+  return padrao;
+}
+
 export function CustosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -52,14 +73,17 @@ export function CustosPage() {
   const [baseDigitada, setBaseDigitada] = useState('');
   const [mostrarRevisao, setMostrarRevisao] = useState(false);
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
+  const [reservando, setReservando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [recado, setRecado] = useState('');
 
   const levantamento = useLevantamento(user?.name || '');
-  const { draft, result, revelarErros } = levantamento;
+  const { draft, result, revelarErros, aplicarIssuesDoServidor } = levantamento;
 
   // A cadeia do rodapé está completa: as quatro seções sabem dizer se pendem.
   const pendencias = pendenciasDe(draft, result);
   const guardas = {
-    saving: false,
+    saving: salvando,
     title: String(draft.title || ''),
     validPricing: Boolean(result.validPricing),
     salePrice: numberValue(result.salePrice)
@@ -96,6 +120,85 @@ export function CustosPage() {
     setParams(proximos, { replace: true });
   }
 
+  /**
+   * "Nova proposta" **reserva o número antes de abrir a tela**, como na referência.
+   *
+   * Reservar depois pareceria mais econômico — só gasta número quem salva. Mas o
+   * código aparece no título e no rodapé desde o primeiro instante, e o orçamentista
+   * o dita ao cliente enquanto monta o levantamento. Um número que só existe no fim
+   * é um número em que não se pode confiar no meio.
+   *
+   * O preço disso é buraco na sequência quando alguém desiste. É aceitável: buraco
+   * não confunde ninguém, número repetido sim.
+   */
+  async function iniciarNova() {
+    setReservando(true);
+    setRecado('Reservando o próximo número...');
+    try {
+      const numero = await reservarProximoNumero();
+      setRecado('');
+      iniciarModo('new', String(numero));
+    } catch (error) {
+      setRecado(mensagemDeErro(error, 'Não foi possível obter a numeração.'));
+    } finally {
+      setReservando(false);
+    }
+  }
+
+  /**
+   * Salva o levantamento.
+   *
+   * Os totais **não** vão no corpo: o servidor recalcula com `calculateEstimate` e
+   * grava os seus. É o que impede forjar margem, e é por isso que o contrato Zod
+   * recusa `salePrice` vindo do cliente.
+   *
+   * No `422`, as pendências do servidor viram vermelho **no campo** e a tela salta
+   * para a primeira seção atingida — na ordem da tela, não na ordem em que o servidor
+   * validou. O app já sabe o caminho; o que faltava era dizer.
+   */
+  async function salvar() {
+    if (salvando) return;
+    setSalvando(true);
+    setRecado('Validando e salvando o levantamento...');
+
+    try {
+      const salvo = await criarLevantamento({
+        proposalCode: base,
+        // PROVISÓRIO no modo revisão: o número da revisão vem de
+        // `GET /propostas/:codigo/revisao` (T053a), que ainda não existe. Enquanto
+        // não existir, o modo revisão abre um rascunho em branco — carregar o
+        // levantamento anterior é a mesma tarefa.
+        revisionNumber: modo === 'revision' ? 1 : 0,
+        title: String(draft.title || ''),
+        mode: modo === 'revision' ? 'REVISAO' : 'NOVA',
+        payload: draft
+      });
+
+      setMostrarConfirmacao(false);
+      setRecado('');
+      navigate(`${moduleRoutePath('comercial', 'propostas')}?levantamento=${salvo.id}`);
+    } catch (error) {
+      setMostrarConfirmacao(false);
+
+      if (error instanceof ComercialValidationError) {
+        aplicarIssuesDoServidor(error.issues);
+        const destino = primeiraSecaoPendente(
+          error.issues.map(item => item.path || '').filter(Boolean)
+        );
+        if (destino) trocarSecao(destino);
+        setRecado(
+          error.issues.length === 1
+            ? 'Há 1 pendência. Ela está marcada no campo.'
+            : `Há ${error.issues.length} pendências. Elas estão marcadas nos campos.`
+        );
+      } else {
+        setRecado(mensagemDeErro(error, 'Falha ao salvar o levantamento.'));
+      }
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   return (
     <ComercialChrome
       eyebrow="FILTROVALI / LEVANTAMENTO DE CUSTOS"
@@ -129,7 +232,7 @@ export function CustosPage() {
               </p>
 
               <div className="com-modo-opcoes">
-                <button type="button" onClick={() => iniciarModo('new')}>
+                <button type="button" disabled={reservando} onClick={iniciarNova}>
                   <b aria-hidden="true">＋</b>
                   <strong>Nova proposta</strong>
                   <span>
@@ -148,6 +251,8 @@ export function CustosPage() {
                   </span>
                 </button>
               </div>
+
+              {recado && <p className="com-recado">{recado}</p>}
 
               {mostrarRevisao && (
                 <div className="com-revisao-entrada">
@@ -196,15 +301,22 @@ export function CustosPage() {
               </p>
 
               <div className="com-modo-opcoes com-modo-tres">
-                <button type="button">
+                <button type="button" disabled={salvando} onClick={salvar}>
                   <b aria-hidden="true">✓</b>
-                  <strong>Confirmar {codigo}</strong>
+                  <strong>{salvando ? 'Salvando...' : `Confirmar ${codigo}`}</strong>
                   <span>
                     Salvar e abrir a criação das propostas.
                   </span>
                 </button>
 
-                <button type="button">
+                <button
+                  type="button"
+                  disabled={salvando || reservando}
+                  onClick={() => {
+                    setMostrarConfirmacao(false);
+                    iniciarNova();
+                  }}
+                >
                   <b aria-hidden="true">＋</b>
                   <strong>Trocar para nova</strong>
                   <span>Reservar outra numeração.</span>
@@ -256,6 +368,12 @@ export function CustosPage() {
               <LogisticaSection levantamento={levantamento} />
             ) : (
               <ResumoSection levantamento={levantamento} />
+            )}
+
+            {recado && (
+              <p className="com-recado com-recado-tela" role="status">
+                {recado}
+              </p>
             )}
 
             <footer className="com-rodape">

@@ -1511,3 +1511,21 @@
 }
 
 .com-root .com-nota-alerta { color: #9d2d2d; font-weight: 700; }
+
+/* Recado de operação — reserva de número, salvamento, recusa do servidor.
+   Fica no fluxo, não em toast: o usuário precisa poder reler enquanto corrige. */
+.com-root .com-recado {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--com-borda);
+  border-left: 3px solid var(--com-acao);
+  border-radius: 8px;
+  background: var(--com-acao-suave);
+  color: var(--com-texto-fraco);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.com-root .com-recado-tela {
+  margin: 1rem 0 0;
+}

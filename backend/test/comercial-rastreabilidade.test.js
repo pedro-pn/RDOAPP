@@ -43,7 +43,10 @@ function idsDeclaradosNoSpec(prefixo) {
 
 function idsCitadosNasTarefas(prefixo) {
   const encontrados = new Set();
-  const padrao = new RegExp('^- \\[[ x]\\] T\\d+[a-z]? .*$', 'gm');
+  // `[X]` e `[x]` valem: quem marca a tarefa como feita não deve conseguir
+  // esconder o requisito dela de quebra. Este teste já perdeu 14 requisitos de
+  // vista por causa dessa letra.
+  const padrao = new RegExp('^- \\[[ xX]\\] T\\d+[a-z]? .*$', 'gm');
   for (const linha of tasks.match(padrao) || []) {
     for (const ref of linha.matchAll(new RegExp(`\`(${prefixo}-\\d+[a-z]?)\``, 'g'))) {
       encontrados.add(ref[1]);
