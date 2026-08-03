@@ -1285,23 +1285,28 @@
   font-size: 11px;
 }
 
-.com-root .com-fase-painel th {
+/* Cabeçalho e célula valem para QUALQUER tabela do módulo — estavam presos a
+   `.com-fase-painel`, e a tabela de insumos ficava crua. Escopo errado é o
+   mesmo erro de sempre, só que em CSS: a regra existe e não alcança. */
+.com-root .com-table-wrap th {
   background: #f4f6f8;
   text-align: left;
   padding: 9px;
   color: #556173;
   font-size: 11px;
+  white-space: nowrap;
 }
 
-.com-root .com-fase-painel td {
+.com-root .com-table-wrap td {
   padding: 8px 9px;
   border-top: 1px solid var(--com-borda);
+  vertical-align: middle;
 }
 
 /* --- Tabela de alocações -------------------------------------------------- */
 
-.com-root .com-fase-painel td input,
-.com-root .com-fase-painel td select {
+.com-root .com-table-wrap td input:not([type='checkbox']),
+.com-root .com-table-wrap td select {
   width: 100%;
   min-width: 0;
   border: 1px solid #c8d5cc;
@@ -1313,9 +1318,28 @@
   font-size: 12px;
 }
 
-/* Colunas numéricas ficam estreitas para o cargo respirar. */
-.com-root .com-fase-painel td:nth-child(3) input,
-.com-root .com-fase-painel td:nth-child(6) input { max-width: 90px; }
+.com-root .com-table-wrap td input[type='number'] {
+  /* Número tem largura própria: sem isto a coluna de quantidade fica do
+     tamanho da coluna de descrição. */
+  max-width: 110px;
+}
+
+.com-root .com-table-wrap td input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--com-acao);
+  cursor: pointer;
+}
+
+/* A primeira coluna costuma ser a descrição — ela leva o espaço que sobra. */
+.com-root .com-table-wrap td:first-child input { min-width: 160px; }
+
+.com-root .com-table-wrap td input:disabled,
+.com-root .com-table-wrap td select:disabled {
+  background: #f2f5f3;
+  color: var(--com-texto-fraco);
+  cursor: not-allowed;
+}
 
 .com-root .com-calculado {
   color: var(--com-marca-forte);
@@ -1360,8 +1384,5 @@
    diferentes, para não parecer que o formulário quebrou. */
 .com-root .com-linha-fixa { background: #f7faf8; }
 .com-root .com-linha-fixa td input:disabled,
-.com-root .com-linha-fixa td select:disabled {
-  background: #eef2f0;
-  color: var(--com-texto-fraco);
-}
+.com-root .com-linha-fixa td select:disabled { background: #eef2f0; }
 .com-root .com-remover:disabled { opacity: 0.35; cursor: not-allowed; }
