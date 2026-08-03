@@ -13,6 +13,12 @@ Nada aqui é irreversível: é o combinado que o `/speckit-specify` vai consumir
 
 ## Parte A — Desvios deliberados
 
+> **Nota de 03/08.** O item 11 entrou durante a implementação e está **proposto**, não
+> aprovado. Uma coisa que *não* virou desvio: o vermelho dos campos obrigatórios só
+> aparecer depois que o usuário tenta avançar. Isso é refinamento da lacuna **L1**, não
+> divergência da referência — a referência não tem `aria-invalid` nenhum nesta tela, e
+> portanto não há comportamento de origem do qual divergir.
+
 A numeração 1 a 5 é a mesma da §5.7 do plano, para as referências existentes
 continuarem valendo. Os itens **3** e **4** foram reescritos porque a E0 mostrou
 que estavam subdimensionados. Os itens **6 a 10** são novos — o **9** entrou depois
@@ -244,6 +250,33 @@ deliberado.
 **Consequência para a §10.1.1 do plano:** o caminho de promoção da identidade a
 padrão do app fica mais curto. Se o chrome do Comercial vira o chrome do
 filtroAPP, o que se promove é um layout já em produção, não um protótipo.
+
+---
+
+### 11. Tela de custos sem `react-hook-form` — *proposto, pendente de decisão*
+
+**Situação:** as cinco seções do levantamento (T038–T042) foram implementadas com
+estado controlado em `custos/useLevantamento.ts`. O Princípio III pede
+`react-hook-form` + `zodResolver`; o `@hookform/resolvers` está instalado (T003) e é
+usado no resto do app.
+
+**Por que saiu assim:** a tela recalcula **a cada tecla** sobre ~40 coleções
+aninhadas — está no Complexity Tracking do plano e é comportamento da referência. O
+`react-hook-form` existe justamente para *evitar* re-render por tecla. Usá-lo aqui
+significaria assinar `watch()` no formulário inteiro, que é o modo dele de imitar um
+componente controlado: mesma quantidade de render, com uma camada a mais no caminho.
+
+**Escopo proposto do desvio:** apenas a tela de custos. As **7 etapas da proposta**
+(T057–T063) são formulário de verdade — campos independentes, validação por etapa,
+sem cálculo ao vivo — e ficam com RHF + `zodResolver` como o princípio manda.
+
+**O que se perde:** nada de comportamento visível. A validação por campo (L1) já
+funciona sem RHF, porque `validateCostEstimate` devolve o endereço do campo e o
+`Field` do módulo consome `.field-invalid` / `.field-error` do `base.css`
+compartilhado. O que se perde é uniformidade de código entre módulos.
+
+**Custo de reverter:** reescrever cinco seções e ~2 000 linhas, sem ganho para o
+usuário. **Decisão do mantenedor pendente.**
 
 ---
 

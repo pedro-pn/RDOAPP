@@ -15,6 +15,49 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 cada tarefa para preservar a ordem de execução acordada na §6 do
 `docs/PLANO_MODULO_COMERCIAL.md`.
 
+
+## Estado da implementação — 03/08/2026
+
+Atualizado **a partir do código**, não do plano. `[X]` significa que existe e passa nos
+testes; onde a implementação divergiu da tarefa, a divergência está anotada logo abaixo
+dela, com o motivo.
+
+| Fase | Estado |
+|---|---|
+| 1 — Setup `(E1+E2)` | **completa** — 16 goldens verdes |
+| 2 — Foundational `(E3 + base E6)` | **completa** — dois schemas aplicados, acesso e CSS escopado |
+| 3 — US1 levantamento `(E4+E7)` | **as 5 seções da tela existem e calculam**; faltam T043 (541 textos), T046 (RHF) e o salvamento a partir da tela |
+| 4 a 9 | não iniciadas |
+
+**Números de agora:** 144 testes no frontend, 824 no backend (1 falha preexistente de
+SMTP, alheia ao módulo), `architecture:check` verde, CSS do módulo com **0** regras fora
+de `.com-root`.
+
+**O que a tela de custos já faz de ponta a ponta:** escolher o modo, dimensionar equipe
+por fase com alocações e despesas, materiais, circuitos de volume, produtos dosados e
+filtros, mobilização e desmobilização com os seis modos de cálculo, e a formação do
+preço com comissão e preço global fechado — tudo recalculando ao vivo, com a faixa de 7
+indicadores e o rodapé-guia apontando a próxima pendência real.
+
+**O que ela ainda não faz:** salvar. O botão do rodapé abre a confirmação e para ali; a
+rota `POST /api/comercial/levantamentos` existe e está testada no backend, mas a tela
+não a chama.
+
+### Correções da E0 descobertas implementando
+
+Documentar a referência lendo o fonte erra em coisas que só aparecem quando se constrói
+a tela. Três correções, todas já aplicadas no código e nos artefatos:
+
+1. **O diálogo "Como deseja começar?" tem duas opções, não três.** "Levantar custos" é
+   um *link*, não um modo — o tipo da referência é `EstimateMode = "new" | "revision"`.
+   O enum Prisma já tinha nascido errado (`LEVANTAR`) e foi corrigido para
+   `NOVA | REVISAO`.
+2. **A terceira saída do modal de confirmação é "Trocar para revisão"**, não "Informar
+   outro número".
+3. **Os subtítulos das opções eram de outra tela.**
+
+---
+
 ## Format: `[ID] [P?] [Story] Descrição`
 
 - **[P]**: pode rodar em paralelo (arquivos diferentes, sem dependência pendente)
@@ -95,26 +138,28 @@ nas duas pontas.
 
 ### Auditorias que precedem reuso
 
-- [ ] T001 [P] Auditar `frontend/src/utils/reorderDrag.ts` contra a constitution (alça dedicada, reordenação ao vivo, placeholder com legenda de posição, fantasma, cancelar restaura, persistência só ao soltar, toque via Pointer Events com `touch-action: none`) e registrar o laudo em `specs/009-modulo-comercial/contracts/auditoria-reorder.md`. **Se reprovar, o conserto é na origem compartilhada (T002), não no módulo.**
-- [ ] T002 Corrigir `frontend/src/utils/reorderDrag.ts` se T001 reprovar — beneficia `QualityNaturesTab.tsx`, `CategoryManager.tsx`, `TechnicalSchemaBuilder.tsx` e `GestorPage.tsx`, que já o usam. Pular se T001 aprovar.
-- [ ] T003 [P] Instalar `@hookform/resolvers` em `frontend/package.json`. Não está no projeto e `zodResolver` não aparece em nenhum arquivo, apesar de o Princípio III exigir react-hook-form com resolver Zod.
+- [X] T001 [P] Auditar `frontend/src/utils/reorderDrag.ts` contra a constitution (alça dedicada, reordenação ao vivo, placeholder com legenda de posição, fantasma, cancelar restaura, persistência só ao soltar, toque via Pointer Events com `touch-action: none`) e registrar o laudo em `specs/009-modulo-comercial/contracts/auditoria-reorder.md`. **Se reprovar, o conserto é na origem compartilhada (T002), não no módulo.**
+- [X] T002 Corrigir `frontend/src/utils/reorderDrag.ts` se T001 reprovar — beneficia `QualityNaturesTab.tsx`, `CategoryManager.tsx`, `TechnicalSchemaBuilder.tsx` e `GestorPage.tsx`, que já o usam. Pular se T001 aprovar.
+
+  > **Dispensada.** A T001 aprovou (`contracts/auditoria-reorder.md`). O utilitário é um kit, não o padrão inteiro: placeholder, cancelar e `touch-action` continuam vindo do CSS e do chamador, e é a T081 que os verifica.
+- [X] T003 [P] Instalar `@hookform/resolvers` em `frontend/package.json`. Não está no projeto e `zodResolver` não aparece em nenhum arquivo, apesar de o Princípio III exigir react-hook-form com resolver Zod.
 
 ### Scaffold `(E1)`
 
-- [ ] T004 Rodar `npm run new:module -- comercial --title "Comercial"` e conferir a árvore gerada em `frontend/src/pages/comercial/` e `backend/src/routes/comercial/`.
-- [ ] T005 Registrar o módulo em `shared/modules/registry.json`: badge `COM`, `pathPrefixes: ["/comercial"]`, `hub.path: "/comercial"`, rotas `index` (`/comercial`), `custos`, `propostas`, `historico`, e os **três** papéis — `comercial:manager` ("Comercial — Gestor"), `comercial:seller` ("Comercial — Vendedor"), `comercial:viewer` ("Comercial — Consulta").
-- [ ] T006 Rodar `npm run modules:generate` e conferir `frontend/src/modules/registry.generated.ts`.
-- [ ] T007 Criar migration dos enums `AppModule.COMERCIAL` e `ModuleRoleCode.COMERCIAL_MANAGER|COMERCIAL_SELLER|COMERCIAL_VIEWER` em `backend/prisma/migrations/`.
-- [ ] T008 Implementar `requireComercialAccess`, `requireComercialEstimator` (gestor **ou** vendedor) e `requireComercialManager` em `backend/src/middleware/auth.js`, no padrão de `requireQualidadeAccess`.
+- [X] T004 Rodar `npm run new:module -- comercial --title "Comercial"` e conferir a árvore gerada em `frontend/src/pages/comercial/` e `backend/src/routes/comercial/`.
+- [X] T005 Registrar o módulo em `shared/modules/registry.json`: badge `COM`, `pathPrefixes: ["/comercial"]`, `hub.path: "/comercial"`, rotas `index` (`/comercial`), `custos`, `propostas`, `historico`, e os **três** papéis — `comercial:manager` ("Comercial — Gestor"), `comercial:seller` ("Comercial — Vendedor"), `comercial:viewer` ("Comercial — Consulta").
+- [X] T006 Rodar `npm run modules:generate` e conferir `frontend/src/modules/registry.generated.ts`.
+- [X] T007 Criar migration dos enums `AppModule.COMERCIAL` e `ModuleRoleCode.COMERCIAL_MANAGER|COMERCIAL_SELLER|COMERCIAL_VIEWER` em `backend/prisma/migrations/`.
+- [X] T008 Implementar `requireComercialAccess`, `requireComercialEstimator` (gestor **ou** vendedor) e `requireComercialManager` em `backend/src/middleware/auth.js`, no padrão de `requireQualidadeAccess`.
 
 ### Regra de negócio compartilhada `(E2)`
 
-- [ ] T009 [P] Copiar **sem alterar** `cost-model.ts` da referência para `shared/comercial/cost-model.ts`. É o arquivo que os 16 goldens verificam — qualquer edição aqui invalida a prova.
-- [ ] T010 [P] Copiar sem alterar `technical-services.ts` e `scope-content.ts` para `shared/comercial/`.
-- [ ] T011 [P] Copiar sem alterar `proposal-visuals.ts` e `nectar-pipelines.ts` para `shared/comercial/`.
-- [ ] T012 [P] Copiar sem alterar `finalization.ts` para `shared/comercial/finalization.ts` — contém os 4 estágios anunciados ao usuário (FR-032).  ↳ `FR-032`
-- [ ] T013 Criar `shared/comercial/tsconfig.json` gerando `dist/` com `.js` + `.d.ts`, e ligar ao build do backend e do frontend.
-- [ ] T014 Escrever `backend/test/comercial-goldens.test.js` rodando os 16 cenários de `specs/009-modulo-comercial/contracts/goldens/` contra `shared/comercial/cost-model`. **Nunca regerar golden para fazer passar** — se falha, o defeito é do porte.  ↳ `FR-007` `FR-008` `SC-002`
+- [X] T009 [P] Copiar **sem alterar** `cost-model.ts` da referência para `shared/comercial/cost-model.ts`. É o arquivo que os 16 goldens verificam — qualquer edição aqui invalida a prova.
+- [X] T010 [P] Copiar sem alterar `technical-services.ts` e `scope-content.ts` para `shared/comercial/`.
+- [X] T011 [P] Copiar sem alterar `proposal-visuals.ts` e `nectar-pipelines.ts` para `shared/comercial/`.
+- [X] T012 [P] Copiar sem alterar `finalization.ts` para `shared/comercial/finalization.ts` — contém os 4 estágios anunciados ao usuário (FR-032).  ↳ `FR-032`
+- [X] T013 Criar `shared/comercial/tsconfig.json` gerando `dist/` com `.js` + `.d.ts`, e ligar ao build do backend e do frontend.
+- [X] T014 Escrever `backend/test/comercial-goldens.test.js` rodando os 16 cenários de `specs/009-modulo-comercial/contracts/goldens/` contra `shared/comercial/cost-model`. **Nunca regerar golden para fazer passar** — se falha, o defeito é do porte.  ↳ `FR-007` `FR-008` `SC-002`
 
 **Checkpoint**: `npm run architecture:check` verde, card do módulo aparece no hub para quem tem papel, e os 16 goldens passam dígito a dígito.
 
@@ -127,28 +172,30 @@ antes desta fase fechar.**
 
 ### Banco e dois schemas `(E3)`
 
-- [ ] T015 Declarar `schemas = ["public", "comercial"]` no datasource de `backend/prisma/schema.prisma`.  ↳ `FR-039`
-- [ ] T016 Escrever `scripts/annotate-prisma-schemas.mjs` que insere `@@schema("public")` em todo model e enum de `backend/prisma/schema.prisma` sem anotação (~100 models, ~40 enums). Edição mecânica de alto volume — à mão introduz erro silencioso.
-- [ ] T017 Declarar os models novos com `@@schema("comercial")` conforme [data-model.md](./data-model.md): `CostEstimate`, `CostEstimateVersion`, `Proposal`, `ProposalDocument`, `SalesAttribution`, `ProposalAuditLog`.  ↳ `FR-039`
-- [ ] T018 Aplicar as conversões obrigatórias de tipo: dinheiro em `Decimal @db.Decimal(14,2)` e margem em `Decimal @db.Decimal(6,2)` — **nunca `Float`**, que produz centavo errado e aqui vira preço errado.
-- [ ] T019 Criar em `backend/prisma/schema.prisma` os índices de listagem: `(createdByUserId, createdAt)` em `CostEstimate` e `Proposal` — é a consulta da filtragem por autoria —, mais `(proposalCode, revisionNumber)` e `(status)`.
-- [ ] T020 Rodar `prisma migrate dev` e **revisar o SQL gerado**: deve conter `CREATE SCHEMA comercial` e `CREATE TABLE comercial.*`, e **nenhum `ALTER`** nas tabelas da operação. Se houver `ALTER`, parar e investigar.  ↳ `FR-040`
+- [X] T015 Declarar `schemas = ["public", "comercial"]` no datasource de `backend/prisma/schema.prisma`.  ↳ `FR-039`
+- [X] T016 Escrever `scripts/annotate-prisma-schemas.mjs` que insere `@@schema("public")` em todo model e enum de `backend/prisma/schema.prisma` sem anotação (~100 models, ~40 enums). Edição mecânica de alto volume — à mão introduz erro silencioso.
+- [X] T017 Declarar os models novos com `@@schema("comercial")` conforme [data-model.md](./data-model.md): `CostEstimate`, `CostEstimateVersion`, `Proposal`, `ProposalDocument`, `SalesAttribution`, `ProposalAuditLog`.  ↳ `FR-039`
+- [X] T018 Aplicar as conversões obrigatórias de tipo: dinheiro em `Decimal @db.Decimal(14,2)` e margem em `Decimal @db.Decimal(6,2)` — **nunca `Float`**, que produz centavo errado e aqui vira preço errado.
+- [X] T019 Criar em `backend/prisma/schema.prisma` os índices de listagem: `(createdByUserId, createdAt)` em `CostEstimate` e `Proposal` — é a consulta da filtragem por autoria —, mais `(proposalCode, revisionNumber)` e `(status)`.
+- [X] T020 Rodar `prisma migrate dev` e **revisar o SQL gerado**: deve conter `CREATE SCHEMA comercial` e `CREATE TABLE comercial.*`, e **nenhum `ALTER`** nas tabelas da operação. Se houver `ALTER`, parar e investigar.  ↳ `FR-040`
+
+  > **Feita por outro caminho, e o desvio importa.** `prisma migrate dev` exigiu **reset do banco de desenvolvimento** por drift preexistente (duas migrations antigas alteradas depois de aplicadas). Reset destrói dado local, então o caminho foi `migrate diff` → revisão do SQL → `db execute` → `migrate resolve --applied`. A migration `20260803120000_add_comercial_models` foi conferida contra o critério da tarefa: **1** `CREATE SCHEMA`, **8** `CREATE TABLE` em `comercial`, **0** `ALTER` em tabela da operação, **0** `DROP`.
 - [ ] T021 Criar em `backend/prisma/migrations/` a sequence de numeração do schema `comercial`, semeada acima do maior número existente **no CRM Nectar e em `CommercialProposal`**. O valor de partida é levantado uma vez e fica registrado na migration.  ↳ `FR-035`
-- [ ] T022 [P] Escrever `shared/schemas/comercial.js` com o contrato Zod do payload `Json` do levantamento, e teste em `backend/test/`. Campo `Json` sem contrato validado vira depósito sem forma.
-- [ ] T023 Rodar a suíte existente `backend/test/*.test.js` — prova de que a anotação em massa não mexeu na operação.
+- [X] T022 [P] Escrever `shared/schemas/comercial.js` com o contrato Zod do payload `Json` do levantamento, e teste em `backend/test/`. Campo `Json` sem contrato validado vira depósito sem forma.
+- [X] T023 Rodar a suíte existente `backend/test/*.test.js` — prova de que a anotação em massa não mexeu na operação.
 
 ### Controle de acesso `(E4/E5, pré-requisito)`
 
-- [ ] T024 Implementar `backend/lib/comercial/access.js` com verificação de autoria em **duas** entidades — `CostEstimate` e `Proposal` — e o helper de **filtro de listagem por autoria**. Middleware de papel sabe o papel, não sabe a autoria do registro alcançado.  ↳ `FR-029`
-- [ ] T025 Implementar em `backend/lib/comercial/access.js` a **supressão de valores na origem** para `comercial:viewer`: `totalValue`, custo e margem **omitidos da serialização**, não ocultados no cliente. Valor que chega ao navegador não está restrito.  ↳ `FR-030`
+- [X] T024 Implementar `backend/lib/comercial/access.js` com verificação de autoria em **duas** entidades — `CostEstimate` e `Proposal` — e o helper de **filtro de listagem por autoria**. Middleware de papel sabe o papel, não sabe a autoria do registro alcançado.  ↳ `FR-029`
+- [X] T025 Implementar em `backend/lib/comercial/access.js` a **supressão de valores na origem** para `comercial:viewer`: `totalValue`, custo e margem **omitidos da serialização**, não ocultados no cliente. Valor que chega ao navegador não está restrito.  ↳ `FR-030`
 
 ### Base visual do módulo `(E6)`
 
-- [ ] T026 Criar `frontend/src/styles/comercial.css` com **todo** seletor escopado sob a raiz do módulo. Sem vazamento nos dois sentidos: nada escapa para o app, e `base.css` não afeta o interior (alínea (a) do Princípio VI).
-- [ ] T027 **(L6)** Declarar a paleta e as medidas em **um bloco único** de custom properties `--com-*`, nomeadas **por função** (`--com-superficie`, `--com-borda`, `--com-texto-fraco`) e nunca por cor. Hex solto espalhado pelos seletores **não atende** a alínea (b). Auditar cada regra contra o **bloco `:root` ativo** da referência — a duplicação do `globals.css` já produziu uma conclusão errada uma vez.
-- [ ] T028 [P] Criar o shell do módulo em `frontend/src/pages/comercial/`, com as rotas `/comercial`, `/comercial/custos`, `/comercial/propostas`, `/comercial/historico` e `/comercial/vendedores` em `frontend/src/App.tsx`.
-- [ ] T029 [P] Escrever as primitivas responsivas de base em `comercial.css`: **nunca** `min-width` em pixel de container, `min-width: 0` em filho de flex/grid, tabela larga já dentro do próprio `overflow-x: auto`, grade de cards com `minmax(min(100%, N), 1fr)`. **Sem esta disciplina a E8.5 vira reescrita de layout e custa o dobro.**
-- [ ] T030 [P] Generalizar o componente `Field` da referência (`app/page.tsx:1187` — o **único** `aria-invalid` do app de origem) para `frontend/src/pages/comercial/components/Field.tsx`, consumindo `.field-group` + `.field-invalid` + `.field-error` de `frontend/src/styles/base.css:4085-4102`. As classes `.field-*` são de **comportamento, não de identidade** — a exceção do Princípio VI não se aplica a elas.
+- [X] T026 Criar `frontend/src/styles/comercial.css` com **todo** seletor escopado sob a raiz do módulo. Sem vazamento nos dois sentidos: nada escapa para o app, e `base.css` não afeta o interior (alínea (a) do Princípio VI).
+- [X] T027 **(L6)** Declarar a paleta e as medidas em **um bloco único** de custom properties `--com-*`, nomeadas **por função** (`--com-superficie`, `--com-borda`, `--com-texto-fraco`) e nunca por cor. Hex solto espalhado pelos seletores **não atende** a alínea (b). Auditar cada regra contra o **bloco `:root` ativo** da referência — a duplicação do `globals.css` já produziu uma conclusão errada uma vez.
+- [X] T028 [P] Criar o shell do módulo em `frontend/src/pages/comercial/`, com as rotas `/comercial`, `/comercial/custos`, `/comercial/propostas`, `/comercial/historico` e `/comercial/vendedores` em `frontend/src/App.tsx`.
+- [X] T029 [P] Escrever as primitivas responsivas de base em `comercial.css`: **nunca** `min-width` em pixel de container, `min-width: 0` em filho de flex/grid, tabela larga já dentro do próprio `overflow-x: auto`, grade de cards com `minmax(min(100%, N), 1fr)`. **Sem esta disciplina a E8.5 vira reescrita de layout e custa o dobro.**
+- [X] T030 [P] Generalizar o componente `Field` da referência (`app/page.tsx:1187` — o **único** `aria-invalid` do app de origem) para `frontend/src/pages/comercial/components/Field.tsx`, consumindo `.field-group` + `.field-invalid` + `.field-error` de `frontend/src/styles/base.css:4085-4102`. As classes `.field-*` são de **comportamento, não de identidade** — a exceção do Princípio VI não se aplica a elas.
 
 **Checkpoint**: migration revisada e aplicada em dev, suíte existente verde, CSS escopado sem vazamento.
 
@@ -164,32 +211,60 @@ existir.
 
 ### Backend `(E4)`
 
-- [ ] T031 [US1] Implementar `backend/lib/comercial/cost-estimates.js`: salvar, versionar com hash do payload, atribuições de venda, buscar por id e por `proposalCode`.
-- [ ] T032 [US1] Implementar as rotas `GET|POST /api/comercial/levantamentos` em `backend/src/routes/comercial/`, sob `requireComercialEstimator`, com validação Zod e **filtro de autoria na listagem** (T024). Contrato em [contracts/api-contracts.md](./contracts/api-contracts.md).  ↳ `FR-027`
-- [ ] T033 [US1] Implementar `GET|PUT /api/comercial/levantamentos/:id` com verificação de autoria: `comercial:seller` pedindo levantamento de outro autor recebe **403**, não `404` genérico nem tela vazia.  ↳ `FR-027a` `FR-030b`
-- [ ] T034 [US1] **Recalcular no servidor** com `calculateEstimate` no `POST`/`PUT`: os totais gravados são sempre os do servidor, nunca os enviados pelo cliente. É propriedade de segurança — impede forjar margem.
-- [ ] T035 [US1] Fazer o `422` devolver `issues: [{ path, message, severity }]` — **um item por pendência, com o endereço do campo**. `validateCostEstimate` já produz isso; a referência concatenava tudo numa string só e jogava o `path` fora.  ↳ `FR-009`
-- [ ] T036 [US1] [P] Escrever `backend/test/comercial-levantamentos.test.js`: fluxo salvar → versionar → reler; recálculo no servidor ignorando totais forjados; e a numeração (não regride, não colide).  ↳ `SC-010`
+- [X] T031 [US1] Implementar `backend/lib/comercial/cost-estimates.js`: salvar, versionar com hash do payload, atribuições de venda, buscar por id e por `proposalCode`.
+- [X] T032 [US1] Implementar as rotas `GET|POST /api/comercial/levantamentos` em `backend/src/routes/comercial/`, sob `requireComercialEstimator`, com validação Zod e **filtro de autoria na listagem** (T024). Contrato em [contracts/api-contracts.md](./contracts/api-contracts.md).  ↳ `FR-027`
+- [X] T033 [US1] Implementar `GET|PUT /api/comercial/levantamentos/:id` com verificação de autoria: `comercial:seller` pedindo levantamento de outro autor recebe **403**, não `404` genérico nem tela vazia.  ↳ `FR-027a` `FR-030b`
+- [X] T034 [US1] **Recalcular no servidor** com `calculateEstimate` no `POST`/`PUT`: os totais gravados são sempre os do servidor, nunca os enviados pelo cliente. É propriedade de segurança — impede forjar margem.
+- [X] T035 [US1] Fazer o `422` devolver `issues: [{ path, message, severity }]` — **um item por pendência, com o endereço do campo**. `validateCostEstimate` já produz isso; a referência concatenava tudo numa string só e jogava o `path` fora.  ↳ `FR-009`
+- [X] T036 [US1] [P] Escrever `backend/test/comercial-levantamentos.test.js`: fluxo salvar → versionar → reler; recálculo no servidor ignorando totais forjados; e a numeração (não regride, não colide).  ↳ `SC-010`
 
 ### Frontend — as 5 seções `(E7)`
 
-- [ ] T037 [US1] Criar o container `frontend/src/pages/comercial/custos/CustosPage.tsx` com a tira horizontal de 5 seções e o diálogo "Como deseja começar?" — cobre `CUSTO-CTL-001..027` e `CUSTO-H-001..017`. **As abas continuam livres**: a cadeia do rodapé guia, não prende.  ↳ `FR-001` `FR-002`
-- [ ] T038 [US1] [P] Implementar `custos/sections/PremissasSection.tsx` — `CUSTO-CTL-028..038`, com todos os rótulos, unidades, obrigatoriedades, valores padrão e máscaras do inventário.
-- [ ] T039 [US1] [P] Implementar `custos/sections/MaoDeObraSection.tsx` — `CUSTO-CTL-039..137` (99 controles).
-- [ ] T040 [US1] [P] Implementar `custos/sections/InsumosSection.tsx` — `CUSTO-CTL-138..228` (91 controles).
-- [ ] T041 [US1] [P] Implementar `custos/sections/LogisticaSection.tsx` — `CUSTO-CTL-229..394` (166 controles), incluindo o **espelhamento da desmobilização**.  ↳ `FR-003`
-- [ ] T042 [US1] [P] Implementar `custos/sections/ResumoQQPSection.tsx` — `CUSTO-CTL-395..465`, com a faixa de 7 indicadores.
+- [X] T037 [US1] Criar o container `frontend/src/pages/comercial/custos/CustosPage.tsx` com a tira horizontal de 5 seções e o diálogo "Como deseja começar?" — cobre `CUSTO-CTL-001..027` e `CUSTO-H-001..017`. **As abas continuam livres**: a cadeia do rodapé guia, não prende.  ↳ `FR-001` `FR-002`
+- [X] T038 [US1] [P] Implementar `custos/sections/PremissasSection.tsx` — `CUSTO-CTL-028..038`, com todos os rótulos, unidades, obrigatoriedades, valores padrão e máscaras do inventário.
+- [X] T039 [US1] [P] Implementar `custos/sections/MaoDeObraSection.tsx` — `CUSTO-CTL-039..137` (99 controles).
+- [X] T040 [US1] [P] Implementar `custos/sections/InsumosSection.tsx` — `CUSTO-CTL-138..228` (91 controles).
+- [X] T041 [US1] [P] Implementar `custos/sections/LogisticaSection.tsx` — `CUSTO-CTL-229..394` (166 controles), incluindo o **espelhamento da desmobilização**.  ↳ `FR-003`
+- [X] T042 [US1] [P] Implementar `custos/sections/ResumoQQPSection.tsx` — `CUSTO-CTL-395..465`, com a faixa de 7 indicadores.
 - [ ] T043 [US1] Conferir os **541 textos** `CUSTO-TXT-001..541` item a item contra o inventário: erro, aviso, estado vazio e ajuda, sem reescrita.  ↳ `FR-004` `SC-011`
-- [ ] T044 [US1] Implementar `frontend/src/pages/comercial/custos/CustosFooter.tsx` — o **rodapé-guia** com a cadeia de prioridade fixa — mão de obra → materiais e insumos → mob./desmob. → comissões → "Salvar levantamento e criar proposta →" —, com o botão mudando de texto **e de destino**. É o comportamento que o mantenedor confirmou usar na prática.
-- [ ] T045 [US1] Implementar `frontend/src/pages/comercial/custos/ConfirmarPropostaModal.tsx` — "Confirme a proposta", com as três saídas: confirmar o código, trocar para nova, informar outro número. **"Trocar para nova" é mantida** apesar de o mantenedor a considerar saída morta — remover quebraria a regra de aceite "se algo sumiu, é bug".
+
+  > **ABERTA.** As cinco seções foram escritas *consultando* o inventário, mas a
+  > conferência item a item dos 541 textos não foi feita. É o oráculo visual — sem ela
+  > não há prova de paridade de texto, só impressão.
+
+- [X] T044 [US1] Implementar `frontend/src/pages/comercial/custos/CustosFooter.tsx` — o **rodapé-guia** com a cadeia de prioridade fixa — mão de obra → materiais e insumos → mob./desmob. → comissões → "Salvar levantamento e criar proposta →" —, com o botão mudando de texto **e de destino**. É o comportamento que o mantenedor confirmou usar na prática.
+
+  > **Arquivo diferente do previsto, de propósito.** A cadeia saiu em `custos/footerChain.ts` — módulo **puro**, sem React — e o rodapé é renderizado dentro do `CustosPage.tsx`. Assim a cadeia inteira é testável sem montar 465 controles: são 13 testes em `frontend/test/comercial-footer-chain.test.mjs`.
+- [X] T045 [US1] Implementar `frontend/src/pages/comercial/custos/ConfirmarPropostaModal.tsx` — "Confirme a proposta", com as três saídas: confirmar o código, trocar para nova, informar outro número. **"Trocar para nova" é mantida** apesar de o mantenedor a considerar saída morta — remover quebraria a regra de aceite "se algo sumiu, é bug".
+
+  > **Implementado dentro do `CustosPage.tsx`**, e com **duas correções da E0**: (1) o diálogo de modo tem **duas** opções, não três — "Levantar custos" é um *link*, não um modo, e o tipo da referência é `EstimateMode = "new" | "revision"`; (2) a terceira saída do modal de confirmação é **"Trocar para revisão"**, não "Informar outro número". O enum Prisma foi corrigido de `LEVANTAR` para `NOVA | REVISAO`.
 - [ ] T046 [US1] Ligar os formulários de `frontend/src/pages/comercial/custos/sections/` a `react-hook-form` + `zodResolver` (T003), preservando o **recálculo ao vivo a cada tecla** — é calculadora, não CRUD, e está no Complexity Tracking.
+
+  > **ABERTA, e virou uma decisão a tomar.** As cinco seções foram implementadas com
+  > estado controlado em `custos/useLevantamento.ts`, sem `react-hook-form`. Não foi
+  > descuido: a tela recalcula **a cada tecla** sobre ~40 coleções aninhadas, e o
+  > `react-hook-form` existe justamente para *evitar* re-render por tecla — adotá-lo
+  > aqui significa assinar `watch()` no formulário inteiro, que é o modo dele de imitar
+  > um componente controlado, com uma camada a mais no caminho. O Princípio III pede
+  > RHF + `zodResolver`; o `@hookform/resolvers` está instalado (T003) e é usado no
+  > resto do app. **Converter agora é reescrever cinco seções sem ganho visível para o
+  > usuário.** Encaminhamento proposto: registrar como desvio nº 11 no `plan.md`,
+  > restrito à tela de custos, mantendo RHF nas 7 etapas da proposta (T057–T063), que
+  > são formulário de verdade. **Pendente de decisão do mantenedor.**
+
 
 ### L1 — validação por campo
 
-- [ ] T047 [US1] **(L1)** Escrever o resolvedor de `path` → id de campo em `frontend/src/pages/comercial/custos/fieldPath.ts`, ligando cada `issue.path` do `422` ao seu controle nas 5 seções.
-- [ ] T048 [US1] **(L1)** Destacar **cada** campo pendente em vermelho via `.field-group.field-invalid` + `.field-error`, com `aria-invalid` e mensagem visível. O **banner-resumo no topo permanece**, com a contagem — o destaque é acréscimo, não substituição.  ↳ `FR-010` `FR-012` `FR-014`
-- [ ] T049 [US1] **(L1)** Distinguir em `frontend/src/pages/comercial/components/Field.tsx` os **dois estados** da mensagem: vazio → "Campo obrigatório"; preenchido e inválido → "E-mail inválido" / "CNPJ inválido". Marcar sem distinguir resolve o *onde* e mantém o engano.  ↳ `FR-011`
-- [ ] T050 [US1] [P] Escrever `frontend/test/comercial-validacao.test.mjs`: salvar com campo vazio marca o campo certo; campo inválido recebe mensagem de inválido, não de vazio.  ↳ `SC-005`
+- [X] T047 [US1] **(L1)** Escrever o resolvedor de `path` → id de campo em `frontend/src/pages/comercial/custos/fieldPath.ts`, ligando cada `issue.path` do `422` ao seu controle nas 5 seções.
+
+  > **Resolvido antes, e mais simples do que a tarefa supunha.** Não foi preciso resolvedor: `validateCostEstimate` já devolve o **endereço real do campo** (`laborContexts[0].workCondition`), então o índice `caminho → mensagem` vive em `custos/useLevantamento.ts` (`errosPorCampo`) e a seção consulta com `erroDe(caminho)`. A L1 era "ligar o que já existe", não "descobrir endereços" — e há teste travando essa premissa.
+- [X] T048 [US1] **(L1)** Destacar **cada** campo pendente em vermelho via `.field-group.field-invalid` + `.field-error`, com `aria-invalid` e mensagem visível. O **banner-resumo no topo permanece**, com a contagem — o destaque é acréscimo, não substituição.  ↳ `FR-010` `FR-012` `FR-014`
+
+  > **Corrigido depois do relato de uso (03/08).** A primeira versão acendia o vermelho desde o primeiro render, porque a validação roda desde sempre. Um levantamento recém-aberto está legitimamente incompleto: quarenta campos vermelhos viram papel de parede. Agora há um portão único em `useLevantamento` (`erroDe` / `erroSe` / `errosVisiveis`) — **o erro só aparece depois que o usuário tenta avançar**, e daí em diante acende e apaga ao vivo. O botão do rodapé revela ao ser clicado; quando a cadeia chega em "Salvar" e ele fica **desabilitado por conteúdo**, a tela revela sozinha, porque aí não há mais em que clicar. `saveBlockedByContent` separa isso de "Salvando...", que não é falta de nada.
+- [X] T049 [US1] **(L1)** Distinguir em `frontend/src/pages/comercial/components/Field.tsx` os **dois estados** da mensagem: vazio → "Campo obrigatório"; preenchido e inválido → "E-mail inválido" / "CNPJ inválido". Marcar sem distinguir resolve o *onde* e mantém o engano.  ↳ `FR-011`
+- [X] T050 [US1] [P] Escrever `frontend/test/comercial-validacao.test.mjs`: salvar com campo vazio marca o campo certo; campo inválido recebe mensagem de inválido, não de vazio.  ↳ `SC-005`
+
+  > **Saiu distribuído**, não num arquivo só: `comercial-field.test.mjs` (os dois estados da mensagem), `comercial-footer-chain.test.mjs` (quando o vermelho pode aparecer) e um teste por seção. São **144** testes no frontend.
 
 **Checkpoint**: US1 entregável isolada — precifica de ponta a ponta, com os goldens verdes.
 
