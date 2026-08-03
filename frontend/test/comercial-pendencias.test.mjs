@@ -261,3 +261,66 @@ test('a cadeia está completa: logística agora sabe dizer se pende', () => {
   });
   assert.equal(confirmado.logistics, false, 'confirmar "sem logística" desliga');
 });
+
+// ---------------------------------------------------------------------------
+// Resumo e QQP — a quarta pendência, e o preço global
+// ---------------------------------------------------------------------------
+
+test('preço global fechado impõe o valor em vez de derivá-lo do custo', () => {
+  // Não é desconto: o motor recalcula margem e saldo por diferença. Quem digita
+  // um preço achando que está dando desconto está mudando a conta inteira.
+  const base = padrao();
+  const calculado = motor.calculateEstimate(base);
+
+  const imposto = motor.calculateEstimate({
+    ...base,
+    commercial: { ...base.commercial, pricingMode: 'global', globalValue: 50000 }
+  });
+
+  assert.notEqual(
+    Number(imposto.salePrice),
+    Number(calculado.salePrice),
+    'o preço global tem de substituir o derivado do custo'
+  );
+});
+
+test('comissão de representante entra na formação do preço', () => {
+  const base = padrao();
+
+  const sem = motor.calculateEstimate(base);
+  const com = motor.calculateEstimate({
+    ...base,
+    commercial: {
+      ...base.commercial,
+      representativeCommission: {
+        enabled: true,
+        representativeName: 'ACME',
+        percent: 5,
+        basis: 'net_after_tax'
+      }
+    }
+  });
+
+  assert.ok(
+    Number(com.commissionValue) >= Number(sem.commissionValue),
+    'a comissão tem de aparecer no valor de comissão'
+  );
+});
+
+test('a quarta pendência do rodapé é a de comissões', () => {
+  const base = padrao();
+  const incompleta = {
+    ...base,
+    commercial: {
+      ...base.commercial,
+      representativeCommission: { enabled: true, representativeName: '', percent: 0 }
+    }
+  };
+
+  assert.equal(pendenciasDe(incompleta).commercial, true);
+  assert.equal(
+    pendenciasDe(base).commercial,
+    false,
+    'sem representante habilitado não há pendência comercial'
+  );
+});

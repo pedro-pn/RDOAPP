@@ -12,6 +12,7 @@ import { InsumosSection } from './sections/InsumosSection';
 import { LogisticaSection } from './sections/LogisticaSection';
 import { MaoDeObraSection } from './sections/MaoDeObraSection';
 import { PremissasSection } from './sections/PremissasSection';
+import { ResumoSection } from './sections/ResumoSection';
 import { useLevantamento } from './useLevantamento';
 import { LOGO_URL } from '../components/marca';
 
@@ -239,23 +240,7 @@ export function CustosPage() {
             ) : secao === 'logistics' ? (
               <LogisticaSection levantamento={levantamento} />
             ) : (
-              <section className="com-painel com-secao-corpo">
-                <div className="com-secao-titulo">
-                  <div>
-                    <h2>{SECOES.find(item => item.value === secao)?.label}</h2>
-                    <p>
-                      {modo === 'revision'
-                        ? `Revisão da proposta ${base}.`
-                        : 'Levantamento novo.'}
-                    </p>
-                  </div>
-                  <span className="com-obrigatorios">Campos com * são obrigatórios</span>
-                </div>
-
-                <p className="com-placeholder">
-                  Esta seção ainda não foi portada.
-                </p>
-              </section>
+              <ResumoSection levantamento={levantamento} />
             )}
 
             <footer className="com-rodape">

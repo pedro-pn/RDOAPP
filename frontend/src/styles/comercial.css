@@ -1460,3 +1460,54 @@
 
 .com-root .com-total-logistica strong { color: var(--com-marca-forte); font-size: 13px; }
 .com-root .com-total-logistica span { font-size: 18px; font-weight: 700; color: var(--com-marca-forte); }
+
+/* --- Formação do preço ---------------------------------------------------- */
+
+.com-root .com-resumo-grade {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+}
+
+.com-root .com-dado {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--com-borda);
+  border-radius: 9px;
+  background: #f8faf9;
+}
+
+.com-root .com-dado span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--com-texto-fraco);
+}
+
+.com-root .com-dado strong {
+  margin-top: 4px;
+  font-size: 16px;
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-dado-destaque {
+  border-color: #c8d9cd;
+  background: linear-gradient(145deg, #f7faf8, #edf4ef);
+}
+
+.com-root .com-dado-destaque strong { font-size: 19px; }
+
+.com-root .com-dado-positivo { background: #edf9f1; border-color: #bfe0ca; }
+.com-root .com-dado-negativo { background: #fff2f2; border-color: #efc2c2; }
+.com-root .com-dado-negativo strong { color: #9d2d2d; }
+
+.com-root .com-incluir-bloco {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--com-texto);
+}
+
+.com-root .com-nota-alerta { color: #9d2d2d; font-weight: 700; }
