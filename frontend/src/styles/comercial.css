@@ -1355,3 +1355,13 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* Linha de despesa gerida pela própria fase: campos travados ficam visivelmente
+   diferentes, para não parecer que o formulário quebrou. */
+.com-root .com-linha-fixa { background: #f7faf8; }
+.com-root .com-linha-fixa td input:disabled,
+.com-root .com-linha-fixa td select:disabled {
+  background: #eef2f0;
+  color: var(--com-texto-fraco);
+}
+.com-root .com-remover:disabled { opacity: 0.35; cursor: not-allowed; }

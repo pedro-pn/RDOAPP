@@ -6,6 +6,7 @@ import { NumberField, SelectField } from '../../components/Field';
 import { numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
 import { AlocacoesTabela } from './AlocacoesTabela';
+import { DespesasFase } from './DespesasFase';
 
 /**
  * Cartão de uma fase de mão de obra.
@@ -226,6 +227,8 @@ export function FaseCard({
       </div>
 
       <AlocacoesTabela fase={fase} levantamento={levantamento} />
+
+      <DespesasFase fase={fase} levantamento={levantamento} />
 
     </article>
   );
