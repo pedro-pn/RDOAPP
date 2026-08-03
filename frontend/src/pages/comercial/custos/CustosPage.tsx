@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
+import { useAuth } from '../../../auth/AuthContext';
+import { FaixaIndicadores } from './FaixaIndicadores';
 import { footerAction, type CostSection } from './footerChain';
+import { numberValue } from './formato';
+import { PremissasSection } from './sections/PremissasSection';
+import { useLevantamento } from './useLevantamento';
 import { LOGO_URL } from '../components/marca';
 
 
@@ -32,6 +37,7 @@ type EstimateMode = 'new' | 'revision';
 
 export function CustosPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
 
   const modo = (params.get('modo') as EstimateMode | null) ?? null;
@@ -42,14 +48,18 @@ export function CustosPage() {
   const [mostrarRevisao, setMostrarRevisao] = useState(false);
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
 
-  // Placeholders até as seções existirem. As pendências reais saem dos
-  // predicados de cada seção, que dependem do estado do levantamento.
+  const levantamento = useLevantamento(user?.name || '');
+  const { draft, result } = levantamento;
+
+  // As pendências por seção ainda não estão portadas — elas dependem dos
+  // predicados de mão de obra, insumos e logística, que vêm com cada seção.
+  // Até lá o rodapé já mostra o estado de salvar corretamente.
   const pendencias = { labor: false, inputs: false, logistics: false, commercial: false };
   const acao = footerAction(pendencias, {
     saving: false,
-    title: '',
-    validPricing: false,
-    salePrice: 0
+    title: String(draft.title || ''),
+    validPricing: Boolean(result.validPricing),
+    salePrice: numberValue(result.salePrice)
   });
 
   const codigo = base || '—';
@@ -73,6 +83,14 @@ export function CustosPage() {
       eyebrow="FILTROVALI / LEVANTAMENTO DE CUSTOS"
       titulo={`Custos ${codigo}`}
       descricao="Engenharia de custos Filtrovali: equipe, circuitos, materiais, logística e formação do preço em um só lugar."
+      heroExtra={
+        modo !== null ? (
+          <FaixaIndicadores
+            levantamento={levantamento}
+            modoLabel={modo === 'revision' ? `Revisão de ${base}` : 'Levantamento novo'}
+          />
+        ) : undefined
+      }
     >
         {/* O diálogo só aparece quando NÃO há modo no endereço (FR-044): ele
             serve para escolher o modo, não para confirmá-lo. Recarregar com
@@ -210,24 +228,27 @@ export function CustosPage() {
               ))}
             </nav>
 
-            <section className="com-painel com-secao-corpo">
-              <div className="com-secao-titulo">
-                <div>
-                  <h2>{SECOES.find(item => item.value === secao)?.label}</h2>
-                  <p>
-                    {modo === 'revision'
-                      ? `Revisão da proposta ${base}.`
-                      : 'Levantamento novo.'}
-                  </p>
+            {secao === 'premises' ? (
+              <PremissasSection levantamento={levantamento} />
+            ) : (
+              <section className="com-painel com-secao-corpo">
+                <div className="com-secao-titulo">
+                  <div>
+                    <h2>{SECOES.find(item => item.value === secao)?.label}</h2>
+                    <p>
+                      {modo === 'revision'
+                        ? `Revisão da proposta ${base}.`
+                        : 'Levantamento novo.'}
+                    </p>
+                  </div>
+                  <span className="com-obrigatorios">Campos com * são obrigatórios</span>
                 </div>
-                <span className="com-obrigatorios">Campos com * são obrigatórios</span>
-              </div>
 
-              <p className="com-placeholder">
-                Esta seção ainda não foi portada. O container, a navegação por endereço e o
-                rodapé-guia já funcionam.
-              </p>
-            </section>
+                <p className="com-placeholder">
+                  Esta seção ainda não foi portada.
+                </p>
+              </section>
+            )}
 
             <footer className="com-rodape">
               <button

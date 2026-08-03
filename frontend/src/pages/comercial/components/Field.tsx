@@ -94,6 +94,78 @@ export function Field({
   );
 }
 
+/**
+ * Campo numérico — porte de `NumberInput` da referência.
+ *
+ * Mantém `type="number"` com `min`/`max`/`step` como no original: as setinhas
+ * do navegador aparecem nas capturas da baseline, então são paridade.
+ * Campo vazio vira `0`, como lá — não `NaN`, que quebraria o cálculo ao vivo.
+ */
+type NumberFieldProps = {
+  label: string;
+  value: unknown;
+  onChange: (value: number) => void;
+  error?: string | null;
+  required?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+  placeholder?: string;
+  hint?: string;
+};
+
+export function NumberField({
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  min,
+  max,
+  step = 1,
+  disabled,
+  placeholder,
+  hint
+}: NumberFieldProps) {
+  const id = useId();
+  const errorId = `${id}-erro`;
+  const hintId = `${id}-dica`;
+  const invalid = Boolean(error);
+
+  return (
+    <div className={groupClass(invalid)}>
+      <label htmlFor={id}>
+        {label}
+        {required && <span className="survey-required-marker">*</span>}
+      </label>
+      <input
+        id={id}
+        type="number"
+        value={(value as string | number | null | undefined) ?? ''}
+        min={min}
+        max={max}
+        step={step}
+        placeholder={placeholder}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(invalid ? errorId : null, hint ? hintId : null)}
+        onChange={event => onChange(event.target.value === '' ? 0 : Number(event.target.value))}
+      />
+      {hint && !invalid && (
+        <small id={hintId} className="field-hint">
+          {hint}
+        </small>
+      )}
+      {invalid && (
+        <small id={errorId} className="field-error" role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+
 type AreaProps = Omit<FieldProps, 'type' | 'inputMode'> & { rows?: number };
 
 export function Area({
