@@ -4,11 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { footerAction, type CostSection } from './footerChain';
+import { LOGO_URL } from '../components/marca';
 
-// Mesma origem que o `TopBar` do filtroAPP usa — a marca é a mesma, e a
-// referência também abre o diálogo com o logotipo.
-const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
-const LOGO_URL = `${assetsBaseUrl}/assets/Logo/LOGO_HEADER.png`;
 
 /**
  * Levantamento de custos — container das cinco seções.

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import { useAuth } from '../../../auth/AuthContext';
 import { moduleRoutePath } from '../../../modules/registry';
+import { LOGO_URL } from './marca';
 
 /**
  * Chrome do módulo Comercial — desvio nº 10.
@@ -20,8 +21,6 @@ import { moduleRoutePath } from '../../../modules/registry';
  * "Sair do módulo" leva ao hub do filtroAPP. Sem isso o usuário fica preso.
  */
 
-const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
-const LOGO_URL = `${assetsBaseUrl}/assets/Logo/LOGO_HEADER.png`;
 
 type ComercialChromeProps = {
   /** Texto pequeno acima do título, em caixa alta. */

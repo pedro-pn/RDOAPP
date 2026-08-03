@@ -290,10 +290,25 @@
    Menu de entrada, diálogos e a tela de custos
    ========================================================================== */
 
-.com-root .com-menu,
 .com-root .com-secao-corpo {
   /* padding, borda e sombra vêm de `.com-painel` */
+  margin: 0 0 18px;
+}
+
+/* O menu não tem baseline (desvio nº 9). Adota a largura do diálogo de modo,
+   `min(940px, 100%)`, que é o precedente mais próximo na referência — e a
+   mesma grade de duas colunas das opções dele. */
+.com-root .com-menu {
+  width: min(940px, 100%);
   margin: 0 auto 18px;
+}
+
+.com-root .com-menu .com-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 760px) {
+  .com-root .com-menu .com-grid { grid-template-columns: 1fr; }
 }
 
 /* O menu do módulo não existe na referência (desvio nº 9), então ele empresta
@@ -816,7 +831,17 @@
 
 /* --- Conteúdo ------------------------------------------------------------ */
 
-.com-root .com-conteudo { max-width: 1450px; margin: auto; padding: 26px 4vw 60px; }
+/* ATENÇÃO à combinação com `.com-app`, que é flex column: `margin: auto` num
+   ITEM DE FLEX não centraliza um bloco que estica — ele faz o item encolher
+   para o conteúdo e centralizar nos DOIS eixos. O resultado era conteúdo com
+   metade da largura e um vão vertical enorme abaixo do hero.
+   Por isso: largura explícita e margem só na horizontal. */
+.com-root .com-conteudo {
+  width: 100%;
+  max-width: 1450px;
+  margin: 0 auto;
+  padding: 26px 4vw 60px;
+}
 
 @media (max-width: 900px) {
   /* A tira de 5 seções é um dos dois pontos de estouro conhecidos. Vira duas
