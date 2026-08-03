@@ -178,10 +178,15 @@
    Superfícies
    ========================================================================== */
 
+/* Porte de `.cost-card`: borda #d2ded6 (não a borda genérica), raio 10 e a
+   sombra verde discreta. */
 .com-root .com-painel {
   background: var(--com-superficie);
-  border: 1px solid var(--com-borda);
-  border-radius: var(--com-raio);
+  border: 1px solid #d2ded6;
+  border-radius: 10px;
+  padding: 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 25px #173d280d;
   min-width: 0;
 }
 
@@ -198,7 +203,10 @@
 
 .com-root .com-secao-titulo h2 {
   margin: 0 0 6px;
-  font-size: 23px;
+  font-size: 22px;
+  font-weight: 400;
+  /* Verde escuro — era `var(--green-dark)`. Eu tinha deixado na cor de texto. */
+  color: var(--com-marca-forte);
 }
 
 .com-root .com-secao-titulo p {
@@ -230,6 +238,8 @@
   cursor: not-allowed;
 }
 
+/* `.ghost` da referência: branco com borda, texto na cor do texto. Dentro da
+   barra superior ele muda — borda #cbd9cf e texto verde escuro. */
 .com-root .com-btn-fantasma {
   background: var(--com-superficie);
   border: 1px solid var(--com-borda);
@@ -238,6 +248,19 @@
 
 .com-root .com-btn-fantasma:disabled {
   opacity: 0.4;
+}
+
+/* `.add` — botão de acrescentar item, em verde suave. */
+.com-root .com-btn-add {
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  border: 0;
+  border-radius: var(--com-raio-controle);
+  padding: 11px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 13px;
 }
 
 /* Foco visível — acessibilidade não entra na exceção de identidade. */
@@ -269,21 +292,23 @@
 
 .com-root .com-menu,
 .com-root .com-secao-corpo {
-  padding: 24px;
+  /* padding, borda e sombra vêm de `.com-painel` */
   margin: 0 auto 18px;
-  max-width: 1100px;
 }
 
+/* O menu do módulo não existe na referência (desvio nº 9), então ele empresta
+   o padrão de cartão do diálogo `.mode-options`: mesma borda, mesmo fundo,
+   mesmo emblema redondo. É a peça mais próxima que a referência tem. */
 .com-root .com-cartao {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 20px;
   text-align: left;
-  padding: 18px;
-  border: 1px solid var(--com-borda);
-  border-radius: var(--com-raio);
-  background: var(--com-superficie);
+  border: 1px solid #d6e1d9;
+  border-radius: 11px;
+  background: #f8fbf9;
   color: var(--com-texto);
   cursor: pointer;
   font: inherit;
@@ -300,7 +325,7 @@
   cursor: not-allowed;
 }
 
-.com-root .com-cartao strong { font-size: 15px; }
+.com-root .com-cartao strong { font-size: 16px; color: var(--com-marca-forte); min-width: 0; }
 
 .com-root .com-cartao b {
   font-size: 20px;
@@ -309,19 +334,21 @@
 }
 
 .com-root .com-cartao-icone {
+  grid-row: 1 / 3;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 9px;
-  background: var(--com-acao-suave);
-  color: var(--com-marca-forte);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--com-marca-forte);
+  color: #fff;
 }
 
 .com-root .com-cartao-descricao {
   font-size: 12px;
   color: var(--com-texto-fraco);
-  line-height: 1.4;
+  line-height: 1.35;
+  min-width: 0;
 }
 
 /* --- Diálogos -------------------------------------------------------------
@@ -524,21 +551,29 @@
 
 /* --- Rodapé-guia --------------------------------------------------------- */
 
+/* Porte de `.cost-actions`: SEM cartão branco. É só uma linha espaçada —
+   eu tinha inventado um painel com borda que a referência não tem. */
 .com-root .com-rodape {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  max-width: 1100px;
-  margin: 0 auto 40px;
-  padding: 16px 20px;
-  background: var(--com-superficie);
-  border: 1px solid var(--com-borda);
-  border-radius: var(--com-raio);
+  padding: 18px 0;
 }
 
-.com-root .com-codigo-vinculado { display: flex; flex-direction: column; min-width: 0; }
+.com-root .com-rodape .com-btn-primario {
+  font-size: 15px;
+  padding: 14px 20px;
+}
+
+.com-root .com-codigo-vinculado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  color: var(--com-marca-forte);
+}
 
 .com-root .com-codigo-vinculado small {
   font-size: 9px;
@@ -546,11 +581,11 @@
   color: var(--com-texto-fraco);
 }
 
-.com-root .com-codigo-vinculado strong { font-size: 17px; }
+.com-root .com-codigo-vinculado strong { font-size: 18px; }
 
 @media (max-width: 700px) {
   .com-root .com-menu,
-  .com-root .com-secao-corpo { padding: 16px; }
+  .com-root .com-secao-corpo { padding: 15px; }
 
   .com-root .com-modo-card { padding: 20px; }
 
@@ -632,6 +667,11 @@
 
 .com-root .com-usuario b { overflow-wrap: anywhere; }
 
+.com-root .com-topbar .com-btn-fantasma {
+  border-color: #cbd9cf;
+  color: var(--com-marca-forte);
+}
+
 .com-root .com-topbar .com-btn-fantasma:hover:not(:disabled) {
   border-color: var(--com-acao);
   background: #edf5ef;
@@ -640,13 +680,28 @@
 /* --- Faixa de identidade -------------------------------------------------- */
 
 .com-root .com-hero {
-  position: relative;
+  position: sticky;
+  top: 72px;
+  z-index: 30;
   isolation: isolate;
   overflow: hidden;
+  display: block;
   padding: 18px 5vw 20px;
   color: #fff;
   background: linear-gradient(125deg, #173b29 0%, #2f6446 72%, #3d7655 100%);
   box-shadow: 0 12px 30px #173d283d;
+}
+
+/* Eyebrow, título e descrição ficam na MESMA linha — é
+   `.cost-hero-title{display:flex;align-items:center;gap:18px}`. Eu tinha
+   empilhado os três. */
+.com-root .com-hero-titulo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 12px;
+  min-width: 0;
 }
 
 .com-root .com-hero .com-eyebrow {
@@ -657,7 +712,7 @@
 }
 
 .com-root .com-hero h1 {
-  margin: 5px 0;
+  margin: 0;
   font-size: 22px;
   font-weight: 400;
   color: #fff;
@@ -724,7 +779,74 @@
 
 @media (max-width: 600px) {
   .com-root .com-topbar { height: auto; padding: 10px 18px; flex-wrap: wrap; }
-  .com-root .com-hero { padding: 16px 20px 18px; }
+  .com-root .com-hero { position: relative; top: auto; padding: 16px 20px 18px; }
+  .com-root .com-hero-titulo { display: block; }
+  .com-root .com-hero h1 { margin: 5px 0; }
   .com-root .com-conteudo { padding: 14px; }
   .com-root .com-workflow-nav { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
+   Campos — porte de `.field` da referência
+
+   O `.field-group` do filtroAPP entrega o comportamento (marcação vermelha,
+   mensagem, aria) e é ele que a alínea (c) exige. O que muda aqui é só a
+   APARÊNCIA: proporções, cores de borda e peso do rótulo, para bater com a
+   referência. Nenhum estado de erro é redefinido — `.field-invalid` continua
+   vencendo, porque é comportamento e não identidade.
+   ========================================================================== */
+
+.com-root .field-group {
+  gap: 7px;
+  margin-bottom: 17px;
+  min-width: 0;
+}
+
+.com-root .field-group label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--com-texto);
+}
+
+.com-root .field-group input,
+.com-root .field-group select,
+.com-root .field-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  border: 1px solid #c8d5cc;
+  border-radius: 6px;
+  padding: 11px;
+  background: #fff;
+  color: var(--com-texto);
+  font: inherit;
+}
+
+.com-root .field-group textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.com-root .field-group input:disabled,
+.com-root .field-group input[readonly] {
+  background: #f2f5f3;
+  color: var(--com-texto-fraco);
+}
+
+/* Grade de campos, no padrão `.cost-form-grid` — dentro dela o campo não
+   carrega margem própria. */
+.com-root .com-form-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+}
+
+.com-root .com-form-grid .field-group { margin: 0; }
+
+/* Nota de rodapé de seção — as duas linhas explicativas embaixo de Premissas. */
+.com-root .com-nota {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--com-texto-fraco);
+  overflow-wrap: anywhere;
 }
