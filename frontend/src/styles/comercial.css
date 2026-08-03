@@ -1386,3 +1386,16 @@
 .com-root .com-linha-fixa td input:disabled,
 .com-root .com-linha-fixa td select:disabled { background: #eef2f0; }
 .com-root .com-remover:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Volume calculado do circuito, no cabeçalho do cartão. */
+.com-root .com-volume-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+}

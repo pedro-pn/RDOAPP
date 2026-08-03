@@ -187,3 +187,155 @@ test('filtro nasce DESMARCADO — não conta como composição sozinho', () => {
   };
   assert.equal(faltaInsumos(emBranco), true);
 });
+
+// ---------------------------------------------------------------------------
+// Circuitos — o volume que doseia os químicos
+// ---------------------------------------------------------------------------
+
+function circuito(extras = {}) {
+  return {
+    id: 'c1',
+    name: 'Circuito de teste',
+    material: 'carbon_steel',
+    pipeSegments: [],
+    hoseSegments: [],
+    equipmentVolumes: [],
+    manualVolumes: [],
+    cycles: 1,
+    enabled: true,
+    ...extras
+  };
+}
+
+function comCircuito(c) {
+  const base = motor.createDefaultCostEstimatePayload();
+  return { ...base, volumeSystems: [c] };
+}
+
+test('trecho de tubo gera volume pela geometria', () => {
+  // Tubo de 100 mm de diâmetro interno e 10 m: π × 0,05² × 10 = ~78,5 L.
+  const comTubo = motor.calculateEstimate(
+    comCircuito(
+      circuito({
+        pipeSegments: [
+          {
+            id: 't1',
+            description: 'Linha',
+            quantity: 1,
+            lengthM: 10,
+            internalDiameterMm: 100,
+            fillPercent: 100
+          }
+        ]
+      })
+    )
+  );
+
+  const volume = Number(comTubo.totalVolumeLiters);
+  assert.ok(volume > 70 && volume < 90, `volume inesperado: ${volume}`);
+});
+
+test('preenchimento parcial reduz o volume proporcionalmente', () => {
+  const tubo = fill => ({
+    id: 't1',
+    description: 'Linha',
+    quantity: 1,
+    lengthM: 10,
+    internalDiameterMm: 100,
+    fillPercent: fill
+  });
+
+  const cheio = motor.calculateEstimate(comCircuito(circuito({ pipeSegments: [tubo(100)] })));
+  const meio = motor.calculateEstimate(comCircuito(circuito({ pipeSegments: [tubo(50)] })));
+
+  assert.ok(
+    Math.abs(Number(meio.totalVolumeLiters) * 2 - Number(cheio.totalVolumeLiters)) < 0.01,
+    '50% de preenchimento tem de dar metade do volume'
+  );
+});
+
+test('o diâmetro entra ao QUADRADO — dobrar o diâmetro quadruplica o volume', () => {
+  // É o erro mais caro de digitação nesta tela: trocar 50 por 100 no diâmetro
+  // não dobra o produto químico, quadruplica.
+  const tubo = diametro => ({
+    id: 't1',
+    description: 'Linha',
+    quantity: 1,
+    lengthM: 10,
+    internalDiameterMm: diametro,
+    fillPercent: 100
+  });
+
+  const fino = motor.calculateEstimate(comCircuito(circuito({ pipeSegments: [tubo(50)] })));
+  const grosso = motor.calculateEstimate(comCircuito(circuito({ pipeSegments: [tubo(100)] })));
+
+  const razao = Number(grosso.totalVolumeLiters) / Number(fino.totalVolumeLiters);
+  assert.ok(Math.abs(razao - 4) < 0.01, `esperava 4x, veio ${razao}`);
+});
+
+test('ciclos multiplicam o volume', () => {
+  const base = circuito({
+    pipeSegments: [
+      {
+        id: 't1',
+        description: 'Linha',
+        quantity: 1,
+        lengthM: 10,
+        internalDiameterMm: 100,
+        fillPercent: 100
+      }
+    ]
+  });
+
+  const umCiclo = motor.calculateEstimate(comCircuito({ ...base, cycles: 1 }));
+  const doisCiclos = motor.calculateEstimate(comCircuito({ ...base, cycles: 2 }));
+
+  assert.ok(
+    Number(doisCiclos.totalVolumeLiters) > Number(umCiclo.totalVolumeLiters),
+    'duas passagens consomem mais que uma'
+  );
+});
+
+test('equipamento desmarcado não soma volume', () => {
+  const equipamento = incluido => ({
+    id: 'e1',
+    description: 'Reservatório',
+    quantity: 1,
+    volumeLiters: 500,
+    included: incluido
+  });
+
+  const dentro = motor.calculateEstimate(
+    comCircuito(circuito({ equipmentVolumes: [equipamento(true)] }))
+  );
+  const fora = motor.calculateEstimate(
+    comCircuito(circuito({ equipmentVolumes: [equipamento(false)] }))
+  );
+
+  assert.ok(Number(dentro.totalVolumeLiters) > Number(fora.totalVolumeLiters));
+});
+
+test('as quatro coleções somam no mesmo volume', () => {
+  const completo = circuito({
+    pipeSegments: [
+      { id: 't1', description: 'T', quantity: 1, lengthM: 5, internalDiameterMm: 50, fillPercent: 100 }
+    ],
+    hoseSegments: [
+      { id: 'm1', description: 'M', quantity: 1, lengthM: 5, internalDiameterMm: 25, fillPercent: 100 }
+    ],
+    equipmentVolumes: [
+      { id: 'e1', description: 'E', quantity: 1, volumeLiters: 100, included: true }
+    ],
+    manualVolumes: [{ id: 'v1', description: 'V', quantity: 1, volumeLiters: 50 }]
+  });
+
+  const soTubo = motor.calculateEstimate(
+    comCircuito(circuito({ pipeSegments: completo.pipeSegments }))
+  );
+  const tudo = motor.calculateEstimate(comCircuito(completo));
+
+  assert.ok(
+    Number(tudo.totalVolumeLiters) > Number(soTubo.totalVolumeLiters),
+    'mangueira, equipamento e volume manual têm de somar'
+  );
+});

@@ -1,0 +1,430 @@
+import { number, numberValue } from '../formato';
+import type { Levantamento } from '../useLevantamento';
+
+/**
+ * Dimensionamento dos circuitos — bloco da seção Materiais e insumos.
+ *
+ * Porte de `draft.volumeSystems` (`app/custos/page.tsx:1091-1199`).
+ *
+ * É o bloco mais profundo do levantamento: cada circuito tem **quatro
+ * coleções** — trechos de tubo, mangueiras, equipamentos e volumes manuais —
+ * e a soma delas, multiplicada pelos ciclos, dá o volume do circuito.
+ *
+ * Por que isso importa além do volume: **os produtos químicos são dosados
+ * sobre este número**. Um circuito mal dimensionado não erra só o "Volume
+ * calculado" da faixa — erra a quantidade de produto, que é custo real.
+ *
+ * O volume de tubo sai de `π × (d/2)² × comprimento × quantidade × %`, e o
+ * diâmetro entra em milímetros enquanto o comprimento entra em metros. Quem
+ * digita 100 no diâmetro está dizendo 10 cm, não 100 m — é o erro mais fácil
+ * de cometer aqui, e por isso a unidade está no rótulo.
+ */
+
+type AnyRecord = Record<string, unknown>;
+
+const MATERIAIS = [
+  { value: 'carbon_steel', label: 'Aço carbono' },
+  { value: 'stainless_steel', label: 'Aço inox' },
+  { value: 'other', label: 'Outro' }
+];
+
+function registros(valor: unknown): AnyRecord[] {
+  return Array.isArray(valor) ? (valor as AnyRecord[]) : [];
+}
+
+function id(prefixo: string) {
+  return `${prefixo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+const NOVO = {
+  circuito: (indice: number): AnyRecord => ({
+    id: id('circuito'),
+    name: indice === 0 ? 'Circuito de aço carbono' : `Circuito ${indice + 1}`,
+    material: indice === 0 ? 'carbon_steel' : 'other',
+    pipeSegments: [NOVO.tubo()],
+    hoseSegments: [],
+    equipmentVolumes: [],
+    manualVolumes: [],
+    cycles: 1,
+    enabled: true
+  }),
+  tubo: (): AnyRecord => ({
+    id: id('tubo'),
+    description: 'Linha principal',
+    quantity: 1,
+    lengthM: 0,
+    internalDiameterMm: 0,
+    fillPercent: 100
+  }),
+  mangueira: (): AnyRecord => ({
+    id: id('mangueira'),
+    description: 'Mangueira de interligação',
+    quantity: 1,
+    lengthM: 0,
+    internalDiameterMm: 0,
+    fillPercent: 100
+  }),
+  equipamento: (): AnyRecord => ({
+    id: id('equipamento'),
+    description: 'Máquina / reservatório 120 L',
+    quantity: 1,
+    volumeLiters: 120,
+    included: true
+  }),
+  volume: (): AnyRecord => ({
+    id: id('volume'),
+    description: 'Reservatório / outro volume',
+    quantity: 1,
+    volumeLiters: 0
+  })
+};
+
+/** Coleções com comprimento e diâmetro — tubos e mangueiras. */
+const COM_GEOMETRIA = new Set(['pipeSegments', 'hoseSegments']);
+
+export function CircuitosBloco({ levantamento }: { levantamento: Levantamento }) {
+  const { draft, result, setDraft, updateCollection, removeCollection, updateNested, removeNested, addNested } =
+    levantamento;
+
+  const circuitos = registros(draft.volumeSystems);
+  const calculados = registros(result.volumeResults);
+
+  function acrescentarCircuito() {
+    setDraft(atual => {
+      const atuais = registros(atual.volumeSystems);
+      return {
+        ...atual,
+        volumeSystems: [...atuais, NOVO.circuito(atuais.length)],
+        scopeConfirmations: {
+          ...((atual.scopeConfirmations as AnyRecord) || {}),
+          noInputs: false
+        }
+      };
+    });
+  }
+
+  return (
+    <section className="com-painel">
+      <div className="com-secao-titulo">
+        <div>
+          <h2>Dimensionamento dos circuitos</h2>
+          <p>
+            O volume de cada circuito alimenta a dosagem dos produtos químicos. Diâmetro em
+            milímetros, comprimento em metros.
+          </p>
+        </div>
+        <button type="button" className="com-btn-add" onClick={acrescentarCircuito}>
+          + Adicionar circuito
+        </button>
+      </div>
+
+      {circuitos.length === 0 ? (
+        <div className="com-vazio">Nenhum circuito dimensionado.</div>
+      ) : (
+        <div className="com-fases">
+          {circuitos.map((circuito, indice) => {
+            const circuitoId = String(circuito.id);
+            const calculado =
+              calculados.find(c => c.systemId === circuitoId || c.id === circuitoId) || {};
+            const volume = numberValue(
+              calculado.totalVolumeLiters ?? calculado.volumeLiters ?? calculado.total
+            );
+
+            const editar = (patch: AnyRecord) =>
+              updateCollection('volumeSystems', circuitoId, patch);
+
+            return (
+              <article key={circuitoId} className="com-fase-card">
+                <header className="com-fase-card-topo">
+                  <div className="com-fase-identidade">
+                    <span className="com-fase-indice">{indice + 1}</span>
+                    <label>
+                      <small>Nome do circuito</small>
+                      <input
+                        aria-label="Nome do circuito"
+                        value={String(circuito.name || '')}
+                        onChange={event => editar({ name: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <div className="com-fase-acoes">
+                    <span className="com-volume-badge">
+                      {number(volume)} L
+                    </span>
+                    <button
+                      type="button"
+                      className="com-btn com-btn-perigo"
+                      disabled={circuitos.length <= 1}
+                      onClick={() => removeCollection('volumeSystems', circuitoId)}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </header>
+
+                <div className="com-form-grid">
+                  <div className="field-group">
+                    <label htmlFor={`${circuitoId}-material`}>Material</label>
+                    <select
+                      id={`${circuitoId}-material`}
+                      value={String(circuito.material || 'other')}
+                      onChange={event => editar({ material: event.target.value })}
+                    >
+                      {MATERIAIS.map(material => (
+                        <option key={material.value} value={material.value}>
+                          {material.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="field-group">
+                    <label htmlFor={`${circuitoId}-ciclos`}>Ciclos</label>
+                    <input
+                      id={`${circuitoId}-ciclos`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={(circuito.cycles as number) ?? ''}
+                      onChange={event =>
+                        editar({
+                          cycles: event.target.value === '' ? 1 : Number(event.target.value)
+                        })
+                      }
+                    />
+                    {/* O ciclo multiplica o volume: duas passagens de limpeza
+                        consomem duas vezes o produto. */}
+                    <small className="field-hint">Multiplica o volume do circuito</small>
+                  </div>
+                </div>
+
+                <SubTabela
+                  titulo="Trechos de tubo"
+                  colecao="pipeSegments"
+                  itens={registros(circuito.pipeSegments)}
+                  circuitoId={circuitoId}
+                  onEditar={updateNested}
+                  onRemover={removeNested}
+                  onAdicionar={() =>
+                    addNested('volumeSystems', circuitoId, 'pipeSegments', NOVO.tubo())
+                  }
+                />
+
+                <SubTabela
+                  titulo="Mangueiras"
+                  colecao="hoseSegments"
+                  itens={registros(circuito.hoseSegments)}
+                  circuitoId={circuitoId}
+                  onEditar={updateNested}
+                  onRemover={removeNested}
+                  onAdicionar={() =>
+                    addNested('volumeSystems', circuitoId, 'hoseSegments', NOVO.mangueira())
+                  }
+                />
+
+                <SubTabela
+                  titulo="Equipamentos e reservatórios"
+                  colecao="equipmentVolumes"
+                  itens={registros(circuito.equipmentVolumes)}
+                  circuitoId={circuitoId}
+                  onEditar={updateNested}
+                  onRemover={removeNested}
+                  onAdicionar={() =>
+                    addNested(
+                      'volumeSystems',
+                      circuitoId,
+                      'equipmentVolumes',
+                      NOVO.equipamento()
+                    )
+                  }
+                />
+
+                <SubTabela
+                  titulo="Volumes manuais"
+                  colecao="manualVolumes"
+                  itens={registros(circuito.manualVolumes)}
+                  circuitoId={circuitoId}
+                  onEditar={updateNested}
+                  onRemover={removeNested}
+                  onAdicionar={() =>
+                    addNested('volumeSystems', circuitoId, 'manualVolumes', NOVO.volume())
+                  }
+                />
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Tabela de uma das quatro coleções do circuito.
+ *
+ * As quatro têm forma parecida mas colunas diferentes: tubo e mangueira pedem
+ * geometria; equipamento e volume manual pedem litros direto. Um componente só
+ * com a diferença explícita é mais honesto que quatro quase-iguais.
+ */
+function SubTabela({
+  titulo,
+  colecao,
+  itens,
+  circuitoId,
+  onEditar,
+  onRemover,
+  onAdicionar
+}: {
+  titulo: string;
+  colecao: string;
+  itens: AnyRecord[];
+  circuitoId: string;
+  onEditar: (c: string, p: string, a: string, i: string, patch: AnyRecord) => void;
+  onRemover: (c: string, p: string, a: string, i: string) => void;
+  onAdicionar: () => void;
+}) {
+  const comGeometria = COM_GEOMETRIA.has(colecao);
+  const comInclusao = colecao === 'equipmentVolumes';
+
+  return (
+    <section className="com-fase-painel">
+      <header>
+        <strong>{titulo}</strong>
+      </header>
+
+      {itens.length > 0 ? (
+        <div className="com-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Descrição</th>
+                <th scope="col">Qtd.</th>
+                {comGeometria ? (
+                  <>
+                    <th scope="col">Comprimento (m)</th>
+                    <th scope="col">Ø interno (mm)</th>
+                    <th scope="col">Preenchimento (%)</th>
+                  </>
+                ) : (
+                  <th scope="col">Volume (L)</th>
+                )}
+                {comInclusao && <th scope="col">Incluir</th>}
+                <th scope="col">
+                  <span className="com-sr">Ações</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {itens.map(item => {
+                const itemId = String(item.id);
+                const editar = (patch: AnyRecord) =>
+                  onEditar('volumeSystems', circuitoId, colecao, itemId, patch);
+                const numero = (campo: string) => (event: { target: { value: string } }) =>
+                  editar({
+                    [campo]: event.target.value === '' ? 0 : Number(event.target.value)
+                  });
+
+                return (
+                  <tr key={itemId}>
+                    <td>
+                      <input
+                        aria-label="Descrição"
+                        value={String(item.description || '')}
+                        onChange={event => editar({ description: event.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        aria-label="Quantidade"
+                        min={0}
+                        step={1}
+                        value={(item.quantity as number) ?? ''}
+                        onChange={numero('quantity')}
+                      />
+                    </td>
+
+                    {comGeometria ? (
+                      <>
+                        <td>
+                          <input
+                            type="number"
+                            aria-label="Comprimento em metros"
+                            min={0}
+                            step={0.01}
+                            value={(item.lengthM as number) ?? ''}
+                            onChange={numero('lengthM')}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            aria-label="Diâmetro interno em milímetros"
+                            min={0}
+                            step={0.1}
+                            value={(item.internalDiameterMm as number) ?? ''}
+                            onChange={numero('internalDiameterMm')}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            aria-label="Percentual de preenchimento"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={(item.fillPercent as number) ?? ''}
+                            onChange={numero('fillPercent')}
+                          />
+                        </td>
+                      </>
+                    ) : (
+                      <td>
+                        <input
+                          type="number"
+                          aria-label="Volume em litros"
+                          min={0}
+                          step={0.01}
+                          value={(item.volumeLiters as number) ?? ''}
+                          onChange={numero('volumeLiters')}
+                        />
+                      </td>
+                    )}
+
+                    {comInclusao && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label="Incluir no volume"
+                          checked={item.included !== false}
+                          onChange={event => editar({ included: event.target.checked })}
+                        />
+                      </td>
+                    )}
+
+                    <td>
+                      <button
+                        type="button"
+                        className="com-remover"
+                        aria-label={`Remover ${String(item.description || 'item')}`}
+                        onClick={() => onRemover('volumeSystems', circuitoId, colecao, itemId)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="com-vazio">Nenhum item.</div>
+      )}
+
+      <button type="button" className="com-btn-add" onClick={onAdicionar}>
+        + Adicionar
+      </button>
+    </section>
+  );
+}

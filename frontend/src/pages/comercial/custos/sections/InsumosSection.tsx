@@ -2,6 +2,7 @@ import { hasMeaningfulInputs } from '../../../../../../shared/comercial/dist/cos
 import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
 import { money, number, numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
+import { CircuitosBloco } from './CircuitosBloco';
 import { FiltrosTabela } from './FiltrosTabela';
 
 /**
@@ -51,6 +52,7 @@ export function InsumosSection({ levantamento }: { levantamento: Levantamento })
   return (
     <>
       <MateriaisBloco levantamento={levantamento} />
+      <CircuitosBloco levantamento={levantamento} />
       <FiltrosTabela levantamento={levantamento} />
     </>
   );
@@ -268,10 +270,6 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
         </span>
       </div>
 
-      <p className="com-placeholder">
-        Circuitos de volume e produtos químicos dimensionados entram no próximo passo —
-        eles dependem do dimensionamento por sistema.
-      </p>
     </section>
   );
 }
