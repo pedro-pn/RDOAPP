@@ -20,6 +20,7 @@ import { MaoDeObraSection } from './sections/MaoDeObraSection';
 import { PremissasSection } from './sections/PremissasSection';
 import { ResumoSection } from './sections/ResumoSection';
 import { useLevantamento } from './useLevantamento';
+import { useRascunhoLocal } from '../useRascunhoLocal';
 import { LOGO_URL } from '../components/marca';
 
 
@@ -76,9 +77,26 @@ export function CustosPage() {
   const [reservando, setReservando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [recado, setRecado] = useState('');
+  const [salvo, setSalvo] = useState<string | null>(null);
 
   const levantamento = useLevantamento(user?.name || '');
-  const { draft, result, revelarErros, aplicarIssuesDoServidor } = levantamento;
+  const { draft, setDraft, result, revelarErros, aplicarIssuesDoServidor } = levantamento;
+
+  /**
+   * L3 — o trabalho não se perde num F5.
+   *
+   * Na referência, recarregar volta ao diálogo de modo e apaga 465 controles de
+   * trabalho. Modo, código e seção já vivem no endereço; o que faltava era o
+   * conteúdo. A recuperação é **oferecida**, nunca aplicada em silêncio.
+   */
+  const rascunho = useRascunhoLocal({
+    tela: 'custos',
+    modo,
+    codigo: base,
+    dados: draft,
+    ativo: modo !== null,
+    rotulo: `Custos ${base || '—'}`
+  });
 
   // A cadeia do rodapé está completa: as quatro seções sabem dizer se pendem.
   const pendencias = pendenciasDe(draft, result);
@@ -162,7 +180,7 @@ export function CustosPage() {
     setRecado('Validando e salvando o levantamento...');
 
     try {
-      const salvo = await criarLevantamento({
+      const gravado = await criarLevantamento({
         proposalCode: base,
         // PROVISÓRIO no modo revisão: o número da revisão vem de
         // `GET /propostas/:codigo/revisao` (T053a), que ainda não existe. Enquanto
@@ -174,9 +192,15 @@ export function CustosPage() {
         payload: draft
       });
 
+      // T091: gravado no servidor, o rascunho local não pode sobrar para
+      // reaparecer depois como se fosse trabalho não salvo.
+      rascunho.limparTudo();
       setMostrarConfirmacao(false);
-      setRecado('');
-      navigate(`${moduleRoutePath('comercial', 'propostas')}?levantamento=${salvo.id}`);
+      setSalvo(gravado.id);
+      setRecado(
+        `Levantamento ${gravado.proposalCode} salvo. ` +
+          'A montagem da proposta ainda não está pronta nesta versão.'
+      );
     } catch (error) {
       setMostrarConfirmacao(false);
 
@@ -341,6 +365,40 @@ export function CustosPage() {
 
         {modo !== null && (
           <>
+            {/* L3 — a recuperação é OFERECIDA, nunca aplicada em silêncio.
+                Restaurar sem perguntar é pior do que perder: o usuário abre a
+                tela achando que começou do zero e digita por cima. */}
+            {rascunho.oferta && (
+              <section className="com-painel com-oferta-rascunho" role="alertdialog">
+                <div>
+                  <strong>Recuperar rascunho não salvo?</strong>
+                  <p>
+                    Há trabalho deste levantamento guardado neste navegador,{' '}
+                    {rascunho.idadeDaOferta}. Ele não chegou a ser salvo no servidor.
+                  </p>
+                </div>
+                <div className="com-oferta-acoes">
+                  <button
+                    type="button"
+                    className="com-btn com-btn-primario"
+                    onClick={() => {
+                      const dados = rascunho.recuperar();
+                      if (dados) setDraft(dados as Record<string, unknown>);
+                    }}
+                  >
+                    Recuperar
+                  </button>
+                  <button
+                    type="button"
+                    className="com-btn com-btn-fantasma"
+                    onClick={rascunho.descartarOferta}
+                  >
+                    Começar do zero
+                  </button>
+                </div>
+              </section>
+            )}
+
             {/* Tira de seções. As abas são LIVRES: dá para pular para qualquer
                 uma a qualquer momento. A cadeia do rodapé guia, não prende. */}
             <nav className="com-workflow-nav" aria-label="Etapas do levantamento">
@@ -393,7 +451,10 @@ export function CustosPage() {
               <button
                 type="button"
                 className="com-btn com-btn-primario"
-                disabled={acao.disabled}
+                /* Salvo uma vez, não salva de novo: um segundo POST criaria um
+                   segundo levantamento com o MESMO código de proposta. Reabrir
+                   para editar é `PUT`, e depende da tela de listagem. */
+                disabled={acao.disabled || salvo !== null}
                 onClick={() => {
                   // Tentar avançar é o gatilho: daqui em diante os campos
                   // obrigatórios que faltam ficam marcados, e passam a acender
@@ -403,7 +464,7 @@ export function CustosPage() {
                   else setMostrarConfirmacao(true);
                 }}
               >
-                {acao.label}
+                {salvo ? 'Levantamento salvo' : acao.label}
               </button>
             </footer>
           </>

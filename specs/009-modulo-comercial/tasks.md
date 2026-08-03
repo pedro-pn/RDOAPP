@@ -180,7 +180,15 @@ antes desta fase fechar.**
 - [X] T020 Rodar `prisma migrate dev` e **revisar o SQL gerado**: deve conter `CREATE SCHEMA comercial` e `CREATE TABLE comercial.*`, e **nenhum `ALTER`** nas tabelas da operação. Se houver `ALTER`, parar e investigar.  ↳ `FR-040`
 
   > **Feita por outro caminho, e o desvio importa.** `prisma migrate dev` exigiu **reset do banco de desenvolvimento** por drift preexistente (duas migrations antigas alteradas depois de aplicadas). Reset destrói dado local, então o caminho foi `migrate diff` → revisão do SQL → `db execute` → `migrate resolve --applied`. A migration `20260803120000_add_comercial_models` foi conferida contra o critério da tarefa: **1** `CREATE SCHEMA`, **8** `CREATE TABLE` em `comercial`, **0** `ALTER` em tabela da operação, **0** `DROP`.
-- [ ] T021 Criar em `backend/prisma/migrations/` a sequence de numeração do schema `comercial`, semeada acima do maior número existente **no CRM Nectar e em `CommercialProposal`**. O valor de partida é levantado uma vez e fica registrado na migration.  ↳ `FR-035`
+- [X] T021 Criar em `backend/prisma/migrations/` a sequence de numeração do schema `comercial`, semeada acima do maior número existente **no CRM Nectar e em `CommercialProposal`**. O valor de partida é levantado uma vez e fica registrado na migration.  ↳ `FR-035`
+
+  > **A sequence nasce NÃO semeada, e a rota recusa até alguém semear.** O valor de
+  > partida só existe no servidor de produção, então gravá-lo na migration não era
+  > possível — a migration cria a sequence vazia e a linha
+  > `comercial.ProposalNumberingState` com `seededAt = NULL`. `scripts/semear-numeracao-comercial.mjs`
+  > faz a leitura e a semeadura, em modo relatório por padrão. **Só `CommercialProposal.codProp`
+  > entra no piso**: `codNectar` parece número de proposta e é o id do registro no CRM —
+  > neste banco 4.434 contra 292 milhões. Local semeado em **4435**.
 - [X] T022 [P] Escrever `shared/schemas/comercial.js` com o contrato Zod do payload `Json` do levantamento, e teste em `backend/test/`. Campo `Json` sem contrato validado vira depósito sem forma.
 - [X] T023 Rodar a suíte existente `backend/test/*.test.js` — prova de que a anotação em massa não mexeu na operação.
 
@@ -282,7 +290,7 @@ da finalização.
 
 - [ ] T051 [US2] Implementar `backend/lib/comercial/proposals.js`: histórico, revisões e vínculo com o levantamento.
 - [ ] T052 [US2] Implementar `GET|POST /api/comercial/propostas` e `GET|PUT /api/comercial/propostas/:id`, com autoria (T024) e **a resposta variando por papel** (T025): `viewer` recebe a listagem sem `totalValue` e sem link do documento comercial.
-- [ ] T053 [US2] Implementar `GET /api/comercial/propostas/proximo-numero` consumindo a sequence do schema `comercial` (T021). **Não toca o Nectar** — cai a varredura de `next-number` da referência.  ↳ `FR-035`
+- [X] T053 [US2] Implementar `GET /api/comercial/propostas/proximo-numero` consumindo a sequence do schema `comercial` (T021). **Não toca o Nectar** — cai a varredura de `next-number` da referência.  ↳ `FR-035`
 - [ ] T053a [US2] Implementar `GET /api/comercial/propostas/:codigo/revisao` em `backend/lib/comercial/proposals.js`, devolvendo `base_number`, `nextRevision`, o vínculo com o CRM e **`snapshotAvailable`** (FR-064, FR-065). O caminho **sem snapshot é normal, não erro** — proposta antiga não pode falhar.  ↳ `FR-064` `FR-065`
 - [ ] T053b [US2] Reutilizar o **card existente do CRM** quando houver vínculo salvo (FR-066), informando qual card e em qual funil. Sem vínculo, funil e card ficam para a última etapa.  ↳ `FR-066`
 - [ ] T054 [US2] [P] Escrever `backend/test/comercial-propostas.test.js` cobrindo criação, revisão e vínculo com levantamento.
@@ -365,13 +373,13 @@ documentos e o registro no histórico.
 **Independent Test**: preencher parcialmente, recarregar, e conferir que o estado volta
 pela URL e que o não salvo é oferecido de volta.
 
-- [ ] T086 [US4] **(L3)** Levar modo, base da proposta e seção ativa para o endereço em `/comercial/custos`, limpando parâmetros incompatíveis na troca. Hoje o F5 **volta ao diálogo de modo e apaga o levantamento inteiro** — captura em `contracts/baseline/L3-f5-perde-levantamento.png`.  ↳ `FR-018`
+- [X] T086 [US4] **(L3)** Levar modo, base da proposta e seção ativa para o endereço em `/comercial/custos`, limpando parâmetros incompatíveis na troca. Hoje o F5 **volta ao diálogo de modo e apaga o levantamento inteiro** — captura em `contracts/baseline/L3-f5-perde-levantamento.png`.  ↳ `FR-018`
 - [ ] T087 [US4] **(L3)** Levar a etapa ativa para o endereço em `/comercial/propostas`.  ↳ `FR-018`
-- [ ] T088 [US4] **(L3)** Fazer o diálogo "Como deseja começar?" de `frontend/src/pages/comercial/custos/CustosPage.tsx` **não reaparecer** quando o modo já vem no endereço (FR-044) — ele serve para escolher o modo, não para confirmá-lo. Os dois passos (menu → diálogo) coexistem, sem atalho.  ↳ `FR-043` `FR-044`
-- [ ] T089 [US4] **(L3)** Implementar o rascunho local em `frontend/src/pages/comercial/useLocalDraft.ts`: autossalvamento com *debounce*, chave por modo + código de proposta, **nas duas telas** — levantamento e proposta.  ↳ `FR-019`
-- [ ] T090 [US4] **(L3)** Oferecer em `frontend/src/pages/comercial/useLocalDraft.ts` a recuperação **explicitamente** ("recuperar rascunho não salvo?") em vez de restaurar em silêncio. Restaurar sem avisar é pior que perder, porque o usuário não sabe o que está vendo.  ↳ `FR-020`
-- [ ] T091 [US4] **(L3)** Descartar o rascunho de `frontend/src/pages/comercial/useLocalDraft.ts` ao salvar no servidor — não pode sobrar para reaparecer depois.  ↳ `FR-021`
-- [ ] T092 [US4] **(L3)** Implementar `beforeunload` em `frontend/src/pages/comercial/useLocalDraft.ts`, nas duas telas, quando houver alteração pendente. *"Fechar a página sem querer"* é explícito no requisito, não só recarregar.  ↳ `FR-022`
+- [X] T088 [US4] **(L3)** Fazer o diálogo "Como deseja começar?" de `frontend/src/pages/comercial/custos/CustosPage.tsx` **não reaparecer** quando o modo já vem no endereço (FR-044) — ele serve para escolher o modo, não para confirmá-lo. Os dois passos (menu → diálogo) coexistem, sem atalho.  ↳ `FR-043` `FR-044`
+- [X] T089 [US4] **(L3)** Implementar o rascunho local em `frontend/src/pages/comercial/useLocalDraft.ts`: autossalvamento com *debounce*, chave por modo + código de proposta, **nas duas telas** — levantamento e proposta.  ↳ `FR-019`
+- [X] T090 [US4] **(L3)** Oferecer em `frontend/src/pages/comercial/useLocalDraft.ts` a recuperação **explicitamente** ("recuperar rascunho não salvo?") em vez de restaurar em silêncio. Restaurar sem avisar é pior que perder, porque o usuário não sabe o que está vendo.  ↳ `FR-020`
+- [X] T091 [US4] **(L3)** Descartar o rascunho de `frontend/src/pages/comercial/useLocalDraft.ts` ao salvar no servidor — não pode sobrar para reaparecer depois.  ↳ `FR-021`
+- [X] T092 [US4] **(L3)** Implementar `beforeunload` em `frontend/src/pages/comercial/useLocalDraft.ts`, nas duas telas, quando houver alteração pendente. *"Fechar a página sem querer"* é explícito no requisito, não só recarregar.  ↳ `FR-022`
 - [ ] T093 [US4] [P] Escrever `frontend/test/comercial-rascunho.test.mjs`: estado volta pela URL, rascunho é oferecido e não aplicado sozinho, e é descartado ao salvar.  ↳ `SC-006`
 
 ---

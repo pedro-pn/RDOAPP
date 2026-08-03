@@ -1529,3 +1529,38 @@
 .com-root .com-recado-tela {
   margin: 1rem 0 0;
 }
+
+/* Oferta de recuperação de rascunho (L3). Fica acima da tira de seções porque a
+   decisão precisa ser tomada antes de o usuário digitar por cima. */
+.com-root .com-oferta-rascunho {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  border-left: 3px solid var(--com-acao);
+}
+
+.com-root .com-oferta-rascunho > div:first-child {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.com-root .com-oferta-rascunho strong {
+  display: block;
+  color: var(--com-texto);
+  font-size: 0.98rem;
+}
+
+.com-root .com-oferta-rascunho p {
+  margin: 0.25rem 0 0;
+  color: var(--com-texto-fraco);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.com-root .com-oferta-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
