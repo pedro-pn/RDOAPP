@@ -2,6 +2,7 @@ import { HOTEL_SITE_COMMUTE_EXPENSE_CODE } from '../../../../../../shared/comerc
 import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
 import { number, numberValue, people } from '../formato';
 import type { Levantamento } from '../useLevantamento';
+import { FaseCard } from './FaseCard';
 
 /**
  * Seção 2 — Mão de obra por fases.
@@ -20,12 +21,6 @@ import type { Levantamento } from '../useLevantamento';
  */
 
 type AnyRecord = Record<string, unknown>;
-
-const CONDICOES: Record<string, string> = {
-  headquarters: 'Sede / Itajaí',
-  travel: 'Em viagem',
-  offshore: 'Offshore'
-};
 
 function registros(valor: unknown): AnyRecord[] {
   return Array.isArray(valor) ? (valor as AnyRecord[]) : [];
@@ -147,29 +142,15 @@ export function MaoDeObraSection({ levantamento }: { levantamento: Levantamento 
 
           <div className="com-fases">
             {fases.map((fase, indice) => (
-              <article key={String(fase.id ?? indice)} className="com-fase">
-                <header>
-                  <strong className="com-quebrar">
-                    {String(fase.name || `Fase ${indice + 1}`)}
-                  </strong>
-                  <span className={fase.workCondition ? undefined : 'com-fase-pendente'}>
-                    {fase.workCondition
-                      ? CONDICOES[String(fase.workCondition)] || String(fase.workCondition)
-                      : 'Condição de trabalho não definida'}
-                  </span>
-                </header>
-                <p className="com-nota">
-                  {registros(fase.assignments).length} alocação(ões) ·{' '}
-                  {fase.vehicleType ? 'veículo definido' : 'veículo pendente'}
-                </p>
-              </article>
+              <FaseCard
+                key={String(fase.id ?? indice)}
+                fase={fase}
+                indice={indice}
+                total={fases.length}
+                levantamento={levantamento}
+              />
             ))}
           </div>
-
-          <p className="com-placeholder">
-            A edição por alocação — cargo, salário, turno, horas e despesas — é o próximo
-            passo. A pendência desta seção já alimenta o rodapé-guia.
-          </p>
         </>
       )}
     </section>

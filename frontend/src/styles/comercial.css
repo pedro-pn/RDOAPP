@@ -1170,3 +1170,130 @@
   .com-root .com-visao-geral { grid-template-columns: 1fr; }
   .com-root .com-confirmacao > label { align-items: flex-start; }
 }
+
+/* ==========================================================================
+   Cartão de fase — porte de `.phase-card`
+   ========================================================================== */
+
+/* Fases empilham em coluna: cada uma é um bloco de edição, não um cartão de
+   resumo. A grade de cards da versão anterior espremia os formulários. */
+.com-root .com-fases { display: flex; flex-direction: column; gap: 14px; }
+
+.com-root .com-fase-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #c8d9cd;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #fbfdfc, #f4f8f5);
+}
+
+.com-root .com-fase-card-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.com-root .com-fase-identidade {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.com-root .com-fase-indice {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--com-marca-forte);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.com-root .com-fase-identidade label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.com-root .com-fase-identidade small {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--com-texto-fraco);
+}
+
+.com-root .com-fase-identidade input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #c8d5cc;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--com-texto);
+  font: inherit;
+}
+
+.com-root .com-fase-acoes { display: flex; gap: 7px; flex-wrap: wrap; }
+.com-root .com-fase-acoes .com-btn { padding: 8px 12px; font-size: 11px; }
+
+.com-root .com-btn-perigo {
+  background: #fbe8e8;
+  color: #b83232;
+  border: 1px solid #f0cccc;
+}
+
+.com-root .com-btn-perigo:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.com-root .com-fase-paineis {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  margin-bottom: 12px;
+}
+
+.com-root .com-fase-painel {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--com-borda);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.com-root .com-fase-painel > header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.com-root .com-fase-painel > header strong {
+  color: var(--com-marca-forte);
+  font-size: 12px;
+}
+
+.com-root .com-fase-painel > header small {
+  color: var(--com-texto-fraco);
+  font-size: 11px;
+}
+
+.com-root .com-fase-painel th {
+  background: #f4f6f8;
+  text-align: left;
+  padding: 9px;
+  color: #556173;
+  font-size: 11px;
+}
+
+.com-root .com-fase-painel td {
+  padding: 8px 9px;
+  border-top: 1px solid var(--com-borda);
+}

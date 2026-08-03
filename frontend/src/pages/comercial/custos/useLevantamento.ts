@@ -77,6 +77,101 @@ export function useLevantamento(estimatorName: string) {
     return soltos;
   }, [validation]);
 
+  /**
+   * Utilitários de coleção — usados por todas as cinco seções.
+   *
+   * As coleções do levantamento são listas de objetos com `id` (fases,
+   * alocações, despesas, materiais, destinos). Editar por índice quebraria
+   * assim que alguém removesse um item do meio, então tudo aqui é por `id`.
+   */
+  const updateCollection = useCallback(
+    (colecao: string, id: string, patch: AnyRecord) => {
+      setDraft(atual => ({
+        ...atual,
+        [colecao]: (atual[colecao] as AnyRecord[]).map(item =>
+          item.id === id ? { ...item, ...patch } : item
+        )
+      }));
+    },
+    []
+  );
+
+  const removeCollection = useCallback((colecao: string, id: string) => {
+    setDraft(atual => ({
+      ...atual,
+      [colecao]: (atual[colecao] as AnyRecord[]).filter(item => item.id !== id)
+    }));
+  }, []);
+
+  const addToCollection = useCallback((colecao: string, item: AnyRecord) => {
+    setDraft(atual => ({
+      ...atual,
+      [colecao]: [...((atual[colecao] as AnyRecord[]) || []), item]
+    }));
+  }, []);
+
+  /** Edita uma coleção ANINHADA — `laborContexts[x].assignments[y]`. */
+  const updateNested = useCallback(
+    (colecao: string, paiId: string, aninhada: string, id: string, patch: AnyRecord) => {
+      setDraft(atual => ({
+        ...atual,
+        [colecao]: (atual[colecao] as AnyRecord[]).map(pai =>
+          pai.id === paiId
+            ? {
+                ...pai,
+                [aninhada]: ((pai[aninhada] as AnyRecord[]) || []).map(item =>
+                  item.id === id ? { ...item, ...patch } : item
+                )
+              }
+            : pai
+        )
+      }));
+    },
+    []
+  );
+
+  const removeNested = useCallback(
+    (colecao: string, paiId: string, aninhada: string, id: string) => {
+      setDraft(atual => ({
+        ...atual,
+        [colecao]: (atual[colecao] as AnyRecord[]).map(pai =>
+          pai.id === paiId
+            ? {
+                ...pai,
+                [aninhada]: ((pai[aninhada] as AnyRecord[]) || []).filter(
+                  item => item.id !== id
+                )
+              }
+            : pai
+        )
+      }));
+    },
+    []
+  );
+
+  const addNested = useCallback(
+    (colecao: string, paiId: string, aninhada: string, item: AnyRecord) => {
+      setDraft(atual => ({
+        ...atual,
+        [colecao]: (atual[colecao] as AnyRecord[]).map(pai =>
+          pai.id === paiId
+            ? { ...pai, [aninhada]: [...((pai[aninhada] as AnyRecord[]) || []), item] }
+            : pai
+        )
+      }));
+    },
+    []
+  );
+
+  /** Resultado calculado de uma fase, por id. */
+  const resultadoDaFase = useCallback(
+    (id: string): AnyRecord => {
+      const lista = (result.contextResults as AnyRecord[]) || [];
+      return lista.find(item => item.contextId === id || item.id === id) || {};
+    },
+    [result]
+  );
+
   const assumptions = (draft.assumptions as AnyRecord) || {};
 
   return {
@@ -89,6 +184,13 @@ export function useLevantamento(estimatorName: string) {
     validation,
     errosPorCampo,
     errosSemCampo,
+    updateCollection,
+    removeCollection,
+    addToCollection,
+    updateNested,
+    removeNested,
+    addNested,
+    resultadoDaFase,
     /** Mensagem do campo, ou `undefined` se ele está válido. */
     erroDe: (caminho: string) => errosPorCampo.get(caminho)
   };
