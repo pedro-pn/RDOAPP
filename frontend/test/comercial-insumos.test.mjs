@@ -129,3 +129,61 @@ test('a confirmação "sem insumos" desliga a pendência mesmo sem itens', () =>
   };
   assert.equal(faltaInsumos(confirmado), false);
 });
+
+// ---------------------------------------------------------------------------
+// Filtros
+// ---------------------------------------------------------------------------
+
+test('o catálogo LEC traz nome, micragem e preço nos 8 filtros', () => {
+  const catalogo = motor.LEC_FILTER_CATALOG;
+  assert.equal(catalogo.length, 8);
+  for (const filtro of catalogo) {
+    assert.ok(filtro.filterName, 'filtro sem nome');
+    assert.ok(filtro.unitCost > 0, `${filtro.filterName} sem preço`);
+  }
+});
+
+test('filtro incluído entra no custo; desmarcado, não', () => {
+  const base = motor.createDefaultCostEstimatePayload();
+  const doCatalogo = motor.LEC_FILTER_CATALOG[0];
+
+  const filtro = incluido => ({
+    id: 'f1',
+    filterName: doCatalogo.filterName,
+    micronRating: doCatalogo.micronRating,
+    unit: 'un.',
+    quantity: 2,
+    unitCost: doCatalogo.unitCost,
+    included: incluido
+  });
+
+  const dentro = motor.calculateEstimate({ ...base, filters: [filtro(true)] });
+  const fora = motor.calculateEstimate({ ...base, filters: [filtro(false)] });
+
+  assert.ok(Number(dentro.filterCost ?? dentro.inputCost) > 0);
+  assert.ok(
+    Number(dentro.inputCost) > Number(fora.inputCost),
+    'filtro desmarcado não pode custar'
+  );
+});
+
+test('filtro nasce DESMARCADO — não conta como composição sozinho', () => {
+  // Acrescentar um filtro em branco que já entra no custo somaria zero e daria
+  // a impressão de estar considerado.
+  const base = motor.createDefaultCostEstimatePayload();
+  const emBranco = {
+    ...base,
+    filters: [
+      {
+        id: 'f1',
+        filterName: 'Filtro personalizado',
+        micronRating: '',
+        unit: 'un.',
+        quantity: 0,
+        unitCost: 0,
+        included: false
+      }
+    ]
+  };
+  assert.equal(faltaInsumos(emBranco), true);
+});

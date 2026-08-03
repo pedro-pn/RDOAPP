@@ -2,6 +2,7 @@ import { hasMeaningfulInputs } from '../../../../../../shared/comercial/dist/cos
 import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
 import { money, number, numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
+import { FiltrosTabela } from './FiltrosTabela';
 
 /**
  * Seção 3 — Materiais e insumos.
@@ -47,6 +48,15 @@ function novoMaterial(): AnyRecord {
 }
 
 export function InsumosSection({ levantamento }: { levantamento: Levantamento }) {
+  return (
+    <>
+      <MateriaisBloco levantamento={levantamento} />
+      <FiltrosTabela levantamento={levantamento} />
+    </>
+  );
+}
+
+function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
   const { draft, result, setDraft, updateCollection, removeCollection } = levantamento;
 
   const confirmacoes = (draft.scopeConfirmations as AnyRecord) || {};
@@ -259,8 +269,8 @@ export function InsumosSection({ levantamento }: { levantamento: Levantamento })
       </div>
 
       <p className="com-placeholder">
-        Circuitos de volume, produtos químicos dimensionados e filtros entram no próximo
-        passo — eles dependem do dimensionamento por sistema.
+        Circuitos de volume e produtos químicos dimensionados entram no próximo passo —
+        eles dependem do dimensionamento por sistema.
       </p>
     </section>
   );
