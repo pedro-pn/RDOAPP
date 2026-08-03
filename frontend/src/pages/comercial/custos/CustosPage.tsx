@@ -7,6 +7,11 @@ import { TopBar } from '../../../layout/TopBar';
 import { moduleRoutePath } from '../../../modules/registry';
 import { footerAction, type CostSection } from './footerChain';
 
+// Mesma origem que o `TopBar` do filtroAPP usa — a marca é a mesma, e a
+// referência também abre o diálogo com o logotipo.
+const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
+const LOGO_URL = `${assetsBaseUrl}/assets/Logo/LOGO_HEADER.png`;
+
 /**
  * Levantamento de custos — container das cinco seções.
  *
@@ -84,6 +89,11 @@ export function CustosPage() {
         {modo === null && (
           <div className="com-overlay" role="dialog" aria-modal="true" aria-labelledby="com-modo-titulo">
             <section className="com-painel com-modo-card">
+              <img
+                className="com-modo-logo"
+                src={LOGO_URL}
+                alt="Filtrovali"
+              />
               <span className="com-eyebrow">LEVANTAMENTO DE CUSTOS</span>
               <h1 id="com-modo-titulo">Como deseja começar?</h1>
               <p>
@@ -91,23 +101,22 @@ export function CustosPage() {
                 numeração.
               </p>
 
-              <div className="com-grid-2 com-modo-opcoes">
-                <button type="button" className="com-cartao" onClick={() => iniciarModo('new')}>
+              <div className="com-modo-opcoes">
+                <button type="button" onClick={() => iniciarModo('new')}>
                   <b aria-hidden="true">＋</b>
                   <strong>Nova proposta</strong>
-                  <span className="com-cartao-descricao">
+                  <span>
                     Reserva o próximo número e inicia um levantamento por fases.
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  className="com-cartao"
                   onClick={() => setMostrarRevisao(true)}
                 >
                   <b aria-hidden="true">↻</b>
                   <strong>Revisar proposta</strong>
-                  <span className="com-cartao-descricao">
+                  <span>
                     Carrega o último levantamento e preserva toda a composição.
                   </span>
                 </button>
@@ -147,6 +156,11 @@ export function CustosPage() {
             aria-labelledby="com-confirmar-titulo"
           >
             <section className="com-painel com-modo-card">
+              <img
+                className="com-modo-logo"
+                src={LOGO_URL}
+                alt="Filtrovali"
+              />
               <span className="com-eyebrow">VINCULAR LEVANTAMENTO</span>
               <h1 id="com-confirmar-titulo">Confirme a proposta</h1>
               <p>
@@ -154,24 +168,23 @@ export function CustosPage() {
                 <strong>{codigo}</strong>.
               </p>
 
-              <div className="com-grid com-modo-opcoes">
-                <button type="button" className="com-cartao">
+              <div className="com-modo-opcoes com-modo-tres">
+                <button type="button">
                   <b aria-hidden="true">✓</b>
                   <strong>Confirmar {codigo}</strong>
-                  <span className="com-cartao-descricao">
+                  <span>
                     Salvar e abrir a criação das propostas.
                   </span>
                 </button>
 
-                <button type="button" className="com-cartao">
+                <button type="button">
                   <b aria-hidden="true">＋</b>
                   <strong>Trocar para nova</strong>
-                  <span className="com-cartao-descricao">Reservar outra numeração.</span>
+                  <span>Reservar outra numeração.</span>
                 </button>
 
                 <button
                   type="button"
-                  className="com-cartao"
                   onClick={() => {
                     setMostrarConfirmacao(false);
                     setParams(new URLSearchParams(), { replace: true });
@@ -180,7 +193,7 @@ export function CustosPage() {
                 >
                   <b aria-hidden="true">↻</b>
                   <strong>Trocar para revisão</strong>
-                  <span className="com-cartao-descricao">Selecionar uma proposta existente.</span>
+                  <span>Selecionar uma proposta existente.</span>
                 </button>
               </div>
             </section>
