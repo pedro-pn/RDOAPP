@@ -1399,3 +1399,64 @@
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* --- Itens de logística --------------------------------------------------- */
+
+.com-root .com-subtitulo {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--com-marca-forte);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Item incompleto ganha borda de atenção — a mesma informação que o rodapé
+   dá, no lugar onde se resolve. */
+.com-root .com-item-pendente {
+  border-color: #e0b4b4;
+  background: linear-gradient(145deg, #fffafa, #fdf3f3);
+}
+
+.com-root .com-etiqueta {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.com-root .com-etiqueta-alerta { background: #fbe8e8; color: #9d2d2d; }
+
+.com-root .com-incluir {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--com-texto-fraco);
+  white-space: nowrap;
+}
+
+.com-root .com-incluir input { width: 16px; height: 16px; accent-color: var(--com-acao); }
+
+/* Campo inválido dentro de tabela: as classes `.field-invalid` do base.css
+   dependem de `.field-group`, que a célula não tem. */
+.com-root .com-campo-invalido {
+  border-color: var(--rd) !important;
+  background-color: #fff5f5 !important;
+}
+
+.com-root .com-total-logistica {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.com-root .com-total-logistica strong { color: var(--com-marca-forte); font-size: 13px; }
+.com-root .com-total-logistica span { font-size: 18px; font-weight: 700; color: var(--com-marca-forte); }

@@ -1,0 +1,337 @@
+import { LOGISTICS_TRAVEL_DEFAULTS } from '../../../../../../shared/comercial/dist/cost-model.js';
+import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
+import { money, numberValue } from '../formato';
+import { itemPrecisaAtencao, transporteDispensado } from '../logistica';
+import type { Levantamento } from '../useLevantamento';
+import { LogisticaItem } from './LogisticaItem';
+
+/**
+ * Seção 4 — Mobilização e desmobilização.
+ *
+ * A maior das cinco em controles (`CUSTO-CTL-229..394`, 166). Porte de
+ * `LogisticsSection` (`app/custos/page.tsx:1269-1957`).
+ *
+ * A tela tem duas metades: os **destinos** (para onde a equipe e o material
+ * vão, e a que distância) e os **itens de deslocamento**, cada um com um modo
+ * de cálculo que decide quais campos são obrigatórios.
+ *
+ * O predicado que diz se um item está incompleto já estava portado e testado
+ * antes desta tela existir — é ele que o rodapé-guia consulta, e é ele que esta
+ * seção usa para marcar item por item. Assim a marcação da tela e a pendência
+ * do rodapé nunca discordam: são a mesma função.
+ */
+
+type AnyRecord = Record<string, unknown>;
+
+function registros(valor: unknown): AnyRecord[] {
+  return Array.isArray(valor) ? (valor as AnyRecord[]) : [];
+}
+
+function id(prefixo: string) {
+  return `${prefixo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function novoDestino(indice: number): AnyRecord {
+  return {
+    id: id('destino'),
+    nameSource: 'custom',
+    name: `Destino ${indice + 1}`,
+    address: '',
+    oneWayDistanceKm: 0
+  };
+}
+
+function novoItem(direcao: string, destinoId?: string): AnyRecord {
+  const padroes = LOGISTICS_TRAVEL_DEFAULTS as AnyRecord;
+  return {
+    id: id('logistica'),
+    destinationId: destinoId,
+    slotType: 'additional',
+    requiredSlot: false,
+    direction: direcao,
+    category: 'travel',
+    description:
+      direcao === 'mobilization'
+        ? 'Deslocamento de mobilização'
+        : 'Retorno de desmobilização',
+    calculationMode: '',
+    calculationModeConfirmed: false,
+    basis: 'fixed',
+    quantity: 1,
+    trips: 1,
+    travelerCountMode: 'automatic',
+    travelerCount: 0,
+    travelerAssignments: [],
+    travelerAssignmentsConfirmed: true,
+    vehicleCountMode: 'automatic',
+    vehicleCount: 0,
+    passengersPerVehicle: padroes.passengersPerCompanyCar,
+    distanceKmPerVehicle: 0,
+    dailyDistanceLimitKm: padroes.dailyDistanceLimitKm,
+    travelCalendarDaysPerTrip: 1,
+    travelSaturdayDays: 0,
+    travelSundayDays: 0,
+    additionalCosts: [],
+    included: true
+  };
+}
+
+export function LogisticaSection({ levantamento }: { levantamento: Levantamento }) {
+  const { draft, result, setDraft, updateCollection, removeCollection } = levantamento;
+
+  const confirmacoes = (draft.scopeConfirmations as AnyRecord) || {};
+  const semLogistica = confirmacoes.noLogistics === true;
+  const destinos = registros(draft.logisticsDestinations);
+  const itens = registros(draft.logistics);
+  const fases = registros(draft.laborContexts);
+
+  const mobilizacao = itens.filter(item => item.direction === 'mobilization');
+  const desmobilizacao = itens.filter(item => item.direction === 'demobilization');
+
+  function definirSemLogistica(valor: boolean) {
+    setDraft(atual => ({
+      ...atual,
+      scopeConfirmations: {
+        ...((atual.scopeConfirmations as AnyRecord) || {}),
+        noLogistics: valor
+      }
+    }));
+  }
+
+  function acrescentarDestino() {
+    setDraft(atual => {
+      const atuais = registros(atual.logisticsDestinations);
+      return {
+        ...atual,
+        logisticsDestinations: [...atuais, novoDestino(atuais.length)]
+      };
+    });
+  }
+
+  function acrescentarItem(direcao: string) {
+    setDraft(atual => ({
+      ...atual,
+      logistics: [
+        ...registros(atual.logistics),
+        novoItem(direcao, String(registros(atual.logisticsDestinations)[0]?.id || ''))
+      ],
+      scopeConfirmations: {
+        ...((atual.scopeConfirmations as AnyRecord) || {}),
+        noLogistics: false
+      }
+    }));
+  }
+
+  // Contagem de itens pendentes, usando o MESMO predicado do rodapé.
+  const pendentes = itens.filter(
+    item => !transporteDispensado(item, confirmacoes) && itemPrecisaAtencao(item, fases)
+  ).length;
+
+  const destinoSemNome = destinos.some(d => !String(d.name || '').trim());
+
+  return (
+    <>
+      <section className="com-painel">
+        <div className="com-secao-titulo">
+          <div>
+            <h2>Mobilização e desmobilização</h2>
+            <p>
+              Para onde a equipe e o material vão, a que distância, e como cada deslocamento
+              é calculado.
+            </p>
+          </div>
+          <button type="button" className="com-btn-add" onClick={acrescentarDestino}>
+            + Adicionar destino
+          </button>
+        </div>
+
+        <ConfirmacaoEscopo
+          confirmado={semLogistica}
+          tituloPendente="Revisão obrigatória da logística"
+          tituloConfirmado="Sem logística confirmado"
+          descricaoPendente="Se este serviço não tiver mobilização nem desmobilização, confirme explicitamente antes de finalizar."
+          descricaoConfirmada="Deslocamentos ficam fora deste levantamento."
+          rotulo="Confirmo que não haverá mobilização nem desmobilização"
+          onChange={definirSemLogistica}
+        />
+
+        {!semLogistica && destinoSemNome && (
+          <AvisoPendencia>Todo destino precisa de um nome.</AvisoPendencia>
+        )}
+
+        {!semLogistica && pendentes > 0 && (
+          <AvisoPendencia>
+            {pendentes === 1
+              ? '1 deslocamento está incompleto.'
+              : `${pendentes} deslocamentos estão incompletos.`}{' '}
+            Os itens pendentes estão marcados abaixo.
+          </AvisoPendencia>
+        )}
+
+        {!semLogistica && (
+          <>
+            <h3 className="com-subtitulo">Destinos</h3>
+
+            {destinos.length > 0 ? (
+              <div className="com-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Destino</th>
+                      <th scope="col">Endereço</th>
+                      <th scope="col">Distância só ida (km)</th>
+                      <th scope="col">
+                        <span className="com-sr">Ações</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {destinos.map(destino => {
+                      const destinoId = String(destino.id);
+                      const editar = (patch: AnyRecord) =>
+                        updateCollection('logisticsDestinations', destinoId, patch);
+                      const semNome = !String(destino.name || '').trim();
+
+                      // Distância só é cobrada se algum item obrigatório
+                      // aponta para este destino — cobrar sempre marcaria de
+                      // vermelho um destino que ninguém usa.
+                      const cobrado = itens.some(
+                        item =>
+                          item.destinationId === destinoId &&
+                          item.included !== false &&
+                          item.requiredSlot
+                      );
+                      const semDistancia =
+                        cobrado && numberValue(destino.oneWayDistanceKm) <= 0;
+
+                      return (
+                        <tr key={destinoId}>
+                          <td>
+                            <input
+                              aria-label="Nome do destino"
+                              className={semNome ? 'com-campo-invalido' : undefined}
+                              aria-invalid={semNome || undefined}
+                              value={String(destino.name || '')}
+                              onChange={event => editar({ name: event.target.value })}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              aria-label="Endereço"
+                              value={String(destino.address || '')}
+                              onChange={event => editar({ address: event.target.value })}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              aria-label="Distância só ida em quilômetros"
+                              className={semDistancia ? 'com-campo-invalido' : undefined}
+                              aria-invalid={semDistancia || undefined}
+                              min={0}
+                              step={1}
+                              value={(destino.oneWayDistanceKm as number) ?? ''}
+                              onChange={event =>
+                                editar({
+                                  oneWayDistanceKm:
+                                    event.target.value === ''
+                                      ? 0
+                                      : Number(event.target.value)
+                                })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="com-remover"
+                              aria-label={`Remover ${String(destino.name || 'destino')}`}
+                              onClick={() =>
+                                removeCollection('logisticsDestinations', destinoId)
+                              }
+                            >
+                              ×
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="com-vazio">Nenhum destino cadastrado.</div>
+            )}
+          </>
+        )}
+      </section>
+
+      {!semLogistica && (
+        <>
+          <BlocoDirecao
+            titulo="Mobilização"
+            descricao="Ida da equipe e do material para a obra."
+            itens={mobilizacao}
+            levantamento={levantamento}
+            onAdicionar={() => acrescentarItem('mobilization')}
+          />
+
+          <BlocoDirecao
+            titulo="Desmobilização"
+            descricao="Retorno. Pode espelhar a mobilização ou ser diferente."
+            itens={desmobilizacao}
+            levantamento={levantamento}
+            onAdicionar={() => acrescentarItem('demobilization')}
+          />
+
+          <div className="com-painel com-total-logistica">
+            <strong>Custo de logística</strong>
+            <span>{money(numberValue(result.logisticsCost))}</span>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function BlocoDirecao({
+  titulo,
+  descricao,
+  itens,
+  levantamento,
+  onAdicionar
+}: {
+  titulo: string;
+  descricao: string;
+  itens: AnyRecord[];
+  levantamento: Levantamento;
+  onAdicionar: () => void;
+}) {
+  return (
+    <section className="com-painel">
+      <div className="com-secao-titulo">
+        <div>
+          <h2>{titulo}</h2>
+          <p>{descricao}</p>
+        </div>
+        <button type="button" className="com-btn-add" onClick={onAdicionar}>
+          + Adicionar deslocamento
+        </button>
+      </div>
+
+      {itens.length > 0 ? (
+        <div className="com-fases">
+          {itens.map(item => (
+            <LogisticaItem
+              key={String(item.id)}
+              item={item}
+              levantamento={levantamento}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="com-vazio">Nenhum deslocamento nesta direção.</div>
+      )}
+    </section>
+  );
+}
