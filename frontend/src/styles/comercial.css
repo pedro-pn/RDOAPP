@@ -560,3 +560,171 @@
 
   .com-root .com-rodape { flex-direction: column; align-items: stretch; }
 }
+
+/* ==========================================================================
+   Chrome da referência — desvio nº 10
+
+   Decisão do mantenedor em 03/08: dentro da raiz do módulo, o chrome é o do
+   comercialAPP, não o `Shell`/`TopBar` do filtroAPP. O motivo é estratégico —
+   o filtroAPP inteiro vai se parecer com o comercialAPP, então este chrome é
+   prévia do padrão que vem, não corpo estranho.
+
+   Porte de `.cost-topbar` e `.cost-hero` do bloco ATIVO do `globals.css`.
+   O caminho de volta ao hub vive na marca, que já era link na referência.
+   ========================================================================== */
+
+.com-root.com-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.com-root .com-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 5vw;
+  background: #fff;
+  border-bottom: 1px solid #dce6df;
+  box-shadow: 0 4px 18px #1838250a;
+}
+
+.com-root .com-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+}
+
+.com-root .com-marca img { width: 48px; height: 38px; object-fit: contain; }
+
+.com-root .com-topbar-acoes {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.com-root .com-usuario {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 11px;
+  border: 1px solid #cbd9cf;
+  border-radius: 8px;
+  background: #f7faf8;
+  color: var(--com-texto-fraco);
+  font-size: 9px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.com-root .com-usuario b { overflow-wrap: anywhere; }
+
+.com-root .com-topbar .com-btn-fantasma:hover:not(:disabled) {
+  border-color: var(--com-acao);
+  background: #edf5ef;
+}
+
+/* --- Faixa de identidade -------------------------------------------------- */
+
+.com-root .com-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 18px 5vw 20px;
+  color: #fff;
+  background: linear-gradient(125deg, #173b29 0%, #2f6446 72%, #3d7655 100%);
+  box-shadow: 0 12px 30px #173d283d;
+}
+
+.com-root .com-hero .com-eyebrow {
+  color: #b9d6c3;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 2px;
+}
+
+.com-root .com-hero h1 {
+  margin: 5px 0;
+  font-size: 22px;
+  font-weight: 400;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.com-root .com-hero p {
+  margin: 0;
+  color: #d9e8de;
+  max-width: 780px;
+  font-size: 13px;
+}
+
+/* --- Navegação das seções, no padrão da referência ----------------------- */
+
+.com-root .com-workflow-nav {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  margin: 0 0 18px;
+  padding: 9px;
+  background: #f8faf8ef;
+  border: 1px solid #d5e1d8;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px #173d2812;
+  backdrop-filter: blur(8px);
+}
+
+.com-root .com-workflow-nav button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--com-texto-fraco);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.com-root .com-workflow-nav button.is-ativa {
+  background: var(--com-marca-forte);
+  color: #fff;
+  box-shadow: 0 7px 18px #173d2830;
+}
+
+.com-root .com-workflow-nav button > span { min-width: 0; overflow-wrap: anywhere; }
+
+/* --- Conteúdo ------------------------------------------------------------ */
+
+.com-root .com-conteudo { max-width: 1450px; margin: auto; padding: 26px 4vw 60px; }
+
+@media (max-width: 900px) {
+  /* A tira de 5 seções é um dos dois pontos de estouro conhecidos. Vira duas
+     colunas e depois uma — nunca rolagem horizontal de página. */
+  .com-root .com-workflow-nav { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .com-root .com-topbar { height: auto; padding: 10px 18px; flex-wrap: wrap; }
+  .com-root .com-hero { padding: 16px 20px 18px; }
+  .com-root .com-conteudo { padding: 14px; }
+  .com-root .com-workflow-nav { grid-template-columns: 1fr; }
+}

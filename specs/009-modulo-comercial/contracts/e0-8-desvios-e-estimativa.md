@@ -15,7 +15,7 @@ Nada aqui é irreversível: é o combinado que o `/speckit-specify` vai consumir
 
 A numeração 1 a 5 é a mesma da §5.7 do plano, para as referências existentes
 continuarem valendo. Os itens **3** e **4** foram reescritos porque a E0 mostrou
-que estavam subdimensionados. Os itens **6 a 9** são novos — o **9** entrou depois
+que estavam subdimensionados. Os itens **6 a 10** são novos — o **9** entrou depois
 da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 
 | # | Desvio | Situação |
@@ -29,6 +29,7 @@ da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 | 7 | Paleta em bloco único, prefixada, com escopo | **Novo** (L6) |
 | 8 | Fluxo "Nova proposta" sem baseline visual | **Novo** — limitação, não escolha |
 | 9 | Entrada do módulo vira **menu**; proposta sai da raiz | **Novo** (revisão do roteiro, 31/07) |
+| 10 | Módulo usa o **chrome da referência**, não o do filtroAPP | **Novo** (03/08) — *reduz* divergência |
 
 ### 1. PDF gerado no backend
 
@@ -214,6 +215,35 @@ continuam valendo integralmente; muda só o endereço da tela que elas retratam.
 **Este desvio também não remove controle nenhum.** Nenhuma das quatro telas perde
 função; ganha-se uma porta de entrada. A regra de aceite continua sendo "se algo
 sumiu, é bug".
+
+### 10. O módulo usa o chrome da referência — *novo, e reduz divergência*
+
+> **Decisão do mantenedor, 03/08**, depois de ver a primeira tela no ar:
+> *"preciso primeiro do comercialAPP funcionando com o layout 100% igual ao da
+> referência"*. Motivo estratégico: **o filtroAPP inteiro vai se parecer com o
+> comercialAPP no futuro** — o chrome do módulo é uma prévia do padrão que vem,
+> não um corpo estranho.
+
+A referência é app independente e tem chrome próprio: uma `.cost-topbar` de 72px
+com a marca e as ações, e uma `.cost-hero` — faixa em gradiente verde com o
+eyebrow, o título e a faixa de indicadores em tempo real.
+
+A primeira implementação envolveu as telas no `Shell`/`TopBar` do filtroAPP, o
+que trocava o chrome inteiro. **Era falha, não escolha**, e o mantenedor pegou na
+primeira olhada.
+
+**O que fica combinado:** dentro da raiz do módulo, o chrome é o da referência.
+O caminho de volta ao hub do filtroAPP vive na marca da topbar, que já era um
+link na referência.
+
+**Este item é diferente dos outros nove: ele aumenta a fidelidade.** Não é
+divergência autorizada — é a correção de uma. Entra na lista porque quem revisar
+o módulo vai notar que ele não usa o `Shell` dos demais, e precisa saber que é
+deliberado.
+
+**Consequência para a §10.1.1 do plano:** o caminho de promoção da identidade a
+padrão do app fica mais curto. Se o chrome do Comercial vira o chrome do
+filtroAPP, o que se promove é um layout já em produção, não um protótipo.
 
 ---
 

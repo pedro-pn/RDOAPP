@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
-import { useAuth } from '../../auth/AuthContext';
-import { Shell } from '../../layout/Shell';
-import { TopBar } from '../../layout/TopBar';
 import { moduleRoutePath } from '../../modules/registry';
+import { ComercialChrome } from './components/ComercialChrome';
 
 /**
  * Menu de entrada do módulo Comercial — desvio nº 9.
@@ -63,25 +61,16 @@ const DESTINOS: Array<Omit<Destino, 'rota'> & { rotaKey: 'custos' | 'propostas' 
 ];
 
 export function ComercialPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
-    <Shell>
-      <TopBar title="Comercial" subtitle={user?.name || 'Filtrovali App'} showLogo />
-      <main className="page-scroll com-root">
-        <section className="com-painel com-menu">
-          <div className="com-secao-titulo">
-            <div>
-              <h2>O que você quer fazer?</h2>
-              <p>
-                O levantamento vem antes da proposta — é ele que define o código que os dois
-                documentos vão usar.
-              </p>
-            </div>
-          </div>
-
-          <div className="com-grid">
+    <ComercialChrome
+      eyebrow="FILTROVALI / COMERCIAL"
+      titulo="O que você quer fazer?"
+      descricao="O levantamento vem antes da proposta — é ele que define o código que os dois documentos vão usar."
+    >
+      <section className="com-painel com-menu">
+        <div className="com-grid">
             {DESTINOS.map(destino => (
               <button
                 key={destino.rotaKey}
@@ -107,9 +96,8 @@ export function ComercialPage() {
                 <span className="com-cartao-descricao com-quebrar">{destino.descricao}</span>
               </button>
             ))}
-          </div>
-        </section>
-      </main>
-    </Shell>
+        </div>
+      </section>
+    </ComercialChrome>
   );
 }

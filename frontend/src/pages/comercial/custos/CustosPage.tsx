@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
-import { useAuth } from '../../../auth/AuthContext';
-import { Shell } from '../../../layout/Shell';
-import { TopBar } from '../../../layout/TopBar';
 import { moduleRoutePath } from '../../../modules/registry';
+import { ComercialChrome } from '../components/ComercialChrome';
 import { footerAction, type CostSection } from './footerChain';
 
 // Mesma origem que o `TopBar` do filtroAPP usa — a marca é a mesma, e a
@@ -36,7 +34,6 @@ const SECOES: Array<{ value: CostSection; label: string }> = [
 type EstimateMode = 'new' | 'revision';
 
 export function CustosPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
@@ -75,14 +72,11 @@ export function CustosPage() {
   }
 
   return (
-    <Shell>
-      <TopBar
-        title="Levantamento de custos"
-        subtitle={user?.name || 'Filtrovali App'}
-        showLogo
-      />
-
-      <main className="page-scroll com-root">
+    <ComercialChrome
+      eyebrow="FILTROVALI / LEVANTAMENTO DE CUSTOS"
+      titulo={`Custos ${codigo}`}
+      descricao="Engenharia de custos Filtrovali: equipe, circuitos, materiais, logística e formação do preço em um só lugar."
+    >
         {/* O diálogo só aparece quando NÃO há modo no endereço (FR-044): ele
             serve para escolher o modo, não para confirmá-lo. Recarregar com
             `?modo=` já definido volta direto ao trabalho. */}
@@ -204,12 +198,12 @@ export function CustosPage() {
           <>
             {/* Tira de seções. As abas são LIVRES: dá para pular para qualquer
                 uma a qualquer momento. A cadeia do rodapé guia, não prende. */}
-            <nav className="com-tabs com-secoes" aria-label="Seções do levantamento">
+            <nav className="com-workflow-nav" aria-label="Etapas do levantamento">
               {SECOES.map((item, indice) => (
                 <button
                   key={item.value}
                   type="button"
-                  className={`com-secao-aba${secao === item.value ? ' is-ativa' : ''}`}
+                  className={secao === item.value ? 'is-ativa' : undefined}
                   aria-current={secao === item.value ? 'step' : undefined}
                   onClick={() => trocarSecao(item.value)}
                 >
@@ -266,7 +260,6 @@ export function CustosPage() {
             </footer>
           </>
         )}
-      </main>
-    </Shell>
+    </ComercialChrome>
   );
 }
