@@ -81,11 +81,7 @@ export function footerAction(pending: PendingSections, guards: SaveGuards): Foot
     }
   }
 
-  const blocked =
-    guards.saving ||
-    !guards.title.trim() ||
-    !guards.validPricing ||
-    !(guards.salePrice > 0);
+  const blocked = guards.saving || saveBlockedByContent(guards);
 
   return {
     kind: 'save',
@@ -93,6 +89,20 @@ export function footerAction(pending: PendingSections, guards: SaveGuards): Foot
     target: null,
     disabled: blocked
   };
+}
+
+/**
+ * Se o salvamento está travado pelo **conteúdo** do levantamento, e não por já
+ * estar salvando.
+ *
+ * A distinção existe porque o botão desabilitado é mudo: ele não diz o que
+ * falta. Quando a cadeia já chegou no fim e mesmo assim ele não deixa salvar,
+ * o que sobrou são campos — e é o único momento em que a tela pode acender o
+ * vermelho sem que o usuário tenha clicado, porque não há mais nada para
+ * clicar. "Salvando..." não é falta de nada e não deve acender coisa alguma.
+ */
+export function saveBlockedByContent(guards: SaveGuards): boolean {
+  return !guards.title.trim() || !guards.validPricing || !(guards.salePrice > 0);
 }
 
 /** A cadeia em texto, para o roteiro do tutorial de primeiro acesso (L4). */

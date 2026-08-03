@@ -77,7 +77,8 @@ function novoItem(direcao: string, destinoId?: string): AnyRecord {
 }
 
 export function LogisticaSection({ levantamento }: { levantamento: Levantamento }) {
-  const { draft, result, setDraft, updateCollection, removeCollection } = levantamento;
+  const { draft, result, setDraft, updateCollection, removeCollection, errosVisiveis } =
+    levantamento;
 
   const confirmacoes = (draft.scopeConfirmations as AnyRecord) || {};
   const semLogistica = confirmacoes.noLogistics === true;
@@ -155,11 +156,13 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
           onChange={definirSemLogistica}
         />
 
-        {!semLogistica && destinoSemNome && (
+        {!semLogistica && errosVisiveis && destinoSemNome && (
           <AvisoPendencia>Todo destino precisa de um nome.</AvisoPendencia>
         )}
 
-        {!semLogistica && pendentes > 0 && (
+        {/* O aviso diz "estão marcados abaixo", e só é verdade depois que a
+            marcação aparece. Mostrá-lo antes seria apontar para nada. */}
+        {!semLogistica && errosVisiveis && pendentes > 0 && (
           <AvisoPendencia>
             {pendentes === 1
               ? '1 deslocamento está incompleto.'
@@ -190,7 +193,7 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
                       const destinoId = String(destino.id);
                       const editar = (patch: AnyRecord) =>
                         updateCollection('logisticsDestinations', destinoId, patch);
-                      const semNome = !String(destino.name || '').trim();
+                      const semNome = errosVisiveis && !String(destino.name || '').trim();
 
                       // Distância só é cobrada se algum item obrigatório
                       // aponta para este destino — cobrar sempre marcaria de
@@ -202,7 +205,9 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
                           item.requiredSlot
                       );
                       const semDistancia =
-                        cobrado && numberValue(destino.oneWayDistanceKm) <= 0;
+                        errosVisiveis &&
+                        cobrado &&
+                        numberValue(destino.oneWayDistanceKm) <= 0;
 
                       return (
                         <tr key={destinoId}>

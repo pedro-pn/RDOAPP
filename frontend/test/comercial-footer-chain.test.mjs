@@ -18,6 +18,7 @@ import { createServer } from 'vite';
 let server;
 let footerAction;
 let chainSummary;
+let saveBlockedByContent;
 
 test.before(async () => {
   server = await createServer({
@@ -26,7 +27,7 @@ test.before(async () => {
     server: { middlewareMode: true },
     appType: 'custom'
   });
-  ({ footerAction, chainSummary } = await server.ssrLoadModule(
+  ({ footerAction, chainSummary, saveBlockedByContent } = await server.ssrLoadModule(
     '/src/pages/comercial/custos/footerChain.ts'
   ));
 });
@@ -126,4 +127,33 @@ test('a cadeia em texto serve ao roteiro do tutorial', () => {
     'Completar comissões e indicações →',
     'Salvar levantamento e criar proposta →'
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// Quando o vermelho pode aparecer
+// ---------------------------------------------------------------------------
+
+test('"Salvando..." não é falta de nada', () => {
+  // A tela acende os campos obrigatórios quando o salvamento está travado pelo
+  // CONTEÚDO. Estar no meio de um salvamento não é falta de campo nenhum, e
+  // acender por causa disso pintaria a tela no pior momento possível.
+  assert.equal(saveBlockedByContent({ ...podeSalvar, saving: true }), false);
+  assert.equal(footerAction(nadaPendente, { ...podeSalvar, saving: true }).disabled, true);
+});
+
+test('título vazio trava o salvamento pelo conteúdo', () => {
+  assert.equal(saveBlockedByContent({ ...podeSalvar, title: '   ' }), true);
+  assert.equal(saveBlockedByContent({ ...podeSalvar, validPricing: false }), true);
+  assert.equal(saveBlockedByContent({ ...podeSalvar, salePrice: 0 }), true);
+  assert.equal(saveBlockedByContent(podeSalvar), false);
+});
+
+test('um levantamento recém-aberto não acende nada sozinho', () => {
+  // A REGRESSÃO que este teste existe para impedir: o levantamento abre com a
+  // condição de trabalho por confirmar, o que é legítimo e esperado. Se nesse
+  // estado a cadeia já apontasse para "salvar", a tela acenderia quarenta
+  // campos que o usuário ainda não viu. Ela aponta para mão de obra.
+  const acao = footerAction({ ...nadaPendente, labor: true }, podeSalvar);
+  assert.equal(acao.kind, 'goto');
+  assert.notEqual(acao.kind, 'save');
 });

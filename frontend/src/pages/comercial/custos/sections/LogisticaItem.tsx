@@ -44,14 +44,18 @@ export function LogisticaItem({
   item: AnyRecord;
   levantamento: Levantamento;
 }) {
-  const { draft, result, updateCollection, removeCollection } = levantamento;
+  const { draft, result, updateCollection, removeCollection, errosVisiveis, erroSe } =
+    levantamento;
   const id = String(item.id);
   const confirmacoes = (draft.scopeConfirmations as AnyRecord) || {};
   const fases = registros(draft.laborContexts);
   const destinos = registros(draft.logisticsDestinations);
 
   const dispensado = transporteDispensado(item, confirmacoes);
-  const pendente = !dispensado && itemPrecisaAtencao(item, fases);
+  // A marcação do card segue a mesma regra do vermelho nos campos: só
+  // depois que o usuário tenta avançar. Antes disso quem avisa é o rodapé.
+  const pendente =
+    errosVisiveis && !dispensado && itemPrecisaAtencao(item, fases);
 
   const calculado =
     registros(result.logisticsResults).find(r => r.id === id) || {};
@@ -124,9 +128,7 @@ export function LogisticaItem({
           value={item.calculationModeConfirmed ? modo : ''}
           emptyLabel="Selecione como este deslocamento é calculado"
           options={MODOS}
-          error={
-            item.calculationModeConfirmed && modo ? undefined : 'Campo obrigatório'
-          }
+          error={erroSe(!(item.calculationModeConfirmed && modo), 'Campo obrigatório')}
           /* Mesmo padrão da condição de trabalho: o valor só aparece depois de
              confirmado, para forçar a escolha em vez de aceitar um padrão. */
           onChange={valor =>
@@ -150,7 +152,7 @@ export function LogisticaItem({
           value={item.trips}
           min={0}
           step={1}
-          error={numberValue(item.trips) <= 0 ? 'Informe ao menos uma viagem' : undefined}
+          error={erroSe(numberValue(item.trips) <= 0, 'Informe ao menos uma viagem')}
           onChange={valor => editar({ trips: valor })}
         />
       </div>
@@ -162,7 +164,7 @@ export function LogisticaItem({
             value={item.quantity}
             min={0}
             step={0.01}
-            error={numberValue(item.quantity) <= 0 ? 'Campo obrigatório' : undefined}
+            error={erroSe(numberValue(item.quantity) <= 0, 'Campo obrigatório')}
             onChange={valor => editar({ quantity: valor })}
           />
           <NumberField
@@ -170,7 +172,7 @@ export function LogisticaItem({
             value={item.unitCost}
             min={0}
             step={0.01}
-            error={numberValue(item.unitCost) <= 0 ? 'Campo obrigatório' : undefined}
+            error={erroSe(numberValue(item.unitCost) <= 0, 'Campo obrigatório')}
             onChange={valor => editar({ unitCost: valor })}
           />
         </div>
@@ -187,7 +189,7 @@ export function LogisticaItem({
               value: String(fase.id),
               label: String(fase.name || 'Fase')
             }))}
-            error={item.contextId ? undefined : 'Campo obrigatório'}
+            error={erroSe(!item.contextId, 'Campo obrigatório')}
             /* Sem fase não há equipe, e sem equipe não há quem transportar. */
             onChange={valor => editar({ contextId: valor })}
           />
@@ -218,9 +220,7 @@ export function LogisticaItem({
             value={item.distanceKmPerVehicle}
             min={0}
             step={1}
-            error={
-              numberValue(item.distanceKmPerVehicle) <= 0 ? 'Campo obrigatório' : undefined
-            }
+            error={erroSe(numberValue(item.distanceKmPerVehicle) <= 0, 'Campo obrigatório')}
             onChange={valor => editar({ distanceKmPerVehicle: valor })}
           />
 
@@ -246,7 +246,7 @@ export function LogisticaItem({
               value={item.vehicleCount}
               min={0}
               step={1}
-              error={numberValue(item.vehicleCount) <= 0 ? 'Campo obrigatório' : undefined}
+              error={erroSe(numberValue(item.vehicleCount) <= 0, 'Campo obrigatório')}
               onChange={valor => editar({ vehicleCount: valor })}
             />
           )}

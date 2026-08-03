@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { useAuth } from '../../../auth/AuthContext';
 import { FaixaIndicadores } from './FaixaIndicadores';
-import { footerAction, type CostSection } from './footerChain';
+import { footerAction, saveBlockedByContent, type CostSection } from './footerChain';
 import { numberValue } from './formato';
 import { pendenciasDe } from './pendencias';
 import { InsumosSection } from './sections/InsumosSection';
@@ -54,16 +54,31 @@ export function CustosPage() {
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
 
   const levantamento = useLevantamento(user?.name || '');
-  const { draft, result } = levantamento;
+  const { draft, result, revelarErros } = levantamento;
 
   // A cadeia do rodapé está completa: as quatro seções sabem dizer se pendem.
   const pendencias = pendenciasDe(draft, result);
-  const acao = footerAction(pendencias, {
+  const guardas = {
     saving: false,
     title: String(draft.title || ''),
     validPricing: Boolean(result.validPricing),
     salePrice: numberValue(result.salePrice)
-  });
+  };
+  const acao = footerAction(pendencias, guardas);
+
+  /**
+   * Último degrau da cadeia com o salvamento travado: acende o vermelho sem
+   * esperar clique.
+   *
+   * O botão desabilitado não tem para onde levar e não explica nada. Aqui o
+   * usuário já percorreu as quatro seções — o que resta são campos, e é
+   * exatamente o momento em que apontá-los ajuda.
+   */
+  const salvarTravadoPorConteudo = acao.kind === 'save' && saveBlockedByContent(guardas);
+
+  useEffect(() => {
+    if (salvarTravadoPorConteudo) revelarErros();
+  }, [salvarTravadoPorConteudo, revelarErros]);
 
   const codigo = base || '—';
 
@@ -262,6 +277,10 @@ export function CustosPage() {
                 className="com-btn com-btn-primario"
                 disabled={acao.disabled}
                 onClick={() => {
+                  // Tentar avançar é o gatilho: daqui em diante os campos
+                  // obrigatórios que faltam ficam marcados, e passam a acender
+                  // e apagar ao vivo enquanto o usuário corrige.
+                  revelarErros();
                   if (acao.kind === 'goto') trocarSecao(acao.target);
                   else setMostrarConfirmacao(true);
                 }}

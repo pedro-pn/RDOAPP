@@ -37,7 +37,7 @@ const BASES_COMISSAO = [
 ];
 
 export function ResumoSection({ levantamento }: { levantamento: Levantamento }) {
-  const { draft, result, setDraft } = levantamento;
+  const { draft, result, setDraft, erroSe } = levantamento;
 
   const comercial = (draft.commercial as AnyRecord) || {};
   const comissao = (comercial.representativeCommission as AnyRecord) || {};
@@ -95,11 +95,7 @@ export function ResumoSection({ levantamento }: { levantamento: Levantamento }) 
               value={comercial.globalValue}
               min={0}
               step={0.01}
-              error={
-                numberValue(comercial.globalValue) <= 0
-                  ? 'Informe o valor fechado'
-                  : undefined
-              }
+              error={erroSe(numberValue(comercial.globalValue) <= 0, 'Informe o valor fechado')}
               onChange={valor => editarComercial({ globalValue: valor })}
             />
           )}
@@ -150,11 +146,7 @@ export function ResumoSection({ levantamento }: { levantamento: Levantamento }) 
               label="Nome do representante"
               required
               value={String(comissao.representativeName || '')}
-              error={
-                String(comissao.representativeName || '').trim()
-                  ? undefined
-                  : 'Campo obrigatório'
-              }
+              error={erroSe(!String(comissao.representativeName || '').trim(), 'Campo obrigatório')}
               onChange={valor => editarComissao({ representativeName: valor })}
             />
 
@@ -165,9 +157,7 @@ export function ResumoSection({ levantamento }: { levantamento: Levantamento }) 
               min={0}
               max={99}
               step={0.01}
-              error={
-                numberValue(comissao.percent) <= 0 ? 'Informe o percentual' : undefined
-              }
+              error={erroSe(numberValue(comissao.percent) <= 0, 'Informe o percentual')}
               onChange={valor => editarComissao({ percent: valor })}
             />
 

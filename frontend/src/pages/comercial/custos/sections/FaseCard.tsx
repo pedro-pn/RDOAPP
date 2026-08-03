@@ -48,7 +48,7 @@ export function FaseCard({
   total: number;
   levantamento: Levantamento;
 }) {
-  const { updateCollection, removeCollection } = levantamento;
+  const { updateCollection, removeCollection, erroSe } = levantamento;
   const id = String(fase.id);
   const emViagem = fase.workCondition === 'travel';
   const confirmada = fase.workConditionConfirmed === true;
@@ -106,11 +106,7 @@ export function FaseCard({
                 value={confirmada ? String(fase.workCondition || '') : ''}
                 emptyLabel="Selecione Sede, Em viagem ou Offshore"
                 options={CONDICOES}
-                error={
-                  confirmada && fase.workCondition
-                    ? undefined
-                    : 'Campo obrigatório'
-                }
+                error={erroSe(!(confirmada && fase.workCondition), 'Campo obrigatório')}
                 onChange={valor => {
                   // Offshore traz um calendário próprio de 21 dias — escolher
                   // a condição já preenche a escala, senão o usuário digitaria
@@ -134,7 +130,7 @@ export function FaseCard({
               value={String(fase.vehicleType || '')}
               emptyLabel="Selecione o veículo"
               options={VEICULOS}
-              error={fase.vehicleType ? undefined : 'Campo obrigatório'}
+              error={erroSe(!fase.vehicleType, 'Campo obrigatório')}
               onChange={valor => editar({ vehicleType: valor })}
             />
 
@@ -155,11 +151,10 @@ export function FaseCard({
               step={1}
               /* Só faz sentido em viagem, e só depois de confirmar a condição. */
               disabled={!confirmada || !emViagem}
-              error={
-                emViagem && numberValue(fase.hotelSiteDistanceKmPerDay) <= 0
-                  ? 'Informe a distância diária entre hotel e obra'
-                  : undefined
-              }
+              error={erroSe(
+                emViagem && numberValue(fase.hotelSiteDistanceKmPerDay) <= 0,
+                'Informe a distância diária entre hotel e obra'
+              )}
               onChange={valor => editar({ hotelSiteDistanceKmPerDay: valor })}
             />
 

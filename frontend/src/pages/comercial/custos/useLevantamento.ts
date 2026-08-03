@@ -48,6 +48,27 @@ export function useLevantamento(estimatorName: string) {
   const validation = useMemo(() => validateCostEstimate(draft) as AnyRecord, [draft]);
 
   /**
+   * Se os erros já podem ser **mostrados**.
+   *
+   * A validação roda desde o primeiro render — precisa rodar, porque é dela
+   * que saem as pendências do rodapé-guia e o estado do botão de salvar. Mas
+   * um levantamento recém-aberto está legitimamente incompleto: pintar de
+   * vermelho quarenta campos que o usuário ainda nem viu transforma o
+   * vermelho em papel de parede, e aí ele deixa de significar alguma coisa
+   * quando o erro for real.
+   *
+   * Então: **o erro existe desde sempre, mas só aparece depois que o usuário
+   * tenta avançar.** Uma vez revelado, continua revelado — a partir daí o
+   * campo acende e apaga ao vivo enquanto ele corrige, que é o retorno que
+   * ele quer justamente nesse momento.
+   *
+   * O rodapé-guia continua dizendo o que falta desde o início. Ele orienta
+   * sem acusar; é o vermelho no campo que acusa.
+   */
+  const [errosVisiveis, setErrosVisiveis] = useState(false);
+  const revelarErros = useCallback(() => setErrosVisiveis(true), []);
+
+  /**
    * Índice `caminho do campo` → mensagem, para a lacuna L1.
    *
    * `validateCostEstimate` já devolve `{ path, message, severity }` por item —
@@ -191,7 +212,20 @@ export function useLevantamento(estimatorName: string) {
     removeNested,
     addNested,
     resultadoDaFase,
-    /** Mensagem do campo, ou `undefined` se ele está válido. */
-    erroDe: (caminho: string) => errosPorCampo.get(caminho)
+    errosVisiveis,
+    revelarErros,
+    /** Mensagem do campo, ou `undefined` se ele está válido — ou ainda oculto. */
+    erroDe: (caminho: string) =>
+      errosVisiveis ? errosPorCampo.get(caminho) : undefined,
+    /**
+     * Erro apurado pela própria seção, sujeito à mesma regra de visibilidade.
+     *
+     * Existe porque nem toda obrigatoriedade da tela vem de
+     * `validateCostEstimate` — várias são locais ao item sendo editado. Se
+     * cada seção decidisse sozinha quando mostrar, a tela acenderia em
+     * pedaços.
+     */
+    erroSe: (condicao: boolean, mensagem: string) =>
+      errosVisiveis && condicao ? mensagem : undefined
   };
 }
