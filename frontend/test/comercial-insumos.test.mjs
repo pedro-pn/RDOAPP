@@ -339,3 +339,133 @@ test('as quatro coleções somam no mesmo volume', () => {
     'mangueira, equipamento e volume manual têm de somar'
   );
 });
+
+// ---------------------------------------------------------------------------
+// Produtos dosados sobre o volume
+// ---------------------------------------------------------------------------
+
+function circuitoDe1000L() {
+  // Tubo de 200 mm e ~31,8 m ≈ 1000 L. Usar um volume redondo torna as
+  // asserções de dosagem legíveis.
+  return circuito({
+    id: 'c1',
+    pipeSegments: [
+      {
+        id: 't1',
+        description: 'Linha',
+        quantity: 1,
+        lengthM: 31.831,
+        internalDiameterMm: 200,
+        fillPercent: 100
+      }
+    ]
+  });
+}
+
+function produto(extras = {}) {
+  return {
+    id: 'p1',
+    systemId: 'c1',
+    productName: 'Detergente',
+    unit: 'kg',
+    doseMode: 'percent_volume',
+    dose: 2,
+    densityKgPerL: 1,
+    wastePercent: 0,
+    packageSize: 1,
+    priceBasis: 'unit',
+    unitCost: 10,
+    manualQuantity: 0,
+    included: true,
+    ...extras
+  };
+}
+
+function comProduto(p, c = circuitoDe1000L()) {
+  const base = motor.createDefaultCostEstimatePayload();
+  return { ...base, volumeSystems: [c], products: [p] };
+}
+
+test('produto dosado por % do volume gera necessidade proporcional', () => {
+  const dois = motor.calculateEstimate(comProduto(produto({ dose: 2 })));
+  const quatro = motor.calculateEstimate(comProduto(produto({ dose: 4 })));
+
+  const um = Number(dois.productResults[0].requiredQuantity);
+  const outro = Number(quatro.productResults[0].requiredQuantity);
+
+  assert.ok(um > 0, 'dosagem de 2% tem de gerar necessidade');
+  assert.ok(Math.abs(outro / um - 2) < 0.01, 'dobrar a dosagem dobra a necessidade');
+});
+
+test('a EMBALAGEM arredonda a compra para cima', () => {
+  // É a diferença entre o que o cálculo pede e o que se compra de verdade.
+  const emBaldes = motor.calculateEstimate(comProduto(produto({ packageSize: 20 })));
+  const linha = emBaldes.productResults[0];
+
+  const necessidade = Number(linha.requiredQuantity);
+  const compra = Number(linha.purchaseQuantity);
+
+  assert.ok(compra >= necessidade, 'nunca se compra menos que o necessário');
+  assert.equal(
+    compra % 20,
+    0,
+    'a compra tem de ser múltiplo da embalagem — não dá para comprar meio balde'
+  );
+});
+
+test('produto sem circuito usa quantidade manual', () => {
+  const manual = motor.calculateEstimate(
+    comProduto(produto({ systemId: '', doseMode: 'manual', manualQuantity: 50 }))
+  );
+  assert.ok(
+    Number(manual.productResults[0].requiredQuantity) > 0,
+    'quantidade manual tem de valer quando não há circuito'
+  );
+});
+
+test('perda percentual aumenta a necessidade', () => {
+  const semPerda = motor.calculateEstimate(comProduto(produto({ wastePercent: 0 })));
+  const comPerda = motor.calculateEstimate(comProduto(produto({ wastePercent: 10 })));
+
+  assert.ok(
+    Number(comPerda.productResults[0].requiredQuantity) >
+      Number(semPerda.productResults[0].requiredQuantity)
+  );
+});
+
+test('circuito maior consome mais produto — é a ligação entre os dois blocos', () => {
+  const pequeno = circuitoDe1000L();
+  const grande = circuito({
+    id: 'c1',
+    pipeSegments: [
+      {
+        id: 't1',
+        description: 'Linha',
+        quantity: 2,
+        lengthM: 31.831,
+        internalDiameterMm: 200,
+        fillPercent: 100
+      }
+    ]
+  });
+
+  const menor = motor.calculateEstimate(comProduto(produto(), pequeno));
+  const maior = motor.calculateEstimate(comProduto(produto(), grande));
+
+  assert.ok(
+    Number(maior.productResults[0].requiredQuantity) >
+      Number(menor.productResults[0].requiredQuantity),
+    'dimensionar o circuito errado erra a compra de produto'
+  );
+});
+
+test('produto desmarcado não custa', () => {
+  const dentro = motor.calculateEstimate(comProduto(produto({ included: true })));
+  const fora = motor.calculateEstimate(comProduto(produto({ included: false })));
+
+  assert.ok(Number(dentro.inputCost) > Number(fora.inputCost));
+});
+
+test('produto incluído desliga a pendência de insumos', () => {
+  assert.equal(faltaInsumos(comProduto(produto())), false);
+});

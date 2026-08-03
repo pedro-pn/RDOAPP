@@ -4,6 +4,7 @@ import { money, number, numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
 import { CircuitosBloco } from './CircuitosBloco';
 import { FiltrosTabela } from './FiltrosTabela';
+import { ProdutosBloco } from './ProdutosBloco';
 
 /**
  * Seção 3 — Materiais e insumos.
@@ -11,11 +12,9 @@ import { FiltrosTabela } from './FiltrosTabela';
  * Cobre `CUSTO-CTL-138..228` (91 controles). Porte de `InputsSection`
  * (`app/custos/page.tsx:1039-1268`).
  *
- * **Este passo entrega a tabela de materiais**, que é o bloco de entrada
- * manual. Os circuitos de volume, os produtos químicos dimensionados e os
- * filtros são blocos próprios da mesma seção e vêm no passo seguinte — eles
- * dependem do dimensionamento por sistema, que tem estrutura aninhada em dois
- * níveis.
+ * A seção é composta por quatro blocos, como na referência: materiais de
+ * entrada manual, circuitos de volume, produtos dosados sobre esse volume e
+ * filtros. Cada um é um cartão próprio.
  *
  * Um detalhe do fluxo que vale registrar: **mexer em insumos desliga a
  * confirmação "sem insumos"**. Quem confirmou que não haveria insumos e depois
@@ -53,6 +52,7 @@ export function InsumosSection({ levantamento }: { levantamento: Levantamento })
     <>
       <MateriaisBloco levantamento={levantamento} />
       <CircuitosBloco levantamento={levantamento} />
+      <ProdutosBloco levantamento={levantamento} />
       <FiltrosTabela levantamento={levantamento} />
     </>
   );
