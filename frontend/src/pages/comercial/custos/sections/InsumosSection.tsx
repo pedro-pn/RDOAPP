@@ -1,0 +1,267 @@
+import { hasMeaningfulInputs } from '../../../../../../shared/comercial/dist/cost-model.js';
+import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
+import { money, number, numberValue } from '../formato';
+import type { Levantamento } from '../useLevantamento';
+
+/**
+ * Seção 3 — Materiais e insumos.
+ *
+ * Cobre `CUSTO-CTL-138..228` (91 controles). Porte de `InputsSection`
+ * (`app/custos/page.tsx:1039-1268`).
+ *
+ * **Este passo entrega a tabela de materiais**, que é o bloco de entrada
+ * manual. Os circuitos de volume, os produtos químicos dimensionados e os
+ * filtros são blocos próprios da mesma seção e vêm no passo seguinte — eles
+ * dependem do dimensionamento por sistema, que tem estrutura aninhada em dois
+ * níveis.
+ *
+ * Um detalhe do fluxo que vale registrar: **mexer em insumos desliga a
+ * confirmação "sem insumos"**. Quem confirmou que não haveria insumos e depois
+ * acrescenta um material está se contradizendo, e a referência resolve isso
+ * apagando a confirmação em vez de deixar as duas afirmações coexistirem.
+ */
+
+type AnyRecord = Record<string, unknown>;
+
+const CATEGORIAS = [
+  { value: 'material', label: 'Material' },
+  { value: 'input', label: 'Insumo' }
+];
+
+function registros(valor: unknown): AnyRecord[] {
+  return Array.isArray(valor) ? (valor as AnyRecord[]) : [];
+}
+
+function novoMaterial(): AnyRecord {
+  return {
+    id: `material-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    category: 'material',
+    description: '',
+    unit: 'un.',
+    quantity: 1,
+    unitCost: 0,
+    wastePercent: 0,
+    freightValue: 0,
+    included: true
+  };
+}
+
+export function InsumosSection({ levantamento }: { levantamento: Levantamento }) {
+  const { draft, result, setDraft, updateCollection, removeCollection } = levantamento;
+
+  const confirmacoes = (draft.scopeConfirmations as AnyRecord) || {};
+  const semInsumos = confirmacoes.noInputs === true;
+  const temComposicao = hasMeaningfulInputs(draft);
+  const materiais = registros(draft.materials);
+  const calculados = registros(result.materialResults);
+
+  function definirSemInsumos(valor: boolean) {
+    setDraft(atual => ({
+      ...atual,
+      scopeConfirmations: {
+        ...((atual.scopeConfirmations as AnyRecord) || {}),
+        noInputs: valor
+      }
+    }));
+  }
+
+  /**
+   * Acrescenta material **e desfaz a confirmação de "sem insumos"**.
+   * Deixar as duas coexistindo permitiria salvar um levantamento que afirma
+   * não ter insumos e lista três.
+   */
+  function acrescentarMaterial() {
+    setDraft(atual => ({
+      ...atual,
+      materials: [...registros(atual.materials), novoMaterial()],
+      scopeConfirmations: {
+        ...((atual.scopeConfirmations as AnyRecord) || {}),
+        noInputs: false
+      }
+    }));
+  }
+
+  return (
+    <section className="com-painel">
+      <div className="com-secao-titulo">
+        <div>
+          <h2>Materiais e insumos</h2>
+          <p>
+            Cadastre peças, filtros, consumíveis e itens manuais. Produtos químicos
+            dimensionados pelos circuitos aparecem no bloco seguinte.
+          </p>
+        </div>
+        <button type="button" className="com-btn-add" onClick={acrescentarMaterial}>
+          + Adicionar item
+        </button>
+      </div>
+
+      <ConfirmacaoEscopo
+        confirmado={semInsumos}
+        tituloPendente={
+          temComposicao
+            ? 'Composição de insumos identificada'
+            : 'Revisão obrigatória dos insumos'
+        }
+        tituloConfirmado="Sem insumos confirmado"
+        descricaoPendente="Se este serviço realmente não utilizar insumos, confirme explicitamente antes de finalizar."
+        descricaoConfirmada="Materiais, produtos, filtros e efluente ficam fora deste levantamento."
+        rotulo="Confirmo que não haverá materiais ou insumos"
+        onChange={definirSemInsumos}
+      />
+
+      {!semInsumos && !temComposicao && (
+        <AvisoPendencia>
+          Adicione ao menos um material, circuito, produto manual ou filtro, ou confirme que
+          não haverá insumos.
+        </AvisoPendencia>
+      )}
+
+      {materiais.length > 0 ? (
+        <div className="com-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Descrição</th>
+                <th scope="col">Categoria</th>
+                <th scope="col">Unidade</th>
+                <th scope="col">Quantidade</th>
+                <th scope="col">Custo unitário</th>
+                <th scope="col">Perda</th>
+                <th scope="col">Frete</th>
+                <th scope="col">Incluir</th>
+                <th scope="col">Subtotal</th>
+                <th scope="col">
+                  <span className="com-sr">Ações</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {materiais.map(item => {
+                const id = String(item.id);
+                const calculado = calculados.find(c => c.id === id) || {};
+
+                const editar = (patch: AnyRecord) => updateCollection('materials', id, patch);
+                const editarNumero = (campo: string) => (event: { target: { value: string } }) =>
+                  editar({
+                    [campo]: event.target.value === '' ? 0 : Number(event.target.value)
+                  });
+
+                return (
+                  <tr key={id}>
+                    <td>
+                      <input
+                        aria-label="Descrição"
+                        value={String(item.description || '')}
+                        onChange={event => editar({ description: event.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        aria-label="Categoria"
+                        value={String(item.category || 'material')}
+                        onChange={event => editar({ category: event.target.value })}
+                      >
+                        {CATEGORIAS.map(categoria => (
+                          <option key={categoria.value} value={categoria.value}>
+                            {categoria.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        aria-label="Unidade"
+                        value={String(item.unit || '')}
+                        onChange={event => editar({ unit: event.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        aria-label="Quantidade"
+                        value={(item.quantity as number) ?? ''}
+                        min={0}
+                        step={0.01}
+                        onChange={editarNumero('quantity')}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        aria-label="Custo unitário"
+                        value={(item.unitCost as number) ?? ''}
+                        min={0}
+                        step={0.01}
+                        onChange={editarNumero('unitCost')}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        aria-label="Perda em porcentagem"
+                        value={(item.wastePercent as number) ?? ''}
+                        min={0}
+                        step={0.1}
+                        onChange={editarNumero('wastePercent')}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        aria-label="Frete"
+                        value={(item.freightValue as number) ?? ''}
+                        min={0}
+                        step={0.01}
+                        onChange={editarNumero('freightValue')}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label="Incluir no levantamento"
+                        checked={item.included !== false}
+                        onChange={event => editar({ included: event.target.checked })}
+                      />
+                    </td>
+                    <td className="com-calculado">
+                      {/* Item excluído mostra travessão, não R$ 0,00: zero
+                          seria um valor, e o item não entra no cálculo. */}
+                      {item.included === false ? '—' : money(numberValue(calculado.total))}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="com-remover"
+                        aria-label={`Remover ${String(item.description || 'item')}`}
+                        onClick={() => removeCollection('materials', id)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="com-vazio">Nenhum material ou insumo cadastrado.</div>
+      )}
+
+      <div className="com-nota-regra">
+        <strong>Custo de materiais neste levantamento</strong>
+        <span>
+          {money(numberValue(result.materialCost))} em materiais ·{' '}
+          {number(materiais.filter(item => item.included !== false).length)} item(ns)
+          incluído(s)
+        </span>
+      </div>
+
+      <p className="com-placeholder">
+        Circuitos de volume, produtos químicos dimensionados e filtros entram no próximo
+        passo — eles dependem do dimensionamento por sistema.
+      </p>
+    </section>
+  );
+}

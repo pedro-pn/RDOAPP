@@ -8,6 +8,7 @@ import { FaixaIndicadores } from './FaixaIndicadores';
 import { footerAction, type CostSection } from './footerChain';
 import { numberValue } from './formato';
 import { pendenciasDe } from './pendencias';
+import { InsumosSection } from './sections/InsumosSection';
 import { MaoDeObraSection } from './sections/MaoDeObraSection';
 import { PremissasSection } from './sections/PremissasSection';
 import { useLevantamento } from './useLevantamento';
@@ -234,6 +235,8 @@ export function CustosPage() {
               <PremissasSection levantamento={levantamento} />
             ) : secao === 'labor' ? (
               <MaoDeObraSection levantamento={levantamento} />
+            ) : secao === 'inputs' ? (
+              <InsumosSection levantamento={levantamento} />
             ) : (
               <section className="com-painel com-secao-corpo">
                 <div className="com-secao-titulo">
