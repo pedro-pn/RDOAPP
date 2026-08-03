@@ -631,6 +631,7 @@
 
 .com-root .com-marca {
   display: inline-flex;
+  min-width: 180px;
   align-items: center;
   gap: 11px;
   text-decoration: none;
@@ -641,7 +642,18 @@
   min-width: 0;
 }
 
-.com-root .com-marca img { width: 48px; height: 38px; object-fit: contain; }
+/* 184px de largura, altura automática com teto de 52 — NÃO 48x38.
+   `.cost-brand img{width:48px}` existe, mas `.brand>img{width:184px}` vem
+   depois com a mesma especificidade e vence. Portar a primeira regra que se
+   acha é o erro que a ferramenta `contracts/valor-efetivo.mjs` existe para
+   evitar. */
+.com-root .com-marca img {
+  display: block;
+  width: 184px;
+  height: auto;
+  max-height: 52px;
+  object-fit: contain;
+}
 
 .com-root .com-topbar-acoes {
   display: flex;
@@ -690,6 +702,41 @@
   color: #fff;
   background: linear-gradient(125deg, #173b29 0%, #2f6446 72%, #3d7655 100%);
   box-shadow: 0 12px 30px #173d283d;
+}
+
+/* Os dois elementos decorativos que dão identidade à faixa, e que eu tinha
+   deixado de fora — sem eles o hero é só um retângulo verde:
+
+   ::before  anel concêntrico gigante saindo pela direita, com dois halos
+   ::after   a faixa de marca de 3px no rodapé: azul, lavanda, VERMELHO e
+             transparente. É o detalhe mais reconhecível da identidade. */
+.com-root .com-hero::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: -5%;
+  bottom: -190%;
+  width: 34%;
+  aspect-ratio: 1;
+  border: 2px solid #ffffff24;
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px #ffffff0b, 0 0 0 68px #ffffff08;
+}
+
+.com-root .com-hero::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    #1b4f86 0 18%,
+    #aaa5b4 18% 31%,
+    var(--com-erro) 31% 42%,
+    #ffffff22 42% 100%
+  );
 }
 
 /* Eyebrow, título e descrição ficam na MESMA linha — é
@@ -779,6 +826,9 @@
 
 @media (max-width: 600px) {
   .com-root .com-topbar { height: auto; padding: 10px 18px; flex-wrap: wrap; }
+  .com-root .com-marca { min-width: 0; }
+  .com-root .com-marca img { width: 145px; }
+  .com-root .com-hero::before { right: -18%; bottom: -80%; width: 65%; }
   .com-root .com-hero { position: relative; top: auto; padding: 16px 20px 18px; }
   .com-root .com-hero-titulo { display: block; }
   .com-root .com-hero h1 { margin: 5px 0; }
