@@ -1564,3 +1564,28 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+/* Busca no CRM da etapa 1 da proposta. */
+.com-root .com-crm-busca {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.com-root .com-crm-busca input {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+/* Etapa já concluída no stepper — o ✓ substitui o número. */
+.com-root .com-workflow-nav button.is-concluida b {
+  background: var(--com-acao);
+  color: #fff;
+  border-color: var(--com-acao);
+}
+
+.com-root .com-workflow-nav button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

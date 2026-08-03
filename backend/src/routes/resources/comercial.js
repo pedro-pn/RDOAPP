@@ -13,6 +13,7 @@ import {
   listCostEstimates,
   updateCostEstimate
 } from '../../lib/comercial/cost-estimates.js';
+import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { nextProposalNumber, numberingStatus } from '../../lib/comercial/numbering.js';
 import { comercialStatus } from '../../lib/comercial/service.js';
 import prisma from '../../lib/prisma.js';
@@ -58,6 +59,22 @@ function handleComercialError(error, res) {
 router.get('/status', (_req, res) => {
   res.json(comercialStatus());
 });
+
+// ---------------------------------------------------------------------------
+// Consultores de vendas
+// ---------------------------------------------------------------------------
+
+/**
+ * A lista **varia por papel**: gestor recebe todos, vendedor recebe só a si mesmo.
+ * A restrição acontece aqui, na origem — não é o cliente que filtra.
+ */
+router.get(
+  '/consultores',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    res.json(await listarConsultores(prisma, req.auth.user));
+  })
+);
 
 // ---------------------------------------------------------------------------
 // Numeração

@@ -13,6 +13,7 @@ import { RomaneioPage } from '../pages/romaneio/RomaneioPage';
 import { moduleRouteAccess, moduleRoutePath } from './registry';
 import { ComercialPage } from '../pages/comercial/ComercialPage';
 import { CustosPage } from '../pages/comercial/custos/CustosPage';
+import { PropostaPage } from '../pages/comercial/proposta/PropostaPage';
 // module:scaffold import
 
 const ADMIN_ACCOUNTS_ACCESS = moduleRouteAccess('admin', 'accounts');
@@ -64,6 +65,7 @@ export const moduleRouteElements = (
     <Route element={<RoleRoute {...COMERCIAL_ACCESS} />}>
       <Route path={moduleRoutePath('comercial', 'index')} element={<ComercialPage />} />
       <Route path={moduleRoutePath('comercial', 'custos')} element={<CustosPage />} />
+      <Route path={moduleRoutePath('comercial', 'propostas')} element={<PropostaPage />} />
     </Route>
 
     {/* module:scaffold routes */}    {/* module:scaffold routes */}

@@ -116,3 +116,23 @@ export async function reservarProximoNumero() {
   );
   return data.numero;
 }
+
+export interface Consultor {
+  id: string;
+  nome: string;
+  username: string;
+}
+
+/**
+ * Consultores de vendas.
+ *
+ * `podeEscolher` vem do servidor, não é deduzido aqui: gestor recebe a lista
+ * completa, vendedor recebe só a si mesmo. A restrição acontece na origem — o cliente
+ * apenas reflete o que chegou.
+ */
+export async function listarConsultores() {
+  const { data } = await apiClient.get<{ items: Consultor[]; podeEscolher: boolean }>(
+    '/comercial/consultores'
+  );
+  return data;
+}

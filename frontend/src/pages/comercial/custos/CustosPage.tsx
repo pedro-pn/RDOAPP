@@ -197,9 +197,9 @@ export function CustosPage() {
       rascunho.limparTudo();
       setMostrarConfirmacao(false);
       setSalvo(gravado.id);
-      setRecado(
-        `Levantamento ${gravado.proposalCode} salvo. ` +
-          'A montagem da proposta ainda não está pronta nesta versão.'
+      setRecado('');
+      navigate(
+        `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}&etapa=cliente`
       );
     } catch (error) {
       setMostrarConfirmacao(false);

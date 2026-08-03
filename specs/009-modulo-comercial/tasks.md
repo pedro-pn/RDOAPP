@@ -297,9 +297,15 @@ da finalização.
 
 ### Frontend — as 7 etapas `(E8)`
 
-- [ ] T055 [US2] Criar o container `frontend/src/pages/comercial/proposta/PropostaPage.tsx` com o stepper de 7 etapas — `PROP-CTL-001..010` e `PROP-H-001..003`. O stepper cabe em uma linha só (confirmado na baseline).  ↳ `FR-001` `FR-002`
-- [ ] T056 [US2] Implementar `frontend/src/pages/comercial/proposta/PropostaFooter.tsx` com o contador de pendências e a trava de avanço: "Preencha N campo(s) obrigatório(s)" com o botão desabilitado. **Não dá para pular etapa incompleta.**
-- [ ] T057 [US2] [P] Implementar `proposta/steps/ClienteStep.tsx` — `PROP-CTL-011..025`. Trava: proposta, cliente, contato, **e-mail válido**, **CNPJ válido**, site, consultor de vendas, orçamentista.
+- [X] T055 [US2] Criar o container `frontend/src/pages/comercial/proposta/PropostaPage.tsx` com o stepper de 7 etapas — `PROP-CTL-001..010` e `PROP-H-001..003`. O stepper cabe em uma linha só (confirmado na baseline).  ↳ `FR-001` `FR-002`
+- [X] T056 [US2] Implementar `frontend/src/pages/comercial/proposta/PropostaFooter.tsx` com o contador de pendências e a trava de avanço: "Preencha N campo(s) obrigatório(s)" com o botão desabilitado. **Não dá para pular etapa incompleta.**
+- [X] T057 [US2] [P] Implementar `proposta/steps/ClienteStep.tsx` — `PROP-CTL-011..025`. Trava: proposta, cliente, contato, **e-mail válido**, **CNPJ válido**, site, consultor de vendas, orçamentista.
+
+  > **Portada, com uma exceção declarada.** `PROP-CTL-012..015` (busca de empresa no
+  > Nectar) existem na tela, **desabilitados**, porque a integração é a T076. O controle
+  > diz por que não responde em vez de tentar, falhar e parecer defeito. O CNPJ ficou
+  > **mais estrito que a referência**: ela conferia só 14 dígitos, aqui os dígitos
+  > verificadores são calculados — o CNPJ vai impresso no documento fiscal do cliente.
 - [ ] T058 [US2] [P] Implementar `proposta/steps/EscopoStep.tsx` — `PROP-CTL-026..033`. Trava: título, e **todo** item de escopo com título *e* descrição.
 - [ ] T058a [US2] Implementar `frontend/src/pages/comercial/proposta/steps/ScopeContentEditor.tsx` — o **editor de blocos de conteúdo** de cada item de escopo, cobrindo `PROP-CTL-113..128`: incluir tabela, incluir fotos, legenda, remover, e as setas ↑/↓ de ordenação. **Este subsistema quase se perdeu**: os controles caíam na faixa da prévia porque o componente é definido depois dela no fonte.  ↳ `FR-045`
 - [ ] T058b [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/scopePhoto.ts` a **otimização da imagem no cliente** (FR-048): recusar acima de 10 MB ou 24 megapixels; redimensionar para 1600 px no maior lado; achatar sobre fundo branco; recomprimir em qualidade 0,82 e, se ainda passar de 1,5 MB, em 0,64; recusar com o **nome do arquivo na mensagem** se ainda assim não couber.  ↳ `FR-047` `FR-048`
@@ -374,13 +380,13 @@ documentos e o registro no histórico.
 pela URL e que o não salvo é oferecido de volta.
 
 - [X] T086 [US4] **(L3)** Levar modo, base da proposta e seção ativa para o endereço em `/comercial/custos`, limpando parâmetros incompatíveis na troca. Hoje o F5 **volta ao diálogo de modo e apaga o levantamento inteiro** — captura em `contracts/baseline/L3-f5-perde-levantamento.png`.  ↳ `FR-018`
-- [ ] T087 [US4] **(L3)** Levar a etapa ativa para o endereço em `/comercial/propostas`.  ↳ `FR-018`
+- [X] T087 [US4] **(L3)** Levar a etapa ativa para o endereço em `/comercial/propostas`.  ↳ `FR-018`
 - [X] T088 [US4] **(L3)** Fazer o diálogo "Como deseja começar?" de `frontend/src/pages/comercial/custos/CustosPage.tsx` **não reaparecer** quando o modo já vem no endereço (FR-044) — ele serve para escolher o modo, não para confirmá-lo. Os dois passos (menu → diálogo) coexistem, sem atalho.  ↳ `FR-043` `FR-044`
 - [X] T089 [US4] **(L3)** Implementar o rascunho local em `frontend/src/pages/comercial/useLocalDraft.ts`: autossalvamento com *debounce*, chave por modo + código de proposta, **nas duas telas** — levantamento e proposta.  ↳ `FR-019`
 - [X] T090 [US4] **(L3)** Oferecer em `frontend/src/pages/comercial/useLocalDraft.ts` a recuperação **explicitamente** ("recuperar rascunho não salvo?") em vez de restaurar em silêncio. Restaurar sem avisar é pior que perder, porque o usuário não sabe o que está vendo.  ↳ `FR-020`
 - [X] T091 [US4] **(L3)** Descartar o rascunho de `frontend/src/pages/comercial/useLocalDraft.ts` ao salvar no servidor — não pode sobrar para reaparecer depois.  ↳ `FR-021`
 - [X] T092 [US4] **(L3)** Implementar `beforeunload` em `frontend/src/pages/comercial/useLocalDraft.ts`, nas duas telas, quando houver alteração pendente. *"Fechar a página sem querer"* é explícito no requisito, não só recarregar.  ↳ `FR-022`
-- [ ] T093 [US4] [P] Escrever `frontend/test/comercial-rascunho.test.mjs`: estado volta pela URL, rascunho é oferecido e não aplicado sozinho, e é descartado ao salvar.  ↳ `SC-006`
+- [X] T093 [US4] [P] Escrever `frontend/test/comercial-rascunho.test.mjs`: estado volta pela URL, rascunho é oferecido e não aplicado sozinho, e é descartado ao salvar.  ↳ `SC-006`
 
 ---
 
@@ -412,10 +418,10 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 > `comercial:seller`. Um cadastro paralelo seria uma segunda verdade para alguém
 > esquecer de atualizar.
 
-- [ ] T099 [US6] Implementar `GET /api/comercial/consultores` em `backend/lib/comercial/consultores.js`, derivando a lista dos **usuários ativos com o papel `comercial:seller`**. Sem `POST`, `PUT` nem `DELETE`.  ↳ `FR-041`
-- [ ] T100 [US6] Fazer a resposta de `backend/lib/comercial/consultores.js` **variar por papel** (FR-041b): `comercial:manager` recebe a lista completa; `comercial:seller` recebe **apenas ele mesmo**. Filtrar no cliente não serve — um vendedor não deve nem receber os nomes dos outros.  ↳ `FR-041b`
+- [X] T099 [US6] Implementar `GET /api/comercial/consultores` em `backend/lib/comercial/consultores.js`, derivando a lista dos **usuários ativos com o papel `comercial:seller`**. Sem `POST`, `PUT` nem `DELETE`.  ↳ `FR-041`
+- [X] T100 [US6] Fazer a resposta de `backend/lib/comercial/consultores.js` **variar por papel** (FR-041b): `comercial:manager` recebe a lista completa; `comercial:seller` recebe **apenas ele mesmo**. Filtrar no cliente não serve — um vendedor não deve nem receber os nomes dos outros.  ↳ `FR-041b`
 - [ ] T101 [US6] Gravar `sellerUserId` **e** `sellerName` em `Proposal` (`backend/lib/comercial/proposals.js`): o nome é o do **momento da emissão**. Desativar ou renomear um usuário **não altera proposta já emitida** — o PDF já foi ao cliente com aquele nome.  ↳ `FR-041a`
-- [ ] T102 [US6] [P] Ligar o campo `PROP-CTL-016` em `frontend/src/pages/comercial/proposta/steps/ClienteStep.tsx` à rota derivada, **pré-selecionando** a única opção quando o usuário é `comercial:seller`. O controle continua o mesmo `SelectField` do inventário — muda o conjunto de opções, não o elemento. Espelha o que a referência já faz com o orçamentista (`PROP-CTL-018`, preenchido pelo login).  ↳ `FR-041b`
+- [X] T102 [US6] [P] Ligar o campo `PROP-CTL-016` em `frontend/src/pages/comercial/proposta/steps/ClienteStep.tsx` à rota derivada, **pré-selecionando** a única opção quando o usuário é `comercial:seller`. O controle continua o mesmo `SelectField` do inventário — muda o conjunto de opções, não o elemento. Espelha o que a referência já faz com o orçamentista (`PROP-CTL-018`, preenchido pelo login).  ↳ `FR-041b`
 
 ---
 
