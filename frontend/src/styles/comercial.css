@@ -1030,3 +1030,143 @@
 @media (max-width: 480px) {
   .com-root .com-kpis { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Confirmação de escopo, avisos e visão geral de fases
+   ========================================================================== */
+
+/* Âmbar enquanto ninguém decidiu, verde depois de confirmado — é aviso e
+   depois registro. Porte de `.scope-confirmation`. */
+.com-root .com-confirmacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 13px 15px;
+  border: 1px solid #e1c68e;
+  border-radius: 10px;
+  background: #fff9ec;
+}
+
+.com-root .com-confirmacao > div { display: flex; flex-direction: column; min-width: 0; }
+.com-root .com-confirmacao > div strong { color: #76561f; font-size: 12px; }
+.com-root .com-confirmacao > div span { color: #76561f; font-size: 11px; }
+
+.com-root .com-confirmacao > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  color: #76561f;
+  font-size: 10px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.com-root .com-confirmacao.is-confirmada {
+  border-color: #9fc4ab;
+  background: #edf7f0;
+}
+
+.com-root .com-confirmacao.is-confirmada > div strong,
+.com-root .com-confirmacao.is-confirmada > div span,
+.com-root .com-confirmacao.is-confirmada > label {
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-aviso {
+  margin-bottom: 10px;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: #fff1f1;
+  color: #9d2d2d;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.com-root .com-visao-geral {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 10px;
+}
+
+.com-root .com-visao-geral article {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #c8d9cd;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #f7faf8, #edf4ef);
+}
+
+.com-root .com-visao-geral span {
+  color: var(--com-texto-fraco);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.com-root .com-visao-geral strong {
+  margin: 4px 0 2px;
+  color: var(--com-marca-forte);
+  font-size: 20px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.com-root .com-visao-geral small {
+  color: var(--com-texto-fraco);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.com-root .com-nota-regra {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 10px 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #c6d8ca;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+
+.com-root .com-nota-regra strong { color: var(--com-marca-forte); font-size: 11px; }
+.com-root .com-nota-regra span { color: var(--com-texto-fraco); font-size: 11px; }
+
+.com-root .com-fases {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  margin-bottom: 16px;
+}
+
+.com-root .com-fase {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--com-borda);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.com-root .com-fase header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.com-root .com-fase header strong { color: var(--com-marca-forte); font-size: 13px; }
+.com-root .com-fase header span { font-size: 11px; color: var(--com-texto-fraco); }
+.com-root .com-fase-pendente { color: #9d2d2d !important; font-weight: 700; }
+
+@media (max-width: 760px) {
+  .com-root .com-visao-geral { grid-template-columns: 1fr; }
+  .com-root .com-confirmacao > label { align-items: flex-start; }
+}

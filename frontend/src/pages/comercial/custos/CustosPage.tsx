@@ -7,6 +7,8 @@ import { useAuth } from '../../../auth/AuthContext';
 import { FaixaIndicadores } from './FaixaIndicadores';
 import { footerAction, type CostSection } from './footerChain';
 import { numberValue } from './formato';
+import { pendenciasDe } from './pendencias';
+import { MaoDeObraSection } from './sections/MaoDeObraSection';
 import { PremissasSection } from './sections/PremissasSection';
 import { useLevantamento } from './useLevantamento';
 import { LOGO_URL } from '../components/marca';
@@ -51,10 +53,10 @@ export function CustosPage() {
   const levantamento = useLevantamento(user?.name || '');
   const { draft, result } = levantamento;
 
-  // As pendências por seção ainda não estão portadas — elas dependem dos
-  // predicados de mão de obra, insumos e logística, que vêm com cada seção.
-  // Até lá o rodapé já mostra o estado de salvar corretamente.
-  const pendencias = { labor: false, inputs: false, logistics: false, commercial: false };
+  // O rodapé-guia agora consulta as pendências de verdade. `logistics` ainda
+  // devolve false, porque o predicado dela depende de helpers que vêm com a
+  // seção — e o botão nunca aponta para uma seção que ele não sabe validar.
+  const pendencias = pendenciasDe(draft);
   const acao = footerAction(pendencias, {
     saving: false,
     title: String(draft.title || ''),
@@ -230,6 +232,8 @@ export function CustosPage() {
 
             {secao === 'premises' ? (
               <PremissasSection levantamento={levantamento} />
+            ) : secao === 'labor' ? (
+              <MaoDeObraSection levantamento={levantamento} />
             ) : (
               <section className="com-painel com-secao-corpo">
                 <div className="com-secao-titulo">
