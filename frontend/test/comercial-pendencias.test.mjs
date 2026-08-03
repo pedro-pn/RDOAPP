@@ -238,9 +238,26 @@ test('comissão de representante só pende quando HABILITADA', () => {
 test('pendenciasDe devolve o formato que o rodapé consome', () => {
   const p = pendenciasDe(padrao());
   assert.deepEqual(Object.keys(p).sort(), ['commercial', 'inputs', 'labor', 'logistics']);
+  for (const chave of Object.keys(p)) {
+    assert.equal(typeof p[chave], 'boolean', `${chave} tem de ser booleano`);
+  }
+});
+
+test('a cadeia está completa: logística agora sabe dizer se pende', () => {
+  // Este teste substituiu um que afirmava `logistics === false` fixo, com a
+  // justificativa de que a seção não estava portada. A omissão acabou, e o
+  // teste que a guardava acusou na hora — que é exatamente o que ele existia
+  // para fazer.
+  const p = pendenciasDe(padrao());
   assert.equal(
     p.logistics,
-    false,
-    'logística ainda não portada — o rodapé não pode apontar para seção que não sabe validar'
+    true,
+    'o levantamento padrão não tem logística definida, então tem de pender'
   );
+
+  const confirmado = pendenciasDe({
+    ...padrao(),
+    scopeConfirmations: { ...padrao().scopeConfirmations, noLogistics: true }
+  });
+  assert.equal(confirmado.logistics, false, 'confirmar "sem logística" desliga');
 });

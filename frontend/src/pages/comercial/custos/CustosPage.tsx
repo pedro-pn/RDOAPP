@@ -54,10 +54,8 @@ export function CustosPage() {
   const levantamento = useLevantamento(user?.name || '');
   const { draft, result } = levantamento;
 
-  // O rodapé-guia agora consulta as pendências de verdade. `logistics` ainda
-  // devolve false, porque o predicado dela depende de helpers que vêm com a
-  // seção — e o botão nunca aponta para uma seção que ele não sabe validar.
-  const pendencias = pendenciasDe(draft);
+  // A cadeia do rodapé está completa: as quatro seções sabem dizer se pendem.
+  const pendencias = pendenciasDe(draft, result);
   const acao = footerAction(pendencias, {
     saving: false,
     title: String(draft.title || ''),

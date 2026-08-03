@@ -4,6 +4,7 @@ import {
   hasMeaningfulLabor
 } from '../../../../../shared/comercial/dist/cost-model.js';
 import { numberValue } from './formato';
+import { faltaLogistica } from './logistica';
 
 /**
  * Predicados de pendência por seção — o que alimenta o rodapé-guia.
@@ -96,17 +97,18 @@ export function faltaComercial(draft: AnyRecord): boolean {
 /**
  * As pendências no formato que o rodapé-guia consome.
  *
- * `logistics` ainda não está portada — o predicado dela depende de helpers
- * locais da tela de referência (`crewTransportWaived`,
- * `logisticsItemNeedsAttention`, `logisticsGroupsNeedAttention`) que vêm com a
- * seção. Até lá o rodapé pula a logística, o que é **visível e honesto**: o
- * botão nunca aponta para uma seção que não sabe validar.
+ * A cadeia está **completa**: as quatro seções sabem dizer se pendem, e o
+ * botão do rodapé aponta para a primeira que faltar, na ordem da referência.
+ *
+ * `result` é opcional só para os testes que não precisam de cobertura de
+ * equipe. Na tela ele sempre vem — sem ele, a logística deixa de checar se
+ * sobrou gente sem transporte.
  */
-export function pendenciasDe(draft: AnyRecord) {
+export function pendenciasDe(draft: AnyRecord, result: AnyRecord = {}) {
   return {
     labor: faltaMaoDeObra(draft),
     inputs: faltaInsumos(draft),
-    logistics: false,
+    logistics: faltaLogistica(draft, result),
     commercial: faltaComercial(draft)
   };
 }
