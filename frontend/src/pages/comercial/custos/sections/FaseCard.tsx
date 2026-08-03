@@ -3,8 +3,9 @@ import {
   offshoreWorkSchedule
 } from '../../../../../../shared/comercial/dist/cost-model.js';
 import { NumberField, SelectField } from '../../components/Field';
-import { money, number, numberValue } from '../formato';
+import { numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
+import { AlocacoesTabela } from './AlocacoesTabela';
 
 /**
  * Cartão de uma fase de mão de obra.
@@ -35,10 +36,6 @@ const MODO_VEICULOS = [
   { value: 'manual', label: 'Informada manualmente' }
 ];
 
-function registros(valor: unknown): AnyRecord[] {
-  return Array.isArray(valor) ? (valor as AnyRecord[]) : [];
-}
-
 export function FaseCard({
   fase,
   indice,
@@ -50,10 +47,8 @@ export function FaseCard({
   total: number;
   levantamento: Levantamento;
 }) {
-  const { updateCollection, removeCollection, resultadoDaFase } = levantamento;
+  const { updateCollection, removeCollection } = levantamento;
   const id = String(fase.id);
-  const resumo = resultadoDaFase(id);
-  const alocacoes = registros(fase.assignments);
   const emViagem = fase.workCondition === 'travel';
   const confirmada = fase.workConditionConfirmed === true;
 
@@ -230,54 +225,8 @@ export function FaseCard({
         </section>
       </div>
 
-      <section className="com-fase-painel">
-        <header>
-          <strong>Equipe alocada</strong>
-          <small>
-            {alocacoes.length
-              ? `${alocacoes.length} alocação(ões) · custo da fase ${money(
-                  numberValue(resumo.totalCost)
-                )}`
-              : 'Nenhuma alocação nesta fase.'}
-          </small>
-        </header>
+      <AlocacoesTabela fase={fase} levantamento={levantamento} />
 
-        {alocacoes.length > 0 && (
-          <div className="com-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cargo</th>
-                  <th>Pessoas</th>
-                  <th>Salário base</th>
-                  <th>Turno</th>
-                  <th>HH</th>
-                </tr>
-              </thead>
-              <tbody>
-                {alocacoes.map(alocacao => {
-                  const calculado =
-                    registros(resumo.assignments).find(item => item.id === alocacao.id) || {};
-                  return (
-                    <tr key={String(alocacao.id)}>
-                      <td className="com-quebrar">{String(alocacao.role || '—')}</td>
-                      <td>{number(numberValue(alocacao.headcount))}</td>
-                      <td>{money(numberValue(alocacao.monthlySalary))}</td>
-                      <td>{alocacao.shift === 'night' ? 'Noturno' : 'Diurno'}</td>
-                      <td>{number(numberValue(calculado.totalHours))}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <p className="com-nota">
-          A edição de alocação — cargo, pessoas, salário e turno — entra no próximo passo.
-          O que já vale: a condição de trabalho e o veículo destravam a pendência da seção.
-        </p>
-      </section>
     </article>
   );
 }
