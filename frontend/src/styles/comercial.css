@@ -262,3 +262,208 @@
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Menu de entrada, diálogos e a tela de custos
+   ========================================================================== */
+
+.com-root .com-menu,
+.com-root .com-secao-corpo {
+  padding: 24px;
+  margin: 0 auto 18px;
+  max-width: 1100px;
+}
+
+.com-root .com-cartao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+  background: var(--com-superficie);
+  color: var(--com-texto);
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+}
+
+.com-root .com-cartao:hover:not(:disabled) {
+  border-color: var(--com-acao);
+  background: var(--com-acao-suave);
+}
+
+.com-root .com-cartao:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.com-root .com-cartao strong { font-size: 15px; }
+
+.com-root .com-cartao b {
+  font-size: 20px;
+  color: var(--com-acao);
+  font-style: normal;
+}
+
+.com-root .com-cartao-icone {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-cartao-descricao {
+  font-size: 12px;
+  color: var(--com-texto-fraco);
+  line-height: 1.4;
+}
+
+/* --- Diálogos ------------------------------------------------------------ */
+
+.com-root .com-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(20, 32, 26, 0.55);
+  overflow-y: auto;
+}
+
+.com-root .com-modo-card {
+  width: min(100%, 640px);
+  padding: 28px;
+  text-align: center;
+}
+
+.com-root .com-modo-card h1 { margin: 6px 0 8px; font-size: 26px; }
+
+.com-root .com-modo-card > p {
+  margin: 0 0 20px;
+  color: var(--com-texto-fraco);
+}
+
+.com-root .com-eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--com-texto-fraco);
+}
+
+.com-root .com-modo-opcoes { margin-top: 4px; text-align: left; }
+
+.com-root .com-revisao-entrada {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio-controle);
+  background: var(--com-acao-suave);
+  text-align: left;
+}
+
+.com-root .com-revisao-entrada .field-group { flex: 1 1 200px; min-width: 0; }
+
+/* --- Tira de seções ------------------------------------------------------ */
+
+.com-root .com-secoes {
+  max-width: 1100px;
+  margin: 0 auto 14px;
+  padding: 12px;
+  background: var(--com-superficie);
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+}
+
+.com-root .com-secao-aba {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  color: var(--com-texto-fraco);
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: var(--com-raio-controle);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.com-root .com-secao-aba b {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--com-borda);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.com-root .com-secao-aba.is-ativa { color: var(--com-acao); font-weight: 700; }
+
+.com-root .com-secao-aba.is-ativa b {
+  background: var(--com-acao);
+  border-color: var(--com-acao);
+  color: #fff;
+}
+
+.com-root .com-obrigatorios { font-size: 11px; color: var(--com-texto-fraco); }
+
+.com-root .com-placeholder {
+  margin: 0;
+  padding: 28px;
+  border: 1px dashed var(--com-borda);
+  border-radius: var(--com-raio-controle);
+  color: var(--com-texto-fraco);
+  text-align: center;
+}
+
+/* --- Rodapé-guia --------------------------------------------------------- */
+
+.com-root .com-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1100px;
+  margin: 0 auto 40px;
+  padding: 16px 20px;
+  background: var(--com-superficie);
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+}
+
+.com-root .com-codigo-vinculado { display: flex; flex-direction: column; min-width: 0; }
+
+.com-root .com-codigo-vinculado small {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--com-texto-fraco);
+}
+
+.com-root .com-codigo-vinculado strong { font-size: 17px; }
+
+@media (max-width: 700px) {
+  .com-root .com-menu,
+  .com-root .com-secao-corpo { padding: 16px; }
+
+  .com-root .com-modo-card { padding: 20px; }
+
+  /* A tira de 5 seções é um dos dois pontos de estouro conhecidos da
+     referência. Aqui ela rola dentro de si mesma, por desenho. */
+  .com-root .com-secoes { flex-wrap: nowrap; overflow-x: auto; }
+
+  .com-root .com-rodape { flex-direction: column; align-items: stretch; }
+}
