@@ -1606,19 +1606,6 @@
   gap: 0.5rem;
 }
 
-/* Busca no CRM da etapa 1 da proposta. */
-.com-root .com-crm-busca {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.com-root .com-crm-busca input {
-  flex: 1 1 260px;
-  min-width: 0;
-}
-
 /* Etapa já concluída no stepper — o ✓ substitui o número. */
 .com-root .com-workflow-nav button.is-concluida b {
   background: var(--com-acao);
@@ -1885,8 +1872,12 @@
 
 /* A de custos é compacta e grudada no topo; esta é alta, empilhada e rola
    junto. Quem orienta aqui é o stepper logo abaixo, não a faixa. */
+/* `relative`, nunca `static`: o `::after` do hero é a faixa de 3px da marca
+   (azul, lavanda, VERMELHO). Sem bloco de contenção aqui ela se posiciona
+   contra um ancestral distante e vai parar no meio da página. Era a listra
+   colorida atravessando o formulário. */
 .com-root .com-hero-proposta {
-  position: static;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2021,10 +2012,16 @@
    Área de trabalho: formulário + prévia
    ========================================================================== */
 
+/* `width: 100%` NÃO é redundante aqui, e a falta dele foi o que fez a tela
+   mudar de largura conforme a etapa: `.com-app` é flex column, e um item de
+   flex sem largura explícita encolhe para o conteúdo. Etapa com muito campo
+   ficava larga, etapa com pouco ficava estreita — a mesma armadilha que já
+   tinha pegado o `.com-conteudo`. */
 .com-root .com-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 370px;
   gap: 22px;
+  width: 100%;
   max-width: 1500px;
   margin: 0 auto;
   padding: 24px 4vw 50px;
@@ -2088,8 +2085,12 @@
   background: #edf4fb;
 }
 
+/* `flex-basis: 0`, não `auto`. Todo campo do módulo tem `width: 100%`, e com
+   base automática o navegador reserva essa largura inteira antes de dividir o
+   espaço — o botão não cabe mais na linha e desce. */
 .com-root .com-crm-busca input {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  width: auto;
   min-width: 0;
   border-radius: 6px 0 0 6px;
 }
