@@ -1878,3 +1878,509 @@
   color: var(--com-texto-fraco);
   font-size: 0.82rem;
 }
+
+/* ==========================================================================
+   Faixa da PROPOSTA — a segunda das duas da referência (`.hero`, app/page.tsx)
+   ========================================================================== */
+
+/* A de custos é compacta e grudada no topo; esta é alta, empilhada e rola
+   junto. Quem orienta aqui é o stepper logo abaixo, não a faixa. */
+.com-root .com-hero-proposta {
+  position: static;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 34px 6vw;
+  box-shadow: none;
+}
+
+.com-root .com-hero-proposta .com-hero-titulo {
+  display: block;
+  margin-bottom: 0;
+}
+
+.com-root .com-hero-proposta h1 {
+  margin: 8px 0 5px;
+  font-size: 34px;
+}
+
+.com-root .com-hero-proposta h1 em {
+  font-style: normal;
+  color: #b8ddc5;
+}
+
+.com-root .com-hero-proposta p {
+  font-size: 14px;
+}
+
+/* Cartão de numeração, à direita da faixa. */
+.com-root .com-sequencia {
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 18px 25px;
+  border: 1px solid #ffffff30;
+  border-radius: 10px;
+  background: #ffffff12;
+  backdrop-filter: blur(4px);
+}
+
+.com-root .com-sequencia small {
+  font-size: 9px;
+  letter-spacing: 1.3px;
+  color: #b9d6c3;
+}
+
+.com-root .com-sequencia strong {
+  margin: 6px 0;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.com-root .com-sequencia span {
+  font-size: 11px;
+  color: #d9e8de;
+}
+
+/* ==========================================================================
+   Stepper das 7 etapas — faixa BRANCA de largura total, não um cartão
+   ========================================================================== */
+
+/* Nada a ver com `.com-workflow-nav`, que é a tira de 5 seções do
+   levantamento. Reusar aquela aqui foi o que produziu duas fileiras de
+   botões verdes num cartão, no lugar de uma faixa de sete passos. */
+.com-root .com-stepper {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 17px 4vw;
+  background: #fff;
+  border-bottom: 1px solid var(--com-borda);
+}
+
+.com-root .com-stepper button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  color: #8993a3;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  /* `cursor: default` é da referência: o passo não é um atalho, é um estado. */
+  cursor: default;
+  min-width: 0;
+}
+
+.com-root .com-stepper button:not(:disabled) {
+  cursor: pointer;
+}
+
+.com-root .com-stepper b {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #cbd3de;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.com-root .com-stepper .is-ativa {
+  color: var(--com-marca-forte);
+  font-weight: 700;
+}
+
+.com-root .com-stepper .is-ativa b {
+  background: var(--com-acao);
+  border-color: var(--com-acao);
+  color: #fff;
+}
+
+.com-root .com-stepper .is-concluida {
+  color: #347451;
+}
+
+.com-root .com-stepper .is-concluida b {
+  background: #e2f3e9;
+  border-color: #b8dfc8;
+  color: #347451;
+}
+
+.com-root .com-stepper button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Área de trabalho: formulário + prévia
+   ========================================================================== */
+
+.com-root .com-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  gap: 22px;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 24px 4vw 50px;
+}
+
+.com-root .com-form-panel {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  min-height: 650px;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #d7e2da;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px #173d2820;
+}
+
+/* O painel do formulário já é o cartão — as seções dentro dele não repetem
+   borda, senão viram cartão dentro de cartão. */
+.com-root .com-form-panel > .com-painel:not(.com-oferta-rascunho) {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 28px;
+  margin: 0;
+}
+
+.com-root .com-obrigatorios {
+  color: var(--com-texto-fraco);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Rodapé grudado no pé do painel, como na referência. */
+.com-root .com-form-panel .com-rodape {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: auto 0 0;
+  padding: 18px 28px;
+  border: 0;
+  border-top: 1px solid var(--com-borda);
+  border-radius: 0 0 10px 10px;
+  background: #fff;
+  box-shadow: 0 -8px 18px #1720330d;
+}
+
+.com-root .com-faltando {
+  color: #bd5e28;
+  font-size: 11px;
+}
+
+/* Busca no CRM: entrada e botão JUNTOS numa caixa só. */
+.com-root .com-crm-busca {
+  display: flex;
+  gap: 0;
+  margin-bottom: 22px;
+  padding: 12px;
+  border: 1px solid #c9ddef;
+  border-radius: 8px;
+  background: #edf4fb;
+}
+
+.com-root .com-crm-busca input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: 6px 0 0 6px;
+}
+
+.com-root .com-crm-busca button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 0 6px 6px 0;
+  padding: 11px 16px;
+  background: var(--com-acao);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.com-root .com-crm-busca button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Prévia do documento
+   ========================================================================== */
+
+.com-root .com-previa {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: calc(100vh - 36px);
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #d7e2da;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px #173d2820;
+  position: sticky;
+  top: 12px;
+}
+
+.com-root .com-previa-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--com-borda);
+}
+
+.com-root .com-previa-topo div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.com-root .com-previa-topo strong {
+  font-size: 13px;
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-previa-topo span {
+  font-size: 9px;
+  color: var(--com-texto-fraco);
+}
+
+.com-root .com-previa-topo > b {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid var(--com-borda);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.com-root .com-previa-abas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.com-root .com-previa-abas button {
+  padding: 10px;
+  border: 1px solid var(--com-borda);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--com-texto-fraco);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.com-root .com-previa-abas button.is-ativa {
+  background: var(--com-marca-forte);
+  border-color: var(--com-marca-forte);
+  color: #fff;
+}
+
+.com-root .com-previa-rolagem {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 0 7px 4px 1px;
+  scroll-behavior: smooth;
+}
+
+.com-root .com-previa-imprimir {
+  flex: 0 0 auto;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 7px;
+  padding: 11px 16px;
+  background: var(--com-acao);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* --- O documento em si --------------------------------------------------- */
+
+.com-root .com-documento {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Proporção do papel timbrado oficial. `background-size: 100% 100%` e não
+   `cover`: a arte já vem na proporção certa, e `cover` a cortaria. */
+.com-root .com-pagina {
+  position: relative;
+  width: 100%;
+  max-width: 334px;
+  flex: 0 0 auto;
+  aspect-ratio: 1414 / 2000;
+  overflow: hidden;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+  box-shadow: 0 4px 14px #24375230;
+}
+
+.com-root .com-pagina-corpo {
+  position: absolute;
+  inset: 13% 9% 8%;
+  overflow: hidden;
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.com-root .com-pagina-rodape {
+  position: absolute;
+  right: 9%;
+  bottom: 3.4%;
+  left: 9%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 6px;
+  color: #667;
+}
+
+.com-root .com-pagina h3 {
+  margin: 9px 0 3px;
+  font-size: 8px;
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-pagina h4 {
+  margin: 6px 0 2px;
+  font-size: 7.5px;
+}
+
+.com-root .com-pagina p {
+  margin: 0 0 4px;
+}
+
+.com-root .com-doc-tipo {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-doc-meta {
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.com-root .com-doc-meta h3 {
+  margin: 12px 0 3px;
+}
+
+.com-root .com-doc-indice-titulo {
+  margin: 20px 0 12px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.com-root .com-doc-indice {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 1.75;
+}
+
+.com-root .com-doc-metricas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 5px 0;
+}
+
+.com-root .com-doc-metricas span {
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  font-size: 6px;
+  font-weight: 700;
+}
+
+.com-root .com-doc-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 6px;
+}
+
+.com-root .com-doc-tabela th,
+.com-root .com-doc-tabela td {
+  border: 1px solid #ccc;
+  padding: 2px 3px;
+  text-align: left;
+}
+
+.com-root .com-doc-tabela th {
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-doc-servico {
+  margin-bottom: 4px;
+}
+
+/* Abaixo de 1100px a prévia sai da lateral e vai para baixo do formulário:
+   370px fixos numa tela de 1024 espremeriam o formulário a nada. */
+@media (max-width: 1100px) {
+  .com-root .com-workspace { grid-template-columns: minmax(0, 1fr); }
+  .com-root .com-previa { position: static; max-height: none; }
+  .com-root .com-stepper { grid-template-columns: repeat(4, 1fr); gap: 12px 8px; }
+}
+
+@media (max-width: 640px) {
+  .com-root .com-stepper { grid-template-columns: repeat(2, 1fr); }
+  .com-root .com-hero-proposta { padding: 22px 5vw; }
+  .com-root .com-hero-proposta h1 { font-size: 26px; }
+}
+
+/* Chips de integração da barra superior. O ponto é o estado: âmbar pendente,
+   verde conectado — a cor faz o trabalho que o texto sozinho não faz de longe. */
+.com-root .com-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--com-borda);
+  border-radius: 999px;
+  background: #f6f9f7;
+  color: var(--com-texto-fraco);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.com-root .com-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d79a2b;
+}
+
+.com-root .com-chip.is-conectado i {
+  background: var(--com-acao);
+}
+
+/* A oferta de rascunho fica FORA do cartão do formulário, com borda própria. */
+.com-root .com-form-panel > .com-oferta-rascunho {
+  margin: 14px 14px 0;
+}

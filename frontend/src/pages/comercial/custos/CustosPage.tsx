@@ -199,7 +199,8 @@ export function CustosPage() {
       setSalvo(gravado.id);
       setRecado('');
       navigate(
-        `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}&etapa=cliente`
+        `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}` +
+          `&proposta=${encodeURIComponent(gravado.proposalCode)}&etapa=cliente`
       );
     } catch (error) {
       setMostrarConfirmacao(false);

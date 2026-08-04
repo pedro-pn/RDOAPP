@@ -44,6 +44,7 @@ export function PrazosStep({
           <h2>Prazos e jornada</h2>
           <p>Informe mobilização, permanência e execução sem marcadores genéricos.</p>
         </div>
+        <span className="com-obrigatorios">Campos com * são obrigatórios</span>
       </div>
 
       <div className="com-form-grid">

@@ -28,6 +28,7 @@ import {
   rotuloDoAvanco,
   type EtapaProposta
 } from './etapas';
+import { DocumentoPrevia, type TipoDeDocumento } from './DocumentoPrevia';
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
 import { PrazosStep } from './steps/PrazosStep';
@@ -86,6 +87,7 @@ export function PropostaPage() {
   const etapa = (params.get('etapa') as EtapaProposta | null) ?? 'cliente';
   const indice = indiceDaEtapa(etapa);
   const levantamentoId = params.get('levantamento') ?? '';
+  const codigo = params.get('proposta') ?? '—';
 
   const [form, setForm] = useState<AnyRecord>(formularioInicial);
   // A proposta nasce com UM serviço. Zero serviços deixaria a etapa 2 sem nada
@@ -108,6 +110,7 @@ export function PropostaPage() {
   const [escolhaDownload, setEscolhaDownload] = useState<EscolhaDeDownload>('both');
   const [pastaOneDrive, setPastaOneDrive] = useState('');
   const [anexos, setAnexos] = useState<File[]>([]);
+  const [documentoNaPrevia, setDocumentoNaPrevia] = useState<TipoDeDocumento>('commercial');
 
   // A validação técnica inteira vem de `shared/comercial` — é regra de
   // engenharia, e reescrevê-la aqui criaria a segunda verdade que o módulo
@@ -199,10 +202,63 @@ export function PropostaPage() {
 
   return (
     <ComercialChrome
-      eyebrow="FILTROVALI / MONTAGEM DA PROPOSTA"
-      titulo="Nova proposta"
-      descricao="Cliente, escopo, responsabilidades, prazos, condições técnicas e comerciais — nas sete etapas que geram os dois documentos."
+      variante="proposta"
+      semContainer
+      eyebrow="FILTROVALI / NOVA PROPOSTA"
+      titulo="Propostas "
+      tituloComplemento={codigo}
+      descricao="Um cadastro, dois documentos: técnico e comercial."
+      chips={
+        <>
+          <span className="com-chip">
+            <i aria-hidden="true" /> Nectar pendente
+          </span>
+          <span className="com-chip">
+            <i aria-hidden="true" /> Microsoft 365
+          </span>
+        </>
+      }
+      acoes={
+        <button
+          type="button"
+          className="com-btn com-btn-fantasma"
+          onClick={() => window.print()}
+        >
+          Imprimir prévia
+        </button>
+      }
+      heroExtra={
+        <div className="com-sequencia">
+          <small>NUMERAÇÃO AUTOMÁTICA</small>
+          <strong>{codigo}</strong>
+          <span>Integração Nectar na etapa final</span>
+        </div>
+      }
+      faixa={
+        <nav className="com-stepper" aria-label="Etapas da proposta">
+          {ETAPAS.map((item, i) => {
+            const alcancavel = i <= maiorVisitada;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                className={
+                  i === indice ? 'is-ativa' : i < maiorVisitada ? 'is-concluida' : undefined
+                }
+                aria-current={i === indice ? 'step' : undefined}
+                disabled={!alcancavel}
+                onClick={() => alcancavel && irPara(item.value)}
+              >
+                <b aria-hidden="true">{i < maiorVisitada ? '✓' : i + 1}</b>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      }
     >
+      <section className="com-workspace">
+      <div className="com-form-panel">
       {rascunho.oferta && (
         <section className="com-painel com-oferta-rascunho" role="alertdialog">
           <div>
@@ -266,28 +322,6 @@ export function PropostaPage() {
         </section>
       )}
 
-      {/* O stepper só volta para etapa JÁ VISITADA (`index <= step` na referência).
-          Pular adiante entregaria um documento com etapa em branco. */}
-      <nav className="com-workflow-nav" aria-label="Etapas da proposta">
-        {ETAPAS.map((item, i) => {
-          const alcancavel = i <= maiorVisitada;
-          return (
-            <button
-              key={item.value}
-              type="button"
-              className={
-                i === indice ? 'is-ativa' : i < maiorVisitada ? 'is-concluida' : undefined
-              }
-              aria-current={i === indice ? 'step' : undefined}
-              disabled={!alcancavel}
-              onClick={() => alcancavel && irPara(item.value)}
-            >
-              <b aria-hidden="true">{i < maiorVisitada ? '✓' : i + 1}</b>
-              <span className="com-quebrar">{item.label}</span>
-            </button>
-          );
-        })}
-      </nav>
 
       {etapa === 'cliente' ? (
         <ClienteStep
@@ -341,7 +375,7 @@ export function PropostaPage() {
       ) : (
         <RevisaoStep
           form={form}
-          codigo={levantamentoId ? String(form.proposalCode || '—') : '—'}
+          codigo={codigo}
           escolha={escolhaDownload}
           onEscolha={setEscolhaDownload}
           pastaOneDrive={pastaOneDrive}
@@ -370,21 +404,9 @@ export function PropostaPage() {
           {indice === 0 ? 'Cancelar e voltar' : '← Voltar'}
         </button>
 
-        <div className="com-codigo-vinculado">
-          {pendencias.length > 0 ? (
-            <>
-              <small>PENDÊNCIAS</small>
-              <strong className="com-quebrar">{avisoDePendencias(pendencias)}</strong>
-            </>
-          ) : (
-            <>
-              <small>ETAPA</small>
-              <strong>
-                {indice + 1} de {ETAPAS.length}
-              </strong>
-            </>
-          )}
-        </div>
+        {/* "Preencha N campo(s) obrigatório(s)" fica ao LADO do botão, em
+            laranja, como na referência — não dentro dele. */}
+        <span className="com-faltando">{avisoDePendencias(pendencias)}</span>
 
         <button
           type="button"
@@ -397,6 +419,65 @@ export function PropostaPage() {
           {rotuloDoAvanco(pendencias, ultima)}
         </button>
       </footer>
+      </div>
+
+      {/* A prévia é metade da tela na referência, e a razão dela é essa: o
+          orçamentista não preenche um cadastro, monta um documento que vai ao
+          cliente. Ver o documento se formar é o que faz alguém perceber que o
+          escopo saiu vazio ANTES de gerar o PDF. */}
+      <aside className="com-previa">
+        <div className="com-previa-topo">
+          <div>
+            <strong>Prévia oficial Filtrovali</strong>
+            <span>As duas saídas usam o mesmo cadastro</span>
+          </div>
+          <b>
+            {indice + 1}/{ETAPAS.length}
+          </b>
+        </div>
+
+        <div className="com-previa-abas" role="tablist" aria-label="Documento em prévia">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={documentoNaPrevia === 'commercial'}
+            className={documentoNaPrevia === 'commercial' ? 'is-ativa' : undefined}
+            onClick={() => setDocumentoNaPrevia('commercial')}
+          >
+            Comercial
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={documentoNaPrevia === 'technical'}
+            className={documentoNaPrevia === 'technical' ? 'is-ativa' : undefined}
+            onClick={() => setDocumentoNaPrevia('technical')}
+          >
+            Técnica
+          </button>
+        </div>
+
+        <div className="com-previa-rolagem">
+          <DocumentoPrevia
+            tipo={documentoNaPrevia}
+            form={{ ...form, estimator: user?.name || '' }}
+            codigo={codigo}
+            itensEscopo={itensEscopo}
+            responsabilidades={responsabilidades}
+            precos={precos}
+            incluirUnitario={incluirUnitario}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="com-previa-imprimir"
+          onClick={() => window.print()}
+        >
+          Imprimir prévia {documentoNaPrevia === 'commercial' ? 'comercial' : 'técnica'}
+        </button>
+      </aside>
+      </section>
     </ComercialChrome>
   );
 }

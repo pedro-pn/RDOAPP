@@ -341,7 +341,13 @@ da finalização.
   > funciona: o visto das etapas, o par de documentos com o nome de arquivo final, a
   > escolha de download, a pasta do OneDrive e os anexos.
 - [X] T063a [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` os controles `PROP-CTL-080` ("Pasta existente no OneDrive") e `PROP-CTL-081` ("Arquivos adicionais do cliente"), com o texto de ajuda da referência.  ↳ `FR-057` `FR-058`
-- [ ] T064 [US2] Implementar a prévia lateral `proposta/Preview.tsx` — `PROP-CTL-086..137` e `PROP-H-004..022` (fac-símile). Abas Comercial/Técnica, contador de páginas, "Imprimir prévia". **Presente nas 7 etapas** e com **Arial/Helvetica preservada** — o documento não muda de fonte (desvio nº 5), então não tem desculpa para divergir.
+- [X] T064 [US2] Implementar a prévia lateral `proposta/Preview.tsx` — `PROP-CTL-086..137` e `PROP-H-004..022` (fac-símile). Abas Comercial/Técnica, contador de páginas, "Imprimir prévia". **Presente nas 7 etapas** e com **Arial/Helvetica preservada** — o documento não muda de fonte (desvio nº 5), então não tem desculpa para divergir.
+
+  > **Painel e primeiras páginas portados (04/08).** O fac-símile usa as artes oficiais
+  > (`proposta-capa-comercial.jpg`, `proposta-capa-tecnica.jpg`, `proposta-pagina.jpg`),
+  > copiadas para `backend/assets/Comercial/`. Índices na contagem da referência: **13
+  > itens no comercial, 10 no técnico**. Faltam as páginas de blocos de escopo com
+  > fotos e as de fechamento técnico — entram junto com a T065.
 - [ ] T065 [US2] Preservar em `frontend/src/pages/comercial/proposta/Preview.tsx` o índice dos documentos: **13 itens no comercial, 10 no técnico**, na mesma ordem.  ↳ `FR-005`
 - [ ] T066 [US2] Conferir os **330 textos** `PROP-TXT-001..330` item a item contra o inventário.  ↳ `FR-004` `SC-011`
 - [ ] T067 [US2] **(L1)** Aplicar a validação por campo às 7 etapas de `frontend/src/pages/comercial/proposta/steps/`, com "E-mail inválido"/"CNPJ inválido" distintos de "Campo obrigatório". **É o ponto de travamento mais provável do app**: o contador acusa pendência num campo visivelmente preenchido.

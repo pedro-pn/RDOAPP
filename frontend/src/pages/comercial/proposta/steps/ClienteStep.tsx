@@ -43,6 +43,7 @@ export function ClienteStep({
           <h2>Cliente e responsáveis</h2>
           <p>Selecione os dados oficiais que aparecerão nos dois documentos.</p>
         </div>
+        <span className="com-obrigatorios">Campos com * são obrigatórios</span>
       </div>
 
       {/* Busca no CRM (`PROP-CTL-012..015`). A integração com o Nectar é a T076;
