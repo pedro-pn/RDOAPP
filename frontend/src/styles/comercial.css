@@ -214,6 +214,22 @@
   color: var(--com-texto-fraco);
 }
 
+/* Cabeçalho de sub-bloco — usa `strong` + `span` em vez de `h2` + `p` porque
+   não é um título de seção, é um rótulo dentro dela. Os dois são INLINE por
+   padrão, então sem isto o subtítulo gruda no fim do título na mesma linha. */
+.com-root .com-secao-titulo > div > strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--com-marca-forte);
+  font-size: 15px;
+}
+
+.com-root .com-secao-titulo > div > span {
+  display: block;
+  color: var(--com-texto-fraco);
+  line-height: 1.45;
+}
+
 /* ==========================================================================
    Ações
    ========================================================================== */
@@ -1305,8 +1321,16 @@
 
 /* --- Tabela de alocações -------------------------------------------------- */
 
+/* Todo controle de tabela: `td` E `th`, entrada de texto E área de texto.
+   A versão anterior cobria só `td input` e `td select` — o cabeçalho editável
+   e a célula com `textarea` da tabela do escopo caíam para o desenho cru do
+   navegador, com borda preta e alça de redimensionar. */
 .com-root .com-table-wrap td input:not([type='checkbox']),
-.com-root .com-table-wrap td select {
+.com-root .com-table-wrap td select,
+.com-root .com-table-wrap td textarea,
+.com-root .com-table-wrap th input:not([type='checkbox']),
+.com-root .com-table-wrap th select,
+.com-root .com-table-wrap th textarea {
   width: 100%;
   min-width: 0;
   border: 1px solid #c8d5cc;
@@ -1331,11 +1355,28 @@
   cursor: pointer;
 }
 
+/* A célula de texto longo cresce na vertical, e só nela: horizontal estouraria
+   a largura da tabela, que é o que o `overflow-x` do contêiner existe para
+   evitar. */
+.com-root .com-table-wrap td textarea,
+.com-root .com-table-wrap th textarea {
+  min-height: 38px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+/* Cabeçalho editável: mesma caixa, peso de cabeçalho. */
+.com-root .com-table-wrap th input {
+  font-weight: 600;
+  color: var(--com-marca-forte);
+}
+
 /* A primeira coluna costuma ser a descrição — ela leva o espaço que sobra. */
 .com-root .com-table-wrap td:first-child input { min-width: 160px; }
 
 .com-root .com-table-wrap td input:disabled,
-.com-root .com-table-wrap td select:disabled {
+.com-root .com-table-wrap td select:disabled,
+.com-root .com-table-wrap td textarea:disabled {
   background: #f2f5f3;
   color: var(--com-texto-fraco);
   cursor: not-allowed;
