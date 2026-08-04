@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
+  normalizeTechnicalServiceSelections,
+  validateTechnicalServiceSelections,
+  type TechnicalServiceSelection
+} from '../../../../../shared/comercial/dist/technical-services.js';
+import {
   createScopeServiceItem,
   type ScopeBlock,
   type ScopeServiceItem
@@ -14,8 +19,10 @@ import { useRascunhoLocal } from '../useRascunhoLocal';
 import {
   ETAPAS,
   indiceDaEtapa,
+  avisoDePendencias,
   indiceDePendencias,
   linhaVazia,
+  type ItemDePreco,
   type LinhaResponsabilidade,
   pendenciasDaEtapa,
   rotuloDoAvanco,
@@ -24,7 +31,10 @@ import {
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
 import { PrazosStep } from './steps/PrazosStep';
+import { ComercialStep } from './steps/ComercialStep';
 import { ResponsabilidadesStep } from './steps/ResponsabilidadesStep';
+import { RevisaoStep, type EscolhaDeDownload } from './steps/RevisaoStep';
+import { TecnicaStep } from './steps/TecnicaStep';
 
 /**
  * Montagem da proposta — container das 7 etapas (`PROP-CTL-001..010`, `PROP-H-001..003`).
@@ -59,7 +69,12 @@ function formularioInicial(): AnyRecord {
     mobilization: '',
     permanence: '',
     execution: '',
-    workday: ''
+    workday: '',
+    technicalObservations: '',
+    payment: '',
+    observations: '',
+    taxes: '',
+    validity: '30'
   };
 }
 
@@ -82,6 +97,22 @@ export function PropostaPage() {
   const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(
     () => [linhaVazia()]
   );
+  const [servicosTecnicos, setServicosTecnicos] = useState<TechnicalServiceSelection[]>(
+    []
+  );
+  const [complementoRelatorios, setComplementoRelatorios] = useState('');
+  const [precos, setPrecos] = useState<ItemDePreco[]>(() => [
+    { description: '', unit: '', quantity: '1', unitValue: '', value: '' }
+  ]);
+  const [incluirUnitario, setIncluirUnitario] = useState(true);
+  const [escolhaDownload, setEscolhaDownload] = useState<EscolhaDeDownload>('both');
+  const [pastaOneDrive, setPastaOneDrive] = useState('');
+  const [anexos, setAnexos] = useState<File[]>([]);
+
+  // A validação técnica inteira vem de `shared/comercial` — é regra de
+  // engenharia, e reescrevê-la aqui criaria a segunda verdade que o módulo
+  // compartilhado existe para evitar.
+  const errosTecnicos = validateTechnicalServiceSelections(servicosTecnicos);
   const [maiorVisitada, setMaiorVisitada] = useState(indice);
   const [tentouAvancar, setTentouAvancar] = useState(false);
   const [consultores, setConsultores] = useState<Consultor[]>([]);
@@ -92,7 +123,16 @@ export function PropostaPage() {
     tela: 'proposta',
     modo: levantamentoId ? 'levantamento' : 'avulsa',
     codigo: levantamentoId,
-    dados: { form, itensEscopo, blocos, responsabilidades },
+    dados: {
+      form,
+      itensEscopo,
+      blocos,
+      responsabilidades,
+      servicosTecnicos,
+      complementoRelatorios,
+      precos,
+      incluirUnitario
+    },
     ativo: true,
     rotulo: 'Proposta'
   });
@@ -129,7 +169,9 @@ export function PropostaPage() {
 
   const pendencias = pendenciasDaEtapa(etapa, form, {
     itens: itensEscopo,
-    responsabilidades
+    responsabilidades,
+    errosTecnicos,
+    precos
   });
   const erros = indiceDePendencias(pendencias);
   const ultima = indice === ETAPAS.length - 1;
@@ -181,6 +223,10 @@ export function PropostaPage() {
                       itensEscopo?: ScopeServiceItem[];
                       blocos?: ScopeBlock[];
                       responsabilidades?: LinhaResponsabilidade[];
+                      servicosTecnicos?: unknown;
+                      complementoRelatorios?: string;
+                      precos?: ItemDePreco[];
+                      incluirUnitario?: boolean;
                     }
                   | undefined;
                 if (!dados) return;
@@ -189,6 +235,21 @@ export function PropostaPage() {
                 if (dados.blocos) setBlocos(dados.blocos);
                 if (dados.responsabilidades?.length) {
                   setResponsabilidades(dados.responsabilidades);
+                }
+                if (dados.servicosTecnicos) {
+                  // Passa pelo normalizador: o rascunho pode ter sido guardado
+                  // com uma versão anterior do catálogo, e um serviço que mudou
+                  // de forma entraria quebrado direto no estado.
+                  setServicosTecnicos(
+                    normalizeTechnicalServiceSelections(dados.servicosTecnicos)
+                  );
+                }
+                if (typeof dados.complementoRelatorios === 'string') {
+                  setComplementoRelatorios(dados.complementoRelatorios);
+                }
+                if (dados.precos?.length) setPrecos(dados.precos);
+                if (typeof dados.incluirUnitario === 'boolean') {
+                  setIncluirUnitario(dados.incluirUnitario);
                 }
               }}
             >
@@ -255,15 +316,39 @@ export function PropostaPage() {
         />
       ) : etapa === 'prazos' ? (
         <PrazosStep form={form} editar={editar} erroDe={erroDe} />
+      ) : etapa === 'tecnica' ? (
+        <TecnicaStep
+          selecoes={servicosTecnicos}
+          onSelecoes={setServicosTecnicos}
+          complemento={complementoRelatorios}
+          onComplemento={setComplementoRelatorios}
+          observacoes={String(form.technicalObservations ?? '')}
+          onObservacoes={valor => editar({ technicalObservations: valor })}
+          erros={errosTecnicos}
+          mostrarErros={tentouAvancar}
+        />
+      ) : etapa === 'comercial' ? (
+        <ComercialStep
+          form={form}
+          editar={editar}
+          precos={precos}
+          onPrecos={setPrecos}
+          incluirUnitario={incluirUnitario}
+          onIncluirUnitario={setIncluirUnitario}
+          erroDe={erroDe}
+          mostrarErros={tentouAvancar}
+        />
       ) : (
-        <section className="com-painel">
-          <div className="com-secao-titulo">
-            <div>
-              <h2>{ETAPAS[indice].label}</h2>
-              <p>Esta etapa ainda não foi portada nesta versão.</p>
-            </div>
-          </div>
-        </section>
+        <RevisaoStep
+          form={form}
+          codigo={levantamentoId ? String(form.proposalCode || '—') : '—'}
+          escolha={escolhaDownload}
+          onEscolha={setEscolhaDownload}
+          pastaOneDrive={pastaOneDrive}
+          onPastaOneDrive={setPastaOneDrive}
+          anexos={anexos}
+          onAnexos={setAnexos}
+        />
       )}
 
       {recado && (
@@ -286,10 +371,19 @@ export function PropostaPage() {
         </button>
 
         <div className="com-codigo-vinculado">
-          <small>ETAPA</small>
-          <strong>
-            {indice + 1} de {ETAPAS.length}
-          </strong>
+          {pendencias.length > 0 ? (
+            <>
+              <small>PENDÊNCIAS</small>
+              <strong className="com-quebrar">{avisoDePendencias(pendencias)}</strong>
+            </>
+          ) : (
+            <>
+              <small>ETAPA</small>
+              <strong>
+                {indice + 1} de {ETAPAS.length}
+              </strong>
+            </>
+          )}
         </div>
 
         <button

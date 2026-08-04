@@ -299,6 +299,13 @@ da finalização.
 
 - [X] T055 [US2] Criar o container `frontend/src/pages/comercial/proposta/PropostaPage.tsx` com o stepper de 7 etapas — `PROP-CTL-001..010` e `PROP-H-001..003`. O stepper cabe em uma linha só (confirmado na baseline).  ↳ `FR-001` `FR-002`
 - [X] T056 [US2] Implementar `frontend/src/pages/comercial/proposta/PropostaFooter.tsx` com o contador de pendências e a trava de avanço: "Preencha N campo(s) obrigatório(s)" com o botão desabilitado. **Não dá para pular etapa incompleta.**
+
+  > **Uma divergência deliberada no rodapé.** Na referência o botão primário fica
+  > **desabilitado** enquanto há pendência. Aqui ele continua clicável, e o clique é o
+  > que revela a marcação em cada campo (L1) — desabilitar esconderia a resposta de
+  > quem está perdido. O **texto** é o da referência: "Salvar e continuar →" e "Gerar
+  > e salvar técnica + comercial", com a contagem "Preencha N campo(s) obrigatório(s)"
+  > num aviso ao lado, não dentro do botão.
 - [X] T057 [US2] [P] Implementar `proposta/steps/ClienteStep.tsx` — `PROP-CTL-011..025`. Trava: proposta, cliente, contato, **e-mail válido**, **CNPJ válido**, site, consultor de vendas, orçamentista.
 
   > **Portada, com uma exceção declarada.** `PROP-CTL-012..015` (busca de empresa no
@@ -325,10 +332,15 @@ da finalização.
   > como obrigação sem texto — pior que a ausência dela, porque parece que alguém quis
   > dizer algo e não disse.
 - [X] T060 [US2] [P] Implementar `proposta/steps/PrazosStep.tsx` — `PROP-CTL-043..048`. Trava: mobilização, permanência, execução, atendimento, jornada.
-- [ ] T061 [US2] [P] Implementar `proposta/steps/TecnicaStep.tsx` — `PROP-CTL-049..057`, com os requisitos condicionais dos serviços técnicos selecionados.  ↳ `FR-003`
-- [ ] T062 [US2] [P] Implementar `proposta/steps/ComercialStep.tsx` — `PROP-CTL-058..071`. Trava: ao menos um preço com descrição + unidade + valor, condição de pagamento, validade.
-- [ ] T063 [US2] [P] Implementar `proposta/steps/RevisaoStep.tsx` — `PROP-CTL-072..085`, com funil do Nectar e escolha de card.
-- [ ] T063a [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` os controles `PROP-CTL-080` ("Pasta existente no OneDrive") e `PROP-CTL-081` ("Arquivos adicionais do cliente"), com o texto de ajuda da referência.  ↳ `FR-057` `FR-058`
+- [X] T061 [US2] [P] Implementar `proposta/steps/TecnicaStep.tsx` — `PROP-CTL-049..057`, com os requisitos condicionais dos serviços técnicos selecionados.  ↳ `FR-003`
+- [X] T062 [US2] [P] Implementar `proposta/steps/ComercialStep.tsx` — `PROP-CTL-058..071`. Trava: ao menos um preço com descrição + unidade + valor, condição de pagamento, validade.
+- [X] T063 [US2] [P] Implementar `proposta/steps/RevisaoStep.tsx` — `PROP-CTL-072..085`, com funil do Nectar e escolha de card.
+
+  > **Estrutura portada; funil e card do Nectar ficam desabilitados** até a T076,
+  > dizendo por quê — mesmo critério da busca de empresa na etapa 1. O que já
+  > funciona: o visto das etapas, o par de documentos com o nome de arquivo final, a
+  > escolha de download, a pasta do OneDrive e os anexos.
+- [X] T063a [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` os controles `PROP-CTL-080` ("Pasta existente no OneDrive") e `PROP-CTL-081` ("Arquivos adicionais do cliente"), com o texto de ajuda da referência.  ↳ `FR-057` `FR-058`
 - [ ] T064 [US2] Implementar a prévia lateral `proposta/Preview.tsx` — `PROP-CTL-086..137` e `PROP-H-004..022` (fac-símile). Abas Comercial/Técnica, contador de páginas, "Imprimir prévia". **Presente nas 7 etapas** e com **Arial/Helvetica preservada** — o documento não muda de fonte (desvio nº 5), então não tem desculpa para divergir.
 - [ ] T065 [US2] Preservar em `frontend/src/pages/comercial/proposta/Preview.tsx` o índice dos documentos: **13 itens no comercial, 10 no técnico**, na mesma ordem.  ↳ `FR-005`
 - [ ] T066 [US2] Conferir os **330 textos** `PROP-TXT-001..330` item a item contra o inventário.  ↳ `FR-004` `SC-011`

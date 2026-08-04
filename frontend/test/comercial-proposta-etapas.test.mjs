@@ -93,30 +93,20 @@ test('e-mail exige arroba e domínio com ponto', () => {
   assert.equal(mod.emailValido('  ana@cliente.com  '), true, 'espaço nas pontas não conta');
 });
 
-test('o rodapé diz quantos campos faltam, no texto da referência', () => {
-  assert.equal(mod.rotuloDoAvanco([], false), 'Avançar →');
-  assert.equal(mod.rotuloDoAvanco([], true), 'Finalizar proposta →');
-  assert.equal(
-    mod.rotuloDoAvanco([{ campo: 'a', mensagem: 'x' }], false),
-    'Preencha 1 campo obrigatório'
-  );
-  assert.equal(
-    mod.rotuloDoAvanco([{ campo: 'a', mensagem: 'x' }, { campo: 'b', mensagem: 'y' }], false),
-    'Preencha 2 campos obrigatórios'
-  );
-});
+test('as SEIS primeiras etapas travam; a última não tem o que travar', () => {
+  // Este teste começou guardando a omissão ("etapa não portada não trava") e foi
+  // encolhendo a cada etapa portada — era exatamente para isso que existia.
+  // Agora ele afirma o contrário: toda etapa com campo obrigatório recusa o
+  // formulário vazio.
+  const vazio = { itens: [{}], responsabilidades: [], errosTecnicos: ['x'], precos: [] };
 
-test('etapa ainda não portada não trava o usuário', () => {
-  // Uma trava que bloqueia sem ter o que validar prenderia o usuário numa etapa
-  // em branco, sem nada para preencher e sem saída.
-  //
-  // Escopo, responsabilidades e prazos SAÍRAM desta lista quando foram portadas:
-  // era exatamente para isso que este teste existia. Quem portar Técnica,
-  // Comercial ou Revisão vai vê-lo falhar, e é o aviso de que falta ligar a
-  // validação da etapa nova em `pendenciasDaEtapa`.
-  for (const etapa of ['tecnica', 'comercial', 'revisao']) {
-    assert.deepEqual(mod.pendenciasDaEtapa(etapa, {}), [], etapa);
+  for (const etapa of ['cliente', 'escopo', 'responsabilidades', 'prazos', 'tecnica', 'comercial']) {
+    assert.ok(mod.pendenciasDaEtapa(etapa, {}, vazio).length > 0, etapa);
   }
+
+  // Revisão não tem campo obrigatório próprio: tudo que ela mostra veio das
+  // anteriores, e o que falta lá é integração, não preenchimento.
+  assert.deepEqual(mod.pendenciasDaEtapa('revisao', {}, vazio), []);
 });
 
 // ---------------------------------------------------------------------------
@@ -196,4 +186,90 @@ test('a matriz aceita "N/A" como responsável', () => {
   // mesmo, para não parecer esquecimento.
   assert.ok(mod.RESPONSAVEIS.includes('N/A'));
   assert.deepEqual(mod.linhaVazia(), { item: '', owner: 'Filtrovali', note: '' });
+});
+
+// ---------------------------------------------------------------------------
+// Etapas 5, 6 e 7
+// ---------------------------------------------------------------------------
+
+test('a máscara de moeda lê os dígitos como CENTAVOS', () => {
+  // É o comportamento da referência, e o que resolve a ambiguidade de quem
+  // digita "1.500" querendo dizer mil e quinhentos ou um e meio.
+  assert.match(mod.formatarDinheiro('12345'), /123,45/);
+  assert.match(mod.formatarDinheiro('5'), /0,05/);
+  assert.equal(mod.formatarDinheiro(''), '');
+  assert.equal(mod.formatarDinheiro('abc'), '');
+  assert.match(mod.formatarDinheiro('R$ 1.234,56'), /1\.234,56/);
+});
+
+test('técnica: a validação vem do módulo compartilhado, não é reescrita', () => {
+  // Se um dia isto virar regra local, o texto técnico da proposta e o do PDF
+  // passam a ser validados por duas fontes diferentes.
+  const pendencias = mod.pendenciasDaTecnica(['Flushing: informe a classe NAS desejada.']);
+  assert.equal(pendencias.length, 1);
+  assert.equal(pendencias[0].mensagem, 'Flushing: informe a classe NAS desejada.');
+  assert.deepEqual(mod.pendenciasDaTecnica([]), []);
+});
+
+const precoCompleto = {
+  description: 'Limpeza química',
+  unit: 'serviço',
+  quantity: '1',
+  unitValue: 'R$ 38.000,00',
+  value: 'R$ 38.000,00'
+};
+
+test('comercial: item de preço pela metade não conta', () => {
+  const form = { payment: '30 dias', taxes: 'ISS incluso', validity: '30' };
+
+  assert.deepEqual(mod.pendenciasDaComercial(form, [precoCompleto]), []);
+
+  for (const campo of ['description', 'unit', 'value']) {
+    const pendencias = mod.pendenciasDaComercial(form, [{ ...precoCompleto, [campo]: '' }]);
+    assert.equal(pendencias.length, 1, campo);
+    assert.equal(pendencias[0].campo, 'precos');
+  }
+});
+
+test('comercial: validade zero produz proposta vencida na emissão', () => {
+  const form = { payment: '30 dias', taxes: 'ISS incluso' };
+
+  for (const validade of ['0', '-5']) {
+    const pendencias = mod.pendenciasDaComercial({ ...form, validity: validade }, [
+      precoCompleto
+    ]);
+    assert.equal(pendencias.length, 1, validade);
+    assert.match(pendencias[0].mensagem, /pelo menos 1 dia/);
+  }
+
+  // Vazio é outro estado: "informe", não "precisa ser de pelo menos".
+  const vazio = mod.pendenciasDaComercial({ ...form, validity: '' }, [precoCompleto]);
+  assert.match(vazio[0].mensagem, /Informe a validade/);
+});
+
+test('comercial: pagamento e impostos são obrigatórios', () => {
+  const pendencias = mod.pendenciasDaComercial({ validity: '30' }, [precoCompleto]);
+  assert.deepEqual(pendencias.map(p => p.campo).sort(), ['payment', 'taxes']);
+});
+
+test('o rótulo do botão é o da referência, e a contagem vai à parte', () => {
+  // Na referência o botão diz "Salvar e continuar →" sempre; a contagem de
+  // pendências fica num aviso ao lado. Trocar o texto do botão pela contagem
+  // seria divergência de texto, que o aceite lado a lado compara.
+  assert.equal(mod.rotuloDoAvanco([], false), 'Salvar e continuar →');
+  assert.equal(
+    mod.rotuloDoAvanco([{ campo: 'a', mensagem: 'x' }], false),
+    'Salvar e continuar →'
+  );
+  assert.equal(mod.rotuloDoAvanco([], true), 'Gerar e salvar técnica + comercial');
+
+  assert.equal(mod.avisoDePendencias([]), '');
+  assert.equal(mod.avisoDePendencias([{ campo: 'a', mensagem: 'x' }]), 'Preencha 1 campo obrigatório');
+  assert.equal(
+    mod.avisoDePendencias([
+      { campo: 'a', mensagem: 'x' },
+      { campo: 'b', mensagem: 'y' }
+    ]),
+    'Preencha 2 campos obrigatórios'
+  );
 });

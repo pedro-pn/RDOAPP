@@ -219,6 +219,8 @@ export function pendenciasDaEtapa(
   escopo: {
     itens?: Array<{ title?: string; description?: string }>;
     responsabilidades?: Array<{ item?: string }>;
+    errosTecnicos?: string[];
+    precos?: ItemDePreco[];
   } = {}
 ): PendenciaEtapa[] {
   if (etapa === 'cliente') return pendenciasDoCliente(form);
@@ -229,12 +231,113 @@ export function pendenciasDaEtapa(
     return pendenciasDasResponsabilidades(escopo.responsabilidades || []);
   }
   if (etapa === 'prazos') return pendenciasDosPrazos(form);
+  if (etapa === 'tecnica') return pendenciasDaTecnica(escopo.errosTecnicos || []);
+  if (etapa === 'comercial') return pendenciasDaComercial(form, escopo.precos || []);
   return [];
 }
 
-/** O texto do rodapé, na forma da referência: "Preencha N campo(s) obrigatório(s)". */
-export function rotuloDoAvanco(pendencias: PendenciaEtapa[], ultima: boolean): string {
-  if (pendencias.length === 0) return ultima ? 'Finalizar proposta →' : 'Avançar →';
+export type ItemDePreco = {
+  description: string;
+  unit: string;
+  quantity: string;
+  unitValue: string;
+  value: string;
+};
+
+/**
+ * Máscara de moeda, portada de `formatMoneyInput` (`app/page.tsx:1747`).
+ *
+ * Os dígitos são lidos como **centavos**: digitar `12345` dá `R$ 123,45`. É o
+ * comportamento da referência, e o que evita a ambiguidade de quem digita `1.500`
+ * querendo dizer mil e quinhentos ou um e meio.
+ */
+export function formatarDinheiro(valor: string): string {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  if (!digitos) return '';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(Number(digitos) / 100);
+}
+
+/**
+ * As pendências de **Serviços da proposta técnica** (`PROP-CTL-049..057`).
+ *
+ * A validação inteira vem de `validateTechnicalServiceSelections`, em
+ * `shared/comercial` — é regra de engenharia, não de tela, e reescrevê-la aqui
+ * criaria a segunda verdade que o módulo compartilhado existe para evitar.
+ *
+ * Ela devolve frases prontas, sem endereço de campo. Elas vão para o aviso da
+ * seção; os campos condicionais já se marcam sozinhos por serem obrigatórios.
+ */
+export function pendenciasDaTecnica(erros: string[]): PendenciaEtapa[] {
+  return erros.map(mensagem => ({ campo: 'tecnica', mensagem }));
+}
+
+/**
+ * As pendências de **Conteúdo da proposta comercial** (`PROP-CTL-058..071`).
+ *
+ * A trava da referência: ao menos um preço com descrição + unidade + valor,
+ * condição de pagamento, impostos e validade.
+ */
+export function pendenciasDaComercial(
+  form: Formulario,
+  precos: ItemDePreco[]
+): PendenciaEtapa[] {
+  const faltando: PendenciaEtapa[] = [];
+
+  const completos = precos.filter(
+    item => item.description.trim() && item.unit.trim() && item.value.trim()
+  ).length;
+
+  if (completos === 0) {
+    faltando.push({
+      campo: 'precos',
+      mensagem: 'Informe ao menos um item de preço com descrição, unidade e valor total.'
+    });
+  }
+
+  const obrigatorios: Array<[string, string]> = [
+    ['payment', 'Informe as condições de pagamento.'],
+    ['taxes', 'Informe os impostos.']
+  ];
+
+  for (const [campo, mensagem] of obrigatorios) {
+    if (!texto(form, campo)) faltando.push({ campo, mensagem });
+  }
+
+  const validade = Number(texto(form, 'validity'));
+  if (!texto(form, 'validity')) {
+    faltando.push({ campo: 'validity', mensagem: 'Informe a validade das propostas.' });
+  } else if (!Number.isFinite(validade) || validade <= 0) {
+    // Validade zero ou negativa produz uma proposta vencida na emissão.
+    faltando.push({
+      campo: 'validity',
+      mensagem: 'A validade precisa ser de pelo menos 1 dia.'
+    });
+  }
+
+  return faltando;
+}
+
+/**
+ * O rótulo do botão primário, no texto da referência.
+ *
+ * **A contagem de pendências vai num aviso próprio ao lado**, não no botão — é
+ * assim na referência (`<span className="missing">`), e é assim aqui.
+ *
+ * O que diverge da referência, e é deliberado: lá o botão fica **desabilitado**
+ * enquanto há pendência. Aqui ele continua clicável, e o clique é o que revela a
+ * marcação em cada campo (L1). Desabilitar esconderia a resposta de quem está
+ * perdido, e o aviso com a contagem já diz que falta alguma coisa.
+ */
+export function rotuloDoAvanco(_pendencias: PendenciaEtapa[], ultima: boolean): string {
+  return ultima ? 'Gerar e salvar técnica + comercial' : 'Salvar e continuar →';
+}
+
+/** "Preencha N campo(s) obrigatório(s)" — o aviso ao lado do botão. */
+export function avisoDePendencias(pendencias: PendenciaEtapa[]): string {
+  if (pendencias.length === 0) return '';
   return pendencias.length === 1
     ? 'Preencha 1 campo obrigatório'
     : `Preencha ${pendencias.length} campos obrigatórios`;

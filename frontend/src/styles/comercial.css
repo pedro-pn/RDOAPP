@@ -1704,3 +1704,136 @@
   border-left-color: var(--com-erro);
   color: var(--com-erro);
 }
+
+/* Catálogo de serviços técnicos (etapa 5). */
+.com-root .com-catalogo {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  margin-bottom: 1rem;
+}
+
+.com-root .com-catalogo-item {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem;
+  text-align: left;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+  background: var(--com-superficie);
+  cursor: pointer;
+}
+
+.com-root .com-catalogo-item b {
+  color: var(--com-acao);
+  font-size: 1rem;
+}
+
+.com-root .com-catalogo-item strong {
+  color: var(--com-texto);
+  font-size: 0.92rem;
+}
+
+.com-root .com-catalogo-item span {
+  color: var(--com-texto-fraco);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.com-root .com-catalogo-item small {
+  margin-top: 0.25rem;
+  color: var(--com-marca-forte);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.com-root .com-catalogo-item.is-ativa {
+  border-color: var(--com-acao);
+  background: var(--com-acao-suave);
+}
+
+.com-root .com-contagem {
+  color: var(--com-texto-fraco);
+  font-size: 0.84rem;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.com-root .com-texto-tecnico-topo {
+  margin-top: 0.75rem;
+}
+
+.com-root .com-linha-erro {
+  display: block;
+}
+
+/* Revisão (etapa 7). */
+.com-root .com-checklist {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  margin-bottom: 1rem;
+}
+
+.com-root .com-checklist div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--com-texto-fraco);
+  font-size: 0.85rem;
+}
+
+.com-root .com-checklist b {
+  color: var(--com-acao);
+}
+
+.com-root .com-escolha-download {
+  margin: 1rem 0;
+  padding: 0.9rem;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+}
+
+.com-root .com-escolha-download legend strong {
+  display: block;
+  color: var(--com-texto);
+}
+
+.com-root .com-escolha-download legend span {
+  color: var(--com-texto-fraco);
+  font-size: 0.82rem;
+}
+
+.com-root .com-escolha-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.com-root .com-escolha-opcoes label {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio-controle);
+  cursor: pointer;
+}
+
+.com-root .com-escolha-opcoes label.is-ativa {
+  border-color: var(--com-acao);
+  background: var(--com-acao-suave);
+}
+
+.com-root .com-escolha-opcoes input {
+  width: auto;
+}
+
+.com-root .com-lista-anexos {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--com-texto-fraco);
+  font-size: 0.82rem;
+}
