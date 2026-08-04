@@ -2398,3 +2398,39 @@
 .com-root .com-form-panel > .com-oferta-rascunho {
   margin: 14px 14px 0;
 }
+
+/* Folhas de conteúdo do escopo e de texto técnico na prévia. */
+.com-root .com-doc-foto {
+  margin: 6px 0;
+}
+
+.com-root .com-doc-foto img {
+  width: 100%;
+  height: auto;
+  border: 1px solid #ddd;
+}
+
+.com-root .com-doc-foto figcaption {
+  margin-top: 2px;
+  font-size: 6px;
+  color: #555;
+}
+
+/* O texto técnico traz as próprias quebras — colapsá-las transformaria a lista
+   de etapas num parágrafo só. */
+.com-root .com-doc-tecnico {
+  white-space: pre-wrap;
+}
+
+.com-root .com-doc-responsabilidade {
+  margin-bottom: 6px;
+}
+
+.com-root .com-doc-responsabilidade h4 {
+  margin: 4px 0 2px;
+}
+
+.com-root .com-doc-total {
+  margin-top: 4px;
+  text-align: right;
+}

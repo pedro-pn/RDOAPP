@@ -346,9 +346,16 @@ da finalização.
   > **Painel e primeiras páginas portados (04/08).** O fac-símile usa as artes oficiais
   > (`proposta-capa-comercial.jpg`, `proposta-capa-tecnica.jpg`, `proposta-pagina.jpg`),
   > copiadas para `backend/assets/Comercial/`. Índices na contagem da referência: **13
-  > itens no comercial, 10 no técnico**. Faltam as páginas de blocos de escopo com
-  > fotos e as de fechamento técnico — entram junto com a T065.
-- [ ] T065 [US2] Preservar em `frontend/src/pages/comercial/proposta/Preview.tsx` o índice dos documentos: **13 itens no comercial, 10 no técnico**, na mesma ordem.  ↳ `FR-005`
+  > itens no comercial, 10 no técnico**. Completada em 04/08 com a T065: folhas de
+  > tabelas e fotos do escopo, matriz separada por dono, valores, folhas de texto
+  > técnico por serviço e fechamento técnico.
+- [X] T065 [US2] Preservar em `frontend/src/pages/comercial/proposta/Preview.tsx` o índice dos documentos: **13 itens no comercial, 10 no técnico**, na mesma ordem.  ↳ `FR-005`
+
+  > **A paginação virou módulo puro** (`proposta/previaPaginacao.ts`), com 13 testes.
+  > Não é apresentação: uma tabela de 40 linhas não cabe numa folha A4, e onde ela
+  > parte tem de ser **o mesmo lugar na prévia e no PDF**. Divergindo, a prévia deixa
+  > de servir para o que existe — conferir antes de emitir. Quando a T072 portar o
+  > gerador, ele consome estas mesmas funções.
 - [ ] T066 [US2] Conferir os **330 textos** `PROP-TXT-001..330` item a item contra o inventário.  ↳ `FR-004` `SC-011`
 - [ ] T067 [US2] **(L1)** Aplicar a validação por campo às 7 etapas de `frontend/src/pages/comercial/proposta/steps/`, com "E-mail inválido"/"CNPJ inválido" distintos de "Campo obrigatório". **É o ponto de travamento mais provável do app**: o contador acusa pendência num campo visivelmente preenchido.
 

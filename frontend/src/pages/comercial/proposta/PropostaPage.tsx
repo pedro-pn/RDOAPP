@@ -467,9 +467,12 @@ export function PropostaPage() {
             form={{ ...form, estimator: user?.name || '' }}
             codigo={codigo}
             itensEscopo={itensEscopo}
+            blocos={blocos}
             responsabilidades={responsabilidades}
             precos={precos}
             incluirUnitario={incluirUnitario}
+            servicosTecnicos={servicosTecnicos}
+            complementoRelatorios={complementoRelatorios}
           />
         </div>
 
