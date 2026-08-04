@@ -741,6 +741,7 @@
    ::before  anel concêntrico gigante saindo pela direita, com dois halos
    ::after   a faixa de marca de 3px no rodapé: azul, lavanda, VERMELHO e
              transparente. É o detalhe mais reconhecível da identidade. */
+/* O anel concêntrico existe nos DOIS heros da referência. */
 .com-root .com-hero::before {
   content: '';
   position: absolute;
@@ -754,7 +755,11 @@
   box-shadow: 0 0 0 34px #ffffff0b, 0 0 0 68px #ffffff08;
 }
 
-.com-root .com-hero::after {
+/* SÓ no hero de custos. Conferido na fonte: `.cost-hero::after` tem a faixa
+   de marca; `.hero::after`, o da proposta, tem o anel concêntrico e mais nada.
+   Aplicá-la aos dois punha uma listra azul, lavanda e vermelha numa tela onde
+   a referência não tem listra nenhuma. */
+.com-root .com-hero-custos::after {
   content: '';
   position: absolute;
   right: 0;
@@ -1878,6 +1883,14 @@
    colorida atravessando o formulário. */
 .com-root .com-hero-proposta {
   position: relative;
+  /* `top` e `z-index` vêm de `.com-hero`, que é STICKY. Trocar só a
+     `position` para `relative` deixou os dois valendo — e `top: 72px` num
+     elemento relativo não gruda: ele EMPURRA a faixa 72px para baixo, que
+     com `z-index: 30` passou por cima do stepper e o escondeu.
+     Trocar `position` sem zerar o que a acompanha esconde uma faixa
+     inteira. */
+  top: auto;
+  z-index: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1965,7 +1978,7 @@
   min-width: 0;
 }
 
-.com-root .com-stepper button:not(:disabled) {
+.com-root .com-stepper button:not([aria-disabled]) {
   cursor: pointer;
 }
 

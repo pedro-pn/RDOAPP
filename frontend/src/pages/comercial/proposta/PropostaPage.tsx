@@ -246,7 +246,11 @@ export function PropostaPage() {
                   i === indice ? 'is-ativa' : i < maiorVisitada ? 'is-concluida' : undefined
                 }
                 aria-current={i === indice ? 'step' : undefined}
-                disabled={!alcancavel}
+                /* Sem `disabled`: na referência o passo à frente fica cinza,
+                   não apagado. Ele informa onde se está — e um controle
+                   desabilitado parece defeito, não estado. O clique é que
+                   respeita a ordem. */
+                aria-disabled={!alcancavel || undefined}
                 onClick={() => alcancavel && irPara(item.value)}
               >
                 <b aria-hidden="true">{i < maiorVisitada ? '✓' : i + 1}</b>
