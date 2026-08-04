@@ -1675,3 +1675,32 @@
   height: auto;
   border-radius: var(--com-raio-controle);
 }
+
+/* Botão de upload — é um <label> com input escondido, então precisa parecer botão. */
+.com-root .com-upload {
+  position: relative;
+  cursor: pointer;
+}
+
+.com-root .com-upload input[type='file'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.com-root .com-upload-inativo {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.com-root .com-upload-inativo input[type='file'] {
+  cursor: not-allowed;
+}
+
+/* Recusa do envio: o recado precisa se distinguir do informativo. */
+.com-root .com-recado-erro {
+  border-left-color: var(--com-erro);
+  color: var(--com-erro);
+}

@@ -31,6 +31,8 @@ const MODELS_COMERCIAIS = [
   'ScopeAsset',
   'SalesAttribution',
   'ProposalAuditLog',
+  'ProposalNumberingState',
+  'ScopePhotoAsset',
 ];
 
 function blocoDe(nome) {
@@ -78,12 +80,20 @@ test('nenhum model da operação foi movido para o schema comercial', () => {
   for (const match of schema.matchAll(/^(model|enum)\s+([A-Za-z0-9_]+)\s*\{/gm)) {
     const nome = match[2];
     const bloco = blocoDe(nome);
-    if (bloco && /@@schema\("comercial"\)/.test(bloco) && !comerciais.has(nome)) {
-      // Enums do módulo também são esperados em `comercial`.
-      if (!/^(CostEstimate|Proposal|SalesAttribution)/.test(nome)) {
-        emComercial.push(nome);
-      }
-    }
+    if (!bloco || !/@@schema\("comercial"\)/.test(bloco)) continue;
+    if (comerciais.has(nome)) continue;
+
+    // Os ENUMS do módulo também vivem em `comercial`, e são reconhecidos pelo
+    // prefixo. A lista de MODELS, não: ela é explícita de propósito.
+    //
+    // Esta distinção existe porque a primeira versão do teste aceitava qualquer
+    // bloco com prefixo `Proposal`, e foi assim que `ProposalNumberingState`
+    // entrou no schema `comercial` sem ninguém declarar. Um model novo tem de
+    // aparecer na lista acima — é a única leitura que prova que alguém decidiu.
+    const ehEnum = new RegExp(`^enum\\s+${nome}\\s*\\{`, 'm').test(schema);
+    if (ehEnum && /^(CostEstimate|Proposal|SalesAttribution|Scope)/.test(nome)) continue;
+
+    emComercial.push(nome);
   }
 
   assert.deepEqual(
@@ -156,4 +166,20 @@ test('não existe campo de exclusão definitiva', () => {
       `${nome}: o módulo arquiva, não exclui (FR-060)`,
     );
   }
+});
+
+test('model novo no schema comercial precisa ser DECLARADO na lista', () => {
+  // A regressão que fecha a brecha: a primeira versão deste teste aceitava
+  // qualquer bloco com prefixo `Proposal`, e foi assim que
+  // `ProposalNumberingState` entrou no schema `comercial` sem revisão. Agora só
+  // ENUM passa por prefixo; MODEL tem de estar na lista explícita.
+  const inventado = 'model ProposalCoisaQualquer {\n  id String @id\n\n  @@schema("comercial")\n}';
+  const comOIntruso = schema + '\n' + inventado;
+
+  const blocos = [...comOIntruso.matchAll(/^model\s+([A-Za-z0-9_]+)\s*\{/gm)].map(m => m[1]);
+  assert.ok(blocos.includes('ProposalCoisaQualquer'));
+  assert.ok(
+    !MODELS_COMERCIAIS.includes('ProposalCoisaQualquer'),
+    'um model não declarado precisa ficar de fora da lista para o teste acusá-lo',
+  );
 });

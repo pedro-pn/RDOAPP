@@ -204,7 +204,12 @@ Porte de `app/api/scope-assets/route.ts` da referência.
 
 ### `POST /api/comercial/escopo/fotos`
 
-`requireComercialEstimator`. `multipart/form-data`, campo `file`.
+`requireComercialEstimator`. **Binário cru**: `Content-Type` é o tipo da imagem e o
+nome original vai em `x-file-name`.
+
+> **Mudou de `multipart/form-data` na implementação (04/08).** O repositório já recebe
+> upload assim (`acompanhamento-comercial.js`), e o cliente envia uma foto por
+> requisição — multipart pediria uma dependência nova para embrulhar um arquivo só.
 
 **Cadeia de recusa**, na ordem, com mensagem própria para cada caso:
 

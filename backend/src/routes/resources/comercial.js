@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 
-import { makeComercialSchemas } from '../../../../shared/schemas/comercial.js';
+import { SCOPE_PHOTO_LIMITS, makeComercialSchemas } from '../../../../shared/schemas/comercial.js';
 import asyncHandler from '../../lib/async-handler.js';
 import { serializeForUser, serializeListForUser } from '../../lib/comercial/access.js';
 import {
@@ -14,6 +14,7 @@ import {
   updateCostEstimate
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
+import { gravarFoto, lerFoto } from '../../lib/comercial/scope-assets.js';
 import { nextProposalNumber, numberingStatus } from '../../lib/comercial/numbering.js';
 import { comercialStatus } from '../../lib/comercial/service.js';
 import prisma from '../../lib/prisma.js';
@@ -59,6 +60,73 @@ function handleComercialError(error, res) {
 router.get('/status', (_req, res) => {
   res.json(comercialStatus());
 });
+
+// ---------------------------------------------------------------------------
+// Fotos dos blocos de conteúdo do escopo
+// ---------------------------------------------------------------------------
+
+/**
+ * Recebe a foto como **binário cru**, no padrão que este repositório já usa para
+ * upload (`acompanhamento-comercial.js`): o `Content-Type` é o tipo da imagem e o
+ * nome original vem em `x-file-name`. Evita uma dependência de multipart para
+ * receber um arquivo por requisição — o cliente já envia um de cada vez.
+ *
+ * A cadeia de recusa mora em `scope-assets.js`, com mensagem própria por caso.
+ * `express.raw` corta acima do limite de requisição antes de o corpo chegar aqui.
+ */
+router.post(
+  '/escopo/fotos',
+  requireComercialEstimator,
+  express.raw({
+    type: SCOPE_PHOTO_LIMITS.allowedTypes,
+    limit: SCOPE_PHOTO_LIMITS.maxRequestBytes
+  }),
+  asyncHandler(async (req, res) => {
+    try {
+      // Tipo fora da lista não casa com `express.raw`, e o corpo chega vazio.
+      // A distinção importa: "selecione uma foto" e "use JPEG, PNG ou WebP" são
+      // problemas diferentes e mandam o usuário para lados diferentes.
+      const tipoDeclarado = String(req.headers['content-type'] || '')
+        .split(';')[0]
+        .trim()
+        .toLowerCase();
+
+      if (tipoDeclarado && !SCOPE_PHOTO_LIMITS.allowedTypes.includes(tipoDeclarado)) {
+        return res.status(415).json({ error: 'Use uma imagem JPEG, PNG ou WebP.' });
+      }
+
+      const foto = await gravarFoto(prisma, {
+        bytes: Buffer.isBuffer(req.body) ? req.body : null,
+        contentType: tipoDeclarado,
+        fileName: req.headers['x-file-name'],
+        userId: req.auth.user.id
+      });
+
+      return res.status(201).json(foto);
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.get(
+  '/escopo/fotos/:id',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const { bytes, contentType, fileName } = await lerFoto(prisma, req.params.id);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+      // Imutável: o arquivo tem nome de UUID e nunca é reescrito.
+      res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+      return res.send(bytes);
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
 
 // ---------------------------------------------------------------------------
 // Consultores de vendas

@@ -136,3 +136,34 @@ export async function listarConsultores() {
   );
   return data;
 }
+
+export interface FotoDoEscopo {
+  id: string;
+  assetKey: string;
+  fileName: string;
+  contentType: string;
+  byteSize: number;
+}
+
+/**
+ * Envia uma foto de escopo, já otimizada pelo cliente.
+ *
+ * Binário cru com o tipo no `Content-Type` e o nome em `x-file-name`, no padrão que
+ * este repositório já usa para upload. O servidor **revalida tudo** — inclusive a
+ * assinatura de bytes, porque a otimização daqui pode ser contornada.
+ */
+export async function enviarFotoDoEscopo(blob: Blob, fileName: string) {
+  const { data } = await apiClient.post<FotoDoEscopo>('/comercial/escopo/fotos', blob, {
+    headers: {
+      'Content-Type': blob.type,
+      'x-file-name': encodeURIComponent(fileName)
+    }
+  });
+  return data;
+}
+
+/** Endereço de leitura da foto. O `<img>` aponta para cá; o arquivo é imutável. */
+export function urlDaFotoDoEscopo(id: string) {
+  const base = apiClient.defaults.baseURL || '/api';
+  return `${base}/comercial/escopo/fotos/${id}`;
+}

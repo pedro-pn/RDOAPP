@@ -309,16 +309,13 @@ da finalização.
 - [X] T058 [US2] [P] Implementar `proposta/steps/EscopoStep.tsx` — `PROP-CTL-026..033`. Trava: título, e **todo** item de escopo com título *e* descrição.
 - [X] T058a [US2] Implementar `frontend/src/pages/comercial/proposta/steps/ScopeContentEditor.tsx` — o **editor de blocos de conteúdo** de cada item de escopo, cobrindo `PROP-CTL-113..128`: incluir tabela, incluir fotos, legenda, remover, e as setas ↑/↓ de ordenação. **Este subsistema quase se perdeu**: os controles caíam na faixa da prévia porque o componente é definido depois dela no fonte.  ↳ `FR-045`
 
-  > **Tabelas completas; fotos numa passada própria.** Inserir tabela, mover ↑/↓,
-  > remover, linha, coluna e remover última coluna estão portados, com os limites da
-  > T058c. O botão "Incluir fotos" existe e **diz por que não responde** — depende da
-  > gravação no servidor (T074a/b) e da otimização no cliente (T058b). Um botão que
-  > some é indistinguível de um botão que nunca existiu.
+  > **Completo — tabelas e fotos.** As fotos fecharam em 04/08 junto com a T058b
+  > (otimização no cliente) e a T074a/b (gravação e cadeia de recusa no servidor).
   >
   > **Os limites são contados por PROPOSTA, não por item** (`allBlocks`). Oito tabelas
   > espalhadas em quatro serviços já esgotam a cota; contar por item deixaria passar
   > uma proposta com 32 tabelas, que o gerador de PDF não aguenta.
-- [ ] T058b [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/scopePhoto.ts` a **otimização da imagem no cliente** (FR-048): recusar acima de 10 MB ou 24 megapixels; redimensionar para 1600 px no maior lado; achatar sobre fundo branco; recomprimir em qualidade 0,82 e, se ainda passar de 1,5 MB, em 0,64; recusar com o **nome do arquivo na mensagem** se ainda assim não couber.  ↳ `FR-047` `FR-048`
+- [X] T058b [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/scopePhoto.ts` a **otimização da imagem no cliente** (FR-048): recusar acima de 10 MB ou 24 megapixels; redimensionar para 1600 px no maior lado; achatar sobre fundo branco; recomprimir em qualidade 0,82 e, se ainda passar de 1,5 MB, em 0,64; recusar com o **nome do arquivo na mensagem** se ainda assim não couber.  ↳ `FR-047` `FR-048`
 - [X] T058c [US2] Aplicar em `ScopeContentEditor.tsx` os limites da referência (FR-046): **8 fotos** e **8 tabelas** por item, tabela com **6 colunas**, **40 linhas** e **300 caracteres** por célula, legenda de **240**. Controle desabilitado ao atingir o limite, com mensagem que o nomeia.  ↳ `FR-046`
 - [X] T058d [US2] Implementar em `ScopeContentEditor.tsx` o estado vazio e o texto de ajuda que anuncia os limites (FR-053), no texto da referência.  ↳ `FR-053`
 - [X] T059 [US2] [P] Implementar `proposta/steps/ResponsabilidadesStep.tsx` — `PROP-CTL-034..042`. Trava: ao menos uma linha na matriz.
@@ -358,9 +355,9 @@ documentos e o registro no histórico.
 - [ ] T072 [US3] Implementar `backend/lib/comercial/proposal-pdf.js` — porte de `app/proposal-pdf.ts` para `pdf-lib`, com as primitivas traduzidas 1:1 e helper próprio de quebra de linha sobre `widthOfTextAtSize`.
 - [ ] T073 [US3] [P] Implementar `backend/lib/comercial/pdf-images.js` com `sharp` para o preparo das imagens.
 - [ ] T074 [US3] [P] Implementar `backend/lib/comercial/storage.js` — gravação e leitura em disco sob `COMERCIAL_DIR`.
-- [ ] T074a [US3] Implementar `POST /api/comercial/escopo/fotos` em `backend/src/routes/comercial/`, com a **cadeia de recusa completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 2 MB por requisição, arquivo ausente, tipo fora de JPEG/PNG/WebP, 1,5 MB por foto, e **assinatura de bytes** que não bate com o tipo declarado. Cada caso com a sua mensagem.  ↳ `FR-049` `FR-050`
-- [ ] T074b [US3] Implementar em `backend/lib/comercial/scope-assets.js` a gravação sob `COMERCIAL_DIR` no padrão `escopo/AAAA/MM/<uuid>.<ext>`, guardando o nome original saneado, e o `GET /api/comercial/escopo/fotos/:id` com verificação de autoria. **As fotos sobrevivem às revisões** (FR-051).  ↳ `FR-051` `FR-067`
-- [ ] T074c [US3] [P] Escrever `backend/test/comercial-escopo-fotos.test.js` cobrindo a cadeia de recusa — em especial **arquivo renomeado para `.jpg` que não é imagem**, recusado pela assinatura de bytes e não pelo nome.  ↳ `FR-049`
+- [X] T074a [US3] Implementar `POST /api/comercial/escopo/fotos` em `backend/src/routes/comercial/`, com a **cadeia de recusa completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 2 MB por requisição, arquivo ausente, tipo fora de JPEG/PNG/WebP, 1,5 MB por foto, e **assinatura de bytes** que não bate com o tipo declarado. Cada caso com a sua mensagem.  ↳ `FR-049` `FR-050`
+- [X] T074b [US3] Implementar em `backend/lib/comercial/scope-assets.js` a gravação sob `COMERCIAL_DIR` no padrão `escopo/AAAA/MM/<uuid>.<ext>`, guardando o nome original saneado, e o `GET /api/comercial/escopo/fotos/:id` com verificação de autoria. **As fotos sobrevivem às revisões** (FR-051).  ↳ `FR-051` `FR-067`
+- [X] T074c [US3] [P] Escrever `backend/test/comercial-escopo-fotos.test.js` cobrindo a cadeia de recusa — em especial **arquivo renomeado para `.jpg` que não é imagem**, recusado pela assinatura de bytes e não pelo nome.  ↳ `FR-049`
 - [ ] T075 [US3] Implementar `POST /api/comercial/propostas/documentos`, gerando os dois PDFs e **gravando antes de qualquer tentativa de integração**.  ↳ `FR-033`
 - [ ] T076 [US3] Implementar `backend/lib/comercial/jobs.js` — Nectar e SharePoint — e `POST /api/comercial/propostas/finalizar`, atualizando `integrationStatus` depois.
 - [ ] T076a [US3] Implementar `backend/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.  ↳ `FR-054`

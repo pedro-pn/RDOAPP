@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   MAX_SCOPE_PHOTOS,
   MAX_SCOPE_TABLE_CELL_CHARACTERS,
@@ -10,6 +12,8 @@ import {
   type ScopeBlock,
   type ScopeTableBlock
 } from '../../../../../../shared/comercial/dist/scope-content.js';
+import { enviarFotoDoEscopo, urlDaFotoDoEscopo } from '../../../../api/comercial';
+import { FotoRecusadaError, otimizarFoto } from '../scopePhoto';
 
 /**
  * Blocos de conteúdo de um item de escopo — tabelas e fotos (`PROP-CTL-113..128`).
@@ -26,9 +30,10 @@ import {
  * tabelas espalhadas em quatro serviços já esgotam a cota. Contar por item deixaria
  * uma proposta com 32 tabelas passar, e o gerador de PDF não aguenta.
  *
- * As fotos entram numa passada própria, com a cadeia de recusa do servidor (T074a).
- * Até lá o controle existe e diz por quê — um botão que some é indistinguível de um
- * botão que nunca existiu.
+ * **As fotos são otimizadas aqui e revalidadas lá.** O cliente redimensiona, achata
+ * sobre branco e recomprime para caber em 1,5 MB; o servidor confere tipo, tamanho e
+ * **assinatura de bytes**. Não é redundância: a otimização existe para caber, a
+ * validação existe porque isto roda no navegador do usuário.
  */
 
 type Props = {
@@ -46,6 +51,72 @@ function novoId(prefixo: string) {
 
 export function ScopeContentEditor({ itemId, blocks, allBlocks, onChange }: Props) {
   const tabelasNoLimite = countScopeTables(allBlocks) >= MAX_SCOPE_TABLES;
+  const fotosUsadas = countScopePhotos(allBlocks);
+  const fotosNoLimite = fotosUsadas >= MAX_SCOPE_PHOTOS;
+
+  const [enviando, setEnviando] = useState(false);
+  const [recado, setRecado] = useState('');
+  const [recadoEhErro, setRecadoEhErro] = useState(false);
+
+  /**
+   * Envia as fotos selecionadas, **uma a uma e na ordem**.
+   *
+   * Em paralelo seria mais rápido e traria dois problemas: a ordem de chegada
+   * decidiria a ordem no documento, e uma recusa no meio deixaria metade enviada
+   * sem dizer quais. Em série, o que entrou entrou, e a mensagem nomeia onde parou.
+   */
+  async function enviarFotos(arquivos: File[]) {
+    if (!arquivos.length) return;
+
+    setEnviando(true);
+    setRecado('');
+    setRecadoEhErro(false);
+
+    let restantes = MAX_SCOPE_PHOTOS - fotosUsadas;
+
+    for (const arquivo of arquivos) {
+      if (restantes <= 0) {
+        setRecado(
+          `Limite de ${MAX_SCOPE_PHOTOS} fotos por proposta atingido. ` +
+            `"${arquivo.name}" e as seguintes não foram enviadas.`
+        );
+        setRecadoEhErro(true);
+        break;
+      }
+
+      try {
+        const otimizada = await otimizarFoto(arquivo);
+        const salva = await enviarFotoDoEscopo(otimizada.blob, otimizada.fileName);
+
+        onChange(atual => [
+          ...atual,
+          {
+            id: salva.id,
+            type: 'photo',
+            scopeItemId: itemId,
+            assetKey: salva.assetKey,
+            src: urlDaFotoDoEscopo(salva.id),
+            fileName: salva.fileName,
+            caption: '',
+            aspectRatio: otimizada.width / otimizada.height
+          } as ScopeBlock
+        ]);
+        restantes -= 1;
+      } catch (error) {
+        // A mensagem da recusa já nomeia o arquivo — quem seleciona seis fotos e
+        // lê "arquivo muito grande" não sabe qual tirar da lista.
+        setRecado(
+          error instanceof FotoRecusadaError
+            ? error.message
+            : mensagemDoServidor(error, arquivo.name)
+        );
+        setRecadoEhErro(true);
+        break;
+      }
+    }
+
+    setEnviando(false);
+  }
 
   function atualizarBloco(id: string, atualizar: (bloco: ScopeBlock) => ScopeBlock) {
     onChange(atual => atual.map(bloco => (bloco.id === id ? atualizar(bloco) : bloco)));
@@ -112,18 +183,31 @@ export function ScopeContentEditor({ itemId, blocks, allBlocks, onChange }: Prop
           >
             ＋ Inserir tabela
           </button>
-          <button
-            type="button"
-            className="com-btn-add"
-            disabled
+          <label
+            className={`com-btn-add com-upload${
+              enviando || fotosNoLimite ? ' com-upload-inativo' : ''
+            }`}
             title={
-              countScopePhotos(allBlocks) >= MAX_SCOPE_PHOTOS
+              fotosNoLimite
                 ? `Limite de ${MAX_SCOPE_PHOTOS} fotos por proposta atingido`
-                : 'O envio de fotos entra junto com a gravação no servidor'
+                : undefined
             }
           >
-            ＋ Incluir fotos
-          </button>
+            {enviando ? 'Enviando...' : '＋ Incluir fotos'}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              disabled={enviando || fotosNoLimite}
+              onChange={evento => {
+                const arquivos = Array.from(evento.target.files || []);
+                // Limpa o campo: sem isto, escolher o MESMO arquivo de novo depois
+                // de uma recusa não dispara evento nenhum, e a tela parece travada.
+                evento.target.value = '';
+                void enviarFotos(arquivos);
+              }}
+            />
+          </label>
         </div>
       </div>
 
@@ -132,6 +216,12 @@ export function ScopeContentEditor({ itemId, blocks, allBlocks, onChange }: Prop
         proposta. As imagens são otimizadas automaticamente e preservadas para futuras
         revisões.
       </p>
+
+      {recado && (
+        <p className={`com-recado${recadoEhErro ? ' com-recado-erro' : ''}`} role="status">
+          {recado}
+        </p>
+      )}
 
       {blocks.length === 0 ? (
         <div className="com-vazio">
@@ -359,4 +449,11 @@ function TabelaDoEscopo({
       </div>
     </>
   );
+}
+
+/** Mensagem da recusa do servidor, já nomeando o arquivo. */
+function mensagemDoServidor(error: unknown, fileName: string): string {
+  const resposta = (error as { response?: { data?: { error?: string } } })?.response;
+  const detalhe = resposta?.data?.error;
+  return detalhe ? `"${fileName}": ${detalhe}` : `Falha ao enviar "${fileName}".`;
 }

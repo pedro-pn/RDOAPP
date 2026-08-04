@@ -2502,3 +2502,23 @@ model ProposalNumberingState {
 
   @@schema("comercial")
 }
+
+/// Foto de um bloco de conteúdo do escopo.
+///
+/// Vive separada do payload da proposta porque **sobrevive às revisões** (FR-051):
+/// revisar não exige reenviar a foto. O bloco guarda só o id; o arquivo fica no disco
+/// sob `uploadDir/Comercial/escopo/AAAA/MM/`, com nome de UUID.
+model ScopePhotoAsset {
+  id               String   @id @default(uuid())
+  /// Caminho RELATIVO à raiz de fotos. Absoluto amarraria o banco à máquina.
+  assetKey         String   @unique
+  contentType      String
+  byteSize         Int
+  /// Nome original saneado, guardado só para exibição.
+  fileName         String
+  uploadedByUserId String?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@schema("comercial")
+}
