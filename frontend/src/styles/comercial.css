@@ -1589,3 +1589,89 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Etapa 2 — serviços do escopo e seus blocos de conteúdo. */
+.com-root .com-escopo-cabecalho {
+  margin-top: 1.5rem;
+}
+
+.com-root .com-escopo-numero {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.com-root .com-escopo-numero b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--com-raio-controle);
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  font-weight: 700;
+}
+
+.com-root .com-escopo-numero strong {
+  display: block;
+  color: var(--com-texto);
+}
+
+.com-root .com-escopo-numero span {
+  color: var(--com-texto-fraco);
+  font-size: 0.82rem;
+}
+
+.com-root .com-blocos {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed var(--com-borda);
+  border-radius: var(--com-raio);
+  background: var(--com-fundo);
+}
+
+.com-root .com-blocos-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.com-root .com-blocos-lista {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.com-root .com-bloco {
+  padding: 0.9rem;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+  background: var(--com-superficie);
+}
+
+.com-root .com-bloco-topo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.com-root .com-bloco-ordem {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.com-root .com-bloco textarea {
+  min-height: 2.4rem;
+  resize: vertical;
+}
+
+.com-root .com-bloco-foto img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--com-raio-controle);
+}

@@ -129,14 +129,106 @@ export function pendenciasDoCliente(form: Formulario): PendenciaEtapa[] {
 }
 
 /**
+ * As pendências da etapa **Escopo comum** (`PROP-CTL-026..033`).
+ *
+ * A trava da referência: título da proposta, e **todo** item com título *e*
+ * descrição. Um item pela metade atravessa para o documento como uma seção 2.x
+ * numerada e vazia — o cliente vê o número e não vê o serviço.
+ */
+export function pendenciasDoEscopo(
+  titulo: string,
+  itens: Array<{ title?: string; description?: string }>
+): PendenciaEtapa[] {
+  const faltando: PendenciaEtapa[] = [];
+
+  if (!String(titulo || '').trim()) {
+    faltando.push({ campo: 'title', mensagem: 'Informe o título da proposta.' });
+  }
+
+  itens.forEach((item, i) => {
+    if (!String(item.title || '').trim()) {
+      faltando.push({ campo: `escopo[${i}].title`, mensagem: 'Informe o título do serviço.' });
+    }
+    if (!String(item.description || '').trim()) {
+      faltando.push({
+        campo: `escopo[${i}].description`,
+        mensagem: 'Descreva o serviço.'
+      });
+    }
+  });
+
+  return faltando;
+}
+
+export type LinhaResponsabilidade = { item: string; owner: string; note: string };
+
+/** "N/A" é resposta legítima: há obrigação que não cabe a ninguém no contrato e
+ *  precisa constar assim mesmo, para não parecer esquecimento. */
+export const RESPONSAVEIS = ['Filtrovali', 'Contratante', 'N/A'];
+
+export function linhaVazia(): LinhaResponsabilidade {
+  return { item: '', owner: 'Filtrovali', note: '' };
+}
+
+/**
+ * As pendências da **matriz de responsabilidades** (`PROP-CTL-034..042`).
+ *
+ * Mais estrito que a referência, que exigia só a existência da linha. Linha em
+ * branco atravessa para o documento como obrigação sem texto — pior do que a
+ * ausência dela, porque parece que alguém quis dizer algo e não disse.
+ */
+export function pendenciasDasResponsabilidades(
+  linhas: Array<{ item?: string }>
+): PendenciaEtapa[] {
+  const preenchidas = linhas.filter(linha => String(linha.item || '').trim()).length;
+  return preenchidas > 0
+    ? []
+    : [
+        {
+          campo: 'responsabilidades',
+          mensagem: 'Informe ao menos uma responsabilidade com o item preenchido.'
+        }
+      ];
+}
+
+/** As pendências de **Prazos e jornada** (`PROP-CTL-043..048`). */
+export function pendenciasDosPrazos(form: Formulario): PendenciaEtapa[] {
+  const obrigatorios: Array<[string, string]> = [
+    ['attendance', 'Informe a previsão de atendimento.'],
+    ['mobilization', 'Informe a mobilização após o pedido.'],
+    ['permanence', 'Informe a permanência prevista em obra.'],
+    ['execution', 'Informe o prazo efetivo de execução.'],
+    ['workday', 'Descreva a jornada de trabalho.']
+  ];
+
+  return obrigatorios
+    .filter(([campo]) => !texto(form, campo))
+    .map(([campo, mensagem]) => ({ campo, mensagem }));
+}
+
+/**
  * As pendências da etapa ativa.
  *
  * As etapas ainda não portadas devolvem lista vazia **de propósito**: uma trava que
  * bloqueia sem ter o que validar prenderia o usuário numa etapa em branco. Quando a
  * etapa for portada, a validação dela entra aqui junto.
  */
-export function pendenciasDaEtapa(etapa: EtapaProposta, form: Formulario): PendenciaEtapa[] {
+export function pendenciasDaEtapa(
+  etapa: EtapaProposta,
+  form: Formulario,
+  escopo: {
+    itens?: Array<{ title?: string; description?: string }>;
+    responsabilidades?: Array<{ item?: string }>;
+  } = {}
+): PendenciaEtapa[] {
   if (etapa === 'cliente') return pendenciasDoCliente(form);
+  if (etapa === 'escopo') {
+    return pendenciasDoEscopo(String(form.title ?? ''), escopo.itens || []);
+  }
+  if (etapa === 'responsabilidades') {
+    return pendenciasDasResponsabilidades(escopo.responsabilidades || []);
+  }
+  if (etapa === 'prazos') return pendenciasDosPrazos(form);
   return [];
 }
 

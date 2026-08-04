@@ -306,13 +306,28 @@ da finalização.
   > diz por que não responde em vez de tentar, falhar e parecer defeito. O CNPJ ficou
   > **mais estrito que a referência**: ela conferia só 14 dígitos, aqui os dígitos
   > verificadores são calculados — o CNPJ vai impresso no documento fiscal do cliente.
-- [ ] T058 [US2] [P] Implementar `proposta/steps/EscopoStep.tsx` — `PROP-CTL-026..033`. Trava: título, e **todo** item de escopo com título *e* descrição.
-- [ ] T058a [US2] Implementar `frontend/src/pages/comercial/proposta/steps/ScopeContentEditor.tsx` — o **editor de blocos de conteúdo** de cada item de escopo, cobrindo `PROP-CTL-113..128`: incluir tabela, incluir fotos, legenda, remover, e as setas ↑/↓ de ordenação. **Este subsistema quase se perdeu**: os controles caíam na faixa da prévia porque o componente é definido depois dela no fonte.  ↳ `FR-045`
+- [X] T058 [US2] [P] Implementar `proposta/steps/EscopoStep.tsx` — `PROP-CTL-026..033`. Trava: título, e **todo** item de escopo com título *e* descrição.
+- [X] T058a [US2] Implementar `frontend/src/pages/comercial/proposta/steps/ScopeContentEditor.tsx` — o **editor de blocos de conteúdo** de cada item de escopo, cobrindo `PROP-CTL-113..128`: incluir tabela, incluir fotos, legenda, remover, e as setas ↑/↓ de ordenação. **Este subsistema quase se perdeu**: os controles caíam na faixa da prévia porque o componente é definido depois dela no fonte.  ↳ `FR-045`
+
+  > **Tabelas completas; fotos numa passada própria.** Inserir tabela, mover ↑/↓,
+  > remover, linha, coluna e remover última coluna estão portados, com os limites da
+  > T058c. O botão "Incluir fotos" existe e **diz por que não responde** — depende da
+  > gravação no servidor (T074a/b) e da otimização no cliente (T058b). Um botão que
+  > some é indistinguível de um botão que nunca existiu.
+  >
+  > **Os limites são contados por PROPOSTA, não por item** (`allBlocks`). Oito tabelas
+  > espalhadas em quatro serviços já esgotam a cota; contar por item deixaria passar
+  > uma proposta com 32 tabelas, que o gerador de PDF não aguenta.
 - [ ] T058b [US2] Implementar em `frontend/src/pages/comercial/proposta/steps/scopePhoto.ts` a **otimização da imagem no cliente** (FR-048): recusar acima de 10 MB ou 24 megapixels; redimensionar para 1600 px no maior lado; achatar sobre fundo branco; recomprimir em qualidade 0,82 e, se ainda passar de 1,5 MB, em 0,64; recusar com o **nome do arquivo na mensagem** se ainda assim não couber.  ↳ `FR-047` `FR-048`
-- [ ] T058c [US2] Aplicar em `ScopeContentEditor.tsx` os limites da referência (FR-046): **8 fotos** e **8 tabelas** por item, tabela com **6 colunas**, **40 linhas** e **300 caracteres** por célula, legenda de **240**. Controle desabilitado ao atingir o limite, com mensagem que o nomeia.  ↳ `FR-046`
-- [ ] T058d [US2] Implementar em `ScopeContentEditor.tsx` o estado vazio e o texto de ajuda que anuncia os limites (FR-053), no texto da referência.  ↳ `FR-053`
-- [ ] T059 [US2] [P] Implementar `proposta/steps/ResponsabilidadesStep.tsx` — `PROP-CTL-034..042`. Trava: ao menos uma linha na matriz.
-- [ ] T060 [US2] [P] Implementar `proposta/steps/PrazosStep.tsx` — `PROP-CTL-043..048`. Trava: mobilização, permanência, execução, atendimento, jornada.
+- [X] T058c [US2] Aplicar em `ScopeContentEditor.tsx` os limites da referência (FR-046): **8 fotos** e **8 tabelas** por item, tabela com **6 colunas**, **40 linhas** e **300 caracteres** por célula, legenda de **240**. Controle desabilitado ao atingir o limite, com mensagem que o nomeia.  ↳ `FR-046`
+- [X] T058d [US2] Implementar em `ScopeContentEditor.tsx` o estado vazio e o texto de ajuda que anuncia os limites (FR-053), no texto da referência.  ↳ `FR-053`
+- [X] T059 [US2] [P] Implementar `proposta/steps/ResponsabilidadesStep.tsx` — `PROP-CTL-034..042`. Trava: ao menos uma linha na matriz.
+
+  > **Mais estrito que a referência.** Ela exigia só a *existência* da linha; aqui a
+  > linha precisa ter o item preenchido. Linha em branco atravessa para o documento
+  > como obrigação sem texto — pior que a ausência dela, porque parece que alguém quis
+  > dizer algo e não disse.
+- [X] T060 [US2] [P] Implementar `proposta/steps/PrazosStep.tsx` — `PROP-CTL-043..048`. Trava: mobilização, permanência, execução, atendimento, jornada.
 - [ ] T061 [US2] [P] Implementar `proposta/steps/TecnicaStep.tsx` — `PROP-CTL-049..057`, com os requisitos condicionais dos serviços técnicos selecionados.  ↳ `FR-003`
 - [ ] T062 [US2] [P] Implementar `proposta/steps/ComercialStep.tsx` — `PROP-CTL-058..071`. Trava: ao menos um preço com descrição + unidade + valor, condição de pagamento, validade.
 - [ ] T063 [US2] [P] Implementar `proposta/steps/RevisaoStep.tsx` — `PROP-CTL-072..085`, com funil do Nectar e escolha de card.

@@ -109,7 +109,91 @@ test('o rodapé diz quantos campos faltam, no texto da referência', () => {
 test('etapa ainda não portada não trava o usuário', () => {
   // Uma trava que bloqueia sem ter o que validar prenderia o usuário numa etapa
   // em branco, sem nada para preencher e sem saída.
-  for (const etapa of ['escopo', 'responsabilidades', 'prazos', 'tecnica', 'comercial', 'revisao']) {
+  //
+  // Escopo, responsabilidades e prazos SAÍRAM desta lista quando foram portadas:
+  // era exatamente para isso que este teste existia. Quem portar Técnica,
+  // Comercial ou Revisão vai vê-lo falhar, e é o aviso de que falta ligar a
+  // validação da etapa nova em `pendenciasDaEtapa`.
+  for (const etapa of ['tecnica', 'comercial', 'revisao']) {
     assert.deepEqual(mod.pendenciasDaEtapa(etapa, {}), [], etapa);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Etapas 2, 3 e 4
+// ---------------------------------------------------------------------------
+
+test('escopo: item pela metade não passa', () => {
+  // Um item sem descrição atravessa para o documento como uma seção 2.x
+  // numerada e vazia — o cliente vê o número e não vê o serviço.
+  const itens = [{ title: 'Flushing', description: '' }];
+  const pendencias = mod.pendenciasDoEscopo('Limpeza química', itens);
+
+  assert.equal(pendencias.length, 1);
+  assert.equal(pendencias[0].campo, 'escopo[0].description');
+});
+
+test('escopo: o endereço da pendência carrega o ÍNDICE do item', () => {
+  // Sem o índice, três serviços incompletos produziriam três mensagens
+  // idênticas e nenhuma diria qual deles.
+  const itens = [
+    { title: 'A', description: 'ok' },
+    { title: '', description: '' }
+  ];
+  const campos = mod.pendenciasDoEscopo('Título', itens).map(p => p.campo);
+
+  assert.deepEqual(campos, ['escopo[1].title', 'escopo[1].description']);
+});
+
+test('escopo: título da proposta é obrigatório junto com os itens', () => {
+  const pendencias = mod.pendenciasDoEscopo('  ', [{ title: 'A', description: 'B' }]);
+  assert.deepEqual(pendencias.map(p => p.campo), ['title']);
+});
+
+test('responsabilidades: linha em branco não conta como preenchida', () => {
+  // Mais estrito que a referência, que exigia só a existência da linha. Linha
+  // vazia vira obrigação sem texto no documento.
+  assert.equal(mod.pendenciasDasResponsabilidades([{ item: '   ' }]).length, 1);
+  assert.equal(mod.pendenciasDasResponsabilidades([]).length, 1);
+  assert.equal(mod.pendenciasDasResponsabilidades([{ item: 'Andaimes' }]).length, 0);
+});
+
+test('responsabilidades: uma linha preenchida entre várias vazias basta', () => {
+  const linhas = [{ item: '' }, { item: 'Energia elétrica' }, { item: '' }];
+  assert.deepEqual(mod.pendenciasDasResponsabilidades(linhas), []);
+});
+
+test('prazos: os cinco campos são obrigatórios', () => {
+  const completo = {
+    attendance: 'até 10 dias',
+    mobilization: '7 dias',
+    permanence: '12 dias corridos',
+    execution: '10 dias trabalhados',
+    workday: 'Segunda a sexta, 8h às 18h'
+  };
+  assert.deepEqual(mod.pendenciasDosPrazos(completo), []);
+
+  for (const campo of Object.keys(completo)) {
+    const pendencias = mod.pendenciasDosPrazos({ ...completo, [campo]: '' });
+    assert.equal(pendencias.length, 1, campo);
+    assert.equal(pendencias[0].campo, campo);
+  }
+});
+
+test('pendenciasDaEtapa despacha para a etapa certa', () => {
+  const form = { title: '', attendance: '' };
+  const escopo = { itens: [{ title: '', description: '' }], responsabilidades: [] };
+
+  assert.ok(mod.pendenciasDaEtapa('escopo', form, escopo).length > 0);
+  assert.equal(mod.pendenciasDaEtapa('responsabilidades', form, escopo).length, 1);
+  assert.equal(mod.pendenciasDaEtapa('prazos', form, escopo).length, 5);
+  // As três ainda não portadas continuam sem travar.
+  assert.deepEqual(mod.pendenciasDaEtapa('tecnica', form, escopo), []);
+});
+
+test('a matriz aceita "N/A" como responsável', () => {
+  // Há obrigação que não cabe a ninguém no contrato e precisa constar assim
+  // mesmo, para não parecer esquecimento.
+  assert.ok(mod.RESPONSAVEIS.includes('N/A'));
+  assert.deepEqual(mod.linhaVazia(), { item: '', owner: 'Filtrovali', note: '' });
 });

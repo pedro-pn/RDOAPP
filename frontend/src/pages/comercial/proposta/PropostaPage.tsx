@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
+import {
+  createScopeServiceItem,
+  type ScopeBlock,
+  type ScopeServiceItem
+} from '../../../../../shared/comercial/dist/scope-content.js';
 import { listarConsultores, type Consultor } from '../../../api/comercial';
 import { useAuth } from '../../../auth/AuthContext';
 import { moduleRoutePath } from '../../../modules/registry';
@@ -10,11 +15,16 @@ import {
   ETAPAS,
   indiceDaEtapa,
   indiceDePendencias,
+  linhaVazia,
+  type LinhaResponsabilidade,
   pendenciasDaEtapa,
   rotuloDoAvanco,
   type EtapaProposta
 } from './etapas';
 import { ClienteStep } from './steps/ClienteStep';
+import { EscopoStep } from './steps/EscopoStep';
+import { PrazosStep } from './steps/PrazosStep';
+import { ResponsabilidadesStep } from './steps/ResponsabilidadesStep';
 
 /**
  * Montagem da proposta — container das 7 etapas (`PROP-CTL-001..010`, `PROP-H-001..003`).
@@ -44,7 +54,12 @@ function formularioInicial(): AnyRecord {
     email: '',
     department: '',
     site: '',
-    title: ''
+    title: '',
+    attendance: '',
+    mobilization: '',
+    permanence: '',
+    execution: '',
+    workday: ''
   };
 }
 
@@ -58,6 +73,15 @@ export function PropostaPage() {
   const levantamentoId = params.get('levantamento') ?? '';
 
   const [form, setForm] = useState<AnyRecord>(formularioInicial);
+  // A proposta nasce com UM serviço. Zero serviços deixaria a etapa 2 sem nada
+  // para preencher, e a trava pediria um item que não existe na tela.
+  const [itensEscopo, setItensEscopo] = useState<ScopeServiceItem[]>(() => [
+    createScopeServiceItem('escopo-inicial', 0)
+  ]);
+  const [blocos, setBlocos] = useState<ScopeBlock[]>([]);
+  const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(
+    () => [linhaVazia()]
+  );
   const [maiorVisitada, setMaiorVisitada] = useState(indice);
   const [tentouAvancar, setTentouAvancar] = useState(false);
   const [consultores, setConsultores] = useState<Consultor[]>([]);
@@ -68,7 +92,7 @@ export function PropostaPage() {
     tela: 'proposta',
     modo: levantamentoId ? 'levantamento' : 'avulsa',
     codigo: levantamentoId,
-    dados: form,
+    dados: { form, itensEscopo, blocos, responsabilidades },
     ativo: true,
     rotulo: 'Proposta'
   });
@@ -103,7 +127,10 @@ export function PropostaPage() {
     setMaiorVisitada(atual => Math.max(atual, indice));
   }, [indice]);
 
-  const pendencias = pendenciasDaEtapa(etapa, form);
+  const pendencias = pendenciasDaEtapa(etapa, form, {
+    itens: itensEscopo,
+    responsabilidades
+  });
   const erros = indiceDePendencias(pendencias);
   const ultima = indice === ETAPAS.length - 1;
 
@@ -148,8 +175,21 @@ export function PropostaPage() {
               type="button"
               className="com-btn com-btn-primario"
               onClick={() => {
-                const dados = rascunho.recuperar();
-                if (dados) setForm(dados as AnyRecord);
+                const dados = rascunho.recuperar() as
+                  | {
+                      form?: AnyRecord;
+                      itensEscopo?: ScopeServiceItem[];
+                      blocos?: ScopeBlock[];
+                      responsabilidades?: LinhaResponsabilidade[];
+                    }
+                  | undefined;
+                if (!dados) return;
+                if (dados.form) setForm(dados.form);
+                if (dados.itensEscopo?.length) setItensEscopo(dados.itensEscopo);
+                if (dados.blocos) setBlocos(dados.blocos);
+                if (dados.responsabilidades?.length) {
+                  setResponsabilidades(dados.responsabilidades);
+                }
               }}
             >
               Recuperar
@@ -197,6 +237,24 @@ export function PropostaPage() {
           consultores={consultores}
           podeEscolherConsultor={podeEscolher}
         />
+      ) : etapa === 'escopo' ? (
+        <EscopoStep
+          titulo={String(form.title ?? '')}
+          onTitulo={valor => editar({ title: valor })}
+          itens={itensEscopo}
+          onItens={setItensEscopo}
+          blocos={blocos}
+          onBlocos={setBlocos}
+          erroDe={erroDe}
+        />
+      ) : etapa === 'responsabilidades' ? (
+        <ResponsabilidadesStep
+          linhas={responsabilidades}
+          onLinhas={setResponsabilidades}
+          mostrarErros={tentouAvancar}
+        />
+      ) : etapa === 'prazos' ? (
+        <PrazosStep form={form} editar={editar} erroDe={erroDe} />
       ) : (
         <section className="com-painel">
           <div className="com-secao-titulo">
