@@ -14,6 +14,7 @@
 
 import {
   matrizDoModelo,
+  type LocalOperacao,
   type ModeloProposta
 } from '../../../../../shared/comercial/dist/modelo-documento.js';
 
@@ -293,6 +294,15 @@ export type ItemDePreco = {
   quantity: string;
   unitValue: string;
   value: string;
+  /**
+   * A qual tabela o item pertence, no modelo de hidrojateamento: ONSHORE ou
+   * OFFSHORE. Ausente no modelo padrão, que tem uma tabela só (T071f).
+   *
+   * Cada tabela fecha o **seu** TOTAL GERAL. Somar as duas juntas apresentaria
+   * ao cliente um total que ele não vai pagar: são cenários alternativos de
+   * execução, não parcelas do mesmo serviço.
+   */
+  local?: LocalOperacao;
 };
 
 /**

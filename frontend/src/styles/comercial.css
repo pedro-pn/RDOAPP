@@ -2486,3 +2486,15 @@
   text-align: center;
   line-height: 1.9;
 }
+
+/* Uma tabela de preços por local de operação (ONSHORE/OFFSHORE). */
+.com-root .com-tabela-precos + .com-tabela-precos {
+  margin-top: 18px;
+  padding-top: 6px;
+  border-top: 1px solid var(--com-borda);
+}
+
+.com-root .com-doc-local {
+  margin: 6px 0 3px;
+  color: var(--com-marca-forte);
+}

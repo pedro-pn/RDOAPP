@@ -4,6 +4,8 @@ import type {
 } from '../../../../../shared/comercial/dist/scope-content.js';
 import type { TechnicalServiceSelection } from '../../../../../shared/comercial/dist/technical-services.js';
 import {
+  INDICE_COMERCIAL,
+  INDICE_TECNICO,
   LINHAS_ASSINATURA,
   TEXTO_ACEITE,
   TEXTO_EXPLICACAO_STANDBY,
@@ -13,6 +15,7 @@ import {
   TITULO_BLOCO_STANDBY,
   fraseHoraExtra,
   observacoesTecnicasDoModelo,
+  tabelasDePrecoDoModelo,
   tabelaStandby,
   type ModeloProposta
 } from '../../../../../shared/comercial/dist/modelo-documento.js';
@@ -50,35 +53,19 @@ const CAPA = {
 };
 const PAGINA = `${BASE}/assets/Comercial/proposta-pagina.jpg`;
 
-/** Os índices da referência: **13 itens no comercial, 10 no técnico**. */
-const INDICE_COMERCIAL = [
-  'Filtrovali é a escolha certa para a sua obra',
-  'Descrição dos serviços que serão executados',
-  'Matriz de responsabilidades',
-  'Prazos e jornada de trabalho',
-  'Preços',
-  'Condições de pagamento',
-  'Impostos',
-  'Validade da proposta',
-  'Know-how e confidencialidade',
-  'Observações comerciais',
-  'Segurança do trabalho',
-  'Aceite da proposta',
-  'Contatos'
-];
-
-const INDICE_TECNICO = [
-  'Filtrovali é a escolha certa para a sua obra',
-  'Descrição dos serviços que serão executados',
-  'Matriz de responsabilidades',
-  'Prazos e jornada de trabalho',
-  'Método de execução',
-  'Etapas operacionais',
-  'Inspeção e critério de liberação',
-  'Relatórios e evidências',
-  'Observações técnicas',
-  'Contatos'
-];
+/**
+ * Os índices vêm de `shared/comercial`, não daqui.
+ *
+ * Os que moravam neste arquivo eram inventados: prometiam "Know-how e
+ * confidencialidade", "Segurança do trabalho" e "Contatos", que não existem em
+ * documento nenhum, e omitiam Impostos, Observações e Aceite, que existem. Um
+ * índice que não bate com o corpo é pior do que não ter índice — o cliente
+ * procura a seção prometida e não acha.
+ *
+ * Os do módulo compartilhado batem palavra por palavra com o ÍNDICE dos `.docx`
+ * e com o `COMMERCIAL_INDEX`/`TECHNICAL_INDEX` da referência, e há teste que
+ * compara os três.
+ */
 
 const METRICAS = [
   'Desde 2005',
@@ -157,6 +144,7 @@ export function DocumentoPrevia({
   const numeroDosPrazos =
     numeroDasResponsabilidades + Math.max(1, folhasDaResponsabilidade.length);
   const numeroDoFechamentoComercial = numeroDosPrazos + 1;
+  const locaisDePreco = tabelasDePrecoDoModelo(modelo);
   const numeroDoFechamentoTecnico = numeroDosPrazos + folhasTecnicas.length + 1;
 
   return (
@@ -334,31 +322,45 @@ export function DocumentoPrevia({
         {!tecnico && (
           <>
             <h3>7. Descrição dos valores</h3>
-            <table className="com-doc-tabela">
-              <thead>
-                <tr>
-                  <th>ITEM</th>
-                  <th>DESCRIÇÃO</th>
-                  {incluirUnitario && <th>VALOR UNIT.</th>}
-                  <th>QTD.</th>
-                  <th>VALOR TOTAL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {precos.map((item, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>{item.description || 'Item'}</td>
-                    {incluirUnitario && <td>{item.unitValue || 'R$ -'}</td>}
-                    <td>{item.quantity || '1'}</td>
-                    <td>{item.value || 'R$ -'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="com-doc-total">
-              <b>Total geral:</b> {somaDosPrecos(precos)}
-            </p>
+            {/* Hidrojateamento traz DUAS tabelas, cada uma com o seu TOTAL
+                GERAL — são cenários alternativos de execução, não parcelas do
+                mesmo serviço. Somá-las apresentaria um total que o cliente não
+                vai pagar (T071f). */}
+            {(locaisDePreco ?? [undefined]).map(local => {
+              const daTabela = local
+                ? precos.filter(item => item.local === local)
+                : precos;
+              return (
+                <div key={local ?? 'unica'}>
+                  {local && <h4 className="com-doc-local">{local}:</h4>}
+                  <table className="com-doc-tabela">
+                    <thead>
+                      <tr>
+                        <th>ITEM</th>
+                        <th>DESCRIÇÃO</th>
+                        {incluirUnitario && <th>VALOR UNIT.</th>}
+                        <th>QTD.</th>
+                        <th>VALOR TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {daTabela.map((item, i) => (
+                        <tr key={i}>
+                          <td>{i + 1}</td>
+                          <td>{item.description || 'Item'}</td>
+                          {incluirUnitario && <td>{item.unitValue || 'R$ -'}</td>}
+                          <td>{item.quantity || '1'}</td>
+                          <td>{item.value || 'R$ -'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="com-doc-total">
+                    <b>Total geral:</b> {somaDosPrecos(daTabela)}
+                  </p>
+                </div>
+              );
+            })}
 
             <h3>8. Condições de pagamento</h3>
             <p>{texto('payment', 'A definir')}</p>

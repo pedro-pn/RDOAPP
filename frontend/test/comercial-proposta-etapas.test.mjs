@@ -300,3 +300,46 @@ test('o rótulo do botão é o da referência, e a contagem vai à parte', () =>
     'Preencha 2 campos obrigatórios'
   );
 });
+
+/* --------------------------------------------------------------------------
+ * Modelo do documento (T071e) e duas tabelas de preço (T071f)
+ * ----------------------------------------------------------------------- */
+
+test('a jornada de hidrojateamento traz os dois turnos no texto semeado', async () => {
+  const doc = await server.ssrLoadModule(
+    '/../shared/comercial/dist/modelo-documento.js'
+  );
+
+  const padrao = doc.textoJornada('padrao');
+  const hidro = doc.textoJornada('hidrojateamento');
+
+  assert.match(padrao, /Turno diurno:/);
+  assert.ok(!/OFFSHORE/.test(padrao));
+
+  // Esquecer o turno OFFSHORE faz a proposta prometer uma jornada que a equipe
+  // embarcada não cumpre — domingo e feriado, 11 horas.
+  assert.match(hidro, /Turno diurno — ONSHORE:/);
+  assert.match(hidro, /Turno diurno — OFFSHORE:/);
+  assert.match(hidro, /Segunda a domingo e feriados – 11 horas/);
+
+  // Os dois carregam a nota de hora extra e o limite de 44 horas da CLT.
+  for (const texto of [padrao, hidro]) {
+    assert.match(texto, /44 horas semanais/);
+    assert.match(texto, /Horas Extras/);
+  }
+});
+
+test('o item de preço carrega o local só no modelo de duas tabelas', async () => {
+  const doc = await server.ssrLoadModule(
+    '/../shared/comercial/dist/modelo-documento.js'
+  );
+
+  // Somar ONSHORE e OFFSHORE juntos apresentaria ao cliente um total que ele
+  // não vai pagar: são cenários alternativos de execução, não parcelas do
+  // mesmo serviço.
+  assert.equal(doc.tabelasDePrecoDoModelo('padrao'), null);
+  assert.deepEqual(doc.tabelasDePrecoDoModelo('hidrojateamento'), [
+    'ONSHORE',
+    'OFFSHORE'
+  ]);
+});

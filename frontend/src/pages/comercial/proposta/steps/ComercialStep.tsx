@@ -1,5 +1,10 @@
 import { Area, Field } from '../../components/Field';
 import { AvisoPendencia } from '../../custos/ConfirmacaoEscopo';
+import {
+  tabelasDePrecoDoModelo,
+  type LocalOperacao,
+  type ModeloProposta
+} from '../../../../../../shared/comercial/dist/modelo-documento.js';
 import { formatarDinheiro, type ItemDePreco } from '../etapas';
 
 /**
@@ -36,6 +41,7 @@ type Props = {
   onIncluirUnitario: (valor: boolean) => void;
   erroDe: (campo: string) => string | undefined;
   mostrarErros: boolean;
+  modelo: ModeloProposta;
 };
 
 export function ComercialStep({
@@ -46,8 +52,13 @@ export function ComercialStep({
   incluirUnitario,
   onIncluirUnitario,
   erroDe,
-  mostrarErros
+  mostrarErros,
+  modelo
 }: Props) {
+  // Hidrojateamento apresenta DUAS tabelas, ONSHORE e OFFSHORE, cada uma com o
+  // seu TOTAL GERAL (T071f). O modelo padrão tem uma só, e aí `local` é
+  // indefinido em todos os itens.
+  const locais = tabelasDePrecoDoModelo(modelo);
   const completos = precos.filter(
     item => item.description.trim() && item.unit.trim() && item.value.trim()
   ).length;
@@ -65,18 +76,6 @@ export function ComercialStep({
           <h2>Conteúdo da proposta comercial</h2>
           <p>Cadastre preços, condições, impostos e observações comerciais.</p>
         </div>
-        <button
-          type="button"
-          className="com-btn-add"
-          onClick={() =>
-            onPrecos(atual => [
-              ...atual,
-              { description: '', unit: '', quantity: '1', unitValue: '', value: '' }
-            ])
-          }
-        >
-          + Adicionar item de preço
-        </button>
       </div>
 
       <label className="com-incluir com-incluir-bloco">
@@ -99,106 +98,18 @@ export function ComercialStep({
         </AvisoPendencia>
       )}
 
-      {precos.length > 0 ? (
-        <div className="com-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Descrição</th>
-                <th scope="col">Unidade</th>
-                <th scope="col">Qtd.</th>
-                {incluirUnitario && <th scope="col">Valor unitário</th>}
-                <th scope="col">Valor total</th>
-                <th scope="col">
-                  <span className="com-sr">Ações</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {precos.map((item, indice) => {
-                const incompleto =
-                  mostrarErros &&
-                  (item.description.trim() || item.value.trim()) &&
-                  !(item.description.trim() && item.unit.trim() && item.value.trim());
+      {(locais ?? [undefined]).map(local => (
+        <TabelaDePrecos
+          key={local ?? 'unica'}
+          local={local}
+          precos={precos}
+          onPrecos={onPrecos}
+          incluirUnitario={incluirUnitario}
+          mostrarErros={mostrarErros}
+          editarPreco={editarPreco}
+        />
+      ))}
 
-                return (
-                  <tr key={indice}>
-                    <td>
-                      <input
-                        aria-label={`Descrição do item ${indice + 1}`}
-                        className={
-                          incompleto && !item.description.trim()
-                            ? 'com-campo-invalido'
-                            : undefined
-                        }
-                        value={item.description}
-                        onChange={e => editarPreco(indice, 'description', e.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`Unidade do item ${indice + 1}`}
-                        className={
-                          incompleto && !item.unit.trim() ? 'com-campo-invalido' : undefined
-                        }
-                        value={item.unit}
-                        onChange={e => editarPreco(indice, 'unit', e.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        inputMode="decimal"
-                        aria-label={`Quantidade do item ${indice + 1}`}
-                        value={item.quantity}
-                        onChange={e => editarPreco(indice, 'quantity', e.target.value)}
-                      />
-                    </td>
-                    {incluirUnitario && (
-                      <td>
-                        <input
-                          inputMode="numeric"
-                          aria-label={`Valor unitário do item ${indice + 1}`}
-                          placeholder="R$ 0,00"
-                          value={item.unitValue}
-                          onChange={e =>
-                            editarPreco(indice, 'unitValue', formatarDinheiro(e.target.value))
-                          }
-                        />
-                      </td>
-                    )}
-                    <td>
-                      <input
-                        inputMode="numeric"
-                        aria-label={`Valor total do item ${indice + 1}`}
-                        placeholder="R$ 0,00"
-                        className={
-                          incompleto && !item.value.trim() ? 'com-campo-invalido' : undefined
-                        }
-                        value={item.value}
-                        onChange={e =>
-                          editarPreco(indice, 'value', formatarDinheiro(e.target.value))
-                        }
-                      />
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="com-remover"
-                        aria-label={`Remover item ${indice + 1}`}
-                        onClick={() => onPrecos(atual => atual.filter((_, i) => i !== indice))}
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="com-vazio">Nenhum item de preço cadastrado.</div>
-      )}
 
       {/* Item 9 do documento intercala prosa e tabela: a frase da hora extra, o
           título do bloco, a TABELA, a explicação de cada linha e só então as
@@ -257,5 +168,166 @@ export function ComercialStep({
         onChange={valor => editar({ validity: valor })}
       />
     </section>
+  );
+}
+
+/**
+ * Uma tabela de preços.
+ *
+ * No modelo padrão há uma; no de hidrojateamento há duas, ONSHORE e OFFSHORE,
+ * cada uma com o **seu** TOTAL GERAL (T071f). Somar as duas juntas apresentaria
+ * ao cliente um total que ele não vai pagar: são cenários alternativos de
+ * execução, não parcelas do mesmo serviço.
+ *
+ * O índice usado na edição é o do array COMPLETO, não o da fatia. Editar pelo
+ * índice da fatia trocaria o item errado assim que a primeira tabela tivesse
+ * mais de uma linha — e o erro seria silencioso.
+ */
+function TabelaDePrecos({
+  local,
+  precos,
+  onPrecos,
+  incluirUnitario,
+  mostrarErros,
+  editarPreco
+}: {
+  local?: LocalOperacao;
+  precos: ItemDePreco[];
+  onPrecos: (atualizar: (atual: ItemDePreco[]) => ItemDePreco[]) => void;
+  incluirUnitario: boolean;
+  mostrarErros: boolean;
+  editarPreco: (indice: number, campo: keyof ItemDePreco, valor: string) => void;
+}) {
+  const daTabela = precos
+    .map((item, indice) => ({ item, indice }))
+    .filter(({ item }) => (local ? item.local === local : true));
+
+  return (
+    <div className="com-tabela-precos">
+      <div className="com-secao-titulo">
+        {local ? <h3>{local}</h3> : <span />}
+        <button
+          type="button"
+          className="com-btn-add"
+          onClick={() =>
+            onPrecos(atual => [
+              ...atual,
+              {
+                description: '',
+                unit: '',
+                quantity: '1',
+                unitValue: '',
+                value: '',
+                ...(local ? { local } : {})
+              }
+            ])
+          }
+        >
+          + Adicionar item de preço
+        </button>
+      </div>
+
+      {daTabela.length > 0 ? (
+        <div className="com-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Descrição</th>
+                <th scope="col">Unidade</th>
+                <th scope="col">Qtd.</th>
+                {incluirUnitario && <th scope="col">Valor unitário</th>}
+                <th scope="col">Valor total</th>
+                <th scope="col">
+                  <span className="com-sr">Ações</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {daTabela.map(({ item, indice }, ordem) => {
+                const incompleto =
+                  mostrarErros &&
+                  (item.description.trim() || item.value.trim()) &&
+                  !(item.description.trim() && item.unit.trim() && item.value.trim());
+                const rotulo = `${ordem + 1}${local ? ` de ${local}` : ''}`;
+
+                return (
+                  <tr key={indice}>
+                    <td>
+                      <input
+                        aria-label={`Descrição do item ${rotulo}`}
+                        className={
+                          incompleto && !item.description.trim()
+                            ? 'com-campo-invalido'
+                            : undefined
+                        }
+                        value={item.description}
+                        onChange={e => editarPreco(indice, 'description', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        aria-label={`Unidade do item ${rotulo}`}
+                        className={
+                          incompleto && !item.unit.trim() ? 'com-campo-invalido' : undefined
+                        }
+                        value={item.unit}
+                        onChange={e => editarPreco(indice, 'unit', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        inputMode="decimal"
+                        aria-label={`Quantidade do item ${rotulo}`}
+                        value={item.quantity}
+                        onChange={e => editarPreco(indice, 'quantity', e.target.value)}
+                      />
+                    </td>
+                    {incluirUnitario && (
+                      <td>
+                        <input
+                          inputMode="numeric"
+                          aria-label={`Valor unitário do item ${rotulo}`}
+                          placeholder="R$ 0,00"
+                          value={item.unitValue}
+                          onChange={e =>
+                            editarPreco(indice, 'unitValue', formatarDinheiro(e.target.value))
+                          }
+                        />
+                      </td>
+                    )}
+                    <td>
+                      <input
+                        inputMode="numeric"
+                        aria-label={`Valor total do item ${rotulo}`}
+                        placeholder="R$ 0,00"
+                        className={
+                          incompleto && !item.value.trim() ? 'com-campo-invalido' : undefined
+                        }
+                        value={item.value}
+                        onChange={e =>
+                          editarPreco(indice, 'value', formatarDinheiro(e.target.value))
+                        }
+                      />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="com-remover"
+                        aria-label={`Remover item ${rotulo}`}
+                        onClick={() => onPrecos(atual => atual.filter((_, i) => i !== indice))}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="com-vazio">Nenhum item de preço cadastrado.</div>
+      )}
+    </div>
   );
 }

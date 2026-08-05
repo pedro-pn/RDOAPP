@@ -793,6 +793,21 @@ export function jornadaDoModelo(modelo: ModeloProposta): readonly TurnoJornada[]
   return modelo === "hidrojateamento" ? JORNADA_HIDROJATEAMENTO : JORNADA_PADRAO;
 }
 
+/**
+ * A jornada como texto, para semear o campo livre da etapa de prazos.
+ *
+ * O campo é livre porque a jornada real varia com a obra (parada programada,
+ * turno da contratante). O modelo dá o ponto de partida certo — em especial no
+ * hidrojateamento, onde esquecer o turno OFFSHORE faz a proposta prometer uma
+ * jornada que a equipe embarcada não cumpre.
+ */
+export function textoJornada(modelo: ModeloProposta): string {
+  const turnos = jornadaDoModelo(modelo)
+    .map((turno) => [`${turno.titulo}:`, ...turno.linhas].join("\n"))
+    .join("\n\n");
+  return `${TEXTO_JORNADA_FLEXIBILIDADE}\n\n${turnos}\n\n${NOTA_JORNADA_HORA_EXTRA}`;
+}
+
 // ---------------------------------------------------------------------------
 // Descrição de valores (item 7)
 // ---------------------------------------------------------------------------

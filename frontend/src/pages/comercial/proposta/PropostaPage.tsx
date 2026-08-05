@@ -17,10 +17,14 @@ import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { useRascunhoLocal } from '../useRascunhoLocal';
 import {
+  MODELOS_PROPOSTA,
   TEXTO_IMPOSTOS,
   TEXTO_OBSERVACOES_GERAIS,
-  textoCondicoesPagamento
+  textoCondicoesPagamento,
+  textoJornada as jornadaEmTexto,
+  type ModeloProposta
 } from '../../../../../shared/comercial/dist/modelo-documento.js';
+import { LOGO_URL } from '../components/marca';
 import {
   ETAPAS,
   indiceDaEtapa,
@@ -107,6 +111,12 @@ export function PropostaPage() {
   const levantamentoId = params.get('levantamento') ?? '';
   const codigo = params.get('proposta') ?? '—';
 
+  /* O modelo mora no endereço, como o modo do levantamento: recarregar não pode
+     perguntar de novo, e o diálogo serve para ESCOLHER, não para confirmar. */
+  const modeloNaUrl = params.get('modelo');
+  const modelo: ModeloProposta | null =
+    modeloNaUrl === 'padrao' || modeloNaUrl === 'hidrojateamento' ? modeloNaUrl : null;
+
   const [form, setForm] = useState<AnyRecord>(formularioInicial);
   // A proposta nasce com UM serviço. Zero serviços deixaria a etapa 2 sem nada
   // para preencher, e a trava pediria um item que não existe na tela.
@@ -118,7 +128,7 @@ export function PropostaPage() {
   // que se repetem em toda obra, e digitá-las de novo a cada proposta é como o
   // erro entra. O vendedor apaga o que não se aplica.
   const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(
-    () => matrizInicial('padrao')
+    () => matrizInicial(modelo ?? 'padrao')
   );
   const [servicosTecnicos, setServicosTecnicos] = useState<TechnicalServiceSelection[]>(
     []
@@ -219,6 +229,36 @@ export function PropostaPage() {
     setForm(atual => ({ ...atual, ...patch }));
   }
 
+  /**
+   * Escolher o modelo é o primeiro ato da proposta — ele troca a matriz, a
+   * jornada e, no caso do hidrojateamento, o número de tabelas de preço.
+   *
+   * Só semeia a matriz quando ela ainda é a do modelo anterior **intocada**.
+   * Alguém que já editou trinta linhas e volta para trocar o modelo perderia
+   * tudo em silêncio; aí o modelo muda e a matriz fica, com o recado dizendo.
+   */
+  function escolherModelo(escolhido: ModeloProposta) {
+    const anterior = modelo ?? 'padrao';
+    const intocada =
+      JSON.stringify(responsabilidades) === JSON.stringify(matrizInicial(anterior));
+
+    if (intocada) {
+      setResponsabilidades(matrizInicial(escolhido));
+      setRecado('');
+    } else if (escolhido !== anterior) {
+      setRecado(
+        'O modelo mudou, mas a matriz de responsabilidades foi preservada porque já ' +
+          'tinha edições suas. Ajuste-a na etapa 3 se precisar.'
+      );
+    }
+
+    editar({ workday: jornadaEmTexto(escolhido) });
+
+    const proximos = new URLSearchParams(params);
+    proximos.set('modelo', escolhido);
+    setParams(proximos, { replace: true });
+  }
+
   const erroDe = (campo: string) => (tentouAvancar ? erros.get(campo) : undefined);
 
   return (
@@ -282,6 +322,42 @@ export function PropostaPage() {
         </nav>
       }
     >
+      {/* Mesmo padrão do diálogo de custos: só aparece quando NÃO há modelo no
+          endereço. Recarregar com `?modelo=` já definido volta direto ao
+          trabalho — o diálogo serve para escolher, não para confirmar. */}
+      {modelo === null && (
+        <div
+          className="com-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="com-modelo-titulo"
+        >
+          <section className="com-painel com-modo-card">
+            <img className="com-modo-logo" src={LOGO_URL} alt="Filtrovali" />
+            <span className="com-eyebrow">NOVA PROPOSTA</span>
+            <h1 id="com-modelo-titulo">Qual modelo de documento?</h1>
+            <p>
+              O modelo define a matriz de responsabilidade, a jornada e as tabelas de
+              preço que o documento vai trazer.
+            </p>
+
+            <div className="com-modo-opcoes">
+              {MODELOS_PROPOSTA.map(opcao => (
+                <button
+                  key={opcao.id}
+                  type="button"
+                  onClick={() => escolherModelo(opcao.id)}
+                >
+                  <b aria-hidden="true">{opcao.id === 'padrao' ? '📄' : '💧'}</b>
+                  <strong>{opcao.titulo}</strong>
+                  <span>{opcao.descricao}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
       <section className="com-workspace">
       <div className="com-form-panel">
       {rascunho.oferta && (
@@ -405,6 +481,7 @@ export function PropostaPage() {
           onIncluirUnitario={setIncluirUnitario}
           erroDe={erroDe}
           mostrarErros={tentouAvancar}
+          modelo={modelo ?? 'padrao'}
         />
       ) : (
         <RevisaoStep
@@ -503,6 +580,7 @@ export function PropostaPage() {
             incluirUnitario={incluirUnitario}
             servicosTecnicos={servicosTecnicos}
             complementoRelatorios={complementoRelatorios}
+            modelo={modelo ?? 'padrao'}
           />
         </div>
 
