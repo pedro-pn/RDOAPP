@@ -36,6 +36,8 @@ da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 | 8 | Fluxo "Nova proposta" sem baseline visual | **Novo** — limitação, não escolha |
 | 9 | Entrada do módulo vira **menu**; proposta sai da raiz | **Novo** (revisão do roteiro, 31/07) |
 | 10 | Módulo usa o **chrome da referência**, não o do filtroAPP | **Novo** (03/08) — *reduz* divergência |
+| 12 | Documentos seguem os **`.docx` de 07/01/2026**, não o texto da referência | **Novo** (05/08) — decidido |
+| 13 | Proposta de **hidrojateamento** é um modelo próprio, escolhido na criação | **Novo** (05/08) — decidido |
 
 ### 1. PDF gerado no backend
 
@@ -277,6 +279,67 @@ compartilhado. O que se perde é uniformidade de código entre módulos.
 
 **Custo de reverter:** reescrever cinco seções e ~2 000 linhas, sem ganho para o
 usuário. **Decisão do mantenedor pendente.**
+
+### 12. Os documentos seguem os `.docx`, não a referência — *decidido em 05/08*
+
+**O que muda:** onde o texto fixo do gerador diverge dos quatro `.docx` de
+`Modelos/definitivos/Comercial/` (datados de 07/01/2026), **o `.docx` vence**.
+A análise campo a campo está em [`modelos-word.md`](modelos-word.md).
+
+**Por que não é fidelidade quebrada:** os `.docx` *são* a origem editorial do
+`app/proposal-pdf.ts`. Os dez itens do `TECHNICAL_INDEX` e os treze do
+`COMMERCIAL_INDEX` batem palavra por palavra com o ÍNDICE dos documentos. O que
+divergiu foi o conteúdo envelhecer no código enquanto o Word seguiu adiante — o
+`DEFAULT_PAYMENT` da referência diz "pagamento em até 7 dias da NF" e o Word diz
+"35% antecipado + medição quinzenal com 21 dias". O documento é o que vai ao
+cliente; o código é a cópia atrasada.
+
+**Efeito sobre os goldens:** os goldens de PDF nascem dos `.docx`, não de uma
+captura do `comercialAPP`. A regra de que golden só se regenera quando a
+referência congelada muda **continua valendo para tudo que não é texto de
+documento** — cálculo de custo, precificação, paginação.
+
+**Lacunas que entram junto (decidido):** prazo de integração
+(`dias_treinamento`), bloco "Stand-by e Mobilização Adicional" (quatro valores
+monetários + tabela de três linhas) e categoria na matriz de responsabilidade.
+
+**Lacuna que fica de fora (decidido):** os três serviços do catálogo que só
+existem no Word (Flushing com água, Remoção de verniz, Boroscopia) e os quatro
+códigos de relatório ausentes (RH, RTPP, RFA, RIB). **Isto é uma tensão
+consciente com o desvio:** o texto do Word vence, mas essas seções do Word não
+terão como ser selecionadas, e hidrojateamento e passagem de PIG sairão sem
+mencionar o relatório que o documento promete. Registrado como pendência, não
+como esquecimento.
+
+### 13. Hidrojateamento é um modelo próprio — *decidido em 05/08*
+
+**O que muda:** a criação da proposta passa a escolher entre **padrão** e
+**hidrojateamento**, e a escolha troca cinco coisas, não uma:
+
+1. descrição dos serviços (tanque, tubulação, superfície metálica, caldeira — e
+   a regra "em tubulações, máximo 20k; 40k é proibido");
+2. matriz Filtrovali (efetivo e equipamento por configuração: 1 ou 2 bicos ×
+   ONSHORE ou OFFSHORE);
+3. lista de EPI (com e sem espaço confinado);
+4. jornada (ONSHORE seg–qui 9h/sex 8h; OFFSHORE seg–dom e feriados 11h);
+5. **duas** tabelas de preço, ONSHORE e OFFSHORE, cada uma com seu TOTAL GERAL.
+
+**Por que diverge da referência:** lá `hidrojateamento` é um dos 11 itens do
+catálogo técnico — troca o texto do escopo e as imagens, nada mais. O item 5 é o
+que torna impossível resolver por catálogo: `renderPriceTable` desenha **uma**
+tabela.
+
+**Regras vindas dos comentários do documento** (14 comentários do Aliander nos
+`.docx` de hidrojateamento — são regra, não recado):
+
+- efetivo e configuração de equipamento são **definidos por proposta** e
+  permanecem nela; não são texto fixo;
+- os preços de equipe embutem **30% de margem**; na negociação a diária do
+  hidrojato desce até R$ 4.000,00 e a da equipe até 20%;
+- **o preço de frete é só ida** — considerar um frete de ida e outro de volta,
+  independentemente de o equipamento esperar em obra ou não;
+- mobilização e desmobilização em R$/km, "conforme a distância e as premissas da
+  contratante".
 
 ---
 
