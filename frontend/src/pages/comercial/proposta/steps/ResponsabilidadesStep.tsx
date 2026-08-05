@@ -1,8 +1,11 @@
+import { useState } from 'react';
+
 import { AvisoPendencia } from '../../custos/ConfirmacaoEscopo';
 import {
-  CATEGORIAS_RESPONSABILIDADE,
   RESPONSAVEIS,
+  acrescentarCategoria,
   linhaVazia,
+  removerCategoria,
   type LinhaResponsabilidade
 } from '../etapas';
 
@@ -18,18 +21,31 @@ import {
  *
  * "N/A" é uma resposta legítima, não um valor vazio: existe obrigação que não cabe a
  * ninguém no contrato e precisa constar assim mesmo, para não parecer esquecimento.
+ *
+ * **A categoria é lista, não campo livre.** Ela vira subtítulo agrupador no
+ * documento, então "Logística", "LOGISTICA " e "LOGÍSTICA" digitadas em linhas
+ * diferentes produziriam três subtítulos onde deveria haver um. A lista é
+ * editável — dá para acrescentar o que faltar e remover o que não se usa —, mas
+ * escolher é sempre escolher de uma lista.
  */
 
 export function ResponsabilidadesStep({
   linhas,
   onLinhas,
+  categorias,
+  onCategorias,
   mostrarErros
 }: {
   linhas: LinhaResponsabilidade[];
   onLinhas: (atualizar: (atual: LinhaResponsabilidade[]) => LinhaResponsabilidade[]) => void;
+  categorias: string[];
+  onCategorias: (proximas: string[]) => void;
   mostrarErros: boolean;
 }) {
   const preenchidas = linhas.filter(linha => linha.item.trim()).length;
+  const [novaCategoria, setNovaCategoria] = useState('');
+  const [recado, setRecado] = useState('');
+  const [gerenciando, setGerenciando] = useState(false);
 
   type CampoDeTexto = 'item' | 'owner' | 'note' | 'categoria';
 
@@ -37,6 +53,20 @@ export function ResponsabilidadesStep({
     onLinhas(atual =>
       atual.map((linha, i) => (i === indice ? { ...linha, [campo]: valor } : linha))
     );
+  }
+
+  function adicionar() {
+    const resultado = acrescentarCategoria(categorias, novaCategoria);
+    setRecado(resultado.erro || '');
+    if (resultado.erro) return;
+    onCategorias(resultado.lista);
+    setNovaCategoria('');
+  }
+
+  function remover(categoria: string) {
+    const resultado = removerCategoria(categorias, categoria, linhas);
+    setRecado(resultado.erro || '');
+    if (!resultado.erro) onCategorias(resultado.lista);
   }
 
   return (
@@ -55,17 +85,65 @@ export function ResponsabilidadesStep({
         </button>
       </div>
 
+      <div className="com-categorias">
+        <button
+          type="button"
+          className="com-btn com-btn-fantasma"
+          aria-expanded={gerenciando}
+          onClick={() => setGerenciando(atual => !atual)}
+        >
+          {gerenciando ? 'Fechar categorias' : `Categorias (${categorias.length})`}
+        </button>
+
+        {gerenciando && (
+          <div className="com-categorias-editor">
+            <ul>
+              {categorias.map(categoria => (
+                <li key={categoria}>
+                  <span>{categoria}</span>
+                  <button
+                    type="button"
+                    className="com-remover"
+                    aria-label={`Remover categoria ${categoria}`}
+                    onClick={() => remover(categoria)}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div className="com-categorias-nova">
+              <div className="field-group">
+                <label htmlFor="com-nova-categoria">Nova categoria</label>
+                <input
+                  id="com-nova-categoria"
+                  value={novaCategoria}
+                  placeholder="Ex.: TREINAMENTO"
+                  onChange={evento => setNovaCategoria(evento.target.value)}
+                  onKeyDown={evento => {
+                    if (evento.key !== 'Enter') return;
+                    // Enter num input solto submeteria o formulário da etapa.
+                    evento.preventDefault();
+                    adicionar();
+                  }}
+                />
+              </div>
+              <button type="button" className="com-btn com-btn-fantasma" onClick={adicionar}>
+                Adicionar
+              </button>
+            </div>
+
+            {recado && <p className="com-recado">{recado}</p>}
+          </div>
+        )}
+      </div>
+
       {mostrarErros && preenchidas === 0 && (
         <AvisoPendencia>
           Informe ao menos uma responsabilidade com o item preenchido.
         </AvisoPendencia>
       )}
-
-      <datalist id="com-categorias-responsabilidade">
-        {CATEGORIAS_RESPONSABILIDADE.map(nome => (
-          <option key={nome} value={nome} />
-        ))}
-      </datalist>
 
       {linhas.length > 0 ? (
         <div className="com-table-wrap">
@@ -84,18 +162,30 @@ export function ResponsabilidadesStep({
             <tbody>
               {linhas.map((linha, indice) => {
                 const semItem = mostrarErros && !linha.item.trim();
+                /* Categoria vinda de rascunho antigo pode não estar mais na
+                   lista. Sem esta opção o `select` mostraria a primeira da lista
+                   e trocaria a categoria da linha sem ninguém pedir. */
+                const foraDaLista =
+                  linha.categoria && !categorias.includes(linha.categoria);
+
                 return (
                   <tr key={indice}>
                     <td>
-                      {/* O subtítulo que agrupa as linhas no documento. Editável
-                          porque obra nenhuma usa as dez categorias, e porque há
-                          proposta que precisa de uma que o catálogo não previu. */}
-                      <input
+                      <select
                         aria-label={`Categoria da responsabilidade ${indice + 1}`}
-                        list="com-categorias-responsabilidade"
                         value={linha.categoria}
                         onChange={evento => editar(indice, 'categoria', evento.target.value)}
-                      />
+                      >
+                        <option value="">— sem categoria —</option>
+                        {foraDaLista && (
+                          <option value={linha.categoria}>{linha.categoria}</option>
+                        )}
+                        {categorias.map(categoria => (
+                          <option key={categoria} value={categoria}>
+                            {categoria}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td>
                       <input

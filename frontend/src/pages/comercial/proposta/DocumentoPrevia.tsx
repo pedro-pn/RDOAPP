@@ -6,6 +6,10 @@ import type { TechnicalServiceSelection } from '../../../../../shared/comercial/
 import {
   INDICE_COMERCIAL,
   INDICE_TECNICO,
+  NOTA_ATENDIMENTO_MONTADORA,
+  NOTA_ATENDIMENTO_REVALIDACAO,
+  NOTA_PRAZO_DESLOCAMENTO,
+  TEXTO_PRAZOS_CRONOGRAMA,
   LINHAS_ASSINATURA,
   TEXTO_ACEITE,
   TEXTO_EXPLICACAO_STANDBY,
@@ -17,8 +21,13 @@ import {
   observacoesTecnicasDoModelo,
   tabelasDePrecoDoModelo,
   tabelaStandby,
+  textoJornada,
   type ModeloProposta
 } from '../../../../../shared/comercial/dist/modelo-documento.js';
+import {
+  PROPOSAL_VISUAL_DEFINITIONS,
+  type ProposalVisualDefinition
+} from '../../../../../shared/comercial/dist/proposal-visuals.js';
 import type { ItemDePreco, LinhaResponsabilidade } from './etapas';
 import {
   folhasDaMatriz,
@@ -67,12 +76,55 @@ const PAGINA = `${BASE}/assets/Comercial/proposta-pagina.jpg`;
  * compara os três.
  */
 
-const METRICAS = [
-  'Desde 2005',
-  '+700 projetos',
-  '20 estados',
-  'Equipe certificada',
-  'Tecnologia própria'
+/**
+ * As imagens institucionais do documento.
+ *
+ * Elas nunca tinham sido copiadas da referência, e é por isso que esta prévia
+ * vinha com texto inventado no lugar delas — "Desde 2005", "+700 projetos",
+ * "20 estados". O documento diz outra coisa: 21 anos, +850 projetos, 22 estados.
+ * Números errados numa proposta que vai ao cliente.
+ *
+ * A proporção de cada uma vem de `proposal-visuals.ts`, cópia byte a byte da
+ * referência — é ela que impede a imagem de esticar quando a folha muda de
+ * largura.
+ */
+const VISUAIS = PROPOSAL_VISUAL_DEFINITIONS;
+
+function caminhoDoVisual(src: string) {
+  return `${BASE}/assets/Comercial/${src.split('/').pop()}`;
+}
+
+function Visual({ visual, largura }: { visual: ProposalVisualDefinition; largura: string }) {
+  return (
+    <img
+      className="com-doc-visual"
+      src={caminhoDoVisual(visual.src)}
+      alt=""
+      aria-hidden="true"
+      style={{ width: largura, aspectRatio: String(visual.aspectRatio) }}
+    />
+  );
+}
+
+function FaixaDeVisuais({ visuais }: { visuais: readonly ProposalVisualDefinition[] }) {
+  return (
+    <div className="com-doc-faixa">
+      {visuais.map(visual => (
+        <Visual key={visual.src} visual={visual} largura="100%" />
+      ))}
+    </div>
+  );
+}
+
+/** Os sete serviços do quadro 1.1, na ordem em que o documento os dispõe. */
+const SERVICOS_INSTITUCIONAIS = [
+  'Limpeza química de tubulações e reservatórios (decapagem e passivação)',
+  'Flushing secundário',
+  'Filtragem absoluta',
+  'Centrifugação e desidratação de óleo',
+  'Flushing primário',
+  'Passagem de PIG de espuma',
+  'Teste de pressão (teste hidrostático)'
 ];
 
 function Pagina({
@@ -140,7 +192,10 @@ export function DocumentoPrevia({
     ? paginasTecnicas(servicosTecnicos, complementoRelatorios)
     : [];
 
-  const numeroDasResponsabilidades = 4 + folhasDoEscopo.length;
+  /* A folha 3 é a institucional e a 4 abre com 1.3 e a seção 2 — o escopo
+     começa na 5. Este número era 4 quando a institucional cabia numa folha só. */
+  const PRIMEIRA_FOLHA_DE_ESCOPO = 5;
+  const numeroDasResponsabilidades = PRIMEIRA_FOLHA_DE_ESCOPO + folhasDoEscopo.length;
   const numeroDosPrazos =
     numeroDasResponsabilidades + Math.max(1, folhasDaResponsabilidade.length);
   const numeroDoFechamentoComercial = numeroDosPrazos + 1;
@@ -193,24 +248,43 @@ export function DocumentoPrevia({
         </ol>
       </Pagina>
 
+      {/* A página institucional do documento: texto, faixa de métricas, o quadro
+          de sete serviços em duas colunas e as duas galerias. Estava reduzida a
+          dois parágrafos escritos à mão, com números que não são os da empresa. */}
       <Pagina numero={3} data={data}>
         <h3>1. Filtrovali é a escolha certa para a sua obra</h3>
         <p>
-          Desde 2005, a Filtrovali entrega soluções industriais com excelência,
+          São 21 anos de história e entregas de soluções industriais, com excelência,
           segurança, qualidade e eficiência.
         </p>
 
-        <div className="com-doc-metricas">
-          {METRICAS.map(item => (
-            <span key={item}>{item}</span>
-          ))}
+        <Visual visual={VISUAIS.metrics} largura="100%" />
+
+        <h3>1.1 Tradição, excelência e referência em serviços industriais</h3>
+        {/* Duas colunas, como no documento: quatro serviços à esquerda e três à
+            direita. Uma coluna só viraria uma lista corrida. */}
+        <div className="com-doc-servicos-duas-colunas">
+          <ul>
+            {SERVICOS_INSTITUCIONAIS.slice(0, 4).map(servico => (
+              <li key={servico}>{servico}</li>
+            ))}
+          </ul>
+          <ul>
+            {SERVICOS_INSTITUCIONAIS.slice(4).map(servico => (
+              <li key={servico}>{servico}</li>
+            ))}
+          </ul>
         </div>
 
-        <h3>1.1 Tradição e referência em serviços industriais</h3>
-        <p>
-          Limpeza química, flushing, filtragem absoluta, passagem de PIG, testes
-          hidrostáticos, centrifugação e desidratação de óleo.
-        </p>
+        <FaixaDeVisuais visuais={VISUAIS.serviceGallery} />
+
+        <h3>1.2 Equipamentos modernos, revisados e de alto desempenho</h3>
+        <FaixaDeVisuais visuais={VISUAIS.equipmentGallery} />
+      </Pagina>
+
+      <Pagina numero={4} data={data}>
+        <h3>1.3 Clientes que confiam e atestam a excelência da Filtrovali</h3>
+        <Visual visual={VISUAIS.clients} largura="86%" />
 
         <h3>2. Descrição dos serviços que serão executados</h3>
         {itensEscopo.length > 0 ? (
@@ -231,7 +305,7 @@ export function DocumentoPrevia({
       </Pagina>
 
       {folhasDoEscopo.map((folha, i) => (
-        <Pagina numero={4 + i} data={data} key={folha.chave}>
+        <Pagina numero={PRIMEIRA_FOLHA_DE_ESCOPO + i} data={data} key={folha.chave}>
           <h3>{tituloDoItemDeEscopo(itensEscopo, folha.scopeItemId)}</h3>
 
           {folha.tipo === 'table' ? (
@@ -290,11 +364,14 @@ export function DocumentoPrevia({
       <Pagina numero={numeroDosPrazos} data={data}>
         <h3>4. Previsão de atendimento</h3>
         <p>
-          {texto('attendance', 'A definir')} após o pedido ou contrato. Mobilização:{' '}
-          {texto('mobilization', 'a definir')}.
+          {texto('attendance', 'A definir')} após o recebimento do pedido de compras ou
+          assinatura do contrato.
         </p>
+        <p>{NOTA_ATENDIMENTO_MONTADORA}</p>
+        <p>{NOTA_ATENDIMENTO_REVALIDACAO}</p>
 
         <h3>5. Prazo para execução dos serviços</h3>
+        <p>{TEXTO_PRAZOS_CRONOGRAMA}</p>
         {/* As quatro linhas do documento, na ordem impressa. A de integração
             (`dias_treinamento`) saía aqui sem ter campo de origem — T071c. */}
         <ul className="com-doc-prazos">
@@ -311,13 +388,10 @@ export function DocumentoPrevia({
             Prazo de deslocamento (Mob/desmob) – {texto('mobilization', 'a definir')}.
           </li>
         </ul>
-        <p className="com-doc-nota">
-          NOTA: O prazo de deslocamento não está incluso ao prazo previsto de permanência
-          em obra.
-        </p>
+        <p className="com-doc-nota">{NOTA_PRAZO_DESLOCAMENTO}</p>
 
         <h3>6. Jornada de trabalho</h3>
-        <p>{texto('workday', 'A definir')}</p>
+        <p className="com-doc-tecnico">{texto('workday', textoJornada(modelo))}</p>
 
         {!tecnico && (
           <>

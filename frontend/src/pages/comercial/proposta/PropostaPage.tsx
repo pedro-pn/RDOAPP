@@ -30,6 +30,7 @@ import {
   indiceDaEtapa,
   avisoDePendencias,
   indiceDePendencias,
+  CATEGORIAS_RESPONSABILIDADE,
   matrizInicial,
   type ItemDePreco,
   type LinhaResponsabilidade,
@@ -130,6 +131,11 @@ export function PropostaPage() {
   const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(
     () => matrizInicial(modelo ?? 'padrao')
   );
+  /* A lista de categorias é editável e vive junto da proposta: acrescentar uma
+     categoria numa obra não pode mudar o catálogo das outras. */
+  const [categorias, setCategorias] = useState<string[]>(() => [
+    ...CATEGORIAS_RESPONSABILIDADE
+  ]);
   const [servicosTecnicos, setServicosTecnicos] = useState<TechnicalServiceSelection[]>(
     []
   );
@@ -162,6 +168,7 @@ export function PropostaPage() {
       itensEscopo,
       blocos,
       responsabilidades,
+      categorias,
       servicosTecnicos,
       complementoRelatorios,
       precos,
@@ -380,6 +387,7 @@ export function PropostaPage() {
                       itensEscopo?: ScopeServiceItem[];
                       blocos?: ScopeBlock[];
                       responsabilidades?: LinhaResponsabilidade[];
+                      categorias?: string[];
                       servicosTecnicos?: unknown;
                       complementoRelatorios?: string;
                       precos?: ItemDePreco[];
@@ -402,6 +410,7 @@ export function PropostaPage() {
                     }))
                   );
                 }
+                if (dados.categorias?.length) setCategorias(dados.categorias);
                 if (dados.servicosTecnicos) {
                   // Passa pelo normalizador: o rascunho pode ter sido guardado
                   // com uma versão anterior do catálogo, e um serviço que mudou
@@ -455,6 +464,8 @@ export function PropostaPage() {
       ) : etapa === 'responsabilidades' ? (
         <ResponsabilidadesStep
           linhas={responsabilidades}
+          categorias={categorias}
+          onCategorias={setCategorias}
           onLinhas={setResponsabilidades}
           mostrarErros={tentouAvancar}
         />

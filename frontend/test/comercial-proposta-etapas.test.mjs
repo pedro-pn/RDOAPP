@@ -343,3 +343,65 @@ test('o item de preço carrega o local só no modelo de duas tabelas', async () 
     'OFFSHORE'
   ]);
 });
+
+/* --------------------------------------------------------------------------
+ * Lista de categorias da matriz
+ *
+ * A categoria vira SUBTÍTULO AGRUPADOR no documento. Campo livre produzia
+ * "Logística", "LOGISTICA " e "LOGÍSTICA" como três grupos distintos — que foi
+ * o motivo de trocar por lista.
+ * ----------------------------------------------------------------------- */
+
+test('a categoria normaliza para maiúscula e espaço colapsado', () => {
+  assert.equal(mod.normalizarCategoria('  Logística  '), 'LOGÍSTICA');
+  assert.equal(mod.normalizarCategoria('mão   de obra'), 'MÃO DE OBRA');
+  assert.equal(mod.normalizarCategoria(''), '');
+});
+
+test('acrescentar recusa vazio e repetição — inclusive sem acento', () => {
+  const lista = ['LOGÍSTICA', 'UTILIDADES'];
+
+  assert.ok(mod.acrescentarCategoria(lista, '   ').erro);
+
+  // "LOGISTICA" e "LOGÍSTICA" são o mesmo grupo para quem lê o documento.
+  const semAcento = mod.acrescentarCategoria(lista, 'logistica');
+  assert.match(semAcento.erro, /LOGÍSTICA.*já está/);
+  assert.deepEqual(semAcento.lista, lista);
+
+  const nova = mod.acrescentarCategoria(lista, ' treinamento ');
+  assert.equal(nova.erro, undefined);
+  assert.deepEqual(nova.lista, ['LOGÍSTICA', 'UTILIDADES', 'TREINAMENTO']);
+});
+
+test('remover categoria em uso é recusado, e o recado diz quantas linhas', () => {
+  const lista = ['LOGÍSTICA', 'UTILIDADES'];
+  const linhas = [
+    { categoria: 'LOGÍSTICA' },
+    { categoria: 'LOGÍSTICA' },
+    { categoria: 'UTILIDADES' }
+  ];
+
+  // Remover em uso deixaria a linha apontando para categoria inexistente, e o
+  // select a mostraria vazia sem ninguém pedir.
+  const emUso = mod.removerCategoria(lista, 'LOGÍSTICA', linhas);
+  assert.match(emUso.erro, /2 linhas/);
+  assert.deepEqual(emUso.lista, lista);
+
+  const livre = mod.removerCategoria(lista, 'LOGÍSTICA', [{ categoria: 'UTILIDADES' }]);
+  assert.equal(livre.erro, undefined);
+  assert.deepEqual(livre.lista, ['UTILIDADES']);
+});
+
+test('a lista padrão cobre todas as categorias que a matriz semeada usa', () => {
+  // Se a matriz trouxesse uma categoria fora da lista, o select da linha
+  // mostraria vazio na abertura da proposta.
+  const lista = mod.CATEGORIAS_RESPONSABILIDADE;
+  for (const modelo of ['padrao', 'hidrojateamento']) {
+    for (const linha of mod.matrizInicial(modelo)) {
+      assert.ok(
+        lista.includes(linha.categoria),
+        `${linha.categoria} não está na lista padrão`
+      );
+    }
+  }
+});

@@ -203,6 +203,77 @@ export function linhaVazia(): LinhaResponsabilidade {
 }
 
 /**
+ * Normaliza a categoria digitada.
+ *
+ * Maiúsculas e espaço colapsado porque a categoria é **chave de agrupamento**, e
+ * no documento ela vira um subtítulo. "Logística", "LOGISTICA " e "LOGÍSTICA"
+ * digitadas em propostas diferentes produziriam três subtítulos onde deveria
+ * haver um — que foi exatamente o motivo de trocar o campo livre por lista.
+ */
+export function normalizarCategoria(valor: string): string {
+  return String(valor || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleUpperCase('pt-BR');
+}
+
+/** Chave de comparação: ignora acento, além do que `normalizarCategoria` já faz. */
+function chaveDaCategoria(valor: string): string {
+  return normalizarCategoria(valor)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * Acrescenta uma categoria à lista, recusando vazio e repetição.
+ *
+ * A repetição é detectada **sem acento**: "LOGISTICA" e "LOGÍSTICA" são a mesma
+ * categoria para quem lê o documento, e deixar as duas entrarem devolveria o
+ * problema que a lista veio resolver.
+ */
+export function acrescentarCategoria(
+  lista: string[],
+  valor: string
+): { lista: string[]; erro?: string } {
+  const nova = normalizarCategoria(valor);
+  if (!nova) return { lista, erro: 'Informe o nome da categoria.' };
+
+  const chave = chaveDaCategoria(nova);
+  const existente = lista.find(item => chaveDaCategoria(item) === chave);
+  if (existente) {
+    return { lista, erro: `"${existente}" já está na lista.` };
+  }
+
+  return { lista: [...lista, nova] };
+}
+
+/**
+ * Remove uma categoria — a não ser que alguma linha ainda a use.
+ *
+ * Remover em uso deixaria a linha apontando para uma categoria que não existe
+ * mais na lista, e o `select` a mostraria vazia. Recusar e dizer quantas linhas
+ * dependem dela é o que permite ao usuário decidir.
+ */
+export function removerCategoria(
+  lista: string[],
+  categoria: string,
+  linhas: Array<{ categoria?: string }>
+): { lista: string[]; erro?: string } {
+  const emUso = linhas.filter(
+    linha => chaveDaCategoria(linha.categoria || '') === chaveDaCategoria(categoria)
+  ).length;
+
+  if (emUso > 0) {
+    return {
+      lista,
+      erro: `"${categoria}" está em ${emUso} ${emUso === 1 ? 'linha' : 'linhas'}. Troque a categoria dessas linhas antes de removê-la.`
+    };
+  }
+
+  return { lista: lista.filter(item => item !== categoria) };
+}
+
+/**
  * A matriz com que a proposta nasce, vinda do modelo escolhido.
  *
  * A referência nascia com 17 linhas de **caldeiraria e solda** que não aparecem

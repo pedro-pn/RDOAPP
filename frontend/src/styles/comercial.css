@@ -2316,6 +2316,40 @@
   line-height: 1.75;
 }
 
+.com-root .com-doc-visual {
+  display: block;
+  margin: 4px auto;
+  object-fit: contain;
+  max-width: 100%;
+}
+
+/* As galerias do documento: as imagens dividem a largura da folha em pé de
+   igualdade, e cada uma guarda a proporção que veio de `proposal-visuals`. */
+.com-root .com-doc-faixa {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  margin: 4px 0;
+  align-items: end;
+}
+
+.com-root .com-doc-faixa .com-doc-visual {
+  margin: 0;
+}
+
+/* O quadro 1.1 vem em duas colunas no documento. Uma só viraria lista corrida. */
+.com-root .com-doc-servicos-duas-colunas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.com-root .com-doc-servicos-duas-colunas ul {
+  margin: 0;
+  padding-left: 9px;
+  list-style: disc;
+}
+
 .com-root .com-doc-metricas {
   display: flex;
   flex-wrap: wrap;
@@ -2497,4 +2531,50 @@
 .com-root .com-doc-local {
   margin: 6px 0 3px;
   color: var(--com-marca-forte);
+}
+
+/* Editor da lista de categorias da matriz de responsabilidades. */
+.com-root .com-categorias {
+  margin: 4px 0 14px;
+}
+
+.com-root .com-categorias-editor {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+  background: var(--com-acao-suave);
+}
+
+.com-root .com-categorias-editor ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.com-root .com-categorias-editor li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--com-borda);
+  border-radius: 999px;
+  background: var(--com-superficie);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-categorias-nova {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.com-root .com-categorias-nova .field-group {
+  flex: 1;
+  margin: 0;
 }
