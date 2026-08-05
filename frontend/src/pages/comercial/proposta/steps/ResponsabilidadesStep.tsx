@@ -1,5 +1,10 @@
 import { AvisoPendencia } from '../../custos/ConfirmacaoEscopo';
-import { RESPONSAVEIS, linhaVazia, type LinhaResponsabilidade } from '../etapas';
+import {
+  CATEGORIAS_RESPONSABILIDADE,
+  RESPONSAVEIS,
+  linhaVazia,
+  type LinhaResponsabilidade
+} from '../etapas';
 
 /**
  * Etapa 3 — Matriz de responsabilidades (`PROP-CTL-034..042`).
@@ -26,7 +31,9 @@ export function ResponsabilidadesStep({
 }) {
   const preenchidas = linhas.filter(linha => linha.item.trim()).length;
 
-  function editar(indice: number, campo: keyof LinhaResponsabilidade, valor: string) {
+  type CampoDeTexto = 'item' | 'owner' | 'note' | 'categoria';
+
+  function editar(indice: number, campo: CampoDeTexto, valor: string) {
     onLinhas(atual =>
       atual.map((linha, i) => (i === indice ? { ...linha, [campo]: valor } : linha))
     );
@@ -54,11 +61,18 @@ export function ResponsabilidadesStep({
         </AvisoPendencia>
       )}
 
+      <datalist id="com-categorias-responsabilidade">
+        {CATEGORIAS_RESPONSABILIDADE.map(nome => (
+          <option key={nome} value={nome} />
+        ))}
+      </datalist>
+
       {linhas.length > 0 ? (
         <div className="com-table-wrap">
           <table>
             <thead>
               <tr>
+                <th scope="col">Categoria</th>
                 <th scope="col">Item / escopo</th>
                 <th scope="col">Responsável</th>
                 <th scope="col">Nota</th>
@@ -72,6 +86,17 @@ export function ResponsabilidadesStep({
                 const semItem = mostrarErros && !linha.item.trim();
                 return (
                   <tr key={indice}>
+                    <td>
+                      {/* O subtítulo que agrupa as linhas no documento. Editável
+                          porque obra nenhuma usa as dez categorias, e porque há
+                          proposta que precisa de uma que o catálogo não previu. */}
+                      <input
+                        aria-label={`Categoria da responsabilidade ${indice + 1}`}
+                        list="com-categorias-responsabilidade"
+                        value={linha.categoria}
+                        onChange={evento => editar(indice, 'categoria', evento.target.value)}
+                      />
+                    </td>
                     <td>
                       <input
                         aria-label={`Item da responsabilidade ${indice + 1}`}

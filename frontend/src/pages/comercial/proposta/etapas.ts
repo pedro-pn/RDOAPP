@@ -12,6 +12,11 @@
  * deixa voltar para etapa já visitada (`index <= step`, na referência).
  */
 
+import {
+  matrizDoModelo,
+  type ModeloProposta
+} from '../../../../../shared/comercial/dist/modelo-documento.js';
+
 export type EtapaProposta =
   | 'cliente'
   | 'escopo'
@@ -160,14 +165,58 @@ export function pendenciasDoEscopo(
   return faltando;
 }
 
-export type LinhaResponsabilidade = { item: string; owner: string; note: string };
+export type LinhaResponsabilidade = {
+  item: string;
+  owner: string;
+  note: string;
+  /**
+   * O subtítulo que ocupa a largura da tabela no documento (MÃO DE OBRA E
+   * EQUIPE TÉCNICA, LOGÍSTICA, UTILIDADES…). A referência não tem este campo e
+   * desenha uma tabela plana — é o desvio 12, tarefa T071b.
+   */
+  categoria: string;
+  /** Lista aninhada dentro da célula ESCOPO: equipamentos, EPI, efetivo. */
+  subitens?: string[];
+};
 
 /** "N/A" é resposta legítima: há obrigação que não cabe a ninguém no contrato e
  *  precisa constar assim mesmo, para não parecer esquecimento. */
 export const RESPONSAVEIS = ['Filtrovali', 'Contratante', 'N/A'];
 
+/** As categorias que os documentos usam, na ordem em que costumam aparecer. */
+export const CATEGORIAS_RESPONSABILIDADE = [
+  'MÃO DE OBRA E EQUIPE TÉCNICA',
+  'EQUIPAMENTOS E FERRAMENTAS',
+  'EQUIPAMENTOS E ACESSÓRIOS',
+  'MATERIAIS E CONSUMÍVEIS E UTILIDADES',
+  'LOGÍSTICA',
+  'UTILIDADES',
+  'ACESSIBILIDADE E APOIO DE CAMPO',
+  'SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE',
+  'SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE',
+  'MEIO AMBIENTE'
+];
+
 export function linhaVazia(): LinhaResponsabilidade {
-  return { item: '', owner: 'Filtrovali', note: '' };
+  return { item: '', owner: 'Filtrovali', note: '', categoria: CATEGORIAS_RESPONSABILIDADE[0] };
+}
+
+/**
+ * A matriz com que a proposta nasce, vinda do modelo escolhido.
+ *
+ * A referência nascia com 17 linhas de **caldeiraria e solda** que não aparecem
+ * em nenhum dos quatro documentos — matriz de outro negócio. Estas vêm dos
+ * `.docx`, e são editáveis como qualquer outra: o vendedor apaga o que não se
+ * aplica à obra dele.
+ */
+export function matrizInicial(modelo: ModeloProposta): LinhaResponsabilidade[] {
+  return matrizDoModelo(modelo).map(linha => ({
+    item: linha.item,
+    owner: linha.responsavel,
+    note: linha.nota,
+    categoria: linha.categoria,
+    ...(linha.subitens ? { subitens: [...linha.subitens] } : {})
+  }));
 }
 
 /**
@@ -197,6 +246,8 @@ export function pendenciasDosPrazos(form: Formulario): PendenciaEtapa[] {
     ['attendance', 'Informe a previsão de atendimento.'],
     ['mobilization', 'Informe a mobilização após o pedido.'],
     ['permanence', 'Informe a permanência prevista em obra.'],
+    // `dias_treinamento` no documento. Saía impresso sem ter de onde vir — T071c.
+    ['integration', 'Informe o prazo previsto para integração.'],
     ['execution', 'Informe o prazo efetivo de execução.'],
     ['workday', 'Descreva a jornada de trabalho.']
   ];

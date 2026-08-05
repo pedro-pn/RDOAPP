@@ -21,6 +21,13 @@ const CAMPOS: Array<{ campo: string; label: string; placeholder: string }> = [
     label: 'Permanência prevista em obra',
     placeholder: 'Ex.: 12 dias corridos'
   },
+  // `dias_treinamento` no documento: "Prazo previsto para integração – N dia(s)".
+  // A linha já saía impressa e não tinha campo de origem nenhum (T071c).
+  {
+    campo: 'integration',
+    label: 'Prazo previsto para integração',
+    placeholder: 'Ex.: 1 dia'
+  },
   {
     campo: 'execution',
     label: 'Prazo efetivo de execução',

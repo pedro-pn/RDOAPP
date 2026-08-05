@@ -21,7 +21,7 @@ import {
   indiceDaEtapa,
   avisoDePendencias,
   indiceDePendencias,
-  linhaVazia,
+  matrizInicial,
   type ItemDePreco,
   type LinhaResponsabilidade,
   pendenciasDaEtapa,
@@ -69,6 +69,7 @@ function formularioInicial(): AnyRecord {
     attendance: '',
     mobilization: '',
     permanence: '',
+    integration: '',
     execution: '',
     workday: '',
     technicalObservations: '',
@@ -96,8 +97,11 @@ export function PropostaPage() {
     createScopeServiceItem('escopo-inicial', 0)
   ]);
   const [blocos, setBlocos] = useState<ScopeBlock[]>([]);
+  // A proposta nasce com a matriz do modelo, não em branco: são ~35 obrigações
+  // que se repetem em toda obra, e digitá-las de novo a cada proposta é como o
+  // erro entra. O vendedor apaga o que não se aplica.
   const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(
-    () => [linhaVazia()]
+    () => matrizInicial('padrao')
   );
   const [servicosTecnicos, setServicosTecnicos] = useState<TechnicalServiceSelection[]>(
     []
@@ -294,7 +298,16 @@ export function PropostaPage() {
                 if (dados.itensEscopo?.length) setItensEscopo(dados.itensEscopo);
                 if (dados.blocos) setBlocos(dados.blocos);
                 if (dados.responsabilidades?.length) {
-                  setResponsabilidades(dados.responsabilidades);
+                  // Rascunho guardado antes da categoria existir vem sem ela, e
+                  // um `value` indefinido tornaria o campo não controlado no
+                  // meio da digitação. Sem categoria, a linha só não ganha
+                  // subtítulo — não some do documento.
+                  setResponsabilidades(
+                    dados.responsabilidades.map(linha => ({
+                      ...linha,
+                      categoria: linha.categoria ?? ''
+                    }))
+                  );
                 }
                 if (dados.servicosTecnicos) {
                   // Passa pelo normalizador: o rascunho pode ter sido guardado

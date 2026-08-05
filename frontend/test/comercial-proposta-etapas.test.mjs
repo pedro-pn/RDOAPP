@@ -153,11 +153,14 @@ test('responsabilidades: uma linha preenchida entre várias vazias basta', () =>
   assert.deepEqual(mod.pendenciasDasResponsabilidades(linhas), []);
 });
 
-test('prazos: os cinco campos são obrigatórios', () => {
+test('prazos: os seis campos são obrigatórios', () => {
   const completo = {
     attendance: 'até 10 dias',
     mobilization: '7 dias',
     permanence: '12 dias corridos',
+    // `dias_treinamento` no documento. A linha "Prazo previsto para integração"
+    // já saía impressa e não tinha campo de origem nenhum (T071c).
+    integration: '1 dia',
     execution: '10 dias trabalhados',
     workday: 'Segunda a sexta, 8h às 18h'
   };
@@ -176,7 +179,7 @@ test('pendenciasDaEtapa despacha para a etapa certa', () => {
 
   assert.ok(mod.pendenciasDaEtapa('escopo', form, escopo).length > 0);
   assert.equal(mod.pendenciasDaEtapa('responsabilidades', form, escopo).length, 1);
-  assert.equal(mod.pendenciasDaEtapa('prazos', form, escopo).length, 5);
+  assert.equal(mod.pendenciasDaEtapa('prazos', form, escopo).length, 6);
   // As três ainda não portadas continuam sem travar.
   assert.deepEqual(mod.pendenciasDaEtapa('tecnica', form, escopo), []);
 });
@@ -185,7 +188,31 @@ test('a matriz aceita "N/A" como responsável', () => {
   // Há obrigação que não cabe a ninguém no contrato e precisa constar assim
   // mesmo, para não parecer esquecimento.
   assert.ok(mod.RESPONSAVEIS.includes('N/A'));
-  assert.deepEqual(mod.linhaVazia(), { item: '', owner: 'Filtrovali', note: '' });
+  assert.deepEqual(mod.linhaVazia(), {
+    item: '',
+    owner: 'Filtrovali',
+    note: '',
+    categoria: 'MÃO DE OBRA E EQUIPE TÉCNICA'
+  });
+});
+
+test('a proposta nasce com a matriz do modelo, não em branco', () => {
+  // A referência nascia com 17 linhas de caldeiraria e solda que não aparecem
+  // em documento nenhum. Estas vêm dos `.docx`, e são ~35 obrigações que se
+  // repetem em toda obra — redigitá-las a cada proposta é como o erro entra.
+  const matriz = mod.matrizInicial('padrao');
+  assert.ok(matriz.length > 20);
+  assert.ok(matriz.some(l => l.owner === 'Filtrovali'));
+  assert.ok(matriz.some(l => l.owner === 'Contratante'));
+  for (const linha of matriz) assert.ok(linha.categoria.trim(), linha.item);
+
+  const tudo = matriz.map(l => l.item).join('\n');
+  for (const intruso of ['soldador', 'esmerilhadeira', 'inspetor de solda']) {
+    assert.ok(!new RegExp(intruso, 'i').test(tudo), intruso);
+  }
+
+  // Hidrojateamento traz outra matriz — é o desvio 13.
+  assert.notDeepEqual(mod.matrizInicial('hidrojateamento'), matriz);
 });
 
 // ---------------------------------------------------------------------------

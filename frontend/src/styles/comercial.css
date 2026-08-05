@@ -2354,6 +2354,31 @@
   margin-bottom: 4px;
 }
 
+/* O subtítulo que agrupa a matriz ocupa a largura da tabela, como no documento.
+   Sem o `colspan` visualmente marcado ele se confunde com uma obrigação. */
+.com-root .com-doc-categoria td {
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.com-root .com-doc-subitens {
+  margin: 2px 0 0;
+  padding-left: 8px;
+  list-style: disc;
+}
+
+.com-root .com-doc-prazos {
+  margin: 0 0 4px;
+  padding-left: 10px;
+  list-style: disc;
+}
+
+.com-root .com-doc-nota {
+  font-style: italic;
+}
+
 /* Abaixo de 1100px a prévia sai da lateral e vai para baixo do formulário:
    370px fixos numa tela de 1024 espremeriam o formulário a nada. */
 @media (max-width: 1100px) {

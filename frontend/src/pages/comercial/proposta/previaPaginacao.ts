@@ -201,6 +201,114 @@ export function tituloDoItemDeEscopo(itens: ScopeServiceItem[], scopeItemId?: st
   return `2.${numero} ${item.title || `Serviço ${numero}`}`;
 }
 
+/**
+ * As folhas da **matriz de responsabilidade** (tarefa T071b).
+ *
+ * A referência cabia numa folha porque mostrava `.slice(0, 6)` de cada lado. Com
+ * a matriz dos `.docx` são ~15 linhas Filtrovali e ~20 do Contratante, e cortar
+ * em 6 não é resumir: é omitir obrigação contratual da prévia que existe
+ * justamente para conferir o documento antes de emitir.
+ */
+export type EntradaDaMatriz =
+  | { tipo: 'categoria'; texto: string }
+  | { tipo: 'linha'; numero: number; item: string; nota: string; subitens: string[] };
+
+export type FolhaDaMatriz = {
+  chave: string;
+  titulo: string;
+  entradas: EntradaDaMatriz[];
+};
+
+/** Linhas que cabem numa folha da matriz. Ela tem título de bloco por cima. */
+export const ORCAMENTO_DE_LINHAS_MATRIZ = 22;
+
+type LinhaCrua = {
+  item: string;
+  owner: string;
+  note: string;
+  categoria?: string;
+  subitens?: string[];
+};
+
+function alturaDaLinhaDaMatriz(linha: LinhaCrua): number {
+  const escopo = quebrarTexto(linha.item || '—', 48).length;
+  const nota = quebrarTexto(linha.note || '—', 22).length;
+  const subitens = (linha.subitens || []).reduce(
+    (soma, subitem) => soma + quebrarTexto(subitem, 46).length,
+    0
+  );
+  return Math.max(escopo, nota) + subitens;
+}
+
+export function folhasDaMatriz(linhas: LinhaCrua[]): FolhaDaMatriz[] {
+  const folhas: FolhaDaMatriz[] = [];
+
+  for (const responsavel of ['Filtrovali', 'Contratante'] as const) {
+    const doLado = linhas.filter(
+      linha => linha.owner === responsavel && linha.item.trim()
+    );
+    if (!doLado.length) continue;
+
+    const titulo = `Responsabilidade da ${responsavel === 'Filtrovali' ? 'Filtrovali' : 'Contratante'}`;
+    let entradas: EntradaDaMatriz[] = [];
+    let restantes = ORCAMENTO_DE_LINHAS_MATRIZ;
+    let numero = 0;
+    let categoriaAberta = '';
+    let parte = 0;
+
+    const fechar = () => {
+      if (!entradas.length) return;
+      folhas.push({
+        chave: `matriz-${responsavel}-${parte}`,
+        titulo: parte ? `${titulo} (continuação)` : titulo,
+        entradas
+      });
+      parte += 1;
+      entradas = [];
+      restantes = ORCAMENTO_DE_LINHAS_MATRIZ;
+    };
+
+    for (const linha of doLado) {
+      const categoria = (linha.categoria || '').trim();
+      const altura = alturaDaLinhaDaMatriz(linha);
+      const abreCategoria = categoria && categoria !== categoriaAberta;
+      const custo = altura + (abreCategoria ? 1 : 0);
+
+      // Uma categoria que abre no pé da folha ficaria órfã do primeiro item
+      // dela. Empurra as duas juntas — a não ser que nem numa folha vazia caibam,
+      // caso em que forçar a quebra entraria em laço.
+      if (entradas.length && custo > restantes && custo <= ORCAMENTO_DE_LINHAS_MATRIZ) {
+        fechar();
+      }
+
+      if (categoria && categoria !== categoriaAberta) {
+        entradas.push({ tipo: 'categoria', texto: categoria });
+        restantes -= 1;
+        categoriaAberta = categoria;
+      } else if (categoria && !entradas.some(entrada => entrada.tipo === 'categoria')) {
+        // A folha virou no meio de uma categoria: o subtítulo se repete, senão as
+        // linhas da folha seguinte aparecem sob cabeçalho nenhum.
+        entradas.push({ tipo: 'categoria', texto: `${categoria} (continuação)` });
+        restantes -= 1;
+      }
+
+      numero += 1;
+      entradas.push({
+        tipo: 'linha',
+        numero,
+        item: linha.item,
+        nota: linha.note,
+        subitens: linha.subitens || []
+      });
+      restantes -= altura;
+    }
+
+    fechar();
+  }
+
+  return folhas;
+}
+
 export type PaginaTecnica = {
   chave: string;
   titulo: string;

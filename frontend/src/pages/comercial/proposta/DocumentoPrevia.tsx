@@ -5,9 +5,11 @@ import type {
 import type { TechnicalServiceSelection } from '../../../../../shared/comercial/dist/technical-services.js';
 import type { ItemDePreco, LinhaResponsabilidade } from './etapas';
 import {
+  folhasDaMatriz,
   paginasDoEscopo,
   paginasTecnicas,
-  tituloDoItemDeEscopo
+  tituloDoItemDeEscopo,
+  type EntradaDaMatriz
 } from './previaPaginacao';
 
 /**
@@ -131,12 +133,14 @@ export function DocumentoPrevia({
   /* A numeração das folhas é CALCULADA, não fixa: cada tabela ou foto do escopo
      empurra tudo o que vem depois. É o mesmo cálculo que o PDF fará. */
   const folhasDoEscopo = paginasDoEscopo(blocos);
+  const folhasDaResponsabilidade = folhasDaMatriz(responsabilidadesPreenchidas);
   const folhasTecnicas = tecnico
     ? paginasTecnicas(servicosTecnicos, complementoRelatorios)
     : [];
 
   const numeroDasResponsabilidades = 4 + folhasDoEscopo.length;
-  const numeroDosPrazos = numeroDasResponsabilidades + 1;
+  const numeroDosPrazos =
+    numeroDasResponsabilidades + Math.max(1, folhasDaResponsabilidade.length);
   const numeroDoFechamentoTecnico = numeroDosPrazos + folhasTecnicas.length + 1;
 
   return (
@@ -265,19 +269,19 @@ export function DocumentoPrevia({
         </Pagina>
       ))}
 
-      <Pagina numero={numeroDasResponsabilidades} data={data}>
-        <h3>3. Matriz geral de responsabilidade</h3>
-        {/* Separadas por dono, e limitadas a 6 cada: é como a folha comporta, e
-            é como o documento oficial apresenta — não uma lista corrida. */}
-        <BlocoDeResponsabilidade
-          titulo="Responsabilidade da Filtrovali"
-          linhas={responsabilidadesPreenchidas.filter(l => l.owner === 'Filtrovali').slice(0, 6)}
-        />
-        <BlocoDeResponsabilidade
-          titulo="Responsabilidade da Contratante"
-          linhas={responsabilidadesPreenchidas.filter(l => l.owner === 'Contratante').slice(0, 6)}
-        />
-      </Pagina>
+      {folhasDaResponsabilidade.length ? (
+        folhasDaResponsabilidade.map((folha, i) => (
+          <Pagina key={folha.chave} numero={numeroDasResponsabilidades + i} data={data}>
+            {i === 0 && <h3>3. Matriz geral de responsabilidade</h3>}
+            <BlocoDeResponsabilidade titulo={folha.titulo} entradas={folha.entradas} />
+          </Pagina>
+        ))
+      ) : (
+        <Pagina numero={numeroDasResponsabilidades} data={data}>
+          <h3>3. Matriz geral de responsabilidade</h3>
+          <BlocoDeResponsabilidade titulo="Responsabilidade da Filtrovali" entradas={[]} />
+        </Pagina>
+      )}
 
       <Pagina numero={numeroDosPrazos} data={data}>
         <h3>4. Previsão de atendimento</h3>
@@ -287,9 +291,25 @@ export function DocumentoPrevia({
         </p>
 
         <h3>5. Prazo para execução dos serviços</h3>
-        <p>
-          Permanência: {texto('permanence', 'a definir')}. Execução:{' '}
-          {texto('execution', 'a definir')}.
+        {/* As quatro linhas do documento, na ordem impressa. A de integração
+            (`dias_treinamento`) saía aqui sem ter campo de origem — T071c. */}
+        <ul className="com-doc-prazos">
+          <li>
+            Prazo previsto de permanência em obra (dias corridos) –{' '}
+            {texto('permanence', 'a definir')};
+          </li>
+          <li>Prazo previsto para integração – {texto('integration', 'a definir')};</li>
+          <li>
+            Prazo previsto de execução dos serviços (dias trabalhados/úteis) –{' '}
+            {texto('execution', 'a definir')};
+          </li>
+          <li>
+            Prazo de deslocamento (Mob/desmob) – {texto('mobilization', 'a definir')}.
+          </li>
+        </ul>
+        <p className="com-doc-nota">
+          NOTA: O prazo de deslocamento não está incluso ao prazo previsto de permanência
+          em obra.
         </p>
 
         <h3>6. Jornada de trabalho</h3>
@@ -357,10 +377,10 @@ export function DocumentoPrevia({
 
 function BlocoDeResponsabilidade({
   titulo,
-  linhas
+  entradas
 }: {
   titulo: string;
-  linhas: LinhaResponsabilidade[];
+  entradas: EntradaDaMatriz[];
 }) {
   return (
     <div className="com-doc-responsabilidade">
@@ -374,14 +394,30 @@ function BlocoDeResponsabilidade({
           </tr>
         </thead>
         <tbody>
-          {linhas.length > 0 ? (
-            linhas.map((linha, i) => (
-              <tr key={i}>
-                <td>{i + 1}</td>
-                <td>{linha.item}</td>
-                <td>{linha.note}</td>
-              </tr>
-            ))
+          {entradas.length > 0 ? (
+            entradas.map((entrada, i) =>
+              entrada.tipo === 'categoria' ? (
+                /* O subtítulo ocupa a largura da tabela, como no documento. */
+                <tr key={`c-${i}`} className="com-doc-categoria">
+                  <td colSpan={3}>{entrada.texto}</td>
+                </tr>
+              ) : (
+                <tr key={`l-${i}`}>
+                  <td>{entrada.numero}</td>
+                  <td>
+                    {entrada.item}
+                    {entrada.subitens.length > 0 && (
+                      <ul className="com-doc-subitens">
+                        {entrada.subitens.map((subitem, s) => (
+                          <li key={s}>{subitem}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                  <td>{entrada.nota}</td>
+                </tr>
+              )
+            )
           ) : (
             <tr>
               <td colSpan={3}>—</td>

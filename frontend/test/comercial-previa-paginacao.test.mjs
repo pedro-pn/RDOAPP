@@ -159,3 +159,119 @@ test('cada serviço técnico vira folha, e os relatórios vêm no fim', () => {
   assert.match(paginas[0].titulo, /^7\.1 — Flushing/);
   assert.match(paginas[paginas.length - 1].titulo, /^8\. Relatórios/);
 });
+
+/* --------------------------------------------------------------------------
+ * Matriz de responsabilidade (T071b)
+ *
+ * A referência mostrava `.slice(0, 6)` de cada lado e cabia numa folha. Com a
+ * matriz dos `.docx` são ~15 linhas Filtrovali e ~20 do Contratante — cortar em
+ * 6 não é resumir, é omitir obrigação contratual da prévia que existe para
+ * conferir o documento antes de emitir.
+ * ----------------------------------------------------------------------- */
+
+function linhaDaMatriz(item, owner, categoria, extras = {}) {
+  return { item, owner, note: '', categoria, ...extras };
+}
+
+test('a matriz sai separada por responsável, e sem linha em branco', () => {
+  const folhas = mod.folhasDaMatriz([
+    linhaDaMatriz('Equipe técnica', 'Filtrovali', 'MÃO DE OBRA E EQUIPE TÉCNICA'),
+    linhaDaMatriz('', 'Filtrovali', 'LOGÍSTICA'),
+    linhaDaMatriz('Munck e empilhadeira', 'Contratante', 'LOGÍSTICA')
+  ]);
+
+  assert.equal(folhas.length, 2);
+  assert.equal(folhas[0].titulo, 'Responsabilidade da Filtrovali');
+  assert.equal(folhas[1].titulo, 'Responsabilidade da Contratante');
+
+  // A linha sem escopo não atravessa: no documento ela viraria uma obrigação
+  // sem texto, pior que a ausência dela.
+  const itens = folhas.flatMap(f => f.entradas.filter(e => e.tipo === 'linha'));
+  assert.equal(itens.length, 2);
+});
+
+test('a categoria vira subtítulo uma vez por bloco, não por linha', () => {
+  const folhas = mod.folhasDaMatriz([
+    linhaDaMatriz('Um veículo com combustível', 'Filtrovali', 'LOGÍSTICA'),
+    linhaDaMatriz('Hospedagem da equipe', 'Filtrovali', 'LOGÍSTICA'),
+    linhaDaMatriz('Encargos trabalhistas', 'Filtrovali', 'SEGURANÇA')
+  ]);
+
+  const categorias = folhas[0].entradas.filter(e => e.tipo === 'categoria');
+  assert.deepEqual(
+    categorias.map(c => c.texto),
+    ['LOGÍSTICA', 'SEGURANÇA']
+  );
+});
+
+test('a numeração é contínua por lado, ignorando os subtítulos', () => {
+  const folhas = mod.folhasDaMatriz([
+    linhaDaMatriz('A', 'Filtrovali', 'LOGÍSTICA'),
+    linhaDaMatriz('B', 'Filtrovali', 'SEGURANÇA'),
+    linhaDaMatriz('C', 'Contratante', 'UTILIDADES')
+  ]);
+
+  const numeros = folhas[0].entradas.filter(e => e.tipo === 'linha').map(e => e.numero);
+  assert.deepEqual(numeros, [1, 2]);
+
+  // O outro lado recomeça do 1 — são duas tabelas, não uma partida ao meio.
+  const doContratante = folhas[1].entradas.filter(e => e.tipo === 'linha');
+  assert.deepEqual(doContratante.map(e => e.numero), [1]);
+});
+
+test('matriz longa parte em folhas, sem perder nem duplicar obrigação', () => {
+  const linhas = Array.from({ length: 30 }, (_, i) =>
+    linhaDaMatriz(`Obrigação ${i + 1}`, 'Contratante', 'UTILIDADES')
+  );
+  const folhas = mod.folhasDaMatriz(linhas);
+
+  assert.ok(folhas.length > 1, 'trinta obrigações não cabem numa folha');
+  const itens = folhas.flatMap(f => f.entradas.filter(e => e.tipo === 'linha'));
+  assert.equal(itens.length, 30);
+  assert.deepEqual(
+    itens.map(e => e.item),
+    linhas.map(l => l.item)
+  );
+});
+
+test('a folha seguinte diz que é continuação, no bloco e na categoria', () => {
+  const folhas = mod.folhasDaMatriz(
+    Array.from({ length: 30 }, (_, i) =>
+      linhaDaMatriz(`Obrigação ${i + 1}`, 'Contratante', 'UTILIDADES')
+    )
+  );
+
+  assert.match(folhas[1].titulo, /\(continuação\)$/);
+  // Sem repetir o subtítulo, as linhas da segunda folha apareceriam sob
+  // cabeçalho nenhum — o leitor não saberia de que grupo elas são.
+  const primeira = folhas[1].entradas[0];
+  assert.equal(primeira.tipo, 'categoria');
+  assert.match(primeira.texto, /^UTILIDADES \(continuação\)$/);
+});
+
+test('a linha com subitens ocupa mais folha do que a linha simples', () => {
+  // A célula de equipamentos do documento tem 14 subitens. Contá-la como uma
+  // linha só faria a folha estourar no papel — e é exatamente o tipo de erro
+  // que não aparece na tela.
+  const comLista = mod.folhasDaMatriz(
+    Array.from({ length: 6 }, (_, i) =>
+      linhaDaMatriz(`Equipamentos ${i + 1}`, 'Filtrovali', 'EQUIPAMENTOS', {
+        subitens: Array.from({ length: 6 }, (_, s) => `Item ${s + 1}`)
+      })
+    )
+  );
+  const semLista = mod.folhasDaMatriz(
+    Array.from({ length: 6 }, (_, i) =>
+      linhaDaMatriz(`Equipamentos ${i + 1}`, 'Filtrovali', 'EQUIPAMENTOS')
+    )
+  );
+
+  assert.equal(semLista.length, 1);
+  assert.ok(comLista.length > 1, 'os subitens precisam contar para a altura');
+});
+
+test('matriz vazia não devolve folha nenhuma', () => {
+  // Quem decide o que mostrar no lugar é a prévia, não a paginação: devolver
+  // uma folha fantasma imprimiria uma tabela vazia no documento.
+  assert.deepEqual(mod.folhasDaMatriz([]), []);
+});
