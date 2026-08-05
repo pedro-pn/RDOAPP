@@ -12,7 +12,8 @@
     "./scope-content": "./dist/scope-content.js",
     "./proposal-visuals": "./dist/proposal-visuals.js",
     "./finalization": "./dist/finalization.js",
-    "./nectar-pipelines": "./dist/nectar-pipelines.js"
+    "./nectar-pipelines": "./dist/nectar-pipelines.js",
+    "./modelo-documento": "./dist/modelo-documento.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
