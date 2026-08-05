@@ -2253,21 +2253,39 @@
   box-shadow: 0 4px 14px #24375230;
 }
 
+/* A margem do corpo é a MESMA do gerador de PDF, e isso não é estética.
+   `CONTENT_TOP = 53` e `CONTENT_BOTTOM = 269` numa folha A4 de 297 mm dão
+   17,85% no topo e 9,4% no pé — é a geometria que o documento usa.
+
+   Era `13% 9% 8%`, e o 13% colocava a primeira linha DENTRO da curva verde do
+   timbrado: medido na própria imagem, a faixa ainda tem 25% de cobertura em
+   13,1% e só some em 16,1%. Por isso "Proposta Técnica" saía sobreposta ao
+   cabeçalho. */
 .com-root .com-pagina-corpo {
   position: absolute;
-  inset: 13% 9% 8%;
+  inset: 17.85% 9% 9.4%;
   overflow: hidden;
   font-size: 7px;
   line-height: 1.5;
 }
 
-.com-root .com-pagina-rodape {
+/* A data vai no TOPO à direita, não no rodapé: é onde o cabeçalho do .docx a
+   imprime ("07 de janeiro de 2026"), e é onde o gerador a desenha — x=185, y=16
+   numa folha de 210×297 mm, ou seja 88% e 5,4%. */
+.com-root .com-pagina-data {
   position: absolute;
-  right: 9%;
-  bottom: 3.4%;
-  left: 9%;
-  display: flex;
-  justify-content: space-between;
+  top: 5.4%;
+  right: 12%;
+  font-size: 6px;
+  font-weight: 700;
+  color: #333;
+}
+
+/* O número fica embaixo à direita, x=201 y=289 no gerador — 95,7% e 97,3%. */
+.com-root .com-pagina-numero {
+  position: absolute;
+  right: 4.3%;
+  bottom: 2.7%;
   font-size: 6px;
   color: #667;
 }
@@ -2576,5 +2594,65 @@
 
 .com-root .com-categorias-nova .field-group {
   flex: 1;
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Impressão
+   ---------------------------------------------------------------------------
+   "Imprimir prévia" chama `window.print()`, e sem estas regras o navegador
+   mandava a TELA INTEIRA para o papel — barra, hero, stepper e formulário junto
+   com o documento. Era essa a origem de "o PDF baixado não é o mesmo da prévia".
+
+   Isto NÃO substitui o gerador (T072), que produz o PDF oficial no servidor.
+   É o caminho de conferência: imprime só o documento, uma folha por página.
+   -------------------------------------------------------------------------- */
+@media print {
+  .com-root .com-topbar,
+  .com-root .com-hero,
+  .com-root .com-stepper,
+  .com-root .com-form-panel,
+  .com-root .com-previa-topo,
+  .com-root .com-rodape,
+  .com-root .com-overlay {
+    display: none !important;
+  }
+
+  .com-root .com-workspace,
+  .com-root .com-previa,
+  .com-root .com-previa-rolagem,
+  .com-root .com-conteudo {
+    display: block;
+    max-width: none;
+    max-height: none;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    position: static;
+  }
+
+  /* A folha da prévia vira a folha do papel: largura inteira, sem sombra, e uma
+     por página. `break-inside: avoid` impede o navegador de partir a página do
+     documento no meio — que produziria duas folhas com meio cabeçalho cada. */
+  .com-root .com-pagina {
+    max-width: none;
+    width: 100%;
+    box-shadow: none;
+    break-inside: avoid;
+    break-after: page;
+  }
+
+  .com-root .com-pagina:last-child {
+    break-after: auto;
+  }
+
+  .com-root .com-documento {
+    display: block;
+    gap: 0;
+  }
+}
+
+@page {
+  size: A4 portrait;
   margin: 0;
 }

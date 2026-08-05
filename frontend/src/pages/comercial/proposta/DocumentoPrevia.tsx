@@ -127,6 +127,22 @@ const SERVICOS_INSTITUCIONAIS = [
   'Teste de pressão (teste hidrostático)'
 ];
 
+/**
+ * A data por extenso do cabeçalho — "7 de janeiro de 2026", como no `.docx`.
+ *
+ * O meio-dia em UTC é o que a referência usa, e não é capricho: `new Date("2026-01-07")`
+ * é meia-noite UTC, que em Brasília ainda é dia 6. A data do documento voltaria
+ * um dia para todo mundo a oeste de Greenwich.
+ */
+function formatarData(iso: string): string {
+  if (!iso) return '—';
+  const quando = new Date(`${iso}T12:00:00Z`);
+  if (Number.isNaN(quando.getTime())) return iso;
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeZone: 'UTC' }).format(
+    quando
+  );
+}
+
 function Pagina({
   numero,
   data,
@@ -142,11 +158,12 @@ function Pagina({
       style={{ backgroundImage: `url(${PAGINA})` }}
       aria-label={`Página ${numero}`}
     >
+      {/* Data no topo à direita e número no pé à direita — as duas posições do
+          gerador, e as do cabeçalho/rodapé do .docx. Estavam juntas num rodapé
+          só, com a data à esquerda. */}
+      <span className="com-pagina-data">{formatarData(data)}</span>
       <div className="com-pagina-corpo">{children}</div>
-      <footer className="com-pagina-rodape">
-        <span>{data || '—'}</span>
-        <span>{numero}</span>
-      </footer>
+      <span className="com-pagina-numero">{numero}</span>
     </section>
   );
 }
