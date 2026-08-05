@@ -19,6 +19,14 @@ import { formatarDinheiro, type ItemDePreco } from '../etapas';
 
 type AnyRecord = Record<string, unknown>;
 
+/** Os quatro valores da tabela "Condições de Stand by e Mobilização Adicional". */
+const CAMPOS_STANDBY: Array<{ campo: string; label: string }> = [
+  { campo: 'overtimeRate', label: 'Homem/hora fora do horário previsto' },
+  { campo: 'standbyTeam', label: 'Stand-by de equipe (diária)' },
+  { campo: 'standbyEquipment', label: 'Stand-by de equipamentos (diária)' },
+  { campo: 'extraMobilization', label: 'Mobilização extra (por evento ida e volta)' }
+];
+
 type Props = {
   form: AnyRecord;
   editar: (patch: AnyRecord) => void;
@@ -191,6 +199,30 @@ export function ComercialStep({
       ) : (
         <div className="com-vazio">Nenhum item de preço cadastrado.</div>
       )}
+
+      {/* Item 9 do documento intercala prosa e tabela: a frase da hora extra, o
+          título do bloco, a TABELA, a explicação de cada linha e só então as
+          observações gerais. Estes quatro são os MERGEFIELDs `valor_he`,
+          `valor_standby`, `diaria_equipamento` e `valor_desmob_extra`, que não
+          existiam em campo nenhum — T071d. */}
+      <fieldset className="com-fieldset">
+        <legend>Stand-by e mobilização adicional</legend>
+        <p className="com-fieldset-nota">
+          Saem na tabela do item 9 da proposta comercial.
+        </p>
+        <div className="com-form-grid">
+          {CAMPOS_STANDBY.map(({ campo, label }) => (
+            <Field
+              key={campo}
+              label={label}
+              inputMode="numeric"
+              placeholder="R$ 0,00"
+              value={String(form[campo] ?? '')}
+              onChange={valor => editar({ [campo]: formatarDinheiro(valor) })}
+            />
+          ))}
+        </div>
+      </fieldset>
 
       <div className="com-form-grid">
         <Area

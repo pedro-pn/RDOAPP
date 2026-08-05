@@ -21,6 +21,7 @@ import {
   tabelasDePrecoDoModelo,
   textoCondicoesPagamento,
 } from '../../shared/comercial/dist/modelo-documento.js';
+import * as modelo from '../../shared/comercial/dist/modelo-documento.js';
 
 /**
  * O texto fixo dos documentos — tarefa T071a, desvio 12.
@@ -228,4 +229,42 @@ test('a observação do revezamento só aparece em hidrojateamento', () => {
   assert.ok(!/revezamento/.test(padrao));
   assert.match(hidro, /revezamento entre o anjo e o hidrojatista.*1 hora consecutiva/s);
   assert.ok(hidro.startsWith(padrao), 'hidrojateamento acrescenta, não substitui');
+});
+
+/* --------------------------------------------------------------------------
+ * Bloco de stand-by (T071d)
+ * ----------------------------------------------------------------------- */
+
+test('o item 9 sai em partes, porque a tabela fica no meio da prosa', () => {
+  // O documento intercala: frase da hora extra, título do bloco, TABELA,
+  // explicação de cada linha e só então as observações gerais. Um bloco de
+  // texto só não teria onde encaixar a tabela.
+  const { fraseHoraExtra, TITULO_BLOCO_STANDBY, TEXTO_EXPLICACAO_STANDBY, TEXTO_OBSERVACOES_GERAIS } =
+    modelo;
+
+  assert.match(fraseHoraExtra(250), /R\$\s?250,00/);
+  assert.match(TITULO_BLOCO_STANDBY, /Stand by e Mobilização Adicional/);
+  assert.match(TEXTO_EXPLICACAO_STANDBY, /^Stand-by de Equipe: quando/);
+  assert.match(TEXTO_OBSERVACOES_GERAIS, /IGPM/);
+
+  // A explicação fala "conforme a tabela acima" — se ela viesse antes da
+  // tabela, o documento apontaria para o lugar errado.
+  assert.match(TEXTO_EXPLICACAO_STANDBY, /conforme a tabela acima/);
+});
+
+test('o texto corrido continua existindo, e é a soma das partes na ordem', () => {
+  const valores = {
+    horaExtra: 250,
+    standbyEquipe: 11250,
+    standbyEquipamento: 5000,
+    mobilizacaoExtra: 21900,
+  };
+  const corrido = modelo.textoObservacoesComerciais(valores);
+  const partes = [
+    modelo.fraseHoraExtra(250),
+    modelo.TITULO_BLOCO_STANDBY,
+    modelo.TEXTO_EXPLICACAO_STANDBY,
+    modelo.TEXTO_OBSERVACOES_GERAIS,
+  ];
+  assert.equal(corrido, partes.join('\n\n'));
 });

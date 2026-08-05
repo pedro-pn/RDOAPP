@@ -3,6 +3,19 @@ import type {
   ScopeServiceItem
 } from '../../../../../shared/comercial/dist/scope-content.js';
 import type { TechnicalServiceSelection } from '../../../../../shared/comercial/dist/technical-services.js';
+import {
+  LINHAS_ASSINATURA,
+  TEXTO_ACEITE,
+  TEXTO_EXPLICACAO_STANDBY,
+  TEXTO_IMPOSTOS,
+  TEXTO_OBSERVACOES_GERAIS,
+  TEXTO_PROPRIEDADE_INTELECTUAL,
+  TITULO_BLOCO_STANDBY,
+  fraseHoraExtra,
+  observacoesTecnicasDoModelo,
+  tabelaStandby,
+  type ModeloProposta
+} from '../../../../../shared/comercial/dist/modelo-documento.js';
 import type { ItemDePreco, LinhaResponsabilidade } from './etapas';
 import {
   folhasDaMatriz,
@@ -109,7 +122,8 @@ export function DocumentoPrevia({
   precos,
   incluirUnitario,
   servicosTecnicos,
-  complementoRelatorios
+  complementoRelatorios,
+  modelo = 'padrao'
 }: {
   tipo: TipoDeDocumento;
   form: AnyRecord;
@@ -121,6 +135,7 @@ export function DocumentoPrevia({
   incluirUnitario: boolean;
   servicosTecnicos: TechnicalServiceSelection[];
   complementoRelatorios: string;
+  modelo?: ModeloProposta;
 }) {
   const tecnico = tipo === 'technical';
   const indice = tecnico ? INDICE_TECNICO : INDICE_COMERCIAL;
@@ -141,6 +156,7 @@ export function DocumentoPrevia({
   const numeroDasResponsabilidades = 4 + folhasDoEscopo.length;
   const numeroDosPrazos =
     numeroDasResponsabilidades + Math.max(1, folhasDaResponsabilidade.length);
+  const numeroDoFechamentoComercial = numeroDosPrazos + 1;
   const numeroDoFechamentoTecnico = numeroDosPrazos + folhasTecnicas.length + 1;
 
   return (
@@ -362,14 +378,77 @@ export function DocumentoPrevia({
         </Pagina>
       ))}
 
-      {tecnico && (
+      {tecnico ? (
         <Pagina numero={numeroDoFechamentoTecnico} data={data}>
           <h3>9. Validade da proposta</h3>
           <p>{texto('validity', '10')} dias após a emissão.</p>
 
           <h3>10. Observações</h3>
-          <p>{texto('technicalObservations', 'Sem observações adicionais.')}</p>
+          <p className="com-doc-tecnico">{observacoesTecnicasDoModelo(modelo)}</p>
+          {String(form.technicalObservations ?? '').trim() && (
+            <p className="com-doc-tecnico">{String(form.technicalObservations)}</p>
+          )}
         </Pagina>
+      ) : (
+        /* O índice promete treze itens e a prévia parava no oitavo. Estes cinco
+           fecham o documento comercial — e é onde a tabela de stand-by entra,
+           no meio da prosa do item 9, como no Word. */
+        <>
+          <Pagina numero={numeroDoFechamentoComercial} data={data}>
+            <h3>9. Observações</h3>
+            <p>{fraseHoraExtra(dinheiro(form.overtimeRate))}</p>
+            <p>
+              <b>{TITULO_BLOCO_STANDBY}</b>
+            </p>
+            <table className="com-doc-tabela">
+              <thead>
+                <tr>
+                  <th>ITEM</th>
+                  <th>VALOR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tabelaStandby({
+                  horaExtra: dinheiro(form.overtimeRate),
+                  standbyEquipe: dinheiro(form.standbyTeam),
+                  standbyEquipamento: dinheiro(form.standbyEquipment),
+                  mobilizacaoExtra: dinheiro(form.extraMobilization)
+                }).map(([rotulo, valor]) => (
+                  <tr key={rotulo}>
+                    <td>{rotulo}</td>
+                    <td>{valor}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="com-doc-tecnico">{TEXTO_EXPLICACAO_STANDBY}</p>
+          </Pagina>
+
+          <Pagina numero={numeroDoFechamentoComercial + 1} data={data}>
+            <p className="com-doc-tecnico">
+              {texto('observations', TEXTO_OBSERVACOES_GERAIS)}
+            </p>
+
+            <h3>10. Impostos</h3>
+            <p className="com-doc-tecnico">{texto('taxes', TEXTO_IMPOSTOS)}</p>
+          </Pagina>
+
+          <Pagina numero={numeroDoFechamentoComercial + 2} data={data}>
+            <h3>11. Validade da proposta</h3>
+            <p>{texto('validity', '10')} dias após a emissão.</p>
+
+            <h3>12. Proteção à propriedade intelectual e know-how</h3>
+            <p className="com-doc-tecnico">{TEXTO_PROPRIEDADE_INTELECTUAL}</p>
+
+            <h3>13. Aceite e assinatura da proposta</h3>
+            <p className="com-doc-tecnico">{TEXTO_ACEITE}</p>
+            <div className="com-doc-assinatura">
+              {LINHAS_ASSINATURA.map(linha => (
+                <p key={linha}>{linha}</p>
+              ))}
+            </div>
+          </Pagina>
+        </>
       )}
     </div>
   );
@@ -427,6 +506,19 @@ function BlocoDeResponsabilidade({
       </table>
     </div>
   );
+}
+
+/**
+ * Desfaz a máscara de moeda para número.
+ *
+ * Mesma armadilha da soma dos preços: o ponto é separador de milhar e a vírgula
+ * é o decimal, ao contrário do que `Number()` espera. Ler "R$ 11.250,00" com
+ * `Number` daria `NaN`, e `NaN` formatado vira "R$ NaN" no documento.
+ */
+function dinheiro(valor: unknown): number {
+  const limpo = String(valor ?? '').replace(/[^\d,.-]/g, '');
+  const numero = Number(limpo.replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(numero) ? numero : 0;
 }
 
 /**

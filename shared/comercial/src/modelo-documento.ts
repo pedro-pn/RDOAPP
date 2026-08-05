@@ -905,20 +905,31 @@ export function tabelaStandby(
   ];
 }
 
-export function textoObservacoesComerciais(valores: ValoresStandby): string {
-  return `Os trabalhos em horas extras (sábados, domingos e feriados) poderão ser executados desde que registrados em RDO no campo Horas Extras e acordados previamente. O valor homem/hora para atividades fora do horário previsto é de ${moeda(valores.horaExtra)};
+/**
+ * O item 9 do documento intercala prosa e tabela: a frase da hora extra, o
+ * título do bloco, **a tabela**, a explicação de cada linha dela e só então as
+ * observações gerais.
+ *
+ * Por isso as três partes saem separadas em vez de um bloco só — quem desenha
+ * precisa encaixar a tabela no meio. `textoObservacoesComerciais` continua
+ * existindo para quem quiser o texto corrido.
+ */
+export function fraseHoraExtra(valorHomemHora: number): string {
+  return `Os trabalhos em horas extras (sábados, domingos e feriados) poderão ser executados desde que registrados em RDO no campo Horas Extras e acordados previamente. O valor homem/hora para atividades fora do horário previsto é de ${moeda(valorHomemHora)};`;
+}
 
-Condições de Stand by e Mobilização Adicional:
+export const TITULO_BLOCO_STANDBY = "Condições de Stand by e Mobilização Adicional:";
 
-Stand-by de Equipe: quando a equipe permanecer em obra aguardando condições para início ou continuidade dos trabalhos, será cobrado o valor de diária, correspondente a 8 horas, conforme a tabela acima. O serviço é um pacote fechado; sendo assim, qualquer interferência que gere impacto ou não no cronograma acarretará a aplicação da diária de stand-by, por ter interferência direta na performance do projeto.
+export const TEXTO_EXPLICACAO_STANDBY = `Stand-by de Equipe: quando a equipe permanecer em obra aguardando condições para início ou continuidade dos trabalhos, será cobrado o valor de diária, correspondente a 8 horas, conforme a tabela acima. O serviço é um pacote fechado; sendo assim, qualquer interferência que gere impacto ou não no cronograma acarretará a aplicação da diária de stand-by, por ter interferência direta na performance do projeto.
 
 Stand-by de Equipamentos: a partir da chegada dos equipamentos em obra, caso permaneçam aguardando frente de serviço ou ultrapassem o prazo previsto no item 5.1, será aplicada cobrança diária conforme a tabela. A Contratante deverá avaliar a viabilidade de arcar com esses custos ou optar pela desmobilização/mobilização dos equipamentos. O serviço é um pacote fechado; sendo assim, qualquer interferência que gere impacto ou não no cronograma acarretará a aplicação da diária de stand-by, por ter interferência direta na performance do projeto.
 
 Desmobilização e Remobilização: caso seja necessário desmobilizar a equipe durante a execução do projeto, será cobrado o valor por evento, sendo que cada evento compreende ida e volta — desmobilização e mobilização. Neste caso, a Contratante deverá informar a nova programação de retorno com no mínimo 10 dias de antecedência, permitindo tempo hábil para a ação.
 
-NOTA: O solicitante terá que formalizar o pedido de desmobilização por e-mail, expressando acordo com o item 9.3 e/ou o item 9.4.
+NOTA: O solicitante terá que formalizar o pedido de desmobilização por e-mail, expressando acordo com o item 9.3 e/ou o item 9.4.`;
 
-No caso de prorrogação da data de início dos trabalhos já confirmada pela Contratante, por motivos não imputáveis à Filtrovali, será considerada uma diária no valor de R$ 4.500,00 por dia corrido prorrogado, a título de stand by de equipe e equipamento;
+/** O rabo do item 9 — o que vem depois da explicação do stand-by. */
+export const TEXTO_OBSERVACOES_GERAIS = `No caso de prorrogação da data de início dos trabalhos já confirmada pela Contratante, por motivos não imputáveis à Filtrovali, será considerada uma diária no valor de R$ 4.500,00 por dia corrido prorrogado, a título de stand by de equipe e equipamento;
 
 Índice de reajuste anual pelo IGPM ou 10%; será aplicado o maior índice anual;
 
@@ -931,7 +942,16 @@ A garantia mínima de faturamento é o quantitativo descrito como escopo origina
 Caso a Filtrovali conclua os serviços em prazo inferior ao previsto, tal circunstância não ensejará qualquer direito à Contratante de requerer descontos, abatimentos ou reduções no valor contratado, uma vez que a remuneração pactuada decorre do cumprimento integral das obrigações assumidas, independentemente do tempo efetivamente despendido para sua execução;
 
 A Contratante reconhece que os serviços contratados são parte de um pacote integral, cujo valor foi estipulado considerando sua totalidade. Dessa forma, a eventual desistência, cancelamento ou não utilização de qualquer serviço incluído no pacote não dará direito à Contratante a reembolso, abatimento ou desconto proporcional sobre o valor total contratado, permanecendo a obrigação de pagamento integral nos termos acordados.`;
+
+export function textoObservacoesComerciais(valores: ValoresStandby): string {
+  return [
+    fraseHoraExtra(valores.horaExtra),
+    TITULO_BLOCO_STANDBY,
+    TEXTO_EXPLICACAO_STANDBY,
+    TEXTO_OBSERVACOES_GERAIS,
+  ].join("\n\n");
 }
+
 
 // ---------------------------------------------------------------------------
 // Impostos (item 10)

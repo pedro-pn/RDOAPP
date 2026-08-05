@@ -17,6 +17,11 @@ import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { useRascunhoLocal } from '../useRascunhoLocal';
 import {
+  TEXTO_IMPOSTOS,
+  TEXTO_OBSERVACOES_GERAIS,
+  textoCondicoesPagamento
+} from '../../../../../shared/comercial/dist/modelo-documento.js';
+import {
   ETAPAS,
   indiceDaEtapa,
   avisoDePendencias,
@@ -73,10 +78,22 @@ function formularioInicial(): AnyRecord {
     execution: '',
     workday: '',
     technicalObservations: '',
-    payment: '',
-    observations: '',
-    taxes: '',
-    validity: '30'
+    // Os textos nascem do documento, não em branco (desvio 12). São editáveis:
+    // o vendedor ajusta a condição negociada, mas parte do que a empresa
+    // pratica — em vez de reescrever cinco parágrafos jurídicos a cada proposta.
+    payment: textoCondicoesPagamento({
+      adiantamento: '35%',
+      prazoPagamento: '21',
+      formaPagamento: 'Depósito em conta'
+    }),
+    observations: TEXTO_OBSERVACOES_GERAIS,
+    taxes: TEXTO_IMPOSTOS,
+    // Os quatro da tabela de stand-by (T071d).
+    overtimeRate: '',
+    standbyTeam: '',
+    standbyEquipment: '',
+    extraMobilization: '',
+    validity: '10'
   };
 }
 

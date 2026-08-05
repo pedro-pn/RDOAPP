@@ -2459,3 +2459,30 @@
   margin-top: 4px;
   text-align: right;
 }
+
+/* Bloco de campos agrupados na etapa comercial (stand-by e mobilização). */
+.com-root .com-fieldset {
+  border: 1px solid var(--com-borda);
+  border-radius: 10px;
+  padding: 14px 16px 16px;
+  margin: 18px 0 0;
+}
+
+.com-root .com-fieldset legend {
+  padding: 0 6px;
+  font-weight: 700;
+  color: var(--com-marca-forte);
+}
+
+.com-root .com-fieldset-nota {
+  margin: 0 0 10px;
+  color: var(--com-texto-fraco);
+  font-size: 13px;
+}
+
+/* Assinatura no fim da proposta comercial: as linhas do documento, centradas. */
+.com-root .com-doc-assinatura {
+  margin-top: 10px;
+  text-align: center;
+  line-height: 1.9;
+}
