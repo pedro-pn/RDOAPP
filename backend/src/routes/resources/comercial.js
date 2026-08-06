@@ -3,7 +3,11 @@ import { z } from 'zod';
 
 import { SCOPE_PHOTO_LIMITS, makeComercialSchemas } from '../../../../shared/schemas/comercial.js';
 import asyncHandler from '../../lib/async-handler.js';
-import { serializeForUser, serializeListForUser } from '../../lib/comercial/access.js';
+import {
+  canViewValues,
+  serializeForUser,
+  serializeListForUser
+} from '../../lib/comercial/access.js';
 import {
   ComercialError,
   CostEstimateValidationError,
@@ -16,6 +20,10 @@ import {
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { gravarFoto, lerFoto } from '../../lib/comercial/scope-assets.js';
 import { nextProposalNumber, numberingStatus } from '../../lib/comercial/numbering.js';
+import {
+  gerarPropostaComercial,
+  gerarPropostaTecnica
+} from '../../lib/comercial/proposal-pdf.js';
 import { comercialStatus } from '../../lib/comercial/service.js';
 import prisma from '../../lib/prisma.js';
 import {
@@ -265,6 +273,47 @@ router.post(
       if (handleComercialError(error, res)) return;
       throw error;
     }
+  })
+);
+
+/**
+ * Prévia do documento em PDF — o gerador da T072 exposto para conferência.
+ *
+ * **Não é a finalização.** Aqui o PDF é gerado e devolvido na hora, sem gravar
+ * nada, sem numerar proposta e sem tocar em integração — é o que permite
+ * conferir o documento antes de existir proposta salva. A emissão oficial é a
+ * T075, que grava os dois arquivos ANTES de qualquer tentativa de integração.
+ *
+ * Por isso o corpo vem do formulário e não do banco: nesta etapa a proposta
+ * ainda não foi salva.
+ */
+router.post(
+  '/propostas/previa.pdf',
+  requireComercialEstimator,
+  express.json({ limit: '2mb' }),
+  asyncHandler(async (req, res) => {
+    const corpo = req.body || {};
+    const tecnico = corpo.tipo === 'technical';
+
+    // O papel `viewer` não chega aqui — `requireComercialEstimator` já barra —,
+    // mas o comercial carrega valores e a regra de FR-030a vale desde já: quem
+    // não pode ver valor não pode baixar o documento que os contém.
+    if (!tecnico && !canViewValues(req.auth.user)) {
+      return res.status(403).json({ error: 'Sem permissão para o documento comercial.' });
+    }
+
+    const bytes = tecnico
+      ? await gerarPropostaTecnica(corpo)
+      : await gerarPropostaComercial(corpo);
+
+    const codigo = String(corpo.proposalCode || 'sem-numero');
+    const nome = `Proposta ${tecnico ? 'Técnica' : 'Comercial'} - ${codigo}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(nome)}"`);
+    // Prévia não se guarda: o documento muda a cada tecla do formulário.
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(bytes);
   })
 );
 

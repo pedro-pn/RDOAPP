@@ -11,7 +11,11 @@ import {
   type ScopeBlock,
   type ScopeServiceItem
 } from '../../../../../shared/comercial/dist/scope-content.js';
-import { listarConsultores, type Consultor } from '../../../api/comercial';
+import {
+  baixarPreviaEmPdf,
+  listarConsultores,
+  type Consultor
+} from '../../../api/comercial';
 import { useAuth } from '../../../auth/AuthContext';
 import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
@@ -158,6 +162,7 @@ export function PropostaPage() {
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [podeEscolher, setPodeEscolher] = useState(false);
   const [recado, setRecado] = useState('');
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const rascunho = useRascunhoLocal({
     tela: 'proposta',
@@ -267,6 +272,46 @@ export function PropostaPage() {
   }
 
   const erroDe = (campo: string) => (tentouAvancar ? erros.get(campo) : undefined);
+
+  /**
+   * Baixa o PDF gerado no servidor — o documento de verdade, não a impressão da
+   * tela.
+   *
+   * A URL do blob é revogada depois de usada: sem isso cada clique deixa os
+   * bytes do PDF presos na memória da aba até ela ser fechada, e uma proposta
+   * com fotos tem vários megabytes.
+   */
+  async function gerarPdf() {
+    setGerandoPdf(true);
+    setRecado('');
+    try {
+      const blob = await baixarPreviaEmPdf(documentoNaPrevia, {
+        ...form,
+        proposalCode: codigo,
+        estimator: user?.name || '',
+        modelo: modelo ?? 'padrao',
+        scopeItems: itensEscopo,
+        scopeBlocks: blocos,
+        rows: responsabilidades,
+        prices: precos,
+        includeUnitValue: incluirUnitario,
+        technicalServices: servicosTecnicos,
+        technicalReports: complementoRelatorios
+      });
+
+      const url = URL.createObjectURL(blob);
+      const nome = `Proposta ${documentoNaPrevia === 'technical' ? 'Técnica' : 'Comercial'} - ${codigo}.pdf`;
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = nome;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setRecado('Não foi possível gerar o PDF. Tente novamente.');
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
 
   return (
     <ComercialChrome
@@ -595,13 +640,23 @@ export function PropostaPage() {
           />
         </div>
 
-        <button
-          type="button"
-          className="com-previa-imprimir"
-          onClick={() => window.print()}
-        >
-          Imprimir prévia {documentoNaPrevia === 'commercial' ? 'comercial' : 'técnica'}
-        </button>
+        <div className="com-previa-acoes">
+          <button
+            type="button"
+            className="com-previa-imprimir"
+            disabled={gerandoPdf}
+            onClick={gerarPdf}
+          >
+            {gerandoPdf ? 'Gerando…' : 'Baixar PDF'}
+          </button>
+          <button
+            type="button"
+            className="com-previa-imprimir com-previa-imprimir-secundario"
+            onClick={() => window.print()}
+          >
+            Imprimir prévia
+          </button>
+        </div>
       </aside>
       </section>
     </ComercialChrome>

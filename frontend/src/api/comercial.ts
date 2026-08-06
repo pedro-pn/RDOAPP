@@ -167,3 +167,26 @@ export function urlDaFotoDoEscopo(id: string) {
   const base = apiClient.defaults.baseURL || '/api';
   return `${base}/comercial/escopo/fotos/${id}`;
 }
+
+/**
+ * Gera a prévia do documento em PDF no servidor (T072).
+ *
+ * **Não é a emissão.** Nada é gravado, a proposta não é numerada e nenhuma
+ * integração é acionada — isto existe para conferir o documento antes de ele
+ * existir. Por isso o corpo vai inteiro do formulário: nesta etapa não há
+ * proposta salva de onde ler.
+ *
+ * `responseType: 'blob'` não é detalhe: sem ele o axios interpreta os bytes do
+ * PDF como texto e o arquivo chega corrompido, com erro só na hora de abrir.
+ */
+export async function baixarPreviaEmPdf(
+  tipo: 'commercial' | 'technical',
+  dados: Record<string, unknown>
+): Promise<Blob> {
+  const { data } = await apiClient.post<Blob>(
+    '/comercial/propostas/previa.pdf',
+    { ...dados, tipo },
+    { responseType: 'blob' }
+  );
+  return data;
+}

@@ -2656,3 +2656,24 @@
   size: A4 portrait;
   margin: 0;
 }
+
+/* Duas ações no pé da prévia: o PDF de verdade e a impressão da tela. */
+.com-root .com-previa-acoes {
+  display: flex;
+  gap: 8px;
+}
+
+.com-root .com-previa-acoes .com-previa-imprimir {
+  flex: 1;
+}
+
+.com-root .com-previa-imprimir-secundario {
+  background: transparent;
+  color: var(--com-marca-forte);
+  border: 1px solid var(--com-borda);
+}
+
+.com-root .com-previa-imprimir:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
