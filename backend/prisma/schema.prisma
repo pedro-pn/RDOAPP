@@ -427,61 +427,64 @@ model DdsTheme {
 }
 
 model Project {
-  id                             String  @id @default(cuid())
-  code                           String  @unique
+  id                             String    @id @default(cuid())
+  code                           String    @unique
   name                           String
-  isActive                       Boolean @default(true)
-  visibleToCollaborators         Boolean @default(true)
-  managerOnly                    Boolean @default(false)
-  registrationPending            Boolean @default(false)
-  inhibitionServiceEnabled       Boolean @default(false)
-  requireServiceReportSignatures Boolean @default(false)
-  offshore                       Boolean @default(false) // projeto offshore: +transferência no custo de MO
-  laborSleepModeByCollaborator   Json    @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
-  laborCollaboratorIds           Json    @default("[]") // Acompanhamento: colaboradores adicionados manualmente ao cronograma
+  isActive                       Boolean   @default(true)
+  visibleToCollaborators         Boolean   @default(true)
+  managerOnly                    Boolean   @default(false)
+  registrationPending            Boolean   @default(false)
+  inhibitionServiceEnabled       Boolean   @default(false)
+  requireServiceReportSignatures Boolean   @default(false)
+  offshore                       Boolean   @default(false) // projeto offshore: +transferência no custo de MO
+  laborSleepModeByCollaborator   Json      @default("{}") // Acompanhamento: collaboratorId -> HOME/AWAY para RDO não-offshore
+  laborCollaboratorIds           Json      @default("[]") // Acompanhamento: colaboradores adicionados manualmente ao cronograma
+  acompanhamentoArchivedAt       DateTime? // arquivamento exclusivo do módulo Acompanhamento
+  acompanhamentoReviewedAt       DateTime? // última conferência enquanto arquivado no Acompanhamento
+  acompanhamentoReportArchivedAt DateTime? // última finalização originada no módulo Relatórios
 
-  clientName             String
-  clientCnpj             String
-  clientEmailPrimary     String                      @default("")
-  clientSignerFirstName  String                      @default("")
-  clientSignerLastName   String                      @default("")
-  clientEmailCc          String[]                    @default([])
-  clientSigners          Json[]                      @default([])
-  contractCode           String
-  location               String
-  workdayHours           String                      @default("09:00")
-  weekendWorkdayHours    String                      @default("08:00")
-  includesSaturday       Boolean                     @default(false)
-  includesSunday         Boolean                     @default(false)
-  operatorId             String?
-  clientSegment          String?
-  commercialProposalCode String? // = cod_prop do Access; reconciliação proposta↔projeto
-  mobilizationDate       DateTime? // data de mobilização (manual, gestor/coordenador)
-  startDate              DateTime? // início real da execução (manual, gestor/coordenador)
-  manualProgressPct      Decimal?                    @db.Decimal(5, 2) // avanço informado à mão (fallback quando não há escopo)
-  createdAt              DateTime                    @default(now())
-  updatedAt              DateTime                    @updatedAt
-  deletedAt              DateTime?
-  operator               Collaborator?               @relation("ProjectOperator", fields: [operatorId], references: [id], onDelete: SetNull)
-  reportSequences        ProjectReportSeq[]
-  authorizedUsers        ProjectAuthorizedUser[]
-  reports                Report[]
-  drafts                 ReportDraft[]
-  surveys                SatisfactionSurvey[]
-  romaneios              Romaneio[]
-  budgets                ProjectBudget[]
-  omieProjects           OmieProject[]
-  omiePurchases          OmiePurchase[]
-  omieReceivables        OmieReceivable[]
-  plannedServices        ProjectPlannedService[]
-  plannedNormalHours     ProjectPlannedNormalHours[]
-  plannedOvertime        ProjectPlannedOvertime[]
-  stockMovements         StockMovement[]
-  manualProgressHistory  ProjectManualProgressHistory[]
-  manualCosts            ProjectManualCost[]
-  additionalProposals    ProjectAdditionalProposal[]
+  clientName                 String
+  clientCnpj                 String
+  clientEmailPrimary         String                             @default("")
+  clientSignerFirstName      String                             @default("")
+  clientSignerLastName       String                             @default("")
+  clientEmailCc              String[]                           @default([])
+  clientSigners              Json[]                             @default([])
+  contractCode               String
+  location                   String
+  workdayHours               String                             @default("09:00")
+  weekendWorkdayHours        String                             @default("08:00")
+  includesSaturday           Boolean                            @default(false)
+  includesSunday             Boolean                            @default(false)
+  operatorId                 String?
+  clientSegment              String?
+  commercialProposalCode     String? // = cod_prop do Access; reconciliação proposta↔projeto
+  mobilizationDate           DateTime? // data de mobilização (manual, gestor/coordenador)
+  startDate                  DateTime? // início real da execução (manual, gestor/coordenador)
+  manualProgressPct          Decimal?                           @db.Decimal(5, 2) // avanço informado à mão (fallback quando não há escopo)
+  createdAt                  DateTime                           @default(now())
+  updatedAt                  DateTime                           @updatedAt
+  deletedAt                  DateTime?
+  operator                   Collaborator?                      @relation("ProjectOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  reportSequences            ProjectReportSeq[]
+  authorizedUsers            ProjectAuthorizedUser[]
+  reports                    Report[]
+  drafts                     ReportDraft[]
+  surveys                    SatisfactionSurvey[]
+  romaneios                  Romaneio[]
+  budgets                    ProjectBudget[]
+  omieProjects               OmieProject[]
+  omiePurchases              OmiePurchase[]
+  omieReceivables            OmieReceivable[]
+  plannedServices            ProjectPlannedService[]
+  plannedNormalHours         ProjectPlannedNormalHours[]
+  plannedOvertime            ProjectPlannedOvertime[]
+  stockMovements             StockMovement[]
+  manualProgressHistory      ProjectManualProgressHistory[]
+  manualCosts                ProjectManualCost[]
+  additionalProposals        ProjectAdditionalProposal[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
-  qualityRecords         QualityRecord[]
+  qualityRecords             QualityRecord[]
 
   @@index([deletedAt])
   @@index([registrationPending])
@@ -518,16 +521,16 @@ model ProjectManualCost {
 }
 
 model AcompanhamentoMissionGroup {
-  id                String                            @id @default(cuid())
+  id                String                             @id @default(cuid())
   name              String
-  status            AcompanhamentoMissionGroupStatus  @default(ACTIVE)
+  status            AcompanhamentoMissionGroupStatus   @default(ACTIVE)
   createdByUserId   String?
   dissolvedByUserId String?
-  createdAt         DateTime                          @default(now())
-  updatedAt         DateTime                          @updatedAt
+  createdAt         DateTime                           @default(now())
+  updatedAt         DateTime                           @updatedAt
   dissolvedAt       DateTime?
-  createdBy         User?                             @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  dissolvedBy       User?                             @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
+  createdBy         User?                              @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  dissolvedBy       User?                              @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
   members           AcompanhamentoMissionGroupMember[]
 
   @@index([status, createdAt])
@@ -1051,32 +1054,32 @@ model StockBatch {
 }
 
 model StockMovement {
-  id                String              @id @default(cuid())
-  itemId            String
-  batchId           String
-  romaneioId        String?
-  type              StockMovementType
-  reason            StockMovementReason
-  quantity          Decimal             @db.Decimal(12, 3)
-  date              DateTime
-  projectId         String?
-  nfNumber          String?
-  supplier          String?
-  unitCost          Decimal?            @db.Decimal(12, 2)
-  requestedBy       String?
-  notes             String?
-  nfAttachmentToken String?
-  excludeFromProjectCost Boolean        @default(false)
-  reversalOfId      String?             @unique
-  createdById       String
-  createdAt         DateTime            @default(now())
-  item              StockItem           @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  batch             StockBatch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
-  project           Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  romaneio          Romaneio?           @relation(fields: [romaneioId], references: [id], onDelete: SetNull)
-  createdBy         User                @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  reversalOf        StockMovement?      @relation("StockMovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
-  reversedBy        StockMovement?      @relation("StockMovementReversal")
+  id                     String              @id @default(cuid())
+  itemId                 String
+  batchId                String
+  romaneioId             String?
+  type                   StockMovementType
+  reason                 StockMovementReason
+  quantity               Decimal             @db.Decimal(12, 3)
+  date                   DateTime
+  projectId              String?
+  nfNumber               String?
+  supplier               String?
+  unitCost               Decimal?            @db.Decimal(12, 2)
+  requestedBy            String?
+  notes                  String?
+  nfAttachmentToken      String?
+  excludeFromProjectCost Boolean             @default(false)
+  reversalOfId           String?             @unique
+  createdById            String
+  createdAt              DateTime            @default(now())
+  item                   StockItem           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  batch                  StockBatch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  project                Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  romaneio               Romaneio?           @relation(fields: [romaneioId], references: [id], onDelete: SetNull)
+  createdBy              User                @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reversalOf             StockMovement?      @relation("StockMovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy             StockMovement?      @relation("StockMovementReversal")
 
   @@index([itemId, date])
   @@index([batchId])
@@ -1086,59 +1089,59 @@ model StockMovement {
 }
 
 model User {
-  id                                  String                              @id @default(cuid())
-  username                            String                              @unique
-  name                                String
-  email                               String?
-  emailVerifiedAt                     DateTime?
-  passwordHash                        String
-  role                                UserRole
-  accountType                         AccountType                         @default(INTERNAL)
-  isActive                            Boolean                             @default(true)
-  clientCnpj                          String?
-  privacyPolicyAcceptedAt             DateTime?
-  privacyPolicyVersion                String?
-  notifyReportsByEmail                Boolean                             @default(true)
-  notifySignaturesByEmail             Boolean                             @default(true)
-  notifySignatureRemindersByEmail     Boolean                             @default(true)
-  notifySurveyRemindersByEmail        Boolean                             @default(true)
-  notifyCalibrationRemindersByEmail   Boolean                             @default(true)
-  collaboratorId                      String?                             @unique
-  createdAt                           DateTime                            @default(now())
-  updatedAt                           DateTime                            @updatedAt
-  collaborator                        Collaborator?                       @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
-  moduleRoles                         ModuleRole[]
-  sessions                            UserSession[]
-  passwordResetTokens                 PasswordResetToken[]
-  emailChangeTokens                   EmailChangeToken[]
-  drafts                              ReportDraft[]
-  authorizedProjects                  ProjectAuthorizedUser[]
-  createdReports                      Report[]                            @relation("ReportCreator")
-  reviewedReports                     Report[]                            @relation("ReportReviewer")
-  clientReportReviews                 ClientReportReview[]                @relation("ClientReportReviewer")
-  reportVersions                      ReportVersion[]                     @relation("ReportVersionCreator")
-  reportSignatures                    ReportSignature[]                   @relation("ReportSignatureUser")
-  reportAuditLogs                     ReportAuditLog[]                    @relation("ReportAuditLogUser")
-  collaboratorSignatureNoticeLogs     CollaboratorSignatureNoticeLog[]    @relation("CollaboratorSignatureNoticeUser")
-  sentSurveys                         SatisfactionSurvey[]
-  createdRomaneios                    Romaneio[]                          @relation("RomaneioCreator")
-  createdEpiRecords                   EpiRecord[]                         @relation("EpiRecordCreator")
-  epiSignatureRequests                EpiSignatureRequest[]               @relation("EpiSignatureRequester")
-  dataSubjectRequests                 DataSubjectRequest[]                @relation("DataSubjectRequestUser")
-  completedDataSubjectRequests        DataSubjectRequest[]                @relation("DataSubjectRequestCompletedByUser")
-  identityVerifiedDataSubjectRequests DataSubjectRequest[]                @relation("DataSubjectRequestIdentityVerifiedByUser")
-  dataSubjectResponseAttempts         DataSubjectRequestResponseAttempt[] @relation("DataSubjectRequestResponseAttemptUser")
-  notificationPreferenceTokens        NotificationPreferenceToken[]
-  accessImports                       AccessImport[]                      @relation("AccessImportUser")
-  selectedBudgets                     ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
-  selectedProjectAdditionalProposals  ProjectAdditionalProposal[]         @relation("ProjectAdditionalProposalSelectedBy")
-  stockMovements                      StockMovement[]                     @relation("StockMovementCreator")
-  projectManualCosts                  ProjectManualCost[]                 @relation("ProjectManualCostCreator")
-  createdAcompanhamentoMissionGroups  AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
-  dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupDissolvedBy")
-  createdQualityRecords               QualityRecord[]                     @relation("QualityRecordCreator")
-  updatedQualityRecords               QualityRecord[]                     @relation("QualityRecordUpdater")
-  deletedQualityRecords               QualityRecord[]                     @relation("QualityRecordDeletedBy")
+  id                                   String                              @id @default(cuid())
+  username                             String                              @unique
+  name                                 String
+  email                                String?
+  emailVerifiedAt                      DateTime?
+  passwordHash                         String
+  role                                 UserRole
+  accountType                          AccountType                         @default(INTERNAL)
+  isActive                             Boolean                             @default(true)
+  clientCnpj                           String?
+  privacyPolicyAcceptedAt              DateTime?
+  privacyPolicyVersion                 String?
+  notifyReportsByEmail                 Boolean                             @default(true)
+  notifySignaturesByEmail              Boolean                             @default(true)
+  notifySignatureRemindersByEmail      Boolean                             @default(true)
+  notifySurveyRemindersByEmail         Boolean                             @default(true)
+  notifyCalibrationRemindersByEmail    Boolean                             @default(true)
+  collaboratorId                       String?                             @unique
+  createdAt                            DateTime                            @default(now())
+  updatedAt                            DateTime                            @updatedAt
+  collaborator                         Collaborator?                       @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
+  moduleRoles                          ModuleRole[]
+  sessions                             UserSession[]
+  passwordResetTokens                  PasswordResetToken[]
+  emailChangeTokens                    EmailChangeToken[]
+  drafts                               ReportDraft[]
+  authorizedProjects                   ProjectAuthorizedUser[]
+  createdReports                       Report[]                            @relation("ReportCreator")
+  reviewedReports                      Report[]                            @relation("ReportReviewer")
+  clientReportReviews                  ClientReportReview[]                @relation("ClientReportReviewer")
+  reportVersions                       ReportVersion[]                     @relation("ReportVersionCreator")
+  reportSignatures                     ReportSignature[]                   @relation("ReportSignatureUser")
+  reportAuditLogs                      ReportAuditLog[]                    @relation("ReportAuditLogUser")
+  collaboratorSignatureNoticeLogs      CollaboratorSignatureNoticeLog[]    @relation("CollaboratorSignatureNoticeUser")
+  sentSurveys                          SatisfactionSurvey[]
+  createdRomaneios                     Romaneio[]                          @relation("RomaneioCreator")
+  createdEpiRecords                    EpiRecord[]                         @relation("EpiRecordCreator")
+  epiSignatureRequests                 EpiSignatureRequest[]               @relation("EpiSignatureRequester")
+  dataSubjectRequests                  DataSubjectRequest[]                @relation("DataSubjectRequestUser")
+  completedDataSubjectRequests         DataSubjectRequest[]                @relation("DataSubjectRequestCompletedByUser")
+  identityVerifiedDataSubjectRequests  DataSubjectRequest[]                @relation("DataSubjectRequestIdentityVerifiedByUser")
+  dataSubjectResponseAttempts          DataSubjectRequestResponseAttempt[] @relation("DataSubjectRequestResponseAttemptUser")
+  notificationPreferenceTokens         NotificationPreferenceToken[]
+  accessImports                        AccessImport[]                      @relation("AccessImportUser")
+  selectedBudgets                      ProjectBudget[]                     @relation("ProjectBudgetSelectedBy")
+  selectedProjectAdditionalProposals   ProjectAdditionalProposal[]         @relation("ProjectAdditionalProposalSelectedBy")
+  stockMovements                       StockMovement[]                     @relation("StockMovementCreator")
+  projectManualCosts                   ProjectManualCost[]                 @relation("ProjectManualCostCreator")
+  createdAcompanhamentoMissionGroups   AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
+  dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupDissolvedBy")
+  createdQualityRecords                QualityRecord[]                     @relation("QualityRecordCreator")
+  updatedQualityRecords                QualityRecord[]                     @relation("QualityRecordUpdater")
+  deletedQualityRecords                QualityRecord[]                     @relation("QualityRecordDeletedBy")
 
   @@index([clientCnpj])
 }
@@ -1392,23 +1395,23 @@ model RomaneioItem {
 }
 
 model RomaneioChecklist {
-  id            String               @id @default(cuid())
-  romaneioId    String
-  catalogItemId String?
-  equipmentId   String?
-  equipmentCode String
-  equipmentName String
-  categoryName  String?
-  displayNameOrTag String @default("")
-  displayMode   String   @default("AUTO")
-  items         Json
-  projectLabel  String?
-  pdfUrl        String?
-  sortOrder     Int                  @default(0)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  romaneio      Romaneio             @relation(fields: [romaneioId], references: [id], onDelete: Cascade)
-  catalogItem   RomaneioCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
+  id               String               @id @default(cuid())
+  romaneioId       String
+  catalogItemId    String?
+  equipmentId      String?
+  equipmentCode    String
+  equipmentName    String
+  categoryName     String?
+  displayNameOrTag String               @default("")
+  displayMode      String               @default("AUTO")
+  items            Json
+  projectLabel     String?
+  pdfUrl           String?
+  sortOrder        Int                  @default(0)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  romaneio         Romaneio             @relation(fields: [romaneioId], references: [id], onDelete: Cascade)
+  catalogItem      RomaneioCatalogItem? @relation(fields: [catalogItemId], references: [id], onDelete: SetNull)
 
   @@index([romaneioId])
   @@index([romaneioId, sortOrder])
@@ -1955,11 +1958,11 @@ model OmieProject {
 }
 
 model OmieCategory {
-  id                              String   @id @default(cuid())
-  codigo                          String   @unique // codigo_categoria (ex.: 2.04.92)
-  descricao                       String?
-  includeInAcompanhamentoCosts    Boolean  @default(true)
-  syncedAt                        DateTime @default(now())
+  id                           String   @id @default(cuid())
+  codigo                       String   @unique // codigo_categoria (ex.: 2.04.92)
+  descricao                    String?
+  includeInAcompanhamentoCosts Boolean  @default(true)
+  syncedAt                     DateTime @default(now())
 }
 
 // Título a pagar do Omie = gasto realizado vinculado a um projeto.

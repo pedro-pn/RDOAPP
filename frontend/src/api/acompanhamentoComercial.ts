@@ -509,6 +509,11 @@ export interface ProjectCard {
   clientName: string;
   clientCnpj?: string | null;
   archived: boolean;
+  archivedInReports: boolean;
+  archivedInAcompanhamento: boolean;
+  reviewed: boolean;
+  reviewedAt: string | null;
+  reportArchivedAt: string | null;
   category: ProjectCardCategory;
   workedDays: number;
   totalDays: number | null;
@@ -552,6 +557,14 @@ export type ProjectCardItem = ProjectCard | MissionGroupCard;
 
 export async function getProjectCards(): Promise<ProjectCardItem[]> {
   const { data } = await apiClient.get<ProjectCardItem[]>('/acompanhamento/comercial/projetos-cards');
+  return data;
+}
+
+export async function setProjectTrackingState(
+  projectId: string,
+  payload: { archived: boolean } | { reviewed: boolean }
+) {
+  const { data } = await apiClient.patch(`/acompanhamento/comercial/projetos/${projectId}/acompanhamento-status`, payload);
   return data;
 }
 

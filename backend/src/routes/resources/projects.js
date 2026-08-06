@@ -444,7 +444,8 @@ router.put('/:id', requireAuth, requireRdoAccess, requireManager, asyncHandler(a
         contractCode: true,
         location: true,
         managerOnly: true,
-        registrationPending: true
+        registrationPending: true,
+        isActive: true
       }
     });
     if (reportSequences) {
@@ -456,6 +457,11 @@ router.put('/:id', requireAuth, requireRdoAccess, requireManager, asyncHandler(a
 
     const projectUpdateData = {
       ...projectData,
+      ...(previousProject.isActive && projectData.isActive === false
+        ? { acompanhamentoReviewedAt: null, acompanhamentoReportArchivedAt: new Date() }
+        : !previousProject.isActive && projectData.isActive === true
+          ? { acompanhamentoReportArchivedAt: null }
+          : {}),
       ...(projectRegistrationComplete({ ...previousProject, ...projectData })
         ? { registrationPending: false }
         : {}),

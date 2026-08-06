@@ -12,6 +12,11 @@ const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanha
 const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
 const ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-project-deviations-novelty:v1:';
 const ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-additional-proposals-novelty:v1:';
+// v2: a v1 podia ser marcada como vista antes de o driver realmente abrir.
+const ACOMPANHAMENTO_TRACKING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-tracking-novelty:v2:';
+const ACOMPANHAMENTO_FINALIZED_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-finalized-novelty:v2:';
+const ACOMPANHAMENTO_REVIEW_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-review-novelty:v1:';
+const ACOMPANHAMENTO_FINALIZED_SEEN_KEY_PREFIX = 'filtrovali:acompanhamento-finalized-seen:v1:';
 // v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
 const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
 
@@ -198,6 +203,61 @@ export function shouldShowAcompanhamentoAdditionalProposalsNovelty(user: Pick<Au
 export function markAcompanhamentoAdditionalProposalsNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Campanhas das novas ações de arquivamento/conferência e do aviso de missão finalizada.
+// Validade global de 10 dias corridos após a implantação (06/08/2026 a 16/08/2026).
+const ACOMPANHAMENTO_TRACKING_NOVELTY_EXPIRES_AT = new Date('2026-08-16T23:59:59-03:00');
+
+function shouldShowTimedNovelty(user: Pick<AuthUser, 'id'> | null | undefined, prefix: string) {
+  if (!user || Date.now() > ACOMPANHAMENTO_TRACKING_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${prefix}${user.id}`) !== '1';
+}
+
+export function shouldShowAcompanhamentoTrackingNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  return shouldShowTimedNovelty(user, ACOMPANHAMENTO_TRACKING_NOVELTY_KEY_PREFIX);
+}
+
+export function markAcompanhamentoTrackingNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (user) safeLocalStorageSet(`${ACOMPANHAMENTO_TRACKING_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+export function shouldShowAcompanhamentoFinalizedNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  return shouldShowTimedNovelty(user, ACOMPANHAMENTO_FINALIZED_NOVELTY_KEY_PREFIX);
+}
+
+export function markAcompanhamentoFinalizedNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (user) safeLocalStorageSet(`${ACOMPANHAMENTO_FINALIZED_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+export function shouldShowAcompanhamentoReviewNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  return shouldShowTimedNovelty(user, ACOMPANHAMENTO_REVIEW_NOVELTY_KEY_PREFIX);
+}
+
+export function markAcompanhamentoReviewNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (user) safeLocalStorageSet(`${ACOMPANHAMENTO_REVIEW_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+function finalizedMissionSeenKey(user: Pick<AuthUser, 'id'>, projectKey: string, archivedAt: string) {
+  return `${ACOMPANHAMENTO_FINALIZED_SEEN_KEY_PREFIX}${user.id}:${projectKey}:${archivedAt}`;
+}
+
+export function hasSeenAcompanhamentoFinalizedMission(
+  user: Pick<AuthUser, 'id'> | null | undefined,
+  projectKey: string,
+  archivedAt: string | null | undefined
+) {
+  if (!user || !archivedAt) return true;
+  return safeLocalStorageGet(finalizedMissionSeenKey(user, projectKey, archivedAt)) === '1';
+}
+
+export function markAcompanhamentoFinalizedMissionSeen(
+  user: Pick<AuthUser, 'id'> | null | undefined,
+  projectKey: string,
+  archivedAt: string | null | undefined
+) {
+  if (!user || !archivedAt) return;
+  safeLocalStorageSet(finalizedMissionSeenKey(user, projectKey, archivedAt), '1');
 }
 
 // Novidade do registro de DDS no formulário de RDO: destaque único na primeira abertura do formulário.
