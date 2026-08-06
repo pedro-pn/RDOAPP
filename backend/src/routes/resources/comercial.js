@@ -20,10 +20,7 @@ import {
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { gravarFoto, lerFoto } from '../../lib/comercial/scope-assets.js';
 import { nextProposalNumber, numberingStatus } from '../../lib/comercial/numbering.js';
-import {
-  gerarPropostaComercial,
-  gerarPropostaTecnica
-} from '../../lib/comercial/proposal-pdf.js';
+import { gerarPropostaEmPdf } from '../../lib/comercial/proposta-docx.js';
 import { comercialStatus } from '../../lib/comercial/service.js';
 import prisma from '../../lib/prisma.js';
 import {
@@ -302,9 +299,10 @@ router.post(
       return res.status(403).json({ error: 'Sem permissão para o documento comercial.' });
     }
 
-    const bytes = tecnico
-      ? await gerarPropostaTecnica(corpo)
-      : await gerarPropostaComercial(corpo);
+    // O documento sai do modelo `.docx` de `Modelos/definitivos/Comercial/modelos/`,
+    // convertido pelo mesmo LibreOffice dos relatórios. Trocar um parágrafo é
+    // editar o `.docx` — sem programador e sem deploy.
+    const bytes = await gerarPropostaEmPdf(corpo, tecnico ? 'technical' : 'commercial');
 
     const codigo = String(corpo.proposalCode || 'sem-numero');
     const nome = `Proposta ${tecnico ? 'Técnica' : 'Comercial'} - ${codigo}.pdf`;

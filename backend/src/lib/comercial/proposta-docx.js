@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,6 +7,7 @@ import AdmZip from 'adm-zip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 import { tabelasDePrecoDoModelo } from '../../../../shared/comercial/dist/modelo-documento.js';
+import { convertDocxToPdf } from '../report-pdf-from-docx.js';
 import {
   cloneBefore,
   findFirstByText,
@@ -230,4 +232,31 @@ export async function preencherProposta(dados, tipo) {
   }
 
   return zip.toBuffer();
+}
+
+/**
+ * A proposta em PDF.
+ *
+ * Preenche o modelo e converte com o **mesmo LibreOffice dos relatórios** —
+ * `convertDocxToPdf` já traz fila de concorrência, tempo limite, sinal de aborto
+ * e o caminho do Word no Windows. Reimplementar isso aqui seria repetir a parte
+ * que já custou caro uma vez.
+ *
+ * O diretório temporário é apagado no `finally`, inclusive quando a conversão
+ * falha: o LibreOffice deixa o `.docx` e um perfil para trás, e num servidor que
+ * emite proposta o dia inteiro isso vira disco cheio.
+ */
+export async function gerarPropostaEmPdf(dados, tipo) {
+  const docx = await preencherProposta(dados, tipo);
+  const pasta = await mkdtemp(path.join(os.tmpdir(), 'filtrovali-proposta-'));
+
+  try {
+    const caminhoDocx = path.join(pasta, 'proposta.docx');
+    const caminhoPdf = path.join(pasta, 'proposta.pdf');
+    await writeFile(caminhoDocx, docx);
+    await convertDocxToPdf(caminhoDocx, caminhoPdf);
+    return await readFile(caminhoPdf);
+  } finally {
+    await rm(pasta, { recursive: true, force: true });
+  }
 }
