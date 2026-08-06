@@ -247,3 +247,89 @@ test('o documento preenchido não perde imagem no caminho', async () => {
     13
   );
 });
+
+/* --------------------------------------------------------------------------
+ * Tipografia
+ *
+ * A fonte da empresa é Arial, mas o padrão do arquivo era o contrário: tema
+ * Calibri Light/Calibri e estilo `Default` Calibri 11pt. Cada Arial era uma
+ * exceção escrita à mão, e quem não declarava nada caía em Calibri — foi assim
+ * que o rodapé e os cabeçalhos das matrizes destoaram.
+ * ----------------------------------------------------------------------- */
+
+const parteDe = async (arquivo, nome) => {
+  const zip = new AdmZip(await readFile(path.join(MODELOS, arquivo)));
+  const entrada = zip.getEntry(nome);
+  return entrada ? entrada.getData().toString('utf8') : '';
+};
+
+test('nenhuma parte do modelo menciona Calibri ou Times New Roman', async () => {
+  // O tema fica de fora porque ele lista fontes de RESERVA POR ESCRITA —
+  // Times New Roman para árabe, hebraico e vietnamita. É boilerplate do Office,
+  // não se aplica a texto em português, e trocá-las seria mexer no que não
+  // incomoda. O que vale ali é o `<a:latin>`, coberto pelo teste seguinte.
+  for (const arquivo of Object.values(ARQUIVOS)) {
+    for (const parte of [
+      'word/document.xml',
+      'word/header1.xml',
+      'word/footer1.xml',
+      'word/styles.xml'
+    ]) {
+      const xml = await parteDe(arquivo, parte);
+      if (!xml) continue;
+      const achados = xml.match(/Calibri|Times New Roman/g) || [];
+      assert.deepEqual(achados, [], `${arquivo} em ${parte}: sobrou ${achados[0]}`);
+    }
+  }
+});
+
+test('o tema aponta para Arial nas duas famílias', async () => {
+  // O tema é a raiz: trocar só os trechos deixaria texto novo nascer em Calibri.
+  for (const arquivo of Object.values(ARQUIVOS)) {
+    const tema = await parteDe(arquivo, 'word/theme/theme1.xml');
+    const maior = /<a:majorFont>[\s\S]*?typeface="([^"]*)"/.exec(tema)?.[1];
+    const menor = /<a:minorFont>[\s\S]*?typeface="([^"]*)"/.exec(tema)?.[1];
+    assert.equal(maior, 'Arial', `${arquivo}: tema de títulos`);
+    assert.equal(menor, 'Arial', `${arquivo}: tema de corpo`);
+  }
+});
+
+test('o padrão do documento continua declarando uma fonte', async () => {
+  // Armadilha que eu criei e desfiz: apagar as referências ao tema deixou o
+  // `docDefaults` com `<w:rFonts w:cstheme="minorBidi"/>` e mais nada. Sem
+  // `w:ascii` E sem `w:asciiTheme`, cada renderizador cai no padrão DELE —
+  // Calibri no Word, Times no LibreOffice — e os dois discordam.
+  for (const arquivo of Object.values(ARQUIVOS)) {
+    const estilos = await parteDe(arquivo, 'word/styles.xml');
+    const padrao = /<w:docDefaults>[\s\S]*?<\/w:docDefaults>/.exec(estilos)?.[0] || '';
+    assert.match(
+      padrao,
+      /w:ascii(Theme)?="/,
+      `${arquivo}: docDefaults ficou sem fonte nenhuma`
+    );
+  }
+});
+
+test('o cabeçalho das tabelas está no tamanho do corpo', async () => {
+  // Era 8 e 9pt no meio de uma tabela em 10pt. As DEMAIS linhas ficam como
+  // estão de propósito: o modelo de hidrojateamento tem mais de cem trechos em
+  // 8pt dentro de células — efetivo e EPI — e subir todos empurraria a
+  // paginação sem ninguém ter pedido.
+  const { DOMParser: Parser } = await import('@xmldom/xmldom');
+  for (const arquivo of Object.values(ARQUIVOS)) {
+    const doc = new Parser().parseFromString(
+      await parteDe(arquivo, 'word/document.xml'),
+      'text/xml'
+    );
+    for (const tabela of Array.from(doc.getElementsByTagName('w:tbl'))) {
+      const primeira = Array.from(tabela.getElementsByTagName('w:tr'))[0];
+      if (!primeira) continue;
+      for (const sz of Array.from(primeira.getElementsByTagName('w:sz'))) {
+        assert.ok(
+          Number(sz.getAttribute('w:val')) >= 20,
+          `${arquivo}: cabeçalho de tabela em ${Number(sz.getAttribute('w:val')) / 2}pt`
+        );
+      }
+    }
+  }
+});

@@ -34,6 +34,9 @@ const DESTINO = path.resolve(AQUI, '../../Modelos/definitivos/Comercial/modelos'
 /** As partes do pacote que podem conter campo de mala direta. */
 const PARTES = ['word/document.xml', 'word/header1.xml', 'word/footer1.xml'];
 
+/** Partes que só precisam da troca de fonte, sem marcador nem tabela. */
+const PARTES_DE_ESTILO = ['word/styles.xml', 'word/theme/theme1.xml'];
+
 function filhosDiretos(no, nome) {
   const saida = [];
   for (let filho = no.firstChild; filho; filho = filho.nextSibling) {
@@ -435,8 +438,79 @@ function prepararTabelas(doc) {
   return { matrizes, precos };
 }
 
+
+// ---------------------------------------------------------------------------
+// Fase 3 — padronização tipográfica
+// ---------------------------------------------------------------------------
+
+/**
+ * A fonte da empresa é **Arial**, mas o padrão do arquivo era o contrário.
+ *
+ * O tema do documento vinha Calibri Light/Calibri e o estilo `Default` vinha
+ * Calibri 11pt: cada Arial era uma exceção escrita à mão, trecho por trecho.
+ * Quem não declarava nada caía em Calibri — foi assim que o rodapé e os
+ * cabeçalhos das matrizes destoaram.
+ *
+ * Trocar a RAIZ e não só os trechos é o que impede o problema de voltar: texto
+ * colado no documento amanhã nasce em Arial.
+ */
+const FONTE_PADRAO = 'Arial';
+
+/** Meios-pontos: 20 = 10pt, que é o corpo do documento. */
+const TAMANHO_DE_TABELA = 20;
+
+function trocarFonteNosAtributos(xml) {
+  // **As referências ao tema FICAM.** A primeira versão disto as apagava, e o
+  // resultado foi um `docDefaults` sem fonte nenhuma: sem `w:ascii` e sem
+  // `w:asciiTheme`, o renderizador cai no padrão DELE — Calibri no Word, Times
+  // no LibreOffice — e os dois discordam. Como o tema agora é Arial,
+  // `asciiTheme="minorHAnsi"` resolve para Arial e continua sendo a rede de
+  // segurança que era.
+  return xml.replace(
+    /w:(ascii|hAnsi|eastAsia|cs)="(Calibri[^"]*|Times New Roman)"/g,
+    (_, alvo) => `w:${alvo}="${FONTE_PADRAO}"`
+  );
+}
+
+/** Estilos e padrões do documento. */
+function padronizarEstilos(xml) {
+  return trocarFonteNosAtributos(xml);
+}
+
+/** O tema, que é de onde `Theme` herda quando alguém usa `asciiTheme`. */
+function padronizarTema(xml) {
+  return xml.replace(
+    /(<a:(?:majorFont|minorFont)>\s*<a:latin typeface=")[^"]*(")/g,
+    `$1${FONTE_PADRAO}$2`
+  );
+}
+
+/**
+ * Sobe o cabeçalho das tabelas para o tamanho do corpo.
+ *
+ * Só a PRIMEIRA linha de cada tabela, e só quando ela está menor que 10pt. As
+ * demais linhas ficam como estão de propósito: no modelo de hidrojateamento há
+ * mais de cem trechos em 8pt dentro de células — as listas de efetivo e de EPI —,
+ * e subir todos empurraria a paginação sem que ninguém tivesse pedido.
+ */
+function padronizarTamanhoDasTabelas(doc) {
+  let ajustados = 0;
+  for (const tabela of Array.from(doc.getElementsByTagName('w:tbl'))) {
+    const primeira = filhosDiretos(tabela, 'w:tr')[0];
+    if (!primeira) continue;
+    for (const marca of ['w:sz', 'w:szCs']) {
+      for (const no of Array.from(primeira.getElementsByTagName(marca))) {
+        if (Number(no.getAttribute('w:val')) >= TAMANHO_DE_TABELA) continue;
+        no.setAttribute('w:val', String(TAMANHO_DE_TABELA));
+        ajustados += 1;
+      }
+    }
+  }
+  return ajustados;
+}
+
 function converterParte(xml) {
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const doc = new DOMParser().parseFromString(trocarFonteNosAtributos(xml), 'text/xml');
   const paragrafos = Array.from(doc.getElementsByTagName('w:p'));
   let trocados = 0;
 
@@ -453,6 +527,7 @@ function converterParte(xml) {
   const tabelas = prepararTabelas(doc);
   prepararEscopo(doc);
   alinharDataDoCabecalho(doc);
+  padronizarTamanhoDasTabelas(doc);
   return {
     xml: new XMLSerializer().serializeToString(doc),
     trocados,
@@ -462,7 +537,7 @@ function converterParte(xml) {
 
 async function converterArquivo(entrada, saida) {
   const zip = new AdmZip(await readFile(entrada));
-  const total = { campos: 0, matrizes: 0, precos: 0 };
+  const total = { campos: 0, matrizes: 0, precos: 0, estilos: 0 };
 
   for (const parte of PARTES) {
     const item = zip.getEntry(parte);
@@ -473,6 +548,18 @@ async function converterArquivo(entrada, saida) {
     total.campos += trocados;
     total.matrizes += tabelas.matrizes;
     total.precos += tabelas.precos;
+  }
+
+  for (const parte of PARTES_DE_ESTILO) {
+    const item = zip.getEntry(parte);
+    if (!item) continue;
+    const original = item.getData().toString('utf8');
+    const trocado = parte.endsWith('theme1.xml')
+      ? padronizarTema(padronizarEstilos(original))
+      : padronizarEstilos(original);
+    if (trocado === original) continue;
+    zip.updateFile(parte, Buffer.from(trocado, 'utf8'));
+    total.estilos += 1;
   }
 
   await writeFile(saida, zip.toBuffer());
