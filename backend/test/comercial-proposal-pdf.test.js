@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import { PDFDocument } from 'pdf-lib';
 
@@ -306,4 +307,47 @@ test('proposta sem escopo, sem preço e sem matriz ainda gera documento', async 
   const { tudo } = await textoDoPdf(bytes);
   assert.match(tudo, /Sem itens cadastrados\./);
   assert.match(tudo, /TOTAL GERAL/);
+});
+
+test('a folha de identificação não pinta faixa sobre o cabeçalho', async () => {
+  // A referência cobria os 48 mm do topo com um retângulo cinza para poder
+  // escrever a partir de y=16 — por cima do cabeçalho. No timbrado daqui isso
+  // apaga a curva verde e o logotipo e deixa uma faixa que termina no meio da
+  // folha. Foi o que apareceu no papel.
+  //
+  // A prova é a cor sumir do módulo: ela existia SÓ para essa faixa. Farejar o
+  // stream de conteúdo do PDF não serviria — o pdf-lib comprime, e a busca por
+  // "re ... f" casaria com bytes comprimidos por acaso.
+  const primitivas = await import('../src/lib/comercial/pdf-primitivas.js');
+  assert.equal(
+    primitivas.FUNDO_DA_PAGINA,
+    undefined,
+    'a cor da faixa voltou ao módulo — provavelmente a faixa também'
+  );
+
+  const fonte = await readFile(
+    new URL('../src/lib/comercial/proposal-pdf.js', import.meta.url),
+    'utf8'
+  );
+  const bloco = fonte.slice(
+    fonte.indexOf('folhaDeIdentificacao()'),
+    fonte.indexOf('titulo(valor, y)')
+  );
+  assert.ok(
+    !/preencher\(/.test(bloco),
+    'a folha de identificação voltou a preencher retângulo'
+  );
+});
+
+test('os treze itens do índice cabem na folha', async () => {
+  // O índice desceu 37 mm para sair de baixo do cabeçalho. Descer demais faria
+  // o último item cair fora do papel — e ele some sem erro nenhum.
+  const { paginas } = await textoDoPdf(await gerarPropostaComercial(DADOS));
+  const identificacao = paginas[1];
+
+  assert.match(identificacao, /1\.\s+Filtrovali é a escolha certa/);
+  assert.match(identificacao, /13\.\s+Aceite e assinatura da proposta/);
+
+  const tecnica = await textoDoPdf(await gerarPropostaTecnica(DADOS));
+  assert.match(tecnica.paginas[1], /10\.\s+Observações/);
 });

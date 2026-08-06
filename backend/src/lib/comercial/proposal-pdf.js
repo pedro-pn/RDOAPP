@@ -25,7 +25,6 @@ import {
   AZUL,
   BRANCO,
   Documento,
-  FUNDO_DA_PAGINA,
   LARGURA_MM,
   VERDE
 } from './pdf-primitivas.js';
@@ -53,6 +52,16 @@ const PE_DO_CONTEUDO = 269;
 
 /** A largura útil entre as margens da referência: de x=12 a x=198. */
 const LARGURA_UTIL = 186;
+
+/**
+ * O quanto a folha de identificação desce em relação à referência.
+ *
+ * Lá o conteúdo dela começa em y=16 porque um retângulo cinza cobria o
+ * cabeçalho. Sem esse retângulo — ele apagava a marca e deixava uma faixa
+ * visível —, o texto precisa começar abaixo da curva verde, que termina a
+ * 48 mm do topo. Medido na imagem do timbrado, não estimado.
+ */
+const RECUO_DA_IDENTIFICACAO = 37;
 
 const SERVICOS_INSTITUCIONAIS = [
   'Limpeza química de tubulações e reservatórios (decapagem e passivação)',
@@ -138,20 +147,30 @@ class Renderizacao {
     return TOPO_DO_CONTEUDO;
   }
 
-  /** A folha de identificação: o topo fica limpo para o bloco do cliente. */
+  /**
+   * A folha de identificação.
+   *
+   * A referência pintava um retângulo cinza sobre os 48 mm do topo para poder
+   * escrever a partir de y=16 — ou seja, **por cima do cabeçalho**. No timbrado
+   * daqui isso apaga a curva verde e o logotipo e deixa uma faixa cinza que
+   * termina no meio da folha, que foi o que apareceu no papel.
+   *
+   * Então não se pinta nada: o cabeçalho fica visível como em toda folha, e o
+   * conteúdo começa abaixo dele. Todas as coordenadas desta página descem
+   * `RECUO_DA_IDENTIFICACAO` por causa disso.
+   */
   folhaDeIdentificacao() {
     const { doc, imagens } = this;
     doc.novaPagina();
     this.numeroDaPagina += 1;
     doc.imagem(imagens.timbrado, 0, 0, LARGURA_MM, ALTURA_MM);
-    doc.preencher(0, 0, LARGURA_MM, 48, FUNDO_DA_PAGINA);
     doc.texto(String(this.numeroDaPagina), {
       tamanho: 7.2,
       x: 201,
       y: 289,
       alinhamento: 'right'
     });
-    return 16;
+    return 16 + RECUO_DA_IDENTIFICACAO;
   }
 
   titulo(valor, y) {
@@ -292,7 +311,7 @@ function paginaDeIdentificacao(r, titulo, indice) {
   let y = r.folhaDeIdentificacao();
   doc.texto(titulo, { tamanho: 13.5, x: 105, y, negrito: true, alinhamento: 'center' });
 
-  y = 34;
+  y = 34 + RECUO_DA_IDENTIFICACAO;
   y = r.linhaRotulada('Consultor de Vendas:', dados.seller, y, 9.5, true);
   y = r.linhaRotulada('Orçamentista:', dados.estimator, y, 9.5);
   y += 4;
@@ -306,7 +325,13 @@ function paginaDeIdentificacao(r, titulo, indice) {
   y += 4;
   r.linhaRotulada('CNPJ:', dados.cnpj, y, 9.5, true);
 
-  doc.texto('ÍNDICE', { tamanho: 12.5, x: 105, y: 102, negrito: true, alinhamento: 'center' });
+  doc.texto('ÍNDICE', {
+    tamanho: 12.5,
+    x: 105,
+    y: 102 + RECUO_DA_IDENTIFICACAO,
+    negrito: true,
+    alinhamento: 'center'
+  });
   // O comercial tem treze itens e o técnico dez: apertar o espaçamento no maior
   // é o que impede o índice de invadir a próxima seção.
   const espacamento = indice.length > 11 ? 7.2 : 8.3;
@@ -314,7 +339,7 @@ function paginaDeIdentificacao(r, titulo, indice) {
     doc.texto(`${i + 1}.  ${item}`, {
       tamanho: 8.1,
       x: 17,
-      y: 116 + i * espacamento,
+      y: 116 + RECUO_DA_IDENTIFICACAO + i * espacamento,
       negrito: true
     });
   });

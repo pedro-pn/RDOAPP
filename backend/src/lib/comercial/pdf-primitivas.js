@@ -36,7 +36,6 @@ export const cor = ([r, g, b]) => rgb(r / 255, g / 255, b / 255);
 
 export const VERDE = [47, 88, 63];
 export const AZUL = [35, 61, 101];
-export const FUNDO_DA_PAGINA = [239, 239, 239];
 export const TINTA = [20, 20, 20];
 export const BRANCO = [255, 255, 255];
 
