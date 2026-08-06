@@ -291,6 +291,67 @@ function prepararPrecos(tabela, sufixo) {
   return true;
 }
 
+
+/**
+ * A seção 2 vira um parágrafo-modelo por serviço.
+ *
+ * No documento entregue ela traz **um cardápio** dos serviços que a Filtrovali
+ * presta — dez frases prontas, das quais a proposta usaria duas ou três. Quem
+ * escolhe é a etapa Escopo do app, então o cardápio sai e sobra uma linha
+ * clonável.
+ *
+ * O que NÃO sai: a NOTA sobre tubulações embarcadas. Ela não é item de lista, é
+ * ressalva fixa do escopo, e some junto se a regra for "apaga tudo entre os dois
+ * títulos".
+ */
+function prepararEscopo(doc) {
+  const paragrafos = Array.from(doc.getElementsByTagName('w:p'));
+
+  const nivelDe = paragrafo => {
+    const pPr = filhosDiretos(paragrafo, 'w:pPr')[0];
+    if (!pPr) return null;
+    const numPr = filhosDiretos(pPr, 'w:numPr')[0];
+    if (!numPr) return null;
+    const ilvl = filhosDiretos(numPr, 'w:ilvl')[0];
+    return ilvl ? Number(ilvl.getAttribute('w:val')) : 0;
+  };
+
+  // O título aparece duas vezes: no ÍNDICE e na seção. A seção é a última.
+  const titulos = paragrafos.filter(
+    p => nivelDe(p) === 0 && /Descrição dos serviços que serão executados/.test(textoDoNo(p))
+  );
+  const titulo = titulos[titulos.length - 1];
+  if (!titulo) return 0;
+
+  const inicio = paragrafos.indexOf(titulo);
+  let fim = paragrafos.length;
+  for (let i = inicio + 1; i < paragrafos.length; i += 1) {
+    if (nivelDe(paragrafos[i]) === 0) {
+      fim = i;
+      break;
+    }
+  }
+
+  const itens = paragrafos
+    .slice(inicio + 1, fim)
+    .filter(p => (nivelDe(p) ?? 0) >= 1);
+  if (!itens.length) return 0;
+
+  const modelo = itens[0];
+  const textos = Array.from(modelo.getElementsByTagName('w:t'));
+  textos[0].setAttribute('xml:space', 'preserve');
+  while (textos[0].firstChild) textos[0].removeChild(textos[0].firstChild);
+  textos[0].appendChild(doc.createTextNode('{{servico}}'));
+  for (let i = 1; i < textos.length; i += 1) {
+    while (textos[i].firstChild) textos[i].removeChild(textos[i].firstChild);
+  }
+
+  for (const item of itens.slice(1)) {
+    if (item.parentNode) item.parentNode.removeChild(item);
+  }
+  return itens.length - 1;
+}
+
 function prepararTabelas(doc) {
   const tabelas = Array.from(doc.getElementsByTagName('w:tbl'));
   let matrizes = 0;
@@ -335,6 +396,7 @@ function converterParte(xml) {
   }
 
   const tabelas = prepararTabelas(doc);
+  prepararEscopo(doc);
   return {
     xml: new XMLSerializer().serializeToString(doc),
     trocados,

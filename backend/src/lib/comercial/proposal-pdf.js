@@ -31,6 +31,15 @@ import {
 import { carregarImagens } from './pdf-imagens.js';
 
 /**
+ * SUPERADO pelo caminho do modelo `.docx` (`proposta-docx.js`), decidido em
+ * 06/08. A rota de prévia não usa mais este arquivo.
+ *
+ * Fica aqui porque o porte 1:1 das primitivas de jsPDF para `pdf-lib` é a única
+ * coisa no repositório que sabe desenhar o documento sem depender do
+ * LibreOffice, e apagá-lo é decisão do mantenedor, não minha. **Não mexa nos
+ * dois:** duas maneiras de desenhar a mesma proposta divergem em silêncio, e o
+ * cliente recebe a que ninguém revisou.
+ *
  * O gerador dos dois documentos — tarefa T072.
  *
  * Porte de `app/proposal-pdf.ts` (jsPDF) para `pdf-lib`. **As coordenadas são as
