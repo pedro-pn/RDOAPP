@@ -330,3 +330,96 @@ test('o pacote continua um .docx válido, com as imagens', async () => {
   // As 13 imagens do documento — timbrado, capa e institucionais.
   assert.equal(nomes.filter(n => n.startsWith('word/media/')).length, 13);
 });
+
+/* --------------------------------------------------------------------------
+ * Blocos do escopo — tabelas e fotos
+ *
+ * A prévia já desenhava os dois e o documento não: quem montasse a proposta com
+ * uma tabela de medições ou uma foto do antes/depois via tudo na tela e recebia
+ * um PDF sem nada disso.
+ * ----------------------------------------------------------------------- */
+
+/** Um PNG 2x2 de verdade, para o pacote sair com bytes de imagem validos. */
+const PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP8z8BQz0AEYBxVSF+' +
+  'FABJADveWkH6oAAAAAElFTkSuQmCC';
+
+const COM_BLOCOS = {
+  ...DADOS,
+  scopeBlocks: [
+    {
+      id: 't1',
+      type: 'table',
+      title: 'Medições previstas',
+      columns: ['Sistema', 'Volume'],
+      rows: [
+        ['Hidráulico', '1200 L'],
+        ['Lubrificante', '800 L']
+      ]
+    },
+    {
+      id: 'f1',
+      type: 'photo',
+      assetKey: 'k1',
+      src: '',
+      fileName: 'antes.png',
+      caption: 'Tubulação antes da limpeza',
+      aspectRatio: 1.5
+    }
+  ],
+  lerFoto: async () => ({
+    bytes: Buffer.from(PNG, 'base64'),
+    extensao: 'png',
+    mime: 'image/png'
+  })
+};
+
+test('a tabela do escopo entra no documento com cabeçalho e linhas', async () => {
+  const { texto } = textoDoDocx(await preencherProposta(COM_BLOCOS, 'commercial'));
+  assert.match(texto, /Medições previstas/);
+  assert.match(texto, /Sistema/);
+  assert.match(texto, /Hidráulico/);
+  assert.match(texto, /1200 L/);
+  assert.match(texto, /Lubrificante/);
+});
+
+test('a foto do escopo entra como imagem, com legenda', async () => {
+  const bytes = await preencherProposta(COM_BLOCOS, 'commercial');
+  const zip = new AdmZip(bytes);
+
+  // Os três lugares: bytes, relação e tipo de conteúdo. Esquecer qualquer um
+  // produz um pacote que o Word RECUSA a abrir — não um documento feio.
+  const midia = zip.getEntries().filter(e => e.entryName.startsWith('word/media/'));
+  assert.equal(midia.length, 14, 'a foto não foi gravada em word/media');
+
+  const rels = zip.getEntry('word/_rels/document.xml.rels').getData().toString('utf8');
+  const idDaFoto = /Id="(rId\d+)"[^>]*Target="media\/escopo-/.exec(rels)?.[1];
+  assert.ok(idDaFoto, 'a relação da foto não foi criada');
+
+  const tipos = zip.getEntry('[Content_Types].xml').getData().toString('utf8');
+  assert.match(tipos, /Extension="png"/, 'faltou o tipo de conteúdo do PNG');
+
+  const documento = zip.getEntry('word/document.xml').getData().toString('utf8');
+  assert.ok(
+    documento.includes(`r:embed="${idDaFoto}"`),
+    'o desenho não referencia a relação criada'
+  );
+
+  const { texto } = textoDoDocx(bytes);
+  assert.match(texto, /Tubulação antes da limpeza/);
+});
+
+test('foto que não carrega não derruba a proposta', async () => {
+  // O documento sai sem ela, e quem confere na prévia percebe a falta. Estourar
+  // aqui impediria de emitir a proposta inteira por causa de um anexo.
+  const semFoto = { ...COM_BLOCOS, lerFoto: async () => { throw new Error('sumiu'); } };
+  const { texto } = textoDoDocx(await preencherProposta(semFoto, 'commercial'));
+  assert.match(texto, /Medições previstas/, 'a tabela também se perdeu');
+  assert.ok(!texto.includes('{{escopo_blocos}}'), 'a âncora ficou impressa');
+});
+
+test('sem bloco nenhum, a âncora some do documento', async () => {
+  const { texto, xml } = textoDoDocx(await preencherProposta(DADOS, 'commercial'));
+  assert.ok(!texto.includes('escopo_blocos'));
+  assert.ok(!xml.includes('{{escopo_blocos}}'));
+});

@@ -362,6 +362,22 @@ function prepararEscopo(doc) {
   for (const item of itens.slice(1)) {
     if (item.parentNode) item.parentNode.removeChild(item);
   }
+
+  // Âncora para as tabelas e fotos do escopo. Elas vêm DEPOIS dos serviços e
+  // antes da ressalva fixa, que é onde a prévia as desenha — e prévia e
+  // documento têm de concordar, senão a prévia deixa de servir para conferir.
+  const ancora = modelo.cloneNode(false);
+  const paragrafo = doc.createElement('w:p');
+  const pPr = filhosDiretos(modelo, 'w:pPr')[0];
+  if (pPr) paragrafo.appendChild(pPr.cloneNode(true));
+  const run = doc.createElement('w:r');
+  const texto = doc.createElement('w:t');
+  texto.appendChild(doc.createTextNode('{{escopo_blocos}}'));
+  run.appendChild(texto);
+  paragrafo.appendChild(run);
+  if (modelo.parentNode) modelo.parentNode.insertBefore(paragrafo, modelo.nextSibling);
+  void ancora;
+
   return itens.length - 1;
 }
 

@@ -8,6 +8,7 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 import { tabelasDePrecoDoModelo } from '../../../../shared/comercial/dist/modelo-documento.js';
 import { convertDocxToPdf } from '../report-pdf-from-docx.js';
+import { EMU_POR_MM, registrarImagem, xmlDeImagem } from '../docx/imagem.js';
 import {
   cloneBefore,
   findFirstByText,
@@ -188,6 +189,132 @@ function preencherPrecos(doc, itens, sufixo) {
   return itens.reduce((soma, item) => soma + lerDinheiro(item.value), 0);
 }
 
+
+/** Largura útil da folha A4 com as margens do documento, em milímetros. */
+const LARGURA_UTIL_MM = 160;
+
+const escapar = valor =>
+  String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+/** Uma tabela do escopo, montada com a largura da folha. */
+function xmlDeTabela(bloco) {
+  const colunas = bloco.columns.length || 1;
+  const largura = Math.floor(9000 / colunas);
+  const celula = (texto, cabecalho) => `
+    <w:tc>
+      <w:tcPr><w:tcW w:w="${largura}" w:type="dxa"/>${
+        cabecalho ? '<w:shd w:val="clear" w:fill="E8F0EB"/>' : ''
+      }</w:tcPr>
+      <w:p><w:pPr><w:spacing w:before="40" w:after="40"/><w:rPr>
+        <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="20"/>${cabecalho ? '<w:b/>' : ''}
+      </w:rPr></w:pPr>
+      <w:r><w:rPr>
+        <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="20"/>${cabecalho ? '<w:b/>' : ''}
+      </w:rPr><w:t xml:space="preserve">${escapar(texto)}</w:t></w:r></w:p>
+    </w:tc>`;
+
+  const linha = (celulas, cabecalho) =>
+    `<w:tr>${celulas.map(t => celula(t, cabecalho)).join('')}</w:tr>`;
+
+  return `<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:tblPr>
+      <w:tblW w:w="9000" w:type="dxa"/>
+      <w:tblBorders>
+        ${['top', 'left', 'bottom', 'right', 'insideH', 'insideV']
+          .map(l => `<w:${l} w:val="single" w:sz="4" w:color="999999"/>`)
+          .join('')}
+      </w:tblBorders>
+    </w:tblPr>
+    ${linha(bloco.columns, true)}
+    ${bloco.rows.map(r => linha(bloco.columns.map((_, i) => r[i] || ''), false)).join('')}
+  </w:tbl>`;
+}
+
+function paragrafoDeTexto(doc, texto, { negrito = false, tamanho = 20 } = {}) {
+  const xml = `<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:pPr><w:spacing w:before="60" w:after="60"/></w:pPr>
+    <w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="${tamanho}"/>${
+      negrito ? '<w:b/>' : ''
+    }</w:rPr><w:t xml:space="preserve">${escapar(texto)}</w:t></w:r>
+  </w:p>`;
+  return new DOMParser().parseFromString(xml, 'text/xml').documentElement;
+}
+
+/**
+ * As tabelas e fotos do escopo, no lugar do marcador `{{escopo_blocos}}`.
+ *
+ * **A prévia já desenhava os dois e o documento não** — quem montasse a proposta
+ * com uma tabela de medições ou uma foto do antes/depois veria tudo na tela e
+ * receberia um PDF sem nada disso.
+ *
+ * A foto entra com a largura da folha e a altura derivada da proporção que veio
+ * do próprio bloco. Usar a proporção real do arquivo daria outro enquadramento
+ * do que a prévia mostrou.
+ */
+async function preencherBlocosDoEscopo(zip, doc, blocos, lerFoto) {
+  const ancora = findFirstByText(doc, 'w:p', '{{escopo_blocos}}');
+  if (!ancora) return;
+
+  const relsEntrada = zip.getEntry('word/_rels/document.xml.rels');
+  const relsDoc = relsEntrada
+    ? new DOMParser().parseFromString(zip.readAsText(relsEntrada), 'text/xml')
+    : null;
+  let mexeuNasRelacoes = false;
+
+  const inserir = no => ancora.parentNode.insertBefore(no, ancora);
+
+  for (const bloco of blocos) {
+    if (bloco.type === 'table') {
+      if (bloco.title) inserir(paragrafoDeTexto(doc, bloco.title, { negrito: true }));
+      inserir(new DOMParser().parseFromString(xmlDeTabela(bloco), 'text/xml').documentElement);
+      inserir(paragrafoDeTexto(doc, ''));
+      continue;
+    }
+
+    if (bloco.type !== 'photo' || !relsDoc || typeof lerFoto !== 'function') continue;
+
+    const foto = await lerFoto(bloco).catch(() => null);
+    // Foto que não carrega não pode derrubar a proposta inteira: o documento
+    // sai sem ela, e quem confere na prévia percebe a falta.
+    if (!foto) continue;
+
+    const relId = registrarImagem(zip, relsDoc, foto, 'escopo');
+    mexeuNasRelacoes = true;
+
+    const larguraEmu = Math.round(LARGURA_UTIL_MM * EMU_POR_MM);
+    const proporcao = Number(bloco.aspectRatio) > 0 ? Number(bloco.aspectRatio) : 4 / 3;
+    const alturaEmu = Math.round(larguraEmu / proporcao);
+
+    const paragrafo = doc.createElement('w:p');
+    const jc = new DOMParser().parseFromString(
+      '<w:pPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:jc w:val="center"/></w:pPr>',
+      'text/xml'
+    ).documentElement;
+    paragrafo.appendChild(jc);
+    paragrafo.appendChild(
+      new DOMParser().parseFromString(
+        xmlDeImagem(relId, larguraEmu, alturaEmu, bloco.fileName || 'Foto do escopo'),
+        'text/xml'
+      ).documentElement
+    );
+    inserir(paragrafo);
+
+    if (bloco.caption) inserir(paragrafoDeTexto(doc, bloco.caption, { tamanho: 16 }));
+  }
+
+  if (mexeuNasRelacoes) {
+    zip.updateFile(
+      'word/_rels/document.xml.rels',
+      Buffer.from(new XMLSerializer().serializeToString(relsDoc), 'utf8')
+    );
+  }
+
+  removeNode(ancora);
+}
+
 export async function preencherProposta(dados, tipo) {
   const modelo = dados.modelo === 'hidrojateamento' ? 'hidrojateamento' : 'padrao';
   const arquivo = arquivoDoModelo(tipo, modelo);
@@ -229,6 +356,12 @@ export async function preencherProposta(dados, tipo) {
       })
     );
     repetirParagrafo(doc, '{{servico}}', servicos);
+    await preencherBlocosDoEscopo(
+      zip,
+      doc,
+      Array.isArray(dados.scopeBlocks) ? dados.scopeBlocks : [],
+      dados.lerFoto
+    );
 
     replacePlaceholders(doc.documentElement, { ...camposSimples(dados), ...totais });
 

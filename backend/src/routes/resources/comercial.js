@@ -302,7 +302,24 @@ router.post(
     // O documento sai do modelo `.docx` de `Modelos/definitivos/Comercial/modelos/`,
     // convertido pelo mesmo LibreOffice dos relatórios. Trocar um parágrafo é
     // editar o `.docx` — sem programador e sem deploy.
-    const bytes = await gerarPropostaEmPdf(corpo, tecnico ? 'technical' : 'commercial');
+    //
+    // As fotos do escopo não viajam no corpo da requisição: só o `id` vem, e o
+    // servidor lê os bytes do disco. Mandar a foto de volta ao servidor a cada
+    // prévia trafegaria megabytes por clique, e o arquivo já está aqui.
+    const bytes = await gerarPropostaEmPdf(
+      {
+        ...corpo,
+        lerFoto: async bloco => {
+          const { bytes: dados, contentType, fileName } = await lerFoto(
+            prisma,
+            bloco.assetKey || bloco.id
+          );
+          const extensao = (fileName.split('.').pop() || 'jpg').toLowerCase();
+          return { bytes: dados, extensao, mime: contentType };
+        }
+      },
+      tecnico ? 'technical' : 'commercial'
+    );
 
     const codigo = String(corpo.proposalCode || 'sem-numero');
     const nome = `Proposta ${tecnico ? 'Técnica' : 'Comercial'} - ${codigo}.pdf`;
