@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import AdmZip from 'adm-zip';
-import { DOMParser } from '@xmldom/xmldom';
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 import {
   arquivoDoModelo,
@@ -126,12 +126,84 @@ test('escolhe o modelo pelo tipo e pelo modelo da proposta', () => {
   assert.equal(arquivoDoModelo('commercial', 'inventado'), 'Proposta Comercial.docx');
 });
 
-test('nenhum marcador sobra no documento preenchido', async () => {
+test('nenhum marcador sobra em NENHUMA parte do pacote', async () => {
   // Marcador que sobra vai IMPRESSO ao cliente, e o `.docx` abre sem reclamar.
-  for (const tipo of ['commercial', 'technical']) {
-    const { xml } = textoDoDocx(await preencherProposta(DADOS, tipo));
-    const sobrou = [...xml.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
-    assert.deepEqual(sobrou, [], `${tipo}: sobraram marcadores`);
+  //
+  // A primeira versão deste teste olhava só `word/document.xml`, e foi por isso
+  // que `{{data_texto}}` — que mora no CABEÇALHO — passou meses sem ser
+  // preenchido. Agora varre o pacote inteiro.
+  for (const modelo of ['padrao', 'hidrojateamento']) {
+    for (const tipo of ['commercial', 'technical']) {
+      const zip = new AdmZip(await preencherProposta({ ...DADOS, modelo }, tipo));
+      for (const entrada of zip.getEntries()) {
+        if (!entrada.entryName.endsWith('.xml')) continue;
+        const xml = entrada.getData().toString('utf8');
+        const sobrou = [...xml.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]);
+        assert.deepEqual(
+          sobrou,
+          [],
+          `${modelo}/${tipo} em ${entrada.entryName}: sobraram marcadores`
+        );
+      }
+    }
+  }
+});
+
+test('a data do cabeçalho sai por extenso, no dia certo', async () => {
+  const zip = new AdmZip(await preencherProposta(DADOS, 'commercial'));
+  const cabecalho = zip.getEntry('word/header1.xml').getData().toString('utf8');
+
+  assert.match(cabecalho, /7 de janeiro de 2026/);
+  // "2026-01-07" lido como meia-noite UTC seria 6 de janeiro em Brasília.
+  assert.ok(!/6 de janeiro de 2026/.test(cabecalho), 'a data voltou um dia');
+});
+
+test('a data é alinhada à direita por regra, não por espaços', async () => {
+  // No documento entregue ela era empurrada por 109 espaços literais. A largura
+  // do espaço difere entre Word e LibreOffice: na conversão a linha estourava a
+  // margem, quebrava, e a data reaparecia no começo da linha seguinte.
+  const zip = new AdmZip(await preencherProposta(DADOS, 'commercial'));
+  const cabecalho = zip.getEntry('word/header1.xml').getData().toString('utf8');
+
+  assert.match(cabecalho, /<w:jc w:val="right"\/>/);
+  assert.ok(
+    !/<w:t[^>]*>\s{20,}<\/w:t>/.test(cabecalho),
+    'sobrou preenchimento por espaços no cabeçalho'
+  );
+});
+
+test('todo run criado do zero herda a formatação do parágrafo', async () => {
+  // Célula vazia não tinha run nenhum, então o marcador nasceu num run SEM
+  // `rPr` — fonte padrão do documento em vez da Arial 10 da tabela. A linha
+  // muda de altura e a tabela sai torta no papel, certinha no XML.
+  const zip = new AdmZip(await preencherProposta(DADOS, 'commercial'));
+  const doc = new DOMParser().parseFromString(
+    zip.getEntry('word/document.xml').getData().toString('utf8'),
+    'text/xml'
+  );
+
+  const textoDe = no =>
+    Array.from(no.getElementsByTagName('w:t'))
+      .map(t => t.textContent || '')
+      .join(' ');
+
+  const linhas = Array.from(doc.getElementsByTagName('w:tr'));
+  const daTabela = linhas.filter(tr =>
+    textoDe(tr).includes('Serviço especializado conforme escopo')
+  );
+  assert.ok(daTabela.length, 'a linha de preço não foi encontrada');
+
+  for (const celula of Array.from(daTabela[0].getElementsByTagName('w:tc'))) {
+    for (const run of Array.from(celula.getElementsByTagName('w:r'))) {
+      if (!textoDe(run).trim()) continue;
+      const rPr = Array.from(run.childNodes).find(n => n.nodeName === 'w:rPr');
+      assert.ok(rPr, `run sem rPr na célula "${textoDe(celula)}"`);
+      assert.match(
+        new XMLSerializer().serializeToString(rPr),
+        /Arial/,
+        'o run não herdou a fonte da tabela'
+      );
+    }
   }
 });
 

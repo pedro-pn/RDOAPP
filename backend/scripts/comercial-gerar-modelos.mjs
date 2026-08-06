@@ -172,6 +172,16 @@ function definirTextoDaCelula(celula, valor) {
     const paragrafos = filhosDiretos(celula, 'w:p');
     const paragrafo = paragrafos[0] || celula.appendChild(doc.createElement('w:p'));
     const run = doc.createElement('w:r');
+
+    // **O `rPr` do parágrafo é a formatação pretendida para o texto que ali se
+    // digitaria** — é para isso que o Word o guarda na marca de parágrafo. Sem
+    // copiá-lo, o run nasce com a fonte padrão do documento em vez da Arial 10
+    // da tabela, e a linha muda de altura: a tabela sai torta no papel e
+    // certinha no XML.
+    const pPr = filhosDiretos(paragrafo, 'w:pPr')[0];
+    const rPrDoParagrafo = pPr ? filhosDiretos(pPr, 'w:rPr')[0] : null;
+    if (rPrDoParagrafo) run.appendChild(rPrDoParagrafo.cloneNode(true));
+
     const texto = doc.createElement('w:t');
     texto.setAttribute('xml:space', 'preserve');
     texto.appendChild(doc.createTextNode(valor));
@@ -352,6 +362,42 @@ function prepararEscopo(doc) {
   return itens.length - 1;
 }
 
+
+/**
+ * A data do cabeçalho passa a ser alinhada à direita de verdade.
+ *
+ * No documento entregue ela é empurrada por **109 espaços literais**. Isso
+ * parece certo no Word, que foi onde alguém ajustou, mas a largura do espaço
+ * difere entre renderizadores: no LibreOffice a linha estoura a margem e quebra,
+ * e a data reaparece no começo da linha seguinte — ou seja, à esquerda.
+ *
+ * Trocar por `w:jc="right"` faz o alinhamento ser uma regra, e não uma
+ * coincidência de métrica de fonte. E resolve o outro lado do mesmo problema:
+ * a data preenchida é mais longa que o marcador, então mesmo no Word ela
+ * empurraria a linha.
+ */
+function alinharDataDoCabecalho(doc) {
+  const paragrafos = Array.from(doc.getElementsByTagName('w:p'));
+  const alvo = paragrafos.find(p => textoDoNo(p).includes('{{data_texto}}'));
+  if (!alvo) return false;
+
+  for (const run of filhosDiretos(alvo, 'w:r')) {
+    const texto = textoDoNo(run);
+    if (texto.trim() === '') alvo.removeChild(run);
+  }
+
+  let pPr = filhosDiretos(alvo, 'w:pPr')[0];
+  if (!pPr) {
+    pPr = doc.createElement('w:pPr');
+    alvo.insertBefore(pPr, alvo.firstChild);
+  }
+  for (const jc of filhosDiretos(pPr, 'w:jc')) pPr.removeChild(jc);
+  const jc = doc.createElement('w:jc');
+  jc.setAttribute('w:val', 'right');
+  pPr.appendChild(jc);
+  return true;
+}
+
 function prepararTabelas(doc) {
   const tabelas = Array.from(doc.getElementsByTagName('w:tbl'));
   let matrizes = 0;
@@ -397,6 +443,7 @@ function converterParte(xml) {
 
   const tabelas = prepararTabelas(doc);
   prepararEscopo(doc);
+  alinharDataDoCabecalho(doc);
   return {
     xml: new XMLSerializer().serializeToString(doc),
     trocados,

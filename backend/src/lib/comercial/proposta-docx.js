@@ -102,7 +102,11 @@ function camposSimples(dados) {
     diaria_equipamento: moeda(lerDinheiro(dados.standbyEquipment)),
     valor_desmob_extra: moeda(lerDinheiro(dados.extraMobilization)),
     validadeProp: dados.validity || '',
-    data_documento: formatarData(dados.date)
+    // `data_texto` é o nome do marcador NO CABEÇALHO do modelo. Eu enviava
+    // `data_documento`, que não existe em lugar nenhum: o cabeçalho saía com
+    // "{{data_texto}}" impresso. Passou despercebido porque o teste de
+    // marcadores só olhava `word/document.xml`.
+    data_texto: formatarData(dados.date)
   };
 }
 
