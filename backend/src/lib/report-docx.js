@@ -11,6 +11,14 @@ import { formatCnpj } from './cnpj.js';
 import { buildReportCollaboratorRows } from './report-collaborators.js';
 import { buildReportFileName } from './report-filename.js';
 import { readStoredImageAsset } from './stored-image.js';
+import {
+  cloneBefore,
+  findFirstByText,
+  removeNode,
+  replacePlaceholders,
+  replaceTokenInElement,
+  safeText
+} from './docx/template.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,11 +50,6 @@ function weekdayNamePt(value) {
   if (!ymd) return '';
   const [y, m, d] = ymd.split('-');
   return new Date(`${y}-${m}-${d}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long' });
-}
-
-function safeText(value) {
-  if (value == null) return '';
-  return String(value);
 }
 
 function safePath(value) {
@@ -278,94 +281,6 @@ function serviceTemplateData(service, index) {
   }
 }
 
-function getTextNodes(node, out = []) {
-  if (!node) return out;
-  if (node.nodeType === 3) out.push(node);
-  for (let child = node.firstChild; child; child = child.nextSibling) getTextNodes(child, out);
-  return out;
-}
-
-function elementText(element) {
-  return getTextNodes(element).map(node => node.data || '').join('');
-}
-
-function replaceTokenInElement(element, token, replacement) {
-  if (!token || token === replacement) return;
-  const nodes = getTextNodes(element);
-  let full = nodes.map(node => node.data || '').join('');
-  let searchFrom = 0;
-  let idx = full.indexOf(token, searchFrom);
-
-  while (idx >= 0) {
-    const end = idx + token.length;
-    let offset = 0;
-    let firstHit = true;
-
-    for (const node of nodes) {
-      const text = node.data || '';
-      const startPos = offset;
-      const endPos = offset + text.length;
-      const overlapStart = Math.max(startPos, idx);
-      const overlapEnd = Math.min(endPos, end);
-
-      if (overlapStart < overlapEnd) {
-        const localStart = overlapStart - startPos;
-        const localEnd = overlapEnd - startPos;
-        const prefix = text.slice(0, localStart);
-        const suffix = text.slice(localEnd);
-        node.data = firstHit ? `${prefix}${replacement}${suffix}` : `${prefix}${suffix}`;
-        firstHit = false;
-      }
-      offset = endPos;
-    }
-
-    full = nodes.map(node => node.data || '').join('');
-    searchFrom = idx + String(replacement || '').length;
-    idx = full.indexOf(token, searchFrom);
-  }
-}
-
-function replacePlaceholders(element, values) {
-  Object.entries(values).forEach(([key, value]) => {
-    const safe = safeText(value);
-    [
-      `{{${key}}}`,
-      `{{ ${key} }}`,
-      `{{${key} }}`,
-      `{{ ${key}}}`
-    ].forEach(token => replaceTokenInElement(element, token, safe));
-  });
-  preserveWordTextLineBreaks(element);
-}
-
-function preserveWordTextLineBreaks(element) {
-  const textNodes = Array.from(element.getElementsByTagName('w:t'));
-  textNodes.forEach(node => {
-    const content = elementText(node);
-    if (!/[\r\n]/.test(content)) return;
-    const doc = node.ownerDocument;
-    const parent = node.parentNode;
-    const lines = content.split(/\r\n|\r|\n/);
-    lines.forEach((line, index) => {
-      if (index > 0) parent.insertBefore(doc.createElement('w:br'), node);
-      const textNode = doc.createElement('w:t');
-      if (/^\s|\s$/.test(line)) textNode.setAttribute('xml:space', 'preserve');
-      textNode.appendChild(doc.createTextNode(line));
-      parent.insertBefore(textNode, node);
-    });
-    parent.removeChild(node);
-  });
-}
-
-function findFirstByText(root, tagName, token) {
-  const nodes = Array.from(root.getElementsByTagName(tagName));
-  return nodes.find(node => elementText(node).includes(token)) || null;
-}
-
-function removeNode(node) {
-  if (node && node.parentNode) node.parentNode.removeChild(node);
-}
-
 function setParagraphText(doc, paragraph, text) {
   if (!paragraph) return;
   const content = String(text || '');
@@ -428,11 +343,6 @@ function setPlaceholderCellParagraphs(doc, token, text) {
     cell.insertBefore(newParagraph, paragraph);
   });
   cell.removeChild(paragraph);
-}
-
-function cloneBefore(node, clones) {
-  const parent = node.parentNode;
-  clones.forEach(clone => parent.insertBefore(clone, node));
 }
 
 // Campos do DDS (Diálogo Diário de Segurança) por turno, a partir de specialConditions.dds.

@@ -125,6 +125,200 @@ function camposDoParagrafo(paragrafo) {
   return campos;
 }
 
+
+// ---------------------------------------------------------------------------
+// Fase 2 — as tabelas de tamanho variável
+// ---------------------------------------------------------------------------
+
+/**
+ * A matriz e a tabela de preços crescem conforme a proposta, então elas não
+ * podem ficar com o conteúdo de exemplo do documento. Cada uma vira UMA
+ * linha-modelo, que o preenchimento clona.
+ *
+ * A matriz tem **duas formas de linha**, e é isso que exige duas modelos: o
+ * subtítulo da categoria é uma célula só, mesclada nas três colunas, e o item
+ * são três células. Uma modelo só não conseguiria desenhar as duas.
+ *
+ * A coluna "Item" fica vazia de propósito: no documento ela é lista numerada do
+ * Word, e a numeração se refaz sozinha quando as linhas são clonadas. Pôr um
+ * `{{n}}` ali trocaria numeração automática por numeração nossa, e as duas
+ * divergiriam na primeira linha que quebrasse de página.
+ */
+
+const textoDoNo = no => {
+  let saida = '';
+  const visitar = atual => {
+    if (atual.nodeName === 'w:t') saida += atual.textContent || '';
+    for (let filho = atual.firstChild; filho; filho = filho.nextSibling) visitar(filho);
+  };
+  visitar(no);
+  return saida;
+};
+
+/**
+ * Substitui o texto de uma célula, preservando a formatação do primeiro run.
+ *
+ * **Célula vazia não tem `w:t` nenhum**, e é o caso que passa despercebido: a
+ * coluna NOTA da matriz e as colunas da tabela de preços do modelo padrão estão
+ * em branco no documento. Sem criar o run, o marcador simplesmente não é
+ * escrito, e o campo some do documento sem erro nenhum.
+ */
+function definirTextoDaCelula(celula, valor) {
+  let textos = Array.from(celula.getElementsByTagName('w:t'));
+
+  if (!textos.length) {
+    if (!valor) return;
+    const doc = celula.ownerDocument;
+    const paragrafos = filhosDiretos(celula, 'w:p');
+    const paragrafo = paragrafos[0] || celula.appendChild(doc.createElement('w:p'));
+    const run = doc.createElement('w:r');
+    const texto = doc.createElement('w:t');
+    texto.setAttribute('xml:space', 'preserve');
+    texto.appendChild(doc.createTextNode(valor));
+    run.appendChild(texto);
+    paragrafo.appendChild(run);
+    return;
+  }
+  textos[0].setAttribute('xml:space', 'preserve');
+  while (textos[0].firstChild) textos[0].removeChild(textos[0].firstChild);
+  textos[0].appendChild(celula.ownerDocument.createTextNode(valor));
+  for (let i = 1; i < textos.length; i += 1) {
+    while (textos[i].firstChild) textos[i].removeChild(textos[i].firstChild);
+  }
+}
+
+const celulas = linha => filhosDiretos(linha, 'w:tc');
+
+/**
+ * Remove fórmulas do Word de dentro de um nó.
+ *
+ * As tabelas de preço trazem `=PRODUCT(LEFT)` em cada linha e `=SUM(ABOVE)` no
+ * total. Limpar só o `w:t` não basta: a fórmula mora em `w:instrText`, e
+ * sobreviveria invisível. O problema é que **o LibreOffice não recalcula campo
+ * na conversão** — o PDF sairia com o valor em cache, que é o da proposta de
+ * exemplo. Um total errado, com cara de certo.
+ */
+function removerFormulas(no) {
+  const doc = no.ownerDocument;
+
+  // `w:fldSimple` embrulha o campo inteiro: o conteúdo sobe um nível e o
+  // invólucro sai.
+  for (const simples of Array.from(no.getElementsByTagName('w:fldSimple'))) {
+    const pai = simples.parentNode;
+    while (simples.firstChild) pai.insertBefore(simples.firstChild, simples);
+    pai.removeChild(simples);
+  }
+
+  // Campo em três partes: o run que carrega `w:instrText` ou `w:fldChar` some.
+  for (const marca of ['w:instrText', 'w:fldChar']) {
+    for (const alvo of Array.from(no.getElementsByTagName(marca))) {
+      const run = alvo.parentNode;
+      if (run && run.nodeName === 'w:r' && run.parentNode) run.parentNode.removeChild(run);
+      else if (alvo.parentNode) alvo.parentNode.removeChild(alvo);
+    }
+  }
+
+  return doc;
+}
+
+function ehLinhaDeCategoria(linha) {
+  return celulas(linha).length === 1;
+}
+
+/**
+ * Transforma uma matriz em duas linhas-modelo.
+ *
+ * Guarda a primeira linha de cada forma que encontrar — assim os modelos herdam
+ * a formatação real do documento, e não uma inventada aqui.
+ */
+function prepararMatriz(tabela, sufixo) {
+  const linhas = filhosDiretos(tabela, 'w:tr');
+  if (linhas.length < 3) return false;
+
+  const cabecalho = linhas[0];
+  const modeloCategoria = linhas.find(ehLinhaDeCategoria);
+  const modeloItem = linhas.slice(1).find(linha => celulas(linha).length === 3);
+  if (!modeloCategoria || !modeloItem) return false;
+
+  definirTextoDaCelula(celulas(modeloCategoria)[0], `{{categoria_${sufixo}}}`);
+  const doItem = celulas(modeloItem);
+  definirTextoDaCelula(doItem[0], '');
+  definirTextoDaCelula(doItem[1], `{{escopo_${sufixo}}}`);
+  definirTextoDaCelula(doItem[2], `{{nota_${sufixo}}}`);
+
+  for (const linha of linhas) {
+    if (linha === cabecalho || linha === modeloCategoria || linha === modeloItem) continue;
+    tabela.removeChild(linha);
+  }
+  // A ordem importa: a categoria abre o grupo, o item vem depois.
+  tabela.insertBefore(modeloCategoria, modeloItem);
+  return true;
+}
+
+/**
+ * Transforma a tabela de preços numa linha-modelo mais o total.
+ *
+ * O total do documento é um campo `=SUM(ABOVE)` do Word. Ele vira `{{total}}`
+ * porque o LibreOffice **não recalcula campo na conversão** — o PDF sairia com
+ * o valor que estava em cache, que é o da proposta de exemplo.
+ */
+function prepararPrecos(tabela, sufixo) {
+  const linhas = filhosDiretos(tabela, 'w:tr');
+  if (linhas.length < 3) return false;
+
+  const cabecalho = linhas[0];
+  const total = linhas[linhas.length - 1];
+  const modelo = linhas[1];
+  const cols = celulas(modelo);
+  if (cols.length < 5) return false;
+
+  removerFormulas(modelo);
+  removerFormulas(total);
+
+  definirTextoDaCelula(cols[0], '');
+  definirTextoDaCelula(cols[1], `{{descricao_${sufixo}}}`);
+  definirTextoDaCelula(cols[2], `{{unitario_${sufixo}}}`);
+  definirTextoDaCelula(cols[3], `{{quantidade_${sufixo}}}`);
+  definirTextoDaCelula(cols[4], `{{valor_${sufixo}}}`);
+
+  const colsTotal = celulas(total);
+  definirTextoDaCelula(colsTotal[colsTotal.length - 1], `{{total_${sufixo}}}`);
+
+  for (const linha of linhas) {
+    if (linha === cabecalho || linha === modelo || linha === total) continue;
+    tabela.removeChild(linha);
+  }
+  return true;
+}
+
+function prepararTabelas(doc) {
+  const tabelas = Array.from(doc.getElementsByTagName('w:tbl'));
+  let matrizes = 0;
+  let precos = 0;
+
+  for (const tabela of tabelas) {
+    const primeira = filhosDiretos(tabela, 'w:tr')[0];
+    if (!primeira) continue;
+    const cabecalho = textoDoNo(primeira);
+
+    if (/ESCOPO/.test(cabecalho) && /NOTA/.test(cabecalho)) {
+      // A primeira matriz do documento é a da Filtrovali; a segunda, a do
+      // contratante. É a ordem em que o documento as apresenta.
+      const sufixo = matrizes === 0 ? 'filtrovali' : 'contratante';
+      if (prepararMatriz(tabela, sufixo)) matrizes += 1;
+      continue;
+    }
+
+    if (/Valor total/i.test(cabecalho) && /Descrição/i.test(cabecalho)) {
+      // No modelo de hidrojateamento são duas: ONSHORE e depois OFFSHORE.
+      const sufixo = precos === 0 ? 'a' : 'b';
+      if (prepararPrecos(tabela, sufixo)) precos += 1;
+    }
+  }
+
+  return { matrizes, precos };
+}
+
 function converterParte(xml) {
   const doc = new DOMParser().parseFromString(xml, 'text/xml');
   const paragrafos = Array.from(doc.getElementsByTagName('w:p'));
@@ -140,20 +334,27 @@ function converterParte(xml) {
     }
   }
 
-  return { xml: new XMLSerializer().serializeToString(doc), trocados };
+  const tabelas = prepararTabelas(doc);
+  return {
+    xml: new XMLSerializer().serializeToString(doc),
+    trocados,
+    tabelas
+  };
 }
 
 async function converterArquivo(entrada, saida) {
   const zip = new AdmZip(await readFile(entrada));
-  let total = 0;
+  const total = { campos: 0, matrizes: 0, precos: 0 };
 
   for (const parte of PARTES) {
     const item = zip.getEntry(parte);
     if (!item) continue;
-    const { xml, trocados } = converterParte(item.getData().toString('utf8'));
-    if (!trocados) continue;
+    const { xml, trocados, tabelas } = converterParte(item.getData().toString('utf8'));
+    if (!trocados && !tabelas.matrizes && !tabelas.precos) continue;
     zip.updateFile(parte, Buffer.from(xml, 'utf8'));
-    total += trocados;
+    total.campos += trocados;
+    total.matrizes += tabelas.matrizes;
+    total.precos += tabelas.precos;
   }
 
   await writeFile(saida, zip.toBuffer());
@@ -176,8 +377,11 @@ async function principal() {
 
   for (const nome of arquivos) {
     const destino = path.join(DESTINO, nome.replace(/\s*-\s*(Preenchid[ao]|preenchido|Modelo)\.docx$/i, '.docx'));
-    const trocados = await converterArquivo(path.join(ORIGEM, nome), destino);
-    console.log(`${nome} -> ${path.basename(destino)}  (${trocados} campos)`);
+    const r = await converterArquivo(path.join(ORIGEM, nome), destino);
+    console.log(
+      `${nome} -> ${path.basename(destino)}  ` +
+        `(${r.campos} campos, ${r.matrizes} matrizes, ${r.precos} tabelas de preço)`
+    );
   }
 }
 
