@@ -189,3 +189,61 @@ test('o marcador partido entre vários w:t é encontrado', async () => {
   assert.ok(saida.includes('MIP ENGENHARIA'));
   assert.ok(!saida.includes('{{'));
 });
+
+test('o modelo preserva TODAS as imagens do documento original', async () => {
+  // Isto é regressão de um defeito que eu mesmo criei: ao alinhar a data do
+  // cabeçalho, apaguei os runs "vazios" do parágrafo dela — e a arte do
+  // timbrado é uma imagem ANCORADA NESSE MESMO PARÁGRAFO. Um run que carrega
+  // `w:drawing` não tem texto, então a regra ingênua "apaga o que está vazio"
+  // levou o papel timbrado junto. O documento saiu branco e abriu sem reclamar.
+  const ORIGINAIS = {
+    'Proposta Comercial.docx': 'Proposta Comercial - Preenchida.docx',
+    'Proposta técnica.docx': 'Proposta técnica - Preenchida.docx',
+    'Proposta comercial hidrojateamento.docx':
+      'Proposta comercial hidrojateamento - preenchido.docx',
+    'Proposta técnica hidrojateamento.docx':
+      'Proposta técnica hidrojateamento - Modelo.docx'
+  };
+
+  const desenhos = xml =>
+    (xml.match(/<w:drawing>/g) || []).length + (xml.match(/<w:pict>/g) || []).length;
+
+  for (const [modelo, original] of Object.entries(ORIGINAIS)) {
+    const doOriginal = new AdmZip(
+      await readFile(path.resolve(MODELOS, '..', original))
+    );
+    const doModelo = new AdmZip(await readFile(path.join(MODELOS, modelo)));
+
+    const midiaOriginal = doOriginal
+      .getEntries()
+      .filter(e => e.entryName.startsWith('word/media/')).length;
+    const midiaModelo = doModelo
+      .getEntries()
+      .filter(e => e.entryName.startsWith('word/media/')).length;
+    assert.equal(midiaModelo, midiaOriginal, `${modelo}: perdeu arquivo de imagem`);
+
+    for (const parte of ['word/header1.xml', 'word/document.xml']) {
+      const a = doOriginal.getEntry(parte);
+      const b = doModelo.getEntry(parte);
+      if (!a || !b) continue;
+      assert.equal(
+        desenhos(b.getData().toString('utf8')),
+        desenhos(a.getData().toString('utf8')),
+        `${modelo} em ${parte}: perdeu imagem`
+      );
+    }
+  }
+});
+
+test('o documento preenchido não perde imagem no caminho', async () => {
+  const { preencherProposta } = await import('../src/lib/comercial/proposta-docx.js');
+  const zip = new AdmZip(
+    await preencherProposta({ modelo: 'padrao', rows: [], prices: [], scopeItems: [] }, 'commercial')
+  );
+  const cabecalho = zip.getEntry('word/header1.xml').getData().toString('utf8');
+  assert.match(cabecalho, /<w:drawing>/, 'o timbrado sumiu no preenchimento');
+  assert.equal(
+    zip.getEntries().filter(e => e.entryName.startsWith('word/media/')).length,
+    13
+  );
+});

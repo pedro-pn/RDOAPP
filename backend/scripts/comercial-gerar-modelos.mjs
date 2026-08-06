@@ -381,9 +381,18 @@ function alinharDataDoCabecalho(doc) {
   const alvo = paragrafos.find(p => textoDoNo(p).includes('{{data_texto}}'));
   if (!alvo) return false;
 
+  // **Só remove run que é PURAMENTE texto em branco.** A arte do timbrado é uma
+  // imagem ancorada NESTE MESMO parágrafo, e um run que carrega `w:drawing` não
+  // tem texto nenhum — pela regra ingênua "apaga o que está vazio", ela ia junto,
+  // e o documento saía sem o papel timbrado. Foi o que aconteceu.
   for (const run of filhosDiretos(alvo, 'w:r')) {
-    const texto = textoDoNo(run);
-    if (texto.trim() === '') alvo.removeChild(run);
+    const filhos = [];
+    for (let filho = run.firstChild; filho; filho = filho.nextSibling) {
+      filhos.push(filho.nodeName);
+    }
+    const soTexto = filhos.every(nome => nome === 'w:rPr' || nome === 'w:t');
+    if (!soTexto) continue;
+    if (textoDoNo(run).trim() === '') alvo.removeChild(run);
   }
 
   let pPr = filhosDiretos(alvo, 'w:pPr')[0];
