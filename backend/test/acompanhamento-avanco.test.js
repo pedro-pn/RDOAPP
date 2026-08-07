@@ -6,8 +6,28 @@ import {
   realizedFromExtraData,
   isServiceFinalized,
   buildProgress,
-  buildProgressHistory
+  buildProgressHistory,
+  realizedReportWhere,
+  isRealizedSourceReport
 } from '../src/lib/acompanhamento/avanco.js';
+
+test('consulta do avanço considera relatórios ativos do projeto', () => {
+  assert.deepEqual(realizedReportWhere(['projeto-1']), {
+    report: {
+      projectId: { in: ['projeto-1'] },
+      deletedAt: null
+    }
+  });
+});
+
+test('fonte do realizado aceita RDO e relatório independente, mas ignora derivado do RDO', () => {
+  assert.equal(isRealizedSourceReport({ reportType: 'RDO' }), true);
+  assert.equal(isRealizedSourceReport({ reportType: 'RLQ', specialConditions: { serviceOnly: true } }), true);
+  assert.equal(isRealizedSourceReport({
+    reportType: 'RLQ',
+    specialConditions: { parentRdoId: 'rdo-1' }
+  }), false);
+});
 
 test('isServiceFinalized: coluna booleana e campo textual do extraData', () => {
   assert.equal(isServiceFinalized({ finalized: true }), true);
@@ -120,6 +140,41 @@ test('buildProgressHistory compacta avanço acumulado em pontos semanais', () =>
     { date: '2026-07-03', progressPct: 30 },
     { date: '2026-07-10', progressPct: 60 }
   ]);
+});
+
+test('buildProgressHistory ignora relatório derivado e contabiliza relatório de serviço independente', () => {
+  const planned = [
+    { serviceType: 'LIMPEZA_QUIMICA', weight: 1, systems: [{ systemType: 'TUBULACAO', quantity: 1000, unit: 'M' }] },
+    { serviceType: 'TESTE_PRESSAO', weight: 1, systems: [{ systemType: 'TUBULACAO', quantity: 1000, unit: 'M' }] }
+  ];
+  const tubeMeasurement = { tubes: [{ c: '500', lengthUnit: 'm' }] };
+  const out = buildProgressHistory(planned, [
+    {
+      finalized: true,
+      serviceType: 'limpeza',
+      reportType: 'RDO',
+      reportDate: '2026-07-01T00:00:00.000Z',
+      extraData: tubeMeasurement
+    },
+    {
+      finalized: true,
+      serviceType: 'limpeza',
+      reportType: 'RLQ',
+      specialConditions: { parentRdoId: 'rdo-1' },
+      reportDate: '2026-07-01T00:00:00.000Z',
+      extraData: tubeMeasurement
+    },
+    {
+      finalized: true,
+      serviceType: 'pressao',
+      reportType: 'RTP',
+      specialConditions: { serviceOnly: true },
+      reportDate: '2026-07-01T00:00:00.000Z',
+      extraData: tubeMeasurement
+    }
+  ]);
+
+  assert.deepEqual(out, [{ date: '2026-07-01', progressPct: 50 }]);
 });
 
 test('buildProgressHistory usa ponto manual atual quando não há escopo medível', () => {
