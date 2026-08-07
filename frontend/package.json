@@ -14,7 +14,7 @@
     "@tanstack/react-query": "^5.101.4",
     "axios": "^1.9.0",
     "driver.js": "^1.7.0",
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.81.0",
     "react-router": "^8.3.0",
@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/react": "^19.2.17",
+    "@types/react": "^19.2.18",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "eslint": "^10.6.0",
