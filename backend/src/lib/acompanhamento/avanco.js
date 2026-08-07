@@ -49,6 +49,14 @@ export function isServiceFinalized(service) {
   return typeof stored === 'string' && ['sim', 'true', 'finalizado'].includes(stored.trim().toLowerCase());
 }
 
+// RDOs e relatórios de serviço independentes são fontes do realizado. Relatórios técnicos gerados
+// a partir de um RDO carregam a mesma medição e precisam ser ignorados para não duplicá-la.
+export function isRealizedSourceReport(report) {
+  if (!report?.reportType) return true;
+  if (report.reportType === 'RDO') return true;
+  return !report.specialConditions?.parentRdoId;
+}
+
 // Extrai o realizado comparável de um ReportService.extraData: tubulação (m) e óleo (L).
 export function realizedFromExtraData(extraData) {
   const data = extraData && typeof extraData === 'object' ? extraData : {};
@@ -205,6 +213,7 @@ export function buildProgressHistory(plannedServices = [], serviceReports = [], 
   const servicesByDate = new Map();
   for (const service of serviceReports) {
     if (!isServiceFinalized(service)) continue;
+    if (!isRealizedSourceReport(service.report ?? service)) continue;
     const canonical = normalizeRdoServiceType(service.serviceType);
     if (!canonical) continue;
     const date = toDateKey(service.reportDate ?? service.report?.reportDate);
@@ -234,17 +243,27 @@ export function buildProgressHistory(plannedServices = [], serviceReports = [], 
 }
 
 // Agrega o realizado dos RDOs (por projeto → por serviço canônico) para um conjunto de projetos.
+export function realizedReportWhere(projectIds) {
+  return { report: { projectId: { in: projectIds }, deletedAt: null } };
+}
+
 async function aggregateRealized(projectIds) {
   const byProject = new Map(); // projectId -> Map<serviceType, {tubulacaoM, oleoL}>
   if (projectIds.length === 0) return byProject;
 
   const services = await prisma.reportService.findMany({
-    where: { report: { projectId: { in: projectIds }, deletedAt: null } },
-    select: { finalized: true, serviceType: true, extraData: true, report: { select: { projectId: true } } }
+    where: realizedReportWhere(projectIds),
+    select: {
+      finalized: true,
+      serviceType: true,
+      extraData: true,
+      report: { select: { projectId: true, reportType: true, specialConditions: true } }
+    }
   });
 
   for (const svc of services) {
     if (!isServiceFinalized(svc)) continue; // só serviços finalizados entram no avanço
+    if (!isRealizedSourceReport(svc.report)) continue;
     const canonical = normalizeRdoServiceType(svc.serviceType);
     if (!canonical) continue;
     const projectId = svc.report?.projectId;
@@ -319,7 +338,6 @@ export async function computeProgressHistoryForProjects(projectIds) {
       where: {
         report: {
           projectId: { in: projectIds },
-          reportType: 'RDO',
           deletedAt: null
         }
       },
@@ -327,7 +345,7 @@ export async function computeProgressHistoryForProjects(projectIds) {
         finalized: true,
         serviceType: true,
         extraData: true,
-        report: { select: { projectId: true, reportDate: true } }
+        report: { select: { projectId: true, reportType: true, reportDate: true, specialConditions: true } }
       }
     }),
     prisma.projectManualProgressHistory.findMany({
@@ -353,7 +371,9 @@ export async function computeProgressHistoryForProjects(projectIds) {
       finalized: service.finalized,
       serviceType: service.serviceType,
       extraData: service.extraData,
-      reportDate: service.report?.reportDate
+      reportDate: service.report?.reportDate,
+      reportType: service.report?.reportType,
+      specialConditions: service.report?.specialConditions
     });
   }
 
