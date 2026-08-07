@@ -9,6 +9,7 @@ const QUALIDADE_NOVELTY_KEY_PREFIX = 'filtrovali:qualidade-novelty:v1:';
 const ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-grouping-novelty:v1:';
 const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-group-rename-novelty:v1:';
 const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
+const ACOMPANHAMENTO_WEEKLY_TARGET_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-weekly-target-novelty:v1:';
 const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
 const ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-project-deviations-novelty:v1:';
 const ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-additional-proposals-novelty:v1:';
@@ -158,6 +159,21 @@ export function shouldShowAcompanhamentoProgressHistoryNovelty(user: Pick<AuthUs
 export function markAcompanhamentoProgressHistoryNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade do ritmo semanal necessário para entregar o escopo na data prevista.
+// Validade global de 10 dias corridos após a implantação (07/08/2026 a 17/08/2026).
+const ACOMPANHAMENTO_WEEKLY_TARGET_NOVELTY_EXPIRES_AT = new Date('2026-08-17T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoWeeklyTargetNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_WEEKLY_TARGET_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_WEEKLY_TARGET_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoWeeklyTargetNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_WEEKLY_TARGET_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 // Novidade do custo manual no dashboard do projeto.

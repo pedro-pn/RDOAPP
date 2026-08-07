@@ -141,11 +141,38 @@ export function compactWeeklyProgressHistory(points = [], { startDate = null } =
 // Monta o resultado de avanço de um projeto a partir do previsto e do realizado já agregado.
 // realizedByType: Map<serviceTypeCanônico, {tubulacaoM, oleoL}>.
 export function buildProgress(plannedServices, realizedByType) {
-  const services = plannedServices.map(svc => {
-    const realized = realizedByType.get(normalizeRdoServiceType(svc.serviceType) ?? svc.serviceType)
-      ?? { tubulacaoM: 0, oleoL: 0 };
-    const systems = svc.systems.map(sys => {
+  const groupedServices = new Map();
+  for (const svc of plannedServices) {
+    const serviceType = normalizeRdoServiceType(svc.serviceType) ?? svc.serviceType;
+    if (!groupedServices.has(serviceType)) {
+      groupedServices.set(serviceType, { serviceType, weight: 0, systems: new Map() });
+    }
+    const grouped = groupedServices.get(serviceType);
+    grouped.weight += Number(svc.weight ?? 1);
+    for (const sys of svc.systems ?? []) {
+      const systemKey = `${sys.systemType}:${sys.unit ?? ''}`;
+      if (!grouped.systems.has(systemKey)) {
+        grouped.systems.set(systemKey, {
+          systemType: sys.systemType,
+          unit: sys.unit,
+          plannedQty: 0,
+          hasPlannedQty: false
+        });
+      }
+      const groupedSystem = grouped.systems.get(systemKey);
       const planned = sys.quantity != null ? Number(sys.quantity) : null;
+      if (Number.isFinite(planned)) {
+        groupedSystem.plannedQty += planned;
+        groupedSystem.hasPlannedQty = true;
+      }
+    }
+  }
+
+  const services = Array.from(groupedServices.values()).map(svc => {
+    const realized = realizedByType.get(svc.serviceType)
+      ?? { tubulacaoM: 0, oleoL: 0 };
+    const systems = Array.from(svc.systems.values()).map(sys => {
+      const planned = sys.hasPlannedQty ? sys.plannedQty : null;
       const real = realizedForSystem(sys.systemType, realized);
       const pct = planned && planned > 0 ? Math.min(real / planned, 1) * 100 : null;
       return {
@@ -177,6 +204,79 @@ export function buildProgress(plannedServices, realizedByType) {
   return {
     hasScope: services.some(s => s.systems.some(sys => sys.plannedQty && sys.plannedQty > 0)),
     progressPct,
+    services
+  };
+}
+
+function weeklyTargetStatus(remaining, remainingDays) {
+  if (remaining <= 0) return 'COMPLETED';
+  if (remainingDays < 0) return 'OVERDUE';
+  if (remainingDays === 0) return 'DUE_TODAY';
+  return 'REQUIRED';
+}
+
+// Calcula o ritmo mínimo para concluir o avanço e cada quantitativo medível até a data prevista.
+// Serviços repetidos já chegam agregados por tipo em buildProgress; sistemas iguais somam o previsto.
+export function buildRequiredWeeklyProgress(progress, {
+  startDate = null,
+  expectedEndDate = null,
+  referenceDate = new Date()
+} = {}) {
+  const endKey = toDateKey(expectedEndDate);
+  const referenceKey = toDateKey(referenceDate);
+  const startKey = toDateKey(startDate);
+  if (!endKey || !referenceKey) {
+    return {
+      status: 'UNAVAILABLE',
+      remainingDays: null,
+      remainingPctPoints: null,
+      requiredPctPointsPerWeek: null,
+      services: []
+    };
+  }
+
+  const effectiveReferenceKey = startKey && dateMs(referenceKey) < dateMs(startKey) ? startKey : referenceKey;
+  const remainingDays = Math.round((dateMs(endKey) - dateMs(effectiveReferenceKey)) / 86400000);
+  const progressPct = num(progress?.progressPct);
+  const remainingPctPoints = progressPct === null ? null : round(Math.max(100 - progressPct, 0));
+  const status = remainingPctPoints === null
+    ? 'UNAVAILABLE'
+    : weeklyTargetStatus(remainingPctPoints, remainingDays);
+  const requiredPctPointsPerWeek = status === 'REQUIRED'
+    ? round(remainingPctPoints / (remainingDays / 7), 2)
+    : null;
+
+  const services = (progress?.services ?? []).map(service => ({
+    serviceType: service.serviceType,
+    executionPct: service.executionPct,
+    systems: (service.systems ?? []).map(system => {
+      const plannedQty = num(system.plannedQty);
+      const realizedQty = num(system.realizedQty);
+      const remainingQty = plannedQty === null
+        ? null
+        : round(Math.max(plannedQty - (realizedQty ?? 0), 0), 2);
+      const systemStatus = remainingQty === null
+        ? 'UNAVAILABLE'
+        : weeklyTargetStatus(remainingQty, remainingDays);
+      return {
+        systemType: system.systemType,
+        unit: system.unit,
+        plannedQty,
+        realizedQty,
+        remainingQty,
+        status: systemStatus,
+        requiredQtyPerWeek: systemStatus === 'REQUIRED'
+          ? round(remainingQty / (remainingDays / 7), 2)
+          : null
+      };
+    })
+  }));
+
+  return {
+    status,
+    remainingDays,
+    remainingPctPoints,
+    requiredPctPointsPerWeek,
     services
   };
 }

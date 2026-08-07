@@ -16,7 +16,11 @@ import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { laborCostByProject } from './labor-cost.js';
 import { getManualProjectCostsByProject } from './manual-costs.js';
 import { buildWorkedHoursProgress } from './project-cards.js';
-import { computeProgressHistoryForProjects } from './avanco.js';
+import {
+  buildRequiredWeeklyProgress,
+  computeProgressHistoryForProjects,
+  computeProjectProgress
+} from './avanco.js';
 import {
   nightCollaboratorIdsFromReport,
   nightCollaboratorSnapshotsFromReport,
@@ -200,7 +204,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     manualCostsByProject,
     plannedNormalHours,
     plannedOvertime,
-    progressHistoryByProject
+    progressHistoryByProject,
+    projectProgress
   ] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
@@ -248,7 +253,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       where: { projectId },
       select: { hours: true, roleName: true, jobRole: { select: { name: true } } }
     }),
-    computeProgressHistoryForProjects([projectId])
+    computeProgressHistoryForProjects([projectId]),
+    computeProjectProgress(projectId)
   ]);
 
   // Mão de obra (HH) do ponto — mantido SEPARADO do gasto Omie (em validação, não somado).
@@ -419,6 +425,11 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   const projectedEndByPace = (row.startDate && elapsedCorridos && elapsedCorridos > 0 && avancoPct && avancoPct > 0)
     ? addCalendarDays(row.startDate, elapsedCorridos * (100 / avancoPct))
     : null;
+  const requiredWeeklyProgress = buildRequiredWeeklyProgress(projectProgress, {
+    startDate: row.startDate,
+    expectedEndDate,
+    referenceDate: projectReferenceDate
+  });
 
   const alerts = computeAlerts({
     startDate: row.startDate ?? null,
@@ -471,6 +482,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     avancoPct,
     avancoMethod: row.progressMethod ?? null,
     progressHistory: progressHistoryByProject.get(projectId) ?? [],
+    requiredWeeklyProgress,
     standby: { count: standbyCount, minutes: standbyMinutesTotal },
     ultimosDias,
     overtimeMinutes: overtimeMinutesTotal,

@@ -7,6 +7,7 @@ import {
   isServiceFinalized,
   buildProgress,
   buildProgressHistory,
+  buildRequiredWeeklyProgress,
   realizedReportWhere,
   isRealizedSourceReport
 } from '../src/lib/acompanhamento/avanco.js';
@@ -108,6 +109,88 @@ test('buildProgress: sem meta cadastrada não entra no avanço (progressPct null
   assert.equal(out.services[0].executionPct, null);
   assert.equal(out.progressPct, null);
   assert.equal(out.hasScope, false);
+});
+
+test('buildProgress: agrega escopos repetidos do mesmo serviço sem duplicar o realizado', () => {
+  const planned = [
+    { serviceType: 'LIMPEZA_QUIMICA', weight: 1, systems: [{ systemType: 'TUBULACAO', quantity: 400, unit: 'M' }] },
+    { serviceType: 'LIMPEZA_QUIMICA', weight: 2, systems: [{ systemType: 'TUBULACAO', quantity: 600, unit: 'M' }] }
+  ];
+  const realized = new Map([['LIMPEZA_QUIMICA', { tubulacaoM: 250, oleoL: 0 }]]);
+
+  const out = buildProgress(planned, realized);
+
+  assert.equal(out.services.length, 1);
+  assert.equal(out.services[0].weight, 3);
+  assert.deepEqual(out.services[0].systems[0], {
+    systemType: 'TUBULACAO',
+    unit: 'M',
+    plannedQty: 1000,
+    realizedQty: 250,
+    pct: 25
+  });
+  assert.equal(out.progressPct, 25);
+});
+
+test('buildRequiredWeeklyProgress calcula pontos percentuais e quantitativos por semana', () => {
+  const out = buildRequiredWeeklyProgress({
+    progressPct: 58,
+    services: [{
+      serviceType: 'LIMPEZA_QUIMICA',
+      executionPct: 37.5,
+      systems: [{ systemType: 'TUBULACAO', unit: 'M', plannedQty: 1200, realizedQty: 450 }]
+    }]
+  }, {
+    startDate: '2026-07-01',
+    expectedEndDate: '2026-09-11',
+    referenceDate: '2026-08-07'
+  });
+
+  assert.equal(out.status, 'REQUIRED');
+  assert.equal(out.remainingDays, 35);
+  assert.equal(out.remainingPctPoints, 42);
+  assert.equal(out.requiredPctPointsPerWeek, 8.4);
+  assert.deepEqual(out.services[0].systems[0], {
+    systemType: 'TUBULACAO',
+    unit: 'M',
+    plannedQty: 1200,
+    realizedQty: 450,
+    remainingQty: 750,
+    status: 'REQUIRED',
+    requiredQtyPerWeek: 150
+  });
+});
+
+test('buildRequiredWeeklyProgress descreve conclusão, prazo de hoje e atraso', () => {
+  const service = remaining => ({
+    progressPct: 100 - remaining,
+    services: [{
+      serviceType: 'FILTRAGEM',
+      executionPct: 100 - remaining,
+      systems: [{ systemType: 'OLEO', unit: 'L', plannedQty: 100, realizedQty: 100 - remaining }]
+    }]
+  });
+
+  assert.equal(buildRequiredWeeklyProgress(service(0), {
+    expectedEndDate: '2026-08-07', referenceDate: '2026-08-07'
+  }).status, 'COMPLETED');
+  assert.equal(buildRequiredWeeklyProgress(service(20), {
+    expectedEndDate: '2026-08-07', referenceDate: '2026-08-07'
+  }).status, 'DUE_TODAY');
+  assert.equal(buildRequiredWeeklyProgress(service(20), {
+    expectedEndDate: '2026-08-06', referenceDate: '2026-08-07'
+  }).services[0].systems[0].status, 'OVERDUE');
+});
+
+test('buildRequiredWeeklyProgress não consome prazo antes do início', () => {
+  const out = buildRequiredWeeklyProgress({ progressPct: 0, services: [] }, {
+    startDate: '2026-08-14',
+    expectedEndDate: '2026-08-28',
+    referenceDate: '2026-08-07'
+  });
+
+  assert.equal(out.remainingDays, 14);
+  assert.equal(out.requiredPctPointsPerWeek, 50);
 });
 
 test('buildProgressHistory compacta avanço acumulado em pontos semanais', () => {

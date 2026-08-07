@@ -471,6 +471,30 @@ export interface ProjectProgress {
   services: ProgressService[];
 }
 
+export type RequiredWeeklyProgressStatus = 'REQUIRED' | 'COMPLETED' | 'DUE_TODAY' | 'OVERDUE' | 'UNAVAILABLE';
+
+export interface RequiredWeeklyProgressSystem {
+  systemType: PlannedSystemType;
+  unit: PlannedMeasureUnit | null;
+  plannedQty: number | null;
+  realizedQty: number | null;
+  remainingQty: number | null;
+  status: RequiredWeeklyProgressStatus;
+  requiredQtyPerWeek: number | null;
+}
+
+export interface RequiredWeeklyProgress {
+  status: RequiredWeeklyProgressStatus;
+  remainingDays: number | null;
+  remainingPctPoints: number | null;
+  requiredPctPointsPerWeek: number | null;
+  services: Array<{
+    serviceType: string;
+    executionPct: number | null;
+    systems: RequiredWeeklyProgressSystem[];
+  }>;
+}
+
 export async function getProjectProgress(projectId: string): Promise<ProjectProgress> {
   const { data } = await apiClient.get<ProjectProgress>(
     `/acompanhamento/comercial/projetos/${projectId}/avanco`
@@ -636,6 +660,7 @@ export interface ProjectDetail {
   manualCosts?: ManualProjectCost[];
   avancoPct: number | null;
   progressHistory?: ProgressHistoryPoint[];
+  requiredWeeklyProgress?: RequiredWeeklyProgress;
   standby: { count: number; minutes: number };
   ultimosDias: Array<{ date: string; status: DayStatus; workedMinutes: number; standbyMinutes: number }>;
   overtimeMinutes: number;
