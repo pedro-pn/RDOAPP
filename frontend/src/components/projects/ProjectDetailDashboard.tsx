@@ -15,7 +15,9 @@ import {
   type ManualProjectCost,
   type ManualProjectCostPayload,
   type PlannedScope,
-  type ProgressHistoryPoint
+  type ProgressHistoryPoint,
+  type RequiredWeeklyProgress,
+  type RequiredWeeklyProgressStatus
 } from '../../api/acompanhamentoComercial';
 import { listProjectQualityDeviations, type ProjectDeviation } from '../../api/qualidade';
 import { HelpTip } from '../ui/HelpTip';
@@ -26,6 +28,7 @@ import { ProjectAdditionalProposalsNovelty } from './ProjectAdditionalProposalsN
 import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
 import { ProjectQualityDeviationsNovelty } from './ProjectQualityDeviationsNovelty';
 import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
+import { ProjectWeeklyTargetNovelty } from './ProjectWeeklyTargetNovelty';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import type { AuthUser } from '../../types/auth';
 
@@ -380,6 +383,67 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
   );
 }
 
+const fmtQuantity = (value?: number | null, unit?: string | null) => (
+  value == null
+    ? '—'
+    : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}${unit ? ` ${UNIT_LABELS[unit] ?? unit}` : ''}`
+);
+
+function weeklyTargetText(
+  status: RequiredWeeklyProgressStatus,
+  remaining: number | null,
+  required: number | null,
+  suffix: string
+) {
+  if (status === 'COMPLETED') return 'Meta concluída';
+  if (status === 'OVERDUE') return `Prazo vencido${remaining != null ? ` · faltam ${remaining.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}${suffix}` : ''}`;
+  if (status === 'DUE_TODAY') return `Concluir hoje${remaining != null ? ` · faltam ${remaining.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}${suffix}` : ''}`;
+  if (status === 'REQUIRED' && required != null) {
+    return `${required.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}${suffix}/semana`;
+  }
+  return 'Ritmo indisponível';
+}
+
+function RequiredWeeklyProgressCard({ target }: { target?: RequiredWeeklyProgress }) {
+  if (!target) return null;
+  const measurableServices = target.services.filter(service => service.systems.some(system => system.plannedQty != null));
+  return (
+    <div className="acp-weekly-target" data-acp-weekly-progress-target>
+      <div className="acp-weekly-target-head">
+        <div>
+          <strong>Ritmo necessário</strong>
+          <span>para entregar na data prevista</span>
+        </div>
+        <strong>{weeklyTargetText(target.status, target.remainingPctPoints, target.requiredPctPointsPerWeek, ' p.p.')}</strong>
+      </div>
+      {measurableServices.length > 0 ? (
+        <div className="acp-weekly-target-services">
+          {measurableServices.map(service => (
+            <div className="acp-weekly-target-service" key={service.serviceType}>
+              <div className="acp-weekly-target-service-head">
+                <strong>{SERVICE_LABELS[service.serviceType] ?? service.serviceType}</strong>
+                <span>{fmtPct(service.executionPct)}</span>
+              </div>
+              {service.systems.filter(system => system.plannedQty != null).map(system => {
+                const unit = system.unit ? ` ${UNIT_LABELS[system.unit] ?? system.unit}` : '';
+                return (
+                  <div className="acp-weekly-target-system" key={`${system.systemType}:${system.unit ?? ''}`}>
+                    <div>
+                      <span>{SYSTEM_LABELS[system.systemType] ?? system.systemType}</span>
+                      <small>{fmtQuantity(system.realizedQty, system.unit)} / {fmtQuantity(system.plannedQty, system.unit)}</small>
+                    </div>
+                    <strong>{weeklyTargetText(system.status, system.remainingQty, system.requiredQtyPerWeek, unit)}</strong>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function MetricBar({ label, value, caption, tone, help }: { label: string; value: number | null; caption: string; tone?: 'cost'; help: string }) {
   return (
     <div className="acp-det-metric">
@@ -486,6 +550,7 @@ export function ProjectDetailDashboard({
   const [scheduleProject, setScheduleProject] = useState<{ projectId: string; code: string } | null>(null);
   const [scheduleDirty, setScheduleDirty] = useState(false);
   const [progressHistoryNoveltyActive, setProgressHistoryNoveltyActive] = useState(true);
+  const [weeklyTargetNoveltyActive, setWeeklyTargetNoveltyActive] = useState(true);
   const [manualCostNoveltyActive, setManualCostNoveltyActive] = useState(true);
   const [qualityDeviationsNoveltyActive, setQualityDeviationsNoveltyActive] = useState(true);
   const [additionalProposalsNoveltyActive, setAdditionalProposalsNoveltyActive] = useState(true);
@@ -948,6 +1013,7 @@ export function ProjectDetailDashboard({
               </div>
               <Bar value={data.avancoPct} />
             </div>
+            <RequiredWeeklyProgressCard target={data.requiredWeeklyProgress} />
             <ProgressHistoryChart points={data.progressHistory} />
 
             <div className="acp-det-two">
@@ -1178,6 +1244,11 @@ export function ProjectDetailDashboard({
         user={progressHistoryNoveltyUser}
         enabled={progressHistoryNoveltyActive}
         onSeen={() => setProgressHistoryNoveltyActive(false)}
+      />
+      <ProjectWeeklyTargetNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={weeklyTargetNoveltyActive && !isGroup && Boolean(data.requiredWeeklyProgress)}
+        onSeen={() => setWeeklyTargetNoveltyActive(false)}
       />
       <ProjectManualCostNovelty
         user={progressHistoryNoveltyUser}

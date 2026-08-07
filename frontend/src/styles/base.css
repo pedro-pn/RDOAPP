@@ -2611,6 +2611,43 @@ a {
 .acp-det-metric, .acp-det-avanco { display: flex; flex-direction: column; gap: 5px; }
 .acp-det-metric-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
 .acp-det-metric-val { color: var(--mu); font-size: 12px; text-align: right; }
+.acp-weekly-target {
+  border: 1px solid color-mix(in srgb, var(--g) 35%, var(--br));
+  border-radius: var(--rs);
+  background: color-mix(in srgb, var(--g) 6%, var(--wh));
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.acp-weekly-target-head,
+.acp-weekly-target-service-head,
+.acp-weekly-target-system { display: flex; justify-content: space-between; gap: 10px; }
+.acp-weekly-target-head { align-items: flex-start; }
+.acp-weekly-target-head > div { display: flex; flex-direction: column; gap: 1px; }
+.acp-weekly-target-head > div > strong { font-size: 13px; }
+.acp-weekly-target-head span { color: var(--mu); font-size: 11px; }
+.acp-weekly-target-head > strong { color: var(--g); font-size: 13px; text-align: right; }
+.acp-weekly-target-services { display: flex; flex-direction: column; gap: 8px; }
+.acp-weekly-target-service {
+  border-top: 1px solid var(--br);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.acp-weekly-target-service-head { align-items: baseline; font-size: 12px; }
+.acp-weekly-target-service-head span { color: var(--mu); }
+.acp-weekly-target-system { align-items: center; font-size: 11px; }
+.acp-weekly-target-system > div { display: flex; flex-direction: column; min-width: 0; }
+.acp-weekly-target-system small { color: var(--mu); font-size: 10px; }
+.acp-weekly-target-system > strong { color: var(--tx); text-align: right; }
+@media (max-width: 520px) {
+  .acp-weekly-target-head,
+  .acp-weekly-target-system { align-items: flex-start; flex-direction: column; }
+  .acp-weekly-target-head > strong,
+  .acp-weekly-target-system > strong { text-align: left; }
+}
 .acp-progress-chart {
   border: 1px solid var(--br);
   border-radius: var(--rs);
