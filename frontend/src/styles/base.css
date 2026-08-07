@@ -2337,6 +2337,11 @@ a {
 }
 .acp-pcard > * { min-width: 0; max-width: 100%; }
 .acp-pcard.selected { border-color: var(--g); box-shadow: 0 0 0 2px rgba(63, 111, 85, 0.16), var(--shadow); }
+.acp-pcard.reviewed { border-color: #9cc7aa; background: linear-gradient(145deg, #f3faf5 0%, #fff 58%); box-shadow: 0 8px 24px rgba(31, 122, 61, 0.1); }
+.acp-pcard.recently-finalized { border-color: #d39b35; box-shadow: 0 0 0 2px rgba(211, 155, 53, 0.16), var(--shadow); }
+.acp-reviewed-badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; color: #1f6f3a; background: #dff2e5; border: 1px solid #b8ddc4; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; }
+.acp-finalized-notice { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; color: #80520b; background: #fff4d8; border: 1px solid #edcf88; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 750; }
+.acp-finalized-notice > span { color: #d18a16; font-size: 9px; }
 .acp-pcard-group { border-color: #cfe0d4; background: #fbfdfb; }
 .acp-pcard-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .acp-pcard-head > strong { font-size: 15px; color: var(--g); }
@@ -2463,6 +2468,7 @@ a {
 .acp-pcard-click:hover { box-shadow: 0 14px 34px rgba(20, 20, 20, 0.12); transform: translateY(-1px); }
 .acp-pcard-click:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
 .acp-group-actions { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--br); padding-top: 8px; }
+.acp-tracking-actions { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--br); padding-top: 8px; }
 
 /* Aba Sede — centros de custo fixos do Omie */
 .acp-sede-wrap { min-width: 0; }

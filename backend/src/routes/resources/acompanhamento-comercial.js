@@ -96,6 +96,13 @@ const missionGroupRenameSchema = z.object({
   name: z.string().trim().min(1, 'Informe um nome para o agrupamento.').max(120, 'Nome muito longo.')
 });
 
+const projectTrackingStateSchema = z.object({
+  archived: z.boolean().optional(),
+  reviewed: z.boolean().optional()
+}).refine(value => Number(value.archived !== undefined) + Number(value.reviewed !== undefined) === 1, {
+  message: 'Informe apenas archived ou reviewed.'
+});
+
 function missionGroupErrorResponse(error, res) {
   if (error instanceof MissionGroupError) {
     const status = error.code === 'GROUP_NOT_FOUND' ? 404 : 400;
@@ -194,6 +201,48 @@ router.get(
       loadActiveMissionGroups()
     ]);
     res.json(groupProjectCards(cards, groups));
+  })
+);
+
+router.patch(
+  '/projetos/:projectId/acompanhamento-status',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const data = projectTrackingStateSchema.parse(req.body ?? {});
+    const project = await prisma.project.findFirst({
+      where: { id: req.params.projectId, deletedAt: null },
+      select: { id: true, isActive: true, acompanhamentoArchivedAt: true }
+    });
+    if (!project) return res.status(404).json({ error: 'Projeto não encontrado.' });
+
+    if (data.reviewed !== undefined && project.isActive && !project.acompanhamentoArchivedAt) {
+      return res.status(400).json({ error: 'Apenas projetos arquivados podem ser marcados como conferidos.' });
+    }
+
+    const updated = await prisma.project.update({
+      where: { id: project.id },
+      data: data.archived !== undefined
+        ? {
+            acompanhamentoArchivedAt: data.archived ? new Date() : null,
+            acompanhamentoReviewedAt: null
+          }
+        : { acompanhamentoReviewedAt: data.reviewed ? new Date() : null },
+      select: {
+        id: true,
+        isActive: true,
+        acompanhamentoArchivedAt: true,
+        acompanhamentoReviewedAt: true
+      }
+    });
+    res.json({
+      projectId: updated.id,
+      archived: !updated.isActive || Boolean(updated.acompanhamentoArchivedAt),
+      archivedInReports: !updated.isActive,
+      archivedInAcompanhamento: Boolean(updated.acompanhamentoArchivedAt),
+      reviewed: Boolean(updated.acompanhamentoReviewedAt),
+      reviewedAt: updated.acompanhamentoReviewedAt
+    });
   })
 );
 

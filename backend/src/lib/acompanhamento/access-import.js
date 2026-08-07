@@ -764,7 +764,10 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
         contractCode: true,
         commercialProposalCode: true,
         startDate: true,
-        isActive: true
+        isActive: true,
+        acompanhamentoArchivedAt: true,
+        acompanhamentoReviewedAt: true,
+        acompanhamentoReportArchivedAt: true
       }
     }),
     prisma.projectBudget.findMany({
@@ -859,7 +862,10 @@ export async function listCommercialDashboard({ categoryCode = null } = {}) {
       clientCnpj: project.clientCnpj,
       proposalCode: String(codProp),
       resolved,
-      archived: !project.isActive, // segue o status do projeto nos relatórios (isActive=false => arquivado)
+      archived: !project.isActive, // status original dos Relatórios; o arquivamento local é aplicado nos cards
+      acompanhamentoArchivedAt: project.acompanhamentoArchivedAt ?? null,
+      acompanhamentoReviewedAt: project.acompanhamentoReviewedAt ?? null,
+      acompanhamentoReportArchivedAt: project.acompanhamentoReportArchivedAt ?? null,
       startDate: project.startDate ?? null,
       approvedAt: budget?.approvedAt ?? null,
       mobilizationLeadDays: budget?.mobilizationLeadDays ?? source?.mobilizationLeadDays ?? null,

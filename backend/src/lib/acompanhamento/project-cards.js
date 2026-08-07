@@ -86,6 +86,22 @@ export const PROJECT_CARD_CATEGORIES = {
   ARCHIVED: 'ARQUIVADO'
 };
 
+export function deriveProjectTrackingState({
+  archivedInReports = false,
+  archivedAt = null,
+  reviewedAt = null
+} = {}) {
+  const archivedInAcompanhamento = Boolean(archivedAt);
+  const archived = Boolean(archivedInReports) || archivedInAcompanhamento;
+  return {
+    archived,
+    archivedInReports: Boolean(archivedInReports),
+    archivedInAcompanhamento,
+    reviewed: archived && Boolean(reviewedAt),
+    reviewedAt: archived ? reviewedAt : null
+  };
+}
+
 export function deriveProjectCardCategory({ archived = false, workedDays = 0, workedHours = null, progressPct = null } = {}) {
   if (archived) return PROJECT_CARD_CATEGORIES.ARCHIVED;
 
@@ -249,7 +265,12 @@ export async function listProjectCards() {
       plannedNormalHours: plannedNormalByProject.get(row.projectId) || 0,
       plannedOvertimeHours: plannedOvertimeByProject.get(row.projectId) || 0
     });
-    const archived = Boolean(row.archived);
+    const trackingState = deriveProjectTrackingState({
+      archivedInReports: row.archived,
+      archivedAt: row.acompanhamentoArchivedAt,
+      reviewedAt: row.acompanhamentoReviewedAt
+    });
+    const { archived } = trackingState;
 
     return {
       projectId: row.projectId,
@@ -257,7 +278,9 @@ export async function listProjectCards() {
       name: row.name,
       clientName: row.clientName,
       clientCnpj: row.clientCnpj ?? null,
-      archived, // arquivado = projeto inativo nos relatórios
+      archived,
+      ...trackingState,
+      reportArchivedAt: trackingState.archivedInReports ? row.acompanhamentoReportArchivedAt ?? null : null,
       category: deriveProjectCardCategory({
         archived,
         workedDays,

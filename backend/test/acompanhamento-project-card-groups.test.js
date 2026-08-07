@@ -11,6 +11,11 @@ function card(overrides = {}) {
     clientName: overrides.clientName ?? 'Cliente A',
     clientCnpj: overrides.clientCnpj ?? '11222333000144',
     archived: overrides.archived ?? false,
+    archivedInReports: overrides.archivedInReports ?? false,
+    archivedInAcompanhamento: overrides.archivedInAcompanhamento ?? false,
+    reviewed: overrides.reviewed ?? false,
+    reviewedAt: overrides.reviewedAt ?? null,
+    reportArchivedAt: overrides.reportArchivedAt ?? null,
     category: overrides.category ?? 'ANDAMENTO',
     workedDays: overrides.workedDays ?? 1,
     totalDays: overrides.totalDays ?? 2,
@@ -129,6 +134,17 @@ test('groupProjectCards uses category precedence and weighted progress', () => {
   assert.equal(result[0].category, 'ANDAMENTO');
   assert.equal(result[0].progressMethod, 'GROUP_WEIGHTED');
   assert.equal(result[0].progressPct, 70);
+});
+
+test('groupProjectCards only marks the group reviewed when every archived mission was reviewed', () => {
+  const result = groupProjectCards([
+    card({ projectId: 'p1', archived: true, archivedInReports: true, reviewed: true, reviewedAt: '2026-08-06T10:00:00.000Z', reportArchivedAt: '2026-08-06T09:00:00.000Z', category: 'ARQUIVADO' }),
+    card({ projectId: 'p2', archived: true, archivedInAcompanhamento: true, reviewed: false, category: 'ARQUIVADO' })
+  ], [group()]);
+
+  assert.equal(result[0].category, 'ARQUIVADO');
+  assert.equal(result[0].reviewed, false);
+  assert.equal(result[0].reportArchivedAt, '2026-08-06T09:00:00.000Z');
 });
 
 test('groupProjectCards compares clients by CNPJ before client name', () => {
