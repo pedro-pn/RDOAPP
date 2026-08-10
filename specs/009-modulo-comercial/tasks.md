@@ -8,6 +8,16 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/), [quickstart.md](./quickstart.md)
 
+> **Retomando em outro ambiente? Leia [HANDOFF.md](./HANDOFF.md) primeiro.**
+> Há quatro coisas que não vêm no `git clone` — a mais traiçoeira é que
+> `shared/comercial/dist/` é gerado e está no `.gitignore`: sem compilar, nada do
+> módulo carrega. O documento também lista as armadilhas do `.docx` que já
+> custaram tempo, e a única falha de teste que é esperada.
+>
+> **Estado em 10/08/2026: 94 tarefas fechadas, 61 abertas.** O próximo bloco é a
+> emissão de verdade — T051/T052 (proposta no banco), T074 (storage), T075
+> (documentos gravados antes da integração) e T076* (Nectar e SharePoint).
+
 **Tests**: **Obrigatórios.** Esta feature tem dois oráculos que só existem como teste — os
 16 goldens e a matriz de permissão. Sem eles não há como provar paridade.
 
@@ -384,7 +394,12 @@ documentos e o registro no histórico.
 - [X] T071e [US3] Implementar a escolha **padrão / hidrojateamento** na criação da proposta (desvio 13), trocando descrição dos serviços, matriz, EPI e jornada. **A jornada de hidrojateamento tem dois turnos** — ONSHORE (seg–qui 9h, sex 8h) e OFFSHORE (seg–dom e feriados, 11h).
 - [X] T071f [US3] Suportar **duas tabelas de preço** (ONSHORE e OFFSHORE), cada uma com seu TOTAL GERAL, quando o modelo for hidrojateamento. É o ponto que torna impossível resolver por catálogo: `renderPriceTable` desenha uma só.  ↳ desvio 13
 - [X] T072 [US3] Implementar `backend/src/lib/comercial/proposta-docx.js` — preenche o modelo `.docx` de `Modelos/definitivos/Comercial/modelos/` e converte com o `convertDocxToPdf` dos relatórios. **Substituiu o porte para `pdf-lib`**, que chegou a existir e foi removido: o documento passou a ser editável por quem o escreve, sem programador e sem deploy. Os modelos saem de `scripts/comercial-gerar-modelos.mjs`.
-- [ ] T073 [US3] [P] Implementar `backend/lib/comercial/pdf-images.js` com `sharp` para o preparo das imagens.
+- [X] T072a [US3] Escrever `backend/scripts/comercial-gerar-modelos.mjs` — converte os `.docx` preenchidos que o comercial entrega em **modelos com `{{marcador}}`**, prepara as linhas-modelo de matriz e preço, marca o escopo e padroniza a tipografia em Arial. Idempotente: rode de novo a cada documento novo.
+- [X] T072b [US3] Extrair `backend/src/lib/docx/template.js` — as primitivas de preenchimento que os relatórios já usavam. A parte difícil é o marcador partido entre vários `w:t`, que o Word produz por qualquer motivo.
+- [X] T072c [US3] Implementar `backend/src/lib/comercial/proposta-docx.js` — preenche o modelo (cabeçalho, matriz agrupada por categoria, preços com total, escopo) e converte com o `convertDocxToPdf` dos relatórios.
+- [X] T072d [US3] Extrair `backend/src/lib/docx/imagem.js` e inserir **tabelas e fotos do escopo** no documento. São três lugares — `word/media`, a `Relationship` e o `[Content_Types].xml` — e esquecer um produz pacote que o Word recusa a abrir.
+- [X] T072e [US3] Expor `POST /api/comercial/propostas/previa.pdf` e o botão **Baixar PDF**. É conferência, **não** emissão: nada é gravado, a proposta não é numerada e nenhuma integração é acionada.
+- [X] T073 [US3] ~~`pdf-images.js` com `sharp`~~ — **superada**. Quem desenha o documento passou a ser o LibreOffice a partir do `.docx`, então não há imagem para preparar em memória. O que sobrou — embutir foto do escopo no pacote — virou `backend/src/lib/docx/imagem.js` (T072d).
 - [ ] T074 [US3] [P] Implementar `backend/lib/comercial/storage.js` — gravação e leitura em disco sob `COMERCIAL_DIR`.
 - [X] T074a [US3] Implementar `POST /api/comercial/escopo/fotos` em `backend/src/routes/comercial/`, com a **cadeia de recusa completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 2 MB por requisição, arquivo ausente, tipo fora de JPEG/PNG/WebP, 1,5 MB por foto, e **assinatura de bytes** que não bate com o tipo declarado. Cada caso com a sua mensagem.  ↳ `FR-049` `FR-050`
 - [X] T074b [US3] Implementar em `backend/lib/comercial/scope-assets.js` a gravação sob `COMERCIAL_DIR` no padrão `escopo/AAAA/MM/<uuid>.<ext>`, guardando o nome original saneado, e o `GET /api/comercial/escopo/fotos/:id` com verificação de autoria. **As fotos sobrevivem às revisões** (FR-051).  ↳ `FR-051` `FR-067`
@@ -407,7 +422,7 @@ documentos e o registro no histórico.
 - [ ] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.  ↳ `FR-031`
 - [ ] T083 [US3] Implementar `frontend/src/pages/comercial/proposta/FinalizacaoPanel.tsx` com o download final: técnica + comercial juntas ou separadas.  ↳ `FR-033`
 - [ ] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga registro** — não existe `DELETE`.  ↳ `FR-060` `FR-061` `FR-063`
-- [ ] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.  ↳ `FR-062`
+- [X] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.  ↳ `FR-062`
 - [ ] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).  ↳ `FR-068`
 - [ ] T085 [US3] [P] Escrever `backend/test/comercial-finalizacao.test.js`, incluindo o caso **integração falha depois dos PDFs prontos → documentos continuam baixáveis**.  ↳ `SC-009`
 
@@ -440,7 +455,7 @@ pela URL e que o não salvo é oferecido de volta.
 **Independent Test**: entrar com usuário que nunca abriu o módulo — tutorial aparece uma
 vez, é dispensável e não volta sozinho.
 
-- [ ] T094 [US5] Implementar o menu de entrada `frontend/src/pages/comercial/ComercialPage.tsx` (**desvio nº 9**) com dois cartões — levantar custos e ver/criar propostas —, reusando a linguagem de cartões de `frontend/src/pages/HubPage.tsx`. **Sem baseline visual**: não existe na referência para ser fotografado.  ↳ `FR-023` `FR-043`
+- [X] T094 [US5] Implementar o menu de entrada `frontend/src/pages/comercial/ComercialPage.tsx` (**desvio nº 9**) com dois cartões — levantar custos e ver/criar propostas —, reusando a linguagem de cartões de `frontend/src/pages/HubPage.tsx`. **Sem baseline visual**: não existe na referência para ser fotografado.  ↳ `FR-023` `FR-043`
 - [ ] T095 [US5] Ocultar em `frontend/src/pages/hubModules.ts` o card do módulo no hub do filtroAPP para quem não tem nenhum dos três papéis.  ↳ `FR-024`
 - [ ] T096 [US5] **(L4)** Implementar o **tutorial permanente de primeiro acesso** com `driver.js`, dispensável e rechamável, sem reaparecer sozinho. O marcador de "já viu" é **por usuário, persistido no servidor** (FR-025a) — não em `localStorage`, senão dois usuários da mesma máquina compartilham o marcador e o mesmo usuário vê o tutorial de novo em outro computador. **`localStorage` fica só para a campanha de novidade** (FR-025b): o tutorial acompanha a pessoa, a campanha acompanha o dispositivo. Módulo novo mantém onboarding permanente — a campanha de novidade de 10 dias é para função nova dentro de módulo existente, não se aplica.  ↳ `FR-025` `FR-025a` `FR-025b`
 - [ ] T097 [US5] **(L4)** Escrever o roteiro do tutorial a partir de `contracts/baseline/roteiro.md`, cobrindo no mínimo: (a) a **cadeia de prioridade do rodapé** de `/comercial/custos`, que é o caminho que o mantenedor confirmou usar; (b) a **armadilha de e-mail/CNPJ inválido** da etapa 1.  ↳ `FR-026`
