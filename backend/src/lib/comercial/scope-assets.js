@@ -3,8 +3,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { SCOPE_PHOTO_LIMITS, matchesImageSignature } from '../../../../shared/schemas/comercial.js';
-import env from '../../config/env.js';
 import { ComercialError } from './cost-estimates.js';
+import { caminhoAbsoluto, raizComercial } from './storage.js';
 
 /**
  * Fotos dos blocos de conteúdo do escopo (tarefas T074a e T074b).
@@ -36,8 +36,15 @@ function pastaDoMes(agora = new Date()) {
   return path.join('escopo', String(ano), mes);
 }
 
+/**
+ * A raiz é a do módulo inteiro (`storage.js`), não uma própria.
+ *
+ * Duas definições da mesma pasta divergiriam no dia em que `COMERCIAL_DIR` for
+ * apontada para outro lugar: os documentos iriam para o caminho novo e as fotos
+ * continuariam no antigo, sem erro nenhum — até alguém abrir uma proposta velha.
+ */
 export function raizDasFotos() {
-  return path.join(env.uploadDir, 'Comercial');
+  return raizComercial();
 }
 
 /**
@@ -131,12 +138,6 @@ export async function lerFoto(prismaClient, id) {
   const registro = await prismaClient.scopePhotoAsset.findUnique({ where: { id } });
   if (!registro) throw new ComercialError('Foto não encontrada.', 404);
 
-  const raiz = path.resolve(raizDasFotos());
-  const absoluto = path.resolve(raiz, registro.assetKey);
-  if (absoluto !== raiz && !absoluto.startsWith(raiz + path.sep)) {
-    throw new ComercialError('Caminho de foto inválido.', 400);
-  }
-
-  const bytes = await readFile(absoluto);
+  const bytes = await readFile(caminhoAbsoluto(registro.assetKey));
   return { bytes, contentType: registro.contentType, fileName: registro.fileName };
 }

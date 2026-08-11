@@ -104,6 +104,10 @@ const rawEnvSchema = z.object({
   ASSETS_DIR: stringWithDefault(path.resolve(process.cwd(), 'assets')),
   REPORTS_DIR: stringWithDefault(''),
   UPLOAD_DIR: stringWithDefault(''),
+  // Raiz dos arquivos do módulo Comercial: fotos de escopo e documentos
+  // emitidos. Vazio mantém o caminho que as fotos já usam (`<REPORTS_DIR>/Comercial`),
+  // para que apontar a variável não seja obrigatório e nada gravado se perca.
+  COMERCIAL_DIR: stringWithDefault(''),
   APP_URL: stringWithDefault(''),
   ALLOWED_ORIGIN: stringWithDefault(''),
   TRUST_PROXY: z.preprocess(emptyToUndefined, z.string().optional()),
@@ -209,6 +213,7 @@ export function loadEnv(source = process.env) {
     assetsDir: raw.ASSETS_DIR,
     reportsDir,
     uploadDir: reportsDir,
+    comercialDir: raw.COMERCIAL_DIR || path.join(reportsDir, 'Comercial'),
     appUrl: raw.APP_URL,
     allowedOrigin: raw.ALLOWED_ORIGIN,
     allowedOrigins: parseOrigins(raw.ALLOWED_ORIGIN),

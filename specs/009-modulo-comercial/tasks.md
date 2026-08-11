@@ -400,11 +400,20 @@ documentos e o registro no histórico.
 - [X] T072d [US3] Extrair `backend/src/lib/docx/imagem.js` e inserir **tabelas e fotos do escopo** no documento. São três lugares — `word/media`, a `Relationship` e o `[Content_Types].xml` — e esquecer um produz pacote que o Word recusa a abrir.
 - [X] T072e [US3] Expor `POST /api/comercial/propostas/previa.pdf` e o botão **Baixar PDF**. É conferência, **não** emissão: nada é gravado, a proposta não é numerada e nenhuma integração é acionada.
 - [X] T073 [US3] ~~`pdf-images.js` com `sharp`~~ — **superada**. Quem desenha o documento passou a ser o LibreOffice a partir do `.docx`, então não há imagem para preparar em memória. O que sobrou — embutir foto do escopo no pacote — virou `backend/src/lib/docx/imagem.js` (T072d).
-- [ ] T074 [US3] [P] Implementar `backend/lib/comercial/storage.js` — gravação e leitura em disco sob `COMERCIAL_DIR`.
+- [X] T074 [US3] [P] Implementar `backend/src/lib/comercial/storage.js` — gravação e leitura em disco sob `COMERCIAL_DIR`. A variável nasceu aqui (`env.js`, `.env.example`), com **padrão igual ao caminho que as fotos de escopo já usavam** (`<REPORTS_DIR>/Comercial`), para que nada gravado se perca. `scope-assets.js` passou a tirar a raiz daqui — duas definições da mesma pasta divergiriam no dia em que a variável fosse apontada para outro lugar.
 - [X] T074a [US3] Implementar `POST /api/comercial/escopo/fotos` em `backend/src/routes/comercial/`, com a **cadeia de recusa completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 2 MB por requisição, arquivo ausente, tipo fora de JPEG/PNG/WebP, 1,5 MB por foto, e **assinatura de bytes** que não bate com o tipo declarado. Cada caso com a sua mensagem.  ↳ `FR-049` `FR-050`
 - [X] T074b [US3] Implementar em `backend/lib/comercial/scope-assets.js` a gravação sob `COMERCIAL_DIR` no padrão `escopo/AAAA/MM/<uuid>.<ext>`, guardando o nome original saneado, e o `GET /api/comercial/escopo/fotos/:id` com verificação de autoria. **As fotos sobrevivem às revisões** (FR-051).  ↳ `FR-051` `FR-067`
 - [X] T074c [US3] [P] Escrever `backend/test/comercial-escopo-fotos.test.js` cobrindo a cadeia de recusa — em especial **arquivo renomeado para `.jpg` que não é imagem**, recusado pela assinatura de bytes e não pelo nome.  ↳ `FR-049`
-- [ ] T075 [US3] Implementar `POST /api/comercial/propostas/documentos`, gerando os dois PDFs e **gravando antes de qualquer tentativa de integração**.  ↳ `FR-033`
+- [X] T075 [US3] Implementar `POST /api/comercial/propostas/documentos`, gerando os dois PDFs e **gravando antes de qualquer tentativa de integração**.  ↳ `FR-033`
+
+  > A regra mora em `backend/src/lib/comercial/documentos.js`, e o **gerador entra
+  > por parâmetro**: quem desenha o PDF é o LibreOffice, que só existe dentro da
+  > imagem do backend. Recebê-lo de fora deixa autoria, ordem, gravação e registro
+  > testáveis em qualquer máquina — 20 testes em `comercial-documentos.test.js`,
+  > incluindo a prova de que **o arquivo chega ao disco antes de o registro
+  > existir**. Ao contrário da prévia, o conteúdo vem do **registro**, não do corpo:
+  > o que se emite é o que está salvo. Reemitir antes de finalizar grava numa pasta
+  > nova em vez de sobrescrever — nada é apagado, nem em disco.
 - [ ] T076 [US3] Implementar `backend/lib/comercial/jobs.js` — Nectar e SharePoint — e `POST /api/comercial/propostas/finalizar`, atualizando `integrationStatus` depois.
 - [ ] T076a [US3] Implementar `backend/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.  ↳ `FR-054`
 - [ ] T076b [US3] Implementar em `backend/lib/comercial/cost-csv.js` os **dois formatos por versão de esquema** (FR-055), escolhidos pelo `schemaVersion` do levantamento: esquema 2 em diante e legado. **Proposta antiga não pode quebrar a finalização.**  ↳ `FR-055`

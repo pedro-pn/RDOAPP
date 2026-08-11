@@ -18,6 +18,7 @@ import {
   updateCostEstimate
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
+import { emitirDocumentos } from '../../lib/comercial/documentos.js';
 import {
   archiveProposal,
   createProposal,
@@ -382,6 +383,52 @@ router.post(
       const data = schemas.proposalCreate.parse(req.body);
       const proposal = await createProposal(prisma, req.auth.user, data);
       res.status(201).json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+/**
+ * Emissão dos dois documentos (T075). **Não é a finalização** — nenhuma
+ * integração é acionada aqui.
+ *
+ * O que esta rota garante é a **ordem**: os PDFs saem do `.docx`, vão para o
+ * disco sob `COMERCIAL_DIR` e só então viram registro. É o que permite, na
+ * T076, responder erro de integração dizendo que os documentos continuam
+ * baixáveis (FR-034).
+ *
+ * Diferente da prévia, o conteúdo vem do **registro**, não do corpo: o que se
+ * emite é o que está salvo. As fotos do escopo continuam sendo lidas do disco
+ * pelo `id`, sem trafegar de volta.
+ */
+router.post(
+  '/propostas/documentos',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const { proposalId } = schemas.proposalDocumentsRequest.parse(req.body);
+
+      const resultado = await emitirDocumentos(prisma, req.auth.user, proposalId, {
+        gerarPdf: (dados, tipo) =>
+          gerarPropostaEmPdf(
+            {
+              ...dados,
+              lerFoto: async bloco => {
+                const { bytes, contentType, fileName } = await lerFoto(
+                  prisma,
+                  bloco.assetKey || bloco.id
+                );
+                const extensao = (fileName.split('.').pop() || 'jpg').toLowerCase();
+                return { bytes, extensao, mime: contentType };
+              }
+            },
+            tipo
+          )
+      });
+
+      res.status(201).json(resultado);
     } catch (error) {
       if (handleComercialError(error, res)) return;
       throw error;

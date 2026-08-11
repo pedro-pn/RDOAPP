@@ -212,6 +212,15 @@ export function makeComercialSchemas(z) {
       arquivados: z.coerce.boolean().default(false)
     }),
 
+    /**
+     * Emissão dos documentos: só o id da proposta.
+     *
+     * O conteúdo **não** vem no corpo, ao contrário da prévia. O que se emite é
+     * o que está salvo — aceitar o formulário aqui permitiria gerar um documento
+     * que o registro não confirma, e é esse documento que vai ao cliente.
+     */
+    proposalDocumentsRequest: z.object({ proposalId: id }),
+
     /** A listagem de propostas aceita busca livre, como o histórico da referência. */
     proposalListQuery: z.object({
       arquivados: z.coerce.boolean().default(false),
