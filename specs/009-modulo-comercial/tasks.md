@@ -661,8 +661,18 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   conferência, e o aviso quando a confiança for `parcial` ou `regiao`. O campo
   continua editável, e a origem do valor — calculado ou informado — fica visível.
 
-- [ ] T129 **Produto obrigatório na oportunidade — BLOQUEIA a finalização em
-  produção.** Descoberto em 11/08, na primeira escrita real no CRM.
+- [X] T129 **Produto obrigatório na oportunidade.** Descoberto em 11/08, na
+  primeira escrita real no CRM. **Resolvido pela opção (a)**: `produtoObrigatorio`
+  desligado na etapa 1 do funil de testes (57063), pelo `PUT /pipelines/:id`,
+  lendo o objeto inteiro e devolvendo inteiro com **um** campo alterado — as 12
+  etapas e os 35 campos de configuração preservados, conferido antes e depois.
+  Com isso a escrita passou ponta a ponta: card 29772277 criado, três arquivos
+  anexados.
+
+  > **PENDENTE EM PRODUÇÃO.** O funil "Gestão Comercial" (47518) continua exigindo
+  > produto nas **10** etapas, e é ele que o comercial usa. Não mexi por script:
+  > é a configuração que o time inteiro depende, e a mudança é de trinta segundos
+  > na tela do Nectar, onde quem decide vê o que está mudando.
 
   > O funil **"Gestão Comercial" (47518) exige produto nas 10 etapas**, e o
   > "Funil de testes" (57063) exige na etapa 1. O módulo **nunca envia produto**,
