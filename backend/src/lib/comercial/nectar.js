@@ -56,6 +56,12 @@ export function indisponivel() {
   if (modo === 'real' && !env.nectarApiToken) {
     return 'O token do Nectar não está configurado (NECTAR_API_TOKEN).';
   }
+  if (modo === 'real' && !env.nectarResponsavelId) {
+    // O Nectar recusa a oportunidade sem responsável, com 409. Descobrir isso na
+    // hora da finalização, depois de gerar os documentos, é tarde: melhor recusar
+    // antes de começar, dizendo o que configurar.
+    return 'O responsável das oportunidades não está configurado (NECTAR_RESPONSAVEL_ID).';
+  }
   return '';
 }
 
@@ -66,7 +72,7 @@ export function indisponivel() {
  * que existe no Nectar mas não está autorizada aqui não chega à tela, então
  * ninguém o escolhe por engano.
  */
-export async function listarFunis() {
+export async function listarFunis({ buscar = fetch } = {}) {
   const permitidos = new Set(funisPermitidos());
   if (!permitidos.size) return [];
 
@@ -74,7 +80,7 @@ export async function listarFunis() {
     return [...permitidos].map(id => ({ id, nome: `Funil de teste ${id}`, primeiraEtapa: 1 }));
   }
 
-  const registros = await buscarFunis();
+  const registros = await buscarFunis(buscar);
   const funis = registros
     .filter(registro => permitidos.has(String(registro.id)))
     .map(registro => ({
@@ -109,9 +115,14 @@ export function exigirFunilPermitido(funis, pipelineId) {
 /**
  * Cria o card da proposta. Porte de `createOpportunity`.
  *
- * O **409 não é falha**: o Nectar responde assim quando já existe card com o
- * mesmo nome, e nesse caso o certo é reaproveitá-lo. Tratar como erro faria a
- * segunda tentativa de uma finalização que falhou no meio parecer impossível.
+ * **O 409 do Nectar é ambíguo, e isso custou uma rodada.** A referência o tratava
+ * como "já existe card com esse nome", e é mesmo um dos casos — aí o certo é
+ * reaproveitar, senão a segunda tentativa de uma finalização que falhou no meio
+ * seria impossível. Mas ele também é a resposta para **recusa de validação**
+ * ("Nenhum responsável foi selecionado").
+ *
+ * Por isso a ordem: procura o card existente; não achando, propaga o erro **com o
+ * motivo que veio no corpo**. Sem o motivo, os dois casos ficam com a mesma cara.
  */
 export async function criarOportunidade(dados, funil) {
   if (modoDoNectar() === 'fake') {
@@ -132,6 +143,11 @@ export async function criarOportunidade(dados, funil) {
         cliente: { id: Number(dados.companyId) },
         contato: { id: Number(dados.contactId) },
         camposPersonalizados: { 'Local da Obra': dados.site },
+        // **Obrigatório.** Sem ele o Nectar responde 409 "Nenhum responsável foi
+        // selecionado". A referência trazia um id fixo no código; aqui é
+        // configuração, porque o dono das oportunidades muda com o tempo e
+        // número mágico no código não se descobre sem ler o código.
+        responsavel: { id: Number(env.nectarResponsavelId) },
         pipeline: funil.nome,
         etapa: funil.primeiraEtapa,
         status: 1,
@@ -207,8 +223,8 @@ export function nomeDeTransporte(nome, padrao = 'proposta.pdf') {
 // HTTP
 // ---------------------------------------------------------------------------
 
-async function chamar(caminho, opcoes = {}) {
-  const resposta = await fetch(`${BASE}${caminho}`, {
+async function chamar(caminho, opcoes = {}, buscar = fetch) {
+  const resposta = await buscar(`${BASE}${caminho}`, {
     ...opcoes,
     headers: { 'Access-Token': env.nectarApiToken, ...(opcoes.headers || {}) },
     signal: AbortSignal.timeout(TEMPO_LIMITE_MS)
@@ -231,11 +247,11 @@ async function chamar(caminho, opcoes = {}) {
   return corpo;
 }
 
-async function buscarFunis() {
+async function buscarFunis(buscar = fetch) {
   // Duas rotas porque a instalação responde numa ou noutra — é o que a
   // referência fazia, e descobrir isso custou tempo lá.
   for (const caminho of ['/pipelines?type=0&page=-1', '/pipeline?type=0&page=-1']) {
-    const registros = coletarRegistros(await chamar(caminho));
+    const registros = coletarRegistros(await chamar(caminho, {}, buscar));
     if (registros.length) return registros;
   }
   return [];
@@ -317,8 +333,18 @@ function desembrulhar(carga) {
   return {};
 }
 
+/**
+ * O motivo, em qualquer das formas que o Nectar usa.
+ *
+ * `mensagens` é um ARRAY, e foi o que este código deixava passar: a recusa vinha
+ * com "Nenhum responsável foi selecionado" dentro dele, e a mensagem que chegava
+ * ao usuário era "O Nectar respondeu com erro 409." — que não diz nada e obriga
+ * a repetir a chamada com curl para descobrir o óbvio.
+ */
 function detalhe(corpo) {
   if (!corpo || typeof corpo !== 'object') return '';
+  if (Array.isArray(corpo.mensagens)) return corpo.mensagens.filter(Boolean).join('; ');
+  if (Array.isArray(corpo.errors)) return corpo.errors.filter(Boolean).join('; ');
   return String(corpo.message || corpo.mensagem || corpo.erro || corpo.error || '');
 }
 

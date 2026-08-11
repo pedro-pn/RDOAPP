@@ -660,3 +660,20 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   botão de calcular ao lado do campo, o endereço encontrado exibido para
   conferência, e o aviso quando a confiança for `parcial` ou `regiao`. O campo
   continua editável, e a origem do valor — calculado ou informado — fica visível.
+
+- [ ] T129 **Produto obrigatório na oportunidade — BLOQUEIA a finalização em
+  produção.** Descoberto em 11/08, na primeira escrita real no CRM.
+
+  > O funil **"Gestão Comercial" (47518) exige produto nas 10 etapas**, e o
+  > "Funil de testes" (57063) exige na etapa 1. O módulo **nunca envia produto**,
+  > e a referência também não — então a criação do card responde **409: "É
+  > obrigatório adicionar produto na oportunidade nesta etapa"**.
+  >
+  > O funil "Licitações / Estudo de Viabilidade / Stand By" (55031) **não** exige,
+  > e é provavelmente por isso que a referência funcionava.
+  >
+  > **Precisa de decisão do mantenedor, com o administrador do CRM.** Três
+  > caminhos: (a) desligar `produtoObrigatorio` nas etapas onde a API cria;
+  > (b) enviar um produto do catálogo (são 15; "Entrega técnica" e "Evento de
+  > mobilização…" parecem candidatos), o que exige decidir **qual** e como o valor
+  > se relaciona com o `valorAvulso`; (c) criar sempre no funil 55031.

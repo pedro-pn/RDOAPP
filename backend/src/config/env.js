@@ -181,6 +181,15 @@ const rawEnvSchema = z.object({
    * funil onde o comercial trabalha. Vazia recusa tudo — não é "libera geral".
    */
   NECTAR_PIPELINE_IDS: stringWithDefault(''),
+  /**
+   * Usuário do Nectar que fica como **responsável** das oportunidades criadas.
+   *
+   * Obrigatório em `real`: sem ele o Nectar recusa com 409 "Nenhum responsável
+   * foi selecionado". A referência trazia o id fixo no código; aqui é
+   * configuração, porque o dono muda com o tempo e número mágico no código não
+   * se descobre sem ler o código.
+   */
+  NECTAR_RESPONSAVEL_ID: stringWithDefault(''),
 
   /**
    * Gravação dos documentos no SharePoint, via Microsoft Graph.
@@ -277,6 +286,7 @@ export function loadEnv(source = process.env) {
     comercialDir: raw.COMERCIAL_DIR || path.join(reportsDir, 'Comercial'),
     nectarMode: raw.NECTAR_MODE,
     nectarApiToken: raw.NECTAR_API_TOKEN,
+    nectarResponsavelId: raw.NECTAR_RESPONSAVEL_ID,
     nectarPipelineIds: raw.NECTAR_PIPELINE_IDS.split(',')
       .map(item => item.trim())
       .filter(Boolean),
