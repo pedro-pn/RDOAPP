@@ -41,7 +41,31 @@ pasta não existir, **o teste some em silêncio** em vez de inventar uma respost
 foi escrito assim de propósito. Você não precisa da referência para desenvolver;
 precisa dela para provar fidelidade.
 
-Se for copiá-la para a máquina nova, o caminho esperado é `~/comercialAPP`.
+**Leve-a para o ambiente novo.** A maior parte do que falta é porte a partir
+dela: as rotas de proposta (T051/T052), a finalização com Nectar e SharePoint
+(T075/T076, que vivem em `app/api/finalize/route.ts`), a tela de histórico
+(T084, que sai de `app/historico/page.tsx` e ainda não tem esqueleto) e a
+comparação lado a lado da validação final (T113/T114).
+
+O caminho esperado é `~/comercialAPP`. São **27 MB sem as dependências**:
+
+```bash
+rsync -a --exclude node_modules --exclude .next --exclude dist --exclude build \
+  ~/comercialAPP/ /destino/comercialAPP/
+
+cd /destino/comercialAPP && sha256sum -c MANIFESTO-SHA256.txt | grep -v ': OK$'
+```
+
+A referência traz um `MANIFESTO-SHA256.txt` com 192 hashes. **Rode a conferência
+depois de copiar** — silêncio é o resultado bom. Um byte perdido na cópia
+enfraquece em silêncio toda verificação de fidelidade, e o teste dos índices
+continuaria passando enquanto compara com um arquivo corrompido.
+
+Verificado em 10/08/2026: 192/192 batem. A referência nunca foi tocada.
+
+Para **ler e portar**, esses 27 MB bastam. Para **rodar** — necessário só na
+comparação visual da T113/T114 — precisa de `pnpm install` e do setup de
+D1/wrangler, documentado no `DEPLOY-OUTRO-SERVIDOR.md` dela.
 
 ### 3. LibreOffice só existe dentro da imagem do backend
 
