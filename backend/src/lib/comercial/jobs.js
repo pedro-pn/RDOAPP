@@ -3,6 +3,7 @@ import { planilhaDeCustos } from './cost-csv.js';
 import { ComercialError } from './cost-estimates.js';
 import { documentosAtuais, emitirDocumentos } from './documentos.js';
 import * as nectar from './nectar.js';
+import * as sharepoint from './sharepoint.js';
 import { lerArquivo } from './storage.js';
 
 /**
@@ -34,7 +35,13 @@ const CONCLUIDA = 'FINALIZADA';
  * namespace é somente-leitura.
  */
 export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
-  const { pipelineId = '', gerarPdf, crm = nectar } = opcoes;
+  const {
+    pipelineId = '',
+    pastaExistente = '',
+    gerarPdf,
+    crm = nectar,
+    arquivos: destinoDeArquivos = sharepoint
+  } = opcoes;
 
   const proposta = await prisma.proposal.findUnique({ where: { id: proposalId } });
   if (!proposta) throw new ComercialError('Proposta não encontrada.', 404);
@@ -76,9 +83,21 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
     throw error;
   }
 
-  const integracao = await enviarAoNectar(prisma, proposta, pipelineId, documentos, crm);
+  // Os arquivos são montados UMA vez e vão para os dois destinos. Ler o disco
+  // duas vezes abriria a porta para o CRM e o SharePoint receberem versões
+  // diferentes do mesmo documento.
+  const arquivos = await arquivosDaProposta(prisma, proposta, documentos);
 
-  const sucesso = integracao.status === 'SUCESSO';
+  // **Os dois destinos são tentados, e a falha de um não impede o outro.** Se o
+  // SharePoint estiver fora do ar, o card ainda entra no CRM com os anexos — e o
+  // contrário também. Encadear os dois faria uma indisponibilidade da Microsoft
+  // apagar o trabalho no Nectar.
+  const integracao = await enviarAoNectar(proposta, pipelineId, arquivos, crm);
+  const pasta = await enviarAoSharePoint(proposta, arquivos, pastaExistente, destinoDeArquivos);
+
+  const sucesso = integracao.status === 'SUCESSO' && pasta.status === 'SUCESSO';
+  const erros = [integracao.mensagem, pasta.mensagem].filter(Boolean);
+
   const atualizada = await prisma.proposal.update({
     where: { id: proposalId },
     data: {
@@ -91,11 +110,15 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
       nectarOpportunityId: integracao.opportunityId || proposta.nectarOpportunityId,
       nectarPipelineId: integracao.pipelineId || proposta.nectarPipelineId,
       nectarPipelineName: integracao.pipelineName || proposta.nectarPipelineName,
-      integrationError: integracao.mensagem || null
+      sharepointStatus: pasta.status,
+      sharepointFolder: pasta.pasta || proposta.sharepointFolder,
+      // Os dois erros juntos, porque os dois podem falhar por motivos
+      // diferentes — e a pessoa precisa saber dos dois, não do primeiro.
+      integrationError: erros.join(' · ') || null
     }
   });
 
-  await registrarAuditoria(prisma, user, proposalId, sucesso, integracao);
+  await registrarAuditoria(prisma, user, proposalId, sucesso, integracao, pasta);
 
   return {
     ok: sucesso,
@@ -103,7 +126,8 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
     // Os documentos vão na resposta **dos dois jeitos**. É o FR-034: quem
     // recebe o erro precisa dos links, não de um pedido para tentar de novo.
     documentos,
-    integracao
+    integracao: { ...integracao, mensagem: erros.join(' · ') },
+    sharepoint: pasta
   };
 }
 
@@ -140,7 +164,7 @@ export function exigirNaoFinalizada(proposta) {
  * chamou precisa seguir para gravar o estado e responder com os links dos
  * documentos, que já existem.
  */
-async function enviarAoNectar(prisma, proposta, pipelineId, documentos, crm) {
+async function enviarAoNectar(proposta, pipelineId, arquivos, crm) {
   const impedimento = crm.indisponivel();
   if (impedimento) {
     return { status: 'ERRO', mensagem: impedimento, opportunityId: '', pipelineId: '', pipelineName: '' };
@@ -155,13 +179,6 @@ async function enviarAoNectar(prisma, proposta, pipelineId, documentos, crm) {
     const oportunidade = proposta.nectarOpportunityId
       ? { id: proposta.nectarOpportunityId, criada: false }
       : await crm.criarOportunidade(dados, funil);
-
-    // São TRÊS arquivos ao destino, não dois (T076c): as duas propostas e a
-    // planilha de custos. Ela é a memória de cálculo — sem ela o card mostra o
-    // preço e não mostra de onde ele veio.
-    const arquivos = await bytesDosDocumentos(prisma, proposta.id, documentos);
-    const planilha = await planilhaDaProposta(prisma, proposta, funil);
-    if (planilha) arquivos.push(planilha);
 
     await crm.anexarDocumentos(oportunidade.id, arquivos, dados, funil);
 
@@ -181,6 +198,50 @@ async function enviarAoNectar(prisma, proposta, pipelineId, documentos, crm) {
       pipelineName: ''
     };
   }
+}
+
+/**
+ * Grava a pasta no SharePoint, e **nunca lança** — mesmo contrato do Nectar.
+ *
+ * O nome da pasta é o mesmo que a referência usava: número, cliente e título.
+ * `pastaExistente` (T076f) tem precedência: havendo uma pasta da obra, os
+ * arquivos vão para dentro dela.
+ */
+async function enviarAoSharePoint(proposta, arquivos, pastaExistente, destino) {
+  const impedimento = destino.indisponivel();
+  if (impedimento) return { status: 'ERRO', mensagem: impedimento, pasta: '' };
+
+  try {
+    const payload = proposta.payload && typeof proposta.payload === 'object' ? proposta.payload : {};
+    const { pasta } = await destino.gravarArquivos(arquivos, {
+      nomeDaPasta: [proposta.proposalCode, proposta.clientName, payload.title]
+        .filter(Boolean)
+        .join(' - '),
+      pastaExistente
+    });
+
+    return { status: 'SUCESSO', mensagem: '', pasta };
+  } catch (error) {
+    return {
+      status: 'ERRO',
+      mensagem: error?.message || 'Falha ao gravar os documentos no SharePoint.',
+      pasta: ''
+    };
+  }
+}
+
+/**
+ * Os três arquivos do envio, montados uma vez só.
+ *
+ * São **três**, não dois (T076c): as duas propostas e a planilha de custos, que
+ * é a memória de cálculo. Sem ela o destino mostra o preço e não mostra de onde
+ * ele veio.
+ */
+async function arquivosDaProposta(prisma, proposta, documentos) {
+  const arquivos = await bytesDosDocumentos(prisma, proposta.id, documentos);
+  const planilha = await planilhaDaProposta(prisma, proposta);
+  if (planilha) arquivos.push(planilha);
+  return arquivos;
 }
 
 function dadosParaOCrm(proposta, funil) {
@@ -216,7 +277,7 @@ function dadosParaOCrm(proposta, funil) {
  * proposta avulsa existe. Devolver `null` deixa a finalização seguir com os dois
  * PDFs; derrubá-la aqui faria o vínculo opcional virar obrigatório por acidente.
  */
-async function planilhaDaProposta(prisma, proposta, funil) {
+async function planilhaDaProposta(prisma, proposta) {
   if (!proposta.costEstimateId) return null;
 
   const estimate = await prisma.costEstimate.findUnique({
@@ -228,8 +289,8 @@ async function planilhaDaProposta(prisma, proposta, funil) {
     proposalCode: proposta.proposalCode,
     sellerName: proposta.sellerName,
     estimatorName: proposta.estimatorName,
-    pipelineName: funil.nome,
-    pipelineId: funil.id
+    pipelineName: proposta.nectarPipelineName || '',
+    pipelineId: proposta.nectarPipelineId || ''
   });
 
   return { fileName, bytes };
@@ -255,13 +316,15 @@ async function bytesDosDocumentos(prisma, proposalId, documentos) {
  * proposta não chegou ao CRM" é a pergunta que se faz semanas depois, quando o
  * recado da tela já sumiu.
  */
-async function registrarAuditoria(prisma, user, proposalId, sucesso, integracao) {
+async function registrarAuditoria(prisma, user, proposalId, sucesso, integracao, pasta) {
   const registros = [
     {
       proposalId,
       action: 'FINALIZADA',
       actorUserId: user.id,
-      detail: { nectar: integracao.status }
+      // Os DOIS estados, porque os dois destinos falham independentemente e a
+      // pergunta de semanas depois é "qual dos dois não foi".
+      detail: { nectar: integracao.status, sharepoint: pasta.status }
     },
     {
       proposalId,
@@ -270,7 +333,9 @@ async function registrarAuditoria(prisma, user, proposalId, sucesso, integracao)
       detail: {
         opportunityId: integracao.opportunityId || null,
         pipelineName: integracao.pipelineName || null,
-        erro: integracao.mensagem || null
+        sharepointFolder: pasta.pasta || null,
+        erroNectar: integracao.mensagem || null,
+        erroSharepoint: pasta.mensagem || null
       }
     }
   ];

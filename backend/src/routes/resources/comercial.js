@@ -467,10 +467,12 @@ router.post(
   requireComercialEstimator,
   asyncHandler(async (req, res) => {
     try {
-      const { proposalId, pipelineId } = schemas.proposalFinalizeRequest.parse(req.body);
+      const { proposalId, pipelineId, pastaExistente } =
+        schemas.proposalFinalizeRequest.parse(req.body);
 
       const resultado = await finalizarProposta(prisma, req.auth.user, proposalId, {
         pipelineId,
+        pastaExistente,
         gerarPdf: (dados, tipo) => gerarPropostaEmPdf({ ...dados, lerFoto: fotoDoBloco }, tipo)
       });
 
@@ -480,7 +482,8 @@ router.post(
         error: resultado.integracao.mensagem,
         documentosDisponiveis: true,
         documentos: resultado.documentos,
-        integracao: resultado.integracao
+        integracao: resultado.integracao,
+        sharepoint: resultado.sharepoint
       });
     } catch (error) {
       if (handleComercialError(error, res)) return;

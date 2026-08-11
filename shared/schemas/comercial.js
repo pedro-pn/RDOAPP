@@ -230,7 +230,13 @@ export function makeComercialSchemas(z) {
      */
     proposalFinalizeRequest: z.object({
       proposalId: id,
-      pipelineId: z.string().trim().max(80).default('')
+      pipelineId: z.string().trim().max(80).default(''),
+      /**
+       * Pasta já existente no OneDrive (`PROP-CTL-080`, opcional). Havendo
+       * valor, os arquivos vão para dentro dela em vez de uma pasta nova — a
+       * obra que já tem pasta não pode acabar com os documentos em dois lugares.
+       */
+      pastaExistente: z.string().trim().max(300).default('')
     }),
 
     /** A listagem de propostas aceita busca livre, como o histórico da referência. */

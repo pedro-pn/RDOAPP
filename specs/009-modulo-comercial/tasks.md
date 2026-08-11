@@ -427,7 +427,7 @@ documentos e o registro no histórico.
 - [X] T076c [US3] Enviar a planilha junto com os dois PDFs em `backend/src/lib/comercial/jobs.js` — são **três** arquivos ao destino, não dois.
 - [ ] T076d [US3] Implementar `POST /api/comercial/propostas/:id/anexos` em `backend/src/routes/comercial/` e o model `ProposalAttachment` — os **arquivos adicionais do cliente** (`PROP-CTL-081`), que vão para a mesma pasta dos documentos. Um por requisição.  ↳ `FR-057`
 - [ ] T076e [US3] Validar em `backend/lib/comercial/jobs.js` o **limite agregado** do envio (FR-059): dois PDFs + planilha + todos os anexos, somados. Validar cada um isoladamente deixa passar o conjunto.  ↳ `FR-059`
-- [ ] T076f [US3] Aceitar a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional) em `backend/lib/comercial/jobs.js`: havendo valor, grava dentro dela em vez de criar pasta nova.  ↳ `FR-058`
+- [X] T076f [US3] Aceitar a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional) em `backend/lib/comercial/jobs.js`: havendo valor, grava dentro dela em vez de criar pasta nova.  ↳ `FR-058`
 - [X] T077 [US3] **Contrato de falha (FR-034)** em `backend/lib/comercial/jobs.js`: se a integração falhar depois dos documentos gravados, a resposta é erro **mas informa que eles continuam disponíveis para download**, com os links. É comportamento da referência e precisa sobreviver ao porte — o trabalho não se perde.  ↳ `FR-034`
 - [X] T078 [US3] Implementar em `backend/src/lib/comercial/access.js` a permissão de finalização: o **autor** finaliza a sua, o **gestor** finaliza qualquer uma; `comercial:viewer` nunca.  ↳ `FR-028`
 - [X] T079 [US3] Implementar `GET /api/comercial/documentos/:id` com a regra de papel: `viewer` pedindo `COMERCIAL` recebe **403 na rota** — não é botão escondido. Liberar o PDF comercial contornaria a restrição de valores por outra porta.  ↳ `FR-030a`
@@ -589,3 +589,38 @@ substitui a ferramenta de origem.
 
 **Fase 9 não é opcional.** Mobile e a matriz de permissão são condição de aceite; o
 aceite de paridade é o que prova que o porte é fiel.
+
+---
+
+## Sugestões do comercial — 11/08/2026
+
+Levantadas por um colaborador do comercial **testando o app de referência**, não
+o módulo. Isso muda a natureza delas: são **requisitos**, não defeitos daqui — e
+parte já está resolvida de outro jeito. Registradas para não se perderem.
+
+- [X] T121 **Contato "outro"** — na referência o contato vem da busca do CRM, e
+  cotação da Petrobras chega sem contato. **Aqui já funciona**: o contato é campo
+  de texto livre. O requisito é para quando a busca do CRM for ligada: o caminho
+  de digitar à mão **não pode sumir**.
+- [X] T122 **Salvamento prévio** — **já feito nas duas camadas**: rascunho local
+  com autossalvamento (T089) e gravação no servidor a cada "Salvar e continuar"
+  (T054a). Falta autossalvar no servidor; hoje o automático é só local.
+- [ ] T123 **Busca do CRM por trecho, não por início.** "petro" precisa achar
+  "PETROLEO BRASILEIRO S A PETROBRAS". Depende da busca do CRM, que aqui está
+  desabilitada. Quem casa o nome é a API do Nectar — pode exigir filtrar do nosso
+  lado. A listagem de propostas **já** busca por trecho.
+- [ ] T124 **Máscara de R$ nos campos de valor** da tela de custos. Decisão do
+  mantenedor em 11/08: **centavos ao digitar**, igual à etapa Comercial da
+  proposta (`formatarDinheiro`), para as duas telas não divergirem. **É desvio
+  sobre a referência** — lá os campos são numéricos crus — e precisa entrar na
+  lista de desvios aprovados antes da T113.
+- [ ] T125 **Zero à esquerda em campo numérico** (o "070"). **Provavelmente não
+  reproduz aqui**: nossos campos guardam número, não texto. Conferir no navegador
+  antes de mexer — o defeito é da referência, que usa estado em texto.
+- [ ] T126 **Cálculo automático de distâncias.** Decisão do mantenedor em 11/08:
+  **levantar as opções antes de implementar** (Google Distance Matrix,
+  OpenRouteService, OSRM) com custo, limite de uso e exigência de chave. É a única
+  sugestão que traz dependência externa nova.
+- [ ] T127 **Reduzir a altura do cabeçalho** para sobrar área de trabalho.
+  **Por último, e com prévia para aprovação** — pedido explícito do mantenedor.
+  Também é desvio sobre a referência, e mexe no que a T114 compara pixel a pixel.

@@ -144,7 +144,7 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 | ~~**T074, T075, T079**~~ | **Feitas em 11/08.** `storage.js`, a emissão e o download. Os dois PDFs saem do registro, vão para o disco sob `COMERCIAL_DIR`, viram `ProposalDocument` e são baixáveis com a regra de papel. |
 | ~~**T076, T077, T078, T079a, T080, T085**~~ | **Feitas em 11/08.** `jobs.js`, a rota de finalização, o contrato de falha, a permissão, a exclusividade e a auditoria. **Só o Nectar** — SharePoint abaixo. |
 | ~~**T076a, T076b, T076c**~~ | **Feitas em 11/08.** A planilha de custos, com os dois formatos por `schemaVersion`. Vão **três** arquivos ao CRM: as duas propostas e a memória de cálculo. |
-| **SharePoint (parte da T076, mais T076f)** | Microsoft Graph com credenciais próprias: token, site, drive, pasta, upload. Fatia própria, no mesmo formato de três modos do Nectar. |
+| ~~**SharePoint, T076f**~~ | **Feito em 11/08.** Microsoft Graph com os mesmos três modos do Nectar e `off` por padrão. **Os dois destinos falham de forma independente**: SharePoint fora do ar não impede o card de entrar no CRM, e vice-versa. |
 | **T076d, T076e** | Anexos do cliente e o limite agregado. |
 | **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
 | **T084** | Tela de histórico — `frontend/src/pages/comercial/historico/`, ainda não existe. |
@@ -152,7 +152,8 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**112 tarefas fechadas, 44 abertas.**
+**115 tarefas fechadas, 48 abertas** — o crescimento vem das sete sugestões do
+comercial (T121–T127), registradas em 11/08.
 
 ### O Nectar não tem sandbox — e isso virou decisão de arquitetura
 

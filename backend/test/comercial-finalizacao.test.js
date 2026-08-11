@@ -10,6 +10,11 @@ process.env.COMERCIAL_DIR = await mkdtemp(path.join(tmpdir(), 'comercial-final-'
 // escreveria no CRM da empresa.
 process.env.NECTAR_MODE = 'fake';
 process.env.NECTAR_PIPELINE_IDS = '100,200';
+// O SharePoint nasce `off` pela mesma razão do Nectar: o destino é a biblioteca
+// real da empresa. Sem ligar o `fake` aqui, toda finalização deste arquivo
+// falharia — e falharia CERTO.
+process.env.SHAREPOINT_MODE = 'fake';
+process.env.SHAREPOINT_BASE_FOLDER = 'ZZ - Testes';
 
 const { finalizarProposta, exigirNaoFinalizada } = await import('../src/lib/comercial/jobs.js');
 const { documentosAtuais } = await import('../src/lib/comercial/documentos.js');
@@ -308,7 +313,8 @@ test('falha de integração é registrada na auditoria, com o motivo', async () 
 
   const falha = prisma.store.auditoria.find(item => item.action === 'INTEGRACAO_FALHOU');
   assert.ok(falha, 'a falha precisa deixar rastro');
-  assert.match(falha.detail.erro, /autorizada/i);
+  // O erro é registrado POR DESTINO: "a integração falhou" não diz qual.
+  assert.match(falha.detail.erroNectar, /autorizada/i);
 });
 
 test('FALHA_INTEGRACAO permite tentar de novo — não é beco sem saída', async () => {
@@ -413,6 +419,153 @@ test('levantamento vinculado que sumiu não derruba a finalização', async () =
 
   assert.equal(resultado.ok, true);
   assert.equal(crm.capturado.arquivos.length, 2);
+});
+
+// ---------------------------------------------------------------------------
+// SharePoint — e a independência entre os dois destinos
+// ---------------------------------------------------------------------------
+
+/** Um destino de arquivos que registra o que recebeu, e pode falhar sob comando. */
+function arquivosEspiao({ falhar = false } = {}) {
+  const capturado = { arquivos: [], opcoes: null };
+  return {
+    capturado,
+    indisponivel: () => '',
+    gravarArquivos: async (arquivos, opcoes) => {
+      capturado.arquivos = arquivos;
+      capturado.opcoes = opcoes;
+      if (falhar) throw new Error('O site não foi localizado no SharePoint.');
+      return { pasta: `ZZ - Testes/${opcoes.pastaExistente || opcoes.nomeDaPasta}`, arquivos: arquivos.length };
+    }
+  };
+}
+
+test('os mesmos três arquivos vão para os DOIS destinos', async () => {
+  // Montá-los duas vezes abriria a porta para o CRM e o SharePoint receberem
+  // versões diferentes do mesmo documento.
+  const prisma = fakePrisma(
+    [propostaBase({ costEstimateId: 'e1' })],
+    [{ id: 'e1', proposalCode: '4418', title: 'L', payload: { schemaVersion: 2, laborContexts: [] }, totalCost: 1, salePrice: 2, marginPercent: 15 }]
+  );
+
+  const crm = crmEspiao();
+  const arquivos = arquivosEspiao();
+  await finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf, crm, arquivos });
+
+  assert.equal(crm.capturado.arquivos.length, 3);
+  assert.equal(arquivos.capturado.arquivos.length, 3);
+  assert.deepEqual(
+    crm.capturado.arquivos.map(a => a.fileName),
+    arquivos.capturado.arquivos.map(a => a.fileName)
+  );
+});
+
+test('a pasta leva número, cliente e título da proposta', async () => {
+  const prisma = fakePrisma([propostaBase()]);
+  const arquivos = arquivosEspiao();
+
+  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
+    pipelineId: '100',
+    gerarPdf,
+    crm: crmEspiao(),
+    arquivos
+  });
+
+  assert.equal(arquivos.capturado.opcoes.nomeDaPasta, '4418 - Petrobras - Filtragem');
+  assert.equal(prisma.store.propostas[0].sharepointStatus, 'SUCESSO');
+  assert.match(resultado.sharepoint.pasta, /4418 - Petrobras/);
+});
+
+test('pasta existente do OneDrive tem precedência sobre criar uma nova (T076f)', async () => {
+  // A obra já tem pasta. Criar outra ao lado espalharia os documentos da mesma
+  // negociação por dois lugares.
+  const prisma = fakePrisma([propostaBase()]);
+  const arquivos = arquivosEspiao();
+
+  await finalizarProposta(prisma, vendedorA, 'p1', {
+    pipelineId: '100',
+    pastaExistente: 'Obra Macaé 2026',
+    gerarPdf,
+    crm: crmEspiao(),
+    arquivos
+  });
+
+  assert.equal(arquivos.capturado.opcoes.pastaExistente, 'Obra Macaé 2026');
+});
+
+test('O CASO QUE IMPORTA: SharePoint falha e o card AINDA entra no CRM', async () => {
+  // Encadear os dois destinos faria uma indisponibilidade da Microsoft apagar o
+  // trabalho no Nectar.
+  const prisma = fakePrisma([propostaBase()]);
+  const crm = crmEspiao();
+
+  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
+    pipelineId: '100',
+    gerarPdf,
+    crm,
+    arquivos: arquivosEspiao({ falhar: true })
+  });
+
+  assert.equal(resultado.ok, false);
+  assert.equal(crm.capturado.arquivos.length, 2, 'o CRM precisa ter recebido mesmo assim');
+
+  const proposta = prisma.store.propostas[0];
+  assert.equal(proposta.nectarStatus, 'SUCESSO');
+  assert.equal(proposta.sharepointStatus, 'ERRO');
+  assert.match(proposta.integrationError, /SharePoint/i);
+  // E os documentos continuam baixáveis (FR-034).
+  assert.equal(resultado.documentos.length, 2);
+});
+
+test('o inverso também: Nectar falha e a pasta AINDA é gravada', async () => {
+  const prisma = fakePrisma([propostaBase()]);
+  const arquivos = arquivosEspiao();
+
+  await finalizarProposta(prisma, vendedorA, 'p1', {
+    // Funil fora da lista branca derruba só o Nectar.
+    pipelineId: '999',
+    gerarPdf,
+    crm: crmEspiao(),
+    arquivos
+  });
+
+  assert.equal(arquivos.capturado.arquivos.length, 2, 'a pasta precisa ter sido gravada');
+  assert.equal(prisma.store.propostas[0].nectarStatus, 'ERRO');
+  assert.equal(prisma.store.propostas[0].sharepointStatus, 'SUCESSO');
+});
+
+test('os dois falhando, a mensagem traz os DOIS motivos', async () => {
+  // A pessoa precisa saber dos dois, não do primeiro.
+  const prisma = fakePrisma([propostaBase()]);
+
+  await finalizarProposta(prisma, vendedorA, 'p1', {
+    pipelineId: '999',
+    gerarPdf,
+    crm: crmEspiao(),
+    arquivos: arquivosEspiao({ falhar: true })
+  });
+
+  const erro = prisma.store.propostas[0].integrationError;
+  assert.match(erro, /autorizada/i);
+  assert.match(erro, /SharePoint/i);
+});
+
+test('a auditoria registra o estado dos DOIS destinos', async () => {
+  const prisma = fakePrisma([propostaBase()]);
+
+  await finalizarProposta(prisma, vendedorA, 'p1', {
+    pipelineId: '100',
+    gerarPdf,
+    crm: crmEspiao(),
+    arquivos: arquivosEspiao({ falhar: true })
+  });
+
+  const finalizada = prisma.store.auditoria.find(item => item.action === 'FINALIZADA');
+  assert.deepEqual(finalizada.detail, { nectar: 'SUCESSO', sharepoint: 'ERRO' });
+
+  const falha = prisma.store.auditoria.find(item => item.action === 'INTEGRACAO_FALHOU');
+  assert.equal(falha.erroNectar, undefined);
+  assert.match(falha.detail.erroSharepoint, /SharePoint/i);
 });
 
 // ---------------------------------------------------------------------------

@@ -180,7 +180,26 @@ const rawEnvSchema = z.object({
    * teste aponta para um funil de testes, e um erro de código não alcança o
    * funil onde o comercial trabalha. Vazia recusa tudo — não é "libera geral".
    */
-  NECTAR_PIPELINE_IDS: stringWithDefault('')
+  NECTAR_PIPELINE_IDS: stringWithDefault(''),
+
+  /**
+   * Gravação dos documentos no SharePoint, via Microsoft Graph.
+   *
+   * Mesmos três modos do Nectar, e `off` também é o padrão: o destino é a
+   * biblioteca real da empresa, e não existe cópia de teste dela.
+   */
+  SHAREPOINT_MODE: z.enum(['off', 'fake', 'real']).default('off'),
+  MICROSOFT_TENANT_ID: stringWithDefault(''),
+  MICROSOFT_CLIENT_ID: stringWithDefault(''),
+  MICROSOFT_CLIENT_SECRET: stringWithDefault(''),
+  SHAREPOINT_HOSTNAME: stringWithDefault(''),
+  SHAREPOINT_SITE_PATH: stringWithDefault(''),
+  /**
+   * Tudo é criado DENTRO desta pasta — é a contenção que não depende da
+   * Microsoft. Apontar o ambiente de teste para outra mantém o erro de código
+   * longe da pasta onde o comercial trabalha.
+   */
+  SHAREPOINT_BASE_FOLDER: stringWithDefault('02 - Comercial/Projetos em cotação')
 }).passthrough().superRefine((value, ctx) => {
   const trustProxyConfigured = value.TRUST_PROXY !== undefined && String(value.TRUST_PROXY).trim() !== '';
   const trustProxy = parseTrustProxy(value.TRUST_PROXY);
@@ -242,6 +261,13 @@ export function loadEnv(source = process.env) {
     nectarPipelineIds: raw.NECTAR_PIPELINE_IDS.split(',')
       .map(item => item.trim())
       .filter(Boolean),
+    sharepointMode: raw.SHAREPOINT_MODE,
+    microsoftTenantId: raw.MICROSOFT_TENANT_ID,
+    microsoftClientId: raw.MICROSOFT_CLIENT_ID,
+    microsoftClientSecret: raw.MICROSOFT_CLIENT_SECRET,
+    sharepointHostname: raw.SHAREPOINT_HOSTNAME,
+    sharepointSitePath: raw.SHAREPOINT_SITE_PATH,
+    sharepointBaseFolder: raw.SHAREPOINT_BASE_FOLDER,
     appUrl: raw.APP_URL,
     allowedOrigin: raw.ALLOWED_ORIGIN,
     allowedOrigins: parseOrigins(raw.ALLOWED_ORIGIN),
