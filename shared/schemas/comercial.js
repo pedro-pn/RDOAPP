@@ -221,6 +221,18 @@ export function makeComercialSchemas(z) {
      */
     proposalDocumentsRequest: z.object({ proposalId: id }),
 
+    /**
+     * Finalização: o id da proposta e o funil do CRM.
+     *
+     * O funil vem vazio quando o envio está desligado no ambiente — e isso é
+     * caminho normal, não erro de preenchimento: os documentos são gerados do
+     * mesmo jeito, e é a integração que recusa depois, com o motivo.
+     */
+    proposalFinalizeRequest: z.object({
+      proposalId: id,
+      pipelineId: z.string().trim().max(80).default('')
+    }),
+
     /** A listagem de propostas aceita busca livre, como o histórico da referência. */
     proposalListQuery: z.object({
       arquivados: z.coerce.boolean().default(false),

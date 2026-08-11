@@ -142,15 +142,32 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 | ~~**T051, T052, T054**~~ | **Feitas em 11/08.** `proposals.js` e as rotas de proposta: criar, editar, listar, arquivar e vincular ao levantamento. `proximaRevisao` está na lib e testada; a rota dela é a T053a. |
 | **T053a, T053b** | A rota de revisão e o reuso do card do CRM. **Dependem de schema**: `Proposal` não tem hoje nenhum campo de Nectar (`opportunityId`, `nectarPipelineId`), que a referência guarda no histórico. |
 | ~~**T074, T075, T079**~~ | **Feitas em 11/08.** `storage.js`, a emissão e o download. Os dois PDFs saem do registro, vão para o disco sob `COMERCIAL_DIR`, viram `ProposalDocument` e são baixáveis com a regra de papel. |
-| **T076–T076f** | `jobs.js` — Nectar e SharePoint, planilha de custos, anexos, limite agregado. |
-| **T077** | Contrato de falha: integração que falha depois dos documentos prontos responde erro **mas informa que eles continuam baixáveis**. |
-| **T079a, T079b, T110a** | Exclusividade da finalização e aviso de escrita concorrente. |
+| ~~**T076, T077, T078, T079a, T080, T085**~~ | **Feitas em 11/08.** `jobs.js`, a rota de finalização, o contrato de falha, a permissão, a exclusividade e a auditoria. **Só o Nectar** — SharePoint abaixo. |
+| **T076a, T076b, T076c** | A **planilha de custos** anexada à finalização. O gerador da referência tem **381 linhas** de porte fiel (dois formatos por `schemaVersion`); não foi portado pela metade de propósito. Hoje vão **dois** arquivos ao CRM, não três. |
+| **SharePoint (parte da T076, mais T076f)** | Microsoft Graph com credenciais próprias: token, site, drive, pasta, upload. Fatia própria, no mesmo formato de três modos do Nectar. |
+| **T076d, T076e** | Anexos do cliente e o limite agregado. |
+| **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
 | **T084** | Tela de histórico — `frontend/src/pages/comercial/historico/`, ainda não existe. |
 
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**101 tarefas fechadas, 55 abertas.**
+**107 tarefas fechadas, 49 abertas.**
+
+### O Nectar não tem sandbox — e isso virou decisão de arquitetura
+
+Pesquisado em 11/08. A [documentação](https://github.com/ColmeiaSolucoes/nectarcrm-api)
+e a [central de ajuda](https://ajuda.nectarcrm.com.br/hc/pt-br/articles/20569162217619-API-Nectar)
+publicam **uma URL só**, de produção. Não há homologação para onde apontar.
+Três contenções:
+
+1. **`NECTAR_MODE`** — `off` (padrão), `fake`, `real`. O padrão não pode ser
+   "tenta", porque a única coisa que ele alcançaria é o CRM da empresa. O `fake`
+   é o que torna a suíte possível.
+2. **`NECTAR_PIPELINE_IDS`** — lista branca de funis; **vazia recusa tudo**.
+   Aponte o ambiente de teste para um funil "ZZ — Testes".
+3. **No CRM, não no código:** o token do Nectar **herda as permissões do usuário
+   responsável** e tem validade. Crie um usuário restrito para os testes.
 
 O caminho está fechado ponta a ponta na tela: **criar → salvar → emitir →
 baixar**. O que falta para o módulo servir é a finalização (T076–T077) — o envio

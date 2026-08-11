@@ -19,6 +19,8 @@ import {
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
+import { finalizarProposta } from '../../lib/comercial/jobs.js';
+import { indisponivel, listarFunis } from '../../lib/comercial/nectar.js';
 import { attachmentContentDisposition } from '../../lib/documents/storage.js';
 import {
   archiveProposal,
@@ -69,6 +71,20 @@ function handleComercialError(error, res) {
     return true;
   }
   return false;
+}
+
+/**
+ * Lê a foto de um bloco de escopo para o gerador do documento.
+ *
+ * As fotos **não viajam no corpo**: só o `id` vem, e o servidor lê os bytes do
+ * disco. Mandá-las de volta a cada prévia trafegaria megabytes por clique, e o
+ * arquivo já está aqui. Está numa função só porque prévia, emissão e
+ * finalização precisam exatamente da mesma leitura.
+ */
+async function fotoDoBloco(bloco) {
+  const { bytes, contentType, fileName } = await lerFoto(prisma, bloco.assetKey || bloco.id);
+  const extensao = (fileName.split('.').pop() || 'jpg').toLowerCase();
+  return { bytes, extensao, mime: contentType };
 }
 
 router.get('/status', (_req, res) => {
@@ -316,17 +332,7 @@ router.post(
     // servidor lê os bytes do disco. Mandar a foto de volta ao servidor a cada
     // prévia trafegaria megabytes por clique, e o arquivo já está aqui.
     const bytes = await gerarPropostaEmPdf(
-      {
-        ...corpo,
-        lerFoto: async bloco => {
-          const { bytes: dados, contentType, fileName } = await lerFoto(
-            prisma,
-            bloco.assetKey || bloco.id
-          );
-          const extensao = (fileName.split('.').pop() || 'jpg').toLowerCase();
-          return { bytes: dados, extensao, mime: contentType };
-        }
-      },
+      { ...corpo, lerFoto: fotoDoBloco },
       tecnico ? 'technical' : 'commercial'
     );
 
@@ -412,24 +418,70 @@ router.post(
       const { proposalId } = schemas.proposalDocumentsRequest.parse(req.body);
 
       const resultado = await emitirDocumentos(prisma, req.auth.user, proposalId, {
-        gerarPdf: (dados, tipo) =>
-          gerarPropostaEmPdf(
-            {
-              ...dados,
-              lerFoto: async bloco => {
-                const { bytes, contentType, fileName } = await lerFoto(
-                  prisma,
-                  bloco.assetKey || bloco.id
-                );
-                const extensao = (fileName.split('.').pop() || 'jpg').toLowerCase();
-                return { bytes, extensao, mime: contentType };
-              }
-            },
-            tipo
-          )
+        gerarPdf: (dados, tipo) => gerarPropostaEmPdf({ ...dados, lerFoto: fotoDoBloco }, tipo)
       });
 
       res.status(201).json(resultado);
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+/**
+ * Os funis que este ambiente pode usar.
+ *
+ * A lista já vem **filtrada pela lista branca** — funil que existe no Nectar mas
+ * não está autorizado aqui não chega à tela, então ninguém o escolhe por engano.
+ * `motivoIndisponivel` diz por que a lista veio vazia: sem ele, o ambiente com o
+ * envio desligado mostraria um seletor vazio sem explicação.
+ */
+router.get(
+  '/nectar/funis',
+  requireComercialEstimator,
+  asyncHandler(async (_req, res) => {
+    const motivo = indisponivel();
+    if (motivo) return res.json({ items: [], motivoIndisponivel: motivo });
+
+    try {
+      res.json({ items: await listarFunis(), motivoIndisponivel: '' });
+    } catch (error) {
+      // Nectar fora do ar não derruba a tela: ela precisa continuar mostrando a
+      // proposta, e a emissão dos documentos não depende do CRM.
+      res.json({ items: [], motivoIndisponivel: error.message });
+    }
+  })
+);
+
+/**
+ * Finalização (T076/T077).
+ *
+ * **O contrato de falha é o ponto desta rota.** Quando a integração falha
+ * depois de os documentos estarem gravados, a resposta é **erro** — mas leva os
+ * documentos junto, porque eles existem e continuam baixáveis (FR-034). Um erro
+ * seco faria o usuário refazer trabalho que já está pronto no servidor.
+ */
+router.post(
+  '/propostas/finalizar',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const { proposalId, pipelineId } = schemas.proposalFinalizeRequest.parse(req.body);
+
+      const resultado = await finalizarProposta(prisma, req.auth.user, proposalId, {
+        pipelineId,
+        gerarPdf: (dados, tipo) => gerarPropostaEmPdf({ ...dados, lerFoto: fotoDoBloco }, tipo)
+      });
+
+      if (resultado.ok) return res.json(resultado);
+
+      return res.status(502).json({
+        error: resultado.integracao.mensagem,
+        documentosDisponiveis: true,
+        documentos: resultado.documentos,
+        integracao: resultado.integracao
+      });
     } catch (error) {
       if (handleComercialError(error, res)) return;
       throw error;
