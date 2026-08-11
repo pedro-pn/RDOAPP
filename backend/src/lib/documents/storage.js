@@ -73,10 +73,25 @@ export async function unlinkManagedDocumentFile(storagePath, {
   return true;
 }
 
-export function inlineContentDisposition(fileName) {
-  const ascii = String(fileName)
+/**
+ * Nome de arquivo em ASCII puro, para o par\u00e2metro `filename` antigo.
+ *
+ * Ele existe junto com o `filename*` porque nem todo cliente entende o segundo \u2014
+ * e "Proposta T\u00e9cnica.pdf" tem acento. Sem a vers\u00e3o dobrada, o nome chega
+ * quebrado ou o cabe\u00e7alho inteiro \u00e9 descartado.
+ */
+function nomeEmAscii(fileName) {
+  return String(fileName)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9 ._\-]/g, '_');
-  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
+export function inlineContentDisposition(fileName) {
+  return `inline; filename="${nomeEmAscii(fileName)}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
+/** For\u00e7a o download em vez de abrir no navegador. */
+export function attachmentContentDisposition(fileName) {
+  return `attachment; filename="${nomeEmAscii(fileName)}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }

@@ -423,7 +423,15 @@ documentos e o registro no histórico.
 - [ ] T076f [US3] Aceitar a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional) em `backend/lib/comercial/jobs.js`: havendo valor, grava dentro dela em vez de criar pasta nova.  ↳ `FR-058`
 - [ ] T077 [US3] **Contrato de falha (FR-034)** em `backend/lib/comercial/jobs.js`: se a integração falhar depois dos documentos gravados, a resposta é erro **mas informa que eles continuam disponíveis para download**, com os links. É comportamento da referência e precisa sobreviver ao porte — o trabalho não se perde.  ↳ `FR-034`
 - [ ] T078 [US3] Implementar em `backend/lib/comercial/access.js` a permissão de finalização: o **autor** finaliza a sua, o **gestor** finaliza qualquer uma; `comercial:viewer` nunca.  ↳ `FR-028`
-- [ ] T079 [US3] Implementar `GET /api/comercial/documentos/:id` com a regra de papel: `viewer` pedindo `COMERCIAL` recebe **403 na rota** — não é botão escondido. Liberar o PDF comercial contornaria a restrição de valores por outra porta.  ↳ `FR-030a`
+- [X] T079 [US3] Implementar `GET /api/comercial/documentos/:id` com a regra de papel: `viewer` pedindo `COMERCIAL` recebe **403 na rota** — não é botão escondido. Liberar o PDF comercial contornaria a restrição de valores por outra porta.  ↳ `FR-030a`
+
+  > **As regras dos três papéis divergem, e por isso não dá para reusar `canRead`
+  > para todos.** Para o orçamentista vale a **autoria**: vendedor pedindo documento
+  > de proposta alheia leva 403. Para a consulta vale o **tipo**: ela alcança a
+  > proposta de qualquer autor — a listagem é a superfície inteira dela — mas só a
+  > técnica. Esta é a única rota de proposta com `requireComercialAccess`, junto
+  > com a listagem. O teste do caso crítico está em `comercial-documentos.test.js`;
+  > a matriz completa continua sendo a T110.
 - [ ] T079a [US3] Implementar a **exclusividade da finalização** (FR-069) em `backend/lib/comercial/proposals.js`: verificar o estado **antes de gerar qualquer coisa** e devolver **409** informando **quando e por quem** foi finalizada. Sem isso, dois cliques com segundos de diferença geram dois pares de documentos, duas oportunidades no CRM e duas pastas — e as duas requisições respondem sucesso.  ↳ `FR-069`
 - [ ] T079b [US3] Implementar o **aviso de escrita concorrente** (FR-070) em `backend/lib/comercial/access.js`: comparar o `updatedAt` carregado pelo cliente com o atual e devolver **409** nomeando quem alterou e quando. **Aviso, não trava** — o cliente decide recarregar ou prosseguir.  ↳ `FR-070`
 - [ ] T080 [US3] Registrar `ProposalAuditLog` em `backend/lib/comercial/proposals.js` nas duas ações irreversíveis — finalização e envio externo —, no padrão de `ReportAuditLog`.

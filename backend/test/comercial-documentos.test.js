@@ -16,12 +16,14 @@ const {
   raizComercial
 } = await import('../src/lib/comercial/storage.js');
 const {
+  baixarDocumento,
   dadosDoDocumento,
   documentosAtuais,
   emitirDocumentos,
   nomeDoArquivo,
   rotuloDaProposta
 } = await import('../src/lib/comercial/documentos.js');
+const { attachmentContentDisposition } = await import('../src/lib/documents/storage.js');
 
 /**
  * Armazenamento e emissão dos documentos (tarefas T074 e T075).
@@ -44,6 +46,7 @@ test.after(async () => {
 const vendedorA = { id: 'u-vend-a', name: 'Vendedor A', moduleRoles: ['comercial:seller'] };
 const vendedorB = { id: 'u-vend-b', name: 'Vendedor B', moduleRoles: ['comercial:seller'] };
 const gestor = { id: 'u-gestor', name: 'Gestora', moduleRoles: ['comercial:manager'] };
+const consulta = { id: 'u-consulta', name: 'Consulta', moduleRoles: ['comercial:viewer'] };
 
 function propostaBase(extra = {}) {
   return {
@@ -76,6 +79,15 @@ function fakePrisma(propostas = []) {
       const items = store.documentos.filter(d => d.proposalId === where.proposalId);
       if (orderBy?.createdAt === 'desc') items.sort((a, b) => b.createdAt - a.createdAt);
       return items;
+    },
+    findUnique: async ({ where, include }) => {
+      const documento = store.documentos.find(d => d.id === where.id);
+      if (!documento) return null;
+      if (!include?.proposal) return documento;
+      return {
+        ...documento,
+        proposal: store.propostas.find(p => p.id === documento.proposalId) || null
+      };
     }
   };
 
@@ -346,4 +358,100 @@ test('emitir de novo cria par novo, sem apagar o anterior', async () => {
 test('emitir sem gerador é erro de programação, não 500 silencioso', async () => {
   const prisma = fakePrisma([propostaBase()]);
   await assert.rejects(() => emitirDocumentos(prisma, vendedorA, 'p1'), TypeError);
+});
+
+// ---------------------------------------------------------------------------
+// Download — T079, onde as regras dos três papéis divergem
+// ---------------------------------------------------------------------------
+
+/** Emite um par e devolve os dois documentos por tipo. */
+async function comDocumentosEmitidos(proposta = propostaBase()) {
+  const prisma = fakePrisma([proposta]);
+  const { documentos } = await emitirDocumentos(prisma, gestor, proposta.id, {
+    gerarPdf: geradorFalso()
+  });
+  const porTipo = Object.fromEntries(documentos.map(d => [d.kind, d.id]));
+  return { prisma, porTipo };
+}
+
+test('o autor baixa os dois documentos da sua proposta', async () => {
+  const { prisma, porTipo } = await comDocumentosEmitidos();
+
+  for (const kind of ['COMERCIAL', 'TECNICA']) {
+    const { bytes, fileName } = await baixarDocumento(prisma, vendedorA, porTipo[kind]);
+    assert.match(bytes.toString(), /^%PDF-/);
+    assert.match(fileName, /^Proposta (Comercial|Técnica) - 4418\.pdf$/);
+  }
+});
+
+test('vendedor não baixa documento de proposta de outro autor', async () => {
+  const { prisma, porTipo } = await comDocumentosEmitidos();
+
+  await assert.rejects(
+    () => baixarDocumento(prisma, vendedorB, porTipo.TECNICA),
+    error => error.statusCode === 403
+  );
+});
+
+test('O CASO CRÍTICO: a consulta pede a COMERCIAL e leva 403 DA ROTA', async () => {
+  // Não é botão escondido. A proposta comercial traz tabela de preços,
+  // condições de pagamento e valor total: servi-la a quem não pode ver valores
+  // contornaria a restrição por outra porta, e ela deixaria de valer para
+  // qualquer um com o link.
+  const { prisma, porTipo } = await comDocumentosEmitidos();
+
+  await assert.rejects(
+    () => baixarDocumento(prisma, consulta, porTipo.COMERCIAL),
+    error => {
+      assert.equal(error.statusCode, 403);
+      assert.match(error.message, /técnica/i, 'a mensagem precisa dizer o que ele PODE baixar');
+      return true;
+    }
+  );
+});
+
+test('a consulta baixa a TÉCNICA — inclusive de proposta de outro autor', async () => {
+  // Aqui a autoria não vale para ela: a listagem de propostas é a superfície
+  // inteira do papel de consulta, e a técnica não carrega valor nenhum.
+  const { prisma, porTipo } = await comDocumentosEmitidos();
+
+  const { bytes } = await baixarDocumento(prisma, consulta, porTipo.TECNICA);
+  assert.match(bytes.toString(), /^%PDF-/);
+});
+
+test('o gestor baixa documento de qualquer proposta', async () => {
+  const { prisma, porTipo } = await comDocumentosEmitidos();
+
+  const { bytes } = await baixarDocumento(prisma, gestor, porTipo.COMERCIAL);
+  assert.match(bytes.toString(), /^%PDF-/);
+});
+
+test('documento inexistente é 404', async () => {
+  const prisma = fakePrisma([propostaBase()]);
+
+  await assert.rejects(
+    () => baixarDocumento(prisma, gestor, 'd-fantasma'),
+    error => error.statusCode === 404
+  );
+});
+
+test('registro que aponta para arquivo sumido é 404, não erro cru', async () => {
+  const { prisma, porTipo } = await comDocumentosEmitidos();
+  const documento = prisma.store.documentos.find(d => d.id === porTipo.TECNICA);
+  documento.storagePath = 'propostas/4418/sumiu/technical.pdf';
+
+  await assert.rejects(
+    () => baixarDocumento(prisma, gestor, porTipo.TECNICA),
+    error => error.statusCode === 404
+  );
+});
+
+test('o nome com acento sobrevive ao cabeçalho, nas duas formas', () => {
+  // "Proposta Técnica" tem acento, e nem todo cliente entende `filename*`. Sem a
+  // versão dobrada o nome chega quebrado, ou o cabeçalho inteiro é descartado.
+  const cabecalho = attachmentContentDisposition('Proposta Técnica - 4418.pdf');
+
+  assert.match(cabecalho, /^attachment; /);
+  assert.match(cabecalho, /filename="Proposta Tecnica - 4418\.pdf"/);
+  assert.match(cabecalho, /filename\*=UTF-8''Proposta%20T%C3%A9cnica%20-%204418\.pdf/);
 });

@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
-import { canWrite, denialReason } from './access.js';
+import {
+  canDownloadDocument,
+  canRead,
+  canWrite,
+  denialReason,
+  isEstimator
+} from './access.js';
 import { ComercialError } from './cost-estimates.js';
 import { gravarArquivo, lerArquivo, pastaDaEmissao } from './storage.js';
 
@@ -162,22 +168,47 @@ export async function documentosAtuais(prisma, proposalId) {
   return [...porTipo.values()];
 }
 
-/** Lê os bytes de um documento já emitido. */
-export async function lerDocumento(prisma, documentId) {
+/**
+ * Baixa um documento já emitido (tarefa T079).
+ *
+ * **As duas regras são diferentes, e por isso não dá para reusar `canRead` para
+ * as três.**
+ *
+ * - Orçamentista (gestor ou vendedor): vale a **autoria**. Vendedor pedindo
+ *   documento de proposta alheia recebe 403, como em toda rota de item.
+ * - Consulta: vale o **tipo**. Ele alcança a proposta de qualquer autor — a
+ *   listagem é a superfície inteira dele —, mas só a técnica. A comercial traz
+ *   tabela de preços, condições de pagamento e valor total: liberá-la
+ *   contornaria a restrição de valores por outra porta, e a restrição deixaria
+ *   de valer para qualquer um com o link.
+ *
+ * **A negativa é da rota, não da tela.** Esconder o botão deixaria o arquivo
+ * servível para quem montasse a URL na mão.
+ */
+export async function baixarDocumento(prisma, user, documentId) {
   const documento = await prisma.proposalDocument.findUnique({
     where: { id: documentId },
     include: { proposal: true }
   });
   if (!documento) throw new ComercialError('Documento não encontrado.', 404);
 
+  const proposal = documento.proposal;
+
+  if (isEstimator(user)) {
+    if (!canRead(user, proposal)) {
+      throw new ComercialError(denialReason(user, proposal), 403);
+    }
+  } else if (!canDownloadDocument(user, documento)) {
+    throw new ComercialError(
+      'A proposta comercial traz valores. Você tem acesso apenas à proposta técnica.',
+      403
+    );
+  }
+
   return {
     documento,
-    proposal: documento.proposal,
+    proposal,
     bytes: await lerArquivo(documento.storagePath),
-    fileName: nomeDoArquivo(
-      documento.kind,
-      documento.proposal.proposalCode,
-      documento.proposal.revisionNumber
-    )
+    fileName: nomeDoArquivo(documento.kind, proposal.proposalCode, proposal.revisionNumber)
   };
 }

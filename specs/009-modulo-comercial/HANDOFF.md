@@ -141,8 +141,7 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 |---|---|
 | ~~**T051, T052, T054**~~ | **Feitas em 11/08.** `proposals.js` e as rotas de proposta: criar, editar, listar, arquivar e vincular ao levantamento. `proximaRevisao` está na lib e testada; a rota dela é a T053a. |
 | **T053a, T053b** | A rota de revisão e o reuso do card do CRM. **Dependem de schema**: `Proposal` não tem hoje nenhum campo de Nectar (`opportunityId`, `nectarPipelineId`), que a referência guarda no histórico. |
-| ~~**T074, T075**~~ | **Feitas em 11/08.** `storage.js` e a emissão: os dois PDFs saem do registro, vão para o disco sob `COMERCIAL_DIR` e só então viram `ProposalDocument`. |
-| **T079** | `GET /documentos/:id` — **o download ainda não existe**. A emissão grava e ninguém consegue baixar. É a próxima. |
+| ~~**T074, T075, T079**~~ | **Feitas em 11/08.** `storage.js`, a emissão e o download. Os dois PDFs saem do registro, vão para o disco sob `COMERCIAL_DIR`, viram `ProposalDocument` e são baixáveis com a regra de papel. |
 | **T076–T076f** | `jobs.js` — Nectar e SharePoint, planilha de custos, anexos, limite agregado. |
 | **T077** | Contrato de falha: integração que falha depois dos documentos prontos responde erro **mas informa que eles continuam baixáveis**. |
 | **T079a, T079b, T110a** | Exclusividade da finalização e aviso de escrita concorrente. |
@@ -151,7 +150,11 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**99 tarefas fechadas, 56 abertas.**
+**100 tarefas fechadas, 55 abertas.**
+
+O backend da emissão está fechado ponta a ponta: **criar → salvar → emitir →
+baixar**. O que falta para o módulo servir é a finalização (T076–T077) e a
+ligação da tela, que ainda não chama nada disso.
 
 > **Sem tarefa dona:** a tela ainda **não chama** `POST`/`PUT /propostas`. O
 > formulário salva em rascunho local e as rotas existem, mas ninguém as liga.

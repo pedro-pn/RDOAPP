@@ -18,7 +18,8 @@ import {
   updateCostEstimate
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
-import { emitirDocumentos } from '../../lib/comercial/documentos.js';
+import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
+import { attachmentContentDisposition } from '../../lib/documents/storage.js';
 import {
   archiveProposal,
   createProposal,
@@ -490,6 +491,38 @@ router.post(
         archive: false
       });
       res.json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Documentos emitidos
+// ---------------------------------------------------------------------------
+
+/**
+ * Download de um documento emitido (T079).
+ *
+ * `requireComercialAccess`, e não `requireComercialEstimator`: o papel de
+ * consulta baixa a proposta **técnica**. O que ele não alcança é a comercial —
+ * e a negativa é **desta rota**, com 403. Esconder o botão na tela deixaria o
+ * arquivo servível para quem montasse a URL na mão, e a restrição de valores
+ * deixaria de valer para qualquer um com o link.
+ */
+router.get(
+  '/documentos/:id',
+  asyncHandler(async (req, res) => {
+    try {
+      const { bytes, fileName } = await baixarDocumento(prisma, req.auth.user, req.params.id);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', attachmentContentDisposition(fileName));
+      // Documento com valor de proposta não fica em cache compartilhado.
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      return res.send(bytes);
     } catch (error) {
       if (handleComercialError(error, res)) return;
       throw error;
