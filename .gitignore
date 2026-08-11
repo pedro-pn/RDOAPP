@@ -92,3 +92,7 @@ RELATORIO_PENTEST_FILTROVALI.md
 opencode.jsonc
 .claude/settings.json.bak
 *.bak
+
+# Arquivos de trava do LibreOffice: aparecem enquanto alguem esta com o
+# documento ABERTO, e somem ao fechar. Nao sao conteudo.
+.~lock.*#
