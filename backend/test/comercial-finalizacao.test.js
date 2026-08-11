@@ -74,6 +74,7 @@ function fakePrisma(propostas = [], levantamentos = []) {
     propostas: [...propostas],
     levantamentos: [...levantamentos],
     documentos: [],
+    anexos: [],
     auditoria: [],
     atualizacoes: []
   };
@@ -115,6 +116,15 @@ function fakePrisma(propostas = [], levantamentos = []) {
       }
     },
     proposalDocument,
+    proposalAttachment: {
+      findMany: async ({ where }) =>
+        store.anexos.filter(item => item.proposalId === where.proposalId),
+      create: async ({ data }) => {
+        const row = { id: `a${store.anexos.length + 1}`, createdAt: new Date(), ...data };
+        store.anexos.push(row);
+        return row;
+      }
+    },
     proposalAuditLog: {
       create: async ({ data }) => {
         store.auditoria.push(data);

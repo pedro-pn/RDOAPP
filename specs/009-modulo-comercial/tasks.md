@@ -425,8 +425,8 @@ documentos e o registro no histórico.
 - [X] T076a [US3] Implementar `backend/src/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.  ↳ `FR-054`
 - [X] T076b [US3] Implementar em `backend/src/lib/comercial/cost-csv.js` os **dois formatos por versão de esquema** (FR-055), escolhidos pelo `schemaVersion` do levantamento: esquema 2 em diante e legado. **Proposta antiga não pode quebrar a finalização.**  ↳ `FR-055`
 - [X] T076c [US3] Enviar a planilha junto com os dois PDFs em `backend/src/lib/comercial/jobs.js` — são **três** arquivos ao destino, não dois.
-- [ ] T076d [US3] Implementar `POST /api/comercial/propostas/:id/anexos` em `backend/src/routes/comercial/` e o model `ProposalAttachment` — os **arquivos adicionais do cliente** (`PROP-CTL-081`), que vão para a mesma pasta dos documentos. Um por requisição.  ↳ `FR-057`
-- [ ] T076e [US3] Validar em `backend/lib/comercial/jobs.js` o **limite agregado** do envio (FR-059): dois PDFs + planilha + todos os anexos, somados. Validar cada um isoladamente deixa passar o conjunto.  ↳ `FR-059`
+- [X] T076d [US3] Implementar `POST /api/comercial/propostas/:id/anexos` em `backend/src/routes/comercial/` e o model `ProposalAttachment` — os **arquivos adicionais do cliente** (`PROP-CTL-081`), que vão para a mesma pasta dos documentos. Um por requisição.  ↳ `FR-057`
+- [X] T076e [US3] Validar em `backend/src/lib/comercial/jobs.js` o **limite agregado** do envio (FR-059): dois PDFs + planilha + todos os anexos, somados. Validar cada um isoladamente deixa passar o conjunto.  ↳ `FR-059`
 - [X] T076f [US3] Aceitar a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional) em `backend/lib/comercial/jobs.js`: havendo valor, grava dentro dela em vez de criar pasta nova.  ↳ `FR-058`
 - [X] T077 [US3] **Contrato de falha (FR-034)** em `backend/lib/comercial/jobs.js`: se a integração falhar depois dos documentos gravados, a resposta é erro **mas informa que eles continuam disponíveis para download**, com os links. É comportamento da referência e precisa sobreviver ao porte — o trabalho não se perde.  ↳ `FR-034`
 - [X] T078 [US3] Implementar em `backend/src/lib/comercial/access.js` a permissão de finalização: o **autor** finaliza a sua, o **gestor** finaliza qualquer uma; `comercial:viewer` nunca.  ↳ `FR-028`
@@ -626,3 +626,10 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   **Por último, e com prévia para aprovação** — condição do mantenedor. **Desvio
   nº 15**, aprovado em 11/08. Mexe no que a T114 compara pixel a pixel, então o
   registro é o que impede a validação final de acusá-lo como defeito de porte.
+
+- [ ] T128 **Remover anexo enviado por engano.** Hoje não há caminho: o anexo
+  errado fica, e um arquivo grande pode travar a finalização pelo limite
+  agregado sem saída. **Precisa de decisão do mantenedor**, porque esbarra no
+  FR-060 — "nenhuma rota do módulo apaga registro". As opções são arquivar o
+  anexo (exige coluna nova) ou abrir uma exceção explícita à regra para anexo,
+  que não é registro de negócio e sim arquivo que o usuário acabou de juntar.

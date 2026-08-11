@@ -145,14 +145,14 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 | ~~**T076, T077, T078, T079a, T080, T085**~~ | **Feitas em 11/08.** `jobs.js`, a rota de finalização, o contrato de falha, a permissão, a exclusividade e a auditoria. **Só o Nectar** — SharePoint abaixo. |
 | ~~**T076a, T076b, T076c**~~ | **Feitas em 11/08.** A planilha de custos, com os dois formatos por `schemaVersion`. Vão **três** arquivos ao CRM: as duas propostas e a memória de cálculo. |
 | ~~**SharePoint, T076f**~~ | **Feito em 11/08.** Microsoft Graph com os mesmos três modos do Nectar e `off` por padrão. **Os dois destinos falham de forma independente**: SharePoint fora do ar não impede o card de entrar no CRM, e vice-versa. |
-| **T076d, T076e** | Anexos do cliente e o limite agregado. |
+| ~~**T076d, T076e**~~ | **Feitos em 11/08.** Anexos do cliente, um por requisição, e o limite agregado conferido no upload e de novo na finalização. **Falta remover anexo** — T128, precisa de decisão. |
 | **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
 | **T084** | Tela de histórico — `frontend/src/pages/comercial/historico/`, ainda não existe. |
 
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**115 tarefas fechadas, 48 abertas** — o crescimento vem das sete sugestões do
+**117 tarefas fechadas, 47 abertas** — o crescimento vem das sete sugestões do
 comercial (T121–T127), registradas em 11/08.
 
 ### O Nectar não tem sandbox — e isso virou decisão de arquitetura

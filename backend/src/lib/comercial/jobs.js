@@ -1,4 +1,5 @@
 import { canFinalize, denialReason } from './access.js';
+import { arquivosAnexados, exigirLimiteAgregado } from './anexos.js';
 import { planilhaDeCustos } from './cost-csv.js';
 import { ComercialError } from './cost-estimates.js';
 import { documentosAtuais, emitirDocumentos } from './documentos.js';
@@ -86,14 +87,22 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
   // Os arquivos são montados UMA vez e vão para os dois destinos. Ler o disco
   // duas vezes abriria a porta para o CRM e o SharePoint receberem versões
   // diferentes do mesmo documento.
-  const arquivos = await arquivosDaProposta(prisma, proposta, documentos);
+  const { arquivos, impedimento } = await arquivosDaProposta(prisma, proposta, documentos);
 
   // **Os dois destinos são tentados, e a falha de um não impede o outro.** Se o
   // SharePoint estiver fora do ar, o card ainda entra no CRM com os anexos — e o
   // contrário também. Encadear os dois faria uma indisponibilidade da Microsoft
   // apagar o trabalho no Nectar.
-  const integracao = await enviarAoNectar(proposta, pipelineId, arquivos, crm);
-  const pasta = await enviarAoSharePoint(proposta, arquivos, pastaExistente, destinoDeArquivos);
+  //
+  // O impedimento do limite agregado barra os DOIS: mandar só ao CRM deixaria a
+  // pasta do SharePoint sem os mesmos arquivos, que é o que ninguém quer
+  // descobrir depois.
+  const integracao = impedimento
+    ? { status: 'ERRO', mensagem: impedimento, opportunityId: '', pipelineId: '', pipelineName: '' }
+    : await enviarAoNectar(proposta, pipelineId, arquivos, crm);
+  const pasta = impedimento
+    ? { status: 'ERRO', mensagem: '', pasta: '' }
+    : await enviarAoSharePoint(proposta, arquivos, pastaExistente, destinoDeArquivos);
 
   const sucesso = integracao.status === 'SUCESSO' && pasta.status === 'SUCESSO';
   const erros = [integracao.mensagem, pasta.mensagem].filter(Boolean);
@@ -239,9 +248,28 @@ async function enviarAoSharePoint(proposta, arquivos, pastaExistente, destino) {
  */
 async function arquivosDaProposta(prisma, proposta, documentos) {
   const arquivos = await bytesDosDocumentos(prisma, proposta.id, documentos);
+
   const planilha = await planilhaDaProposta(prisma, proposta);
   if (planilha) arquivos.push(planilha);
-  return arquivos;
+
+  // Os anexos do cliente vão para a MESMA pasta dos documentos (FR-057).
+  arquivos.push(...(await arquivosAnexados(prisma, proposta.id)));
+
+  // A conta final do limite acontece aqui, com os arquivos de verdade —
+  // inclusive a planilha, que não existia quando os anexos foram enviados.
+  // Validar cada um isoladamente deixaria o conjunto passar (FR-059).
+  //
+  // O estouro é devolvido como IMPEDIMENTO, não lançado: os documentos já estão
+  // gerados e gravados, e lançar aqui deixaria a proposta presa em FINALIZANDO
+  // com o trabalho inacessível. Como impedimento, ele vira falha de integração —
+  // e a pessoa recebe os links dos PDFs junto com o pedido para tirar um anexo.
+  try {
+    exigirLimiteAgregado(arquivos);
+  } catch (error) {
+    return { arquivos, impedimento: error.message };
+  }
+
+  return { arquivos, impedimento: '' };
 }
 
 function dadosParaOCrm(proposta, funil) {

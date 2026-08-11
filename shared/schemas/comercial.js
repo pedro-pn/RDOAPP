@@ -59,6 +59,28 @@ export const SCOPE_LIMITS = {
   captionCharacters: 240
 };
 
+/**
+ * Limites do envio na finalização (FR-059), portados de `lib/finalization.ts`.
+ *
+ * **O limite é AGREGADO**, e essa é a regra inteira: dois PDFs + a planilha de
+ * custos + todos os anexos, somados. Validar cada arquivo isoladamente deixa o
+ * conjunto passar — cinco anexos de 5 MB passam um a um e estouram juntos, e a
+ * descoberta acontece no meio do envio, com o card já criado no CRM.
+ */
+export const ATTACHMENT_LIMITS = {
+  /** Soma de tudo que vai ao destino externo. */
+  maxAggregateBytes: 20 * 1024 * 1024,
+  /** Corpo de UMA requisição de anexo — um arquivo por vez. */
+  maxRequestBytes: 22 * 1024 * 1024
+};
+
+export function formatFileSize(bytes) {
+  const valor = Number(bytes) || 0;
+  if (valor < 1024) return `${valor} B`;
+  if (valor < 1024 * 1024) return `${(valor / 1024).toFixed(1)} KB`;
+  return `${(valor / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /** Limites do upload de foto de escopo (app/api/scope-assets/route.ts). */
 export const SCOPE_PHOTO_LIMITS = {
   allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],

@@ -1,7 +1,11 @@
 import express, { Router } from 'express';
 import { z } from 'zod';
 
-import { SCOPE_PHOTO_LIMITS, makeComercialSchemas } from '../../../../shared/schemas/comercial.js';
+import {
+  ATTACHMENT_LIMITS,
+  SCOPE_PHOTO_LIMITS,
+  makeComercialSchemas
+} from '../../../../shared/schemas/comercial.js';
 import asyncHandler from '../../lib/async-handler.js';
 import {
   canViewValues,
@@ -19,6 +23,7 @@ import {
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
+import { anexarArquivo, listarAnexos } from '../../lib/comercial/anexos.js';
 import { finalizarProposta } from '../../lib/comercial/jobs.js';
 import { indisponivel, listarFunis } from '../../lib/comercial/nectar.js';
 import { attachmentContentDisposition } from '../../lib/documents/storage.js';
@@ -485,6 +490,55 @@ router.post(
         integracao: resultado.integracao,
         sharepoint: resultado.sharepoint
       });
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+/**
+ * Anexos do cliente (T076d) — `PROP-CTL-081`.
+ *
+ * **Um arquivo por requisição**, ao contrário da referência, que mandava tudo
+ * junto no `finalize`. Separar evita estourar o limite de corpo em proposta com
+ * muitos anexos, e dá a recusa **no arquivo que a causou**.
+ *
+ * Binário cru, no mesmo padrão das fotos de escopo: o nome vem em `x-file-name`.
+ * O limite agregado é conferido aqui **e** de novo na finalização — aqui por
+ * gentileza, lá porque é o contrato (FR-059).
+ */
+router.post(
+  '/propostas/:id/anexos',
+  requireComercialEstimator,
+  express.raw({ type: () => true, limit: ATTACHMENT_LIMITS.maxRequestBytes }),
+  asyncHandler(async (req, res) => {
+    try {
+      const anexo = await anexarArquivo(prisma, req.auth.user, req.params.id, {
+        bytes: Buffer.isBuffer(req.body) ? req.body : null,
+        fileName: decodeURIComponent(String(req.headers['x-file-name'] || ''))
+      });
+
+      res.status(201).json({
+        id: anexo.id,
+        originalName: anexo.originalName,
+        byteSize: anexo.byteSize,
+        createdAt: anexo.createdAt
+      });
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+/** A listagem diz também quanto do limite agregado já foi usado. */
+router.get(
+  '/propostas/:id/anexos',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(await listarAnexos(prisma, req.auth.user, req.params.id));
     } catch (error) {
       if (handleComercialError(error, res)) return;
       throw error;
