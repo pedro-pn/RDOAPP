@@ -605,10 +605,23 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
 - [X] T122 **Salvamento prévio** — **já feito nas duas camadas**: rascunho local
   com autossalvamento (T089) e gravação no servidor a cada "Salvar e continuar"
   (T054a). Falta autossalvar no servidor; hoje o automático é só local.
-- [ ] T123 **Busca do CRM por trecho, não por início.** "petro" precisa achar
-  "PETROLEO BRASILEIRO S A PETROBRAS". Depende da busca do CRM, que aqui está
-  desabilitada. Quem casa o nome é a API do Nectar — pode exigir filtrar do nosso
-  lado. A listagem de propostas **já** busca por trecho.
+- [ ] T123 **Busca do CRM por trecho, não por início.**
+
+  > **Medido em 11/08, com o token real (só leitura).** O filtro `nome` do Nectar
+  > casa **só por prefixo**: `nome=petro` devolve 9 contatos, entre eles
+  > "PETROLEO BRASILEIRO S A PETROBRAS"; `nome=petrobras` e `nome=BRASILEIRO`
+  > devolvem **zero**. A queixa do colaborador está certa, **não é defeito nosso,
+  > e não tem conserto por parâmetro** — o conserto é do nosso lado.
+  >
+  > Duas descobertas que mudam o desenho: no Nectar **empresa é um `contato` com
+  > CNPJ de 14 dígitos** (é assim que a referência distingue, e o endpoint
+  > `/empresas` **não existe** — devolve 404 em HTML); e `/contatos` **pagina de
+  > 100 em 100**, ignorando `displayLength` maior.
+  >
+  > Caminho recomendado: **espelho local do cadastro**, sincronizado paginando,
+  > com busca por trecho no nosso banco — mesmo padrão que o módulo já usa para o
+  > import do Access. Alternativa barata e pior: paginar sob demanda até achar,
+  > que gasta chamadas e piora conforme o cadastro cresce.
 - [X] T124 **Máscara de R$ nos campos de valor** da tela de custos. Decisão do
   mantenedor em 11/08: **centavos ao digitar**, igual à etapa Comercial da
   proposta (`formatarDinheiro`), para as duas telas não divergirem. **Desvio nº 14**,
