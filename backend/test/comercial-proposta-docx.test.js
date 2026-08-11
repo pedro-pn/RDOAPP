@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import AdmZip from 'adm-zip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
@@ -8,6 +11,28 @@ import {
   arquivoDoModelo,
   preencherProposta
 } from '../src/lib/comercial/proposta-docx.js';
+
+const MODELOS = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../Modelos/definitivos/Comercial/modelos'
+);
+
+/**
+ * Quantas imagens o MODELO tem.
+ *
+ * A contagem era um número fixo no teste (13), e ela caiu para 12 quando alguém
+ * abriu o modelo no LibreOffice e salvou: o programa descartou um
+ * `hdphoto1.wdp`, que é a representação alternativa que o Word guarda ao lado da
+ * imagem normal. Nenhuma figura visível se perdeu.
+ *
+ * O invariante que interessa não é "o documento tem 13 imagens" — isso é
+ * conteúdo do modelo, e o modelo é editável de propósito. É **o preenchimento
+ * não perde nem inventa imagem**. Por isso a conta agora é relativa.
+ */
+function imagensDoModelo(tipo, modelo = 'padrao') {
+  const zip = new AdmZip(readFileSync(join(MODELOS, arquivoDoModelo(tipo, modelo))));
+  return zip.getEntries().filter(e => e.entryName.startsWith('word/media/')).length;
+}
 
 /**
  * O preenchimento do modelo `.docx`.
@@ -149,13 +174,35 @@ test('nenhum marcador sobra em NENHUMA parte do pacote', async () => {
   }
 });
 
+/**
+ * Os cabeçalhos, TODOS eles.
+ *
+ * Estes testes olhavam `word/header1.xml` fixo, e quebraram no dia em que
+ * alguém abriu o modelo no LibreOffice e salvou: o programa dividiu o cabeçalho
+ * em `header1/2/3` e a data foi para o `header2`. Um teste que aponta para uma
+ * parte fixa mede o pacote, não o comportamento — e o pacote é editável por
+ * quem escreve o documento, de propósito.
+ */
+function cabecalhos(zip) {
+  return zip
+    .getEntries()
+    .filter(entrada => /^word\/header\d*\.xml$/.test(entrada.entryName))
+    .map(entrada => entrada.getData().toString('utf8'));
+}
+
 test('a data do cabeçalho sai por extenso, no dia certo', async () => {
   const zip = new AdmZip(await preencherProposta(DADOS, 'commercial'));
-  const cabecalho = zip.getEntry('word/header1.xml').getData().toString('utf8');
+  const partes = cabecalhos(zip);
 
-  assert.match(cabecalho, /7 de janeiro de 2026/);
+  assert.ok(
+    partes.some(xml => /7 de janeiro de 2026/.test(xml)),
+    'a data não saiu em nenhum cabeçalho'
+  );
   // "2026-01-07" lido como meia-noite UTC seria 6 de janeiro em Brasília.
-  assert.ok(!/6 de janeiro de 2026/.test(cabecalho), 'a data voltou um dia');
+  assert.ok(
+    !partes.some(xml => /6 de janeiro de 2026/.test(xml)),
+    'a data voltou um dia'
+  );
 });
 
 test('a data é alinhada à direita por regra, não por espaços', async () => {
@@ -163,13 +210,21 @@ test('a data é alinhada à direita por regra, não por espaços', async () => {
   // do espaço difere entre Word e LibreOffice: na conversão a linha estourava a
   // margem, quebrava, e a data reaparecia no começo da linha seguinte.
   const zip = new AdmZip(await preencherProposta(DADOS, 'commercial'));
-  const cabecalho = zip.getEntry('word/header1.xml').getData().toString('utf8');
+  const comData = cabecalhos(zip).filter(xml => /de janeiro de 2026/.test(xml));
 
-  assert.match(cabecalho, /<w:jc w:val="right"\/>/);
-  assert.ok(
-    !/<w:t[^>]*>\s{20,}<\/w:t>/.test(cabecalho),
-    'sobrou preenchimento por espaços no cabeçalho'
-  );
+  assert.ok(comData.length, 'nenhum cabeçalho trouxe a data');
+  for (const xml of comData) {
+    // `right` e `end` são o MESMO alinhamento: o primeiro é o valor do OOXML
+    // transicional, que o Word grava, e o segundo é o do estrito, que o
+    // LibreOffice prefere ao salvar. Para texto da esquerda para a direita não
+    // há diferença — e exigir só um dos dois faria o teste reprovar o documento
+    // pelo programa que o salvou, não pelo que ele contém.
+    assert.match(xml, /<w:jc w:val="(right|end)"\/>/);
+    assert.ok(
+      !/<w:t[^>]*>\s{20,}<\/w:t>/.test(xml),
+      'sobrou preenchimento por espaços no cabeçalho'
+    );
+  }
 });
 
 test('todo run criado do zero herda a formatação do parágrafo', async () => {
@@ -327,8 +382,12 @@ test('o pacote continua um .docx válido, com as imagens', async () => {
 
   assert.ok(nomes.includes('word/document.xml'));
   assert.ok(nomes.includes('[Content_Types].xml'));
-  // As 13 imagens do documento — timbrado, capa e institucionais.
-  assert.equal(nomes.filter(n => n.startsWith('word/media/')).length, 13);
+  // Sem foto de escopo, o preenchimento não pode perder nem inventar imagem:
+  // sai com as mesmas do modelo — timbrado, capa e institucionais.
+  assert.equal(
+    nomes.filter(n => n.startsWith('word/media/')).length,
+    imagensDoModelo('commercial')
+  );
 });
 
 /* --------------------------------------------------------------------------
@@ -390,7 +449,11 @@ test('a foto do escopo entra como imagem, com legenda', async () => {
   // Os três lugares: bytes, relação e tipo de conteúdo. Esquecer qualquer um
   // produz um pacote que o Word RECUSA a abrir — não um documento feio.
   const midia = zip.getEntries().filter(e => e.entryName.startsWith('word/media/'));
-  assert.equal(midia.length, 14, 'a foto não foi gravada em word/media');
+  assert.equal(
+    midia.length,
+    imagensDoModelo('commercial') + 1,
+    'a foto não foi gravada em word/media'
+  );
 
   const rels = zip.getEntry('word/_rels/document.xml.rels').getData().toString('utf8');
   const idDaFoto = /Id="(rId\d+)"[^>]*Target="media\/escopo-/.exec(rels)?.[1];

@@ -208,30 +208,58 @@ test('o modelo preserva TODAS as imagens do documento original', async () => {
   const desenhos = xml =>
     (xml.match(/<w:drawing>/g) || []).length + (xml.match(/<w:pict>/g) || []).length;
 
+  /**
+   * Conta as imagens que alguém **vê**.
+   *
+   * O `.wdp` (JPEG XR) fica de fora: ele não é uma figura do documento, é a
+   * representação alternativa que o Word guarda ao lado da imagem normal para
+   * certos efeitos. O LibreOffice não o suporta e o descarta ao salvar — e
+   * salvar o modelo no LibreOffice é caminho previsto aqui, não acidente.
+   * Contá-lo faria o teste reprovar o modelo pelo programa que o salvou.
+   */
+  const imagensVisiveis = zip =>
+    zip
+      .getEntries()
+      .filter(e => e.entryName.startsWith('word/media/') && !e.entryName.endsWith('.wdp'))
+      .length;
+
+  /** Todos os cabeçalhos somados: o modelo pode ter um só ou três. */
+  const desenhosNosCabecalhos = zip =>
+    zip
+      .getEntries()
+      .filter(e => /^word\/header\d*\.xml$/.test(e.entryName))
+      .reduce((total, e) => total + desenhos(e.getData().toString('utf8')), 0);
+
   for (const [modelo, original] of Object.entries(ORIGINAIS)) {
     const doOriginal = new AdmZip(
       await readFile(path.resolve(MODELOS, '..', original))
     );
     const doModelo = new AdmZip(await readFile(path.join(MODELOS, modelo)));
 
-    const midiaOriginal = doOriginal
-      .getEntries()
-      .filter(e => e.entryName.startsWith('word/media/')).length;
-    const midiaModelo = doModelo
-      .getEntries()
-      .filter(e => e.entryName.startsWith('word/media/')).length;
-    assert.equal(midiaModelo, midiaOriginal, `${modelo}: perdeu arquivo de imagem`);
+    assert.equal(
+      imagensVisiveis(doModelo),
+      imagensVisiveis(doOriginal),
+      `${modelo}: perdeu arquivo de imagem`
+    );
 
-    for (const parte of ['word/header1.xml', 'word/document.xml']) {
-      const a = doOriginal.getEntry(parte);
-      const b = doModelo.getEntry(parte);
-      if (!a || !b) continue;
-      assert.equal(
-        desenhos(b.getData().toString('utf8')),
-        desenhos(a.getData().toString('utf8')),
-        `${modelo} em ${parte}: perdeu imagem`
-      );
-    }
+    // O timbrado é somado em TODOS os cabeçalhos, e a comparação é "não pode
+    // ser menos", não "tem de ser igual".
+    //
+    // O defeito que este teste existe para pegar é a arte SUMIR — foi o que
+    // aconteceu quando apaguei os runs "vazios" do parágrafo da data. Salvar o
+    // modelo no LibreOffice divide um cabeçalho em três e **copia** a arte para
+    // o que ele cria, então a conta sobe; exigir igualdade reprovaria o modelo
+    // por uma duplicata inofensiva em cabeçalho que a seção nem usa.
+    assert.ok(
+      desenhosNosCabecalhos(doModelo) >= desenhosNosCabecalhos(doOriginal),
+      `${modelo}: perdeu imagem nos cabeçalhos`
+    );
+
+    assert.equal(
+      desenhos(doModelo.getEntry('word/document.xml').getData().toString('utf8')),
+      desenhos(doOriginal.getEntry('word/document.xml').getData().toString('utf8')),
+      `${modelo} em word/document.xml: perdeu imagem`
+    );
   }
 });
 
@@ -240,12 +268,20 @@ test('o documento preenchido não perde imagem no caminho', async () => {
   const zip = new AdmZip(
     await preencherProposta({ modelo: 'padrao', rows: [], prices: [], scopeItems: [] }, 'commercial')
   );
-  const cabecalho = zip.getEntry('word/header1.xml').getData().toString('utf8');
-  assert.match(cabecalho, /<w:drawing>/, 'o timbrado sumiu no preenchimento');
-  assert.equal(
-    zip.getEntries().filter(e => e.entryName.startsWith('word/media/')).length,
-    13
-  );
+  const arte = zip
+    .getEntries()
+    .filter(e => /^word\/header\d*\.xml$/.test(e.entryName))
+    .some(e => /<w:drawing>/.test(e.getData().toString('utf8')));
+  assert.ok(arte, 'o timbrado sumiu no preenchimento');
+
+  // Relativo ao modelo, não a um número fixo: o modelo é editável de propósito,
+  // e a garantia aqui é que o PREENCHIMENTO não perde imagem — não que o
+  // documento tenha exatamente N figuras.
+  const doModelo = new AdmZip(await readFile(path.join(MODELOS, 'Proposta Comercial.docx')));
+  const contar = pacote =>
+    pacote.getEntries().filter(e => e.entryName.startsWith('word/media/')).length;
+
+  assert.equal(contar(zip), contar(doModelo));
 });
 
 /* --------------------------------------------------------------------------

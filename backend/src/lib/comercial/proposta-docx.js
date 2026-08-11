@@ -43,8 +43,29 @@ const ARQUIVOS = {
   'technical:hidrojateamento': 'Proposta técnica hidrojateamento.docx'
 };
 
-/** As partes do pacote que podem conter marcador. */
-const PARTES = ['word/document.xml', 'word/header1.xml', 'word/footer1.xml'];
+/**
+ * As partes do pacote que podem conter marcador.
+ *
+ * **Descobertas do pacote, nunca listadas à mão.** Havia aqui uma lista fixa
+ * — `document.xml`, `header1.xml`, `footer1.xml` — e ela quebrou no dia em que
+ * alguém abriu o modelo no LibreOffice e salvou: o programa reescreveu o
+ * pacote e dividiu o cabeçalho em `header1/2/3` (primeira página, pares,
+ * ímpares). O `{{data_texto}}` foi parar no `header2`, fora do alcance, e saiu
+ * **impresso** no documento — que abre normalmente.
+ *
+ * Editar o `.docx` é o caminho previsto para mudar o documento (é o desvio 12
+ * inteiro). Então o código tem de aguentar o pacote ser reescrito, porque isso
+ * vai acontecer de novo.
+ */
+function partesComMarcador(zip) {
+  return zip
+    .getEntries()
+    .map(entrada => entrada.entryName)
+    .filter(nome => /^word\/(document|header\d*|footer\d*)\.xml$/.test(nome))
+    // `document.xml` primeiro: é onde estão as tabelas que clonam linhas, e
+    // manter a ordem estável torna o resultado reproduzível.
+    .sort((a, b) => (a.startsWith('word/document') ? -1 : b.startsWith('word/document') ? 1 : a.localeCompare(b)));
+}
 
 export function arquivoDoModelo(tipo, modelo) {
   return ARQUIVOS[`${tipo}:${modelo}`] || ARQUIVOS[`${tipo}:padrao`];
@@ -307,7 +328,7 @@ export async function preencherProposta(dados, tipo) {
   const precos = Array.isArray(dados.prices) ? dados.prices : [];
   const locais = tabelasDePrecoDoModelo(modelo);
 
-  for (const parte of PARTES) {
+  for (const parte of partesComMarcador(zip)) {
     const item = zip.getEntry(parte);
     if (!item) continue;
 
