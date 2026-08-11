@@ -2277,6 +2277,17 @@ enum ProposalStatus {
   @@schema("comercial")
 }
 
+/// Estado de UM destino externo — Nectar ou SharePoint —, separado do estado da
+/// proposta. Os dois falham independentemente: o card pode entrar no CRM e a
+/// pasta não ser criada, e a mensagem ao usuário precisa dizer qual dos dois.
+enum ProposalIntegrationStatus {
+  PENDENTE
+  SUCESSO
+  ERRO
+
+  @@schema("comercial")
+}
+
 enum ProposalDocumentKind {
   COMERCIAL
   TECNICA
@@ -2383,6 +2394,25 @@ model Proposal {
   finalizedAt       DateTime?
   finalizedByUserId String?
 
+  /// --- Integrações externas ---
+  ///
+  /// Guardadas por destino, e não num campo só, porque os dois falham
+  /// independentemente: o card entra no Nectar e a pasta do SharePoint não é
+  /// criada, e a resposta precisa dizer QUAL falhou. `integrationError` é o
+  /// texto que o usuário lê; os PDFs continuam baixáveis em qualquer caso
+  /// (FR-034).
+  nectarStatus        ProposalIntegrationStatus @default(PENDENTE)
+  /// O card no CRM. Havendo vínculo salvo, a revisão REUTILIZA este card em vez
+  /// de abrir outro (FR-066) — é o que a T053b consulta.
+  nectarOpportunityId String?
+  nectarPipelineId    String?
+  /// O nome do funil no momento da emissão. Renomear o funil no CRM depois não
+  /// pode reescrever o que a proposta registrou — mesma regra do `sellerName`.
+  nectarPipelineName  String?
+  sharepointStatus    ProposalIntegrationStatus @default(PENDENTE)
+  sharepointFolder    String?
+  integrationError    String?
+
   createdByUserId  String
   createdBy        User      @relation("ComercialProposalAuthor", fields: [createdByUserId], references: [id])
   archivedAt       DateTime?
@@ -2399,6 +2429,8 @@ model Proposal {
   @@index([createdByUserId, archivedAt, createdAt])
   @@index([sellerUserId, createdAt])
   @@index([status])
+  /// A revisão procura o card salvo pelo código da proposta (FR-066).
+  @@index([proposalCode, nectarOpportunityId])
   @@schema("comercial")
 }
 

@@ -157,7 +157,30 @@ const rawEnvSchema = z.object({
   OMIE_APP_SECRET: stringWithDefault(''),
   OMIE_SYNC_ENABLED: booleanWithDefault('OMIE_SYNC_ENABLED', false),
   OMIE_SYNC_INTERVAL_MINUTES: integerWithDefault('OMIE_SYNC_INTERVAL_MINUTES', 360, { min: 1 }),
-  OMIE_SYNC_SINCE_DAYS: integerWithDefault('OMIE_SYNC_SINCE_DAYS', 7, { min: 1 })
+  OMIE_SYNC_SINCE_DAYS: integerWithDefault('OMIE_SYNC_SINCE_DAYS', 7, { min: 1 }),
+
+  /**
+   * Envio da proposta ao CRM Nectar.
+   *
+   * **`off` é o padrão, e a razão é o fornecedor: o Nectar não tem sandbox.**
+   * A API publica uma URL só, de produção — não existe homologação para onde
+   * apontar. Então qualquer ambiente mal configurado que "tentasse por padrão"
+   * criaria card de verdade no CRM da empresa.
+   *
+   *   off   não tenta, e a finalização diz que o envio está desligado
+   *   fake  responde como se tivesse dado certo, sem tocar na rede (dev e testes)
+   *   real  usa o token
+   */
+  NECTAR_MODE: z.enum(['off', 'fake', 'real']).default('off'),
+  NECTAR_API_TOKEN: stringWithDefault(''),
+  /**
+   * Lista branca de funis, separada por vírgula.
+   *
+   * Sem sandbox, é a contenção que não depende do fornecedor: o ambiente de
+   * teste aponta para um funil de testes, e um erro de código não alcança o
+   * funil onde o comercial trabalha. Vazia recusa tudo — não é "libera geral".
+   */
+  NECTAR_PIPELINE_IDS: stringWithDefault('')
 }).passthrough().superRefine((value, ctx) => {
   const trustProxyConfigured = value.TRUST_PROXY !== undefined && String(value.TRUST_PROXY).trim() !== '';
   const trustProxy = parseTrustProxy(value.TRUST_PROXY);
@@ -214,6 +237,11 @@ export function loadEnv(source = process.env) {
     reportsDir,
     uploadDir: reportsDir,
     comercialDir: raw.COMERCIAL_DIR || path.join(reportsDir, 'Comercial'),
+    nectarMode: raw.NECTAR_MODE,
+    nectarApiToken: raw.NECTAR_API_TOKEN,
+    nectarPipelineIds: raw.NECTAR_PIPELINE_IDS.split(',')
+      .map(item => item.trim())
+      .filter(Boolean),
     appUrl: raw.APP_URL,
     allowedOrigin: raw.ALLOWED_ORIGIN,
     allowedOrigins: parseOrigins(raw.ALLOWED_ORIGIN),
