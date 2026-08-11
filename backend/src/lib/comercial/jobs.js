@@ -1,4 +1,5 @@
 import { canFinalize, denialReason } from './access.js';
+import { planilhaDeCustos } from './cost-csv.js';
 import { ComercialError } from './cost-estimates.js';
 import { documentosAtuais, emitirDocumentos } from './documentos.js';
 import * as nectar from './nectar.js';
@@ -25,8 +26,15 @@ import { lerArquivo } from './storage.js';
 const EM_ANDAMENTO = 'FINALIZANDO';
 const CONCLUIDA = 'FINALIZADA';
 
+/**
+ * `crm` entra por parâmetro pelo mesmo motivo que `gerarPdf`: é o mundo de
+ * fora. O padrão é o adaptador real — que já sabe se calar quando
+ * `NECTAR_MODE=off` —, e o teste passa o seu para ver o que foi enviado sem
+ * depender de rede. Módulo ESM não se espiona por atribuição: o objeto de
+ * namespace é somente-leitura.
+ */
 export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
-  const { pipelineId = '', gerarPdf } = opcoes;
+  const { pipelineId = '', gerarPdf, crm = nectar } = opcoes;
 
   const proposta = await prisma.proposal.findUnique({ where: { id: proposalId } });
   if (!proposta) throw new ComercialError('Proposta não encontrada.', 404);
@@ -68,7 +76,7 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
     throw error;
   }
 
-  const integracao = await enviarAoNectar(prisma, proposta, pipelineId, documentos);
+  const integracao = await enviarAoNectar(prisma, proposta, pipelineId, documentos, crm);
 
   const sucesso = integracao.status === 'SUCESSO';
   const atualizada = await prisma.proposal.update({
@@ -132,24 +140,30 @@ export function exigirNaoFinalizada(proposta) {
  * chamou precisa seguir para gravar o estado e responder com os links dos
  * documentos, que já existem.
  */
-async function enviarAoNectar(prisma, proposta, pipelineId, documentos) {
-  const impedimento = nectar.indisponivel();
+async function enviarAoNectar(prisma, proposta, pipelineId, documentos, crm) {
+  const impedimento = crm.indisponivel();
   if (impedimento) {
     return { status: 'ERRO', mensagem: impedimento, opportunityId: '', pipelineId: '', pipelineName: '' };
   }
 
   try {
-    const funis = await nectar.listarFunis();
-    const funil = nectar.exigirFunilPermitido(funis, pipelineId);
+    const funis = await crm.listarFunis();
+    const funil = crm.exigirFunilPermitido(funis, pipelineId);
     const dados = dadosParaOCrm(proposta, funil);
 
     // Revisão reaproveita o card salvo em vez de abrir outro (FR-066).
     const oportunidade = proposta.nectarOpportunityId
       ? { id: proposta.nectarOpportunityId, criada: false }
-      : await nectar.criarOportunidade(dados, funil);
+      : await crm.criarOportunidade(dados, funil);
 
+    // São TRÊS arquivos ao destino, não dois (T076c): as duas propostas e a
+    // planilha de custos. Ela é a memória de cálculo — sem ela o card mostra o
+    // preço e não mostra de onde ele veio.
     const arquivos = await bytesDosDocumentos(prisma, proposta.id, documentos);
-    await nectar.anexarDocumentos(oportunidade.id, arquivos, dados, funil);
+    const planilha = await planilhaDaProposta(prisma, proposta, funil);
+    if (planilha) arquivos.push(planilha);
+
+    await crm.anexarDocumentos(oportunidade.id, arquivos, dados, funil);
 
     return {
       status: 'SUCESSO',
@@ -195,6 +209,32 @@ function dadosParaOCrm(proposta, funil) {
  * CRM tem de ser o mesmo arquivo que o usuário vai baixar. Se os dois puderem
  * divergir, um dia divergem.
  */
+/**
+ * A planilha de custos do levantamento vinculado (T076c).
+ *
+ * **Proposta sem levantamento não tem planilha, e isso é caminho normal** — a
+ * proposta avulsa existe. Devolver `null` deixa a finalização seguir com os dois
+ * PDFs; derrubá-la aqui faria o vínculo opcional virar obrigatório por acidente.
+ */
+async function planilhaDaProposta(prisma, proposta, funil) {
+  if (!proposta.costEstimateId) return null;
+
+  const estimate = await prisma.costEstimate.findUnique({
+    where: { id: proposta.costEstimateId }
+  });
+  if (!estimate) return null;
+
+  const { fileName, bytes } = planilhaDeCustos(estimate, {
+    proposalCode: proposta.proposalCode,
+    sellerName: proposta.sellerName,
+    estimatorName: proposta.estimatorName,
+    pipelineName: funil.nome,
+    pipelineId: funil.id
+  });
+
+  return { fileName, bytes };
+}
+
 async function bytesDosDocumentos(prisma, proposalId, documentos) {
   const registros = await documentosAtuais(prisma, proposalId);
   const porId = new Map(registros.map(item => [item.id, item]));

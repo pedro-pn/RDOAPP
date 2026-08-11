@@ -13,6 +13,7 @@ process.env.NECTAR_PIPELINE_IDS = '100,200';
 
 const { finalizarProposta, exigirNaoFinalizada } = await import('../src/lib/comercial/jobs.js');
 const { documentosAtuais } = await import('../src/lib/comercial/documentos.js');
+const nectar = await import('../src/lib/comercial/nectar.js');
 
 /**
  * Finalização da proposta (T076, T077, T078, T079a, T080).
@@ -63,8 +64,14 @@ function propostaBase(extra = {}) {
   };
 }
 
-function fakePrisma(propostas = []) {
-  const store = { propostas: [...propostas], documentos: [], auditoria: [], atualizacoes: [] };
+function fakePrisma(propostas = [], levantamentos = []) {
+  const store = {
+    propostas: [...propostas],
+    levantamentos: [...levantamentos],
+    documentos: [],
+    auditoria: [],
+    atualizacoes: []
+  };
   let sequencia = 0;
 
   const proposalDocument = {
@@ -83,6 +90,10 @@ function fakePrisma(propostas = []) {
 
   return {
     store,
+    costEstimate: {
+      findUnique: async ({ where }) =>
+        store.levantamentos.find(item => item.id === where.id) || null
+    },
     proposal: {
       // Devolve CÓPIA, como o Prisma de verdade. Compartilhar a referência com o
       // store faria uma escrita posterior alterar o objeto já carregado — e foi
@@ -324,6 +335,84 @@ test('geração que falha devolve a proposta ao estado anterior', async () => {
   );
 
   assert.equal(prisma.store.propostas[0].status, 'RASCUNHO');
+});
+
+// ---------------------------------------------------------------------------
+// A planilha de custos vai junto (T076c)
+// ---------------------------------------------------------------------------
+
+/**
+ * Um CRM que registra o que recebeu.
+ *
+ * Entra por parâmetro em vez de substituir o módulo: o objeto de namespace de um
+ * módulo ESM é somente-leitura, e é a mesma razão pela qual o gerador de PDF já
+ * era injetado.
+ */
+function crmEspiao() {
+  const capturado = { arquivos: [] };
+  return {
+    capturado,
+    indisponivel: () => nectar.indisponivel(),
+    listarFunis: () => nectar.listarFunis(),
+    exigirFunilPermitido: (funis, id) => nectar.exigirFunilPermitido(funis, id),
+    criarOportunidade: (dados, funil) => nectar.criarOportunidade(dados, funil),
+    anexarDocumentos: async (id, arquivos, ...resto) => {
+      capturado.arquivos = arquivos;
+      return nectar.anexarDocumentos(id, arquivos, ...resto);
+    }
+  };
+}
+
+test('com levantamento vinculado, vão TRÊS arquivos ao CRM, não dois', async () => {
+  // As duas propostas e a planilha de custos. Sem ela o card mostra o preço e
+  // não mostra de onde ele veio.
+  const prisma = fakePrisma(
+    [propostaBase({ costEstimateId: 'e1' })],
+    [{ id: 'e1', proposalCode: '4418', title: 'Levantamento', payload: { schemaVersion: 2, laborContexts: [] }, totalCost: 1, salePrice: 2, marginPercent: 15 }]
+  );
+
+  const crm = crmEspiao();
+  await finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf, crm });
+
+  assert.equal(crm.capturado.arquivos.length, 3);
+  assert.deepEqual(crm.capturado.arquivos.map(a => a.fileName), [
+    'Proposta Comercial - 4418.pdf',
+    'Proposta Técnica - 4418.pdf',
+    'Levantamento de Custos - 4418.csv'
+  ]);
+  // E a planilha vai com o BOM, senão o Excel do comercial quebra os acentos.
+  const planilha = crm.capturado.arquivos[2];
+  assert.deepEqual([...planilha.bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+});
+
+test('proposta SEM levantamento envia os dois PDFs, e isso é caminho normal', async () => {
+  // A proposta avulsa existe. Exigir a planilha aqui faria o vínculo opcional
+  // virar obrigatório por acidente.
+  const prisma = fakePrisma([propostaBase({ costEstimateId: null })]);
+
+  const crm = crmEspiao();
+  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
+    pipelineId: '100',
+    gerarPdf,
+    crm
+  });
+
+  assert.equal(resultado.ok, true);
+  assert.equal(crm.capturado.arquivos.length, 2);
+});
+
+test('levantamento vinculado que sumiu não derruba a finalização', async () => {
+  const prisma = fakePrisma([propostaBase({ costEstimateId: 'e-fantasma' })]);
+
+  const crm = crmEspiao();
+  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
+    pipelineId: '100',
+    gerarPdf,
+    crm
+  });
+
+  assert.equal(resultado.ok, true);
+  assert.equal(crm.capturado.arquivos.length, 2);
 });
 
 // ---------------------------------------------------------------------------

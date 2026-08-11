@@ -422,9 +422,9 @@ documentos e o registro no histórico.
   > mal configurado não pode criar card no CRM da empresa. `NECTAR_PIPELINE_IDS` é
   > lista branca e **vazia recusa tudo**. O modo `fake` é o que torna a suíte
   > possível — sem ele não haveria como testar a finalização sem poluir o CRM.
-- [ ] T076a [US3] Implementar `backend/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.  ↳ `FR-054`
-- [ ] T076b [US3] Implementar em `backend/lib/comercial/cost-csv.js` os **dois formatos por versão de esquema** (FR-055), escolhidos pelo `schemaVersion` do levantamento: esquema 2 em diante e legado. **Proposta antiga não pode quebrar a finalização.**  ↳ `FR-055`
-- [ ] T076c [US3] Enviar a planilha junto com os dois PDFs em `backend/lib/comercial/jobs.js` — são **três** arquivos ao destino, não dois.
+- [X] T076a [US3] Implementar `backend/src/lib/comercial/cost-csv.js` — a **planilha de custos** anexada à finalização (FR-054): `Levantamento de Custos - {código}.csv`, **UTF-8 com BOM**, separador **ponto e vírgula**, células entre aspas com aspas internas duplicadas.  ↳ `FR-054`
+- [X] T076b [US3] Implementar em `backend/src/lib/comercial/cost-csv.js` os **dois formatos por versão de esquema** (FR-055), escolhidos pelo `schemaVersion` do levantamento: esquema 2 em diante e legado. **Proposta antiga não pode quebrar a finalização.**  ↳ `FR-055`
+- [X] T076c [US3] Enviar a planilha junto com os dois PDFs em `backend/src/lib/comercial/jobs.js` — são **três** arquivos ao destino, não dois.
 - [ ] T076d [US3] Implementar `POST /api/comercial/propostas/:id/anexos` em `backend/src/routes/comercial/` e o model `ProposalAttachment` — os **arquivos adicionais do cliente** (`PROP-CTL-081`), que vão para a mesma pasta dos documentos. Um por requisição.  ↳ `FR-057`
 - [ ] T076e [US3] Validar em `backend/lib/comercial/jobs.js` o **limite agregado** do envio (FR-059): dois PDFs + planilha + todos os anexos, somados. Validar cada um isoladamente deixa passar o conjunto.  ↳ `FR-059`
 - [ ] T076f [US3] Aceitar a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional) em `backend/lib/comercial/jobs.js`: havendo valor, grava dentro dela em vez de criar pasta nova.  ↳ `FR-058`

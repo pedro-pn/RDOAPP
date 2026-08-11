@@ -143,7 +143,7 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 | **T053a, T053b** | A rota de revisão e o reuso do card do CRM. **Dependem de schema**: `Proposal` não tem hoje nenhum campo de Nectar (`opportunityId`, `nectarPipelineId`), que a referência guarda no histórico. |
 | ~~**T074, T075, T079**~~ | **Feitas em 11/08.** `storage.js`, a emissão e o download. Os dois PDFs saem do registro, vão para o disco sob `COMERCIAL_DIR`, viram `ProposalDocument` e são baixáveis com a regra de papel. |
 | ~~**T076, T077, T078, T079a, T080, T085**~~ | **Feitas em 11/08.** `jobs.js`, a rota de finalização, o contrato de falha, a permissão, a exclusividade e a auditoria. **Só o Nectar** — SharePoint abaixo. |
-| **T076a, T076b, T076c** | A **planilha de custos** anexada à finalização. O gerador da referência tem **381 linhas** de porte fiel (dois formatos por `schemaVersion`); não foi portado pela metade de propósito. Hoje vão **dois** arquivos ao CRM, não três. |
+| ~~**T076a, T076b, T076c**~~ | **Feitas em 11/08.** A planilha de custos, com os dois formatos por `schemaVersion`. Vão **três** arquivos ao CRM: as duas propostas e a memória de cálculo. |
 | **SharePoint (parte da T076, mais T076f)** | Microsoft Graph com credenciais próprias: token, site, drive, pasta, upload. Fatia própria, no mesmo formato de três modos do Nectar. |
 | **T076d, T076e** | Anexos do cliente e o limite agregado. |
 | **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
@@ -152,7 +152,7 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**109 tarefas fechadas, 47 abertas.**
+**112 tarefas fechadas, 44 abertas.**
 
 ### O Nectar não tem sandbox — e isso virou decisão de arquitetura
 
