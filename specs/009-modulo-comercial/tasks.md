@@ -618,10 +618,15 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
 - [ ] T125 **Zero à esquerda em campo numérico** (o "070"). **Provavelmente não
   reproduz aqui**: nossos campos guardam número, não texto. Conferir no navegador
   antes de mexer — o defeito é da referência, que usa estado em texto.
-- [ ] T126 **Cálculo automático de distâncias.** Decisão do mantenedor em 11/08:
-  **levantar as opções antes de implementar** (Google Distance Matrix,
-  OpenRouteService, OSRM) com custo, limite de uso e exigência de chave. É a única
-  sugestão que traz dependência externa nova.
+- [X] T126 **Levantamento** das opções de cálculo automático de distâncias —
+  [`contracts/distancias-automaticas.md`](./contracts/distancias-automaticas.md).
+  Recomendação: **OpenRouteService**, faixa gratuita suficiente para o volume
+  previsto e sem exigir conta de faturamento. **Pendente de decisão do
+  mantenedor** antes de escrever o adaptador.
+- [ ] T126a **Implementar o cálculo de distância**, depois da decisão. Quatro
+  condições que valem para qualquer fornecedor: adaptador de três modos com `off`
+  por padrão; cache por endereço; o campo continua editável, com a origem do valor
+  visível; e falha não trava o levantamento — cai no caminho de digitar.
 - [ ] T127 **Reduzir a altura do cabeçalho** para sobrar área de trabalho.
   **Por último, e com prévia para aprovação** — condição do mantenedor. **Desvio
   nº 15**, aprovado em 11/08. Mexe no que a T114 compara pixel a pixel, então o
