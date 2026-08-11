@@ -620,13 +620,18 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   antes de mexer — o defeito é da referência, que usa estado em texto.
 - [X] T126 **Levantamento** das opções de cálculo automático de distâncias —
   [`contracts/distancias-automaticas.md`](./contracts/distancias-automaticas.md).
-  Recomendação: **OpenRouteService**, faixa gratuita suficiente para o volume
-  previsto e sem exigir conta de faturamento. **Pendente de decisão do
-  mantenedor** antes de escrever o adaptador.
-- [ ] T126a **Implementar o cálculo de distância**, depois da decisão. Quatro
-  condições que valem para qualquer fornecedor: adaptador de três modos com `off`
-  por padrão; cache por endereço; o campo continua editável, com a origem do valor
-  visível; e falha não trava o levantamento — cai no caminho de digitar.
+  **Decidido em 11/08: Google Routes API.** O tier gratuito de **10.000
+  chamadas/mês por SKU** (Essentials) foi confirmado na fonte oficial e cobre o
+  volume previsto com folga de uma ordem de grandeza — custo zero.
+- [ ] T126a **Implementar o cálculo de distância** com a **Routes API**, SKU
+  `Compute Route Matrix Essentials` — **não** a Distance Matrix, que é legada.
+  Quatro condições: adaptador de três modos com `off` por padrão; cache por
+  endereço; o campo continua editável, com a origem do valor visível; e falha não
+  trava o levantamento — cai no caminho de digitar. Mais duas que a franquia
+  gratuita torna necessárias: **cota de segurança** por dia no adaptador, e
+  **chave restrita** por API e por IP no console — defeito em laço passa dos
+  10.000 sem ninguém notar, e chave sem restrição que vaze gasta a franquia da
+  empresa.
 - [ ] T127 **Reduzir a altura do cabeçalho** para sobrar área de trabalho.
   **Por último, e com prévia para aprovação** — condição do mantenedor. **Desvio
   nº 15**, aprovado em 11/08. Mexe no que a T114 compara pixel a pixel, então o

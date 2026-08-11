@@ -33,9 +33,51 @@ pesa é a burocracia de cadastro e a dependência criada.
 
 ---
 
-## As opções
+## DECISÃO — 11/08/2026: Google Routes API
 
-### 1. OpenRouteService — *recomendada*
+O mantenedor apontou um tier gratuito de 10.000 chamadas, e **está confirmado na
+fonte oficial**. Isso derruba a objeção de custo que sustentava a recomendação
+anterior, e a decisão passa a ser o Google.
+
+Desde **1º/03/2025** o Google [substituiu o crédito de US$ 200](https://developers.google.com/maps/billing-and-pricing/march-2025)
+por uma **franquia mensal gratuita por SKU**, e não por conta:
+
+| Tier | Grátis/mês por SKU |
+|---|---|
+| **Essentials** | **10.000** |
+| Pro | 5.000 |
+| Enterprise | 1.000 |
+
+Os SKUs que interessam estão todos em **Essentials**, a US$ 5,00/1000 **depois**
+dos 10.000 ([lista de preços](https://developers.google.com/maps/billing-and-pricing/pricing)):
+
+- `Routes: Compute Route Matrix Essentials` (9392-1087-2045)
+- `Routes: Compute Routes Essentials` (9EFF-679A-9B16)
+- `Geocoding` — franquia própria de 10.000/mês
+
+**No volume previsto — dezenas por dia, centenas por mês — o custo é zero**, com
+uma ordem de grandeza de folga. Só passaria a custar se o uso decuplicasse.
+
+### Duas correções ao que eu havia escrito
+
+1. **A Distance Matrix API é legada**, e continua sendo. Mas o substituto não é
+   outro fornecedor: é a **Routes API**, com o SKU `Compute Route Matrix`, mesmo
+   preço e mesma franquia. É por ela que o adaptador deve entrar — a legada
+   funciona e não recebe desenvolvimento novo.
+2. **A franquia é por SKU.** Se o adaptador usar geocodificação e matriz como
+   chamadas separadas, são duas franquias de 10.000 — melhor ainda. Vale
+   confirmar na implementação se a Routes API aceita **endereço direto** no
+   waypoint, o que resolveria tudo num SKU só.
+
+**O que continua valendo do levantamento:** a conta do Google Cloud precisa de
+**faturamento habilitado**, com meio de pagamento cadastrado, mesmo para usar só
+a franquia gratuita. É a única fricção que sobra, e é de cadastro, não de custo.
+
+---
+
+## As opções avaliadas
+
+### 1. OpenRouteService — *era a recomendação, antes da confirmação acima*
 
 Faixa gratuita de **2.500 requisições/dia** e 40.000/mês, cobrindo os endpoints
 que interessam: **geocodificação** (endereço → coordenada) e **matrix/directions**
@@ -49,21 +91,14 @@ e [planos](https://openrouteservice.org/plans/).
 - **Saída:** se um dia não servir, é open source e pode ser **auto-hospedado** —
   a dependência externa é reversível.
 
-### 2. Google Distance Matrix / Routes
+### 2. Google Routes API — **escolhida**
 
 O mais preciso para rota rodoviária no Brasil, e o que o pessoal já confere no
-celular.
+celular. Números confirmados no bloco de decisão acima.
 
-- **Custo:** cobrado por elemento (origem × destino). As fontes de 2026
-  divergem sobre o crédito mensal — [uma diz](https://mapatlas.eu/blog/google-maps-api-pricing-2026)
-  que o crédito universal de US$ 200 foi **descontinuado**, outras ainda o
-  mencionam. **Não confirmei**, e não vou afirmar. No volume previsto, a conta
-  seria de poucos dólares/mês mesmo sem crédito.
-- **Cadastro:** conta no Google Cloud **com faturamento e cartão**. É a maior
-  diferença prática: é uma conta paga da empresa para um campo de formulário.
-- **Atenção:** o Google marcou a Distance Matrix como **legada** e recomenda a
-  Routes API para projetos novos — então o porte já nasceria numa API em fim de
-  vida.
+- **Custo no volume previsto:** zero.
+- **Cadastro:** conta no Google Cloud com faturamento habilitado.
+- **Usar `Compute Route Matrix`**, não a Distance Matrix legada.
 
 ### 3. OSRM público
 
@@ -82,10 +117,9 @@ Elimina a dependência externa por completo, e o projeto já roda Docker.
 
 ---
 
-## Recomendação
+## As quatro condições da implementação
 
-**OpenRouteService**, com quatro condições que valem para qualquer fornecedor
-escolhido:
+Valiam para qualquer fornecedor, e continuam valendo para o Google:
 
 1. **Adaptador de três modos** (`off` / `fake` / `real`), como Nectar e
    SharePoint. O padrão `off` mantém o comportamento atual — distância digitada —
@@ -101,10 +135,23 @@ escolhido:
    contrato de falha da finalização — o trabalho não se perde por causa de uma
    integração.
 
-## O que não foi confirmado
+## O que ainda não foi confirmado
 
-- O estado atual do crédito mensal do Google: as fontes de 2026 divergem, e a
-  página oficial de preços não foi consultada com conta logada.
-- A qualidade da geocodificação do ORS para **endereços industriais brasileiros**
-  do tipo "Unidade de Cubatão". Isso só se sabe testando com os endereços reais
-  que o comercial usa — e é o primeiro passo antes de escrever o adaptador.
+- Se a **Routes API aceita endereço direto** no waypoint, dispensando uma chamada
+  separada de geocodificação. Muda o consumo de dois SKUs para um.
+- Se o endereço industrial brasileiro do tipo "Unidade de Cubatão" é resolvido
+  sem ambiguidade. Vale testar com os endereços reais que o comercial usa
+  **antes** de escrever o adaptador — é barato, e decide se o campo vai precisar
+  de uma etapa de "confirme o endereço encontrado".
+
+## Uma proteção que o tier gratuito torna necessária
+
+Franquia gratuita generosa esconde um risco novo: **um defeito que dispare
+chamadas em laço passa dos 10.000 sem ninguém notar**, e aí começa a custar. Duas
+medidas baratas, na implementação:
+
+- **cota de segurança no adaptador** — um teto de chamadas por dia, recusando
+  além dele com o caminho de digitar;
+- **restringir a chave de API** no console do Google, por API e por IP do
+  servidor. Chave sem restrição que vaze é conta de outra pessoa gastando a
+  franquia da empresa.
