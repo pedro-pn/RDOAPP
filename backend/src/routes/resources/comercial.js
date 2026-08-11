@@ -24,6 +24,7 @@ import {
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
 import { anexarArquivo, listarAnexos } from '../../lib/comercial/anexos.js';
+import { distanciaAteObra } from '../../lib/comercial/distancias.js';
 import { finalizarProposta } from '../../lib/comercial/jobs.js';
 import { indisponivel, listarFunis } from '../../lib/comercial/nectar.js';
 import { attachmentContentDisposition } from '../../lib/documents/storage.js';
@@ -216,6 +217,27 @@ router.get(
 // ---------------------------------------------------------------------------
 // Levantamentos de custos
 // ---------------------------------------------------------------------------
+
+/**
+ * Distância sede → obra, calculada (T126a).
+ *
+ * **Nunca responde erro por endereço ruim.** Endereço não encontrado, ambíguo ou
+ * serviço desligado vêm como resposta 200 com `km: null` e o motivo — porque o
+ * campo continua editável, e o caminho de digitar é o de hoje. Erro aqui faria a
+ * tela parecer quebrada quando na verdade é só um endereço que ninguém acha.
+ */
+router.get(
+  '/distancia',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(await distanciaAteObra(String(req.query.endereco || '')));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
 
 router.get(
   '/levantamentos',

@@ -623,7 +623,7 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   **Decidido em 11/08: Google Routes API.** O tier gratuito de **10.000
   chamadas/mês por SKU** (Essentials) foi confirmado na fonte oficial e cobre o
   volume previsto com folga de uma ordem de grandeza — custo zero.
-- [ ] T126a **Implementar o cálculo de distância** com a **Routes API**, SKU
+- [X] T126a **Implementar o cálculo de distância (backend)** com a **Routes API**, SKU
   `Compute Route Matrix Essentials` — **não** a Distance Matrix, que é legada.
   Quatro condições: adaptador de três modos com `off` por padrão; cache por
   endereço; o campo continua editável, com a origem do valor visível; e falha não
@@ -643,3 +643,7 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   FR-060 — "nenhuma rota do módulo apaga registro". As opções são arquivar o
   anexo (exige coluna nova) ou abrir uma exceção explícita à regra para anexo,
   que não é registro de negócio e sim arquivo que o usuário acabou de juntar.
+- [ ] T126b **Ligar o cálculo de distância na tela** de destinos da logística:
+  botão de calcular ao lado do campo, o endereço encontrado exibido para
+  conferência, e o aviso quando a confiança for `parcial` ou `regiao`. O campo
+  continua editável, e a origem do valor — calculado ou informado — fica visível.

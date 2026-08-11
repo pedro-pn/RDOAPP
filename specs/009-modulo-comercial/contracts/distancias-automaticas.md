@@ -181,11 +181,26 @@ O `type` devolvido é o que separa os casos, e sai de graça na mesma chamada:
 Sem esse tratamento, o cálculo automático troca um campo em branco por um número
 errado — que é pior, porque o branco alguém preenche e o número ninguém confere.
 
-## O que ainda não foi confirmado
+## Implementado — `backend/src/lib/comercial/distancias.js`
 
-- Se a Routes API sinaliza correspondência parcial de outra forma além do `type`.
-  A `Geocoding` tem `partial_match` explícito; a Routes não devolve equivalente
-  no `geocodingResults`.
+Rodado contra a API real em 11/08, com a chave da empresa:
+
+| Digitado | Resultado | Confiança | Aviso |
+|---|---|---|---|
+| `UHE São Manoel` | **2.706 km** | `exata` | — |
+| `Unidade de Cubatão` | 595 km | `parcial` | "Não achei exatamente o que foi digitado. Usei *Cubatão, SP*" |
+| `Cubatão` | 595 km | `regiao` | "Achei apenas a cidade… A distância é até o centro dela" |
+| `nao existe zzz 999` | *sem número* | `nenhuma` | "Não encontrei… Confira o endereço ou informe a distância" |
+
+O `partial_match` da Geocoding é o sinal que a Routes não dá — e é o que separa
+"não achei o que você pediu" de "achei a cidade, que era o que você pediu".
+
+**O adaptador nunca lança.** Endereço ruim, serviço fora do ar, chave sem
+permissão e cota estourada são a mesma coisa para quem está na tela: o campo
+continua editável e a pessoa digita. Um erro subindo dali faria a tela parecer
+quebrada com o trabalho podendo seguir. O motivo técnico vai no `aviso` —
+quem lê "chave não autorizada" sabe a quem avisar; "não consegui calcular" não
+diz nada.
 
 ## Uma proteção que o tier gratuito torna necessária
 

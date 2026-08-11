@@ -199,7 +199,26 @@ const rawEnvSchema = z.object({
    * Microsoft. Apontar o ambiente de teste para outra mantém o erro de código
    * longe da pasta onde o comercial trabalha.
    */
-  SHAREPOINT_BASE_FOLDER: stringWithDefault('02 - Comercial/Projetos em cotação')
+  SHAREPOINT_BASE_FOLDER: stringWithDefault('02 - Comercial/Projetos em cotação'),
+
+  /**
+   * Cálculo automático da distância sede → obra (Google Maps).
+   *
+   * `off` por padrão, como os outros: o campo continua digitado até alguém
+   * ligar. `fake` devolve resposta fixa, sem rede.
+   */
+  GOOGLE_MAPS_MODE: z.enum(['off', 'fake', 'real']).default('off'),
+  GOOGLE_MAPS_API_KEY: stringWithDefault(''),
+  /**
+   * Teto diário de consultas.
+   *
+   * A franquia do Google é de 10.000/mês por SKU e **não avisa** ao ser
+   * consumida — um defeito em laço passa dela e só aparece na fatura. O teto
+   * transforma isso num campo que volta a ser digitado.
+   */
+  GOOGLE_MAPS_MAX_DIA: integerWithDefault('GOOGLE_MAPS_MAX_DIA', 200, { min: 1 }),
+  /** Origem de toda distância: a sede. */
+  COMERCIAL_SEDE_ENDERECO: stringWithDefault('')
 }).passthrough().superRefine((value, ctx) => {
   const trustProxyConfigured = value.TRUST_PROXY !== undefined && String(value.TRUST_PROXY).trim() !== '';
   const trustProxy = parseTrustProxy(value.TRUST_PROXY);
@@ -268,6 +287,10 @@ export function loadEnv(source = process.env) {
     sharepointHostname: raw.SHAREPOINT_HOSTNAME,
     sharepointSitePath: raw.SHAREPOINT_SITE_PATH,
     sharepointBaseFolder: raw.SHAREPOINT_BASE_FOLDER,
+    mapsMode: raw.GOOGLE_MAPS_MODE,
+    mapsApiKey: raw.GOOGLE_MAPS_API_KEY,
+    mapsMaxDia: raw.GOOGLE_MAPS_MAX_DIA,
+    comercialSedeEndereco: raw.COMERCIAL_SEDE_ENDERECO,
     appUrl: raw.APP_URL,
     allowedOrigin: raw.ALLOWED_ORIGIN,
     allowedOrigins: parseOrigins(raw.ALLOWED_ORIGIN),
