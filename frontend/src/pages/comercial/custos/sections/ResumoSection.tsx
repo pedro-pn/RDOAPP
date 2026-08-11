@@ -1,4 +1,4 @@
-import { Field, NumberField, SelectField } from '../../components/Field';
+import { MoneyField, Field, NumberField, SelectField } from '../../components/Field';
 import { ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
 import { money, number, numberValue, percent } from '../formato';
 import type { Levantamento } from '../useLevantamento';
@@ -90,11 +90,9 @@ export function ResumoSection({ levantamento }: { levantamento: Levantamento }) 
           />
 
           {precoImposto && (
-            <NumberField
+            <MoneyField
               label="Valor global fechado"
               value={comercial.globalValue}
-              min={0}
-              step={0.01}
               error={erroSe(numberValue(comercial.globalValue) <= 0, 'Informe o valor fechado')}
               onChange={valor => editarComercial({ globalValue: valor })}
             />

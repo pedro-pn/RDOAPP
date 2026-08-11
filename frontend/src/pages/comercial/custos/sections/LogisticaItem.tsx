@@ -1,4 +1,4 @@
-import { NumberField, SelectField } from '../../components/Field';
+import { MoneyField, NumberField, SelectField } from '../../components/Field';
 import { money, numberValue } from '../formato';
 import { itemPrecisaAtencao, transporteDispensado } from '../logistica';
 import type { Levantamento } from '../useLevantamento';
@@ -167,11 +167,9 @@ export function LogisticaItem({
             error={erroSe(numberValue(item.quantity) <= 0, 'Campo obrigatório')}
             onChange={valor => editar({ quantity: valor })}
           />
-          <NumberField
+          <MoneyField
             label="Custo unitário"
             value={item.unitCost}
-            min={0}
-            step={0.01}
             error={erroSe(numberValue(item.unitCost) <= 0, 'Campo obrigatório')}
             onChange={valor => editar({ unitCost: valor })}
           />
@@ -272,11 +270,9 @@ export function LogisticaItem({
             step={1}
             onChange={valor => editar({ travelCalendarDaysPerTrip: valor })}
           />
-          <NumberField
+          <MoneyField
             label="Passagem por pessoa/viagem"
             value={item.ticketPerPersonPerTrip}
-            min={0}
-            step={0.01}
             onChange={valor => editar({ ticketPerPersonPerTrip: valor })}
           />
         </div>

@@ -1,3 +1,4 @@
+import { MoneyInput } from '../../components/Field';
 import { LEC_FILTER_CATALOG } from '../../../../../../shared/comercial/dist/cost-model.js';
 import { money, numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
@@ -140,15 +141,12 @@ export function FiltrosTabela({ levantamento }: { levantamento: Levantamento }) 
                       />
                     </td>
                     <td>
-                      <input
-                        type="number"
+                      <MoneyInput
                         aria-label="Custo unitário"
                         value={(item.unitCost as number) ?? ''}
-                        min={0}
-                        step={0.01}
-                        onChange={event =>
+                        onChange={valor =>
                           editar({
-                            unitCost: event.target.value === '' ? 0 : Number(event.target.value)
+                            unitCost: valor
                           })
                         }
                       />

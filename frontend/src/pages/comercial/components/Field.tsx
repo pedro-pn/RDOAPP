@@ -1,4 +1,6 @@
 import { useId } from 'react';
+
+import { dinheiroDigitado, mascaraDeDinheiro } from '../custos/formato';
 import type { ReactNode } from 'react';
 
 /**
@@ -324,4 +326,103 @@ function groupClass(invalid: boolean) {
 function describedBy(...ids: Array<string | null>) {
   const present = ids.filter(Boolean);
   return present.length ? present.join(' ') : undefined;
+}
+
+/**
+ * Campo de VALOR, com máscara de R$ — desvio nº 14, aprovado em 11/08.
+ *
+ * Mesmo contrato do `NumberField`: recebe e devolve **número**, porque é ele
+ * que alimenta o cálculo ao vivo. O que muda é a exibição — os dígitos são
+ * lidos como centavos, e digitar `12345` mostra `R$ 123,45`.
+ *
+ * **Por que não `type="number"`:** com máscara, o valor exibido deixa de ser um
+ * número válido para o navegador, e o campo passaria a rejeitar o próprio
+ * conteúdo. `inputMode="numeric"` mantém o teclado numérico no celular, que era
+ * metade do ganho das setinhas.
+ *
+ * O que se perde em relação ao `NumberField`: as setinhas de incremento, que
+ * aparecem nas capturas da baseline. É parte do desvio, e está registrada nele —
+ * incrementar de um em um centavo não servia para nada.
+ */
+type MoneyFieldProps = Omit<NumberFieldProps, 'min' | 'max' | 'step'>;
+
+export function MoneyField({
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  disabled,
+  placeholder = 'R$ 0,00',
+  hint
+}: MoneyFieldProps) {
+  const id = useId();
+  const errorId = `${id}-erro`;
+  const hintId = `${id}-dica`;
+  const invalid = Boolean(error);
+
+  return (
+    <div className={groupClass(invalid)}>
+      <label htmlFor={id}>
+        {label}
+        {required && <span className="survey-required-marker">*</span>}
+      </label>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        value={mascaraDeDinheiro(value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(invalid ? errorId : null, hint ? hintId : null)}
+        onChange={event => onChange(dinheiroDigitado(event.target.value))}
+      />
+      {hint && !invalid && (
+        <small id={hintId} className="field-hint">
+          {hint}
+        </small>
+      )}
+      {invalid && (
+        <small id={errorId} className="field-error" role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A mesma máscara, **sem rótulo** — para as células de tabela.
+ *
+ * As seções de insumos, produtos, filtros, despesas e alocações desenham os
+ * valores dentro de `<td>`, com `aria-label` no lugar do `<label>`. Reusar o
+ * `MoneyField` ali traria o invólucro do campo para dentro da célula e
+ * desalinharia a tabela inteira.
+ */
+export function MoneyInput({
+  value,
+  onChange,
+  disabled,
+  invalid,
+  ...resto
+}: {
+  value: unknown;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+  invalid?: boolean;
+  'aria-label': string;
+  className?: string;
+}) {
+  return (
+    <input
+      {...resto}
+      type="text"
+      inputMode="numeric"
+      value={mascaraDeDinheiro(value)}
+      disabled={disabled}
+      aria-invalid={invalid || undefined}
+      onChange={event => onChange(dinheiroDigitado(event.target.value))}
+    />
+  );
 }

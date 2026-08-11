@@ -1,3 +1,4 @@
+import { MoneyInput } from '../../components/Field';
 import { hasMeaningfulInputs } from '../../../../../../shared/comercial/dist/cost-model.js';
 import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
 import { money, number, numberValue } from '../formato';
@@ -199,12 +200,9 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
                       />
                     </td>
                     <td>
-                      <input
-                        type="number"
+                      <MoneyInput
                         aria-label="Custo unitário"
                         value={(item.unitCost as number) ?? ''}
-                        min={0}
-                        step={0.01}
                         onChange={editarNumero('unitCost')}
                       />
                     </td>
@@ -219,12 +217,9 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
                       />
                     </td>
                     <td>
-                      <input
-                        type="number"
+                      <MoneyInput
                         aria-label="Frete"
                         value={(item.freightValue as number) ?? ''}
-                        min={0}
-                        step={0.01}
                         onChange={editarNumero('freightValue')}
                       />
                     </td>

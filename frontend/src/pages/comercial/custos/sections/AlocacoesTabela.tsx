@@ -1,3 +1,4 @@
+import { MoneyInput } from '../../components/Field';
 import {
   LEC_LABOR_ROLES,
   roleSalary
@@ -147,16 +148,13 @@ export function AlocacoesTabela({
                     </td>
 
                     <td>
-                      <input
-                        type="number"
+                      <MoneyInput
                         aria-label="Salário base"
                         value={(alocacao.monthlySalary as number) ?? ''}
-                        min={0}
-                        step={0.01}
-                        onChange={event =>
+                        onChange={valor =>
                           editar(id, {
                             monthlySalary:
-                              event.target.value === '' ? 0 : Number(event.target.value)
+                              valor
                           })
                         }
                       />

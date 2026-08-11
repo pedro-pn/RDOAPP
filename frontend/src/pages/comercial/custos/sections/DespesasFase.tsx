@@ -1,3 +1,4 @@
+import { MoneyInput } from '../../components/Field';
 import { HOTEL_SITE_COMMUTE_EXPENSE_CODE } from '../../../../../../shared/comercial/dist/cost-model.js';
 import { money, numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
@@ -151,17 +152,14 @@ export function DespesasFase({
                     </td>
 
                     <td>
-                      <input
-                        type="number"
+                      <MoneyInput
                         aria-label="Valor unitário"
                         value={(despesa.unitValue as number) ?? ''}
-                        min={0}
-                        step={0.01}
                         /* O VALOR do combustível continua editável: o preço
                            varia, a fórmula não. */
-                        onChange={event =>
+                        onChange={valor =>
                           editar(id, {
-                            unitValue: event.target.value === '' ? 0 : Number(event.target.value)
+                            unitValue: valor
                           })
                         }
                       />

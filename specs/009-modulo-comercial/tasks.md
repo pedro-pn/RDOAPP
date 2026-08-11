@@ -609,7 +609,7 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   "PETROLEO BRASILEIRO S A PETROBRAS". Depende da busca do CRM, que aqui está
   desabilitada. Quem casa o nome é a API do Nectar — pode exigir filtrar do nosso
   lado. A listagem de propostas **já** busca por trecho.
-- [ ] T124 **Máscara de R$ nos campos de valor** da tela de custos. Decisão do
+- [X] T124 **Máscara de R$ nos campos de valor** da tela de custos. Decisão do
   mantenedor em 11/08: **centavos ao digitar**, igual à etapa Comercial da
   proposta (`formatarDinheiro`), para as duas telas não divergirem. **Desvio nº 14**,
   aprovado em 11/08 e registrado em `contracts/e0-8-desvios-e-estimativa.md`. O

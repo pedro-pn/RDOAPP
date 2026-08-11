@@ -1,3 +1,4 @@
+import { MoneyInput } from '../../components/Field';
 import { money, number, numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
 
@@ -259,11 +260,8 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
                     </td>
 
                     <td>
-                      <input
-                        type="number"
+                      <MoneyInput
                         aria-label="Preço base"
-                        min={0}
-                        step={0.01}
                         value={(item.unitCost as number) ?? ''}
                         onChange={numero('unitCost')}
                       />
