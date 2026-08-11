@@ -309,7 +309,8 @@ por suíte vermelha.
   [`contracts/modelos-word.md`](./contracts/modelos-word.md). Não os corrigi por
   conta própria.
 - **Desvio 11** — tela de custos sem `react-hook-form` — continua **proposto,
-  pendente de decisão**.
+  pendente de decisão**. É o único da lista ainda sem resposta: os **14 e 15**
+  (máscara de R$ e cabeçalho mais baixo) foram aprovados em 11/08.
 - **O `totalValue` do hidrojateamento** (11/08). O valor gravado e mandado ao CRM
   é a **maior** das duas tabelas, ONSHORE ou OFFSHORE. A referência somava todos
   os preços, mas lá não existiam duas tabelas: somá-las aqui produziria um número

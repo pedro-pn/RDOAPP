@@ -611,9 +611,10 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   lado. A listagem de propostas **já** busca por trecho.
 - [ ] T124 **Máscara de R$ nos campos de valor** da tela de custos. Decisão do
   mantenedor em 11/08: **centavos ao digitar**, igual à etapa Comercial da
-  proposta (`formatarDinheiro`), para as duas telas não divergirem. **É desvio
-  sobre a referência** — lá os campos são numéricos crus — e precisa entrar na
-  lista de desvios aprovados antes da T113.
+  proposta (`formatarDinheiro`), para as duas telas não divergirem. **Desvio nº 14**,
+  aprovado em 11/08 e registrado em `contracts/e0-8-desvios-e-estimativa.md`. O
+  ponto a vigiar no aceite: a tela recalcula a cada tecla, e a máscara não pode
+  atrapalhar o recálculo nem mover o cursor.
 - [ ] T125 **Zero à esquerda em campo numérico** (o "070"). **Provavelmente não
   reproduz aqui**: nossos campos guardam número, não texto. Conferir no navegador
   antes de mexer — o defeito é da referência, que usa estado em texto.
@@ -622,5 +623,6 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   OpenRouteService, OSRM) com custo, limite de uso e exigência de chave. É a única
   sugestão que traz dependência externa nova.
 - [ ] T127 **Reduzir a altura do cabeçalho** para sobrar área de trabalho.
-  **Por último, e com prévia para aprovação** — pedido explícito do mantenedor.
-  Também é desvio sobre a referência, e mexe no que a T114 compara pixel a pixel.
+  **Por último, e com prévia para aprovação** — condição do mantenedor. **Desvio
+  nº 15**, aprovado em 11/08. Mexe no que a T114 compara pixel a pixel, então o
+  registro é o que impede a validação final de acusá-lo como defeito de porte.

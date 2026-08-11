@@ -38,6 +38,8 @@ da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 | 10 | Módulo usa o **chrome da referência**, não o do filtroAPP | **Novo** (03/08) — *reduz* divergência |
 | 12 | Documentos seguem os **`.docx` de 07/01/2026**, não o texto da referência | **Novo** (05/08) — decidido |
 | 13 | Proposta de **hidrojateamento** é um modelo próprio, escolhido na criação | **Novo** (05/08) — decidido |
+| 14 | Campos de valor com **máscara de R$** (centavos ao digitar) | **Novo** (11/08) — aprovado |
+| 15 | **Cabeçalho mais baixo**, para sobrar área de trabalho | **Novo** (11/08) — aprovado, com prévia |
 
 ### 1. PDF gerado no backend
 
@@ -340,6 +342,53 @@ tabela.
   independentemente de o equipamento esperar em obra ou não;
 - mobilização e desmobilização em R$/km, "conforme a distância e as premissas da
   contratante".
+
+### 14. Campos de valor com máscara de R$ — *aprovado em 11/08*
+
+**O que muda:** os campos monetários da tela de custos passam a ter máscara de
+moeda, no padrão **centavos ao digitar** — digitar `12345` produz `R$ 123,45`.
+Na referência eles são `<input type="number">` crus, e o `R$` só aparece nas
+colunas de total.
+
+**De onde veio:** sugestão de um colaborador do comercial (11/08), testando a
+referência: *"todos os campos que se referem a valores, colocar máscara de R$
+para ficar claro que se trata de um valor"*. Aprovado pelo mantenedor no mesmo
+dia, com o comportamento escolhido entre três alternativas.
+
+**Por que centavos ao digitar, e não `R$` só ao sair do campo:** é exatamente o
+que a etapa Comercial da proposta já faz, com `formatarDinheiro` — porte de
+`formatMoneyInput` da referência. As duas telas do módulo pedem valor; com
+comportamentos diferentes, quem passa de uma para a outra digita errado na
+segunda. E a leitura como centavos resolve a ambiguidade real de quem digita
+`1.500` querendo dizer mil e quinhentos.
+
+**O risco a vigiar:** a tela de custos é **calculadora, não cadastro** — ela
+recalcula a cada tecla, e isso está no Complexity Tracking. Uma máscara que
+reescreve o valor a cada tecla não pode atrapalhar o recálculo nem mover o cursor.
+É o ponto a conferir no aceite.
+
+**Alcance:** só a tela de custos. A proposta já está no formato.  ↳ `T124`
+
+### 15. Cabeçalho mais baixo, para sobrar área de trabalho — *aprovado em 11/08*
+
+**O que muda:** a faixa superior — topbar, herói e faixa de indicadores — perde
+altura, para sobrar tela para o formulário.
+
+**De onde veio:** a mesma rodada de sugestões (11/08), com a captura marcando a
+área. Aprovado pelo mantenedor, com **duas condições explícitas**: fica por
+último, e sai uma prévia para aprovação antes de valer.
+
+**Por que é desvio e não ajuste:** o desvio nº 10 decidiu que o módulo usa o
+**chrome da referência**, e a T114 compara as capturas de
+`contracts/baseline/*-1440.png` com as telas do módulo. Mudar a altura da faixa
+muda todas elas de uma vez. Sem este registro, a validação final acusaria a
+diferença como defeito de porte — que é exatamente o que o critério manda fazer
+com divergência não listada.
+
+**A tensão que fica registrada:** o desvio nº 10 existia para *reduzir*
+divergência, e este a aumenta. A troca é deliberada: quem usa a tela todo dia
+pediu espaço de trabalho, e a paridade de altura de cabeçalho não é o que o
+cliente recebe.  ↳ `T127`
 
 ---
 
