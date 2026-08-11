@@ -152,7 +152,7 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**107 tarefas fechadas, 49 abertas.**
+**109 tarefas fechadas, 47 abertas.**
 
 ### O Nectar não tem sandbox — e isso virou decisão de arquitetura
 

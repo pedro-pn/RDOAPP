@@ -445,7 +445,7 @@ documentos e o registro no histórico.
 - [ ] T081 [US3] Implementar na tela os **4 estágios** anunciados ao usuário, na ordem da referência, a partir de `shared/comercial/finalization.ts`.  ↳ `FR-032`
 - [ ] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.  ↳ `FR-031`
 - [ ] T083 [US3] Implementar `frontend/src/pages/comercial/proposta/FinalizacaoPanel.tsx` com o download final: técnica + comercial juntas ou separadas.  ↳ `FR-033`
-- [ ] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga registro** — não existe `DELETE`.  ↳ `FR-060` `FR-061` `FR-063`
+- [X] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga registro** — não existe `DELETE`.  ↳ `FR-060` `FR-061` `FR-063`
 - [X] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.  ↳ `FR-062`
 - [ ] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).  ↳ `FR-068`
 - [X] T085 [US3] [P] Escrever `backend/test/comercial-finalizacao.test.js`, incluindo o caso **integração falha depois dos PDFs prontos → documentos continuam baixáveis**.  ↳ `SC-009`
@@ -502,7 +502,7 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
 - [X] T099 [US6] Implementar `GET /api/comercial/consultores` em `backend/lib/comercial/consultores.js`, derivando a lista dos **usuários ativos com o papel `comercial:seller`**. Sem `POST`, `PUT` nem `DELETE`.  ↳ `FR-041`
 - [X] T100 [US6] Fazer a resposta de `backend/lib/comercial/consultores.js` **variar por papel** (FR-041b): `comercial:manager` recebe a lista completa; `comercial:seller` recebe **apenas ele mesmo**. Filtrar no cliente não serve — um vendedor não deve nem receber os nomes dos outros.  ↳ `FR-041b`
-- [ ] T101 [US6] Gravar `sellerUserId` **e** `sellerName` em `Proposal` (`backend/lib/comercial/proposals.js`): o nome é o do **momento da emissão**. Desativar ou renomear um usuário **não altera proposta já emitida** — o PDF já foi ao cliente com aquele nome.  ↳ `FR-041a`
+- [X] T101 [US6] Gravar `sellerUserId` **e** `sellerName` em `Proposal` (`backend/lib/comercial/proposals.js`): o nome é o do **momento da emissão**. Desativar ou renomear um usuário **não altera proposta já emitida** — o PDF já foi ao cliente com aquele nome.  ↳ `FR-041a`
 - [X] T102 [US6] [P] Ligar o campo `PROP-CTL-016` em `frontend/src/pages/comercial/proposta/steps/ClienteStep.tsx` à rota derivada, **pré-selecionando** a única opção quando o usuário é `comercial:seller`. O controle continua o mesmo `SelectField` do inventário — muda o conjunto de opções, não o elemento. Espelha o que a referência já faz com o orçamentista (`PROP-CTL-018`, preenchido pelo login).  ↳ `FR-041b`
 
 ---
