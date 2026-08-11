@@ -51,9 +51,17 @@ por uma **franquia mensal gratuita por SKU**, e não por conta:
 Os SKUs que interessam estão todos em **Essentials**, a US$ 5,00/1000 **depois**
 dos 10.000 ([lista de preços](https://developers.google.com/maps/billing-and-pricing/pricing)):
 
+- `Routes: Compute Routes Essentials` (9EFF-679A-9B16) — **o que o adaptador usa**
 - `Routes: Compute Route Matrix Essentials` (9392-1087-2045)
-- `Routes: Compute Routes Essentials` (9EFF-679A-9B16)
 - `Geocoding` — franquia própria de 10.000/mês
+
+### APIs a habilitar no console
+
+| API | Habilitar? | Por quê |
+|---|---|---|
+| **Routes API** | **sim** | calcula a distância e resolve o endereço sozinha |
+| **Geocoding API** | **sim** | mostrar ao usuário **qual endereço foi encontrado**, para ele confirmar. A Routes devolve `placeId` e `type`, mas **não o endereço formatado** |
+| Places API | **não** | resolveria nome de estabelecimento — mas a Routes já resolve. E o SKU de busca é **Pro** (5.000 grátis), não Essentials |
 
 **No volume previsto — dezenas por dia, centenas por mês — o custo é zero**, com
 uma ordem de grandeza de folga. Só passaria a custar se o uso decuplicasse.
@@ -135,14 +143,49 @@ Valiam para qualquer fornecedor, e continuam valendo para o Google:
    contrato de falha da finalização — o trabalho não se perde por causa de uma
    integração.
 
+## Testes com a chave real — 11/08/2026
+
+Feitos com endereços reais fornecidos pelo mantenedor. Origem: **Rua Rosa Orsi
+Dalçoquio, 930, Cordeiros, Itajaí - SC**.
+
+| Destino digitado | Resultado | `type` devolvido |
+|---|---|---|
+| `R. Duzentos e Quatro, 4, Paranaíta - MT` (endereço formal) | **2.706 km** | `street_address` |
+| `UHE São Manoel` | **2.706 km** | `establishment`, `point_of_interest` |
+| `Usina Hidrelétrica São Manoel, Paranaíta MT` | **2.706 km** | idem, mesmo `placeId` |
+| `Cubatão` | 595 km | `locality`, `political` |
+| `Unidade de Cubatão` | 595 km | `locality`, `political` |
+| `asdkjhasd obra zzz 999` | **0 km** | *(vazio)* |
+
+### O que isso resolve
+
+**A Routes API aceita endereço livre E nome de estabelecimento**, e resolve
+sozinha — sem chamada separada de geocodificação. "UHE São Manoel" caiu no mesmo
+`placeId` e na mesma distância do endereço formal. **Um SKU só.**
+
+### O que isso revela, e é o achado que importa
+
+**Endereço ambíguo resolve em silêncio, com número plausível.** "Unidade de
+Cubatão" **não** achou a unidade: achou a *cidade* de Cubatão, e devolveu 595 km
+como se fosse resposta. Ninguém olhando o campo desconfiaria.
+
+O `type` devolvido é o que separa os casos, e sai de graça na mesma chamada:
+
+| `type` | Leitura | Conduta |
+|---|---|---|
+| `street_address`, `premise` | endereço exato | aceitar |
+| `establishment`, `point_of_interest` | lugar nomeado encontrado | aceitar |
+| `locality`, `political` | **só a cidade** | **avisar**: "achei apenas a cidade" |
+| vazio, ou 0 km | não encontrado | cair no caminho de digitar |
+
+Sem esse tratamento, o cálculo automático troca um campo em branco por um número
+errado — que é pior, porque o branco alguém preenche e o número ninguém confere.
+
 ## O que ainda não foi confirmado
 
-- Se a **Routes API aceita endereço direto** no waypoint, dispensando uma chamada
-  separada de geocodificação. Muda o consumo de dois SKUs para um.
-- Se o endereço industrial brasileiro do tipo "Unidade de Cubatão" é resolvido
-  sem ambiguidade. Vale testar com os endereços reais que o comercial usa
-  **antes** de escrever o adaptador — é barato, e decide se o campo vai precisar
-  de uma etapa de "confirme o endereço encontrado".
+- Se a Routes API sinaliza correspondência parcial de outra forma além do `type`.
+  A `Geocoding` tem `partial_match` explícito; a Routes não devolve equivalente
+  no `geocodingResults`.
 
 ## Uma proteção que o tier gratuito torna necessária
 
