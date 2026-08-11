@@ -287,6 +287,9 @@ function dadosParaOCrm(proposta, funil) {
     companyId: payload.companyId || '',
     contactId: payload.contactId || '',
     totalValue: Number(proposta.totalValue) || 0,
+    // O funil exige produto, e o produto é o SERVIÇO vendido. Ele vem do payload
+    // porque é a etapa Técnica da proposta que o escolhe.
+    technicalServices: Array.isArray(payload.technicalServices) ? payload.technicalServices : [],
     pipelineName: funil.nome
   };
 }

@@ -1,5 +1,6 @@
 import env from '../../config/env.js';
 import { ComercialError } from './cost-estimates.js';
+import { produtoDaProposta } from './nectar-produtos.js';
 
 /**
  * Adaptador do CRM Nectar (tarefa T076).
@@ -143,6 +144,10 @@ export async function criarOportunidade(dados, funil) {
         cliente: { id: Number(dados.companyId) },
         contato: { id: Number(dados.contactId) },
         camposPersonalizados: { 'Local da Obra': dados.site },
+        // **Obrigatório nos funis da empresa**, que recusam a etapa 1 sem ele.
+        // É o serviço vendido, com o valor da proposta — a convenção que os
+        // cards do comercial já seguem, não invenção nossa.
+        produtos: [produtoDaProposta(dados.technicalServices, dados.totalValue)],
         // **Obrigatório.** Sem ele o Nectar responde 409 "Nenhum responsável foi
         // selecionado". A referência trazia um id fixo no código; aqui é
         // configuração, porque o dono das oportunidades muda com o tempo e

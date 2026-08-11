@@ -661,18 +661,33 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   conferência, e o aviso quando a confiança for `parcial` ou `regiao`. O campo
   continua editável, e a origem do valor — calculado ou informado — fica visível.
 
-- [X] T129 **Produto obrigatório na oportunidade.** Descoberto em 11/08, na
-  primeira escrita real no CRM. **Resolvido pela opção (a)**: `produtoObrigatorio`
-  desligado na etapa 1 do funil de testes (57063), pelo `PUT /pipelines/:id`,
-  lendo o objeto inteiro e devolvendo inteiro com **um** campo alterado — as 12
-  etapas e os 35 campos de configuração preservados, conferido antes e depois.
-  Com isso a escrita passou ponta a ponta: card 29772277 criado, três arquivos
-  anexados.
+- [X] T129 **Produto obrigatório na oportunidade.** Resolvido pela **opção (b)**,
+  escolhida pelo mantenedor: *respeitar a lógica que o comercial já adotou* e
+  mandar o produto. A regra do CRM **não foi alterada** — o desligamento que eu
+  tinha feito no funil de testes foi **revertido**, e as 12 etapas voltaram ao
+  estado original.
 
-  > **PENDENTE EM PRODUÇÃO.** O funil "Gestão Comercial" (47518) continua exigindo
-  > produto nas **10** etapas, e é ele que o comercial usa. Não mexi por script:
-  > é a configuração que o time inteiro depende, e a mudança é de trinta segundos
-  > na tela do Nectar, onde quem decide vê o que está mudando.
+  > **A convenção é do comercial, lida dos cards reais**: um produto por card, que
+  > é o serviço vendido, `quantidade: 1`, e o valor da proposta em
+  > `valorUnitario` e `valorTotal`. A forma importa: mandar `produto: { id }` com
+  > `valor` também é aceito, mas o Nectar **zera o `valorAvulso`** e a proposta
+  > aparece como R$ 0 no funil. Com `refId`, o valor sobrevive — conferido nos
+  > dois sentidos.
+  >
+  > **Oito dos onze serviços estão mapeados. Três recusam de propósito**, porque
+  > o catálogo tem mais de um candidato e a escolha é do comercial: ↓ T129a
+
+- [ ] T129a **Confirmar três produtos com o comercial.** Enquanto não vier a
+  resposta, proposta com esses serviços **recusa a finalização com a mensagem
+  dizendo o que falta** — em vez de mandar o produto errado, que poria a proposta
+  na categoria errada do CRM e faria o relatório de vendas por serviço mentir sem
+  ninguém ver.
+
+  | Serviço do módulo | Candidatos no Nectar |
+  |---|---|
+  | `filtragem_hidraulico_lubrificante` | FV-01 "filtragem absoluta" **ou** FV-02 "desidratação de óleo lubrificante/hidráulico" |
+  | `desidratacao_oleo` | FV-02 "…lubrificante/hidráulico" **ou** FV-14 "…óleo diesel" |
+  | `passagem_pig` | FV-27 "Serviço especializado em passagem de PIG" **ou** FV-08 "Passagem de PIG" |
 
   > O funil **"Gestão Comercial" (47518) exige produto nas 10 etapas**, e o
   > "Funil de testes" (57063) exige na etapa 1. O módulo **nunca envia produto**,
