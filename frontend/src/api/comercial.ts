@@ -162,6 +162,113 @@ export async function enviarFotoDoEscopo(blob: Blob, fileName: string) {
   return data;
 }
 
+/**
+ * A mensagem que o servidor mandou, quando mandou uma.
+ *
+ * O módulo escreve mensagem por caso — "Este registro pertence a outro
+ * orçamentista", "Já existe a revisão 1 da proposta 4418" —, e trocá-las por um
+ * texto genérico da tela joga fora justamente o que diz o que fazer a seguir.
+ */
+export function mensagemDeErro(error: unknown, padrao: string): string {
+  const resposta = (error as { response?: { status?: number; data?: { error?: string } } })
+    ?.response;
+  if (resposta?.data?.error) return resposta.data.error;
+  if (error instanceof Error && error.message) return error.message;
+  return padrao;
+}
+
+export interface PropostaEntrada {
+  proposalCode: string;
+  revisionNumber?: number;
+  costEstimateId?: string | null;
+  clientName: string;
+  cnpj: string;
+  contact: string;
+  email: string;
+  site: string;
+  department?: string | null;
+  sellerUserId: string;
+  payload: Record<string, unknown>;
+}
+
+export interface PropostaSalva {
+  id: string;
+  proposalCode: string;
+  revisionNumber: number;
+  status: string;
+  /** Ausente para o papel de consulta — omitido na origem, não escondido aqui. */
+  totalValue?: string | number | null;
+  costEstimateId?: string | null;
+  sellerUserId?: string;
+  payload?: Record<string, unknown>;
+  updatedAt?: string;
+}
+
+/**
+ * Salva a proposta.
+ *
+ * O `totalValue` **não** é enviado: o servidor soma os itens de preço com a
+ * mesma leitura de moeda que o gerador do documento usa. Mandá-lo daqui
+ * permitiria que o histórico e o CRM dissessem um número que o PDF não confirma.
+ */
+export async function criarProposta(entrada: PropostaEntrada) {
+  const { data } = await apiClient.post<PropostaSalva>('/comercial/propostas', entrada);
+  return data;
+}
+
+export async function atualizarProposta(id: string, entrada: Partial<PropostaEntrada>) {
+  const { data } = await apiClient.put<PropostaSalva>(`/comercial/propostas/${id}`, entrada);
+  return data;
+}
+
+export async function obterProposta(id: string) {
+  const { data } = await apiClient.get<PropostaSalva>(`/comercial/propostas/${id}`);
+  return data;
+}
+
+export async function listarPropostas(filtros: { busca?: string; arquivados?: boolean } = {}) {
+  const { data } = await apiClient.get<{ items: PropostaSalva[]; total: number }>(
+    '/comercial/propostas',
+    { params: { busca: filtros.busca || '', arquivados: filtros.arquivados ? 1 : 0 } }
+  );
+  return data;
+}
+
+export interface DocumentoEmitido {
+  id: string;
+  kind: 'COMERCIAL' | 'TECNICA';
+  fileName: string;
+  byteSize: number;
+}
+
+/**
+ * Emite os dois documentos: gera os PDFs e **grava no servidor**.
+ *
+ * Diferente da prévia, que não guarda nada. O corpo leva só o id — o que se
+ * emite é o que está salvo, e é por isso que a tela salva antes de chamar aqui.
+ */
+export async function emitirDocumentos(proposalId: string) {
+  const { data } = await apiClient.post<{
+    proposalId: string;
+    proposalCode: string;
+    documentos: DocumentoEmitido[];
+  }>('/comercial/propostas/documentos', { proposalId });
+  return data;
+}
+
+/**
+ * Baixa um documento já emitido.
+ *
+ * `responseType: 'blob'` não é detalhe: sem ele o axios interpreta os bytes do
+ * PDF como texto e o arquivo chega corrompido, com erro só na hora de abrir.
+ */
+export async function baixarDocumento(id: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/comercial/documentos/${id}`, {
+    responseType: 'blob'
+  });
+  return data;
+}
+
 /** Endereço de leitura da foto. O `<img>` aponta para cá; o arquivo é imutável. */
 export function urlDaFotoDoEscopo(id: string) {
   const base = apiClient.defaults.baseURL || '/api';

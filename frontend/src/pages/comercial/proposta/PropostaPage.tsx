@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
@@ -12,9 +12,17 @@ import {
   type ScopeServiceItem
 } from '../../../../../shared/comercial/dist/scope-content.js';
 import {
+  atualizarProposta,
+  baixarDocumento,
   baixarPreviaEmPdf,
+  criarProposta,
+  emitirDocumentos,
   listarConsultores,
-  type Consultor
+  mensagemDeErro,
+  obterProposta,
+  reservarProximoNumero,
+  type Consultor,
+  type DocumentoEmitido
 } from '../../../api/comercial';
 import { useAuth } from '../../../auth/AuthContext';
 import { moduleRoutePath } from '../../../modules/registry';
@@ -42,6 +50,12 @@ import {
   rotuloDoAvanco,
   type EtapaProposta
 } from './etapas';
+import {
+  dadosDaProposta,
+  entradaDaProposta,
+  precisaDeNumero,
+  type ConteudoDaProposta
+} from './salvamento';
 import { DocumentoPrevia, type TipoDeDocumento } from './DocumentoPrevia';
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
@@ -115,6 +129,9 @@ export function PropostaPage() {
   const indice = indiceDaEtapa(etapa);
   const levantamentoId = params.get('levantamento') ?? '';
   const codigo = params.get('proposta') ?? '—';
+  /* O id da proposta salva mora no ENDEREÇO, como a etapa e o modelo (L3): F5
+     não pode transformar uma proposta já gravada numa segunda proposta. */
+  const propostaId = params.get('id') ?? '';
 
   /* O modelo mora no endereço, como o modo do levantamento: recarregar não pode
      perguntar de novo, e o diálogo serve para ESCOLHER, não para confirmar. */
@@ -163,6 +180,8 @@ export function PropostaPage() {
   const [podeEscolher, setPodeEscolher] = useState(false);
   const [recado, setRecado] = useState('');
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [emitidos, setEmitidos] = useState<DocumentoEmitido[]>([]);
 
   const rascunho = useRascunhoLocal({
     tela: 'proposta',
@@ -209,6 +228,74 @@ export function PropostaPage() {
     };
   }, []);
 
+  /**
+   * Proposta já salva: recarrega o conteúdo do servidor.
+   *
+   * Sem isto, o `?id=` no endereço sobreviveria ao F5 mas o formulário voltaria
+   * em branco — e o salvamento seguinte gravaria o vazio por cima do trabalho
+   * inteiro. É o mesmo defeito da L3 que a tela de custos já corrigiu, na outra
+   * ponta: lá o F5 apagava 465 controles, aqui apagaria a proposta.
+   *
+   * Roda uma vez por id. O que vem do servidor é a verdade — quem chegou aqui
+   * por um endereço com id está reabrindo, não começando.
+   */
+  const idCarregado = useRef('');
+  useEffect(() => {
+    if (!propostaId || idCarregado.current === propostaId) return;
+    idCarregado.current = propostaId;
+
+    let vivo = true;
+    obterProposta(propostaId)
+      .then(proposta => {
+        if (!vivo) return;
+        const dados = (proposta.payload ?? {}) as AnyRecord;
+
+        setForm(atual => ({ ...atual, ...dados }));
+        if (Array.isArray(dados.scopeItems) && dados.scopeItems.length) {
+          setItensEscopo(dados.scopeItems as ScopeServiceItem[]);
+        }
+        if (Array.isArray(dados.scopeBlocks)) setBlocos(dados.scopeBlocks as ScopeBlock[]);
+        if (Array.isArray(dados.rows) && dados.rows.length) {
+          setResponsabilidades(dados.rows as LinhaResponsabilidade[]);
+        }
+        if (Array.isArray(dados.categorias) && dados.categorias.length) {
+          setCategorias(dados.categorias as string[]);
+        }
+        if (dados.technicalServices) {
+          // Pelo normalizador, como no rascunho: a proposta pode ter sido salva
+          // com uma versão anterior do catálogo técnico.
+          setServicosTecnicos(normalizeTechnicalServiceSelections(dados.technicalServices));
+        }
+        if (typeof dados.technicalReports === 'string') {
+          setComplementoRelatorios(dados.technicalReports);
+        }
+        if (Array.isArray(dados.prices) && dados.prices.length) {
+          setPrecos(dados.prices as ItemDePreco[]);
+        }
+        if (typeof dados.includeUnitValue === 'boolean') {
+          setIncluirUnitario(dados.includeUnitValue);
+        }
+
+        // O modelo mora no endereço. Reabrir sem ele mostraria o diálogo de
+        // escolha por cima de uma proposta que já escolheu.
+        const salvo = dados.modelo;
+        if (!modeloNaUrl && (salvo === 'padrao' || salvo === 'hidrojateamento')) {
+          trocarParametros({ modelo: salvo });
+        }
+        // Reabrir uma proposta é chegar depois do começo: as etapas já visitadas
+        // continuam alcançáveis pelo stepper.
+        setMaiorVisitada(ETAPAS.length - 1);
+      })
+      .catch(error => {
+        if (vivo) setRecado(mensagemDeErro(error, 'Não foi possível carregar a proposta.'));
+      });
+
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propostaId]);
+
   useEffect(() => {
     setMaiorVisitada(atual => Math.max(atual, indice));
   }, [indice]);
@@ -229,12 +316,27 @@ export function PropostaPage() {
     setTentouAvancar(false);
   }
 
-  function avancar() {
+  /**
+   * "Salvar e continuar" — e ele salva mesmo, desde a primeira etapa.
+   *
+   * A ordem importa: valida, **salva**, e só então avança. Avançar antes de
+   * salvar faria o rodapé prometer uma coisa e entregar outra; avançar depois de
+   * uma falha esconderia a falha atrás de uma etapa nova.
+   */
+  async function avancar() {
     // Mesma regra do vermelho na tela de custos: a marcação aparece quando o
     // usuário tenta avançar, não antes.
     setTentouAvancar(true);
     if (pendencias.length > 0) return;
-    if (!ultima) irPara(ETAPAS[indice + 1].value);
+
+    if (ultima) {
+      await emitir();
+      return;
+    }
+
+    const id = await salvar();
+    if (!id) return;
+    irPara(ETAPAS[indice + 1].value);
   }
 
   function editar(patch: AnyRecord) {
@@ -273,6 +375,122 @@ export function PropostaPage() {
 
   const erroDe = (campo: string) => (tentouAvancar ? erros.get(campo) : undefined);
 
+  /** O estado da tela no formato que `salvamento.ts` consome. */
+  function conteudo(codigoAtual = codigo): ConteudoDaProposta {
+    return {
+      form,
+      codigo: codigoAtual,
+      orcamentista: user?.name || '',
+      modelo: modelo ?? 'padrao',
+      itensEscopo,
+      blocos,
+      categorias,
+      responsabilidades,
+      precos,
+      incluirUnitario,
+      servicosTecnicos,
+      complementoRelatorios
+    };
+  }
+
+  function trocarParametros(mudancas: Record<string, string>) {
+    const proximos = new URLSearchParams(params);
+    for (const [chave, valor] of Object.entries(mudancas)) proximos.set(chave, valor);
+    setParams(proximos, { replace: true });
+  }
+
+  /**
+   * Salva a proposta no servidor — é o que o botão "Salvar e continuar" promete.
+   *
+   * Devolve o id, ou `null` quando não deu para salvar. Quem chama **não avança**
+   * com `null`: passar de etapa depois de uma falha faria o usuário acreditar
+   * que o trabalho está guardado.
+   *
+   * O número da proposta é reservado aqui, no primeiro salvamento, e não na
+   * abertura da tela. Ele **consome** — abrir o assistente e desistir não pode
+   * gastar um número, porque o próximo sairia com um buraco no meio.
+   */
+  async function salvar(): Promise<string | null> {
+    if (salvando) return null;
+    setSalvando(true);
+    setRecado(propostaId ? 'Salvando...' : 'Salvando a proposta...');
+
+    try {
+      let codigoAtual = codigo;
+      if (precisaDeNumero(codigoAtual)) {
+        codigoAtual = String(await reservarProximoNumero());
+        trocarParametros({ proposta: codigoAtual });
+      }
+
+      const entrada = entradaDaProposta(conteudo(codigoAtual), levantamentoId);
+
+      const salva = propostaId
+        ? await atualizarProposta(propostaId, entrada)
+        : await criarProposta(entrada);
+
+      // Gravada no servidor, o rascunho local não pode sobrar para reaparecer
+      // depois como se fosse trabalho não salvo.
+      rascunho.limparTudo();
+      if (!propostaId) trocarParametros({ id: salva.id });
+      setRecado('');
+      return salva.id;
+    } catch (error) {
+      setRecado(mensagemDeErro(error, 'Não foi possível salvar a proposta.'));
+      return null;
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  /**
+   * Emite os dois documentos e baixa o que o usuário escolheu.
+   *
+   * **Não é a finalização.** Nada é enviado ao Nectar nem ao SharePoint — essa
+   * parte ainda não existe. O que acontece aqui é o que o servidor já garante:
+   * os dois PDFs são gerados e **gravados** antes de qualquer integração.
+   *
+   * As duas propostas são sempre geradas; a escolha decide só o que é baixado.
+   */
+  async function emitir() {
+    const id = await salvar();
+    if (!id) return;
+
+    setGerandoPdf(true);
+    setRecado('Gerando a proposta técnica e a comercial...');
+    try {
+      const { documentos } = await emitirDocumentos(id);
+      setEmitidos(documentos);
+
+      const querer = (kind: DocumentoEmitido['kind']) =>
+        escolhaDownload === 'both' ||
+        (escolhaDownload === 'commercial' && kind === 'COMERCIAL') ||
+        (escolhaDownload === 'technical' && kind === 'TECNICA');
+
+      for (const documento of documentos) {
+        if (querer(documento.kind)) await baixar(documento);
+      }
+
+      setRecado(
+        'Documentos gerados e guardados no servidor. O envio ao Nectar e ao ' +
+          'SharePoint ainda não está disponível.'
+      );
+    } catch (error) {
+      setRecado(mensagemDeErro(error, 'Não foi possível gerar os documentos.'));
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
+
+  async function baixar(documento: DocumentoEmitido) {
+    const blob = await baixarDocumento(documento.id);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = documento.fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   /**
    * Baixa o PDF gerado no servidor — o documento de verdade, não a impressão da
    * tela.
@@ -285,19 +503,7 @@ export function PropostaPage() {
     setGerandoPdf(true);
     setRecado('');
     try {
-      const blob = await baixarPreviaEmPdf(documentoNaPrevia, {
-        ...form,
-        proposalCode: codigo,
-        estimator: user?.name || '',
-        modelo: modelo ?? 'padrao',
-        scopeItems: itensEscopo,
-        scopeBlocks: blocos,
-        rows: responsabilidades,
-        prices: precos,
-        includeUnitValue: incluirUnitario,
-        technicalServices: servicosTecnicos,
-        technicalReports: complementoRelatorios
-      });
+      const blob = await baixarPreviaEmPdf(documentoNaPrevia, dadosDaProposta(conteudo()));
 
       const url = URL.createObjectURL(blob);
       const nome = `Proposta ${documentoNaPrevia === 'technical' ? 'Técnica' : 'Comercial'} - ${codigo}.pdf`;
@@ -558,6 +764,32 @@ export function PropostaPage() {
         </p>
       )}
 
+      {/* Emitidos e guardados no servidor. Ficam à mão porque o download pode
+          ter sido bloqueado pelo navegador, ou a pessoa pode ter escolhido só
+          uma das duas e mudado de ideia — os arquivos continuam lá. */}
+      {emitidos.length > 0 && (
+        <section className="com-painel com-emitidos">
+          <strong>Documentos emitidos</strong>
+          <ul>
+            {emitidos.map(documento => (
+              <li key={documento.id}>
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  onClick={() => {
+                    baixar(documento).catch(error =>
+                      setRecado(mensagemDeErro(error, 'Não foi possível baixar o documento.'))
+                    );
+                  }}
+                >
+                  Baixar {documento.fileName}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <footer className="com-rodape">
         <button
           type="button"
@@ -580,10 +812,18 @@ export function PropostaPage() {
           className="com-btn com-btn-primario"
           /* NÃO desabilitado quando há pendência: o clique é o que revela onde
              ela está. Desabilitar esconderia a resposta de quem está perdido —
-             é a mesma escolha do rodapé-guia da tela de custos. */
+             é a mesma escolha do rodapé-guia da tela de custos.
+
+             Durante a gravação ele trava, e por outro motivo: dois cliques
+             seguidos criariam duas propostas com dois números. */
+          disabled={salvando || gerandoPdf}
           onClick={avancar}
         >
-          {rotuloDoAvanco(pendencias, ultima)}
+          {salvando
+            ? 'Salvando...'
+            : gerandoPdf
+              ? 'Gerando os documentos...'
+              : rotuloDoAvanco(pendencias, ultima)}
         </button>
       </footer>
       </div>

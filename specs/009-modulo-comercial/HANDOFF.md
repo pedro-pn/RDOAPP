@@ -150,16 +150,28 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**100 tarefas fechadas, 55 abertas.**
+**101 tarefas fechadas, 55 abertas.**
 
-O backend da emissão está fechado ponta a ponta: **criar → salvar → emitir →
-baixar**. O que falta para o módulo servir é a finalização (T076–T077) e a
-ligação da tela, que ainda não chama nada disso.
+O caminho está fechado ponta a ponta na tela: **criar → salvar → emitir →
+baixar**. O que falta para o módulo servir é a finalização (T076–T077) — o envio
+ao Nectar e ao SharePoint.
 
-> **Sem tarefa dona:** a tela ainda **não chama** `POST`/`PUT /propostas`. O
-> formulário salva em rascunho local e as rotas existem, mas ninguém as liga.
-> Não há tarefa no plano para essa ligação — ela caiu entre a T067 (validação
-> das etapas) e a T083 (painel de finalização).
+> **O que NÃO foi verificado rodando.** A conversão `.docx → PDF` exige
+> LibreOffice, que só existe dentro do contêiner, e o backend em Docker roda
+> `node src/server.js` **sem `--watch`**. As rotas novas só entram no ar depois
+> de reiniciar:
+>
+> ```bash
+> docker compose -f docker-compose.local.yml restart backend
+> ```
+>
+> Fora isso, `COMERCIAL_DIR` não está no `.env.docker.local` e não precisa
+> estar: o padrão cai em `/data/relatorios/Comercial`, dentro do volume
+> `filtrovali_local_relatorios` — os documentos sobrevivem ao contêiner.
+
+> **A ligação da tela virou a T054a**, feita em 11/08. Ela não existia no plano —
+> caiu entre a T067 (validação das etapas) e a T083 (painel de finalização) — e
+> só apareceu quando o backend ficou pronto e nada o chamava.
 
 ---
 

@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import {
   ComercialValidationError,
   criarLevantamento,
+  mensagemDeErro,
   reservarProximoNumero
 } from '../../../api/comercial';
 import { moduleRoutePath } from '../../../modules/registry';
@@ -54,14 +55,6 @@ type EstimateMode = 'new' | 'revision';
  * ambiente dizendo que a numeração ainda não foi semeada. Quem lê "erro do servidor"
  * abre chamado; quem lê o que falta chama o operador.
  */
-function mensagemDeErro(error: unknown, padrao: string): string {
-  const resposta = (error as { response?: { status?: number; data?: { error?: string } } })
-    ?.response;
-  if (resposta?.data?.error) return resposta.data.error;
-  if (error instanceof Error && error.message) return error.message;
-  return padrao;
-}
-
 export function CustosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
