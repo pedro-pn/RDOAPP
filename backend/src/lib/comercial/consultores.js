@@ -1,3 +1,4 @@
+import { isManager } from './access.js';
 import { ComercialError } from './cost-estimates.js';
 
 /**
@@ -19,10 +20,20 @@ import { ComercialError } from './cost-estimates.js';
 
 const PAPEIS_DE_VENDA = ['COMERCIAL_SELLER', 'COMERCIAL_MANAGER'];
 
+/**
+ * Quem é gestor sai de `access.js`, não de uma leitura própria de `moduleRoles`.
+ *
+ * Havia aqui um `papel.module === 'COMERCIAL' && papel.role === 'COMERCIAL_MANAGER'`,
+ * que lê a **linha do Prisma**. O que chega em `req.auth.user` é o resultado de
+ * `publicUser`, onde `moduleRoles` já virou lista de strings (`'comercial:manager'`).
+ * A comparação nunca casava: **em produção, gestor nenhum era reconhecido como
+ * gestor** — recebia só a si mesmo na lista e levava 403 ao emitir em nome de
+ * outro vendedor. O teste não pegava porque montava o usuário na forma do banco.
+ *
+ * `isManager` passa por `hasModuleRole`, que normaliza as duas formas.
+ */
 function ehGestor(usuario) {
-  return (usuario?.moduleRoles || []).some(
-    papel => papel.module === 'COMERCIAL' && papel.role === 'COMERCIAL_MANAGER'
-  );
+  return isManager(usuario);
 }
 
 function paraConsultor(usuario) {

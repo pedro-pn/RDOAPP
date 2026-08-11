@@ -298,12 +298,12 @@ da finalização.
 
 ### Backend `(E5)`
 
-- [ ] T051 [US2] Implementar `backend/lib/comercial/proposals.js`: histórico, revisões e vínculo com o levantamento.
-- [ ] T052 [US2] Implementar `GET|POST /api/comercial/propostas` e `GET|PUT /api/comercial/propostas/:id`, com autoria (T024) e **a resposta variando por papel** (T025): `viewer` recebe a listagem sem `totalValue` e sem link do documento comercial.
+- [X] T051 [US2] Implementar `backend/src/lib/comercial/proposals.js`: histórico, revisões e vínculo com o levantamento. O `totalValue` é **calculado no servidor** a partir dos itens de preço, com a mesma leitura de moeda do gerador do documento (`comercial/dinheiro.js`) — histórico e PDF não podem discordar. `proximaRevisao` já está aqui, testada; falta só expor a rota (T053a).
+- [X] T052 [US2] Implementar `GET|POST /api/comercial/propostas` e `GET|PUT /api/comercial/propostas/:id`, com autoria (T024) e **a resposta variando por papel** (T025): `viewer` recebe a listagem sem `totalValue` e sem link do documento comercial. Inclui `arquivar`/`desarquivar` (parte da T083a). **A listagem é a única rota de proposta sem `requireComercialEstimator`** — é a superfície inteira do papel de consulta.
 - [X] T053 [US2] Implementar `GET /api/comercial/propostas/proximo-numero` consumindo a sequence do schema `comercial` (T021). **Não toca o Nectar** — cai a varredura de `next-number` da referência.  ↳ `FR-035`
 - [ ] T053a [US2] Implementar `GET /api/comercial/propostas/:codigo/revisao` em `backend/lib/comercial/proposals.js`, devolvendo `base_number`, `nextRevision`, o vínculo com o CRM e **`snapshotAvailable`** (FR-064, FR-065). O caminho **sem snapshot é normal, não erro** — proposta antiga não pode falhar.  ↳ `FR-064` `FR-065`
 - [ ] T053b [US2] Reutilizar o **card existente do CRM** quando houver vínculo salvo (FR-066), informando qual card e em qual funil. Sem vínculo, funil e card ficam para a última etapa.  ↳ `FR-066`
-- [ ] T054 [US2] [P] Escrever `backend/test/comercial-propostas.test.js` cobrindo criação, revisão e vínculo com levantamento.
+- [X] T054 [US2] [P] Escrever `backend/test/comercial-propostas.test.js` cobrindo criação, revisão e vínculo com levantamento. 30 testes, incluindo o caso em que o papel de consulta **alcança todas as propostas** (o contrário do levantamento) e o do hidrojateamento, onde o total é a **maior** das duas tabelas e não a soma.
 
 ### Frontend — as 7 etapas `(E8)`
 

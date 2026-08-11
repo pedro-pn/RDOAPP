@@ -110,7 +110,6 @@ export function makeComercialSchemas(z) {
     throw new TypeError('A valid Zod instance is required to build comercial schemas.');
   }
 
-  const money = z.union([z.number(), z.string()]);
   const id = z.string().trim().min(1);
 
   /**
@@ -183,8 +182,11 @@ export function makeComercialSchemas(z) {
     site: z.string().trim().min(1).max(300),
     department: z.string().trim().max(200).optional().nullable(),
     sellerUserId: id,
-    payload: proposalPayload,
-    totalValue: money
+    payload: proposalPayload
+    // `totalValue` NÃO entra, pelo mesmo motivo dos totais do levantamento: o
+    // servidor soma os itens de preço do payload com a mesma leitura de moeda
+    // que o gerador do documento usa. Aceitá-lo do cliente permitiria mandar ao
+    // CRM um valor que o PDF não confirma — e ninguém confere os dois.
   });
 
   return {
@@ -208,6 +210,12 @@ export function makeComercialSchemas(z) {
     /** Listagem: o filtro de arquivados é explícito, nunca implícito. */
     listQuery: z.object({
       arquivados: z.coerce.boolean().default(false)
+    }),
+
+    /** A listagem de propostas aceita busca livre, como o histórico da referência. */
+    proposalListQuery: z.object({
+      arquivados: z.coerce.boolean().default(false),
+      busca: z.string().trim().max(200).default('')
     })
   };
 }

@@ -61,7 +61,17 @@ depois de copiar** — silêncio é o resultado bom. Um byte perdido na cópia
 enfraquece em silêncio toda verificação de fidelidade, e o teste dos índices
 continuaria passando enquanto compara com um arquivo corrompido.
 
-Verificado em 10/08/2026: 192/192 batem. A referência nunca foi tocada.
+Verificado em 10/08/2026 e de novo em 11/08/2026: 192/192 batem. A referência
+nunca foi tocada.
+
+**O caminho é literal, e o teste não avisa quando erra.** `comercial-modelo-documento.test.js`
+monta `homedir() + '/comercialAPP'`. Na máquina de 11/08 a referência estava em
+`~/apps/comercialAPP`, e o teste sumia em silêncio — como foi escrito para fazer.
+Onde ela não estiver na raiz do `$HOME`, um link resolve:
+
+```bash
+ln -sfn ~/apps/comercialAPP ~/comercialAPP
+```
 
 Para **ler e portar**, esses 27 MB bastam. Para **rodar** — necessário só na
 comparação visual da T113/T114 — precisa de `pnpm install` e do setup de
@@ -122,7 +132,8 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 
 | Tarefa | O que é |
 |---|---|
-| **T051, T052, T054** | `proposals.js` e as rotas de proposta — criar, revisar, vincular ao levantamento. **Nada disso existe ainda**: hoje a proposta só vive no formulário e no rascunho local. |
+| ~~**T051, T052, T054**~~ | **Feitas em 11/08.** `proposals.js` e as rotas de proposta: criar, editar, listar, arquivar e vincular ao levantamento. `proximaRevisao` está na lib e testada; a rota dela é a T053a. |
+| **T053a, T053b** | A rota de revisão e o reuso do card do CRM. **Dependem de schema**: `Proposal` não tem hoje nenhum campo de Nectar (`opportunityId`, `nectarPipelineId`), que a referência guarda no histórico. |
 | **T074** | `storage.js` — gravar e ler documento sob `COMERCIAL_DIR`. |
 | **T075** | `POST /propostas/documentos` — gera os dois PDFs e **grava antes de qualquer integração**. |
 | **T076–T076f** | `jobs.js` — Nectar e SharePoint, planilha de custos, anexos, limite agregado. |
@@ -133,7 +144,12 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**94 tarefas fechadas, 61 abertas.**
+**97 tarefas fechadas, 58 abertas.**
+
+> **Sem tarefa dona:** a tela ainda **não chama** `POST`/`PUT /propostas`. O
+> formulário salva em rascunho local e as rotas existem, mas ninguém as liga.
+> Não há tarefa no plano para essa ligação — ela caiu entre a T067 (validação
+> das etapas) e a T083 (painel de finalização).
 
 ---
 
@@ -218,15 +234,16 @@ têm teste agora, mas vale saber que existem.
 ## Parte 5 — Como verificar
 
 ```bash
-cd backend  && npm test                      # 899/900
+cd backend  && npm test                      # 931/931 em 11/08
 cd frontend && npm test && npm run lint      # 213/213
 cd .. && npm run architecture:check
 ```
 
-**Uma falha é esperada e pré-existente:** `sendSignatureRequestEmails fails
-synchronously when SMTP config is missing`, em
-`backend/test/internal-report-signatures.test.js`. Não tem relação com o módulo
-Comercial — confirmei com `git stash`. Se aparecer **outra** falha, é regressão.
+**Uma falha pode aparecer, e é pré-existente:** `sendSignatureRequestEmails
+fails synchronously when SMTP config is missing`, em
+`backend/test/internal-report-signatures.test.js`. Depende do SMTP configurado
+no ambiente — apareceu na máquina anterior e não apareceu na de 11/08. Não tem
+relação com o módulo Comercial. Se aparecer **outra** falha, é regressão.
 
 O `architecture:check` recusa arquivo novo solto em `backend/src/lib/`: código de
 domínio vai para `backend/src/lib/<modulo>/`.
@@ -253,6 +270,12 @@ por suíte vermelha.
   conta própria.
 - **Desvio 11** — tela de custos sem `react-hook-form` — continua **proposto,
   pendente de decisão**.
+- **O `totalValue` do hidrojateamento** (11/08). O valor gravado e mandado ao CRM
+  é a **maior** das duas tabelas, ONSHORE ou OFFSHORE. A referência somava todos
+  os preços, mas lá não existiam duas tabelas: somá-las aqui produziria um número
+  que nenhum cliente vai pagar, porque são cenários alternativos. A maior é a
+  única das duas somas que corresponde a um cenário real. **Confirmar com o
+  comercial** — está isolado em `calcularTotal`, em `proposals.js`.
 - **`prisma migrate dev` exige reset do banco** por drift pré-existente em duas
   migrations. O caminho usado foi `migrate diff` → revisão → `db execute` →
   `migrate resolve --applied`. **Não rode `migrate dev` sem backup.**

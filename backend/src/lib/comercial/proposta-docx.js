@@ -9,6 +9,7 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import { tabelasDePrecoDoModelo } from '../../../../shared/comercial/dist/modelo-documento.js';
 import { convertDocxToPdf } from '../report-pdf-from-docx.js';
 import { EMU_POR_MM, registrarImagem, xmlDeImagem } from '../docx/imagem.js';
+import { lerDinheiro, moeda } from './dinheiro.js';
 import {
   cloneBefore,
   findFirstByText,
@@ -57,24 +58,6 @@ function formatarData(iso) {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeZone: 'UTC' }).format(
     quando
   );
-}
-
-const moeda = valor =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    Number.isFinite(valor) ? valor : 0
-  );
-
-/**
- * Desfaz a máscara de moeda.
- *
- * Ponto é milhar e vírgula é decimal, ao contrário do que `Number` espera. Ler
- * "R$ 11.250,00" com `Number` daria `NaN`, e o total sairia "R$ NaN" impresso.
- */
-function lerDinheiro(valor) {
-  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
-  const limpo = String(valor ?? '').replace(/[^\d,.-]/g, '');
-  const numero = Number(limpo.replace(/\./g, '').replace(',', '.'));
-  return Number.isFinite(numero) ? numero : 0;
 }
 
 /** Os campos simples do cabeçalho e das condições. */

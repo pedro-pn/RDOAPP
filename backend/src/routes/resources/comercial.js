@@ -18,6 +18,13 @@ import {
   updateCostEstimate
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
+import {
+  archiveProposal,
+  createProposal,
+  getProposal,
+  listProposals,
+  updateProposal
+} from '../../lib/comercial/proposals.js';
 import { gravarFoto, lerFoto } from '../../lib/comercial/scope-assets.js';
 import { nextProposalNumber, numberingStatus } from '../../lib/comercial/numbering.js';
 import { gerarPropostaEmPdf } from '../../lib/comercial/proposta-docx.js';
@@ -329,6 +336,117 @@ router.post(
     // Prévia não se guarda: o documento muda a cada tecla do formulário.
     res.setHeader('Cache-Control', 'no-store');
     return res.send(bytes);
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Propostas
+// ---------------------------------------------------------------------------
+
+/**
+ * **A ordem de registro importa aqui.** `/propostas/proximo-numero` e
+ * `/propostas/previa.pdf` estão declaradas acima, e por isso vencem o
+ * `/propostas/:id` que vem a seguir — o Express casa na ordem em que as rotas
+ * foram registradas. Mover o `:id` para cima transformaria "proximo-numero" num
+ * id de proposta, e o sintoma seria um 404 em vez de um número.
+ */
+
+/**
+ * A listagem é a **única superfície** do papel de consulta (FR-030), e por isso
+ * é a única rota de proposta que não exige orçamentista. Duas coisas acontecem
+ * na origem, não na tela:
+ *
+ * - o alcance (`proposalScopeFilter`): vendedor vê só as suas;
+ * - a supressão de valores (`serializeListForUser`): consulta não recebe
+ *   `totalValue` no JSON — não é campo escondido, é campo ausente.
+ */
+router.get(
+  '/propostas',
+  asyncHandler(async (req, res) => {
+    try {
+      const query = schemas.proposalListQuery.parse(req.query);
+      const { items, total } = await listProposals(prisma, req.auth.user, query);
+      res.json({ items: serializeListForUser(req.auth.user, items), total });
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.post(
+  '/propostas',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const data = schemas.proposalCreate.parse(req.body);
+      const proposal = await createProposal(prisma, req.auth.user, data);
+      res.status(201).json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.get(
+  '/propostas/:id',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const proposal = await getProposal(prisma, req.auth.user, req.params.id);
+      res.json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.put(
+  '/propostas/:id',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const data = schemas.proposalUpdate.parse(req.body);
+      const proposal = await updateProposal(prisma, req.auth.user, req.params.id, data);
+      res.json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.post(
+  '/propostas/:id/arquivar',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const proposal = await archiveProposal(prisma, req.auth.user, req.params.id, {
+        archive: true
+      });
+      res.json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.post(
+  '/propostas/:id/desarquivar',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const proposal = await archiveProposal(prisma, req.auth.user, req.params.id, {
+        archive: false
+      });
+      res.json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
   })
 );
 

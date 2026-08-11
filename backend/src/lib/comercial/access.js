@@ -70,6 +70,24 @@ export function authorshipFilter(user) {
 }
 
 /**
+ * Filtro de alcance para a LISTAGEM DE PROPOSTAS.
+ *
+ * **Não é o mesmo que `authorshipFilter`, e a diferença é o contrato.** O papel
+ * de consulta não alcança levantamento por caminho nenhum, mas alcança a
+ * listagem de propostas — *todas* elas, sem valor, custo nem margem. A listagem
+ * é a superfície inteira dele (FR-030).
+ *
+ * Usar `authorshipFilter` aqui devolveria lista vazia ao `viewer` e a tela dele
+ * pareceria funcionar — vazia, sem erro, sem nada que denuncie o engano.
+ */
+export function proposalScopeFilter(user) {
+  if (isManager(user)) return {};
+  if (isSeller(user)) return { createdByUserId: user.id };
+  if (hasModuleRole(user, ROLE_VIEWER)) return {};
+  return { createdByUserId: '__sem_acesso__' };
+}
+
+/**
  * O usuário pode LER este registro?
  * `record` precisa ter `createdByUserId`.
  */

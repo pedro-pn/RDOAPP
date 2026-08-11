@@ -65,6 +65,25 @@ test('gestor recebe a lista completa', async () => {
   assert.equal(resultado.podeEscolher, true);
 });
 
+test('o gestor é reconhecido também na forma que chega em req.auth.user', async () => {
+  // Regressão. Os outros testes montam `moduleRoles` como a LINHA DO BANCO
+  // (`{module, role}`), mas o que chega às rotas é o resultado de `publicUser`,
+  // onde a lista já virou `['comercial:manager']`. O código antigo comparava
+  // `papel.module === 'COMERCIAL'` e nunca casava com string: em produção,
+  // gestor nenhum era gestor — recebia só a si mesmo e levava 403 ao emitir em
+  // nome de outro vendedor, enquanto a suíte ficava verde.
+  const daSessao = { id: 'g1', name: 'Gestora', moduleRoles: ['comercial:manager'] };
+  const prisma = prismaFalso([
+    usuario({ id: 'u1', name: 'Ana' }),
+    usuario({ id: 'u2', name: 'Bruno' })
+  ]);
+
+  const resultado = await listarConsultores(prisma, daSessao);
+
+  assert.equal(resultado.podeEscolher, true, 'o gestor da sessão não foi reconhecido');
+  assert.equal(resultado.items.length, 2);
+});
+
 test('a consulta pede apenas contas ATIVAS com papel de venda', async () => {
   const prisma = prismaFalso([]);
   await listarConsultores(prisma, usuario({ gestor: true }));
