@@ -139,7 +139,12 @@ router.get('/registros/:id', asyncHandler(async (req, res) => {
 
 router.put('/registros/:id', requireQualidadeManager, asyncHandler(async (req, res) => {
   try {
-    const data = schemas.recordUpdate.parse(req.body);
+    const existing = await prisma.qualityRecord.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+      select: { type: true }
+    });
+    if (!existing) throw new QualidadeError('Registro de qualidade não encontrado.', 404);
+    const data = schemas.recordUpdateForType(existing.type).parse(req.body);
     res.json(await updateRecord(prisma, req.params.id, { data, userId: req.auth?.user?.id || null }));
   } catch (error) {
     if (handleQualidadeError(error, res)) return;

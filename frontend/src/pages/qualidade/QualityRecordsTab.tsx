@@ -95,9 +95,10 @@ function evidenceLinks(record: QualityRecord) {
     .filter((item): item is { href: string; label: string } => Boolean(item));
 }
 
-function impactBadgeClass(impact: QualityImpact) {
+function impactBadgeClass(impact: QualityImpact | null) {
   if (impact === 'ALTO') return 'badge badge-rej';
   if (impact === 'MEDIO') return 'badge badge-pen';
+  if (!impact) return 'badge';
   return 'badge badge-ok';
 }
 
@@ -312,7 +313,7 @@ export function QualityRecordsTab({ isManager }: Props) {
                   <tr key={record.id}>
                     <td data-label="Nº">
                       <strong>{record.number}</strong>
-                      <span className="stock-table-muted">{record.origin}</span>
+                      {record.origin ? <span className="stock-table-muted">{record.origin}</span> : null}
                       {evidences.length ? (
                         <div className="quality-evidence-collapse">
                           <button
@@ -342,8 +343,8 @@ export function QualityRecordsTab({ isManager }: Props) {
                     <td data-label="Tipo">{typeLabels.get(record.type) || record.type}</td>
                     <td data-label="Projeto">{projectLabel(record)}</td>
                     <td data-label="Natureza">{natureName(record)}</td>
-                    <td data-label="Impacto"><span className={impactBadgeClass(record.impact)}>{impactLabels.get(record.impact) || record.impact}</span></td>
-                    <td data-label="Status"><span className="badge">{statusLabels.get(record.status) || record.status}</span></td>
+                    <td data-label="Impacto"><span className={impactBadgeClass(record.impact)}>{impactLabels.get(record.impact || '') || record.impact || '-'}</span></td>
+                    <td data-label="Status"><span className="badge">{statusLabels.get(record.status || '') || record.status || '-'}</span></td>
                     <td data-label="Evento">{formatDate(record.eventDate)}</td>
                     <td data-label="Ocorrências">{record.occurrences12m}</td>
                     <td data-label="Recorrente?">{record.recurrent ? 'SIM' : 'não'}</td>

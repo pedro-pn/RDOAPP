@@ -22,6 +22,7 @@ export type QualidadeSchemas = {
   statusOptions: readonly QualidadeOption[];
   recordCreate: QualidadeSchema;
   recordUpdate: QualidadeSchema;
+  recordUpdateForType: (type: string) => QualidadeSchema;
   natureCreate: QualidadeSchema;
   natureUpdate: QualidadeSchema;
   activePatch: QualidadeSchema;

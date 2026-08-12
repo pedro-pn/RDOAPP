@@ -56,6 +56,13 @@ function requiredText(z, max, message = 'Campo obrigatório.') {
   return schema;
 }
 
+function optionalEnum(z, values) {
+  return z.any().optional().nullable().transform(value => {
+    const text = String(value || '').trim();
+    return text || null;
+  }).pipe(z.enum(values).optional().nullable());
+}
+
 function optionalUrl(z) {
   return z.any().optional().nullable().transform(value => {
     const text = String(value || '').trim();
@@ -104,27 +111,47 @@ function recordBaseSchema(z, { includeType = true } = {}) {
   return {
     ...(includeType ? { type: z.enum(QUALITY_RECORD_TYPES) } : {}),
     registeredAt: dateText(z),
-    origin: requiredText(z, 180),
+    origin: optionalText(z, 180),
     projectId: optionalText(z, 80),
     eventDate: dateText(z),
-    natureId: requiredText(z, 80),
-    description: requiredText(z, 4000),
-    impact: z.enum(QUALITY_IMPACTS),
+    natureId: optionalText(z, 80),
+    description: optionalText(z, 4000),
+    impact: optionalEnum(z, QUALITY_IMPACTS),
     linkedRnc: optionalText(z, 120),
-    disposition: z.enum(QUALITY_DISPOSITIONS),
+    disposition: optionalEnum(z, QUALITY_DISPOSITIONS),
     definedAction: optionalText(z, 4000),
     actionOwner: optionalText(z, 180),
     actionDeadline: optionalDateText(z),
     evidence: optionalUrl(z),
     evidences: evidencesSchema(z),
     resultVerification: optionalText(z, 4000),
-    status: z.enum(QUALITY_STATUSES)
+    status: optionalEnum(z, QUALITY_STATUSES)
   };
 }
 
 function recordSchema(z, options = {}) {
   return z.object(recordBaseSchema(z, options)).superRefine((data, ctx) => {
-    if (data.disposition === 'TRATAR' && !data.definedAction) {
+    const recordType = options.includeType === false ? options.recordType : data.type;
+    if (recordType === 'DESVIO') {
+      [
+        ['origin', data.origin],
+        ['natureId', data.natureId],
+        ['description', data.description],
+        ['impact', data.impact],
+        ['disposition', data.disposition],
+        ['status', data.status]
+      ].forEach(([path, value]) => {
+        if (value) return;
+        ctx.addIssue({ code: 'custom', path: [path], message: 'Campo obrigatório.' });
+      });
+    } else if (recordType && !data.projectId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['projectId'],
+        message: 'Selecione a obra/projeto.'
+      });
+    }
+    if (recordType === 'DESVIO' && data.disposition === 'TRATAR' && !data.definedAction) {
       ctx.addIssue({
         code: 'custom',
         path: ['definedAction'],
@@ -182,6 +209,11 @@ export function makeQualidadeSchemas(z) {
     throw new TypeError('A valid Zod instance is required to build qualidade schemas.');
   }
 
+  const recordUpdateForType = type => {
+    if (!QUALITY_RECORD_TYPES.includes(type)) throw new TypeError('Tipo de registro de qualidade inválido.');
+    return recordSchema(z, { includeType: false, recordType: type });
+  };
+
   return {
     RECORD_TYPES: QUALITY_RECORD_TYPES,
     EVIDENCE_KINDS: QUALITY_EVIDENCE_KINDS,
@@ -194,7 +226,8 @@ export function makeQualidadeSchemas(z) {
     dispositionOptions: QUALITY_DISPOSITION_OPTIONS,
     statusOptions: QUALITY_STATUS_OPTIONS,
     recordCreate: recordSchema(z),
-    recordUpdate: recordSchema(z, { includeType: false }),
+    recordUpdate: recordUpdateForType('DESVIO'),
+    recordUpdateForType,
     natureCreate: natureSchema(z),
     natureUpdate: natureSchema(z),
     natureOrder: natureOrderSchema(z),
