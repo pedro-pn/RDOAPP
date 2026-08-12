@@ -598,10 +598,14 @@ Levantadas por um colaborador do comercial **testando o app de referência**, n�
 o módulo. Isso muda a natureza delas: são **requisitos**, não defeitos daqui — e
 parte já está resolvida de outro jeito. Registradas para não se perderem.
 
-- [X] T121 **Contato "outro"** — na referência o contato vem da busca do CRM, e
-  cotação da Petrobras chega sem contato. **Aqui já funciona**: o contato é campo
-  de texto livre. O requisito é para quando a busca do CRM for ligada: o caminho
-  de digitar à mão **não pode sumir**.
+- [X] T121 **Contato "outro"** — o caminho de digitar à mão **continua**, e agora
+  é regra escrita, não acaso: a busca do CRM entrou como **auxílio**, e a empresa
+  sem CNPJ **não é escondida** (a referência exigia 14 dígitos e a esconderia). Ver
+  T121a para a tela.
+- [ ] T121a **Ligar a busca na etapa Cliente.** O backend está pronto —
+  `GET /comercial/crm/empresas?busca=` e `/crm/empresas/:id`. A tela ainda tem o
+  campo desabilitado com o aviso de "integração não ligada". Precisa também
+  **mostrar o aviso** quando `porTrechoDisponivel` vier `false`.
 - [X] T122 **Salvamento prévio** — **já feito nas duas camadas**: rascunho local
   com autossalvamento (T089) e gravação no servidor a cada "Salvar e continuar"
   (T054a). Falta autossalvar no servidor; hoje o automático é só local.
@@ -618,10 +622,23 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > `/empresas` **não existe** — devolve 404 em HTML); e `/contatos` **pagina de
   > 100 em 100**, ignorando `displayLength` maior.
   >
-  > Caminho recomendado: **espelho local do cadastro**, sincronizado paginando,
-  > com busca por trecho no nosso banco — mesmo padrão que o módulo já usa para o
-  > import do Access. Alternativa barata e pior: paginar sob demanda até achar,
-  > que gasta chamadas e piora conforme o cadastro cresce.
+  > **Tentei o índice em memória em 12/08 e NÃO FUNCIONA — está desligado no
+  > código, e a resposta admite isso.** Medido: 1.500 contatos lidos em 15
+  > páginas dão **53 empresas**, e a Petrobras **não está entre elas**. A base é
+  > maior, as empresas são ~3,5% do cadastro e estão espalhadas (uma página
+  > trouxe 42, sete trouxeram zero). E **não há como pedir só as empresas**:
+  > `isEmpresa=true`, `tipo=empresa` e variantes são **ignorados** pela API.
+  > Somando o limite de taxa — nove páginas rápidas levam a 429 —, varrer sob
+  > demanda está fora.
+  >
+  > **Índice parcial é pior que índice nenhum**: responde "não achei" com a mesma
+  > cara de "não existe". Por isso `INDICE_LIGADO = false` e
+  > `porTrechoDisponivel` responde a verdade — a máquina do filtro está pronta e
+  > testada, falta o que a alimente.
+  >
+  > O caminho é **espelho persistido**: tabela no nosso banco, sincronizada por
+  > job (noturno, paginando devagar), e busca por trecho lá. Mesmo padrão do
+  > import do Access. É migration + job — fatia própria.
 - [X] T124 **Máscara de R$ nos campos de valor** da tela de custos. Decisão do
   mantenedor em 11/08: **centavos ao digitar**, igual à etapa Comercial da
   proposta (`formatarDinheiro`), para as duas telas não divergirem. **Desvio nº 14**,

@@ -24,6 +24,7 @@ import {
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
 import { anexarArquivo, listarAnexos } from '../../lib/comercial/anexos.js';
+import { buscarEmpresas, empresaComContatos } from '../../lib/comercial/crm-contatos.js';
 import { distanciaAteObra } from '../../lib/comercial/distancias.js';
 import { finalizarProposta } from '../../lib/comercial/jobs.js';
 import { indisponivel, listarFunis } from '../../lib/comercial/nectar.js';
@@ -226,6 +227,40 @@ router.get(
  * campo continua editável, e o caminho de digitar é o de hoje. Erro aqui faria a
  * tela parecer quebrada quando na verdade é só um endereço que ninguém acha.
  */
+/**
+ * Busca de empresa no CRM (T121/T123).
+ *
+ * `porTrechoDisponivel` diz à tela se a busca por trecho já vale. Enquanto o
+ * índice esquenta, o resultado é só o do prefixo — e a tela precisa poder avisar
+ * "ainda buscando por trecho", em vez de deixar o usuário concluir que a empresa
+ * não existe.
+ */
+router.get(
+  '/crm/empresas',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(await buscarEmpresas(String(req.query.busca || '')));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+router.get(
+  '/crm/empresas/:id',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(await empresaComContatos(req.params.id));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
 router.get(
   '/distancia',
   requireComercialEstimator,
