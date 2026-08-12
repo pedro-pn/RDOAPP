@@ -2704,20 +2704,23 @@
 /* ---------------------------------------------------------------------------
  * Sugestões de endereço (T134)
  *
- * A lista flutua sobre o conteúdo, e por isso o contêiner é o que estabelece o
- * `position: relative` — sem ele a lista se ancoraria no painel e apareceria
- * deslocada quando o campo não fosse o primeiro.
+ * A lista flutua sobre o conteúdo e é posicionada em coordenadas de viewport,
+ * medidas do input pelo componente. O porquê está no bloco da lista.
  * ------------------------------------------------------------------------- */
 .com-root .com-autocomplete {
-  position: relative;
+  display: block;
 }
 
+.com-root .com-autocomplete > input {
+  width: 100%;
+}
+
+/* `fixed`, não `absolute`: na tela de custos o campo mora dentro de
+   `.com-table-wrap`, que tem `overflow-x: auto` — e um `absolute` seria
+   RECORTADO por ele. A posição vem medida do input, em JS. */
 .com-root .com-autocomplete-lista {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
+  position: fixed;
+  z-index: 60;
   max-height: 15rem;
   overflow-y: auto;
   margin: 0;

@@ -1,4 +1,5 @@
 import { LOGISTICS_TRAVEL_DEFAULTS } from '../../../../../../shared/comercial/dist/cost-model.js';
+import { EnderecoInput } from '../../components/EnderecoField';
 import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
 import { money, numberValue } from '../formato';
 import { itemPrecisaAtencao, transporteDispensado } from '../logistica';
@@ -221,10 +222,18 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
                             />
                           </td>
                           <td>
-                            <input
+                            {/* Sugestões do Google enquanto se digita (T134). O
+                                `placeId` é descartado de propósito: o payload do
+                                levantamento é normalizado pelo motor portado, que
+                                monta o destino campo a campo — guardá-lo exigiria
+                                mexer no modelo compartilhado, que os goldens
+                                protegem, para um proveito que só a T126b usaria.
+                                O texto escolhido já é o do próprio Google, que é o
+                                que faz a distância resolver certo depois. */}
+                            <EnderecoInput
                               aria-label="Endereço"
                               value={String(destino.address || '')}
-                              onChange={event => editar({ address: event.target.value })}
+                              onChange={endereco => editar({ address: endereco })}
                             />
                           </td>
                           <td>

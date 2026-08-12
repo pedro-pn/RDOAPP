@@ -775,6 +775,15 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   diária própria** (`GOOGLE_MAPS_MAX_DIA_SUGESTOES`, 300): uma sugestão é uma
   tecla digitada, não um clique. ⚠ Exige **Places API (New)** habilitada no
   console — não é a mesma da Geocoding nem a da Routes.
+  ↳ Aplicado também aos **destinos do levantamento de custos**, a pedido do
+  mantenedor: é lá que se digita endereço toda semana, a sede é digitada uma vez.
+  O componente ganhou duas formas — `EnderecoInput` (combobox cru, para a célula
+  da tabela) e `EnderecoField` (com rótulo, para o formulário). A lista é
+  `position: fixed` **por causa disso**: dentro de `.com-table-wrap`, que tem
+  `overflow-x: auto`, uma lista `absolute` sairia recortada. O `placeId` não é
+  guardado no destino — o payload é normalizado campo a campo pelo motor
+  compartilhado, e acrescentar campo lá mexe no que os goldens protegem; o texto
+  escolhido já é o do Google, que é o que faz a distância resolver certo depois.
 - [ ] T133 **Serviços novos no catálogo**, quando o comercial mandar os textos.
   Candidatos com uso real medido em 12/08: análise físico-química (2 usos),
   flushing com água (7 somando os dois produtos). Boroscopia, sopragem, pintura
