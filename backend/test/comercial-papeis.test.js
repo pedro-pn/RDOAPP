@@ -66,13 +66,20 @@ test('o hub oferece o módulo aos três papéis', () => {
   assert.equal(comercial.hub.path, '/comercial');
 });
 
-test('as quatro rotas do módulo estão declaradas', () => {
+test('as rotas do módulo estão declaradas', () => {
   assert.deepEqual(comercial.routes, {
     index: '/comercial',
     custos: '/comercial/custos',
     propostas: '/comercial/propostas',
     historico: '/comercial/historico',
+    configuracoes: '/comercial/configuracoes',
   });
+});
+
+test('o grupo de acesso da configuração é só do gestor', () => {
+  // O que se muda ali — a origem de todas as distâncias — vale para as propostas
+  // de todo mundo. Vendedor e consulta não entram.
+  assert.deepEqual(comercial.routeGroups.manager.allowedModuleRoles, ['comercial:manager']);
 });
 
 test('a migration cria os três valores de enum', () => {

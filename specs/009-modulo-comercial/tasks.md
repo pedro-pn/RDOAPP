@@ -740,10 +740,19 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   (ONSHORE/OFFSHORE); o mantenedor apurou que **o mais comum é ONSHORE**, e que o
   certo é perguntar. Precisa de um campo na finalização — qual cenário vale — e de
   `calcularTotal` passar a respeitá-lo em vez de decidir sozinho.
-- [ ] T131 **Endereço da sede vira configuração do módulo**, editável por gestor,
+- [X] T131 **Endereço da sede vira configuração do módulo**, editável por gestor,
   com busca no Google Maps para localizá-lo. Hoje é `COMERCIAL_SEDE_ENDERECO` no
   `.env`, e **a variável deve sumir** — decisão do mantenedor em 12/08: dado de
   negócio não mora em arquivo de ambiente. É migration + rota + aba de configuração.
+  ↳ `comercial.ComercialSettings` (linha única), `lib/comercial/configuracao.js`,
+  `GET /comercial/configuracao` + `PUT /configuracao/sede` + `POST
+  /configuracao/sede/localizar`, e a tela `/comercial/configuracoes` no grupo de
+  acesso `manager`. A variável saiu do `env.js` e do `.env.example` **sem
+  fallback** — duas fontes para o mesmo dado fariam o servidor calcular a partir
+  de um endereço que a tela nega estar usando. Detalhes e as três armadilhas
+  (geocodificar a origem, salvar com o Maps `off`, cache por sede) em
+  [`contracts/distancias-automaticas.md`](./contracts/distancias-automaticas.md).
+  ⚠ Precisa de `prisma migrate deploy` no servidor.
 - [X] T132 **Corrigir os erros de digitação dos `.docx`** listados em
   [`contracts/modelos-word.md`](./contracts/modelos-word.md) — resina,
   Descarregamento, Instalações, hidrojateamento, RFA duplicado, e as linhas de

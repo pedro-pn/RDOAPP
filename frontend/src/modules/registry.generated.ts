@@ -553,7 +553,8 @@ export const moduleRegistry = [
       "index": "/comercial",
       "custos": "/comercial/custos",
       "propostas": "/comercial/propostas",
-      "historico": "/comercial/historico"
+      "historico": "/comercial/historico",
+      "configuracoes": "/comercial/configuracoes"
     },
     "routeGroups": {
       "default": {
@@ -575,6 +576,15 @@ export const moduleRegistry = [
         "allowedModuleRoles": [
           "comercial:manager",
           "comercial:seller"
+        ]
+      },
+      "manager": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "comercial:manager"
         ]
       }
     },

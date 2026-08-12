@@ -225,9 +225,10 @@ const rawEnvSchema = z.object({
    * consumida — um defeito em laço passa dela e só aparece na fatura. O teto
    * transforma isso num campo que volta a ser digitado.
    */
-  GOOGLE_MAPS_MAX_DIA: integerWithDefault('GOOGLE_MAPS_MAX_DIA', 200, { min: 1 }),
-  /** Origem de toda distância: a sede. */
-  COMERCIAL_SEDE_ENDERECO: stringWithDefault('')
+  GOOGLE_MAPS_MAX_DIA: integerWithDefault('GOOGLE_MAPS_MAX_DIA', 200, { min: 1 })
+  // A origem das rotas — o endereço da sede — NÃO mora aqui. É dado de negócio,
+  // editável por gestor na tela de configuração do módulo, e vive no banco
+  // (`comercial.ComercialSettings`). Foi `COMERCIAL_SEDE_ENDERECO` até 12/08.
 }).passthrough().superRefine((value, ctx) => {
   const trustProxyConfigured = value.TRUST_PROXY !== undefined && String(value.TRUST_PROXY).trim() !== '';
   const trustProxy = parseTrustProxy(value.TRUST_PROXY);
@@ -300,7 +301,6 @@ export function loadEnv(source = process.env) {
     mapsMode: raw.GOOGLE_MAPS_MODE,
     mapsApiKey: raw.GOOGLE_MAPS_API_KEY,
     mapsMaxDia: raw.GOOGLE_MAPS_MAX_DIA,
-    comercialSedeEndereco: raw.COMERCIAL_SEDE_ENDERECO,
     appUrl: raw.APP_URL,
     allowedOrigin: raw.ALLOWED_ORIGIN,
     allowedOrigins: parseOrigins(raw.ALLOWED_ORIGIN),

@@ -24,6 +24,15 @@ import { ComercialError } from './cost-estimates.js';
  * confirmação.
  *
  * Três modos, como Nectar e SharePoint, e `off` continua sendo o padrão.
+ *
+ * ---------------------------------------------------------------------------
+ * A sede CHEGA aqui, não é lida aqui (T131)
+ *
+ * Este arquivo é o adaptador do Google e não sabe onde a sede mora. Ela vem em
+ * `sede`, e quem a lê do banco é `configuracao.js`, que expõe
+ * `distanciaDaSede(prisma, endereco)`. A separação é o que mantém este arquivo
+ * testável sem banco — e o que evita o ciclo de importação, já que
+ * `configuracao.js` precisa da geocodificação daqui para localizar a sede.
  */
 
 const GEOCODING = 'https://maps.googleapis.com/maps/api/geocode/json';
@@ -56,7 +65,14 @@ export function modoDasDistancias() {
   return env.mapsMode;
 }
 
-/** Recusa antes de gastar chamada. Devolve o motivo, como os outros adaptadores. */
+/**
+ * Recusa antes de gastar chamada. Devolve o motivo, como os outros adaptadores.
+ *
+ * Só o que é de ambiente. A sede não entra: ela é configuração do módulo, e quem
+ * a exige é quem calcula rota — a geocodificação de um endereço qualquer
+ * funciona sem sede nenhuma, e é dela que a tela de configuração depende para
+ * localizar a própria sede.
+ */
 export function indisponivel() {
   const modo = modoDasDistancias();
   if (modo === 'off') {
@@ -64,9 +80,6 @@ export function indisponivel() {
   }
   if (modo === 'real' && !env.mapsApiKey) {
     return 'A chave do Google Maps não está configurada (GOOGLE_MAPS_API_KEY).';
-  }
-  if (!env.comercialSedeEndereco) {
-    return 'O endereço da sede não está configurado (COMERCIAL_SEDE_ENDERECO).';
   }
   return '';
 }
@@ -86,8 +99,22 @@ const CACHE_MAXIMO = 500;
 /** Contador da cota diária. Reinicia sozinho na virada do dia. */
 const cota = { dia: '', usadas: 0 };
 
-export function chaveDeCache(endereco) {
-  return String(endereco || '')
+/**
+ * A chave inclui a SEDE, n\u00e3o s\u00f3 a obra.
+ *
+ * Desde que o endere\u00e7o da sede virou configura\u00e7\u00e3o edit\u00e1vel (T131), a mesma obra
+ * tem dist\u00e2ncias diferentes conforme a origem. Com a chave s\u00f3 do destino, mudar
+ * a sede deixaria o cache respondendo a dist\u00e2ncia da sede antiga \u2014 em sil\u00eancio, e
+ * s\u00f3 nos processos que j\u00e1 tinham a resposta guardada. Invalidar na hora de salvar
+ * resolveria num processo s\u00f3; a chave composta resolve em todos, sem ningu\u00e9m
+ * precisar lembrar de chamar nada.
+ */
+export function chaveDeCache(sede, endereco) {
+  return `${normalizarTexto(sede)}>${normalizarTexto(endereco)}`;
+}
+
+function normalizarTexto(valor) {
+  return String(valor || '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, ' ')
@@ -132,6 +159,10 @@ export function cotaUsada() {
  *
  * O motivo vem no `aviso` — inclusive o técnico, porque quem lê "chave não
  * autorizada" sabe a quem avisar, e "não consegui calcular" não diz nada.
+ *
+ * `sede` é `{ endereco, placeId }` e vem de `configuracao.js` (T131). Sem ela
+ * não há de onde sair, e a resposta diz onde configurar — o gestor tem tela para
+ * isso, e mandá-lo procurar variável de ambiente seria mandá-lo ao lugar errado.
  */
 export async function distanciaAteObra(endereco, opcoes = {}) {
   try {
@@ -145,7 +176,7 @@ export async function distanciaAteObra(endereco, opcoes = {}) {
   }
 }
 
-async function calcular(endereco, { buscar = fetch } = {}) {
+async function calcular(endereco, { buscar = fetch, sede = {} } = {}) {
   const consulta = String(endereco || '').trim();
   if (!consulta) {
     return naoEncontrado('Informe o endereço da obra para calcular a distância.');
@@ -154,7 +185,13 @@ async function calcular(endereco, { buscar = fetch } = {}) {
   const impedimento = indisponivel();
   if (impedimento) return naoEncontrado(impedimento);
 
-  const chave = chaveDeCache(consulta);
+  if (!sede.endereco) {
+    return naoEncontrado(
+      'O endereço da sede ainda não foi configurado. Um gestor do módulo pode informá-lo em Configurações.'
+    );
+  }
+
+  const chave = chaveDeCache(sede.placeId || sede.endereco, consulta);
   if (cache.has(chave)) return cache.get(chave);
 
   if (modoDasDistancias() === 'fake') {
@@ -171,7 +208,7 @@ async function calcular(endereco, { buscar = fetch } = {}) {
     return naoEncontrado(`Não encontrei "${consulta}". Confira o endereço ou informe a distância.`);
   }
 
-  const km = await distanciaRodoviaria(local, buscar);
+  const km = await distanciaRodoviaria(local, sede, buscar);
   if (km === null) {
     return naoEncontrado(
       `Encontrei "${local.endereco}", mas não há rota rodoviária a partir da sede.`
@@ -188,6 +225,56 @@ async function calcular(endereco, { buscar = fetch } = {}) {
 
 function naoEncontrado(aviso) {
   return { km: null, enderecoEncontrado: '', confianca: 'nenhuma', aviso };
+}
+
+/**
+ * Localiza um endereço, sem calcular rota nenhuma (T131).
+ *
+ * É a geocodificação sozinha, para a tela de configuração conferir a sede e para
+ * `salvarSede` guardar o `placeId`. Não passa pelo cache: são poucas chamadas na
+ * vida do sistema — a sede muda quando a empresa muda de prédio — e guardá-las
+ * junto das distâncias misturaria duas coisas com validade muito diferente.
+ *
+ * **Nunca lança**, pelo mesmo motivo do cálculo: Maps desligado é o padrão do
+ * ambiente, e nesse caso o gestor grava o endereço sem `placeId` e segue.
+ */
+export async function localizarEndereco(endereco, { buscar = fetch } = {}) {
+  const consulta = String(endereco || '').trim();
+  if (!consulta) return semLocal('Informe o endereço.');
+
+  const impedimento = indisponivel();
+  if (impedimento) return semLocal(impedimento);
+
+  if (modoDasDistancias() === 'fake') {
+    return {
+      enderecoEncontrado: `${consulta} (modo de teste)`,
+      placeId: 'place-de-teste',
+      confianca: 'exata',
+      aviso: ''
+    };
+  }
+
+  try {
+    const local = await geocodificar(consulta, buscar);
+    if (!local) return semLocal(`Não encontrei "${consulta}". Confira o endereço.`);
+
+    return {
+      enderecoEncontrado: local.endereco,
+      placeId: local.placeId,
+      confianca: local.confianca,
+      aviso: local.aviso
+    };
+  } catch (error) {
+    return semLocal(
+      error instanceof DistanciaError
+        ? error.message
+        : `Não foi possível localizar o endereço: ${error.message}`
+    );
+  }
+}
+
+function semLocal(aviso) {
+  return { enderecoEncontrado: '', placeId: '', confianca: 'nenhuma', aviso };
 }
 
 function guardar(chave, resultado) {
@@ -256,8 +343,13 @@ async function geocodificar(endereco, buscar) {
  * Mandar o `placeId` em vez do texto evita que a Routes resolva o endereço de
  * novo — por conta própria, e possivelmente para outro lugar que o que a tela
  * acabou de mostrar ao usuário.
+ *
+ * Vale para as **duas pontas**. A origem usa o `placeId` que a tela de
+ * configuração resolveu ao salvar a sede; sem ele — Maps desligado na hora de
+ * configurar, ou endereço que ninguém achou — cai no texto, que é o
+ * comportamento antigo e continua servindo.
  */
-async function distanciaRodoviaria(local, buscar) {
+async function distanciaRodoviaria(local, sede, buscar) {
   consumirCota();
 
   const resposta = await chamar(buscar, ROUTES, {
@@ -268,7 +360,7 @@ async function distanciaRodoviaria(local, buscar) {
       'X-Goog-FieldMask': 'routes.distanceMeters'
     },
     body: JSON.stringify({
-      origin: { address: env.comercialSedeEndereco },
+      origin: sede.placeId ? { placeId: sede.placeId } : { address: sede.endereco },
       destination: { placeId: local.placeId },
       travelMode: 'DRIVE',
       languageCode: 'pt-BR',

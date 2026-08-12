@@ -265,6 +265,18 @@ export function makeComercialSchemas(z) {
     proposalListQuery: z.object({
       arquivados: z.coerce.boolean().default(false),
       busca: z.string().trim().max(200).default('')
+    }),
+
+    /**
+     * Endereço da sede — configuração do módulo (T131).
+     *
+     * O teto de tamanho está aqui só para barrar corpo absurdo. As regras que o
+     * usuário lê — vazio, curto demais — moram em `configuracao.js`, com
+     * mensagem própria, porque um `400` do zod diria "String must contain at
+     * least 8 character(s)" a quem só quer saber que faltou a rua.
+     */
+    comercialSedeUpdate: z.object({
+      sedeEndereco: z.string().max(400).default('')
     })
   };
 }

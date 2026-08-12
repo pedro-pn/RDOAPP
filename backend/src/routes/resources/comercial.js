@@ -24,8 +24,13 @@ import {
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
 import { anexarArquivo, listarAnexos, removerAnexo } from '../../lib/comercial/anexos.js';
+import {
+  conferirEndereco,
+  distanciaDaSede,
+  lerConfiguracao,
+  salvarSede
+} from '../../lib/comercial/configuracao.js';
 import { buscarEmpresas, empresaComContatos } from '../../lib/comercial/crm-contatos.js';
-import { distanciaAteObra } from '../../lib/comercial/distancias.js';
 import { finalizarProposta } from '../../lib/comercial/jobs.js';
 import { indisponivel, listarFunis } from '../../lib/comercial/nectar.js';
 import { attachmentContentDisposition } from '../../lib/documents/storage.js';
@@ -44,7 +49,8 @@ import prisma from '../../lib/prisma.js';
 import {
   requireAuth,
   requireComercialAccess,
-  requireComercialEstimator
+  requireComercialEstimator,
+  requireComercialManager
 } from '../../middleware/auth.js';
 
 const router = Router();
@@ -266,7 +272,63 @@ router.get(
   requireComercialEstimator,
   asyncHandler(async (req, res) => {
     try {
-      res.json(await distanciaAteObra(String(req.query.endereco || '')));
+      res.json(await distanciaDaSede(prisma, String(req.query.endereco || '')));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Configuração do módulo (T131)
+// ---------------------------------------------------------------------------
+
+/**
+ * Leitura aberta a quem estima; escrita só a gestor.
+ *
+ * O vendedor lê porque a origem da distância é dele: sabendo de qual endereço
+ * a rota sai, ele reconhece um número esquisito antes de o número virar preço.
+ * O papel de consulta não passa nem na leitura — não usa distância.
+ */
+router.get(
+  '/configuracao',
+  requireComercialEstimator,
+  asyncHandler(async (_req, res) => {
+    res.json(await lerConfiguracao(prisma));
+  })
+);
+
+/**
+ * Grava o endereço da sede.
+ *
+ * Devolve a configuração já gravada **com o aviso da localização**: gravou, e o
+ * Google achou só a cidade, ou está desligado, ou não achou nada. Recusar nesses
+ * casos deixaria o gestor sem como configurar um ambiente com o Maps `off`, que
+ * é o padrão — o endereço digitado serve de origem sozinho.
+ */
+router.put(
+  '/configuracao/sede',
+  requireComercialManager,
+  asyncHandler(async (req, res) => {
+    try {
+      const dados = schemas.comercialSedeUpdate.parse(req.body);
+      res.json(await salvarSede(prisma, req.auth.user, dados));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+/** Conferir antes de gravar. Não escreve nada. */
+router.post(
+  '/configuracao/sede/localizar',
+  requireComercialManager,
+  asyncHandler(async (req, res) => {
+    try {
+      const dados = schemas.comercialSedeUpdate.parse(req.body);
+      res.json(await conferirEndereco(dados.sedeEndereco));
     } catch (error) {
       if (handleComercialError(error, res)) return;
       throw error;

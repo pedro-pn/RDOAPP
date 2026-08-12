@@ -213,3 +213,37 @@ medidas baratas, na implementação:
 - **restringir a chave de API** no console do Google, por API e por IP do
   servidor. Chave sem restrição que vaze é conta de outra pessoa gastando a
   franquia da empresa.
+
+## A origem saiu do `.env` — 12/08/2026 (T131)
+
+O endereço da sede era `COMERCIAL_SEDE_ENDERECO`. **A variável deixou de
+existir**, e o endereço passou a ser configuração do módulo: uma linha em
+`comercial.ComercialSettings`, editável por gestor em `/comercial/configuracoes`.
+
+Decisão do mantenedor, e a razão é o ciclo de vida do dado: endereço de sede é
+dado de negócio. Muda quando a empresa muda de prédio, quem sabe o endereço novo
+é o gestor, e até aqui trocá-lo exigia editar arquivo no servidor e reiniciar o
+container.
+
+Três consequências que valem registro, porque cada uma foi um defeito evitado:
+
+1. **A sede é geocodificada na hora de salvar, e o `placeId` fica gravado.** É o
+   mesmo cuidado que o destino já tinha, agora na origem: com texto, a Routes
+   reinterpreta o endereço a cada cálculo. Um "Unidade de Cubatão" do lado da
+   origem seria pior que do lado do destino — ninguém confere a origem, porque a
+   tela mostra o destino.
+
+2. **Não conseguir localizar não impede de salvar.** `GOOGLE_MAPS_MODE=off` é o
+   padrão do ambiente; exigir o `placeId` deixaria a tela de configuração inútil
+   na instalação mais comum. Sem ele, a rota usa o texto — que é como funcionava
+   antes.
+
+3. **A chave do cache de distâncias passou a incluir a sede.** Com a chave só do
+   destino, mudar a sede deixaria o cache respondendo a distância do prédio
+   antigo, em silêncio e só nos processos que já tinham a resposta guardada.
+   Invalidar ao salvar resolveria em um processo; a chave composta resolve em
+   todos, sem ninguém precisar lembrar de chamar nada.
+
+O campo em branco continua sendo estado normal: sem sede configurada, o cálculo
+responde `km: null` e diz onde configurar — e a distância continua digitada, que
+é o caminho de sempre.

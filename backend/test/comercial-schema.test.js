@@ -33,6 +33,7 @@ const MODELS_COMERCIAIS = [
   'ProposalAuditLog',
   'ProposalNumberingState',
   'ScopePhotoAsset',
+  'ComercialSettings',
 ];
 
 function blocoDe(nome) {

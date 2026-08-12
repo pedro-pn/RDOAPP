@@ -269,6 +269,61 @@ export async function baixarDocumento(id: string): Promise<Blob> {
   return data;
 }
 
+/**
+ * Configuração do módulo (T131).
+ *
+ * O endereço da sede é a origem de toda distância calculada. Era variável de
+ * ambiente; virou dado de banco editável por gestor, porque muda quando a empresa
+ * muda de prédio e quem sabe o endereço novo não é quem tem acesso ao servidor.
+ */
+export interface ComercialConfiguracao {
+  /** O que o gestor digitou. */
+  sedeEndereco: string;
+  /** O endereço oficial que o Google devolveu, quando devolveu. */
+  sedeEnderecoEncontrado: string;
+  /** Vazio quando o Maps está desligado ou não achou — a rota cai no texto. */
+  sedePlaceId: string;
+  atualizadoEm: string | null;
+  atualizadoPor: string;
+}
+
+/** O que a localização devolve: sempre exibível, mesmo quando não achou. */
+export interface EnderecoLocalizado {
+  enderecoEncontrado: string;
+  placeId: string;
+  confianca: 'exata' | 'parcial' | 'regiao' | 'nenhuma';
+  aviso: string;
+}
+
+export async function obterConfiguracaoComercial() {
+  const { data } = await apiClient.get<ComercialConfiguracao>('/comercial/configuracao');
+  return data;
+}
+
+/**
+ * Grava a sede. Só gestor passa.
+ *
+ * O `aviso` vem junto da configuração gravada: gravar e não ter conseguido
+ * localizar é caminho normal — com o Maps desligado, que é o padrão, é o único
+ * caminho — e a tela precisa mostrar as duas coisas ao mesmo tempo.
+ */
+export async function salvarSedeComercial(sedeEndereco: string) {
+  const { data } = await apiClient.put<ComercialConfiguracao & { aviso: string; confianca: string }>(
+    '/comercial/configuracao/sede',
+    { sedeEndereco }
+  );
+  return data;
+}
+
+/** Confere o endereço sem gravar — o botão "localizar" da tela. */
+export async function localizarSedeComercial(sedeEndereco: string) {
+  const { data } = await apiClient.post<EnderecoLocalizado>(
+    '/comercial/configuracao/sede/localizar',
+    { sedeEndereco }
+  );
+  return data;
+}
+
 /** Endereço de leitura da foto. O `<img>` aponta para cá; o arquivo é imutável. */
 export function urlDaFotoDoEscopo(id: string) {
   const base = apiClient.defaults.baseURL || '/api';

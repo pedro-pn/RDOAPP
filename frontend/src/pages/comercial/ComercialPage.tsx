@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
+import { useAuth } from '../../auth/AuthContext';
 import { moduleRoutePath } from '../../modules/registry';
 import { ComercialChrome } from './components/ComercialChrome';
 
@@ -28,7 +29,9 @@ type Destino = {
   icone: ReactNode;
 };
 
-const DESTINOS: Array<Omit<Destino, 'rota'> & { rotaKey: 'custos' | 'propostas' }> = [
+type RotaKey = 'custos' | 'propostas' | 'configuracoes';
+
+const DESTINOS: Array<Omit<Destino, 'rota'> & { rotaKey: RotaKey; soGestor?: boolean }> = [
   {
     titulo: 'Levantar custos',
     descricao:
@@ -57,11 +60,31 @@ const DESTINOS: Array<Omit<Destino, 'rota'> & { rotaKey: 'custos' | 'propostas' 
         <path d="M9 17h4" />
       </>
     )
+  },
+  {
+    titulo: 'Configurações',
+    descricao: 'Endereço da sede — a origem de todas as distâncias calculadas nos levantamentos.',
+    rotaKey: 'configuracoes',
+    soGestor: true,
+    icone: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.7 8.9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.09a1.7 1.7 0 0 0 1.56 1h.04a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.56 1z" />
+      </>
+    )
   }
 ];
 
 export function ComercialPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // O cartão de configuração só aparece para quem a rota deixa entrar. Mostrá-lo
+  // a todos daria a um vendedor um caminho que termina em "acesso negado" — e o
+  // que ele veria seria uma tela quebrada, não uma permissão que não tem.
+  const ehGestor =
+    user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('comercial:manager'));
+  const destinos = DESTINOS.filter(destino => !destino.soGestor || ehGestor);
 
   return (
     <ComercialChrome
@@ -71,7 +94,7 @@ export function ComercialPage() {
     >
       <section className="com-painel com-menu">
         <div className="com-grid">
-            {DESTINOS.map(destino => (
+            {destinos.map(destino => (
               <button
                 key={destino.rotaKey}
                 type="button"

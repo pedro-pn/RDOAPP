@@ -12,6 +12,7 @@ import { NewRomaneioPage } from '../pages/romaneio/NewRomaneioPage';
 import { RomaneioPage } from '../pages/romaneio/RomaneioPage';
 import { moduleRouteAccess, moduleRoutePath } from './registry';
 import { ComercialPage } from '../pages/comercial/ComercialPage';
+import { ConfiguracoesPage } from '../pages/comercial/configuracoes/ConfiguracoesPage';
 import { CustosPage } from '../pages/comercial/custos/CustosPage';
 import { PropostaPage } from '../pages/comercial/proposta/PropostaPage';
 // module:scaffold import
@@ -25,6 +26,9 @@ const ESTOQUE_ACCESS = moduleRouteAccess('estoque');
 const QUALIDADE_ACCESS = moduleRouteAccess('qualidade');
 const ACOMPANHAMENTO_ACCESS = moduleRouteAccess('acompanhamento');
 const COMERCIAL_ACCESS = moduleRouteAccess('comercial');
+// A tela de configuração é do gestor: o que se muda ali — a origem de todas as
+// distâncias — vale para as propostas de todo mundo.
+const COMERCIAL_MANAGER_ACCESS = moduleRouteAccess('comercial', 'manager');
 // module:scaffold access
 
 export const moduleRouteElements = (
@@ -66,6 +70,13 @@ export const moduleRouteElements = (
       <Route path={moduleRoutePath('comercial', 'index')} element={<ComercialPage />} />
       <Route path={moduleRoutePath('comercial', 'custos')} element={<CustosPage />} />
       <Route path={moduleRoutePath('comercial', 'propostas')} element={<PropostaPage />} />
+    </Route>
+
+    <Route element={<RoleRoute {...COMERCIAL_MANAGER_ACCESS} />}>
+      <Route
+        path={moduleRoutePath('comercial', 'configuracoes')}
+        element={<ConfiguracoesPage />}
+      />
     </Route>
 
     {/* module:scaffold routes */}    {/* module:scaffold routes */}

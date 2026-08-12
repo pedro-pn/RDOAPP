@@ -2535,6 +2535,37 @@ model ProposalNumberingState {
   @@schema("comercial")
 }
 
+/// Configuração do módulo Comercial, editável por gestor (T131).
+///
+/// Linha única (`id = "singleton"`), como a numeração.
+///
+/// Nasceu do endereço da sede, que era `COMERCIAL_SEDE_ENDERECO` no `.env`. É
+/// **dado de negócio**, não de ambiente: muda quando a empresa muda de prédio,
+/// quem sabe o endereço novo é o gestor, e trocá-lo exigia editar arquivo no
+/// servidor e reiniciar o container. Decisão do mantenedor em 12/08.
+///
+/// O endereço é guardado em duas formas, e as duas importam:
+///
+/// - `sedeAddress` — o que o gestor digitou, que é o que ele reconhece ao voltar
+///   na tela;
+/// - `sedePlaceId` — o identificador do Google, resolvido na hora de salvar. É
+///   ele que vai como origem da rota, para o Google **não** reinterpretar o
+///   texto por conta própria a cada cálculo e mudar a origem sem ninguém pedir.
+model ComercialSettings {
+  id String @id @default("singleton")
+  /// Origem de toda distância calculada. Vazio = cálculo automático indisponível.
+  sedeAddress String @default("")
+  /// O endereço oficial que o Google devolveu, para a tela mostrar o que gravou.
+  sedeFormattedAddress String?
+  sedePlaceId          String?
+  updatedAt            DateTime @updatedAt
+  updatedByUserId      String?
+  /// Nome de quem editou, congelado: a tela mostra sem precisar de join.
+  updatedByLabel String?
+
+  @@schema("comercial")
+}
+
 /// Foto de um bloco de conteúdo do escopo.
 ///
 /// Vive separada do payload da proposta porque **sobrevive às revisões** (FR-051):
