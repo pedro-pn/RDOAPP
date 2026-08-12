@@ -201,6 +201,14 @@ const rawEnvSchema = z.object({
   MICROSOFT_TENANT_ID: stringWithDefault(''),
   MICROSOFT_CLIENT_ID: stringWithDefault(''),
   MICROSOFT_CLIENT_SECRET: stringWithDefault(''),
+  /**
+   * Destino, em três formas — basta uma, e a ordem é de menor privilégio para
+   * maior. Com `Sites.Selected` use o DRIVE_ID: ela concede acesso a sites
+   * escolhidos um a um e restringe DESCOBERTA, então procurar o site pelo
+   * endereço pode voltar 403 mesmo com o site liberado.
+   */
+  SHAREPOINT_DRIVE_ID: stringWithDefault(''),
+  SHAREPOINT_SITE_ID: stringWithDefault(''),
   SHAREPOINT_HOSTNAME: stringWithDefault(''),
   SHAREPOINT_SITE_PATH: stringWithDefault(''),
   /**
@@ -303,6 +311,8 @@ export function loadEnv(source = process.env) {
     microsoftTenantId: raw.MICROSOFT_TENANT_ID,
     microsoftClientId: raw.MICROSOFT_CLIENT_ID,
     microsoftClientSecret: raw.MICROSOFT_CLIENT_SECRET,
+    sharepointDriveId: raw.SHAREPOINT_DRIVE_ID,
+    sharepointSiteId: raw.SHAREPOINT_SITE_ID,
     sharepointHostname: raw.SHAREPOINT_HOSTNAME,
     sharepointSitePath: raw.SHAREPOINT_SITE_PATH,
     sharepointBaseFolder: raw.SHAREPOINT_BASE_FOLDER,

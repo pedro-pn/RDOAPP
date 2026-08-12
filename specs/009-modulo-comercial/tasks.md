@@ -784,6 +784,16 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   guardado no destino — o payload é normalizado campo a campo pelo motor
   compartilhado, e acrescentar campo lá mexe no que os goldens protegem; o texto
   escolhido já é o do Google, que é o que faz a distância resolver certo depois.
+- [X] T135 **SharePoint com menor privilégio** — decisão do mantenedor em 12/08:
+  `Sites.Selected` em vez de `Sites.ReadWrite.All`, que alcança todo site e todo
+  OneDrive da empresa. `Sites.Selected` libera site a site e **restringe
+  descoberta**, então o adaptador ganhou `SHAREPOINT_DRIVE_ID`: com ele, grava
+  sem tocar em nenhuma URL de `/sites/`. As outras duas formas (`SITE_ID`,
+  hostname + caminho) continuam, para quem já usa a permissão ampla.
+  ↳ Achado no caminho: a busca do site **nunca poderia ter funcionado** — o `:`
+  do template somava com o de `caminhoDeUrl` e a URL saía `sites/host::/sites/X:`.
+  Latente porque o SharePoint fica `off` por padrão. Agora é uma requisição só,
+  `sites/{host}:/{caminho}:/drive`.
 - [ ] T133 **Serviços novos no catálogo**, quando o comercial mandar os textos.
   Candidatos com uso real medido em 12/08: análise físico-química (2 usos),
   flushing com água (7 somando os dois produtos). Boroscopia, sopragem, pintura

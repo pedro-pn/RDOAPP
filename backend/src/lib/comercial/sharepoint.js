@@ -39,7 +39,7 @@ export function modoDoSharePoint() {
  * Devolve o motivo em vez de lançar, como o Nectar: quem chama precisa
  * continuar, porque os documentos já existem e continuam baixáveis (FR-034).
  */
-export function indisponivel() {
+export function indisponivel(biblioteca = bibliotecaDoAmbiente()) {
   const modo = modoDoSharePoint();
   if (modo === 'off') {
     return 'O envio ao SharePoint está desligado neste ambiente (SHAREPOINT_MODE=off).';
@@ -49,16 +49,24 @@ export function indisponivel() {
   const faltando = [
     ['MICROSOFT_TENANT_ID', env.microsoftTenantId],
     ['MICROSOFT_CLIENT_ID', env.microsoftClientId],
-    ['MICROSOFT_CLIENT_SECRET', env.microsoftClientSecret],
-    ['SHAREPOINT_HOSTNAME', env.sharepointHostname],
-    ['SHAREPOINT_SITE_PATH', env.sharepointSitePath]
+    ['MICROSOFT_CLIENT_SECRET', env.microsoftClientSecret]
   ]
     .filter(([, valor]) => !valor)
     .map(([nome]) => nome);
 
-  return faltando.length
-    ? `Integração Microsoft pendente: ${faltando.join(', ')} não configurado(s).`
-    : '';
+  if (faltando.length) {
+    return `Integração Microsoft pendente: ${faltando.join(', ')} não configurado(s).`;
+  }
+
+  // O destino aceita três formas, e basta uma. Cobrar hostname + caminho de quem
+  // configurou o `DRIVE_ID` faria a instalação de menor privilégio — a que não
+  // pode descobrir site — parecer incompleta.
+  const temDestino =
+    biblioteca.driveId || biblioteca.siteId || (biblioteca.hostname && biblioteca.sitePath);
+
+  return temDestino
+    ? ''
+    : 'Integração Microsoft pendente: informe SHAREPOINT_DRIVE_ID, ou SHAREPOINT_SITE_ID, ou SHAREPOINT_HOSTNAME + SHAREPOINT_SITE_PATH.';
 }
 
 /**
@@ -69,7 +77,10 @@ export function indisponivel() {
  * pasta no OneDrive — criar outra ao lado espalharia os documentos da mesma
  * negociação por dois lugares.
  */
-export async function gravarArquivos(arquivos, { nomeDaPasta, pastaExistente = '' } = {}) {
+export async function gravarArquivos(
+  arquivos,
+  { nomeDaPasta, pastaExistente = '', biblioteca = bibliotecaDoAmbiente() } = {}
+) {
   const pasta = nomeDeePasta(pastaExistente || nomeDaPasta);
   const destino = `${env.sharepointBaseFolder}/${pasta}`.replace(/^\/+|\/+$/g, '');
 
@@ -78,7 +89,7 @@ export async function gravarArquivos(arquivos, { nomeDaPasta, pastaExistente = '
   }
 
   const cabecalhos = { Authorization: `Bearer ${await autenticar()}` };
-  const driveId = await acharBiblioteca(cabecalhos);
+  const driveId = await acharBiblioteca(cabecalhos, biblioteca);
 
   await garantirPastas(driveId, destino, cabecalhos);
 
@@ -116,21 +127,56 @@ async function autenticar() {
   return token;
 }
 
-async function acharBiblioteca(cabecalhos) {
-  const site = await chamar(
-    `${GRAPH}/sites/${env.sharepointHostname}:${caminhoDeUrl(env.sharepointSitePath)}`,
-    { headers: cabecalhos }
-  );
-  if (!site.ok) {
-    throw new SharePointError(
-      `O site ${env.sharepointSitePath} não foi localizado no SharePoint.`
-    );
-  }
+/**
+ * Onde gravar — por três caminhos, do mais restrito ao mais permissivo.
+ *
+ * A ordem existe por causa da permissão concedida no Entra ID, e a diferença é
+ * grande o bastante para justificar os três:
+ *
+ * 1. `SHAREPOINT_DRIVE_ID` — vai direto à biblioteca, **sem descobrir nada**. É o
+ *    único caminho que a `Sites.Selected` garante: ela concede acesso a sites
+ *    escolhidos um a um e **restringe descoberta**, então procurar o site pelo
+ *    endereço pode voltar 403 mesmo com o site liberado. A documentação do
+ *    `GET /sites/{site-id}` lista só `Sites.Read.All` e `Sites.ReadWrite.All`
+ *    como permissão de aplicativo — `Sites.Selected` não está lá.
+ * 2. `SHAREPOINT_SITE_ID` — uma descoberta só, a da biblioteca padrão.
+ * 3. hostname + caminho do site — duas descobertas. Precisa de
+ *    `Sites.ReadWrite.All`, que alcança **todo site e todo OneDrive da empresa**.
+ *
+ * Quem instala escolhe pelo que preencher. O caminho 3 continua existindo porque
+ * é o que estava em uso antes de a opção de menor privilégio existir.
+ */
+/** As quatro variáveis de destino, como estão no ambiente. */
+export function bibliotecaDoAmbiente() {
+  return {
+    driveId: env.sharepointDriveId,
+    siteId: env.sharepointSiteId,
+    hostname: env.sharepointHostname,
+    sitePath: env.sharepointSitePath
+  };
+}
 
-  const siteId = String((await site.json()).id || '');
-  const drive = await chamar(`${GRAPH}/sites/${siteId}/drive`, { headers: cabecalhos });
+async function acharBiblioteca(cabecalhos, biblioteca) {
+  if (biblioteca.driveId) return biblioteca.driveId;
+
+  const alvo = biblioteca.siteId
+    ? `${GRAPH}/sites/${biblioteca.siteId}/drive`
+    : // `sites/{host}:/{caminho}:/drive` — a biblioteca padrão do site que está
+      // naquele endereço, numa requisição só.
+      //
+      // Era em DUAS, e a primeira nunca poderia ter funcionado: o `:` do
+      // template somava com o `:` que `caminhoDeUrl` já abre, e a URL saía
+      // `sites/host::/sites/X:` — dois-pontos duplicado, endereço inválido.
+      // Passou despercebido porque o SharePoint fica `off` por padrão e este
+      // ramo nunca rodou; teria estourado no primeiro dia de uso real, com
+      // "o site não foi localizado" apontando para o lugar errado.
+      `${GRAPH}/sites/${biblioteca.hostname}${caminhoDeUrl(biblioteca.sitePath)}/drive`;
+
+  const drive = await chamar(alvo, { headers: cabecalhos });
   if (!drive.ok) {
-    throw new SharePointError('A biblioteca de documentos do site não foi localizada.');
+    throw new SharePointError(
+      'A biblioteca de documentos do site não foi localizada. Com Sites.Selected, configure SHAREPOINT_DRIVE_ID — ela não permite descobrir site nem biblioteca.'
+    );
   }
 
   return String((await drive.json()).id || '');
