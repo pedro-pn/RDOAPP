@@ -203,7 +203,7 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
                       <MoneyInput
                         aria-label="Custo unitário"
                         value={(item.unitCost as number) ?? ''}
-                        onChange={editarNumero('unitCost')}
+                        onChange={valor => editar({ unitCost: valor })}
                       />
                     </td>
                     <td>
@@ -220,7 +220,7 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
                       <MoneyInput
                         aria-label="Frete"
                         value={(item.freightValue as number) ?? ''}
-                        onChange={editarNumero('freightValue')}
+                        onChange={valor => editar({ freightValue: valor })}
                       />
                     </td>
                     <td>

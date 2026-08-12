@@ -263,7 +263,7 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
                       <MoneyInput
                         aria-label="Preço base"
                         value={(item.unitCost as number) ?? ''}
-                        onChange={numero('unitCost')}
+                        onChange={valor => editar({ unitCost: valor })}
                       />
                     </td>
 
