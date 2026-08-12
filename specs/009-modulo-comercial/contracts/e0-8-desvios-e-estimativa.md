@@ -430,6 +430,20 @@ que já existe:**
    `proposal-visuals.ts` exige uma entrada por serviço. O equipamento de
    termovácuo é o mesmo; o que muda é o fluido e o preço.
 
+**Um terceiro ajuste, confirmado junto:** `filtragem_oleo_termico` tinha
+`reportCode: null` — era o único serviço de filtragem **sem relatório**. O
+comercial confirmou que **toda filtragem e toda desidratação emitem RCPU**, então
+a exceção era engano do esboço, não regra. Passou a RCPU.
+
+> **Isto muda o documento**, não só a categoria do CRM: a proposta de óleo
+> térmico passa a trazer o parágrafo do RCPU, que antes não saía. E há um efeito
+> em dado já gravado: `validateTechnicalServiceSelections` recusa seleção cujo
+> `reportCode` não bata com a definição, então proposta salva **antes** desta
+> mudança, com óleo térmico, pede para remover e adicionar o serviço de novo — a
+> mensagem já diz isso. Feito agora, o custo é zero: o módulo não está em
+> produção e não há proposta gravada com esse serviço. Feito depois, seria uma
+> migração.
+
 **Uma diferença entre os dois casos, e ela decidiu o texto:** o texto da
 **desidratação** fala de "óleo" do início ao fim e serve a qualquer fluido — fica
 como está. O da **filtragem NOMEIA o fluido**, então os serviços novos passam o

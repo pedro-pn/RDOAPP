@@ -163,7 +163,13 @@ export const TECHNICAL_SERVICE_CATALOG: TechnicalServiceDefinition[] = [
     title: "Filtragem de óleo térmico",
     summary: "Filtragem do óleo térmico com modelo técnico editável.",
     version: 1,
-    reportCode: null,
+    // Era `null` na referência — o único serviço de filtragem sem relatório. O
+    // comercial confirmou em 12/08 que **toda filtragem e toda desidratação
+    // emitem RCPU**, então a exceção era engano do esboço, não regra.
+    //
+    // Isto muda o DOCUMENTO: a proposta de óleo térmico passa a trazer o
+    // parágrafo do RCPU, que antes não saía.
+    reportCode: "RCPU",
     asksNas: true,
     defaultParameters: { nasTarget: "NAS 6" },
     buildText: (parameters) => buildFiltrationText(parameters, true),
