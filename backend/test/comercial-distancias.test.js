@@ -4,10 +4,10 @@ import test from 'node:test';
 process.env.GOOGLE_MAPS_MODE = 'real';
 process.env.GOOGLE_MAPS_API_KEY = 'chave-de-teste';
 process.env.GOOGLE_MAPS_MAX_DIA = '3';
+process.env.GOOGLE_MAPS_MAX_DIA_SUGESTOES = '3';
 
-const { chaveDeCache, distanciaAteObra, limparCache, localizarEndereco } = await import(
-  '../src/lib/comercial/distancias.js'
-);
+const { chaveDeCache, distanciaAteObra, limparCache, localizarEndereco, sugerirEnderecos } =
+  await import('../src/lib/comercial/distancias.js');
 
 /**
  * A sede vem de fora desde a T131 — é configuração do módulo, não variável de
@@ -337,4 +337,120 @@ test('rede fora do ar não derruba a tela', async () => {
   const resultado = await distancia('UHE São Manoel', { buscar });
   assert.equal(resultado.km, null);
   assert.match(resultado.aviso, /Google Maps/i);
+});
+
+// ---------------------------------------------------------------------------
+// Sugestões enquanto se digita — Places Autocomplete (T134)
+// ---------------------------------------------------------------------------
+
+/** Resposta real da Autocomplete (New), reduzida aos campos que o adaptador lê. */
+const SUGESTOES = {
+  suggestions: [
+    {
+      placePrediction: {
+        placeId: 'ChIJ-sede-itajai',
+        text: { text: 'Rua Rosa Orsi Dalçoquio, 930 - Cordeiros, Itajaí - SC, Brasil' },
+        structuredFormat: {
+          mainText: { text: 'Rua Rosa Orsi Dalçoquio, 930' },
+          secondaryText: { text: 'Cordeiros, Itajaí - SC, Brasil' }
+        }
+      }
+    },
+    {
+      // Sem `structuredFormat` — acontece, e o adaptador não pode devolver linha
+      // em branco por causa disso.
+      placePrediction: {
+        placeId: 'ChIJ-outra',
+        text: { text: 'Rua Rosa Orsi Dalçoquio, 1200 - Itajaí - SC, Brasil' }
+      }
+    },
+    // Sem `placeId` não serve para nada: escolher esta linha não daria origem.
+    { placePrediction: { text: { text: 'lugar sem id' } } }
+  ]
+};
+
+function autocompleteFalso(corpo = SUGESTOES) {
+  const chamadas = [];
+  const buscar = async (url, opcoes = {}) => {
+    chamadas.push({ url: String(url), corpo: JSON.parse(opcoes.body), headers: opcoes.headers });
+    return { ok: true, json: async () => corpo };
+  };
+  return { buscar, chamadas };
+}
+
+test('a sugestão devolve texto e placeId, e descarta o que não dá para escolher', async () => {
+  const { buscar } = autocompleteFalso();
+  const { items } = await sugerirEnderecos('Rua Rosa Orsi', { buscar });
+
+  assert.equal(items.length, 2, 'a linha sem placeId entrou na lista');
+  assert.equal(items[0].placeId, 'ChIJ-sede-itajai');
+  assert.equal(items[0].principal, 'Rua Rosa Orsi Dalçoquio, 930');
+  assert.equal(items[0].secundario, 'Cordeiros, Itajaí - SC, Brasil');
+  // Sem `structuredFormat`, o texto inteiro vira o principal em vez de nada.
+  assert.equal(items[1].principal, 'Rua Rosa Orsi Dalçoquio, 1200 - Itajaí - SC, Brasil');
+});
+
+test('TERMO CURTO NÃO GASTA CHAMADA — é uma por tecla digitada', async () => {
+  // O risco desta função é justamente este: sem piso, um endereço digitado vira
+  // 40 chamadas em vez de 4, e a franquia some sem ninguém notar.
+  const { buscar, chamadas } = autocompleteFalso();
+
+  for (const termo of ['', 'R', 'Ru', 'Rua']) {
+    const { items } = await sugerirEnderecos(termo, { buscar });
+    assert.deepEqual(items, []);
+  }
+
+  assert.equal(chamadas.length, 0);
+});
+
+test('a busca é limitada ao Brasil e pede só os campos que lê', async () => {
+  const { buscar, chamadas } = autocompleteFalso();
+  await sugerirEnderecos('Rua Rosa Orsi', { buscar });
+
+  assert.deepEqual(chamadas[0].corpo.includedRegionCodes, ['br']);
+  assert.equal(chamadas[0].corpo.languageCode, 'pt-BR');
+  // Campo a mais na máscara pode subir o SKU da chamada.
+  assert.doesNotMatch(chamadas[0].headers['X-Goog-FieldMask'], /addressComponents|location/);
+});
+
+test('a cota das sugestões é PRÓPRIA — não come a do cálculo de distância', async () => {
+  // Teto de 3 sugestões neste arquivo, e 3 chamadas de distância. Se fossem o
+  // mesmo contador, o autocompletar deixaria o cálculo sem franquia.
+  const { buscar } = autocompleteFalso();
+  for (let i = 0; i < 3; i += 1) await sugerirEnderecos(`Rua Rosa Orsi ${i}`, { buscar });
+
+  const estourada = await sugerirEnderecos('Rua Rosa Orsi 4', { buscar });
+  assert.deepEqual(estourada.items, []);
+  assert.match(estourada.aviso, /Limite diário de sugestões/i);
+
+  // E a distância continua funcionando, com a cota dela intacta.
+  const { buscar: buscarRota } = googleFalso();
+  const distanciaAinda = await distanciaAteObra('UHE São Manoel', { buscar: buscarRota, sede: SEDE });
+  assert.equal(distanciaAinda.km, 2706);
+});
+
+test('Places API desabilitada vira aviso, não tela quebrada', async () => {
+  // É o erro esperado no primeiro deploy: a Places API (New) é outra API do
+  // console, e não vem habilitada com a Geocoding e a Routes.
+  const buscar = async () => ({
+    ok: true,
+    json: async () => ({
+      error: { message: 'Places API (New) has not been used in project 123 before or it is disabled' }
+    })
+  });
+
+  const { items, aviso } = await sugerirEnderecos('Rua Rosa Orsi', { buscar });
+
+  assert.deepEqual(items, []);
+  assert.match(aviso, /Places API/i);
+});
+
+test('rede fora do ar não derruba o campo', async () => {
+  const buscar = async () => {
+    throw new Error('getaddrinfo ENOTFOUND places.googleapis.com');
+  };
+
+  const { items, aviso } = await sugerirEnderecos('Rua Rosa Orsi', { buscar });
+  assert.deepEqual(items, []);
+  assert.ok(aviso);
 });

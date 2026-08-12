@@ -93,7 +93,7 @@ export async function distanciaDaSede(prismaClient, endereco, opcoes = {}) {
  */
 export async function salvarSede(prismaClient, usuario, dados, opcoes = {}) {
   const endereco = normalizarEndereco(dados?.sedeEndereco);
-  const local = await localizarEndereco(endereco, opcoes);
+  const local = await resolver(endereco, dados?.sedePlaceId, opcoes);
 
   const linha = await prismaClient.comercialSettings.upsert({
     where: { id: SINGLETON },
@@ -129,6 +129,37 @@ export async function salvarSede(prismaClient, usuario, dados, opcoes = {}) {
  */
 export async function conferirEndereco(endereco, opcoes = {}) {
   return localizarEndereco(normalizarEndereco(endereco), opcoes);
+}
+
+/**
+ * De onde sai o `placeId` que vai ser gravado.
+ *
+ * Quando o endereço veio de uma **sugestão escolhida na lista**, ele já chega
+ * com o `placeId` — e aí não há o que geocodificar: o texto é o que o próprio
+ * Google escreveu, e o identificador é o que ele mesmo devolveu. Refazer a
+ * consulta gastaria uma chamada para reencontrar o que já estava encontrado, e
+ * ainda poderia cair em resultado diferente do que o gestor viu na tela.
+ *
+ * Digitado à mão, sem escolher da lista, geocodifica como antes.
+ *
+ * O `placeId` chega do navegador e não é conferido contra o Google. Vale a pena
+ * dizer por quê: quem alcança esta função é gestor do módulo, e gestor já podia
+ * digitar qualquer endereço no campo. Um identificador forjado leva a origem
+ * para outro lugar — exatamente como um endereço errado digitado levaria — e não
+ * alcança nada que o papel já não alcançasse.
+ */
+async function resolver(endereco, placeIdEscolhido, opcoes) {
+  const placeId = normalizarPlaceId(placeIdEscolhido);
+  if (placeId) {
+    return { enderecoEncontrado: endereco, placeId, confianca: 'exata', aviso: '' };
+  }
+  return localizarEndereco(endereco, opcoes);
+}
+
+/** Formato do Google: opaco, mas limitado. Fora disso não vai ao banco. */
+function normalizarPlaceId(valor) {
+  const texto = String(valor ?? '').trim();
+  return /^[A-Za-z0-9_-]{6,255}$/.test(texto) ? texto : '';
 }
 
 function normalizarEndereco(valor) {

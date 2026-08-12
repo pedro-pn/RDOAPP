@@ -295,6 +295,34 @@ export interface EnderecoLocalizado {
   aviso: string;
 }
 
+/** Uma linha da lista de sugestões do Google. */
+export interface SugestaoDeEndereco {
+  placeId: string;
+  /** O endereço inteiro, como o Google escreve. É o que vai para o campo. */
+  texto: string;
+  /** Rua e número — a linha forte da lista. */
+  principal: string;
+  /** Bairro, cidade, estado — a linha fraca. */
+  secundario: string;
+}
+
+/**
+ * Sugestões de endereço enquanto se digita (T134).
+ *
+ * Passa pelo servidor, e não direto do navegador para o Google: a chave é
+ * restrita por IP do servidor, e uma chave de navegador seria pública por
+ * natureza. O servidor também é quem segura a cota diária.
+ *
+ * Nunca rejeita por endereço ruim — vem `items: []` e o motivo em `aviso`.
+ */
+export async function sugerirEnderecos(termo: string, signal?: AbortSignal) {
+  const { data } = await apiClient.get<{ items: SugestaoDeEndereco[]; aviso: string }>(
+    '/comercial/enderecos/sugestoes',
+    { params: { termo }, signal }
+  );
+  return data;
+}
+
 export async function obterConfiguracaoComercial() {
   const { data } = await apiClient.get<ComercialConfiguracao>('/comercial/configuracao');
   return data;
@@ -307,10 +335,10 @@ export async function obterConfiguracaoComercial() {
  * localizar é caminho normal — com o Maps desligado, que é o padrão, é o único
  * caminho — e a tela precisa mostrar as duas coisas ao mesmo tempo.
  */
-export async function salvarSedeComercial(sedeEndereco: string) {
+export async function salvarSedeComercial(sedeEndereco: string, sedePlaceId = '') {
   const { data } = await apiClient.put<ComercialConfiguracao & { aviso: string; confianca: string }>(
     '/comercial/configuracao/sede',
-    { sedeEndereco }
+    { sedeEndereco, sedePlaceId }
   );
   return data;
 }

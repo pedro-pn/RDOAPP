@@ -97,7 +97,7 @@ const cache = new Map();
 const CACHE_MAXIMO = 500;
 
 /** Contador da cota diária. Reinicia sozinho na virada do dia. */
-const cota = { dia: '', usadas: 0 };
+const cota = { dia: '', usadas: 0, sugestoes: 0 };
 
 /**
  * A chave inclui a SEDE, n\u00e3o s\u00f3 a obra.
@@ -130,11 +130,7 @@ function normalizarTexto(valor) {
  * pede para ser digitado, que é o comportamento de hoje.
  */
 function consumirCota() {
-  const hoje = new Date().toISOString().slice(0, 10);
-  if (cota.dia !== hoje) {
-    cota.dia = hoje;
-    cota.usadas = 0;
-  }
+  virarODia();
   if (cota.usadas >= env.mapsMaxDia) {
     throw new DistanciaError(
       `Limite diário de consultas de distância atingido (${env.mapsMaxDia}). Informe a distância manualmente.`,
@@ -144,8 +140,42 @@ function consumirCota() {
   cota.usadas += 1;
 }
 
+/**
+ * A sugestão tem cota PRÓPRIA, e maior.
+ *
+ * Um cálculo de distância é um clique; uma sugestão é uma **tecla digitada**.
+ * Compartilhar o teto de 200 faria o autocompletar comer, em três endereços, a
+ * franquia que a distância usa o dia inteiro — e o sintoma seria o cálculo
+ * parando de funcionar por causa de outra coisa.
+ */
+function consumirCotaDeSugestao() {
+  virarODia();
+  if (cota.sugestoes >= env.mapsMaxDiaSugestoes) {
+    throw new DistanciaError(
+      `Limite diário de sugestões de endereço atingido (${env.mapsMaxDiaSugestoes}). Digite o endereço.`,
+      429
+    );
+  }
+  cota.sugestoes += 1;
+}
+
+function virarODia() {
+  const hoje = new Date().toISOString().slice(0, 10);
+  if (cota.dia !== hoje) {
+    cota.dia = hoje;
+    cota.usadas = 0;
+    cota.sugestoes = 0;
+  }
+}
+
 export function cotaUsada() {
-  return { dia: cota.dia, usadas: cota.usadas, teto: env.mapsMaxDia };
+  return {
+    dia: cota.dia,
+    usadas: cota.usadas,
+    teto: env.mapsMaxDia,
+    sugestoes: cota.sugestoes,
+    tetoSugestoes: env.mapsMaxDiaSugestoes
+  };
 }
 
 /**
@@ -277,6 +307,120 @@ function semLocal(aviso) {
   return { enderecoEncontrado: '', placeId: '', confianca: 'nenhuma', aviso };
 }
 
+// ---------------------------------------------------------------------------
+// Sugestões enquanto se digita — Places Autocomplete (T134)
+// ---------------------------------------------------------------------------
+
+/**
+ * As sugestões do Google enquanto o usuário digita.
+ *
+ * Pedido pelo mantenedor depois de configurar a sede à mão: sem a lista, quem
+ * digita não sabe se escreveu o endereço de um jeito que o Google reconhece — e
+ * a origem errada é a que ninguém confere.
+ *
+ * ---------------------------------------------------------------------------
+ * O que isso custa, medido antes de escrever
+ *
+ * `Autocomplete Requests` é SKU **Essentials**: 10.000 chamadas grátis por mês,
+ * como Geocoding e Routes, e contadas à parte delas.
+ *
+ * **Não uso token de sessão, e é decisão, não esquecimento.** A sessão só passa a
+ * valer da 13ª tecla em diante — as 12 primeiras são cobradas igual — e ela só
+ * fecha se a escolha terminar numa chamada de *Place Details*. Aqui a escolha
+ * não termina em Place Details: a sugestão **já traz** `placeId` e o endereço
+ * formatado, que é tudo o que a sede precisa. Abrir sessão sem fechá-la
+ * reverteria para cobrança por requisição de qualquer jeito — o mesmo lugar onde
+ * já estamos, com uma peça a mais para manter.
+ *
+ * O que de fato segura o consumo é do lado de cá: **mínimo de caracteres, espera
+ * entre teclas (na tela) e cota diária própria**. Sem isso, um endereço digitado
+ * são 40 chamadas em vez de 4.
+ *
+ * ---------------------------------------------------------------------------
+ * Exige `Places API (New)` habilitada no console — não é a mesma da Geocoding
+ * nem a da Routes. Sem ela a resposta vem 403, e o `aviso` diz isso.
+ */
+const AUTOCOMPLETE = 'https://places.googleapis.com/v1/places:autocomplete';
+
+/** Abaixo disto a sugestão é ruído: devolve meia cidade e gasta chamada. */
+const MINIMO_PARA_SUGERIR = 4;
+const MAXIMO_DE_SUGESTOES = 6;
+
+/**
+ * **Nunca lança**, como o resto do adaptador. Sem sugestão a pessoa digita o
+ * endereço inteiro, que é o que ela fazia antes de isto existir.
+ */
+export async function sugerirEnderecos(termo, { buscar = fetch } = {}) {
+  const consulta = String(termo || '').trim();
+  if (consulta.length < MINIMO_PARA_SUGERIR) return { items: [], aviso: '' };
+
+  const impedimento = indisponivel();
+  if (impedimento) return { items: [], aviso: impedimento };
+
+  if (modoDasDistancias() === 'fake') {
+    return {
+      items: [
+        {
+          placeId: 'place-de-teste',
+          texto: `${consulta} — Itajaí, SC, Brasil (modo de teste)`,
+          principal: consulta,
+          secundario: 'Itajaí, SC, Brasil (modo de teste)'
+        }
+      ],
+      aviso: ''
+    };
+  }
+
+  try {
+    consumirCotaDeSugestao();
+
+    const resposta = await chamar(buscar, AUTOCOMPLETE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': env.mapsApiKey,
+        // Sem a máscara, a resposta traz campos que não são lidos aqui — e cada
+        // campo a mais pode subir o SKU da chamada.
+        'X-Goog-FieldMask':
+          'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat'
+      },
+      body: JSON.stringify({
+        input: consulta,
+        languageCode: 'pt-BR',
+        regionCode: 'BR',
+        // Só endereços do Brasil. Sem isto, "Rua São João" traz Portugal junto.
+        includedRegionCodes: ['br']
+      })
+    });
+
+    const corpo = await resposta.json();
+    if (corpo.error) {
+      throw new DistanciaError(`O Google recusou a busca de endereço: ${corpo.error.message}.`);
+    }
+
+    const items = (corpo.suggestions || [])
+      .map(sugestao => sugestao.placePrediction)
+      .filter(predicao => predicao?.placeId)
+      .slice(0, MAXIMO_DE_SUGESTOES)
+      .map(predicao => ({
+        placeId: predicao.placeId,
+        texto: predicao.text?.text || '',
+        principal: predicao.structuredFormat?.mainText?.text || predicao.text?.text || '',
+        secundario: predicao.structuredFormat?.secondaryText?.text || ''
+      }));
+
+    return { items, aviso: '' };
+  } catch (error) {
+    return {
+      items: [],
+      aviso:
+        error instanceof DistanciaError
+          ? error.message
+          : `Não foi possível buscar endereços: ${error.message}`
+    };
+  }
+}
+
 function guardar(chave, resultado) {
   // Cache sem teto vira vazamento de memória num processo de vida longa.
   if (cache.size >= CACHE_MAXIMO) cache.delete(cache.keys().next().value);
@@ -400,4 +544,5 @@ export function limparCache() {
   cache.clear();
   cota.dia = '';
   cota.usadas = 0;
+  cota.sugestoes = 0;
 }

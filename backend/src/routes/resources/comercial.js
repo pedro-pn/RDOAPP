@@ -31,6 +31,7 @@ import {
   salvarSede
 } from '../../lib/comercial/configuracao.js';
 import { buscarEmpresas, empresaComContatos } from '../../lib/comercial/crm-contatos.js';
+import { sugerirEnderecos } from '../../lib/comercial/distancias.js';
 import { finalizarProposta } from '../../lib/comercial/jobs.js';
 import { indisponivel, listarFunis } from '../../lib/comercial/nectar.js';
 import { attachmentContentDisposition } from '../../lib/documents/storage.js';
@@ -277,6 +278,26 @@ router.get(
       if (handleComercialError(error, res)) return;
       throw error;
     }
+  })
+);
+
+/**
+ * Sugestões de endereço enquanto se digita (T134).
+ *
+ * **Passa pelo servidor de propósito.** A chave do Google é restrita por IP do
+ * servidor; mandar o navegador falar direto com o Google exigiria uma segunda
+ * chave, restrita por origem — que é pública por natureza, fica visível a
+ * qualquer um que abra a aba de rede, e sai do alcance da cota diária daqui.
+ *
+ * Aberta a orçamentista, não só a gestor: quem mais vai usar isto é o vendedor
+ * digitando o endereço da obra, e a sede é o caso raro.
+ */
+router.get(
+  '/enderecos/sugestoes',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    const { termo } = schemas.enderecoSugestaoQuery.parse(req.query);
+    res.json(await sugerirEnderecos(termo));
   })
 );
 

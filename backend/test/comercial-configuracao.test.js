@@ -151,6 +151,44 @@ test('trocar de endereço NÃO deixa para trás o placeId do anterior', async ()
   assert.equal(depois.sedePlaceId, 'ChIJ-sede-nova');
 });
 
+test('endereço escolhido da lista de sugestões NÃO é geocodificado de novo', async () => {
+  // A sugestão já vem com `placeId` e com o texto que o próprio Google escreveu.
+  // Reconsultar gastaria chamada para reencontrar o que estava encontrado — e
+  // poderia cair em outro resultado que o mostrado na tela ao gestor.
+  const prisma = prismaFalso();
+  const { buscar, chamadas } = googleFalso();
+
+  const config = await salvarSede(
+    prisma,
+    null,
+    {
+      sedeEndereco: 'R. Rosa Orsi Dalçoquio, 930 - Cordeiros, Itajaí - SC, Brasil',
+      sedePlaceId: 'ChIJ-escolhido-na-lista'
+    },
+    { buscar }
+  );
+
+  assert.equal(chamadas.length, 0, 'geocodificou um endereço que já vinha resolvido');
+  assert.equal(config.sedePlaceId, 'ChIJ-escolhido-na-lista');
+  assert.equal(config.aviso, '');
+});
+
+test('placeId com formato estranho é ignorado, e o endereço é geocodificado', async () => {
+  // Ele chega do navegador. Gestor já podia digitar qualquer endereço, então
+  // forjar o identificador não alcança nada novo — mas lixo não vai ao banco.
+  const prisma = prismaFalso();
+  const { buscar } = googleFalso();
+
+  const config = await salvarSede(
+    prisma,
+    null,
+    { sedeEndereco: SEDE, sedePlaceId: '<script>alert(1)</script>' },
+    { buscar }
+  );
+
+  assert.equal(config.sedePlaceId, 'ChIJ-sede-itajai');
+});
+
 test('endereço que ninguém acha zera o placeId em vez de manter o antigo', async () => {
   const prisma = prismaFalso();
   const { buscar } = googleFalso();

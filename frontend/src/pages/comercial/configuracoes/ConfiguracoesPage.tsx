@@ -9,7 +9,7 @@ import {
   type EnderecoLocalizado
 } from '../../../api/comercial';
 import { ComercialChrome } from '../components/ComercialChrome';
-import { Field } from '../components/Field';
+import { EnderecoField } from '../components/EnderecoField';
 
 /**
  * Configurações do módulo Comercial — só gestor (T131).
@@ -21,19 +21,27 @@ import { Field } from '../components/Field';
  * > quem sabe o endereço novo é o gestor, e trocá-lo exigia editar arquivo no
  * > servidor e reiniciar o container.
  *
- * A tela tem dois botões, e a diferença entre eles é o ponto:
+ * ---------------------------------------------------------------------------
+ * Dois caminhos até o mesmo lugar
  *
- * - **Localizar** consulta o Google e não grava nada. É para conferir.
- * - **Salvar** grava, e localiza junto para guardar o identificador do lugar.
+ * O endereço da sede é a ORIGEM de toda distância calculada, e erro de origem
+ * não aparece em lugar nenhum: quem confere um cálculo olha o destino. Daí os
+ * dois caminhos, e a preferência entre eles:
  *
- * `Localizar` existe porque o endereço da sede é a ORIGEM de toda distância
- * calculada, e erro de origem não aparece em lugar nenhum: quem confere um
- * cálculo olha o destino. Ver o endereço oficial antes de gravar é a única
- * chance de perceber que "Rua Rosa Orsi 930" virou o centro de Itajaí.
+ * 1. **Escolher da lista de sugestões** (T134) — o caminho bom. O endereço vem
+ *    escrito pelo Google e traz o `placeId` junto, então não há o que conferir
+ *    nem o que geocodificar depois.
+ * 2. **Digitar à mão e clicar em "Localizar no mapa"** — para quando a lista não
+ *    tem o lugar, ou está indisponível. Localizar consulta e **não grava**: é a
+ *    chance de ver que "Rua Rosa Orsi 930" virou o centro de Itajaí antes de o
+ *    número errado começar a sair nas propostas.
  *
- * Não localizar **não impede de salvar**. Com o Maps desligado — que é o padrão
- * do ambiente — nunca localizaria, e a tela ficaria inútil justamente na
- * instalação mais comum. O endereço digitado serve de origem sozinho.
+ * O botão de localizar some quando o endereço veio da lista — ali ele
+ * devolveria exatamente o que já está no campo.
+ *
+ * Não conseguir localizar **não impede de salvar**. Com o Maps desligado — que é
+ * o padrão do ambiente — nunca localizaria, e a tela ficaria inútil justamente
+ * na instalação mais comum. O endereço digitado serve de origem sozinho.
  */
 
 type Estado = 'carregando' | 'pronto' | 'erro';
@@ -42,6 +50,11 @@ export function ConfiguracoesPage() {
   const [estado, setEstado] = useState<Estado>('carregando');
   const [config, setConfig] = useState<ComercialConfiguracao | null>(null);
   const [endereco, setEndereco] = useState('');
+  /**
+   * Preenchido só quando o endereço saiu da lista de sugestões. Vazio significa
+   * "digitado à mão", e aí o servidor geocodifica antes de gravar.
+   */
+  const [placeId, setPlaceId] = useState('');
   const [local, setLocal] = useState<EnderecoLocalizado | null>(null);
   const [recado, setRecado] = useState('');
   const [erro, setErro] = useState('');
@@ -55,6 +68,7 @@ export function ConfiguracoesPage() {
         if (!vivo) return;
         setConfig(dados);
         setEndereco(dados.sedeEndereco);
+        setPlaceId(dados.sedePlaceId);
         setEstado('pronto');
       })
       .catch(error => {
@@ -70,8 +84,9 @@ export function ConfiguracoesPage() {
 
   // Editar invalida a localização anterior: ela é de OUTRO endereço, e deixá-la
   // na tela ao lado do texto novo é o convite para salvar achando que confirmou.
-  function editar(valor: string) {
+  function editar(valor: string, escolhido: string) {
     setEndereco(valor);
+    setPlaceId(escolhido);
     setLocal(null);
     setRecado('');
   }
@@ -93,9 +108,10 @@ export function ConfiguracoesPage() {
     setOcupado(true);
     setErro('');
     try {
-      const salvo = await salvarSedeComercial(endereco);
+      const salvo = await salvarSedeComercial(endereco, placeId);
       setConfig(salvo);
       setEndereco(salvo.sedeEndereco);
+      setPlaceId(salvo.sedePlaceId);
       setLocal(
         salvo.sedeEnderecoEncontrado
           ? {
@@ -133,13 +149,11 @@ export function ConfiguracoesPage() {
 
         {estado !== 'carregando' && (
           <>
-            <Field
+            <EnderecoField
               label="Endereço"
               value={endereco}
               onChange={editar}
               disabled={ocupado}
-              maxLength={300}
-              placeholder="Rua, número, bairro, cidade - UF"
               hint={
                 config?.atualizadoEm
                   ? `Última alteração em ${new Date(config.atualizadoEm).toLocaleString('pt-BR')}${
@@ -150,14 +164,18 @@ export function ConfiguracoesPage() {
             />
 
             <div className="com-oferta-acoes">
-              <button
-                type="button"
-                className="com-btn com-btn-fantasma"
-                onClick={localizar}
-                disabled={ocupado || endereco.trim().length < 8}
-              >
-                Localizar no mapa
-              </button>
+              {/* Só faz sentido para endereço digitado à mão: o que veio da lista
+                  já é o do Google, e "localizar" devolveria ele mesmo. */}
+              {!placeId && (
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  onClick={localizar}
+                  disabled={ocupado || endereco.trim().length < 8}
+                >
+                  Localizar no mapa
+                </button>
+              )}
               <button
                 type="button"
                 className="com-btn com-btn-primario"

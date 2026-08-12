@@ -225,7 +225,15 @@ const rawEnvSchema = z.object({
    * consumida — um defeito em laço passa dela e só aparece na fatura. O teto
    * transforma isso num campo que volta a ser digitado.
    */
-  GOOGLE_MAPS_MAX_DIA: integerWithDefault('GOOGLE_MAPS_MAX_DIA', 200, { min: 1 })
+  GOOGLE_MAPS_MAX_DIA: integerWithDefault('GOOGLE_MAPS_MAX_DIA', 200, { min: 1 }),
+  /**
+   * Teto diário das SUGESTÕES de endereço, contado à parte.
+   *
+   * Um cálculo de distância é um clique; uma sugestão é uma tecla digitada.
+   * Somados no mesmo teto, o autocompletar comeria em três endereços a franquia
+   * que a distância usa o dia inteiro. 300/dia cabe nos 10.000/mês do SKU.
+   */
+  GOOGLE_MAPS_MAX_DIA_SUGESTOES: integerWithDefault('GOOGLE_MAPS_MAX_DIA_SUGESTOES', 300, { min: 1 })
   // A origem das rotas — o endereço da sede — NÃO mora aqui. É dado de negócio,
   // editável por gestor na tela de configuração do módulo, e vive no banco
   // (`comercial.ComercialSettings`). Foi `COMERCIAL_SEDE_ENDERECO` até 12/08.
@@ -301,6 +309,7 @@ export function loadEnv(source = process.env) {
     mapsMode: raw.GOOGLE_MAPS_MODE,
     mapsApiKey: raw.GOOGLE_MAPS_API_KEY,
     mapsMaxDia: raw.GOOGLE_MAPS_MAX_DIA,
+    mapsMaxDiaSugestoes: raw.GOOGLE_MAPS_MAX_DIA_SUGESTOES,
     appUrl: raw.APP_URL,
     allowedOrigin: raw.ALLOWED_ORIGIN,
     allowedOrigins: parseOrigins(raw.ALLOWED_ORIGIN),

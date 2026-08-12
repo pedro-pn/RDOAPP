@@ -247,3 +247,58 @@ Três consequências que valem registro, porque cada uma foi um defeito evitado:
 O campo em branco continua sendo estado normal: sem sede configurada, o cálculo
 responde `km: null` e diz onde configurar — e a distância continua digitada, que
 é o caminho de sempre.
+
+## Sugestões enquanto se digita — 12/08/2026 (T134)
+
+Pedido do mantenedor depois de configurar a sede à mão: o campo não sugeria nada,
+e quem digita não tem como saber se escreveu o endereço de um jeito que o Google
+reconhece.
+
+Resolvido com **Places Autocomplete (New)**, `POST
+https://places.googleapis.com/v1/places:autocomplete`. **Exige a `Places API
+(New)` habilitada no console** — é outra API, não vem junto com a Geocoding nem
+com a Routes, e sem ela a resposta vem com erro (que o adaptador transforma em
+aviso na tela, não em tela quebrada).
+
+### O custo, verificado antes de escrever
+
+`Autocomplete Requests` é SKU **Essentials**: 10.000 chamadas grátis por mês,
+contadas à parte das outras duas.
+
+**Não usamos token de sessão, e é decisão.** O modelo de sessão do Google cobra
+normalmente as **12 primeiras** requisições e só isenta da 13ª em diante — e
+apenas se a sessão *fechar* numa chamada de Place Details. Aqui a escolha não
+termina em Place Details: a sugestão **já traz** `placeId` e o endereço
+formatado, que é tudo o que a sede precisa. Abrir uma sessão sem fechá-la
+reverteria para cobrança por requisição de qualquer forma — exatamente onde já
+estamos, com uma peça a mais para manter.
+
+Como efeito colateral, escolher da lista **economiza** uma chamada de Geocoding
+na hora de salvar: o `placeId` já veio resolvido, e `salvarSede` não regeocodifica.
+
+### O que de fato segura o consumo
+
+Autocompletar é o caso em que uma tela dispara uma chamada **por tecla digitada**.
+Sem freio, "Rua Rosa Orsi Dalçoquio, 930" são 28 chamadas em vez de 3 ou 4.
+
+| Freio | Onde | Por quê |
+|---|---|---|
+| Mínimo de 4 caracteres | adaptador **e** campo | abaixo disso a resposta é meia cidade |
+| Espera de 350 ms sem digitar | campo | é o que corta 28 chamadas para 3 |
+| Resposta atrasada é descartada | campo | senão a lista de "Rua" chega depois da de "Rua Rosa" e sobrescreve a certa |
+| Cota diária **própria**, 300/dia | adaptador | somada à da distância, o autocompletar comeria em três endereços a franquia que o cálculo usa o dia inteiro |
+| Máscara de campos na requisição | adaptador | campo a mais na resposta pode subir o SKU da chamada |
+
+### Por que passa pelo servidor
+
+A chave do Google é restrita por **IP do servidor**. Deixar o navegador falar
+direto com o Google exigiria uma segunda chave, restrita por origem — pública por
+natureza, visível a qualquer um que abra a aba de rede, e fora do alcance da cota
+diária. O salto a mais custa alguns milissegundos num campo que já espera 350 ms.
+
+### A lista sugere, não obriga
+
+Digitar o endereço inteiro à mão continua valendo, e aí o servidor geocodifica na
+hora de salvar, como antes. É o que mantém a tela utilizável com a Places
+desabilitada, com a cota do dia estourada ou com o Maps em `off` — que é o padrão
+do ambiente.

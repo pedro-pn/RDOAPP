@@ -2700,3 +2700,52 @@
   opacity: 0.6;
   cursor: progress;
 }
+
+/* ---------------------------------------------------------------------------
+ * Sugestões de endereço (T134)
+ *
+ * A lista flutua sobre o conteúdo, e por isso o contêiner é o que estabelece o
+ * `position: relative` — sem ele a lista se ancoraria no painel e apareceria
+ * deslocada quando o campo não fosse o primeiro.
+ * ------------------------------------------------------------------------- */
+.com-root .com-autocomplete {
+  position: relative;
+}
+
+.com-root .com-autocomplete-lista {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  max-height: 15rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  border: 1px solid var(--com-borda);
+  border-radius: 8px;
+  background: var(--com-superficie);
+  box-shadow: 0 10px 24px rgb(15 33 24 / 12%);
+}
+
+.com-root .com-autocomplete-item {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.com-root .com-autocomplete-item span {
+  color: var(--com-texto-fraco);
+  font-size: 0.8rem;
+}
+
+/* Teclado e mouse chegam ao mesmo destaque: a navegação por seta marca a linha
+   ativa, e o mouse move essa marca em vez de criar um segundo realce. */
+.com-root .com-autocomplete-item-ativo {
+  background: var(--com-acao-suave);
+}

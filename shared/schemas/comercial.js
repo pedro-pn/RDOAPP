@@ -276,7 +276,17 @@ export function makeComercialSchemas(z) {
      * least 8 character(s)" a quem só quer saber que faltou a rua.
      */
     comercialSedeUpdate: z.object({
-      sedeEndereco: z.string().max(400).default('')
+      sedeEndereco: z.string().max(400).default(''),
+      /**
+       * Preenchido quando o endereço veio de uma sugestão escolhida na lista.
+       * Vazio quando foi digitado à mão — e aí o servidor geocodifica.
+       */
+      sedePlaceId: z.string().trim().max(255).default('')
+    }),
+
+    /** Busca de sugestões de endereço enquanto se digita. */
+    enderecoSugestaoQuery: z.object({
+      termo: z.string().trim().max(200).default('')
     })
   };
 }

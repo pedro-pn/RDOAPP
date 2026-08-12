@@ -764,6 +764,17 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   modelos **e** nos originais. A nota da tabela estava errada na contagem: são
   duas tabelas e 4 linhas ao todo, não três — leitura confirmada pelo mantenedor e
   registrada no contrato.
+- [X] T134 **Sugestões de endereço enquanto se digita**, pedidas pelo mantenedor
+  em 12/08 depois de configurar a sede à mão: sem a lista, quem digita não sabe
+  se escreveu de um jeito que o Google reconhece.
+  ↳ `Places Autocomplete (New)` via `sugerirEnderecos` em `distancias.js`, rota
+  `GET /comercial/enderecos/sugestoes` e o campo `EnderecoField` no front. **Sem
+  token de sessão** — a escolha não termina em Place Details, então a sessão
+  nunca fecharia e a cobrança reverteria para por-requisição de qualquer jeito.
+  O consumo é segurado por piso de 4 caracteres, espera de 350 ms e **cota
+  diária própria** (`GOOGLE_MAPS_MAX_DIA_SUGESTOES`, 300): uma sugestão é uma
+  tecla digitada, não um clique. ⚠ Exige **Places API (New)** habilitada no
+  console — não é a mesma da Geocoding nem a da Routes.
 - [ ] T133 **Serviços novos no catálogo**, quando o comercial mandar os textos.
   Candidatos com uso real medido em 12/08: análise físico-química (2 usos),
   flushing com água (7 somando os dois produtos). Boroscopia, sopragem, pintura
