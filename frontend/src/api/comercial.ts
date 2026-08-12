@@ -295,6 +295,24 @@ export interface EnderecoLocalizado {
   aviso: string;
 }
 
+/**
+ * Distância da sede até o endereço da obra (T126a/T126b).
+ *
+ * **Nunca rejeita por endereço ruim.** Endereço não encontrado, Maps desligado,
+ * cota do dia estourada e rota inexistente chegam como `200` com `km: null` e o
+ * motivo — porque o campo continua editável e digitar é o caminho de sempre. Um
+ * erro aqui faria a tela parecer quebrada com o trabalho podendo seguir.
+ */
+export async function calcularDistancia(endereco: string, signal?: AbortSignal) {
+  const { data } = await apiClient.get<{
+    km: number | null;
+    enderecoEncontrado: string;
+    confianca: 'exata' | 'parcial' | 'regiao' | 'nenhuma';
+    aviso: string;
+  }>('/comercial/distancia', { params: { endereco }, signal });
+  return data;
+}
+
 /** Uma linha da lista de sugestões do Google. */
 export interface SugestaoDeEndereco {
   placeId: string;

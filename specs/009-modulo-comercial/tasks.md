@@ -680,10 +680,15 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > A ordem é registro primeiro, arquivo depois — o inverso da gravação, e pelo
   > mesmo motivo: o que não pode sobrar é registro apontando para arquivo que não
   > existe.
-- [ ] T126b **Ligar o cálculo de distância na tela** de destinos da logística:
+- [X] T126b **Ligar o cálculo de distância na tela** de destinos da logística:
   botão de calcular ao lado do campo, o endereço encontrado exibido para
   conferência, e o aviso quando a confiança for `parcial` ou `regiao`. O campo
   continua editável, e a origem do valor — calculado ou informado — fica visível.
+  ↳ `DistanciaDoDestino.tsx` na célula, e a decisão de aceitar ou pedir
+  conferência isolada em `custos/distancia.ts` — é ela que erra em silêncio, e é
+  ela que o teste cobre. Um caso que só apareceu ao escrever o teste: **`km: 0` é
+  falsy**, e tratá-lo como "não achou" faria a tela recusar o resultado correto
+  de uma obra na própria sede.
 
 - [X] T129 **Produto obrigatório na oportunidade.** Resolvido pela **opção (b)**,
   escolhida pelo mantenedor: *respeitar a lógica que o comercial já adotou* e

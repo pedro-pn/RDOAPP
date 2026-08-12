@@ -2752,3 +2752,30 @@
 .com-root .com-autocomplete-item-ativo {
   background: var(--com-acao-suave);
 }
+
+/* Cálculo de distância na tabela de destinos (T126b). */
+.com-root .com-distancia {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 15rem;
+}
+
+.com-root .com-distancia-linha {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.com-root .com-distancia-linha > input {
+  flex: 1 1 5rem;
+  min-width: 4.5rem;
+}
+
+/* Compacto: divide a célula com o campo, e a coluna não pode crescer por causa
+   dele. */
+.com-root .com-distancia-botao {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}

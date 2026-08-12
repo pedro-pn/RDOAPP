@@ -1,6 +1,7 @@
 import { LOGISTICS_TRAVEL_DEFAULTS } from '../../../../../../shared/comercial/dist/cost-model.js';
 import { EnderecoInput } from '../../components/EnderecoField';
 import { AvisoPendencia, ConfirmacaoEscopo } from '../ConfirmacaoEscopo';
+import { DistanciaDoDestino } from './DistanciaDoDestino';
 import { money, numberValue } from '../formato';
 import { itemPrecisaAtencao, transporteDispensado } from '../logistica';
 import type { Levantamento } from '../useLevantamento';
@@ -237,22 +238,11 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
                             />
                           </td>
                           <td>
-                            <input
-                              type="number"
-                              aria-label="Distância só ida em quilômetros"
-                              className={semDistancia ? 'com-campo-invalido' : undefined}
-                              aria-invalid={semDistancia || undefined}
-                              min={0}
-                              step={1}
-                              value={(destino.oneWayDistanceKm as number) ?? ''}
-                              onChange={event =>
-                                editar({
-                                  oneWayDistanceKm:
-                                    event.target.value === ''
-                                      ? 0
-                                      : Number(event.target.value)
-                                })
-                              }
+                            <DistanciaDoDestino
+                              endereco={String(destino.address || '')}
+                              km={numberValue(destino.oneWayDistanceKm)}
+                              invalido={semDistancia}
+                              onChange={km => editar({ oneWayDistanceKm: km })}
                             />
                           </td>
                           <td>
