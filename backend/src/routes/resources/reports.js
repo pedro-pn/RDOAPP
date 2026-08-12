@@ -2573,7 +2573,9 @@ export function pdfUploadUrlsForReport(report) {
 
 function pdfCacheMetadataForReport(report) {
   return {
-    version: 2,
+    // Bump whenever DOCX/PDF layout rules change so previously rendered files
+    // are not served indefinitely with stale pagination or conditional blocks.
+    version: 3,
     reportId: report.id,
     reportUpdatedAt: reportUpdatedAtToken(report),
     fingerprint: sha256Hex(JSON.stringify({
