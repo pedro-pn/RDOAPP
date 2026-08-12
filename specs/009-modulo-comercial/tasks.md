@@ -268,7 +268,9 @@ existir.
   > resto do app. **Converter agora é reescrever cinco seções sem ganho visível para o
   > usuário.** Encaminhamento proposto: registrar como desvio nº 11 no `plan.md`,
   > restrito à tela de custos, mantendo RHF nas 7 etapas da proposta (T057–T063), que
-  > são formulário de verdade. **Pendente de decisão do mantenedor.**
+  > são formulário de verdade. **APROVADO pelo mantenedor em 12/08**: a exceção
+  > fica, e o desvio nº 11 deixa de ser pendência. Converter as cinco seções
+  > seria reescrita sem ganho visível para quem usa a tela.
 
 
 ### L1 — validação por campo
@@ -667,12 +669,17 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   nº 15**, aprovado em 11/08. Mexe no que a T114 compara pixel a pixel, então o
   registro é o que impede a validação final de acusá-lo como defeito de porte.
 
-- [ ] T128 **Remover anexo enviado por engano.** Hoje não há caminho: o anexo
-  errado fica, e um arquivo grande pode travar a finalização pelo limite
-  agregado sem saída. **Precisa de decisão do mantenedor**, porque esbarra no
-  FR-060 — "nenhuma rota do módulo apaga registro". As opções são arquivar o
-  anexo (exige coluna nova) ou abrir uma exceção explícita à regra para anexo,
-  que não é registro de negócio e sim arquivo que o usuário acabou de juntar.
+- [X] T128 **Remover anexo enviado por engano.** Decidido pelo mantenedor em
+  12/08: **exceção explícita ao FR-060**. `DELETE /propostas/:id/anexos/:anexoId`
+  é o **único `DELETE` do módulo** — a regra de não apagar foi feita para
+  levantamento e proposta, que são registro de negócio com história; anexo é
+  arquivo que o vendedor acabou de juntar e pode ser o errado.
+
+  > Só antes de finalizar: depois, o arquivo já foi ao CRM e ao SharePoint, e
+  > apagar aqui deixaria o nosso registro dizendo uma coisa e o destino, outra.
+  > A ordem é registro primeiro, arquivo depois — o inverso da gravação, e pelo
+  > mesmo motivo: o que não pode sobrar é registro apontando para arquivo que não
+  > existe.
 - [ ] T126b **Ligar o cálculo de distância na tela** de destinos da logística:
   botão de calcular ao lado do campo, o endereço encontrado exibido para
   conferência, e o aviso quando a confiança for `parcial` ou `regiao`. O campo
@@ -727,3 +734,29 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > (b) enviar um produto do catálogo (são 15; "Entrega técnica" e "Evento de
   > mobilização…" parecem candidatos), o que exige decidir **qual** e como o valor
   > se relaciona com o `valorAvulso`; (c) criar sempre no funil 55031.
+
+- [ ] T130 **`totalValue` do hidrojateamento passa a ser escolhido pelo vendedor.**
+  Decidido em 12/08. Hoje o servidor manda ao CRM **a maior** das duas tabelas
+  (ONSHORE/OFFSHORE); o mantenedor apurou que **o mais comum é ONSHORE**, e que o
+  certo é perguntar. Precisa de um campo na finalização — qual cenário vale — e de
+  `calcularTotal` passar a respeitá-lo em vez de decidir sozinho.
+- [ ] T131 **Endereço da sede vira configuração do módulo**, editável por gestor,
+  com busca no Google Maps para localizá-lo. Hoje é `COMERCIAL_SEDE_ENDERECO` no
+  `.env`, e **a variável deve sumir** — decisão do mantenedor em 12/08: dado de
+  negócio não mora em arquivo de ambiente. É migration + rota + aba de configuração.
+- [ ] T132 **Corrigir os erros de digitação dos `.docx`** listados em
+  [`contracts/modelos-word.md`](./contracts/modelos-word.md) — resina,
+  Descarregamento, Instalações, hidrojateamento, RFA duplicado, e as linhas de
+  mobilização/desmobilização da tabela ONSHORE. **E unificar PPRA → PGR**: o PPRA
+  foi substituído pelo PGR na revisão da NR-1, então os modelos de hidrojateamento
+  citam hoje um programa que não existe mais. Autorizado em 12/08.
+- [ ] T133 **Serviços novos no catálogo**, quando o comercial mandar os textos.
+  Candidatos com uso real medido em 12/08: análise físico-química (2 usos),
+  flushing com água (7 somando os dois produtos). Boroscopia, sopragem, pintura
+  externa e remoção de tinta têm **zero** uso — confirmar se entram.
+
+  > **Regra para ambiguidade de produto, decidida em 12/08: vale o MAIS USADO.**
+  > Conferida contra o uso real das 230 oportunidades, ela confirma todas as
+  > escolhas já feitas. Para o flushing com água, aponta o
+  > "Serviço especializado em flushing com água" (4 usos) contra "Flushing com
+  > água" (3).

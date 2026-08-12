@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,7 @@ process.env.COMERCIAL_DIR = await mkdtemp(path.join(tmpdir(), 'comercial-anexos-
 
 const {
   anexarArquivo,
+  removerAnexo,
   bytesComprometidos,
   exigirLimiteAgregado,
   extensaoDe,
@@ -66,6 +68,16 @@ function fakePrisma(propostas = [propostaBase()], anexos = [], documentos = []) 
         const row = { id: `a${store.anexos.length + 1}`, createdAt: new Date(), ...data };
         store.anexos.push(row);
         return row;
+      },
+      findUnique: async ({ where, include }) => {
+        const row = store.anexos.find(a => a.id === where.id);
+        if (!row) return null;
+        if (!include?.proposal) return { ...row };
+        return { ...row, proposal: store.propostas.find(p => p.id === row.proposalId) ?? null };
+      },
+      delete: async ({ where }) => {
+        const i = store.anexos.findIndex(a => a.id === where.id);
+        return i < 0 ? null : store.anexos.splice(i, 1)[0];
       }
     }
   };
@@ -232,4 +244,99 @@ test('a listagem diz quanto do limite já foi usado', async () => {
   assert.equal(items[0].originalName, 'ART.pdf');
   assert.equal(bytesUsados, 3 * MB);
   assert.equal(bytesDisponiveis, ATTACHMENT_LIMITS.maxAggregateBytes);
+});
+
+// ---------------------------------------------------------------------------
+// Remoção — a única exclusão do módulo (T128)
+// ---------------------------------------------------------------------------
+
+test('o anexo errado pode ser removido, e o arquivo sai do disco junto', async () => {
+  // Sem isto havia um beco: anexo grande enviado por engano trava a finalização
+  // pelo limite agregado, e não havia como tirá-lo.
+  const prisma = fakePrisma();
+  const anexo = await anexarArquivo(prisma, vendedorA, 'p1', {
+    bytes: Buffer.from('arquivo errado'),
+    fileName: 'errado.pdf'
+  });
+
+  const caminho = path.join(raiz, anexo.storagePath);
+  assert.ok(existsSync(caminho), 'o arquivo deveria estar no disco antes');
+
+  await removerAnexo(prisma, vendedorA, anexo.id);
+
+  assert.equal(prisma.store.anexos.length, 0);
+  assert.ok(!existsSync(caminho), 'o arquivo continuou no disco');
+});
+
+test('remover libera o espaço no limite agregado', async () => {
+  const prisma = fakePrisma();
+  const grande = await anexarArquivo(prisma, vendedorA, 'p1', {
+    bytes: Buffer.alloc(15 * MB),
+    fileName: 'grande.pdf'
+  });
+
+  await assert.rejects(
+    () => anexarArquivo(prisma, vendedorA, 'p1', { bytes: Buffer.alloc(8 * MB), fileName: 'outro.pdf' }),
+    error => error.statusCode === 413
+  );
+
+  await removerAnexo(prisma, vendedorA, grande.id);
+
+  // Agora cabe.
+  const depois = await anexarArquivo(prisma, vendedorA, 'p1', {
+    bytes: Buffer.alloc(8 * MB),
+    fileName: 'outro.pdf'
+  });
+  assert.equal(depois.byteSize, 8 * MB);
+});
+
+test('vendedor não remove anexo de proposta de outro autor', async () => {
+  const prisma = fakePrisma();
+  const anexo = await anexarArquivo(prisma, vendedorA, 'p1', {
+    bytes: Buffer.from('x'),
+    fileName: 'a.pdf'
+  });
+
+  await assert.rejects(
+    () => removerAnexo(prisma, vendedorB, anexo.id),
+    error => error.statusCode === 403
+  );
+  assert.equal(prisma.store.anexos.length, 1, 'apagou anexo de outro autor');
+});
+
+test('proposta finalizada não permite remover — o arquivo já foi ao destino', async () => {
+  // Apagar aqui deixaria o nosso registro dizendo uma coisa e o CRM, outra.
+  const prisma = fakePrisma();
+  const anexo = await anexarArquivo(prisma, vendedorA, 'p1', {
+    bytes: Buffer.from('x'),
+    fileName: 'a.pdf'
+  });
+  prisma.store.propostas[0].status = 'FINALIZADA';
+
+  await assert.rejects(
+    () => removerAnexo(prisma, vendedorA, anexo.id),
+    error => error.statusCode === 409
+  );
+  assert.equal(prisma.store.anexos.length, 1);
+});
+
+test('anexo inexistente é 404', async () => {
+  await assert.rejects(
+    () => removerAnexo(fakePrisma(), vendedorA, 'a-fantasma'),
+    error => error.statusCode === 404
+  );
+});
+
+test('arquivo já sumido do disco não impede limpar o registro', async () => {
+  // O objetivo — não existir — já está cumprido. Falhar aqui só deixaria o
+  // registro órfão apontando para o nada.
+  const prisma = fakePrisma();
+  const anexo = await anexarArquivo(prisma, vendedorA, 'p1', {
+    bytes: Buffer.from('x'),
+    fileName: 'a.pdf'
+  });
+  await rm(path.join(raiz, anexo.storagePath));
+
+  await removerAnexo(prisma, vendedorA, anexo.id);
+  assert.equal(prisma.store.anexos.length, 0);
 });

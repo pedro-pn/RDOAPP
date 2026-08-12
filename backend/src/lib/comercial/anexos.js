@@ -5,7 +5,7 @@ import { ATTACHMENT_LIMITS, formatFileSize } from '../../../../shared/schemas/co
 import { canWrite, denialReason } from './access.js';
 import { ComercialError } from './cost-estimates.js';
 import { documentosAtuais } from './documentos.js';
-import { gravarArquivo, lerArquivo, normalizarCodigo } from './storage.js';
+import { gravarArquivo, lerArquivo, normalizarCodigo, removerArquivo } from './storage.js';
 
 /**
  * Arquivos adicionais do cliente (tarefas T076d e T076e).
@@ -183,6 +183,47 @@ export async function listarAnexos(prisma, user, proposalId) {
     bytesUsados: await bytesComprometidos(prisma, proposalId),
     bytesDisponiveis: ATTACHMENT_LIMITS.maxAggregateBytes
   };
+}
+
+/**
+ * Remove um anexo (tarefa T128).
+ *
+ * **É a única exclusão do módulo, e é exceção declarada ao FR-060** — "nenhuma
+ * rota do módulo apaga registro". A regra foi feita para levantamento e
+ * proposta, que são registro de negócio com história. Anexo é arquivo que o
+ * usuário acabou de juntar, e pode ter sido o errado.
+ *
+ * Sem isto havia um beco: anexo grande enviado por engano **trava a finalização**
+ * pelo limite agregado, e não havia como tirá-lo.
+ *
+ * **Só antes de finalizar.** Depois, os arquivos já foram ao CRM e ao SharePoint;
+ * apagar aqui deixaria o nosso registro dizendo uma coisa e o destino, outra.
+ */
+export async function removerAnexo(prisma, user, anexoId) {
+  const anexo = await prisma.proposalAttachment.findUnique({
+    where: { id: anexoId },
+    include: { proposal: true }
+  });
+  if (!anexo) throw new ComercialError('Anexo não encontrado.', 404);
+
+  const proposta = anexo.proposal;
+  if (!canWrite(user, proposta)) {
+    throw new ComercialError(denialReason(user, proposta), 403);
+  }
+  if (proposta.status === 'FINALIZADA') {
+    throw new ComercialError(
+      'Proposta já finalizada. O anexo já foi enviado e não pode ser removido aqui.',
+      409
+    );
+  }
+
+  // Registro primeiro, arquivo depois — o inverso da gravação, e pelo mesmo
+  // motivo: o que não pode sobrar é registro apontando para arquivo que não
+  // existe. Arquivo órfão é só espaço ocupado.
+  await prisma.proposalAttachment.delete({ where: { id: anexoId } });
+  await removerArquivo(anexo.storagePath);
+
+  return { id: anexoId, originalName: anexo.originalName };
 }
 
 /** Os anexos prontos para irem ao destino externo, junto com os documentos. */

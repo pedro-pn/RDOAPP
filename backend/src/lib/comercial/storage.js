@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import env from '../../config/env.js';
@@ -102,6 +102,23 @@ export async function lerArquivo(relativo) {
     if (error?.code === 'ENOENT') {
       throw new ComercialError('O arquivo não está mais disponível no servidor.', 404);
     }
+    throw error;
+  }
+}
+
+/**
+ * Apaga um arquivo gravado.
+ *
+ * **Ausente não é erro.** Se o arquivo já sumiu do disco, o objetivo — não
+ * existir — já está cumprido; falhar aqui só impediria de limpar o registro que
+ * sobrou apontando para o nada.
+ */
+export async function removerArquivo(relativo) {
+  try {
+    await rm(caminhoAbsoluto(relativo));
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
     throw error;
   }
 }

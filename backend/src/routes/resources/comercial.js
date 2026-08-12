@@ -23,7 +23,7 @@ import {
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
 import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
-import { anexarArquivo, listarAnexos } from '../../lib/comercial/anexos.js';
+import { anexarArquivo, listarAnexos, removerAnexo } from '../../lib/comercial/anexos.js';
 import { buscarEmpresas, empresaComContatos } from '../../lib/comercial/crm-contatos.js';
 import { distanciaAteObra } from '../../lib/comercial/distancias.js';
 import { finalizarProposta } from '../../lib/comercial/jobs.js';
@@ -596,6 +596,27 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       res.json(await listarAnexos(prisma, req.auth.user, req.params.id));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+/**
+ * Remove um anexo (T128).
+ *
+ * **É o único `DELETE` do módulo**, e é exceção declarada ao FR-060: a regra de
+ * não apagar foi feita para levantamento e proposta, que são registro de
+ * negócio. Anexo é arquivo que o vendedor acabou de juntar — e sem esta rota,
+ * um arquivo grande errado travava a finalização pelo limite agregado, sem saída.
+ */
+router.delete(
+  '/propostas/:id/anexos/:anexoId',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(await removerAnexo(prisma, req.auth.user, req.params.anexoId));
     } catch (error) {
       if (handleComercialError(error, res)) return;
       throw error;

@@ -308,15 +308,14 @@ por suíte vermelha.
   hidrojateamento, RFA duplicado) estão listados em
   [`contracts/modelos-word.md`](./contracts/modelos-word.md). Não os corrigi por
   conta própria.
-- **Desvio 11** — tela de custos sem `react-hook-form` — continua **proposto,
-  pendente de decisão**. É o único da lista ainda sem resposta: os **14 e 15**
-  (máscara de R$ e cabeçalho mais baixo) foram aprovados em 11/08.
+- **Desvio 11** — tela de custos sem `react-hook-form` — **aprovado em 12/08**.
+  A lista de desvios não tem mais nenhum item sem resposta.
 - **O `totalValue` do hidrojateamento** (11/08). O valor gravado e mandado ao CRM
   é a **maior** das duas tabelas, ONSHORE ou OFFSHORE. A referência somava todos
   os preços, mas lá não existiam duas tabelas: somá-las aqui produziria um número
   que nenhum cliente vai pagar, porque são cenários alternativos. A maior é a
-  única das duas somas que corresponde a um cenário real. **Confirmar com o
-  comercial** — está isolado em `calcularTotal`, em `proposals.js`.
+  única das duas somas que corresponde a um cenário real. **Respondido em 12/08:
+  o mais comum é ONSHORE, e o certo é perguntar ao vendedor** — vira a T130.
 - **`prisma migrate dev` exige reset do banco** por drift pré-existente em duas
   migrations. O caminho usado foi `migrate diff` → revisão → `db execute` →
   `migrate resolve --applied`. **Não rode `migrate dev` sem backup.**
