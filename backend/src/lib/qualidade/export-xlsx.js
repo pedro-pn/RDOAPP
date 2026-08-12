@@ -102,22 +102,22 @@ function recordRow(record) {
     record.number,
     record.registeredAt,
     typeLabels.get(record.type) || record.type,
-    record.origin,
+    record.origin || '',
     projectLabel(record),
     record.eventDate,
     record.nature?.name || '',
-    record.description,
-    impactLabels.get(record.impact) || record.impact,
+    record.description || '',
+    impactLabels.get(record.impact) || record.impact || '',
     record.occurrences12m,
     record.recurrent ? 'SIM' : 'não',
     record.linkedRnc || '-',
-    dispositionLabels.get(record.disposition) || record.disposition,
+    dispositionLabels.get(record.disposition) || record.disposition || '',
     record.definedAction || '',
     record.actionOwner || '',
     record.actionDeadline,
     evidenceLabel(record),
     record.resultVerification || '',
-    statusLabels.get(record.status) || record.status
+    statusLabels.get(record.status) || record.status || ''
   ];
 }
 

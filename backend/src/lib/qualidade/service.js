@@ -287,6 +287,7 @@ async function assertProject(client, projectId) {
 }
 
 async function assertNatureForRecord(client, natureId, { currentNatureId = null } = {}) {
+  if (!natureId) return null;
   const nature = await client.qualityNature.findUnique({
     where: { id: natureId },
     select: { id: true, isActive: true }
@@ -303,20 +304,20 @@ function recordDataFromPayload(data) {
     .find(item => item?.kind === 'LINK' && item.url)?.url;
   return {
     registeredAt: dateOnly(data.registeredAt),
-    origin: data.origin,
+    origin: normalizeOptionalText(data.origin),
     projectId: normalizeOptionalText(data.projectId),
     eventDate: dateOnly(data.eventDate),
-    natureId: data.natureId,
-    description: data.description,
-    impact: data.impact,
+    natureId: normalizeOptionalText(data.natureId),
+    description: normalizeOptionalText(data.description),
+    impact: data.impact || null,
     linkedRnc: data.linkedRnc,
-    disposition: data.disposition,
+    disposition: data.disposition || null,
     definedAction: data.definedAction,
     actionOwner: data.actionOwner,
     actionDeadline: dateOnly(data.actionDeadline),
     evidence: normalizeOptionalText(firstLink || data.evidence),
     resultVerification: data.resultVerification,
-    status: data.status
+    status: data.status || null
   };
 }
 

@@ -304,6 +304,57 @@ test('qualidade schemas enforce required fields and defined action for Tratar', 
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ disposition: 'TRATAR', definedAction: 'Abrir plano de ação' })).success, true);
 });
 
+test('non-deviation quality records require only dates and project', () => {
+  const schemas = makeQualidadeSchemas(z);
+  const minimalPayload = {
+    registeredAt: '2026-07-22',
+    projectId: 'project-1',
+    eventDate: '2026-07-20'
+  };
+
+  for (const type of schemas.RECORD_TYPES.filter(item => item !== 'DESVIO')) {
+    const result = schemas.recordCreate.safeParse({ type, ...minimalPayload });
+    assert.equal(result.success, true, type);
+    assert.equal(result.data.origin, null);
+    assert.equal(result.data.natureId, null);
+    assert.equal(result.data.description, null);
+    assert.equal(result.data.impact, null);
+    assert.equal(result.data.disposition, null);
+    assert.equal(result.data.status, null);
+  }
+
+  assert.equal(schemas.recordCreate.safeParse({
+    type: 'MELHORIA',
+    registeredAt: minimalPayload.registeredAt,
+    eventDate: minimalPayload.eventDate
+  }).success, false);
+  assert.equal(schemas.recordCreate.safeParse({
+    type: 'MELHORIA',
+    projectId: minimalPayload.projectId,
+    eventDate: minimalPayload.eventDate
+  }).success, false);
+  assert.equal(schemas.recordCreate.safeParse({
+    type: 'MELHORIA',
+    registeredAt: minimalPayload.registeredAt,
+    projectId: minimalPayload.projectId
+  }).success, false);
+  assert.equal(schemas.recordCreate.safeParse({
+    type: 'MELHORIA',
+    ...minimalPayload,
+    disposition: 'TRATAR'
+  }).success, true);
+  assert.equal(schemas.recordCreate.safeParse({
+    type: 'DESVIO',
+    ...minimalPayload
+  }).success, false);
+  assert.equal(schemas.recordUpdateForType('MELHORIA').safeParse(minimalPayload).success, true);
+  assert.equal(schemas.recordUpdateForType('MELHORIA').safeParse({
+    registeredAt: minimalPayload.registeredAt,
+    eventDate: minimalPayload.eventDate
+  }).success, false);
+  assert.equal(schemas.recordUpdateForType('DESVIO').safeParse(minimalPayload).success, false);
+});
+
 test('quality record serialization ignores invalid legacy evidence text', () => {
   const serialized = serializeQualityRecord({
     id: 'record-legacy',
@@ -378,6 +429,33 @@ test('quality record numbering is sequential by type and year', async () => {
   assert.equal(second.number, 'D-002/26');
   assert.equal(nextYear.number, 'D-001/27');
   assert.equal(improvement.number, 'M-001/26');
+});
+
+test('non-deviation quality records persist optional fields as null', async () => {
+  const client = createMockQualidadeClient();
+  const schemas = makeQualidadeSchemas(z);
+  const data = schemas.recordCreate.parse({
+    type: 'MELHORIA',
+    registeredAt: '2026-07-22',
+    projectId: 'project-1',
+    eventDate: '2026-07-20'
+  });
+
+  const record = await createRecord(client, { data });
+
+  assert.equal(record.number, 'M-001/26');
+  assert.equal(record.projectId, 'project-1');
+  assert.equal(record.origin, null);
+  assert.equal(record.natureId, null);
+  assert.equal(record.nature, null);
+  assert.equal(record.description, null);
+  assert.equal(record.impact, null);
+  assert.equal(record.disposition, null);
+  assert.equal(record.status, null);
+
+  const workbook = new AdmZip(buildQualityRecordsXlsx([record]));
+  const worksheet = workbook.readAsText('xl/worksheets/sheet1.xml');
+  assert.match(worksheet, /M-001\/26/);
 });
 
 test('quality record stores multiple evidence links', async () => {

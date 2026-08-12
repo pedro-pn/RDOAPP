@@ -1168,20 +1168,20 @@ model QualityRecord {
   seq                Int
   year               Int
   registeredAt       DateTime
-  origin             String
+  origin             String?
   projectId          String?
   eventDate          DateTime
-  natureId           String
-  description        String
-  impact             QualityImpact
+  natureId           String?
+  description        String?
+  impact             QualityImpact?
   linkedRnc          String?
-  disposition        QualityDisposition
+  disposition        QualityDisposition?
   definedAction      String?
   actionOwner        String?
   actionDeadline     DateTime?
   evidence           String?
   resultVerification String?
-  status             QualityStatus
+  status             QualityStatus?
   createdById        String?
   updatedById        String?
   deletedById        String?
@@ -1189,7 +1189,7 @@ model QualityRecord {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   project            Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  nature             QualityNature      @relation(fields: [natureId], references: [id], onDelete: Restrict)
+  nature             QualityNature?     @relation(fields: [natureId], references: [id], onDelete: Restrict)
   createdBy          User?              @relation("QualityRecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy          User?              @relation("QualityRecordUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
   deletedBy          User?              @relation("QualityRecordDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)

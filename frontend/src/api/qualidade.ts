@@ -62,18 +62,18 @@ export interface QualityRecord {
   seq: number;
   year: number;
   registeredAt: string;
-  origin: string;
+  origin: string | null;
   projectId: string | null;
   project: { id: string; code: string; name: string; isActive?: boolean } | null;
   eventDate: string;
-  natureId: string;
+  natureId: string | null;
   nature: { id: string; name: string; isActive?: boolean } | null;
-  description: string;
-  impact: QualityImpact;
+  description: string | null;
+  impact: QualityImpact | null;
   occurrences12m: number;
   recurrent: boolean;
   linkedRnc: string | null;
-  disposition: QualityDisposition;
+  disposition: QualityDisposition | null;
   definedAction: string | null;
   actionOwner: string | null;
   actionDeadline: string | null;
@@ -81,7 +81,7 @@ export interface QualityRecord {
   evidenceAttachment: QualityEvidence | null;
   evidences: QualityEvidence[];
   resultVerification: string | null;
-  status: QualityStatus;
+  status: QualityStatus | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,21 +89,21 @@ export interface QualityRecord {
 export interface QualityRecordPayload {
   type: QualityRecordType;
   registeredAt: string;
-  origin: string;
+  origin?: string | null;
   projectId?: string | null;
   eventDate: string;
-  natureId: string;
-  description: string;
-  impact: QualityImpact;
+  natureId?: string | null;
+  description?: string | null;
+  impact?: QualityImpact | null;
   linkedRnc?: string | null;
-  disposition: QualityDisposition;
+  disposition?: QualityDisposition | null;
   definedAction?: string | null;
   actionOwner?: string | null;
   actionDeadline?: string | null;
   evidence?: string | null;
   evidences?: QualityEvidencePayload[];
   resultVerification?: string | null;
-  status: QualityStatus;
+  status?: QualityStatus | null;
 }
 
 export type QualityRecordUpdatePayload = Omit<QualityRecordPayload, 'type'>;
