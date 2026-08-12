@@ -35,17 +35,23 @@ export const PRODUTO_POR_SERVICO = {
   pre_engenharia: { id: 2323945, codigo: 'FV-23', nome: 'Serviço especializado em pré-engenharia' },
   limpeza_reservatorio: { id: 2315554, codigo: 'FV-06', nome: 'Serviço especializado em limpeza interna de reservatório' },
 
-  // --- Pendentes de confirmação do comercial ---
-  //
-  // Não são lacunas de pesquisa: o catálogo tem MAIS DE UM candidato plausível
-  // para cada um, e escolher por conta própria é decidir no lugar de quem sabe.
+  // --- Confirmados pelo comercial em 12/08/2026 ---
 
-  /** FV-01 "filtragem absoluta" ou FV-02 "desidratação de óleo lubrificante/hidráulico"? */
-  filtragem_hidraulico_lubrificante: null,
-  /** FV-02 "…lubrificante/hidráulico" ou FV-14 "…óleo diesel"? */
-  desidratacao_oleo: null,
-  /** FV-27 "Serviço especializado em passagem de PIG" ou FV-08 "Passagem de PIG"? */
-  passagem_pig: null
+  filtragem_hidraulico_lubrificante: { id: 2315549, codigo: 'FV-01', nome: 'Serviço especializado em filtragem absoluta' },
+  /**
+   * FV-27, e não o FV-08 de mesmo nome: **o FV-08 está `ativo: false`** no
+   * catálogo. A duplicata já tinha sido resolvida no CRM; produto inativo não
+   * entra em card novo.
+   */
+  passagem_pig: { id: 2832235, codigo: 'FV-27', nome: 'Serviço especializado em passagem de PIG' },
+
+  /**
+   * Os dois fluidos são **serviços diferentes para o comercial**, porque o preço
+   * difere — desvio nº 16. A referência tinha um só, e é um dos pontos em que
+   * ela é esboço e não retrato do uso real.
+   */
+  desidratacao_oleo: { id: 2315550, codigo: 'FV-02', nome: 'Serviço especializado em desidratação de óleo lubrificante/hidráulico' },
+  desidratacao_oleo_diesel: { id: 2320154, codigo: 'FV-14', nome: 'Serviço especializado em desidratação de óleo diesel' }
 };
 
 /**

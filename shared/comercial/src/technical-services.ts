@@ -8,6 +8,7 @@ export type TechnicalServiceId =
   | "filtragem_hidraulico_lubrificante"
   | "filtragem_oleo_termico"
   | "desidratacao_oleo"
+  | "desidratacao_oleo_diesel"
   | "limpeza_quimica"
   | "hidrojateamento"
   | "passagem_pig"
@@ -157,8 +158,28 @@ export const TECHNICAL_SERVICE_CATALOG: TechnicalServiceDefinition[] = [
     buildText: (parameters) => buildFiltrationText(parameters, true),
   },
   {
+    // O id NÃO muda, e isso é deliberado: `normalizeTechnicalServiceSelections`
+    // descarta id desconhecido em silêncio, então renomear apagaria o serviço de
+    // toda proposta já salva. O título é que ficou preciso — era ele o impreciso.
     id: "desidratacao_oleo",
-    title: "Desidratação de óleo",
+    title: "Desidratação de óleo lubrificante/hidráulico",
+    summary: "Remoção de água e gases por processo de termovácuo.",
+    version: 1,
+    reportCode: "RCPU",
+    asksPpm: true,
+    defaultParameters: { ppmTarget: "200" },
+    buildText: buildDehydrationText,
+  },
+  {
+    // Desvio nº 16: o comercial trata os dois fluidos como serviços DIFERENTES,
+    // porque o preço difere. A referência tinha um só — e é um dos pontos em que
+    // ela é esboço, não retrato do uso real.
+    //
+    // O texto é o mesmo por enquanto, e não por descuido: `buildDehydrationText`
+    // fala de "óleo" do início ao fim, sem citar fluido. Se o comercial tiver
+    // texto próprio para diesel, ele entra aqui.
+    id: "desidratacao_oleo_diesel",
+    title: "Desidratação de óleo diesel",
     summary: "Remoção de água e gases por processo de termovácuo.",
     version: 1,
     reportCode: "RCPU",
@@ -406,7 +427,12 @@ export function technicalReportName(code: "RDO" | TechnicalReportCode) {
 
 function reportText(code: TechnicalReportCode, selection: TechnicalServiceSelection) {
   if (code === "RCPU") {
-    if (selection.serviceId === "desidratacao_oleo") {
+    // As duas desidratações emitem o mesmo relatório, com o mesmo texto: o que
+    // as separa é preço e categoria no CRM, não o ensaio.
+    if (
+      selection.serviceId === "desidratacao_oleo" ||
+      selection.serviceId === "desidratacao_oleo_diesel"
+    ) {
       return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RCPU (${technicalReportName(code)}) com os registros do teor de umidade inicial e final, para encaminhamento ao responsável pela fiscalização e aceitação dos serviços.`;
     }
     return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RCPU (${technicalReportName(code)}) com os registros de contagem de partículas e umidade inicial e final, para encaminhamento ao responsável pela fiscalização e aceitação dos serviços.`;

@@ -52,6 +52,12 @@ export const TECHNICAL_SERVICE_VISUAL_DEFINITIONS: Record<
     PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[2],
     PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[1],
   ],
+  // As mesmas imagens da desidratação: o equipamento de termovácuo é o mesmo, o
+  // que muda entre os dois é o fluido — e o preço. Desvio nº 16.
+  desidratacao_oleo_diesel: [
+    PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[2],
+    PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[1],
+  ],
   limpeza_quimica: [
     PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[0],
     PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[1],

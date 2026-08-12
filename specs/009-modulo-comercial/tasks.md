@@ -677,17 +677,20 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > **Oito dos onze serviços estão mapeados. Três recusam de propósito**, porque
   > o catálogo tem mais de um candidato e a escolha é do comercial: ↓ T129a
 
-- [ ] T129a **Confirmar três produtos com o comercial.** Enquanto não vier a
-  resposta, proposta com esses serviços **recusa a finalização com a mensagem
-  dizendo o que falta** — em vez de mandar o produto errado, que poria a proposta
-  na categoria errada do CRM e faria o relatório de vendas por serviço mentir sem
-  ninguém ver.
+- [X] T129a **Três produtos confirmados pelo comercial em 12/08.** Todo serviço
+  do módulo tem produto; nenhuma pendência sobrou.
 
-  | Serviço do módulo | Candidatos no Nectar |
-  |---|---|
-  | `filtragem_hidraulico_lubrificante` | FV-01 "filtragem absoluta" **ou** FV-02 "desidratação de óleo lubrificante/hidráulico" |
-  | `desidratacao_oleo` | FV-02 "…lubrificante/hidráulico" **ou** FV-14 "…óleo diesel" |
-  | `passagem_pig` | FV-27 "Serviço especializado em passagem de PIG" **ou** FV-08 "Passagem de PIG" |
+  | Serviço | Produto | Como se decidiu |
+  |---|---|---|
+  | `filtragem_hidraulico_lubrificante` | **FV-01** filtragem absoluta | escolha do comercial |
+  | `passagem_pig` | **FV-27** | o homônimo FV-08 está **`ativo: false`** no catálogo |
+  | `desidratacao_oleo` / `desidratacao_oleo_diesel` | **FV-02** / **FV-14** | viraram **dois serviços** — desvio nº 16 |
+
+- [ ] T129b **A filtragem pode ter o mesmo problema da desidratação.** O catálogo
+  do Nectar tem **quatro** produtos de filtragem — absoluta (FV-01), fluído
+  térmico (FV-16), óleo de têmpera (FV-34) e óleo diesel (FV-37) — contra dois
+  serviços no módulo. Se o preço variar entre eles como varia na desidratação, a
+  filtragem precisa da mesma separação. **Perguntar ao comercial.**
 
   > O funil **"Gestão Comercial" (47518) exige produto nas 10 etapas**, e o
   > "Funil de testes" (57063) exige na etapa 1. O módulo **nunca envia produto**,

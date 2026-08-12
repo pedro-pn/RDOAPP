@@ -40,6 +40,7 @@ da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 | 13 | Proposta de **hidrojateamento** é um modelo próprio, escolhido na criação | **Novo** (05/08) — decidido |
 | 14 | Campos de valor com **máscara de R$** (centavos ao digitar) | **Novo** (11/08) — aprovado |
 | 15 | **Cabeçalho mais baixo**, para sobrar área de trabalho | **Novo** (11/08) — aprovado, com prévia |
+| 16 | **Desidratação vira dois serviços**: lubrificante/hidráulico e diesel | **Novo** (12/08) — aprovado |
 
 ### 1. PDF gerado no backend
 
@@ -389,6 +390,45 @@ com divergência não listada.
 divergência, e este a aumenta. A troca é deliberada: quem usa a tela todo dia
 pediu espaço de trabalho, e a paridade de altura de cabeçalho não é o que o
 cliente recebe.  ↳ `T127`
+
+### 16. Desidratação de óleo vira dois serviços — *aprovado em 12/08*
+
+**O que muda:** o catálogo técnico ganha `desidratacao_oleo_diesel` ao lado de
+`desidratacao_oleo`, que passa a se chamar "Desidratação de óleo
+lubrificante/hidráulico". São dois serviços, com dois produtos no CRM (FV-02 e
+FV-14).
+
+**Por que diverge da referência:** lá existe **um** serviço, "Desidratação de
+óleo", sem distinção de fluido. O mantenedor apurou com o comercial que os dois
+**são tratados como serviços diferentes, porque o preço difere** — e o catálogo
+do Nectar confirma, com dois produtos distintos em uso.
+
+**O que este desvio afirma, e é maior que ele mesmo:** a referência é **esboço,
+não retrato do uso real**. Até aqui o projeto tratou `shared/comercial` como
+cópia intocável, e a Parte 3 do handoff diz que "a referência é autoridade sobre
+comportamento e cálculo". Isso continua valendo para o **cálculo** — os 16
+goldens seguem de pé. Deixa de valer para o **catálogo de serviços**, que é
+cadastro de negócio e envelheceu.
+
+**Três decisões de implementação, e as três têm o mesmo motivo — não quebrar o
+que já existe:**
+
+1. **O id `desidratacao_oleo` não mudou.**
+   `normalizeTechnicalServiceSelections` descarta id desconhecido **em
+   silêncio**; renomeá-lo apagaria o serviço de toda proposta já salva, sem erro.
+   O que mudou foi o título, que era o impreciso.
+2. **O texto é o mesmo nos dois, por enquanto.** `buildDehydrationText` fala de
+   "óleo" do início ao fim, sem citar fluido — serve aos dois honestamente.
+   Escrever um texto de diesel por conta própria seria inventar conteúdo técnico
+   que vai ao cliente. **Se o comercial tiver texto próprio, ele entra.**
+3. **As imagens também são as mesmas**, e o compilador foi quem lembrou:
+   `proposal-visuals.ts` exige uma entrada por serviço. O equipamento de
+   termovácuo é o mesmo; o que muda é o fluido e o preço.
+
+**O que fica em aberto:** o catálogo do Nectar tem **quatro** produtos de
+filtragem — absoluta (FV-01), fluído térmico (FV-16), óleo de têmpera (FV-34) e
+óleo diesel (FV-37) — contra dois serviços no módulo. Se a mesma lógica de preço
+valer ali, a filtragem precisa da mesma separação.  ↳ `T129b`
 
 ---
 

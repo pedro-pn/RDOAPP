@@ -59,31 +59,39 @@ test('proposta sem serviço técnico recusa, e diz por quê', () => {
   );
 });
 
-test('O CASO QUE IMPORTA: serviço ambíguo RECUSA em vez de escolher', () => {
-  // Três serviços têm mais de um candidato no catálogo do Nectar. Escolher por
-  // conta própria é decidir no lugar de quem sabe — e o erro só apareceria
-  // meses depois, no relatório de vendas por serviço.
-  for (const servico of servicosSemProduto()) {
-    assert.throws(
-      () => produtoDaProposta([{ id: servico }], 1000),
-      error => {
-        assert.equal(error.statusCode, 422);
-        assert.match(error.message, /não foi confirmado pelo comercial/i);
-        return true;
-      },
-      `${servico} deveria recusar`
-    );
-  }
+test('todo serviço do módulo tem produto — nenhuma pendência sobrou', () => {
+  // As três ambiguidades foram confirmadas pelo comercial em 12/08. Este teste
+  // cai de novo se alguém acrescentar serviço ao catálogo sem mapear o produto —
+  // e é para cair: proposta com serviço sem produto é recusada pelo funil, e
+  // descobrir isso na finalização é tarde.
+  assert.deepEqual(servicosSemProduto(), []);
 });
 
-test('as três pendências estão declaradas, não esquecidas', () => {
-  // Se um dia alguém mapear uma delas, este teste cai — e é para cair: obriga a
-  // ler a lista e confirmar que a decisão veio do comercial.
-  assert.deepEqual(servicosSemProduto().sort(), [
-    'desidratacao_oleo',
-    'filtragem_hidraulico_lubrificante',
-    'passagem_pig'
-  ]);
+test('as duas desidratações apontam para produtos DIFERENTES', () => {
+  // É a razão inteira do desvio nº 16: para o comercial são serviços distintos,
+  // porque o preço difere. Mapeá-los para o mesmo produto desfaria a separação
+  // sem desfazer o desvio — e o relatório de vendas voltaria a juntá-los.
+  const lubrificante = produtoDaProposta([{ id: 'desidratacao_oleo' }], 1000);
+  const diesel = produtoDaProposta([{ id: 'desidratacao_oleo_diesel' }], 1000);
+
+  assert.equal(lubrificante.refId, 2315550); // FV-02
+  assert.equal(diesel.refId, 2320154); // FV-14
+  assert.notEqual(lubrificante.refId, diesel.refId);
+});
+
+test('a passagem de PIG usa o produto ATIVO, não o homônimo desativado', () => {
+  // FV-08 "Passagem de PIG" está `ativo: false` no catálogo; FV-27 é o vivo.
+  // Produto inativo não entra em card novo.
+  assert.equal(produtoDaProposta([{ id: 'passagem_pig' }], 1000).refId, 2832235);
+});
+
+test('serviço sem produto continua RECUSANDO, não chutando', () => {
+  // A guarda não pode ter sido removida junto com as pendências: serviço novo
+  // sem mapa tem de parar aqui, não virar produto errado no CRM.
+  assert.throws(
+    () => produtoDaProposta([{ id: 'servico_que_ainda_nao_existe' }], 1000),
+    error => error.statusCode === 422
+  );
 });
 
 test('serviço fora do catálogo do módulo recusa com o nome dele', () => {
