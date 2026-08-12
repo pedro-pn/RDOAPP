@@ -744,12 +744,17 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   com busca no Google Maps para localizá-lo. Hoje é `COMERCIAL_SEDE_ENDERECO` no
   `.env`, e **a variável deve sumir** — decisão do mantenedor em 12/08: dado de
   negócio não mora em arquivo de ambiente. É migration + rota + aba de configuração.
-- [ ] T132 **Corrigir os erros de digitação dos `.docx`** listados em
+- [X] T132 **Corrigir os erros de digitação dos `.docx`** listados em
   [`contracts/modelos-word.md`](./contracts/modelos-word.md) — resina,
   Descarregamento, Instalações, hidrojateamento, RFA duplicado, e as linhas de
   mobilização/desmobilização da tabela ONSHORE. **E unificar PPRA → PGR**: o PPRA
   foi substituído pelo PGR na revisão da NR-1, então os modelos de hidrojateamento
   citam hoje um programa que não existe mais. Autorizado em 12/08.
+  ↳ Feito por `scripts/comercial-corrigir-modelos.mjs` (palavras, 26 ocorrências) e
+  `scripts/comercial-corrigir-estrutura.mjs` (RFA e tabela, 6 correções), nos
+  modelos **e** nos originais. A nota da tabela estava errada na contagem: são
+  duas tabelas e 4 linhas ao todo, não três — leitura confirmada pelo mantenedor e
+  registrada no contrato.
 - [ ] T133 **Serviços novos no catálogo**, quando o comercial mandar os textos.
   Candidatos com uso real medido em 12/08: análise físico-química (2 usos),
   flushing com água (7 somando os dois produtos). Boroscopia, sopragem, pintura

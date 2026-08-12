@@ -184,15 +184,35 @@ O comentário #6 é o mais operacional: a tabela de preços do hidro tem linha
 separada para mobilização e para desmobilização, cada uma com o mesmo valor
 unitário por km. Isso é uma regra de composição, e hoje o app não a expressa.
 
-## Erros de digitação nos documentos (não replicar sem confirmar)
+## Erros de digitação nos documentos
 
-- "remoção de **rezina**" → resina
-- "**Descarregametno**" → Descarregamento
-- "**Instaçãoes** e testes" → Instalações
-- "hidrojatemento" (duas ocorrências) → hidrojateamento
-- Proposta técnica padrão, item 8: a linha do **RFA aparece duplicada**
-- Comercial hidro, tabela ONSHORE: seis linhas de "Evento de **des**mobilização
-  de equipe" e só uma de mobilização — pelas notas #7/#12, três delas deveriam
-  ser "mobilização"
-- Técnica padrão usa **PGR**; comercial hidro e técnica hidro ainda usam **PPRA**
-  (a norma antiga). Os dois textos convivem hoje.
+**Corrigidos em 12/08** (T132), com autorização do mantenedor — é texto que vai ao
+cliente, e nada aqui foi mexido por conta própria. Dois scripts, ambos idempotentes
+e com prévia antes de gravar:
+[`comercial-corrigir-modelos.mjs`](../../../backend/scripts/comercial-corrigir-modelos.mjs)
+(troca de palavra) e
+[`comercial-corrigir-estrutura.mjs`](../../../backend/scripts/comercial-corrigir-estrutura.mjs)
+(parágrafo e tabela). Os dois mexem nos **modelos e nos originais** — só nos
+modelos, o erro voltaria na próxima vez que alguém rodasse o gerador.
+
+- ~~"remoção de **rezina**"~~ → resina
+- ~~"**Descarregametno**"~~ → Descarregamento
+- ~~"**Instaçãoes** e testes"~~ → Instalações
+- ~~"hidrojatemento" (duas ocorrências)~~ → hidrojateamento
+- ~~Técnica padrão usa **PGR**; comercial hidro e técnica hidro ainda usam
+  **PPRA**~~ → unificado em **PGR**: o PPRA foi substituído pelo PGR na revisão da
+  NR-1, e citar PPRA hoje é citar programa que não existe mais.
+- ~~Proposta técnica padrão, item 8: a linha do **RFA aparece duplicada**~~ →
+  removida a cópia do meio (a que termina em `;`), mantida a que fecha a lista com
+  `.`, junto com o parágrafo vazio que a seguia.
+- ~~Comercial hidro, tabela ONSHORE: seis linhas de "Evento de **des**mobilização
+  de equipe" e só uma de mobilização — três delas deveriam ser "mobilização"~~ →
+  **a contagem acima estava errada, e o conserto foi outro.** São **duas** tabelas
+  (ONSHORE em km e OFFSHORE em Macaé), com **quatro** linhas de "desmobilização de
+  equipe" cada. As linhas são pares — mobilização e desmobilização por tamanho de
+  equipe — e só o par de 3 técnicos estava completo. Viraram "mobilização" a
+  **primeira linha de 4 técnicos e a primeira de 5 técnicos, em cada tabela**: 4
+  linhas ao todo. Com as três da nota original, ficariam quatro mobilizações contra
+  duas desmobilizações e os pares não fechariam. Os valores unitários não mudaram —
+  R$ 7,27 e R$ 9,19 já eram iguais dentro de cada par. Confirmado pelo mantenedor
+  antes da correção existir.
