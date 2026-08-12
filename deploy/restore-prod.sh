@@ -12,6 +12,10 @@ POSTGRES_DB="${POSTGRES_DB:-filtrovali}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 REPORTS_VOLUME="${REPORTS_VOLUME:-filtrovali_relatorios}"
 CERTS_VOLUME="${CERTS_VOLUME:-filtrovali_certs}"
+# So preencha se o backup tambem tiver sido feito com COMERCIAL_VOLUME -- ou
+# seja, se o COMERCIAL_DIR do backend aponta para fora do volume de relatorios.
+# Vazio e o normal: os arquivos do Comercial voltam junto com relatorios.tar.gz.
+COMERCIAL_VOLUME="${COMERCIAL_VOLUME:-}"
 BACKUP_SOURCE="${BACKUP_SOURCE:-}"
 RUN_MIGRATIONS="${RUN_MIGRATIONS:-false}"
 RESTORE_REPORTS="${RESTORE_REPORTS:-true}"
@@ -109,6 +113,19 @@ else
   echo "[restore] skipping reports archive staging (RESTORE_REPORTS=false or explicit partial restore)"
 fi
 
+if [ -n "$COMERCIAL_VOLUME" ] && [ -f "$BACKUP_SOURCE/comercial.tar.gz" ]; then
+  echo "[restore] validating comercial archive into staging"
+  docker run --rm --user "$(id -u):$(id -g)" -v "${BACKUP_SOURCE}:/backup:ro" -v "${RESTORE_STAGING_DIR}:/staging" alpine sh -eu -c "rm -rf /staging/comercial && mkdir -p /staging/comercial && tar -xzf /backup/comercial.tar.gz -C /staging/comercial"
+elif [ -n "$COMERCIAL_VOLUME" ]; then
+  # Volume configurado e arquivo ausente: o backup foi feito SEM COMERCIAL_VOLUME.
+  # Seguir calado restauraria o resto e deixaria os documentos emitidos para tras.
+  echo "[restore] COMERCIAL_VOLUME set but $BACKUP_SOURCE/comercial.tar.gz is missing" >&2
+  if [ "$ALLOW_PARTIAL_RESTORE" != "true" ]; then
+    echo "[restore] set ALLOW_PARTIAL_RESTORE=true to continue without the comercial files" >&2
+    exit 1
+  fi
+fi
+
 if [ "$RESTORE_CERTS" = "true" ] && [ -f "$BACKUP_SOURCE/certs.tar.gz" ]; then
   echo "[restore] validating cert archive into staging"
   docker run --rm --user "$(id -u):$(id -g)" -v "${BACKUP_SOURCE}:/backup:ro" -v "${RESTORE_STAGING_DIR}:/staging" alpine sh -eu -c "rm -rf /staging/certs && mkdir -p /staging/certs && tar -xzf /backup/certs.tar.gz -C /staging/certs"
@@ -127,6 +144,11 @@ if [ "$RESTORE_REPORTS" = "true" ] && [ -d "$RESTORE_STAGING_DIR/relatorios" ]; 
   docker run --rm -v "${REPORTS_VOLUME}:/to" -v "${RESTORE_STAGING_DIR}:/staging:ro" alpine sh -eu -c "rm -rf /to/.restore-staging && mkdir /to/.restore-staging && cp -a /staging/relatorios/. /to/.restore-staging/ && find /to -mindepth 1 -maxdepth 1 ! -name .restore-staging -exec rm -rf {} + && find /to/.restore-staging -mindepth 1 -maxdepth 1 -exec mv {} /to/ \\; && rmdir /to/.restore-staging"
 else
   echo "[restore] skipping reports volume restore (RESTORE_REPORTS=false or explicit partial restore)"
+fi
+
+if [ -n "$COMERCIAL_VOLUME" ] && [ -d "$RESTORE_STAGING_DIR/comercial" ]; then
+  echo "[restore] replacing comercial volume $COMERCIAL_VOLUME from staged archive"
+  docker run --rm -v "${COMERCIAL_VOLUME}:/to" -v "${RESTORE_STAGING_DIR}:/staging:ro" alpine sh -eu -c "rm -rf /to/.restore-staging && mkdir /to/.restore-staging && cp -a /staging/comercial/. /to/.restore-staging/ && find /to -mindepth 1 -maxdepth 1 ! -name .restore-staging -exec rm -rf {} + && find /to/.restore-staging -mindepth 1 -maxdepth 1 -exec mv {} /to/ \\; && rmdir /to/.restore-staging"
 fi
 
 if [ "$RESTORE_CERTS" = "true" ] && [ -d "$RESTORE_STAGING_DIR/certs" ]; then

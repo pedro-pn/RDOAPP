@@ -49,6 +49,17 @@ POSTGRES_DB="${POSTGRES_DB:-filtrovali}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 REPORTS_VOLUME="${REPORTS_VOLUME:-filtrovali_relatorios}"
 CERTS_VOLUME="${CERTS_VOLUME:-filtrovali_certs}"
+# Arquivos do modulo Comercial: documentos emitidos e fotos de escopo.
+#
+# Por padrao NAO ha nada a fazer aqui, e e de proposito: COMERCIAL_DIR vazio
+# resolve para <REPORTS_DIR>/Comercial, que ja esta dentro de REPORTS_VOLUME e
+# ja entra no relatorios.tar.gz. Arquivar de novo duplicaria os mesmos bytes.
+#
+# Preencha COMERCIAL_VOLUME **somente** se o COMERCIAL_DIR do backend tiver sido
+# apontado para fora do volume de relatorios. Nesse caso os arquivos ficam fora
+# do backup em silencio -- o backup continua terminando com sucesso, e a falta so
+# aparece no dia da restauracao.
+COMERCIAL_VOLUME="${COMERCIAL_VOLUME:-}"
 BACKUP_ROOT="${BACKUP_ROOT:-/root/backups/filtrovali}"
 BACKUP_LOCK_FILE="${BACKUP_LOCK_FILE:-$BACKUP_ROOT/backup-prod.lock}"
 BACKUP_STATUS_FILE="${BACKUP_STATUS_FILE:-$BACKUP_ROOT/status/backup-latest.json}"
@@ -146,6 +157,13 @@ if [ "$INCLUDE_REPORTS" = "true" ]; then
   docker run --rm -v "${REPORTS_VOLUME}:/from:ro" -v "${RUN_DIR}:/backup" alpine sh -c "cd /from && tar -czf /backup/relatorios.tar.gz ."
 else
   echo "[backup] skipping reports volume archive"
+fi
+
+if [ -n "$COMERCIAL_VOLUME" ]; then
+  echo "[backup] archiving comercial volume $COMERCIAL_VOLUME"
+  docker run --rm -v "${COMERCIAL_VOLUME}:/from:ro" -v "${RUN_DIR}:/backup" alpine sh -c "cd /from && tar -czf /backup/comercial.tar.gz ."
+else
+  echo "[backup] comercial files expected inside $REPORTS_VOLUME (COMERCIAL_VOLUME unset)"
 fi
 
 if [ "$INCLUDE_CERTS" = "true" ]; then

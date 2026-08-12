@@ -538,10 +538,10 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
 ### Produção `(E10)`
 
-- [ ] T117 Escrever `deploy/COMERCIAL.md` com o **roteiro para o operador**: migration, `GRANT USAGE ON SCHEMA comercial`, envs novas em `backend/.env.production` (`chmod 600`), `client_max_body_size` e o vhost `comercial.filtrovali.com.br` → `app.filtrovali.com.br/comercial`. **Princípio I: nenhum comando de servidor é executado por agente — o roteiro é escrito, não rodado.**
-- [ ] T117a Registrar o tratamento de dados do módulo no **ROPA** (FR-056), com a retenção indefinida do FR-042 e a base legal. **Antes do go-live** — é obrigação de LGPD, não documentação opcional.  ↳ `FR-042` `FR-056`
-- [ ] T118 [P] Incluir a pasta de `COMERCIAL_DIR` em `deploy/backup-prod.sh`, **incluindo as fotos de escopo**.
-- [ ] T119 Documentar em `deploy/COMERCIAL.md` a concessão de papéis: `comercial:manager` a Aliander e Erike, `comercial:seller` aos vendedores, `comercial:viewer` a quem só consulta.
+- [X] T117 Escrever `deploy/COMERCIAL.md` com o **roteiro para o operador**: migration, `GRANT USAGE ON SCHEMA comercial`, envs novas em `backend/.env.production` (`chmod 600`), `client_max_body_size` e o vhost `comercial.filtrovali.com.br` → `app.filtrovali.com.br/comercial`. **Princípio I: nenhum comando de servidor é executado por agente — o roteiro é escrito, não rodado.**
+- [X] T117a Registrar o tratamento de dados do módulo no **ROPA** (FR-056), com a retenção indefinida do FR-042 e a base legal. **Antes do go-live** — é obrigação de LGPD, não documentação opcional.  ↳ `FR-042` `FR-056`
+- [X] T118 [P] Incluir a pasta de `COMERCIAL_DIR` em `deploy/backup-prod.sh`, **incluindo as fotos de escopo**.
+- [X] T119 Documentar em `deploy/COMERCIAL.md` a concessão de papéis: `comercial:manager` a Aliander e Erike, `comercial:seller` aos vendedores, `comercial:viewer` a quem só consulta.
 
 ---
 
