@@ -50,8 +50,15 @@ export function numeroBase(proposalCode) {
  * **Hidrojateamento soma diferente.** Esse modelo tem duas tabelas de preço,
  * ONSHORE e OFFSHORE, que são cenários **alternativos** de execução: o cliente
  * contrata um ou outro. Somar as duas produziria um total que ninguém vai pagar.
- * Aqui vale a **maior** das duas — é a única das duas somas que corresponde a um
- * cenário real, e é a exposição de valor da oportunidade.
+ *
+ * Qual das duas vale **é o vendedor quem diz**, em `priceScenario` (T130). O
+ * servidor decidia sozinho, pela maior — e o mantenedor apurou que o comum é
+ * ONSHORE, que nem sempre é a maior. "A maior" não é uma regra de negócio; era
+ * um chute com cara de regra, e o número ia ao CRM e ao histórico.
+ *
+ * Sem `priceScenario` continua valendo a maior, e isso é para as propostas
+ * **já gravadas**: elas não têm o campo, e mudar o critério agora reescreveria o
+ * total delas na primeira vez que alguém as reabrisse e salvasse.
  */
 export function calcularTotal(payload) {
   const precos = Array.isArray(payload?.prices) ? payload.prices : [];
@@ -65,6 +72,11 @@ export function calcularTotal(payload) {
 
   // Uma tabela só (modelo padrão): o total é a soma dela.
   if (porLocal.size <= 1) return [...porLocal.values()][0] || 0;
+
+  const escolhido = String(payload?.priceScenario || '').trim().toUpperCase();
+  // Só vale se **existir entre as tabelas**: um cenário que não corresponde a
+  // nenhuma delas viraria total zero, e zero passa despercebido.
+  if (escolhido && porLocal.has(escolhido)) return porLocal.get(escolhido);
 
   return Math.max(...porLocal.values());
 }

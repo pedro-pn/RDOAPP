@@ -5,6 +5,9 @@ import {
   type LocalOperacao,
   type ModeloProposta
 } from '../../../../../../shared/comercial/dist/modelo-documento.js';
+// O MESMO leitor de moeda do servidor e do gerador do documento. Um leitor
+// próprio aqui mostraria ao vendedor um total que o CRM não confirma.
+import { moeda, somarDinheiro } from '../../../../../../shared/comercial/dist/dinheiro.js';
 import { formatarDinheiro, type ItemDePreco } from '../etapas';
 
 /**
@@ -31,6 +34,15 @@ const CAMPOS_STANDBY: Array<{ campo: string; label: string }> = [
   { campo: 'standbyEquipment', label: 'Stand-by de equipamentos (diária)' },
   { campo: 'extraMobilization', label: 'Mobilização extra (por evento ida e volta)' }
 ];
+
+/**
+ * O cenário pré-selecionado.
+ *
+ * ONSHORE porque é o mais comum, apurado pelo mantenedor em 12/08. Pré-selecionar
+ * não é decidir pelo vendedor: as duas somas ficam à vista lado a lado, e é
+ * justamente ver os dois números que faz notar quando o caso é o outro.
+ */
+const PADRAO_DE_CENARIO: LocalOperacao = 'ONSHORE';
 
 type Props = {
   form: AnyRecord;
@@ -59,6 +71,9 @@ export function ComercialStep({
   // seu TOTAL GERAL (T071f). O modelo padrão tem uma só, e aí `local` é
   // indefinido em todos os itens.
   const locais = tabelasDePrecoDoModelo(modelo);
+  const cenarioInformado = String(form.priceScenario ?? '').trim().toUpperCase();
+  const cenarioEscolhido =
+    locais?.find(local => local === cenarioInformado) ?? PADRAO_DE_CENARIO;
   const completos = precos.filter(
     item => item.description.trim() && item.unit.trim() && item.value.trim()
   ).length;
@@ -109,6 +124,15 @@ export function ComercialStep({
           editarPreco={editarPreco}
         />
       ))}
+
+      {locais && locais.length > 1 && (
+        <CenarioContratado
+          locais={locais}
+          precos={precos}
+          escolhido={cenarioEscolhido}
+          onEscolher={valor => editar({ priceScenario: valor })}
+        />
+      )}
 
 
       {/* Item 9 do documento intercala prosa e tabela: a frase da hora extra, o
@@ -183,6 +207,60 @@ export function ComercialStep({
  * índice da fatia trocaria o item errado assim que a primeira tabela tivesse
  * mais de uma linha — e o erro seria silencioso.
  */
+/**
+ * Qual das duas tabelas o cliente vai contratar (T130).
+ *
+ * ONSHORE e OFFSHORE são cenários **alternativos**: o cliente contrata um ou o
+ * outro. O documento leva as duas — é proposta, o cliente escolhe —, mas o
+ * `totalValue` que vai ao CRM e ao histórico é de um só.
+ *
+ * Até aqui o servidor decidia pela **maior** das duas. Não era regra de negócio;
+ * era um chute com cara de regra, e o número ia para fora sem ninguém conferir.
+ *
+ * As duas somas aparecem lado a lado de propósito: escolher entre "ONSHORE" e
+ * "OFFSHORE" sem ver os valores é escolher no escuro, e é vendo os dois números
+ * que se percebe quando o caso é o menos comum.
+ */
+function CenarioContratado({
+  locais,
+  precos,
+  escolhido,
+  onEscolher
+}: {
+  locais: readonly LocalOperacao[];
+  precos: ItemDePreco[];
+  escolhido: string;
+  onEscolher: (valor: LocalOperacao) => void;
+}) {
+  return (
+    <fieldset className="com-fieldset">
+      <legend>Cenário contratado</legend>
+      <p className="com-fieldset-nota">
+        As duas tabelas vão no documento. Este é o valor que será registrado no CRM e no
+        histórico — o cliente contrata um cenário, não os dois.
+      </p>
+      <div className="com-modo-opcoes">
+        {locais.map(local => (
+          <label
+            key={local}
+            className={escolhido === local ? 'com-modo-card com-modo-ativo' : 'com-modo-card'}
+          >
+            <input
+              type="radio"
+              name="cenario-contratado"
+              value={local}
+              checked={escolhido === local}
+              onChange={() => onEscolher(local)}
+            />
+            <strong>{local}</strong>
+            <span>{moeda(somarDinheiro(precos.filter(p => p.local === local).map(p => p.value)))}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function TabelaDePrecos({
   local,
   precos,

@@ -13,6 +13,7 @@
     "./proposal-visuals": "./dist/proposal-visuals.js",
     "./finalization": "./dist/finalization.js",
     "./nectar-pipelines": "./dist/nectar-pipelines.js",
+    "./dinheiro": "./dist/dinheiro.js",
     "./modelo-documento": "./dist/modelo-documento.js"
   },
   "scripts": {

@@ -1,29 +1,18 @@
 /**
- * Leitura da máscara de moeda — **uma definição só**, para o documento e para o
- * banco.
+ * Leitura da máscara de moeda — **uma definição só**, e ela não mora mais aqui.
  *
- * Isto morava dentro de `proposta-docx.js`, privado. Saiu porque `proposals.js`
- * precisa somar exatamente os mesmos números para gravar o `totalValue`: duas
- * implementações da mesma conta divergem em silêncio, e a divergência aqui
- * aparece como um valor no histórico diferente do TOTAL GERAL impresso no PDF
- * que o cliente já recebeu. É a mesma armadilha da fórmula do Word em cache.
- */
-
-/**
- * Desfaz a máscara de moeda do formulário.
+ * A implementação foi para `shared/comercial/src/dinheiro.ts` quando a tela
+ * passou a precisar da mesma conta (T130): ela mostra a soma de cada cenário ao
+ * lado da escolha do vendedor, e o front tinha o próprio leitor, que diverge
+ * 100× deste em valor sem máscara ("1000" é mil aqui e dez reais lá).
  *
- * Ponto é milhar e vírgula é decimal, ao contrário do que `Number` espera. Ler
- * "R$ 11.250,00" com `Number` daria `NaN`, e o total sairia "R$ NaN" impresso.
+ * O motivo é o mesmo que tirou esta função de dentro de `proposta-docx.js`:
+ *
+ * > Duas implementações da mesma conta divergem em silêncio, e a divergência
+ * > aparece como um valor no histórico diferente do TOTAL GERAL impresso no PDF
+ * > que o cliente já recebeu.
+ *
+ * Este arquivo continua existindo como o endereço que o módulo já conhece —
+ * `proposals.js` e `proposta-docx.js` importam daqui.
  */
-export function lerDinheiro(valor) {
-  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
-  const limpo = String(valor ?? '').replace(/[^\d,.-]/g, '');
-  const numero = Number(limpo.replace(/\./g, '').replace(',', '.'));
-  return Number.isFinite(numero) ? numero : 0;
-}
-
-export function moeda(valor) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    Number.isFinite(valor) ? valor : 0
-  );
-}
+export { lerDinheiro, moeda, somarDinheiro } from '../../../../shared/comercial/dist/dinheiro.js';

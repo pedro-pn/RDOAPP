@@ -39,8 +39,19 @@ export type ConteudoDaProposta = {
  * gravado — e a divergência apareceria no PDF que já foi ao cliente.
  */
 export function dadosDaProposta(conteudo: ConteudoDaProposta): AnyRecord {
+  const cenarioInformado = String(conteudo.form.priceScenario ?? '')
+    .trim()
+    .toUpperCase();
+
   return {
     ...conteudo.form,
+    // O rádio nasce visualmente em ONSHORE. A escolha precisa nascer também no
+    // payload: sem isso, não clicar no rádio faria a tela mostrar ONSHORE e o
+    // servidor continuar escolhendo a maior tabela — justamente o defeito da
+    // T130. Valores antigos ou inválidos também voltam ao padrão conhecido.
+    ...(conteudo.modelo === 'hidrojateamento'
+      ? { priceScenario: cenarioInformado === 'OFFSHORE' ? 'OFFSHORE' : 'ONSHORE' }
+      : {}),
     proposalCode: conteudo.codigo,
     estimator: conteudo.orcamentista,
     modelo: conteudo.modelo,

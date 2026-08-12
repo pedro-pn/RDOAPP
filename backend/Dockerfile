@@ -31,6 +31,11 @@ COPY backend/scripts ./scripts
 COPY backend/data ./data
 COPY backend/assets ./assets
 COPY shared /workspace/shared
+# O pacote compartilhado e TypeScript, e `.dockerignore` exclui `**/dist` --
+# entao o `dist/` da maquina de quem builda NAO entra na imagem. Sem este passo,
+# `import ... from 'shared/comercial/dist/cost-model.js'` nao resolve e o backend
+# nao sobe. O modulo Comercial e o primeiro a depender disso.
+RUN cd /workspace/shared/comercial && npm install --no-audit --no-fund && npm run build
 RUN mkdir -p /data/assets && cp -R ./assets/. /data/assets/
 COPY Modelos /workspace/Modelos
 COPY equipamentos /workspace/equipamentos

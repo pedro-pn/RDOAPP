@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { somarDinheiro } from '../../shared/comercial/dist/dinheiro.js';
 import { serializeListForUser } from '../src/lib/comercial/access.js';
 import {
   ComercialError,
@@ -125,19 +126,52 @@ test('totalValue enviado pelo cliente é IGNORADO', async () => {
   assert.notEqual(Number(gravada.totalValue), 999999, 'valor forjado entrou no banco');
 });
 
-test('hidrojateamento leva a MAIOR das duas tabelas, não a soma', () => {
+const DUAS_TABELAS = [
+  { value: 'R$ 10.000,00', local: 'ONSHORE' },
+  { value: 'R$ 5.000,00', local: 'ONSHORE' },
+  { value: 'R$ 20.000,00', local: 'OFFSHORE' }
+];
+
+test('hidrojateamento NUNCA soma as duas tabelas', () => {
   // ONSHORE e OFFSHORE são cenários alternativos de execução: o cliente contrata
   // um ou outro. Somar as duas mandaria ao CRM um valor que ninguém vai pagar.
-  const total = calcularTotal({
-    prices: [
-      { value: 'R$ 10.000,00', local: 'ONSHORE' },
-      { value: 'R$ 5.000,00', local: 'ONSHORE' },
-      { value: 'R$ 20.000,00', local: 'OFFSHORE' }
-    ]
-  });
+  for (const cenario of ['ONSHORE', 'OFFSHORE', '']) {
+    const total = calcularTotal({ prices: DUAS_TABELAS, priceScenario: cenario });
+    assert.notEqual(total, 35000, `somou as duas tabelas com priceScenario=${cenario}`);
+  }
+});
 
-  assert.equal(total, 20000);
-  assert.notEqual(total, 35000, 'somou as duas tabelas');
+test('O CENÁRIO É DO VENDEDOR, mesmo quando é o menor (T130)', () => {
+  // O servidor decidia pela maior. O mantenedor apurou que o comum é ONSHORE, e
+  // ONSHORE nem sempre é a maior — aqui não é. "A maior" nunca foi regra de
+  // negócio: era um chute com cara de regra, e o número ia ao CRM.
+  assert.equal(calcularTotal({ prices: DUAS_TABELAS, priceScenario: 'ONSHORE' }), 15000);
+  assert.equal(calcularTotal({ prices: DUAS_TABELAS, priceScenario: 'OFFSHORE' }), 20000);
+});
+
+test('cenário aceita a caixa que vier', () => {
+  assert.equal(calcularTotal({ prices: DUAS_TABELAS, priceScenario: 'onshore' }), 15000);
+  assert.equal(calcularTotal({ prices: DUAS_TABELAS, priceScenario: ' Offshore ' }), 20000);
+});
+
+test('PROPOSTA JÁ GRAVADA, sem cenário, mantém o total que tinha', () => {
+  // Elas foram salvas antes da T130 existir. Mudar o critério para elas
+  // reescreveria o total na primeira vez que alguém reabrisse e salvasse — e o
+  // histórico passaria a discordar do PDF que já foi ao cliente.
+  assert.equal(calcularTotal({ prices: DUAS_TABELAS }), 20000);
+});
+
+test('cenário que não existe entre as tabelas não vira zero', () => {
+  // Zero passa despercebido: a proposta iria ao CRM valendo nada.
+  assert.equal(calcularTotal({ prices: DUAS_TABELAS, priceScenario: 'SUBSEA' }), 20000);
+});
+
+test('o cenário não atrapalha o modelo de tabela única', () => {
+  const total = calcularTotal({
+    prices: [{ value: 'R$ 1.000,00' }, { value: 'R$ 500,00' }],
+    priceScenario: 'OFFSHORE'
+  });
+  assert.equal(total, 1500);
 });
 
 test('proposta sem itens de preço vale zero, não NaN', () => {
@@ -518,4 +552,44 @@ test('revisão de proposta que não existe é 404', async () => {
     () => proximaRevisao(prisma, vendedorA, '9999'),
     error => error.statusCode === 404
   );
+});
+
+// ---------------------------------------------------------------------------
+// O leitor de moeda é UM SÓ (T130)
+// ---------------------------------------------------------------------------
+
+test('a tela, o servidor e o gerador leem dinheiro pela MESMA função', async () => {
+  // A função saiu de `backend/src/lib/comercial/dinheiro.js` para
+  // `shared/comercial` quando a tela passou a mostrar a soma de cada cenário ao
+  // lado da escolha do vendedor.
+  //
+  // O front tinha o próprio leitor (`dinheiroDigitado`, que trata o texto como
+  // centavos). Os dois CONCORDAM com valor mascarado e DIVERGEM 100× sem
+  // máscara: "1000" é mil aqui e dez reais lá. Uma tela mostrando dez reais
+  // enquanto o CRM recebe mil é o defeito que a consolidação evita.
+  const daShared = await import('../../shared/comercial/dist/dinheiro.js');
+  const daqui = await import('../src/lib/comercial/dinheiro.js');
+
+  assert.equal(daqui.lerDinheiro, daShared.lerDinheiro, 'o backend voltou a ter cópia própria');
+
+  assert.equal(daShared.lerDinheiro('R$ 11.250,00'), 11250);
+  assert.equal(daShared.lerDinheiro('1000'), 1000, 'texto sem máscara mudou de significado');
+  assert.equal(daShared.lerDinheiro(''), 0);
+  assert.equal(daShared.lerDinheiro('conversa'), 0, 'texto inválido virou NaN');
+});
+
+test('somar dinheiro passa por centavos — 0,1 + 0,2 não pode dar 0,30000000000000004', async () => {
+  const { somarDinheiro } = await import('../../shared/comercial/dist/dinheiro.js');
+
+  assert.equal(somarDinheiro(['R$ 0,10', 'R$ 0,20']), 0.3);
+  assert.equal(somarDinheiro(['R$ 10.000,00', 'R$ 5.000,00']), 15000);
+  assert.equal(somarDinheiro([]), 0);
+});
+
+test('a soma da tela bate com o totalValue do servidor', () => {
+  // É a única asserção que prova que o número mostrado ao vendedor é o mesmo que
+  // vai ao CRM. Se um dia divergirem, o vendedor escolhe vendo um valor e o
+  // histórico registra outro.
+  const soma = somarDinheiro(DUAS_TABELAS.filter(p => p.local === 'ONSHORE').map(p => p.value));
+  assert.equal(calcularTotal({ prices: DUAS_TABELAS, priceScenario: 'ONSHORE' }), soma);
 });

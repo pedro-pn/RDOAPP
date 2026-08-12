@@ -740,7 +740,7 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > mobilização…" parecem candidatos), o que exige decidir **qual** e como o valor
   > se relaciona com o `valorAvulso`; (c) criar sempre no funil 55031.
 
-- [ ] T130 **`totalValue` do hidrojateamento passa a ser escolhido pelo vendedor.**
+- [X] T130 **`totalValue` do hidrojateamento passa a ser escolhido pelo vendedor.**
   Decidido em 12/08. Hoje o servidor manda ao CRM **a maior** das duas tabelas
   (ONSHORE/OFFSHORE); o mantenedor apurou que **o mais comum é ONSHORE**, e que o
   certo é perguntar. Precisa de um campo na finalização — qual cenário vale — e de

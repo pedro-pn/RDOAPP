@@ -136,6 +136,20 @@ test('o payload preserva os campos livres do formulário', () => {
   assert.equal(payload.payment, 'À vista');
 });
 
+test('hidrojateamento envia o cenário marcado, mesmo sem clicar no rádio', () => {
+  const padrao = mod.dadosDaProposta(conteudo({ modelo: 'hidrojateamento' }));
+  const escolhido = mod.dadosDaProposta(
+    conteudo({ modelo: 'hidrojateamento', form: { priceScenario: ' offshore ' } })
+  );
+
+  assert.equal(padrao.priceScenario, 'ONSHORE');
+  assert.equal(escolhido.priceScenario, 'OFFSHORE');
+});
+
+test('o modelo padrão não ganha cenário de hidrojateamento', () => {
+  assert.ok(!('priceScenario' in mod.dadosDaProposta(conteudo())));
+});
+
 test('as categorias vão junto, ainda que o gerador não as use', () => {
   // Sem elas, reabrir a proposta salva traria a matriz sem os subtítulos que o
   // vendedor criou naquela obra.

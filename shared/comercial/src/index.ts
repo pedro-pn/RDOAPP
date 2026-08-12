@@ -17,5 +17,7 @@ export * from "./scope-content";
 export * from "./proposal-visuals";
 export * from "./finalization";
 export * from "./nectar-pipelines";
+// Leitura da máscara de moeda: servidor, gerador do documento e tela usam esta.
+export * from "./dinheiro";
 
 export * from "./modelo-documento";
