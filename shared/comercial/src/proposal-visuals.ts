@@ -48,6 +48,16 @@ export const TECHNICAL_SERVICE_VISUAL_DEFINITIONS: Record<
     PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[1],
     PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[2],
   ],
+  // Desvio nº 16: as imagens são as mesmas da filtragem — o equipamento não
+  // muda com o fluido. O que muda é o preço, e a categoria no CRM.
+  filtragem_oleo_diesel: [
+    PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[1],
+    PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[2],
+  ],
+  filtragem_oleo_tempera: [
+    PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[1],
+    PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[2],
+  ],
   desidratacao_oleo: [
     PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[2],
     PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[1],

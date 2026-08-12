@@ -686,11 +686,16 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   | `passagem_pig` | **FV-27** | o homônimo FV-08 está **`ativo: false`** no catálogo |
   | `desidratacao_oleo` / `desidratacao_oleo_diesel` | **FV-02** / **FV-14** | viraram **dois serviços** — desvio nº 16 |
 
-- [ ] T129b **A filtragem pode ter o mesmo problema da desidratação.** O catálogo
-  do Nectar tem **quatro** produtos de filtragem — absoluta (FV-01), fluído
-  térmico (FV-16), óleo de têmpera (FV-34) e óleo diesel (FV-37) — contra dois
-  serviços no módulo. Se o preço variar entre eles como varia na desidratação, a
-  filtragem precisa da mesma separação. **Perguntar ao comercial.**
+- [X] T129b **A filtragem tinha o mesmo problema, e foi separada igual.**
+  Confirmado pelo comercial em 12/08: também são serviços diferentes, porque o
+  preço varia com o fluido. Entraram `filtragem_oleo_diesel` e
+  `filtragem_oleo_tempera`, com os produtos que já existiam no Nectar.
+- [X] T129c **Script de conferência do mapa de produtos** —
+  `backend/scripts/comercial-conferir-produtos.mjs`. Existe porque o `codigo`
+  FV-nn **se desloca** quando o catálogo é editado, e porque produto desativado
+  ou renomeado passaria despercebido: a finalização mandaria a proposta para a
+  categoria errada **sem erro nenhum**. Na primeira execução já achou duas
+  legendas envelhecidas.
 
   > O funil **"Gestão Comercial" (47518) exige produto nas 10 etapas**, e o
   > "Funil de testes" (57063) exige na etapa 1. O módulo **nunca envia produto**,

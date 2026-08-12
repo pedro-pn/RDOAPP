@@ -40,7 +40,7 @@ da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 | 13 | Proposta de **hidrojateamento** é um modelo próprio, escolhido na criação | **Novo** (05/08) — decidido |
 | 14 | Campos de valor com **máscara de R$** (centavos ao digitar) | **Novo** (11/08) — aprovado |
 | 15 | **Cabeçalho mais baixo**, para sobrar área de trabalho | **Novo** (11/08) — aprovado, com prévia |
-| 16 | **Desidratação vira dois serviços**: lubrificante/hidráulico e diesel | **Novo** (12/08) — aprovado |
+| 16 | **Serviços separados por fluido**: desidratação e filtragem | **Novo** (12/08) — aprovado |
 
 ### 1. PDF gerado no backend
 
@@ -391,12 +391,17 @@ divergência, e este a aumenta. A troca é deliberada: quem usa a tela todo dia
 pediu espaço de trabalho, e a paridade de altura de cabeçalho não é o que o
 cliente recebe.  ↳ `T127`
 
-### 16. Desidratação de óleo vira dois serviços — *aprovado em 12/08*
+### 16. Serviços separados por fluido — *aprovado em 12/08*
 
-**O que muda:** o catálogo técnico ganha `desidratacao_oleo_diesel` ao lado de
-`desidratacao_oleo`, que passa a se chamar "Desidratação de óleo
-lubrificante/hidráulico". São dois serviços, com dois produtos no CRM (FV-02 e
-FV-14).
+**O que muda:** o catálogo técnico passa a separar por fluido, porque **o preço
+varia com ele**. Quatro serviços onde havia dois:
+
+| Serviço | Produto no Nectar |
+|---|---|
+| `desidratacao_oleo` — retitulado "…lubrificante/hidráulico" | id 2315550 |
+| `desidratacao_oleo_diesel` *(novo)* | id 2320154 |
+| `filtragem_oleo_diesel` *(novo)* | id 6576861 |
+| `filtragem_oleo_tempera` *(novo)* | id 5922302 |
 
 **Por que diverge da referência:** lá existe **um** serviço, "Desidratação de
 óleo", sem distinção de fluido. O mantenedor apurou com o comercial que os dois
@@ -425,10 +430,22 @@ que já existe:**
    `proposal-visuals.ts` exige uma entrada por serviço. O equipamento de
    termovácuo é o mesmo; o que muda é o fluido e o preço.
 
-**O que fica em aberto:** o catálogo do Nectar tem **quatro** produtos de
-filtragem — absoluta (FV-01), fluído térmico (FV-16), óleo de têmpera (FV-34) e
-óleo diesel (FV-37) — contra dois serviços no módulo. Se a mesma lógica de preço
-valer ali, a filtragem precisa da mesma separação.  ↳ `T129b`
+**Uma diferença entre os dois casos, e ela decidiu o texto:** o texto da
+**desidratação** fala de "óleo" do início ao fim e serve a qualquer fluido — fica
+como está. O da **filtragem NOMEIA o fluido**, então os serviços novos passam o
+nome em vez de herdarem "hidráulico ou lubrificante", que estaria errado neles.
+Não é conteúdo novo: é o mesmo modelo com o substantivo certo.
+
+**Em todos os casos o texto continua editável pelo vendedor**, e isso não é
+concessão — é o desenho. `normalizeTechnicalServiceSelections` guarda o texto por
+seleção (`text: hasText ? storedText : definition.buildText(...)`), e o
+mantenedor confirmou que os textos variam de proposta para proposta.
+
+**O `codigo` FV-nn do Nectar não é chave.** Ele **se desloca** quando o catálogo
+é editado: "passagem de PIG" era FV-27 num dia e FV-26 no outro, com o mesmo
+`id`. O mapa amarra pelo `id`; o código é legenda. Para conferir se o mapa ainda
+bate com o CRM — produto desativado ou renomeado passaria despercebido —,
+`backend/scripts/comercial-conferir-produtos.mjs`.
 
 ---
 

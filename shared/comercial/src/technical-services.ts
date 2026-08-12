@@ -7,6 +7,8 @@ export type TechnicalServiceId =
   | "flushing_secundario"
   | "filtragem_hidraulico_lubrificante"
   | "filtragem_oleo_termico"
+  | "filtragem_oleo_diesel"
+  | "filtragem_oleo_tempera"
   | "desidratacao_oleo"
   | "desidratacao_oleo_diesel"
   | "limpeza_quimica"
@@ -77,8 +79,17 @@ O processo será acompanhado por inspeções e análises periódicas até que o 
 Critério de liberação: ${parameters.nasTarget || "classe NAS a definir"} conforme NAS 1638.`;
 }
 
-function buildFiltrationText(parameters: TechnicalServiceParameters, thermal = false) {
-  const fluid = thermal ? "óleo térmico" : (parameters.oilType || "óleo hidráulico ou lubrificante").toLowerCase();
+function buildFiltrationText(
+  parameters: TechnicalServiceParameters,
+  thermal = false,
+  fluidoFixo = "",
+) {
+  // O texto da filtragem NOMEIA o fluido — ao contrário do da desidratação, que
+  // fala de "óleo" e serve a qualquer um. Então os serviços novos passam o nome
+  // em vez de herdarem "hidráulico ou lubrificante", que estaria errado neles.
+  // Continua editável pelo vendedor, como todos.
+  const fluid = fluidoFixo
+    || (thermal ? "óleo térmico" : (parameters.oilType || "óleo hidráulico ou lubrificante").toLowerCase());
   return `${FILTRATION_INTRO}
 
 Fluido considerado: ${fluid}.
@@ -156,6 +167,28 @@ export const TECHNICAL_SERVICE_CATALOG: TechnicalServiceDefinition[] = [
     asksNas: true,
     defaultParameters: { nasTarget: "NAS 6" },
     buildText: (parameters) => buildFiltrationText(parameters, true),
+  },
+  {
+    // Desvio nº 16, mesma razão da desidratação: o preço varia com o fluido, e o
+    // comercial os trata como serviços distintos. O Nectar já tinha os produtos.
+    id: "filtragem_oleo_diesel",
+    title: "Filtragem de óleo diesel",
+    summary: "Filtragem absoluta com monitoramento da classe de limpeza.",
+    version: 1,
+    reportCode: "RCPU",
+    asksNas: true,
+    defaultParameters: { nasTarget: "NAS 6" },
+    buildText: (parameters) => buildFiltrationText(parameters, false, "óleo diesel"),
+  },
+  {
+    id: "filtragem_oleo_tempera",
+    title: "Filtragem de óleo de têmpera",
+    summary: "Filtragem absoluta com monitoramento da classe de limpeza.",
+    version: 1,
+    reportCode: "RCPU",
+    asksNas: true,
+    defaultParameters: { nasTarget: "NAS 6" },
+    buildText: (parameters) => buildFiltrationText(parameters, false, "óleo de têmpera"),
   },
   {
     // O id NÃO muda, e isso é deliberado: `normalizeTechnicalServiceSelections`

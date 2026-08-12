@@ -22,17 +22,24 @@
 import { ComercialError } from './cost-estimates.js';
 
 /**
- * O mapa. `null` significa **decidido que falta decidir** — o catálogo tem mais
- * de um candidato e a escolha é do comercial, não de quem lê a lista.
+ * O mapa.
+ *
+ * **A chave é o `id`, nunca o `codigo`.** Descoberto em 12/08: o `FV-nn` do
+ * Nectar **se desloca** quando o catálogo é editado. "Serviço especializado em
+ * passagem de PIG" era FV-27 num dia e FV-26 no outro, com o **mesmo id**
+ * 2832235. O `codigo` aqui é legenda para humano, e pode envelhecer sem quebrar
+ * nada; o `id` é o que amarra.
  */
 export const PRODUTO_POR_SERVICO = {
   flushing_primario: { id: 2315552, codigo: 'FV-04', nome: 'Serviço especializado em flushing primário' },
   flushing_secundario: { id: 2315551, codigo: 'FV-03', nome: 'Serviço especializado em flushing secundário' },
   filtragem_oleo_termico: { id: 2318567, codigo: 'FV-16', nome: 'Serviço especializado em filtragem de fluído térmico' },
+  filtragem_oleo_diesel: { id: 6576861, codigo: 'FV-35', nome: 'Filtragem de óleo diesel' },
+  filtragem_oleo_tempera: { id: 5922302, codigo: 'FV-32', nome: 'Filtragem de óleo de tempera' },
   limpeza_quimica: { id: 2315553, codigo: 'FV-05', nome: 'Serviço especializado em limpeza química' },
-  hidrojateamento: { id: 6668620, codigo: 'FV-38', nome: 'Hidrojato' },
+  hidrojateamento: { id: 6668620, codigo: 'FV-36', nome: 'Hidrojato' },
   teste_hidrostatico: { id: 2315555, codigo: 'FV-07', nome: 'Serviço especializado em teste hidrostático' },
-  pre_engenharia: { id: 2323945, codigo: 'FV-23', nome: 'Serviço especializado em pré-engenharia' },
+  pre_engenharia: { id: 2323945, codigo: 'FV-22', nome: 'Serviço especializado em pré-engenharia' },
   limpeza_reservatorio: { id: 2315554, codigo: 'FV-06', nome: 'Serviço especializado em limpeza interna de reservatório' },
 
   // --- Confirmados pelo comercial em 12/08/2026 ---
@@ -43,7 +50,7 @@ export const PRODUTO_POR_SERVICO = {
    * catálogo. A duplicata já tinha sido resolvida no CRM; produto inativo não
    * entra em card novo.
    */
-  passagem_pig: { id: 2832235, codigo: 'FV-27', nome: 'Serviço especializado em passagem de PIG' },
+  passagem_pig: { id: 2832235, codigo: 'FV-26', nome: 'Serviço especializado em passagem de PIG' },
 
   /**
    * Os dois fluidos são **serviços diferentes para o comercial**, porque o preço
