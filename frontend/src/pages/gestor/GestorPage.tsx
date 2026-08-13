@@ -1035,7 +1035,7 @@ function renderProjectCard(
             <span className="det-val">{formatProjectSigners(project.clientSigners)}</span>
           </div>
           <div className="det-row">
-            <span className="det-label">Contrato</span>
+            <span className="det-label">Proposta</span>
             <span className="det-val">{project.contractCode || '-'}</span>
           </div>
           <div className="det-row">
@@ -3037,7 +3037,7 @@ export function GestorPage() {
             </div>
             <ProjectClientFields form={projectForm} idPrefix={`project-${project.id}`} setForm={setProjectForm} />
             <div className="field-group">
-              <label htmlFor={`project-contract-${project.id}`}>Contrato</label>
+              <label htmlFor={`project-contract-${project.id}`}>Proposta</label>
               <input id={`project-contract-${project.id}`} value={projectForm.contractCode} onChange={event => setProjectForm(current => ({ ...current, contractCode: event.target.value }))} />
             </div>
             <div className="field-group">
@@ -3200,7 +3200,7 @@ export function GestorPage() {
                 </div>
                 <ProjectClientFields form={projectForm} idPrefix="project" setForm={setProjectForm} />
                 <div className="field-group">
-                  <label htmlFor="project-contract">Contrato</label>
+                  <label htmlFor="project-contract">Proposta</label>
                   <input id="project-contract" value={projectForm.contractCode} onChange={event => setProjectForm(current => ({ ...current, contractCode: event.target.value }))} />
                 </div>
                 <div className="field-group">

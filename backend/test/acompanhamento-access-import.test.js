@@ -63,7 +63,7 @@ test('setProjectBudgetRevisionWithClient reutiliza a seleção manual com um cli
   assert.equal(calls.find(([name]) => name === 'projectUpdate')[1].data.commercialProposalCode, '3088');
 });
 
-test('contractToProposalCode extrai a primeira parte numérica do contrato', () => {
+test('contractToProposalCode extrai a primeira parte numérica da proposta persistida', () => {
   assert.equal(contractToProposalCode('4096 - Rev. 1'), 4096);
   assert.equal(contractToProposalCode('4096'), 4096);
   assert.equal(contractToProposalCode(' 4096 '), 4096);

@@ -60,7 +60,7 @@ export function PendingProjectReviewForm({ project, saving, onCancel, onSubmit }
       {field('name', 'Nome do projeto')}
       {field('clientName', 'Cliente')}
       {field('clientCnpj', 'CNPJ')}
-      {field('contractCode', 'Contrato')}
+      {field('contractCode', 'Proposta')}
       {field('location', 'Local')}
       <div className="admin-form-actions">
         <button className="mini-btn" type="submit" disabled={saving}>Confirmar e salvar</button>

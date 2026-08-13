@@ -13,18 +13,18 @@
   timestamp exigiria capturar o corpo bruto antes do parser JSON e amplia o escopo;
   mTLS/API gateway pode ser adotado depois se o risco operacional exigir.
 
-### Contrato e normalização
+### Payload e normalização
 
 - **Decisão**: `POST /api/webhooks/projects` recebe `code`, `name`, `clientName`,
-  `clientCnpj`, `contractCode`, `revision` e `location`. Os textos são obrigatórios e
+  `clientCnpj`, `proposalCode`, `revision` e `location`. Os textos são obrigatórios e
   têm espaços externos removidos; `revision` é inteiro não negativo. CNPJ aceita
   pontuação, remove todos os caracteres não numéricos e somente então exige exatamente
-  14 dígitos. O primeiro número válido do contrato é persistido como
-  “{contrato} Rev. {revisão}”.
-- **Motivo**: usa os nomes internos já consolidados e evita a função legada que trunca
+  14 dígitos. O primeiro número válido da proposta é persistido como
+  “{proposta} Rev. {revisão}”.
+- **Motivo**: usa a terminologia correta no contrato externo e evita a função legada que trunca
   CNPJ acima de 14 dígitos, o que aceitaria entradas inválidas.
-- **Alternativas**: aliases em português e objetos aninhados ficaram fora do primeiro
-  contrato para mantê-lo estável e inequívoco.
+- **Alternativas**: `contractCode` foi rejeitado sem alias porque o webhook ainda não
+  entrou em produção; objetos aninhados ficaram fora para manter o payload inequívoco.
 
 ### Seleção automática da revisão comercial
 

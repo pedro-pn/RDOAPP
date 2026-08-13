@@ -191,14 +191,14 @@ export function readProposals(buffer) {
   return reader.getTable(PROPOSAL_TABLE).getData();
 }
 
-// Extrai o "código do contrato" (número da proposta) da primeira parte de um texto.
+// Extrai o número da proposta da primeira parte do valor persistido no campo legado.
 // Ex.: "4096 - Rev. 1" -> 4096 · "4096" -> 4096 · "Sede 4096" -> 4096.
 export function contractToProposalCode(value) {
   const match = String(value ?? '').match(/\d+/);
   return match ? Number.parseInt(match[0], 10) : null;
 }
 
-// Número da proposta associado a um projeto, pela 1ª parte do contrato (fallback no código).
+// Número da proposta associado a um projeto, pela 1ª parte do campo legado (fallback no código).
 function projectProposalCode(project) {
   return contractToProposalCode(project.contractCode) ?? contractToProposalCode(project.code);
 }
@@ -490,7 +490,7 @@ export async function refreshSelectedProjectBudgetsFromProposals(client, { codBd
   return refreshed;
 }
 
-// Lista as revisões (linhas do Access) cujo contrato bate com o do projeto e indica a vigente.
+// Lista as revisões (linhas do Access) cuja proposta bate com a do projeto e indica a vigente.
 export async function listProjectRevisions(projectId) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -583,7 +583,7 @@ export async function listProjectRevisions(projectId) {
   };
 }
 
-// Edita o cronograma: data de aprovação do contrato (no orçamento) e início real (no projeto).
+// Edita o cronograma: data de aprovação da proposta (no orçamento) e início real (no projeto).
 // Cada campo é opcional; passar null limpa. approvedAt exige um orçamento já escolhido.
 export async function setProjectSchedule(projectId, {
   approvedAt,
@@ -728,7 +728,7 @@ export async function removeProjectAdditionalProposal(projectId, codProp) {
   return { ok: true, deleted: result.count };
 }
 
-// Dashboard de acompanhamento: projetos cujo contrato bate com propostas importadas, com o
+// Dashboard de acompanhamento: projetos cuja proposta bate com propostas importadas, com o
 // previsto (orçamento/revisão) e o realizado parcial (nº de RDOs = dias trabalhados, % prazo).
 export async function listCommercialDashboard({ categoryCode = null } = {}) {
   // Salários do Omie nunca entram no realizado (serão calculados no app via ponto).
@@ -1012,7 +1012,7 @@ export function buildCommercialPendencias({
   return result;
 }
 
-// Projetos cujo contrato bate com alguma proposta importada — sinalização na aba Projetos.
+// Projetos cuja proposta bate com alguma proposta importada — sinalização na aba Projetos.
 // resolved = proposta principal e adicionais já foram escolhidas quando necessário.
 export async function listCommercialPendencias() {
   const [originalGrouped, additionalGrouped, projects, selectedAdditionals] = await Promise.all([
@@ -1096,7 +1096,7 @@ export async function importCommercialAccess({ buffer, fileName, importedByUserI
 
     // A importação apenas popula o staging (CommercialProposal). Não cria missões: a maioria das
     // propostas não fecha. A vinculação a um projeto acontece sob demanda, quando já existe uma
-    // missão cujo contrato bate (ver listCommercialPendencias / setProjectBudgetRevision).
+    // missão cuja proposta bate (ver listCommercialPendencias / setProjectBudgetRevision).
     const result = await prisma.$transaction(async (tx) => {
       for (const p of proposals) {
         const existing = await tx.commercialProposal.findUnique({ where: { codBd: p.codBd } });

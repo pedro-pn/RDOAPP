@@ -24,7 +24,7 @@ const rawProjectIntakeSchema = z.object({
   name: requiredText('Nome do projeto', 240),
   clientName: requiredText('Cliente', 240),
   clientCnpj: cnpjSchema,
-  contractCode: requiredText('Contrato', 160),
+  proposalCode: requiredText('Proposta', 160),
   revision: z.number({ invalid_type_error: 'Revisão deve ser um número inteiro.' })
     .int('Revisão deve ser um número inteiro.')
     .min(0, 'Revisão deve ser maior ou igual a zero.')
@@ -34,19 +34,21 @@ const rawProjectIntakeSchema = z.object({
 
 export const projectIntakeSchema = rawProjectIntakeSchema
   .superRefine((data, ctx) => {
-    const proposalCode = contractToProposalCode(data.contractCode);
+    const proposalCode = contractToProposalCode(data.proposalCode);
     if (!Number.isSafeInteger(proposalCode) || proposalCode <= 0 || proposalCode > 2_147_483_647) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['contractCode'],
-        message: 'Contrato deve conter um número válido.'
+        path: ['proposalCode'],
+        message: 'Proposta deve conter um número válido.'
       });
     }
   })
   .transform(data => {
-    const proposalCode = contractToProposalCode(data.contractCode);
+    const proposalCode = contractToProposalCode(data.proposalCode);
+    const normalized = { ...data };
+    delete normalized.proposalCode;
     return {
-      ...data,
+      ...normalized,
       contractCode: `${proposalCode} Rev. ${data.revision}`
     };
   });
@@ -121,7 +123,13 @@ async function resolveExistingProject(project, intake, client) {
   }
   statisticsProjectsCache.clear();
   const commercialRevision = await selectProjectIntakeCommercialRevision(project, intake, client);
-  return { status: 'already_exists', project, commercialRevision };
+  return projectIntakeResult('already_exists', project, commercialRevision);
+}
+
+function projectIntakeResult(status, project, commercialRevision) {
+  const publicProject = { ...project, proposalCode: project.contractCode };
+  delete publicProject.contractCode;
+  return { status, project: publicProject, commercialRevision };
 }
 
 function isUniqueConstraintError(error) {
@@ -144,7 +152,7 @@ export async function receiveProjectIntake(rawInput, client = prisma) {
     });
     statisticsProjectsCache.clear();
     const commercialRevision = await selectProjectIntakeCommercialRevision(project, intake, client);
-    return { status: 'created', project, commercialRevision };
+    return projectIntakeResult('created', project, commercialRevision);
   } catch (error) {
     if (!isUniqueConstraintError(error)) throw error;
     const concurrentProject = await client.project.findUnique({
@@ -174,7 +182,7 @@ export async function selectProjectIntakeCommercialRevision(project, intake, cli
   ]);
   const selectedCodBd = currentBudget?.sourceProposalCodBd ?? null;
   const resultBase = {
-    contractCode: String(proposalCode),
+    proposalCode: String(proposalCode),
     revision: intake.revision
   };
 

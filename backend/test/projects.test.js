@@ -317,7 +317,7 @@ test('PUT /projects/:id clears pending registration after required fields are co
     name: 'CGH Maria Cavaleira',
     clientName: 'Cliente',
     clientCnpj: '11.222.333/0001-44',
-    contractCode: 'Contrato 1',
+    contractCode: 'Proposta 1',
     location: 'Local 1',
     authorizedUserIds: [],
     reportSequences: []

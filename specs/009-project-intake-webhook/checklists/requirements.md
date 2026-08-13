@@ -33,3 +33,4 @@
 
 - Validação concluída na primeira iteração; nenhuma clarificação bloqueante permaneceu.
 - Extensão de revisão comercial validada em 2026-08-13: seleção automática não bloqueia a criação e não substitui escolhas manuais.
+- Terminologia validada em 2026-08-13: “Proposta” substitui o nome incorreto “Contrato”; o webhook usa somente `proposalCode`, sem compatibilidade legada antes da produção.

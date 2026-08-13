@@ -18,7 +18,7 @@ const validPayload = {
   name: 'Ilha Solteira',
   clientName: 'Cliente Exemplo S.A.',
   clientCnpj: '12.345.678/0001-90',
-  contractCode: '3088',
+  proposalCode: '3088',
   revision: 2,
   location: 'Ilha Solteira - SP'
 };
@@ -142,19 +142,20 @@ function configureToken(t, token) {
   });
 }
 
-test('project intake schema normalizes fields and formats the contract with its revision', () => {
+test('project intake schema normalizes fields and formats the proposal with its revision', () => {
   const parsed = projectIntakeSchema.parse({
     ...validPayload,
     code: ' 005719 ',
     name: ' Ilha Solteira ',
     clientCnpj: '12.345.678/0001-90',
-    contractCode: ' 3088 '
+    proposalCode: ' 3088 '
   });
 
   assert.equal(parsed.code, '005719');
   assert.equal(parsed.name, 'Ilha Solteira');
   assert.equal(parsed.clientCnpj, '12345678000190');
   assert.equal(parsed.contractCode, '3088 Rev. 2');
+  assert.equal('proposalCode' in parsed, false);
   assert.equal(parsed.revision, 2);
 });
 
@@ -166,8 +167,15 @@ test('project intake schema rejects missing, extra, invalid CNPJ and invalid rev
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: -1 }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: 1.5 }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: '2' }));
-  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, contractCode: 'sem-numero' }));
+  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, proposalCode: 'sem-numero' }));
+  assert.throws(() => projectIntakeSchema.parse({
+    ...validPayload,
+    proposalCode: undefined,
+    contractCode: '3088'
+  }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, unexpected: 'field' }));
+  const missingProposal = projectIntakeSchema.safeParse({ ...validPayload, proposalCode: '' });
+  assert.match(missingProposal.error.issues[0].message, /Proposta/);
 });
 
 test('projectIntakeCreateData keeps a new project pending and operationally restricted', () => {
@@ -233,7 +241,7 @@ test('selectProjectIntakeCommercialRevision selects the matching primary proposa
 
   assert.deepEqual(result, {
     status: 'selected',
-    contractCode: '3088',
+    proposalCode: '3088',
     revision: 2,
     selectedCodBd: 9902
   });
@@ -340,6 +348,10 @@ test('POST /api/webhooks/projects creates and returns a normalized pending proje
   assert.equal(response.statusCode, 201);
   assert.equal(response.json.status, 'created');
   assert.equal(response.json.commercialRevision.status, 'not_found');
+  assert.equal(response.json.project.proposalCode, '3088 Rev. 2');
+  assert.equal('contractCode' in response.json.project, false);
+  assert.equal(response.json.commercialRevision.proposalCode, '3088');
+  assert.equal('contractCode' in response.json.commercialRevision, false);
   const createCall = calls.find(([name]) => name === 'create');
   assert.equal(createCall[1].data.code, '005719');
   assert.equal(createCall[1].data.clientCnpj, '12345678000190');
@@ -368,7 +380,7 @@ test('receiveProjectIntake rejects a divergent existing project without updating
     ['name', 'Outro nome'],
     ['clientName', 'Outro cliente'],
     ['clientCnpj', '98765432000199'],
-    ['contractCode', 'OUTRO-CONTRATO'],
+    ['contractCode', 'OUTRA-PROPOSTA'],
     ['location', 'Outro local']
   ]) {
     await assert.rejects(
@@ -445,6 +457,28 @@ test('POST /api/webhooks/projects rejects invalid data before touching the datab
     ...validPayload,
     clientCnpj: '123456789012345'
   }, { authorization: 'Bearer secret-token' });
+  assert.equal(response.statusCode, 400);
+  assert.equal(touchedDatabase, false);
+});
+
+test('POST /api/webhooks/projects rejects the obsolete contractCode field without compatibility alias', async t => {
+  configureToken(t, 'secret-token');
+  let touchedDatabase = false;
+  const originalFindUnique = prisma.project.findUnique;
+  prisma.project.findUnique = async () => {
+    touchedDatabase = true;
+    return null;
+  };
+  t.after(() => {
+    prisma.project.findUnique = originalFindUnique;
+  });
+
+  const { proposalCode: _proposalCode, ...obsoletePayload } = validPayload;
+  const response = await dispatchApp('POST', '/api/webhooks/projects', {
+    ...obsoletePayload,
+    contractCode: '3088'
+  }, { authorization: 'Bearer secret-token' });
+
   assert.equal(response.statusCode, 400);
   assert.equal(touchedDatabase, false);
 });

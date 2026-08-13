@@ -16,7 +16,7 @@ export const pendingProjectReviewSchema = z.object({
     value => value.replace(/\D/g, '').length === 14,
     'CNPJ deve conter exatamente 14 dígitos.'
   ),
-  contractCode: requiredText('Contrato', 160),
+  contractCode: requiredText('Proposta', 160),
   location: requiredText('Local', 240)
 });
 

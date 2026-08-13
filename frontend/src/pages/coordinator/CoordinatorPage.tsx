@@ -504,7 +504,7 @@ export function CoordinatorPage() {
         </div>
         <div className="det-section" style={{ marginTop: 12 }}>
           <div className="det-row"><span className="det-label">Cliente</span><span className="det-val">{project.clientName}</span></div>
-          <div className="det-row"><span className="det-label">Contrato</span><span className="det-val">{project.contractCode || '-'}</span></div>
+          <div className="det-row"><span className="det-label">Proposta</span><span className="det-val">{project.contractCode || '-'}</span></div>
           <div className="det-row"><span className="det-label">Local</span><span className="det-val">{project.location || '-'}</span></div>
           <div className="det-row"><span className="det-label">Líder</span><span className="det-val">{project.operator?.name || 'Não informado'}</span></div>
         </div>

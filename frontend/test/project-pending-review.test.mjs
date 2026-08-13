@@ -68,6 +68,8 @@ test('pending project review validates and normalizes all six required fields', 
     assert.equal(review.pendingProjectReviewSchema.safeParse(invalid).success, false, field);
   }
   assert.equal(review.pendingProjectReviewSchema.safeParse({ ...parsed, clientCnpj: '123' }).success, false);
+  const proposalError = review.pendingProjectReviewSchema.safeParse({ ...parsed, contractCode: '' });
+  assert.match(proposalError.error.issues[0].message, /Proposta/);
 });
 
 test('pending projects are counted, partitioned and identify webhook or Romaneio origin', async () => {

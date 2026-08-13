@@ -4,12 +4,28 @@ import test from 'node:test';
 import {
   buildDataSubjectRequestCreatedEmailTemplate,
   buildDataSubjectRequestResponseEmailTemplate,
+  buildClientProjectLinkedEmailTemplate,
   buildInternalUserWelcomeEmailTemplate,
   buildReportRejectedByClientEmailTemplate,
   buildReportSignatureCompletedEmailTemplate,
   buildReportSignatureReceivedEmailTemplate,
   buildSurveyExpiredEmailTemplate
 } from '../src/lib/email-templates.js';
+
+test('buildClientProjectLinkedEmailTemplate identifies the commercial proposal', () => {
+  const template = buildClientProjectLinkedEmailTemplate({
+    clientName: 'Cliente Exemplo',
+    projectCode: '005719',
+    projectName: 'Ilha Solteira',
+    contractCode: '3088 Rev. 2',
+    appUrl: 'https://app.example.com'
+  });
+
+  assert.match(template.text, /Proposta: 3088 Rev\. 2/);
+  assert.match(template.html, /<strong>Proposta:<\/strong> 3088 Rev\. 2/);
+  assert.doesNotMatch(template.text, /Contrato:/);
+  assert.doesNotMatch(template.html, /Contrato:/);
+});
 
 test('buildDataSubjectRequestCreatedEmailTemplate identifies protocol and requester', () => {
   const template = buildDataSubjectRequestCreatedEmailTemplate({

@@ -102,14 +102,25 @@
 
 ## Phase 7: Seleção automática da revisão comercial
 
-**Purpose**: Usar contrato e revisão recebidos para preencher o contrato padronizado e escolher automaticamente a proposta principal já importada, sem retirar o controle manual do gestor.
+**Purpose**: Usar proposta e revisão recebidas para preencher a proposta padronizada e escolher automaticamente a revisão principal já importada, sem retirar o controle manual do gestor.
 
-- [X] T022 [US1] Atualizar contrato, normalização e resposta do webhook com `revision`, contrato “{contrato} Rev. {revisão}” e estado da seleção em `backend/src/lib/projects/project-intake.js` e `specs/009-project-intake-webhook/contracts/project-intake-webhook.openapi.yaml`
+- [X] T022 [US1] Atualizar payload, normalização e resposta do webhook com `revision`, proposta “{proposta} Rev. {revisão}” e estado da seleção em `backend/src/lib/projects/project-intake.js` e `specs/009-project-intake-webhook/contracts/project-intake-webhook.openapi.yaml`
 - [X] T023 [US1] Permitir que a regra existente de seleção de orçamento seja reutilizada com cliente transacional, preservando o endpoint manual, em `backend/src/lib/acompanhamento/access-import.js`
 - [X] T024 [US1] Selecionar automaticamente a proposta principal correspondente quando não houver revisão vigente, preservar escolha manual e repetir a tentativa em reenvio idempotente em `backend/src/lib/projects/project-intake.js`
 - [X] T025 [US1] Cobrir formatação, revisão inválida, seleção encontrada/ausente, desempate, reenvio posterior e preservação da escolha manual em `backend/test/project-intake-webhook.test.js` e `backend/test/acompanhamento-access-import.test.js`
 - [X] T026 Documentar o payload atualizado, respostas e comportamento de fallback em `README.md`, `specs/009-project-intake-webhook/quickstart.md`, `data-model.md` e `research.md`
 - [X] T027 Executar testes, audit, lint, build, architecture check e revisão final no code-review-graph; atualizar a PR #167
+
+## Phase 8: Terminologia Proposta
+
+**Purpose**: Corrigir o nome histórico do identificador comercial sem migrar o campo interno persistido e antes de publicar o webhook.
+
+- [X] T028 [US1] Alterar o contrato externo do webhook de `contractCode` para `proposalCode`, sem alias legado, e mapear entrada/saída para o campo interno existente em `backend/src/lib/projects/project-intake.js`
+- [X] T029 [P] [US1] Atualizar testes backend para exigir `proposalCode`, rejeitar `contractCode` e devolver somente a terminologia nova em `backend/test/project-intake-webhook.test.js`
+- [X] T030 [P] [US2] Trocar labels, ajudas, mensagens e validações visíveis de “Contrato” para “Proposta” nas superfícies de projetos e acompanhamento em `frontend/src/` e `backend/src/lib/zod-error.js`
+- [X] T031 [P] [US2] Trocar a terminologia em e-mails, PDF e mapas de modelos, preservando textos jurídicos e contratos de API, em `backend/src/lib/email-templates.js`, `backend/src/lib/report-pdf.js` e `Modelos/definitivos/*.txt`
+- [X] T032 Atualizar OpenAPI, README, quickstart, modelo de dados e especificações de negócio relacionadas em `specs/009-project-intake-webhook/`, `specs/006-unificar-missoes-acompanhamento/` e `README.md`
+- [X] T033 Executar testes backend/frontend, lint, build, audits, architecture check e revisão final no code-review-graph; atualizar a PR #167
 
 ---
 

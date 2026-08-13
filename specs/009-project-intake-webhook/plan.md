@@ -7,9 +7,9 @@
 ## Summary
 
 Adicionar um endpoint sistema-a-sistema autenticado por Bearer token exclusivo para
-receber os dados de um projeto, incluindo a revisão comercial. O backend normaliza e valida o payload, cria o
+receber os dados de um projeto, incluindo `proposalCode` e a revisão comercial. O backend normaliza e valida o payload, cria o
 `Project` com `registrationPending=true` e defaults seguros, e usa `code` como chave de
-idempotência, inclusive em corridas concorrentes. Quando contrato e revisão existirem na
+idempotência, inclusive em corridas concorrentes. Quando proposta e revisão existirem na
 base comercial, a mesma regra da seleção manual materializa essa revisão no orçamento;
 reenvios não substituem escolhas já existentes. O estado pendente já existente será
 reaproveitado sem migração: ele impede provisionamento de contas, será reforçado nos
@@ -33,7 +33,7 @@ acessível dos seis campos e campanha de novidade de 10 dias.
 
 **Performance Goals**: responder ao recebimento individual normalmente em menos de 1 segundo; refletir pendências em até 5 segundos após atualização do painel
 
-**Constraints**: uma entidade por requisição, corpo JSON até 1 MB, autenticação sem sessão humana, idempotência concorrente, nenhum segredo no log/resposta, projeto indisponível até revisão, seleção automática sem sobrescrever escolha manual
+**Constraints**: uma entidade por requisição, corpo JSON até 1 MB, autenticação sem sessão humana, idempotência concorrente, nenhum segredo no log/resposta, projeto indisponível até revisão, seleção automática sem sobrescrever escolha manual, `proposalCode` obrigatório e `contractCode` rejeitado no webhook
 
 **Scale/Scope**: um endpoint novo, uma credencial por ambiente, baixo volume esperado, sete campos, integração focada com propostas principais já importadas e ajustes na aba Projetos e nos fluxos de criação de relatórios
 

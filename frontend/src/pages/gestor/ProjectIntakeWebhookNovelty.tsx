@@ -47,7 +47,7 @@ export function ProjectIntakeWebhookNovelty({ user, enabled }: ProjectIntakeWebh
           element: PENDING_PROJECTS_SELECTOR,
           popover: {
             title: 'Revise antes de liberar',
-            description: 'Confira número, nome, cliente, CNPJ, contrato e local. O botão “Confirmar e salvar” encerra a pendência.',
+            description: 'Confira número, nome, cliente, CNPJ, proposta e local. O botão “Confirmar e salvar” encerra a pendência.',
             side: 'top',
             align: 'start'
           }

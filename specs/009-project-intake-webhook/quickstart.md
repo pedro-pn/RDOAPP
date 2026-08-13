@@ -22,16 +22,19 @@ curl -X POST 'https://SEU_DOMINIO/api/webhooks/projects' \
     "name": "Ilha Solteira",
     "clientName": "Cliente Exemplo S.A.",
     "clientCnpj": "12.345.678/0001-90",
-    "contractCode": "3088",
+    "proposalCode": "3088",
     "revision": 2,
     "location": "Ilha Solteira - SP"
   }'
 ```
 
-O projeto armazena o contrato como `3088 Rev. 2`. O primeiro envio retorna HTTP 201 com
+O projeto exibe a proposta como `3088 Rev. 2`. O primeiro envio retorna HTTP 201 com
 `status: "created"`. Repetir exatamente os mesmos sete valores retorna HTTP 200 com
 `status: "already_exists"`. O mesmo número com algum dado diferente retorna HTTP 409 e
 não altera o projeto.
+
+`contractCode` não é aceito pelo webhook e resulta em HTTP 400 por ser um campo
+desconhecido. A integração deve enviar exclusivamente `proposalCode`.
 
 `commercialRevision.status` informa o resultado da revisão comercial:
 

@@ -367,7 +367,7 @@ router.get(
   })
 );
 
-// Projetos cujo contrato bate com propostas importadas (sinalização de pendência na aba Projetos).
+// Projetos cuja proposta bate com propostas importadas (sinalização de pendência na aba Projetos).
 router.get(
   '/pendencias',
   requireAuth,

@@ -10,7 +10,7 @@ Não há alteração de schema. O fluxo usa os campos existentes:
 | `name` | `name` | obrigatório, `trim` |
 | `clientName` | `clientName` | obrigatório, `trim` |
 | `clientCnpj` | `clientCnpj` | obrigatório, somente os 14 dígitos normalizados |
-| `contractCode` | `contractCode` + `revision` | número extraído do contrato e persistido como “{contrato} Rev. {revisão}” |
+| `contractCode` (interno existente) | `proposalCode` + `revision` | número extraído da proposta e persistido como “{proposta} Rev. {revisão}” |
 | `location` | `location` | obrigatório, `trim` |
 | `isActive` | sistema | `true` |
 | `registrationPending` | sistema | `true` até a confirmação do gestor |
@@ -20,7 +20,9 @@ Não há alteração de schema. O fluxo usa os campos existentes:
 
 ## CommercialProposal e ProjectBudget (existentes)
 
-Não há alteração de schema. `revision` é um inteiro não negativo do contrato do webhook,
+Não há alteração de schema. O webhook expõe somente `proposalCode`; `contractCode`
+permanece como detalhe interno do modelo existente e não é aceito no payload externo.
+`revision` é um inteiro não negativo da proposta do webhook,
 usado para localizar uma `CommercialProposal` principal por `codProp` + `nRev` com
 `parentCodProp=null`. Quando o projeto ainda não tem fonte vigente, a regra manual
 existente materializa a proposta em `ProjectBudget.sourceProposalCodBd` e preenche

@@ -303,7 +303,7 @@ O acesso é organizado por **módulo** e **papel dentro do módulo** (`ModuleRol
 
 - **Omie**: sincronização periódica de contas a pagar/receber, categorias e projetos para o módulo de Acompanhamento. Habilitada por `OMIE_SYNC_ENABLED` e credenciais `OMIE_APP_KEY` / `OMIE_APP_SECRET`.
 - **Importação comercial**: propostas e projetos importados via endpoint protegido por `COMMERCIAL_IMPORT_TOKEN`.
-- **Webhook de projetos**: recebe número, nome, cliente, CNPJ, contrato, revisão e local em `POST /api/webhooks/projects`, protegido por `PROJECT_INTAKE_WEBHOOK_TOKEN`. O contrato é salvo como `3088 Rev. 2`; quando a revisão principal já existe na base comercial e ainda não há escolha vigente, ela é selecionada automaticamente. O projeto entra destacado e aguarda verificação manual do cadastro, mantendo disponível a troca manual da revisão.
+- **Webhook de projetos**: recebe número, nome, cliente, CNPJ, `proposalCode`, revisão e local em `POST /api/webhooks/projects`, protegido por `PROJECT_INTAKE_WEBHOOK_TOKEN`. A proposta é exibida como `3088 Rev. 2`; quando a revisão principal já existe na base comercial e ainda não há escolha vigente, ela é selecionada automaticamente. O projeto entra destacado e aguarda verificação manual do cadastro, mantendo disponível a troca manual da revisão. Como a integração ainda não entrou em produção, `contractCode` não é aceito pelo webhook.
 - **Ponto**: importação de espelhos de ponto para cálculo de custo de mão de obra.
 - **Monitoramento operacional**: endpoint `/operations/status` e job de alerta configurável (backup/restore, webhooks) para saúde da stack.
 - **Error tracking**: captura de erros de cliente (`/operations/client-errors`) e provider configurável no backend/frontend.

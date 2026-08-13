@@ -699,7 +699,7 @@ export function ProjectCardsBoard({
     return (
       <div className="page-card placeholder-copy">
         Nenhum projeto com proposta comercial importada. Importe o banco do comercial e cadastre a
-        missão com o número do contrato.
+        missão com o número da proposta.
       </div>
     );
   }

@@ -484,7 +484,7 @@ export function buildClientProjectLinkedEmailTemplate({ clientName, appUrl, proj
     <div style="background:#f8faf8;border:1px solid #d7dfda;border-radius:12px;padding:16px">
       <div style="font-size:14px;line-height:1.8">
         <div><strong>Projeto:</strong> ${projectCode} - ${projectName}</div>
-        <div><strong>Contrato:</strong> ${contractCode || '---'}</div>
+        <div><strong>Proposta:</strong> ${contractCode || '---'}</div>
       </div>
     </div>
     ${appUrl ? `<p style="font-size:14px;line-height:1.7;margin:16px 0 0">Acesse o sistema em: <a href="${appUrl}" style="color:#30503a">${appUrl}</a></p>` : ''}
@@ -498,7 +498,7 @@ export function buildClientProjectLinkedEmailTemplate({ clientName, appUrl, proj
       `Um novo projeto foi vinculado à conta do cliente ${clientName}.`,
       '',
       `Projeto: ${projectCode} - ${projectName}`,
-      `Contrato: ${contractCode || '---'}`,
+      `Proposta: ${contractCode || '---'}`,
       appUrl ? `Acesso: ${appUrl}` : '',
       privacyTextLine()
     ].filter(Boolean).join('\n'),
