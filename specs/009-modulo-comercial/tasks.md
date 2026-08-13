@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 149 tarefas fechadas, 30 abertas** (de 179). O contador
+> **Estado em 13/08/2026: 150 tarefas fechadas, 29 abertas** (de 179). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -876,10 +876,34 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   do template somava com o de `caminhoDeUrl` e a URL saía `sites/host::/sites/X:`.
   Latente porque o SharePoint fica `off` por padrão. Agora é uma requisição só,
   `sites/{host}:/{caminho}:/drive`.
-- [ ] T133 **Serviços novos no catálogo**, quando o comercial mandar os textos.
-  Candidatos com uso real medido em 12/08: análise físico-química (2 usos),
-  flushing com água (7 somando os dois produtos). Boroscopia, sopragem, pintura
-  externa e remoção de tinta têm **zero** uso — confirmar se entram.
+- [X] T133 **Serviços novos no catálogo.** Textos recebidos do comercial em 13/08,
+  na planilha `Servicos novos - descricao para o comercial.xlsx`. Entraram **dois**:
+  **flushing com água** (RLF) e **boroscopia** (sem relatório). O comercial marcou
+  "não" para análise físico-química, sopragem de tubulação, pintura externa e limpeza
+  de gancheiras — e o teste trava isso: entrar sozinho é tão defeito quanto não entrar.
+  ↳ `shared/comercial/src/technical-services.ts` (ids, `RLF`, os dois modelos),
+  `proposal-visuals.ts` (o `Record<TechnicalServiceId, …>` obrigou, e foi o `tsc` que
+  cobrou), `nectar-produtos.js` e `backend/test/comercial-servicos-novos.test.js`.
+
+  > **`RLF` não é sigla nova para a empresa** — é o que o filtroAPP já emite
+  > (`report-rlf.js`, `Modelos/definitivos/Modelo - RLF.docx`), e o cabeçalho desse
+  > modelo diz "Serviço: Flushing / Método de limpeza: Circulação pressurizada",
+  > exatamente o serviço descrito na planilha. A proposta passa a prometer o relatório
+  > que o sistema entrega.
+  >
+  > **Divergência registrada com o `.docx`:** a `Proposta técnica - Preenchida.docx`
+  > (07/01) chama esse relatório de **RFA — "relatório de flushing com água"**, junto
+  > com RH (hidrojateamento) e RTPP (passagem de PIG). O desvio nº 12 diz que o `.docx`
+  > vence, mas aqui vence a planilha, por três razões: ela é **do mesmo autor e mais
+  > nova**, responde exatamente esta pergunta, e RFA **não existe** como relatório no
+  > sistema — prometer RFA seria prometer documento que ninguém emite. A frase do RFA
+  > está só no `.docx` **preenchido**, que é exemplo; o **modelo** tem marcador, então
+  > não há contradição dentro do documento gerado.
+  >
+  > **O flushing com água tem dois produtos ativos no CRM** — FV-28 "Flushing com
+  > água" (id 3033640) e FV-29 "Serviço especializado em flushing com água" (id
+  > 3569930). Vale o FV-29: a regra do mais usado (4 contra 3, medida em 12/08) e a
+  > planilha apontam o mesmo.
 
   > **Regra para ambiguidade de produto, decidida em 12/08: vale o MAIS USADO.**
   > Conferida contra o uso real das 230 oportunidades, ela confirma todas as

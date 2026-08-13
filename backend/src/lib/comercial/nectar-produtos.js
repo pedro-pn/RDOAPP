@@ -58,7 +58,19 @@ export const PRODUTO_POR_SERVICO = {
    * ela é esboço e não retrato do uso real.
    */
   desidratacao_oleo: { id: 2315550, codigo: 'FV-02', nome: 'Serviço especializado em desidratação de óleo lubrificante/hidráulico' },
-  desidratacao_oleo_diesel: { id: 2320154, codigo: 'FV-14', nome: 'Serviço especializado em desidratação de óleo diesel' }
+  desidratacao_oleo_diesel: { id: 2320154, codigo: 'FV-14', nome: 'Serviço especializado em desidratação de óleo diesel' },
+
+  // --- Serviços novos, confirmados pelo comercial em 13/08/2026 (T133) ---
+
+  /**
+   * **Dois produtos ativos servem a este serviço**, e a escolha não é indiferente:
+   * FV-28 "Flushing com água" (id 3033640) e FV-29 "Serviço especializado em
+   * flushing com água" (id 3569930). Vale o FV-29 por duas fontes que concordam:
+   * a regra de ambiguidade decidida em 12/08 — **vale o mais usado** (4 usos
+   * contra 3) — e a planilha do comercial, que nomeia o FV-29.
+   */
+  flushing_agua: { id: 3569930, codigo: 'FV-29', nome: 'Serviço especializado em flushing com água' },
+  boroscopia: { id: 2315558, codigo: 'FV-10', nome: 'Serviço especializado em boroscopia' }
 };
 
 /**

@@ -16,9 +16,18 @@ export type TechnicalServiceId =
   | "passagem_pig"
   | "teste_hidrostatico"
   | "pre_engenharia"
-  | "limpeza_reservatorio";
+  | "limpeza_reservatorio"
+  | "flushing_agua"
+  | "boroscopia";
 
-export type TechnicalReportCode = "RCPU" | "RTP" | "RLR" | "RLQ";
+/**
+ * `RLF` entrou em 13/08 com o flushing com água. **Não é sigla nova para a
+ * empresa**: o filtroAPP já emite RLF (`backend/src/lib/report-rlf.js`, modelo
+ * `Modelos/definitivos/Modelo - RLF.docx`), cujo cabeçalho traz "Serviço:
+ * Flushing / Método de limpeza: Circulação pressurizada" — exatamente o serviço
+ * descrito aqui. A proposta passa a prometer o relatório que o sistema entrega.
+ */
+export type TechnicalReportCode = "RCPU" | "RTP" | "RLR" | "RLQ" | "RLF";
 export type ChemicalMaterial = "Aço carbono" | "Aço inoxidável" | "Outro metal";
 
 export type TechnicalServiceParameters = {
@@ -236,6 +245,35 @@ export const TECHNICAL_SERVICE_CATALOG: TechnicalServiceDefinition[] = [
     defaultParameters: { material: "Aço carbono", otherMaterial: "" },
     buildText: buildChemicalCleaningText,
   },
+  /**
+   * Flushing com ÁGUA — não confundir com o primário e o secundário, que
+   * circulam o próprio fluido do sistema e cobram classe NAS. Este remove
+   * particulado sólido com água e não tem critério de NAS: por isso não pergunta
+   * parâmetro nenhum. Texto e relatório vêm da planilha do comercial (13/08).
+   */
+  {
+    id: "flushing_agua",
+    title: "Flushing com água",
+    summary: "Circulação pressurizada de água em regime turbulento, para arraste de particulados.",
+    version: 1,
+    reportCode: "RLF",
+    defaultParameters: {},
+    buildText: () => `O flushing com água consiste em injetar água em uma tubulação através do método circulação pressurizada com pressão e vazão adequada para atingir o regime turbulento gerando arraste. O objetivo é deixar o sistema adequado para uso removendo os particulados sólidos livres no interior da tubulação.`,
+  },
+  /**
+   * Boroscopia é inspeção, não limpeza: **não emite relatório específico** — a
+   * planilha marcou "nenhum" de propósito, e o item 8 da proposta não ganha
+   * parágrafo por causa dela.
+   */
+  {
+    id: "boroscopia",
+    title: "Boroscopia",
+    summary: "Inspeção visual interna de componentes e estruturas industriais.",
+    version: 1,
+    reportCode: null,
+    defaultParameters: {},
+    buildText: () => `O objetivo principal da Boroscopia industrial é fornecer uma visão interna detalhada de componentes e estruturas industriais para auxiliar na identificação das condições.`,
+  },
   {
     id: "hidrojateamento",
     title: "Hidrojateamento",
@@ -305,7 +343,7 @@ Etapas previstas:
   },
 ];
 
-const REPORT_CODES = new Set<TechnicalReportCode>(["RCPU", "RTP", "RLR", "RLQ"]);
+const REPORT_CODES = new Set<TechnicalReportCode>(["RCPU", "RTP", "RLR", "RLQ", "RLF"]);
 const SERVICE_IDS = new Set<TechnicalServiceId>(TECHNICAL_SERVICE_CATALOG.map((service) => service.id));
 
 export function getTechnicalServiceDefinition(id: TechnicalServiceId) {
@@ -461,6 +499,7 @@ export function technicalReportName(code: "RDO" | TechnicalReportCode) {
     RTP: "Relatório de Teste de Pressão",
     RLR: "Relatório de Limpeza de Reservatório",
     RLQ: "Relatório de Limpeza Química",
+    RLF: "Relatório de Flushing",
   }[code];
 }
 
@@ -478,6 +517,13 @@ function reportText(code: TechnicalReportCode, selection: TechnicalServiceSelect
   }
   if (code === "RTP") {
     return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RTP (${technicalReportName(code)}) com os parâmetros do ensaio, pressão aplicada, duração, registros e resultado do teste.`;
+  }
+  if (code === "RLF") {
+    // Texto do comercial, palavra por palavra (planilha de 13/08). Ele não segue
+    // a forma "Após a conclusão do serviço de {título}" das outras: diz "do
+    // flushing", e "caso aplicado" no fim. Reescrever para uniformizar seria
+    // trocar o texto de quem responde pelo documento pelo meu gosto de frase.
+    return "Após a conclusão do flushing será emitido um RLF (relatório de flushing) descrevendo as informações específicas das atividades, bem como, as imagens do antes e depois de alguns pontos da estrutura caso aplicado.";
   }
   if (code === "RLR") {
     return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RLR (${technicalReportName(code)}) com registros fotográficos das condições anteriores e posteriores aos serviços.`;

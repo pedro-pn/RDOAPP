@@ -92,4 +92,16 @@ export const TECHNICAL_SERVICE_VISUAL_DEFINITIONS: Record<
     PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[3],
     PROPOSAL_VISUAL_DEFINITIONS.scopeReference,
   ],
+  // As mesmas do flushing primário: a tubulação antes/depois e a unidade de
+  // bombeamento ilustram os dois. O acervo não tem foto de flushing com água.
+  flushing_agua: [
+    PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[0],
+    PROPOSAL_VISUAL_DEFINITIONS.equipmentGallery[1],
+  ],
+  // Boroscopia é inspeção interna: a tubulação antes/depois e a referência de
+  // escopo são o que o acervo tem de mais próximo. Não há foto de boroscópio.
+  boroscopia: [
+    PROPOSAL_VISUAL_DEFINITIONS.serviceGallery[0],
+    PROPOSAL_VISUAL_DEFINITIONS.scopeReference,
+  ],
 };

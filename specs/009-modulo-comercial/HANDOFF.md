@@ -154,7 +154,7 @@ A finalização de verdade já está ligada. O próximo bloco é o histórico:
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**149 tarefas fechadas, 30 abertas** (13/08/2026) — o crescimento do total vem das
+**150 tarefas fechadas, 29 abertas** (13/08/2026) — o crescimento do total vem das
 sete sugestões do comercial (T121–T127, registradas em 11/08) e do bloco T128–T134
 (12/08). Este número e o de [tasks.md](./tasks.md) precisam ser corrigidos **juntos**:
 ficaram divergentes por três dias (117/47 aqui, 94/61 lá) e os dois foram lidos como
