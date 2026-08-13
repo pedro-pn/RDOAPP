@@ -7,11 +7,18 @@ import AdmZip from 'adm-zip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 import { tabelasDePrecoDoModelo } from '../../../../shared/comercial/dist/modelo-documento.js';
+import {
+  REPORTS_NOTICE,
+  TECHNICAL_REPORT_SENTENCES,
+  normalizeTechnicalServiceSelections,
+  technicalReportCodesFor
+} from '../../../../shared/comercial/dist/technical-services.js';
 import { convertDocxToPdf } from '../report-pdf-from-docx.js';
 import { EMU_POR_MM, registrarImagem, xmlDeImagem } from '../docx/imagem.js';
 import { lerDinheiro, moeda } from './dinheiro.js';
 import {
   cloneBefore,
+  elementText,
   findFirstByText,
   removeNode,
   repetirLinha,
@@ -237,6 +244,47 @@ function xmlDeTabela(bloco) {
   </w:tbl>`;
 }
 
+/**
+ * Item 8: deixa só os relatórios dos serviços contratados.
+ *
+ * **Decidido pelo mantenedor em 13/08.** O modelo traz os parágrafos de todos os
+ * relatórios, e até aqui saíam todos, sempre — uma proposta só de limpeza
+ * química prometia contagem de partículas, teste de pressão e limpeza de
+ * reservatório que ninguém contratou. A prévia da tela já mostrava só os certos,
+ * então tela e PDF discordavam, e quem vai ao cliente é o PDF.
+ *
+ * **Remove em vez de escrever.** Poderia trocar o bloco por um marcador e
+ * escrever os parágrafos, como o escopo faz — mas aí a formatação sai do modelo
+ * e passa a ser nossa, e o texto teria de ser copiado para o código, onde
+ * envelheceria em silêncio. Removendo, o que sobra é o parágrafo do documento,
+ * com a fonte, o recuo e o espaçamento que o comercial escolheu.
+ *
+ * O RDO **não é tocado**: ele aparece sempre, contratado o que for.
+ */
+function ajustarRelatorios(doc, servicos) {
+  const selecoes = normalizeTechnicalServiceSelections(servicos);
+  const contratados = new Set(technicalReportCodesFor(selecoes));
+
+  let sobrou = 0;
+  for (const [codigo, frase] of Object.entries(TECHNICAL_REPORT_SENTENCES)) {
+    // A frase pode estar partida entre vários `w:t` — a armadilha de sempre —,
+    // então a busca é pelo texto do parágrafo, não pelo XML.
+    const marca = frase.slice(0, 60);
+    for (const paragrafo of Array.from(doc.getElementsByTagName('w:p'))) {
+      if (!elementText(paragrafo).includes(marca)) continue;
+      if (contratados.has(codigo)) sobrou += 1;
+      else removeNode(paragrafo);
+    }
+  }
+
+  // "os relatórios abaixo" sem nada abaixo é frase solta. É o estado em que o
+  // modelo de hidrojateamento ficou quando o RH saiu, em 13/08.
+  if (sobrou) return;
+  for (const paragrafo of Array.from(doc.getElementsByTagName('w:p'))) {
+    if (elementText(paragrafo).includes(REPORTS_NOTICE.slice(0, 40))) removeNode(paragrafo);
+  }
+}
+
 function paragrafoDeTexto(doc, texto, { negrito = false, tamanho = 20 } = {}) {
   const xml = `<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
     <w:pPr><w:spacing w:before="60" w:after="60"/></w:pPr>
@@ -360,6 +408,7 @@ export async function preencherProposta(dados, tipo) {
       })
     );
     repetirParagrafo(doc, '{{servico}}', servicos);
+    ajustarRelatorios(doc, dados.technicalServices);
     await preencherBlocosDoEscopo(
       zip,
       doc,

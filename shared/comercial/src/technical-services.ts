@@ -461,19 +461,57 @@ export function validateTechnicalServiceSelections(selections: TechnicalServiceS
   return errors;
 }
 
-export function buildTechnicalReportEntries(selections: TechnicalServiceSelection[]) {
-  const entries: TechnicalReportEntry[] = [{
-    code: "RDO",
-    text: "Será entregue diariamente o RDO (Relatório Diário de Obra), descrevendo os serviços executados no respectivo dia de trabalho.",
-  }];
+/**
+ * As frases do item 8, **copiadas do `.docx`** — desvio nº 12: onde o texto
+ * fixo diverge do documento, o documento vence.
+ *
+ * Antes cada uma era montada em `reportText()` com o título do serviço no meio
+ * ("Após a conclusão do serviço de flushing primário, ..."). Ficava bem escrito
+ * e **não era o texto do documento**: o `.docx` fala por RELATÓRIO, não por
+ * serviço — "dos serviços de flushing e/ou filtragem absoluta" cobre sete
+ * serviços numa frase só. Com a montagem antiga, uma proposta de flushing
+ * primário e secundário imprimia o mesmo parágrafo de RCPU duas vezes.
+ *
+ * A ordem deste objeto é a ordem do documento, e é ela que sai impressa.
+ */
+export const TECHNICAL_REPORT_SENTENCES: Record<TechnicalReportCode, string> = {
+  RLQ: "Após a conclusão dos serviços de limpeza química será emitido um RLQ (relatório de limpeza química) com os registros fotográficos da tubulação, este relatório será encaminhado ao responsável pela fiscalização para aceitação dos serviços;",
+  RCPU: "Após a conclusão dos serviços de flushing e/ou filtragem absoluta, será emitido RCPU (relatório de contagem de partículas e umidade) com os registros de contagem de partículas inicial e final, este será encaminhado ao responsável pela fiscalização para aceitação dos serviços;",
+  RTP: "Após a conclusão do teste hidrostático será emitido um RTP (relatório de teste hidrostático) para cada sistema descrevendo as informações dos manômetros utilizados, pressão de projeto e teste, tempo de teste e fotos dos manômetros e sistema;",
+  RLR: "Após a conclusão dos serviços de limpeza de reservatório será emitido um RLR (relatório de limpeza de reservatório) com registros fotográficos antes e após os serviços;",
+  RLF: "Após a conclusão dos serviços de flushing será emitido um RLF (relatório de flushing) descrevendo as informações específicas das atividades, bem como, as imagens do antes e depois de alguns pontos da estrutura.",
+};
+
+/** O RDO **aparece sempre**, contratado o que for. Texto do `.docx`. */
+export const RDO_SENTENCE =
+  "Será entregue diariamente o RDO (relatório diário de obra) descrevendo quais serviços foram executados referente ao dia de trabalho.";
+
+/** A ressalva que só faz sentido quando existe relatório específico. */
+export const REPORTS_NOTICE =
+  "Obs: Visando a redução de tempo e retrabalho com manutenção de relatórios, os relatórios abaixo só serão elaborados e entregues após a regularização e aprovação dos RDOs.";
+
+/**
+ * Quais relatórios a proposta promete: o RDO e **um parágrafo por código
+ * distinto** entre os serviços contratados.
+ *
+ * Decidido pelo mantenedor em 13/08. Até aqui o documento emitido listava
+ * todos, sempre — uma proposta só de limpeza química prometia contagem de
+ * partículas, teste de pressão e limpeza de reservatório que ninguém contratou.
+ */
+export function technicalReportCodesFor(selections: TechnicalServiceSelection[]) {
+  const codes = new Set<TechnicalReportCode>();
   for (const selection of selections) {
-    if (!selection.reportCode) continue;
-    entries.push({
-      code: selection.reportCode,
-      serviceId: selection.serviceId,
-      serviceTitle: selection.title,
-      text: reportText(selection.reportCode, selection),
-    });
+    if (selection.reportCode && REPORT_CODES.has(selection.reportCode)) codes.add(selection.reportCode);
+  }
+  // A ordem é a do documento, não a da seleção: o vendedor escolhe em qualquer
+  // ordem, e o item 8 não pode embaralhar por causa disso.
+  return (Object.keys(TECHNICAL_REPORT_SENTENCES) as TechnicalReportCode[]).filter((code) => codes.has(code));
+}
+
+export function buildTechnicalReportEntries(selections: TechnicalServiceSelection[]) {
+  const entries: TechnicalReportEntry[] = [{ code: "RDO", text: RDO_SENTENCE }];
+  for (const code of technicalReportCodesFor(selections)) {
+    entries.push({ code, text: TECHNICAL_REPORT_SENTENCES[code] });
   }
   return entries;
 }
@@ -481,13 +519,9 @@ export function buildTechnicalReportEntries(selections: TechnicalServiceSelectio
 export function buildTechnicalReportsText(selections: TechnicalServiceSelection[], additionalNotes = "") {
   const entries = buildTechnicalReportEntries(selections);
   const paragraphs = entries.map((entry, index) => `8.${index + 1} — ${entry.text}`);
-  if (entries.length > 1) {
-    paragraphs.splice(
-      1,
-      0,
-      "Observação: visando reduzir tempo e retrabalho na manutenção dos relatórios, os relatórios específicos serão elaborados e entregues após a regularização e aprovação dos RDOs.",
-    );
-  }
+  // Só entra havendo relatório específico: "os relatórios abaixo" sem nada
+  // abaixo é a frase solta que o documento já teve.
+  if (entries.length > 1) paragraphs.splice(1, 0, REPORTS_NOTICE);
   if (additionalNotes.trim()) paragraphs.push(`Informações complementares: ${additionalNotes.trim()}`);
   return paragraphs.join("\n\n");
 }
@@ -503,33 +537,6 @@ export function technicalReportName(code: "RDO" | TechnicalReportCode) {
   }[code];
 }
 
-function reportText(code: TechnicalReportCode, selection: TechnicalServiceSelection) {
-  if (code === "RCPU") {
-    // As duas desidratações emitem o mesmo relatório, com o mesmo texto: o que
-    // as separa é preço e categoria no CRM, não o ensaio.
-    if (
-      selection.serviceId === "desidratacao_oleo" ||
-      selection.serviceId === "desidratacao_oleo_diesel"
-    ) {
-      return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RCPU (${technicalReportName(code)}) com os registros do teor de umidade inicial e final, para encaminhamento ao responsável pela fiscalização e aceitação dos serviços.`;
-    }
-    return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RCPU (${technicalReportName(code)}) com os registros de contagem de partículas e umidade inicial e final, para encaminhamento ao responsável pela fiscalização e aceitação dos serviços.`;
-  }
-  if (code === "RTP") {
-    return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RTP (${technicalReportName(code)}) com os parâmetros do ensaio, pressão aplicada, duração, registros e resultado do teste.`;
-  }
-  if (code === "RLF") {
-    // Texto do comercial, palavra por palavra (planilha de 13/08). Ele não segue
-    // a forma "Após a conclusão do serviço de {título}" das outras: diz "do
-    // flushing", e "caso aplicado" no fim. Reescrever para uniformizar seria
-    // trocar o texto de quem responde pelo documento pelo meu gosto de frase.
-    return "Após a conclusão do flushing será emitido um RLF (relatório de flushing) descrevendo as informações específicas das atividades, bem como, as imagens do antes e depois de alguns pontos da estrutura caso aplicado.";
-  }
-  if (code === "RLR") {
-    return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RLR (${technicalReportName(code)}) com registros fotográficos das condições anteriores e posteriores aos serviços.`;
-  }
-  return `Após a conclusão do serviço de ${selection.title.toLowerCase()}, será emitido um RLQ (${technicalReportName(code)}) com as etapas realizadas, parâmetros controlados, evidências e critérios de liberação aplicáveis.`;
-}
 
 function normalizeParameters(value: unknown, definition: TechnicalServiceDefinition) {
   const record = value && typeof value === "object" ? value as Record<string, unknown> : {};

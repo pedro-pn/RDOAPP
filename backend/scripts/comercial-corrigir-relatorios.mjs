@@ -38,7 +38,10 @@ const aplicar = process.argv.includes('--aplicar');
 /** Parágrafos a remover, reconhecidos pelo texto sem tags. */
 const REMOVER = [
   { rotulo: 'RH — relatório de hidrojateamento', teste: /RH \(relatório de hidrojateamento\)/i },
-  { rotulo: 'RTPP — relatório de passagem de PIG', teste: /RTPP \(relatório de passagem de PIG\)/i }
+  { rotulo: 'RTPP — relatório de passagem de PIG', teste: /RTPP \(relatório de passagem de PIG\)/i },
+  // Terceiro do mesmo lote, confirmado pelo mantenedor em 13/08: também não existe.
+  // A planilha de serviços novos já tinha respondido "nenhum" para a boroscopia.
+  { rotulo: 'RIB — relatório de inspeção por boroscopia', teste: /RIB \(relatório de inspeção por boroscopia\)/i }
 ];
 
 const semTags = xml => xml.replace(/<[^>]+>/g, '');

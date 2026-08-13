@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 151 tarefas fechadas, 29 abertas** (de 180). O contador
+> **Estado em 13/08/2026: 152 tarefas fechadas, 29 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -928,6 +928,38 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > nada, em silêncio**. O script ganhou uma remoção que trabalha sobre o texto
   > concatenado do parágrafo e devolve o corte aos nós certos, preservando a formatação
   > de cada run.
+
+- [X] T139 **O item 8 promete só os relatórios dos serviços contratados.** Decidido pelo
+  mantenedor em 13/08. Até aqui o documento **emitido** listava todos, sempre, porque o
+  item 8 é texto fixo do modelo — uma proposta só de limpeza química prometia contagem
+  de partículas, teste de pressão e limpeza de reservatório que ninguém contratou. O RDO
+  continua aparecendo sempre. ↳ `ajustarRelatorios` em `proposta-docx.js`,
+  `technicalReportCodesFor` em `technical-services.ts`,
+  `backend/test/comercial-relatorios-item8.test.js`.
+
+  > **O defeito estava escondido pela prévia.** A tela já montava a lista a partir dos
+  > serviços selecionados (`buildTechnicalReportsText`), e ela é usada **só pelo
+  > frontend** — o gerador do `.docx` nunca a chamou. Então quem conferia na tela via o
+  > certo, e o cliente recebia o errado. Achado ao remover RH/RTPP/RIB (T138), não por
+  > teste: nenhum teste comparava os dois lados. Agora um compara.
+  >
+  > **Remove parágrafo em vez de escrever parágrafo.** Dava para trocar o bloco por um
+  > marcador, como o escopo faz. Removendo, o que sobra é o parágrafo do documento, com
+  > a fonte, o recuo e o espaçamento que o comercial escolheu — e o texto continua
+  > morando no `.docx`, onde ele pode editar sem programador.
+  >
+  > **O `.docx` fala por RELATÓRIO, não por serviço**, e isso corrigiu um defeito que
+  > ninguém tinha notado: "dos serviços de flushing e/ou filtragem absoluta" cobre sete
+  > serviços numa frase. A montagem antiga interpolava o título do serviço, então uma
+  > proposta com flushing primário **e** secundário imprimia o parágrafo do RCPU duas
+  > vezes. Agora é um por código distinto, na ordem do documento. As frases do
+  > `reportText()` foram substituídas pelas do `.docx` (desvio nº 12), e a função morreu.
+  >
+  > **Consequência para a T133**: a frase do RLF passa a ser a do `.docx` ("Após a
+  > conclusão **dos serviços de** flushing … da estrutura.") e não a da planilha ("Após
+  > a conclusão **do** flushing … da estrutura **caso aplicado**."). Diferença de
+  > redação, mesmo conteúdo; o que a planilha decidiu — a **sigla** RLF — está aplicado
+  > nos dois lados. Manter a da planilha faria prévia e PDF discordarem de novo.
 
 ## Rastreabilidade que faltava — apontada pela revisão de 13/08
 

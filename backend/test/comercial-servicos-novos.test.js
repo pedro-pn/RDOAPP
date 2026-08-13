@@ -51,17 +51,23 @@ test('o flushing com água emite RLF, e a boroscopia não emite relatório nenhu
   assert.equal(technicalReportName('RLF'), 'Relatório de Flushing');
 });
 
-test('a frase do item 8 é a do comercial, e não a forma padrão das outras', () => {
+test('a frase do item 8 do flushing com água é a do .docx', () => {
   const texto = buildTechnicalReportsText([
     createTechnicalServiceSelection('flushing_agua', 'i1'),
   ]);
 
-  // O comercial escreveu "Após a conclusão DO FLUSHING", não "do serviço de
-  // flushing com água" como as outras frases fazem. Uniformizar seria trocar o
-  // texto de quem responde pelo documento pela minha preferência de frase.
-  assert.match(texto, /Após a conclusão do flushing será emitido um RLF \(relatório de flushing\)/);
-  assert.match(texto, /imagens do antes e depois de alguns pontos da estrutura caso aplicado\./);
-  assert.doesNotMatch(texto, /Após a conclusão do serviço de flushing com água/);
+  // **Reescrito em 13/08, e a mudança merece registro.** A primeira versão
+  // travava a frase da PLANILHA — "Após a conclusão do flushing … da estrutura
+  // caso aplicado." O item 8 passou a sair do `.docx` (T139), e lá a mesma frase
+  // está como "Após a conclusão dos serviços de flushing … da estrutura." Duas
+  // diferenças, ambas de redação: "do flushing" × "dos serviços de flushing", e
+  // o "caso aplicado" que o `.docx` não tem.
+  //
+  // Vence o `.docx`, por desvio nº 12 e porque é ele que imprime: fosse o
+  // contrário, prévia e PDF voltariam a discordar — que é o defeito que a T139
+  // fechou. O que importava da planilha era a **sigla**, e essa foi aplicada.
+  assert.match(texto, /Após a conclusão dos serviços de flushing será emitido um RLF \(relatório de flushing\)/);
+  assert.doesNotMatch(texto, /RFA/);
 });
 
 test('a boroscopia não acrescenta parágrafo ao item 8', () => {
