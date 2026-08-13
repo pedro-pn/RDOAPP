@@ -151,28 +151,13 @@
   overflow-wrap: anywhere;
 }
 
-/* Tira de seções e abas: cabe, quebra ou rola por desenho — nunca empurra a
-   página. Vale para a tira de 5 seções do levantamento e para os 7
-   indicadores de custo, que são os dois pontos de estouro conhecidos. */
-.com-root .com-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.com-root .com-tabs.com-tabs-scroll {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
-}
-
-.com-root .com-tabs > * {
-  flex: 0 1 auto;
-  min-width: 0;
-}
+/* `.com-tabs`, `.com-tabs-scroll` e `.com-secoes` foram removidas em 13/08:
+   nenhum `.tsx` as aplicava. O comentário delas afirmava resolver os dois
+   estouros conhecidos — a tira de 5 seções e os 7 indicadores —, e não
+   resolvia coisa alguma, porque as classes não chegavam a existir na tela.
+   Uma revisão do planejamento leu esse comentário como prova de que a T104
+   estava feita. Ela está, mas por outro caminho: os dois blocos REFLUEM em
+   grade, não rolam. Ver `.com-kpis` e `.com-workflow-nav`. */
 
 /* ==========================================================================
    Superfícies
@@ -619,10 +604,6 @@
   .com-root .com-secao-corpo { padding: 15px; }
 
   .com-root .com-modo-card { padding: 20px; }
-
-  /* A tira de 5 seções é um dos dois pontos de estouro conhecidos da
-     referência. Aqui ela rola dentro de si mesma, por desenho. */
-  .com-root .com-secoes { flex-wrap: nowrap; overflow-x: auto; }
 
   .com-root .com-rodape { flex-direction: column; align-items: stretch; }
 }

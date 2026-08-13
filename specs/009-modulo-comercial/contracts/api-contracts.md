@@ -84,8 +84,13 @@ listagem (FR-030).
 
 ### `POST /api/comercial/propostas/documentos`
 
-`requireComercialEstimator` + autoria. Gera os dois PDFs com `pdf-lib` e grava sob
-`COMERCIAL_DIR` **antes** de qualquer tentativa de integração.
+`requireComercialEstimator` + autoria. Preenche os modelos `.docx` de
+`Modelos/definitivos/Comercial/modelos/`, converte com o `convertDocxToPdf` dos
+relatórios e grava sob `COMERCIAL_DIR` **antes** de qualquer tentativa de integração.
+
+> Dizia "gera os dois PDFs com `pdf-lib`" até 13/08. O gerador programático existiu e
+> foi removido em 05/08 (desvio nº 12): o documento passou a ser editável por quem o
+> escreve, sem programador e sem deploy.
 
 ### `POST /api/comercial/propostas/finalizar`
 
@@ -128,9 +133,12 @@ o Nectar.
 
 ---
 
-## Arquivamento — **não há `DELETE`**
+## Arquivamento — **não se apaga registro**
 
-> Decisão do mantenedor, 31/07: só arquivar. **Nenhuma rota do módulo apaga registro.**
+> Decisão do mantenedor, 31/07: só arquivar. **Nenhuma rota do módulo apaga
+> levantamento nem proposta.** A única exclusão do módulo é a do **anexo** antes da
+> finalização (FR-078, T128) — arquivo que o vendedor acabou de juntar, não registro
+> de negócio.
 
 ### `POST /api/comercial/levantamentos/:id/arquivar` · `.../desarquivar`
 ### `POST /api/comercial/propostas/:id/arquivar` · `.../desarquivar`
@@ -189,10 +197,13 @@ escolhida), **não geocodifica** — o lugar já está identificado. Salvar com 
 
 Confere o endereço antes de salvar e devolve o que o Google encontrou, com a confiança.
 
-### `POST /api/comercial/distancia` — `requireComercialEstimator`
+### `GET /api/comercial/distancia?destino=` — `requireComercialEstimator`
 
-Sede → destino. **Nunca lança**: sem resposta, devolve o motivo específico (limite
-diário, sem rota rodoviária, sede não configurada) e a tela deixa digitar à mão.
+Sede → destino. É `GET` e não `POST`: a consulta não cria nada, e o resultado é
+cacheável pela chave composta `sede > destino`.
+
+**Nunca lança**: sem resposta, devolve o motivo específico (limite diário, sem rota
+rodoviária, sede não configurada) e a tela deixa digitar à mão.
 
 ### `GET /api/comercial/enderecos/sugestoes` — `requireComercialEstimator`
 

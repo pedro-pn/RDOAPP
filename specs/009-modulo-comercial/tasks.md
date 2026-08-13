@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 141 tarefas fechadas, 37 abertas** (de 178). O contador
+> **Estado em 13/08/2026: 141 tarefas fechadas, 38 abertas** (de 179). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -454,7 +454,7 @@ documentos e o registro no histórico.
 - [ ] T081 [US3] Implementar na tela os **4 estágios** anunciados ao usuário, na ordem da referência, a partir de `shared/comercial/finalization.ts`.  ↳ `FR-032`
 - [ ] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.  ↳ `FR-031`
 - [ ] T083 [US3] Implementar `frontend/src/pages/comercial/proposta/FinalizacaoPanel.tsx` com o download final: técnica + comercial juntas ou separadas.  ↳ `FR-033`
-- [X] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga registro** — não existe `DELETE`.  ↳ `FR-060` `FR-061` `FR-063`
+- [X] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga levantamento nem proposta.** A exceção do anexo veio depois, na T128.  ↳ `FR-060` `FR-061` `FR-063`
 - [X] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.  ↳ `FR-062`
 - [ ] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).  ↳ `FR-068`
 - [X] T085 [US3] [P] Escrever `backend/test/comercial-finalizacao.test.js`, incluindo o caso **integração falha depois dos PDFs prontos → documentos continuam baixáveis**.  ↳ `SC-009`
@@ -523,7 +523,18 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 - [ ] T103 **(L7)** Escrever o layout mobile das 4 telas. A referência **não tem layout mobile** para portar — 39 regras de `min-width` em pixel, a pior `.preview{min-width:390px}`. **Em largura de celular não há paridade pixel-a-pixel a perseguir**; o desktop continua pixel-a-pixel.  ↳ `FR-036`
 - [X] T104 **(L7)** Resolver em `frontend/src/styles/comercial.css` os dois estouros conhecidos: a **faixa de 7 indicadores de custo** e a **tira de 5 seções** — quebrar, rolar internamente por design, ou virar `select`/menu mobile, sem alargar a página.
 
-  > **Feito, e antes da fase de mobile.** Os dois estouros rolam dentro de si por desenho: `.com-tabs.com-tabs-scroll` (`comercial.css:165`) para os 7 indicadores e `.com-secoes { flex-wrap: nowrap; overflow-x: auto }` dentro do `@media (max-width: 700px)` (`:625`) para a tira de 5 seções. Marcada em 13/08, ao conferir a revisão externa.
+  > **Feito, e antes da fase de mobile — mas não por rolagem: por refluxo de grade.**
+  > Os 7 indicadores são `.com-kpis` (`FaixaIndicadores.tsx:43`), que sai de 7 colunas
+  > para 3 em 1100 px, 2 em 760 px e 1 em 480 px. A tira de 5 seções é
+  > `.com-workflow-nav` (`CustosPage.tsx:398`), que sai de 5 para 2 em 900 px e 1 em
+  > 600 px. Nenhum dos dois rola: eles cabem.
+  >
+  > **A primeira redação desta nota citava `.com-tabs` e `.com-secoes`, e estava errada
+  > duas vezes** — não são as classes desses dois blocos, e não são classe de coisa
+  > nenhuma: nenhum `.tsx` do repositório as aplica. Eram CSS morto com um comentário
+  > afirmando resolver justamente os dois estouros conhecidos, o que é a pior forma de
+  > CSS morto: ele responde por escrito uma pergunta que ninguém mais vai refazer.
+  > Removidas em 13/08.
 - [ ] T105 **(L7)** Converter em `frontend/src/styles/comercial.css` as tabelas largas em cards empilhados em tela estreita, com valores monetários, status e ações quebrando ou truncando **sem alargar o card**.  ↳ `FR-037` `FR-038`
 - [X] T106 **(L7)** Remover de `frontend/src/styles/comercial.css` a `min-width` em pixel da prévia lateral — é a regra que sozinha estoura qualquer viewport de 390 px.
 
@@ -855,3 +866,11 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > cadeia do rodapé sozinha — que é metade do critério, e a metade que já existe.
   > Registrar o resultado aqui, não só "passou": onde a pessoa travou é o que conserta
   > a tela.
+- [ ] T137 Varrer o CSS morto de `frontend/src/styles/comercial.css`. Achado ao corrigir
+  a nota da T104 em 13/08: `.com-secoes`, `.com-secao-aba` e `.com-secao-corpo` não são
+  aplicadas por nenhum `.tsx` — a tira de seções que existe de verdade é
+  `.com-workflow-nav`. **O problema não é o peso do arquivo, é o comentário**: regra
+  morta comentada como se resolvesse um problema conhecido vira prova falsa na próxima
+  auditoria, e foi exatamente o que aconteceu. Conferir cada classe contra o uso real
+  antes de remover — parte do CSS é porte fiel e pode estar esperando a tela que falta
+  (o histórico, T084).

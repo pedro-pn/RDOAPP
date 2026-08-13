@@ -25,6 +25,10 @@ plano do porte.** O `comercialAPP` gera o PDF programaticamente em
 `app/proposal-pdf.ts` (908 linhas, jsPDF), e a T072 já prevê portar esse arquivo
 para `pdf-lib` no backend. Não existe mail-merge em runtime.
 
+> **Superado em 05/08 (desvio nº 12).** O caminho passou a ser o `.docx` modelo
+> preenchido e convertido pelo LibreOffice — `proposta-docx.js`. O parágrafo acima
+> descreve a referência, que continua sendo o que ela é; o que mudou é o nosso lado.
+
 A prova de que os dois lados são a mesma coisa é o índice. O `TECHNICAL_INDEX` do
 `proposal-pdf.ts` e o ÍNDICE da proposta técnica Word são idênticos, palavra por
 palavra, nos dez itens. O mesmo vale para os treze itens do comercial. Os `.docx`

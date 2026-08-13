@@ -20,7 +20,7 @@ desta especificação — requisito que não deriva deles é invenção:
 | **Inventário de UI** | Todo elemento visível: 616 controles e 916 textos, com IDs estáveis | `contracts/ui-inventory.md` |
 | **Goldens** | Todo resultado numérico: 16 cenários, 40 invariantes | `contracts/goldens/` |
 | **Lacunas L1–L7** | O que a referência **não** tem e a constitution exige | `contracts/lacunas-constitucionais.md` |
-| **Desvios (9, lista fechada)** | Toda divergência permitida. Fora da lista **é bug** | `contracts/e0-8-desvios-e-estimativa.md` |
+| **Desvios (16, lista fechada)** | Toda divergência permitida. Fora da lista **é bug** | `contracts/e0-8-desvios-e-estimativa.md` |
 | **Baseline + roteiro** | Aparência de referência e caminho clicável revisado | `contracts/baseline/` |
 
 O plano técnico `docs/PLANO_MODULO_COMERCIAL.md` entra como **insumo/`research.md`**,
@@ -666,10 +666,10 @@ Não existe proteção na referência. É trabalho novo.
 - **FR-075**: A integração com o CRM DEVE enviar **produto do catálogo** quando o funil
   o exigir, e a **busca de empresa** por trecho depende de espelho persistido — a API do
   Nectar só casa por início. Enquanto o espelho não existir, a busca fica **desligada na
-  tela**, não meio funcionando. *(T121a/T122/T123)*
+  tela**, não meio funcionando. *(T121a, T123 e o produto em T129)*
 - **FR-076**: O destino no SharePoint DEVE poder ser identificado por `driveId` direto,
   sem descoberta de site, para caber em permissão `Sites.Selected` — a de menor alcance
-  que serve. *(T129)*
+  que serve. *(T135)*
 - **FR-077**: O uso do Google Maps DEVE ter **cota diária própria por tipo de chamada**
   (rota e sugestão contam separado) e, atingido o limite, DEVE dizer isso — não falhar
   genericamente.
