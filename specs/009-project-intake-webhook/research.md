@@ -16,13 +16,30 @@
 ### Contrato e normalização
 
 - **Decisão**: `POST /api/webhooks/projects` recebe `code`, `name`, `clientName`,
-  `clientCnpj`, `contractCode` e `location`. Todos são strings obrigatórias e têm
-  espaços externos removidos. CNPJ aceita pontuação, remove todos os caracteres não
-  numéricos e somente então exige exatamente 14 dígitos.
+  `clientCnpj`, `contractCode`, `revision` e `location`. Os textos são obrigatórios e
+  têm espaços externos removidos; `revision` é inteiro não negativo. CNPJ aceita
+  pontuação, remove todos os caracteres não numéricos e somente então exige exatamente
+  14 dígitos. O primeiro número válido do contrato é persistido como
+  “{contrato} Rev. {revisão}”.
 - **Motivo**: usa os nomes internos já consolidados e evita a função legada que trunca
   CNPJ acima de 14 dígitos, o que aceitaria entradas inválidas.
 - **Alternativas**: aliases em português e objetos aninhados ficaram fora do primeiro
   contrato para mantê-lo estável e inequívoco.
+
+### Seleção automática da revisão comercial
+
+- **Decisão**: localizar a proposta principal por `codProp`, `nRev` e
+  `parentCodProp=null`, preferindo a alteração comercial mais recente e, em empate, o
+  maior `codBd`. Sem seleção vigente, reutilizar `setProjectBudgetRevision` para montar
+  o orçamento e marcar a proposta como resolvida. Se não houver proposta, criar o
+  projeto e responder `not_found`; um reenvio idêntico tenta novamente. Se já houver
+  fonte no orçamento, preservá-la e manter o seletor manual existente disponível.
+- **Motivo**: a mesma função usada pelo gestor mantém orçamento e projeto coerentes,
+  enquanto a resposta explícita permite ao remetente distinguir vínculo, repetição,
+  preservação e ausência temporária.
+- **Alternativas**: atualizar diretamente apenas `commercialProposalCode` deixaria o
+  orçamento sem os valores da revisão; escolher sempre no reenvio poderia desfazer uma
+  correção manual.
 
 ### Número do projeto e idempotência
 

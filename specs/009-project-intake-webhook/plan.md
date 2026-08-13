@@ -7,9 +7,11 @@
 ## Summary
 
 Adicionar um endpoint sistema-a-sistema autenticado por Bearer token exclusivo para
-receber os seis dados de um projeto. O backend normaliza e valida o payload, cria o
+receber os dados de um projeto, incluindo a revisão comercial. O backend normaliza e valida o payload, cria o
 `Project` com `registrationPending=true` e defaults seguros, e usa `code` como chave de
-idempotência, inclusive em corridas concorrentes. O estado pendente já existente será
+idempotência, inclusive em corridas concorrentes. Quando contrato e revisão existirem na
+base comercial, a mesma regra da seleção manual materializa essa revisão no orçamento;
+reenvios não substituem escolhas já existentes. O estado pendente já existente será
 reaproveitado sem migração: ele impede provisionamento de contas, será reforçado nos
 endpoints que criam relatórios e alimenta o contador/bloco prioritário do gestor. A UI
 terá texto genérico de criação automática, cartão integralmente destacado, revisão
@@ -21,7 +23,7 @@ acessível dos seis campos e campanha de novidade de 10 dias.
 
 **Primary Dependencies**: Express 5, Zod 4, Prisma Client 7, React 18, TanStack Query, react-hook-form, Driver.js
 
-**Storage**: PostgreSQL 16 via Prisma; sem alteração de schema
+**Storage**: PostgreSQL 16 via Prisma; sem alteração de schema, reutilizando `CommercialProposal`, `ProjectBudget` e `Project.commercialProposalCode`
 
 **Testing**: `node:test`, testes HTTP por `app.handle`, Vite SSR para helpers frontend, ESLint, TypeScript e build Vite
 
@@ -31,9 +33,9 @@ acessível dos seis campos e campanha de novidade de 10 dias.
 
 **Performance Goals**: responder ao recebimento individual normalmente em menos de 1 segundo; refletir pendências em até 5 segundos após atualização do painel
 
-**Constraints**: uma entidade por requisição, corpo JSON até 1 MB, autenticação sem sessão humana, idempotência concorrente, nenhum segredo no log/resposta, projeto indisponível até revisão
+**Constraints**: uma entidade por requisição, corpo JSON até 1 MB, autenticação sem sessão humana, idempotência concorrente, nenhum segredo no log/resposta, projeto indisponível até revisão, seleção automática sem sobrescrever escolha manual
 
-**Scale/Scope**: um endpoint novo, uma credencial por ambiente, baixo volume esperado, seis campos, ajustes focados na aba Projetos e nos fluxos de criação de relatórios
+**Scale/Scope**: um endpoint novo, uma credencial por ambiente, baixo volume esperado, sete campos, integração focada com propostas principais já importadas e ajustes na aba Projetos e nos fluxos de criação de relatórios
 
 ## Constitution Check
 
@@ -45,8 +47,8 @@ acessível dos seis campos e campanha de novidade de 10 dias.
   de alerta; a grade de revisão passa a uma coluna em telas estreitas.
 - O payload usa Zod no backend e os seis campos da confirmação usam Zod no frontend,
   com estados de erro visíveis e acessíveis.
-- Não há alteração de schema. O modelo e o índice `registrationPending` existentes são
-  suficientes.
+- Não há alteração de schema. Os modelos de pendência, proposta comercial e orçamento
+  existentes são suficientes.
 - Idempotência, concorrência e bloqueio operacional terão testes em `backend/test`.
 - Não há drag and drop.
 - A novidade terá card centralizado e passo Driver.js, marcador por usuário/navegador e
@@ -84,6 +86,7 @@ specs/009-project-intake-webhook/
 ```text
 backend/
 ├── src/config/env.js
+├── src/lib/acompanhamento/access-import.js
 ├── src/lib/projects/project-intake.js
 ├── src/routes/index.js
 ├── src/routes/resources/project-intake-webhook.js

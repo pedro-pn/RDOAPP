@@ -22,14 +22,24 @@ curl -X POST 'https://SEU_DOMINIO/api/webhooks/projects' \
     "name": "Ilha Solteira",
     "clientName": "Cliente Exemplo S.A.",
     "clientCnpj": "12.345.678/0001-90",
-    "contractCode": "CT-2026-001",
+    "contractCode": "3088",
+    "revision": 2,
     "location": "Ilha Solteira - SP"
   }'
 ```
 
-O primeiro envio retorna HTTP 201 com `status: "created"`. Repetir exatamente os mesmos
-seis valores retorna HTTP 200 com `status: "already_exists"`. O mesmo número com algum
-dado diferente retorna HTTP 409 e não altera o projeto.
+O projeto armazena o contrato como `3088 Rev. 2`. O primeiro envio retorna HTTP 201 com
+`status: "created"`. Repetir exatamente os mesmos sete valores retorna HTTP 200 com
+`status: "already_exists"`. O mesmo número com algum dado diferente retorna HTTP 409 e
+não altera o projeto.
+
+`commercialRevision.status` informa o resultado da revisão comercial:
+
+- `selected`: revisão encontrada e selecionada automaticamente;
+- `already_selected`: a revisão pedida já era a vigente;
+- `existing_selection_preserved`: havia outra escolha vigente e ela foi preservada;
+- `not_found`: a revisão ainda não existe na base comercial; o projeto foi criado e o
+  envio idêntico pode ser repetido depois da importação.
 
 ## 3. Revisar no app
 

@@ -100,6 +100,17 @@
 - [X] T020 Executar `detect_changes`, `get_affected_flows` e `tests_for` no code-review-graph e resolver riscos ou lacunas de cobertura identificados nos arquivos alterados
 - [X] T021 Identificar explicitamente a origem webhook nos avisos de projeto pendente, sem rotular incorretamente pendências do Romaneio, em `frontend/src/pages/gestor/projectPendingReview.ts`, `frontend/src/pages/gestor/GestorPage.tsx` e testes associados
 
+## Phase 7: Seleção automática da revisão comercial
+
+**Purpose**: Usar contrato e revisão recebidos para preencher o contrato padronizado e escolher automaticamente a proposta principal já importada, sem retirar o controle manual do gestor.
+
+- [X] T022 [US1] Atualizar contrato, normalização e resposta do webhook com `revision`, contrato “{contrato} Rev. {revisão}” e estado da seleção em `backend/src/lib/projects/project-intake.js` e `specs/009-project-intake-webhook/contracts/project-intake-webhook.openapi.yaml`
+- [X] T023 [US1] Permitir que a regra existente de seleção de orçamento seja reutilizada com cliente transacional, preservando o endpoint manual, em `backend/src/lib/acompanhamento/access-import.js`
+- [X] T024 [US1] Selecionar automaticamente a proposta principal correspondente quando não houver revisão vigente, preservar escolha manual e repetir a tentativa em reenvio idempotente em `backend/src/lib/projects/project-intake.js`
+- [X] T025 [US1] Cobrir formatação, revisão inválida, seleção encontrada/ausente, desempate, reenvio posterior e preservação da escolha manual em `backend/test/project-intake-webhook.test.js` e `backend/test/acompanhamento-access-import.test.js`
+- [X] T026 Documentar o payload atualizado, respostas e comportamento de fallback em `README.md`, `specs/009-project-intake-webhook/quickstart.md`, `data-model.md` e `research.md`
+- [X] T027 Executar testes, audit, lint, build, architecture check e revisão final no code-review-graph; atualizar a PR #167
+
 ---
 
 ## Dependencies & Execution Order

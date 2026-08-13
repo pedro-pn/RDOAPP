@@ -32,3 +32,4 @@
 ## Notes
 
 - Validação concluída na primeira iteração; nenhuma clarificação bloqueante permaneceu.
+- Extensão de revisão comercial validada em 2026-08-13: seleção automática não bloqueia a criação e não substitui escolhas manuais.

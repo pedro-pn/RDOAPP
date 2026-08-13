@@ -9,7 +9,8 @@ import {
   ProjectIntakeConflictError,
   projectIntakeCreateData,
   projectIntakeSchema,
-  receiveProjectIntake
+  receiveProjectIntake,
+  selectProjectIntakeCommercialRevision
 } from '../src/lib/projects/project-intake.js';
 
 const validPayload = {
@@ -17,7 +18,8 @@ const validPayload = {
   name: 'Ilha Solteira',
   clientName: 'Cliente Exemplo S.A.',
   clientCnpj: '12.345.678/0001-90',
-  contractCode: 'CT-2026-001',
+  contractCode: '3088',
+  revision: 2,
   location: 'Ilha Solteira - SP'
 };
 
@@ -76,9 +78,11 @@ function dispatchApp(method, pathName, body, headers = {}) {
 }
 
 function projectFromPayload(payload = validPayload, overrides = {}) {
+  const projectFields = { ...projectIntakeSchema.parse(payload) };
+  delete projectFields.revision;
   return {
     id: 'project-1',
-    ...projectIntakeSchema.parse(payload),
+    ...projectFields,
     registrationPending: true,
     ...overrides
   };
@@ -87,6 +91,8 @@ function projectFromPayload(payload = validPayload, overrides = {}) {
 function stubProjectClient(t, { existing = null, created = projectFromPayload(), createError = null, concurrent = null } = {}) {
   const originalFindUnique = prisma.project.findUnique;
   const originalCreate = prisma.project.create;
+  const originalBudgetFindUnique = prisma.projectBudget.findUnique;
+  const originalProposalFindFirst = prisma.commercialProposal.findFirst;
   let findCount = 0;
   const calls = [];
   prisma.project.findUnique = async args => {
@@ -99,11 +105,33 @@ function stubProjectClient(t, { existing = null, created = projectFromPayload(),
     if (createError) throw createError;
     return created;
   };
+  prisma.projectBudget.findUnique = async args => {
+    calls.push(['budgetFindUnique', args]);
+    return null;
+  };
+  prisma.commercialProposal.findFirst = async args => {
+    calls.push(['proposalFindFirst', args]);
+    return null;
+  };
   t.after(() => {
     prisma.project.findUnique = originalFindUnique;
     prisma.project.create = originalCreate;
+    prisma.projectBudget.findUnique = originalBudgetFindUnique;
+    prisma.commercialProposal.findFirst = originalProposalFindFirst;
   });
   return calls;
+}
+
+function intakeClient(project) {
+  return {
+    project,
+    projectBudget: {
+      async findUnique() { return null; }
+    },
+    commercialProposal: {
+      async findFirst() { return null; }
+    }
+  };
 }
 
 function configureToken(t, token) {
@@ -114,27 +142,35 @@ function configureToken(t, token) {
   });
 }
 
-test('project intake schema trims text, preserves leading zeroes and normalizes punctuation from CNPJ', () => {
+test('project intake schema normalizes fields and formats the contract with its revision', () => {
   const parsed = projectIntakeSchema.parse({
     ...validPayload,
     code: ' 005719 ',
     name: ' Ilha Solteira ',
-    clientCnpj: '12.345.678/0001-90'
+    clientCnpj: '12.345.678/0001-90',
+    contractCode: ' 3088 '
   });
 
   assert.equal(parsed.code, '005719');
   assert.equal(parsed.name, 'Ilha Solteira');
   assert.equal(parsed.clientCnpj, '12345678000190');
+  assert.equal(parsed.contractCode, '3088 Rev. 2');
+  assert.equal(parsed.revision, 2);
 });
 
-test('project intake schema rejects missing, extra and invalid CNPJ fields', () => {
+test('project intake schema rejects missing, extra, invalid CNPJ and invalid revision fields', () => {
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, location: '' }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, clientCnpj: '1234567890123' }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, clientCnpj: '123456789012345' }));
+  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: undefined }));
+  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: -1 }));
+  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: 1.5 }));
+  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: '2' }));
+  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, contractCode: 'sem-numero' }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, unexpected: 'field' }));
 });
 
-test('project intake defaults keep a new project pending and operationally restricted', () => {
+test('projectIntakeCreateData keeps a new project pending and operationally restricted', () => {
   const data = projectIntakeCreateData(projectIntakeSchema.parse(validPayload));
   assert.equal(data.registrationPending, true);
   assert.equal(data.visibleToCollaborators, false);
@@ -142,6 +178,136 @@ test('project intake defaults keep a new project pending and operationally restr
   assert.equal(data.clientEmailPrimary, '');
   assert.deepEqual(data.clientEmailCc, []);
   assert.deepEqual(data.clientSigners, []);
+  assert.equal(data.contractCode, '3088 Rev. 2');
+  assert.equal('revision' in data, false);
+});
+
+test('selectProjectIntakeCommercialRevision selects the matching primary proposal through the existing budget flow', async () => {
+  const intake = projectIntakeSchema.parse(validPayload);
+  const project = projectFromPayload();
+  const proposal = {
+    codBd: 9902,
+    codProp: 3088,
+    nRev: 2,
+    parentCodProp: null,
+    serviceModality: 'INLOCO',
+    salePrice: 1000,
+    plannedCost: 600,
+    expectedProfit: 400,
+    expectedMargin: 40,
+    taxes: 100,
+    plannedDays: 5,
+    mobilizationLeadDays: 2,
+    isComplete: true
+  };
+  const calls = [];
+  const client = {
+    commercialProposal: {
+      async findFirst(args) {
+        calls.push(['proposalFindFirst', args]);
+        return proposal;
+      },
+      async findUnique(args) {
+        calls.push(['proposalFindUnique', args]);
+        return proposal;
+      }
+    },
+    projectBudget: {
+      async findUnique() { return null; },
+      async upsert(args) {
+        calls.push(['budgetUpsert', args]);
+        return { sourceProposalCodBd: proposal.codBd };
+      }
+    },
+    project: {
+      async findUnique() { return project; },
+      async update(args) {
+        calls.push(['projectUpdate', args]);
+        return project;
+      }
+    },
+    async $transaction(callback) { return callback(client); }
+  };
+
+  const result = await selectProjectIntakeCommercialRevision(project, intake, client);
+
+  assert.deepEqual(result, {
+    status: 'selected',
+    contractCode: '3088',
+    revision: 2,
+    selectedCodBd: 9902
+  });
+  const lookup = calls.find(([name]) => name === 'proposalFindFirst')[1];
+  assert.deepEqual(lookup.where, { codProp: 3088, nRev: 2, parentCodProp: null });
+  assert.deepEqual(lookup.orderBy, [
+    { modifiedInAccessAt: { sort: 'desc', nulls: 'last' } },
+    { codBd: 'desc' }
+  ]);
+  assert.equal(calls.some(([name]) => name === 'budgetUpsert'), true);
+  assert.equal(calls.some(([name]) => name === 'projectUpdate'), true);
+});
+
+test('selectProjectIntakeCommercialRevision preserves an existing manual selection', async () => {
+  const project = projectFromPayload();
+  let mutationCount = 0;
+  const result = await selectProjectIntakeCommercialRevision(project, projectIntakeSchema.parse(validPayload), {
+    projectBudget: {
+      async findUnique() { return { sourceProposalCodBd: 8801 }; }
+    },
+    commercialProposal: {
+      async findFirst() { return { codBd: 9902 }; }
+    },
+    project: {
+      async update() { mutationCount += 1; }
+    }
+  });
+
+  assert.equal(result.status, 'existing_selection_preserved');
+  assert.equal(result.selectedCodBd, 8801);
+  assert.equal(mutationCount, 0);
+});
+
+test('receiveProjectIntake selects a revision imported after the first idempotent webhook', async () => {
+  const existing = projectFromPayload(validPayload, { registrationPending: false });
+  let proposal = null;
+  let selectedCodBd = null;
+  const client = {
+    commercialProposal: {
+      async findFirst() { return proposal ? { codBd: proposal.codBd } : null; },
+      async findUnique() { return proposal; }
+    },
+    projectBudget: {
+      async findUnique() {
+        return selectedCodBd === null ? null : { sourceProposalCodBd: selectedCodBd };
+      },
+      async upsert(args) {
+        selectedCodBd = args.create.sourceProposalCodBd;
+        return { sourceProposalCodBd: selectedCodBd };
+      }
+    },
+    project: {
+      async findUnique() { return existing; },
+      async create() { throw new Error('must not create'); },
+      async update() { return existing; }
+    },
+    async $transaction(callback) { return callback(client); }
+  };
+
+  const beforeImport = await receiveProjectIntake(validPayload, client);
+  assert.equal(beforeImport.commercialRevision.status, 'not_found');
+
+  proposal = {
+    codBd: 9902,
+    codProp: 3088,
+    nRev: 2,
+    parentCodProp: null,
+    isComplete: false
+  };
+  const afterImport = await receiveProjectIntake(validPayload, client);
+  assert.equal(afterImport.status, 'already_exists');
+  assert.equal(afterImport.project.registrationPending, false);
+  assert.equal(afterImport.commercialRevision.status, 'selected');
+  assert.equal(afterImport.commercialRevision.selectedCodBd, 9902);
 });
 
 test('POST /api/webhooks/projects returns 503 when the integration is not configured', async t => {
@@ -173,9 +339,12 @@ test('POST /api/webhooks/projects creates and returns a normalized pending proje
 
   assert.equal(response.statusCode, 201);
   assert.equal(response.json.status, 'created');
+  assert.equal(response.json.commercialRevision.status, 'not_found');
   const createCall = calls.find(([name]) => name === 'create');
   assert.equal(createCall[1].data.code, '005719');
   assert.equal(createCall[1].data.clientCnpj, '12345678000190');
+  assert.equal(createCall[1].data.contractCode, '3088 Rev. 2');
+  assert.equal('revision' in createCall[1].data, false);
   assert.equal(createCall[1].data.registrationPending, true);
 });
 
@@ -183,14 +352,13 @@ test('receiveProjectIntake treats an identical pending or reviewed project as id
   for (const registrationPending of [true, false]) {
     let createCount = 0;
     const existing = projectFromPayload(validPayload, { registrationPending });
-    const result = await receiveProjectIntake(validPayload, {
-      project: {
-        async findUnique() { return existing; },
-        async create() { createCount += 1; }
-      }
-    });
+    const result = await receiveProjectIntake(validPayload, intakeClient({
+      async findUnique() { return existing; },
+      async create() { createCount += 1; }
+    }));
     assert.equal(result.status, 'already_exists');
     assert.equal(result.project.registrationPending, registrationPending);
+    assert.equal(result.commercialRevision.status, 'not_found');
     assert.equal(createCount, 0);
   }
 });
@@ -204,12 +372,10 @@ test('receiveProjectIntake rejects a divergent existing project without updating
     ['location', 'Outro local']
   ]) {
     await assert.rejects(
-      receiveProjectIntake(validPayload, {
-        project: {
+      receiveProjectIntake(validPayload, intakeClient({
           async findUnique() { return projectFromPayload(validPayload, { [field]: value }); },
           async create() { throw new Error('must not create'); }
-        }
-      }),
+      })),
       error => error instanceof ProjectIntakeConflictError && error.code === 'PROJECT_CODE_CONFLICT',
       field
     );
@@ -217,29 +383,25 @@ test('receiveProjectIntake rejects a divergent existing project without updating
 });
 
 test('receiveProjectIntake treats an existing soft-deleted record as a reserved code', async () => {
-  await assert.rejects(receiveProjectIntake(validPayload, {
-    project: {
+  await assert.rejects(receiveProjectIntake(validPayload, intakeClient({
       async findUnique() {
         return projectFromPayload(validPayload, { deletedAt: new Date(), name: 'Projeto excluído' });
       },
       async create() { throw new Error('must not create'); }
-    }
-  }), ProjectIntakeConflictError);
+  })), ProjectIntakeConflictError);
 });
 
 test('receiveProjectIntake recovers a concurrent equal project after P2002', async () => {
   const uniqueError = new Error('unique project code');
   uniqueError.code = 'P2002';
   let findCount = 0;
-  const result = await receiveProjectIntake(validPayload, {
-    project: {
+  const result = await receiveProjectIntake(validPayload, intakeClient({
       async findUnique() {
         findCount += 1;
         return findCount === 1 ? null : projectFromPayload();
       },
       async create() { throw uniqueError; }
-    }
-  });
+  }));
   assert.equal(result.status, 'already_exists');
 });
 
@@ -247,15 +409,13 @@ test('receiveProjectIntake rejects a concurrent divergent project after P2002', 
   const uniqueError = new Error('unique project code');
   uniqueError.code = 'P2002';
   let findCount = 0;
-  await assert.rejects(receiveProjectIntake(validPayload, {
-    project: {
+  await assert.rejects(receiveProjectIntake(validPayload, intakeClient({
       async findUnique() {
         findCount += 1;
         return findCount === 1 ? null : projectFromPayload(validPayload, { contractCode: 'OUTRO' });
       },
       async create() { throw uniqueError; }
-    }
-  }), ProjectIntakeConflictError);
+  })), ProjectIntakeConflictError);
 });
 
 test('POST /api/webhooks/projects returns a stable conflict without exposing internals', async t => {

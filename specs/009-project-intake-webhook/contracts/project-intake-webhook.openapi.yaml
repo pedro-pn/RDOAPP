@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Project Intake Webhook
-  version: 1.0.0
+  version: 1.1.0
 paths:
   /api/webhooks/projects:
     post:
@@ -46,13 +46,22 @@ components:
     ProjectIntake:
       type: object
       additionalProperties: false
-      required: [code, name, clientName, clientCnpj, contractCode, location]
+      required: [code, name, clientName, clientCnpj, contractCode, revision, location]
       properties:
         code: { type: string, minLength: 1, example: '005719' }
         name: { type: string, minLength: 1, example: Ilha Solteira }
         clientName: { type: string, minLength: 1, example: Cliente Exemplo S.A. }
         clientCnpj: { type: string, example: 12.345.678/0001-90 }
-        contractCode: { type: string, minLength: 1, example: CT-2026-001 }
+        contractCode:
+          type: string
+          minLength: 1
+          example: '3088'
+          description: Número do contrato/proposta; será persistido no formato “3088 Rev. 2”.
+        revision:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          example: 2
         location: { type: string, minLength: 1, example: Ilha Solteira - SP }
     ProjectSummary:
       type: object
@@ -68,10 +77,28 @@ components:
         registrationPending: { type: boolean }
     ProjectIntakeResult:
       type: object
-      required: [status, project]
+      required: [status, project, commercialRevision]
       properties:
         status:
           type: string
           enum: [created, already_exists]
         project:
           $ref: '#/components/schemas/ProjectSummary'
+        commercialRevision:
+          $ref: '#/components/schemas/CommercialRevisionResult'
+    CommercialRevisionResult:
+      type: object
+      required: [status, contractCode, revision, selectedCodBd]
+      properties:
+        status:
+          type: string
+          enum: [selected, already_selected, existing_selection_preserved, not_found]
+        contractCode:
+          type: string
+          example: '3088'
+        revision:
+          type: integer
+          example: 2
+        selectedCodBd:
+          type: [integer, 'null']
+          description: Identificador da revisão vigente no banco comercial, quando houver.

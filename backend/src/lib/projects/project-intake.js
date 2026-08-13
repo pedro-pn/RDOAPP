@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+import {
+  contractToProposalCode,
+  setProjectBudgetRevisionWithClient
+} from '../acompanhamento/access-import.js';
 import prisma from '../prisma.js';
 import { statisticsProjectsCache } from '../resource-list-cache.js';
 
@@ -15,14 +19,37 @@ const cnpjSchema = z.string()
   .transform(value => value.replace(/\D/g, ''))
   .refine(value => value.length === 14, 'CNPJ deve conter exatamente 14 dígitos.');
 
-export const projectIntakeSchema = z.object({
+const rawProjectIntakeSchema = z.object({
   code: requiredText('Número do projeto', 80),
   name: requiredText('Nome do projeto', 240),
   clientName: requiredText('Cliente', 240),
   clientCnpj: cnpjSchema,
   contractCode: requiredText('Contrato', 160),
+  revision: z.number({ invalid_type_error: 'Revisão deve ser um número inteiro.' })
+    .int('Revisão deve ser um número inteiro.')
+    .min(0, 'Revisão deve ser maior ou igual a zero.')
+    .max(2_147_483_647, 'Revisão excede o limite permitido.'),
   location: requiredText('Local', 240)
 }).strict('O payload contém campos não reconhecidos.');
+
+export const projectIntakeSchema = rawProjectIntakeSchema
+  .superRefine((data, ctx) => {
+    const proposalCode = contractToProposalCode(data.contractCode);
+    if (!Number.isSafeInteger(proposalCode) || proposalCode <= 0 || proposalCode > 2_147_483_647) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['contractCode'],
+        message: 'Contrato deve conter um número válido.'
+      });
+    }
+  })
+  .transform(data => {
+    const proposalCode = contractToProposalCode(data.contractCode);
+    return {
+      ...data,
+      contractCode: `${proposalCode} Rev. ${data.revision}`
+    };
+  });
 
 export const projectIntakePublicSelect = {
   id: true,
@@ -54,8 +81,10 @@ export class ProjectIntakeConflictError extends Error {
 }
 
 export function projectIntakeCreateData(data) {
+  const projectData = { ...data };
+  delete projectData.revision;
   return {
-    ...data,
+    ...projectData,
     isActive: true,
     visibleToCollaborators: false,
     managerOnly: false,
@@ -86,12 +115,13 @@ export function projectMatchesIntake(project, intake) {
   return PROJECT_INTAKE_COMPARISON_FIELDS.every(field => comparableProject[field] === intake[field]);
 }
 
-function resolveExistingProject(project, intake) {
+async function resolveExistingProject(project, intake, client) {
   if (!projectMatchesIntake(project, intake)) {
     throw new ProjectIntakeConflictError();
   }
   statisticsProjectsCache.clear();
-  return { status: 'already_exists', project };
+  const commercialRevision = await selectProjectIntakeCommercialRevision(project, intake, client);
+  return { status: 'already_exists', project, commercialRevision };
 }
 
 function isUniqueConstraintError(error) {
@@ -105,7 +135,7 @@ export async function receiveProjectIntake(rawInput, client = prisma) {
     select: projectIntakePublicSelect
   });
 
-  if (existing) return resolveExistingProject(existing, intake);
+  if (existing) return resolveExistingProject(existing, intake, client);
 
   try {
     const project = await client.project.create({
@@ -113,7 +143,8 @@ export async function receiveProjectIntake(rawInput, client = prisma) {
       select: projectIntakePublicSelect
     });
     statisticsProjectsCache.clear();
-    return { status: 'created', project };
+    const commercialRevision = await selectProjectIntakeCommercialRevision(project, intake, client);
+    return { status: 'created', project, commercialRevision };
   } catch (error) {
     if (!isUniqueConstraintError(error)) throw error;
     const concurrentProject = await client.project.findUnique({
@@ -121,6 +152,49 @@ export async function receiveProjectIntake(rawInput, client = prisma) {
       select: projectIntakePublicSelect
     });
     if (!concurrentProject) throw error;
-    return resolveExistingProject(concurrentProject, intake);
+    return resolveExistingProject(concurrentProject, intake, client);
   }
+}
+
+export async function selectProjectIntakeCommercialRevision(project, intake, client = prisma) {
+  const proposalCode = contractToProposalCode(intake.contractCode);
+  const [currentBudget, matchingProposal] = await Promise.all([
+    client.projectBudget.findUnique({
+      where: { projectId_version: { projectId: project.id, version: 1 } },
+      select: { sourceProposalCodBd: true }
+    }),
+    client.commercialProposal.findFirst({
+      where: { codProp: proposalCode, nRev: intake.revision, parentCodProp: null },
+      orderBy: [
+        { modifiedInAccessAt: { sort: 'desc', nulls: 'last' } },
+        { codBd: 'desc' }
+      ],
+      select: { codBd: true }
+    })
+  ]);
+  const selectedCodBd = currentBudget?.sourceProposalCodBd ?? null;
+  const resultBase = {
+    contractCode: String(proposalCode),
+    revision: intake.revision
+  };
+
+  if (selectedCodBd !== null) {
+    return {
+      status: selectedCodBd === matchingProposal?.codBd
+        ? 'already_selected'
+        : 'existing_selection_preserved',
+      ...resultBase,
+      selectedCodBd
+    };
+  }
+  if (!matchingProposal) {
+    return { status: 'not_found', ...resultBase, selectedCodBd: null };
+  }
+
+  await setProjectBudgetRevisionWithClient(client, project.id, matchingProposal.codBd);
+  return {
+    status: 'selected',
+    ...resultBase,
+    selectedCodBd: matchingProposal.codBd
+  };
 }

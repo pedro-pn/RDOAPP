@@ -654,14 +654,14 @@ export async function setProjectSchedule(projectId, {
   });
 }
 
-// Define qual revisão (codBd) é a que vale: recalcula o orçamento e marca o projeto como resolvido.
-export async function setProjectBudgetRevision(projectId, codBd) {
-  const proposal = await prisma.commercialProposal.findUnique({ where: { codBd } });
+// Variante interna reutilizável por integrações, com client/transaction explícito.
+export async function setProjectBudgetRevisionWithClient(client, projectId, codBd) {
+  const proposal = await client.commercialProposal.findUnique({ where: { codBd } });
   if (!proposal) throw new Error('Revisão não encontrada.');
   if (proposal.parentCodProp !== null && proposal.parentCodProp !== undefined) {
     throw new Error('A revisão informada é de uma proposta adicional. Use a seleção de proposta adicional.');
   }
-  const project = await prisma.project.findUnique({
+  const project = await client.project.findUnique({
     where: { id: projectId },
     select: { id: true, commercialProposalCode: true, contractCode: true, code: true }
   });
@@ -670,14 +670,22 @@ export async function setProjectBudgetRevision(projectId, codBd) {
   if (proposal.codProp !== codProp) {
     throw new Error('A revisão informada não pertence a este projeto.');
   }
-  return prisma.$transaction(async (tx) => {
+  const applyRevision = async (tx) => {
     const budget = await upsertBudget(tx, projectId, proposal);
     await tx.project.update({
       where: { id: projectId },
       data: { commercialProposalCode: String(codProp) }
     });
     return budget;
-  });
+  };
+  return typeof client.$transaction === 'function'
+    ? client.$transaction(applyRevision)
+    : applyRevision(client);
+}
+
+// Define qual revisão (codBd) é a que vale: recalcula o orçamento e marca o projeto como resolvido.
+export async function setProjectBudgetRevision(projectId, codBd) {
+  return setProjectBudgetRevisionWithClient(prisma, projectId, codBd);
 }
 
 export async function setProjectAdditionalProposalRevision(projectId, codBd, { selectedByUserId = null } = {}) {
