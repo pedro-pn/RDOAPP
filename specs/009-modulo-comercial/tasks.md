@@ -14,14 +14,14 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 143 tarefas fechadas, 36 abertas** (de 179). O contador
+> **Estado em 13/08/2026: 146 tarefas fechadas, 33 abertas** (de 179). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
 >
-> O caminho crítico do que falta, em ordem: finalização de verdade na tela
-> (T081–T083) → histórico (T084) → concorrência de edição (T079b) →
-> busca do CRM na etapa Cliente (T121a). Depois: arrastar (T068–T071), tutorial e
+> O caminho crítico do que falta, em ordem: histórico (T084) → concorrência de
+> edição (T079b) → busca do CRM na etapa Cliente (T121a). Depois: arrastar
+> (T068–T071), tutorial e
 > login (T096–T098a), validação das 7 etapas (T067), mobile restante e a matriz de
 > permissões (T108–T112).
 
@@ -462,9 +462,17 @@ documentos e o registro no histórico.
 - [X] T079a [US3] Implementar a **exclusividade da finalização** (FR-069) em `backend/lib/comercial/proposals.js`: verificar o estado **antes de gerar qualquer coisa** e devolver **409** informando **quando e por quem** foi finalizada. Sem isso, dois cliques com segundos de diferença geram dois pares de documentos, duas oportunidades no CRM e duas pastas — e as duas requisições respondem sucesso.  ↳ `FR-069`
 - [ ] T079b [US3] Implementar o **aviso de escrita concorrente** (FR-070) em `backend/lib/comercial/access.js`: comparar o `updatedAt` carregado pelo cliente com o atual e devolver **409** nomeando quem alterou e quando. **Aviso, não trava** — o cliente decide recarregar ou prosseguir.  ↳ `FR-070`
 - [X] T080 [US3] Registrar `ProposalAuditLog` em `backend/lib/comercial/proposals.js` nas duas ações irreversíveis — finalização e envio externo —, no padrão de `ReportAuditLog`.
-- [ ] T081 [US3] Implementar na tela os **4 estágios** anunciados ao usuário, na ordem da referência, a partir de `shared/comercial/finalization.ts`.  ↳ `FR-032`
-- [ ] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.  ↳ `FR-031`
-- [ ] T083 [US3] Implementar `frontend/src/pages/comercial/proposta/FinalizacaoPanel.tsx` com o download final: técnica + comercial juntas ou separadas.  ↳ `FR-033`
+- [X] T081 [US3] Implementar na tela os **4 estágios** anunciados ao usuário, na ordem da referência, a partir de `shared/comercial/finalization.ts`.  ↳ `FR-032`
+- [X] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.  ↳ `FR-031`
+- [X] T083 [US3] Implementar `frontend/src/pages/comercial/proposta/FinalizacaoPanel.tsx` com o download final: técnica + comercial juntas ou separadas.  ↳ `FR-033`
+
+  > **Feitas em 13/08.** A tela chama a finalização real, carrega somente os funis
+  > autorizados, persiste/remove anexos e mostra a sequência congelada. O `502` de
+  > integração não é achatado pelo interceptor global: os dois documentos chegam
+  > ao painel e continuam baixáveis, juntos ou separados. A validação cobre os oito
+  > grupos da referência antes de gerar. Em proposta nova, empresa e contato ainda
+  > dependem da busca da etapa Cliente (T121a); a pendência fica explícita em vez de
+  > criar vínculo a partir de texto livre.
 - [X] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga levantamento nem proposta.** A exceção do anexo veio depois, na T128.  ↳ `FR-060` `FR-061` `FR-063`
 - [X] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.  ↳ `FR-062`
 - [ ] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).  ↳ `FR-068`

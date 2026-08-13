@@ -13,16 +13,13 @@ import {
 } from '../../../../../shared/comercial/dist/scope-content.js';
 import {
   atualizarProposta,
-  baixarDocumento,
   baixarPreviaEmPdf,
   criarProposta,
-  emitirDocumentos,
   listarConsultores,
   mensagemDeErro,
   obterProposta,
   reservarProximoNumero,
-  type Consultor,
-  type DocumentoEmitido
+  type Consultor
 } from '../../../api/comercial';
 import { useAuth } from '../../../auth/AuthContext';
 import { moduleRoutePath } from '../../../modules/registry';
@@ -56,17 +53,20 @@ import {
   type ConteudoDaProposta
 } from './salvamento';
 import type { TipoDeDocumento } from './DocumentoPrevia';
+import { FinalizacaoPanel } from './FinalizacaoPanel';
 import { PropostaFooter } from './PropostaFooter';
 import { PropostaModeDialog } from './PropostaModeDialog';
 import { PropostaModeloDialog } from './PropostaModeloDialog';
 import { PropostaPreviewPanel } from './PropostaPreviewPanel';
+import { ETAPAS_VISIVEIS_DA_FINALIZACAO } from './finalizacao';
+import { usePropostaFinalizacao } from './usePropostaFinalizacao';
 import { usePropostaRevision } from './usePropostaRevision';
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
 import { PrazosStep } from './steps/PrazosStep';
 import { ComercialStep } from './steps/ComercialStep';
 import { ResponsabilidadesStep } from './steps/ResponsabilidadesStep';
-import { RevisaoStep, type EscolhaDeDownload } from './steps/RevisaoStep';
+import { RevisaoStep } from './steps/RevisaoStep';
 import { TecnicaStep } from './steps/TecnicaStep';
 
 /**
@@ -180,9 +180,6 @@ export function PropostaPage() {
     { description: '', unit: '', quantity: '1', unitValue: '', value: '' }
   ]);
   const [incluirUnitario, setIncluirUnitario] = useState(true);
-  const [escolhaDownload, setEscolhaDownload] = useState<EscolhaDeDownload>('both');
-  const [pastaOneDrive, setPastaOneDrive] = useState('');
-  const [anexos, setAnexos] = useState<File[]>([]);
   const [documentoNaPrevia, setDocumentoNaPrevia] = useState<TipoDeDocumento>('commercial');
 
   // A validação técnica inteira vem de `shared/comercial` — é regra de
@@ -196,7 +193,6 @@ export function PropostaPage() {
   const [recado, setRecado] = useState('');
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const [emitidos, setEmitidos] = useState<DocumentoEmitido[]>([]);
   const { aplicarSnapshot, carregarRevisao, setVinculoCrm, vinculoCrm } =
     usePropostaRevision({
       modo,
@@ -237,6 +233,16 @@ export function PropostaPage() {
     },
     ativo: true,
     rotulo: 'Proposta'
+  });
+
+  const finalizacao = usePropostaFinalizacao({
+    propostaId,
+    form,
+    orcamentista: user?.name || '',
+    salvar,
+    setRecado,
+    vinculoCrm,
+    setVinculoCrm
   });
 
   /**
@@ -287,6 +293,7 @@ export function PropostaPage() {
         if (!vivo) return;
         const dados = (proposta.payload ?? {}) as AnyRecord;
         aplicarSnapshot(dados, proposta.sellerUserId);
+        finalizacao.marcarFinalizada(proposta.status === 'FINALIZADA');
         setVinculoCrm(
           proposta.nectarOpportunityId
             ? {
@@ -357,7 +364,7 @@ export function PropostaPage() {
     if (pendencias.length > 0) return;
 
     if (ultima) {
-      await emitir();
+      await finalizacao.concluirFinalizacao();
       return;
     }
 
@@ -435,6 +442,7 @@ export function PropostaPage() {
     proximos.delete('id');
     setParams(proximos, { replace: true });
     setVinculoCrm(null);
+    finalizacao.reiniciarFinalizacao();
     setRecado('');
   }
 
@@ -479,55 +487,6 @@ export function PropostaPage() {
     } finally {
       setSalvando(false);
     }
-  }
-
-  /**
-   * Emite os dois documentos e baixa o que o usuário escolheu.
-   *
-   * **Não é a finalização.** Nada é enviado ao Nectar nem ao SharePoint — essa
-   * parte ainda não existe. O que acontece aqui é o que o servidor já garante:
-   * os dois PDFs são gerados e **gravados** antes de qualquer integração.
-   *
-   * As duas propostas são sempre geradas; a escolha decide só o que é baixado.
-   */
-  async function emitir() {
-    const id = await salvar();
-    if (!id) return;
-
-    setGerandoPdf(true);
-    setRecado('Gerando a proposta técnica e a comercial...');
-    try {
-      const { documentos } = await emitirDocumentos(id);
-      setEmitidos(documentos);
-
-      const querer = (kind: DocumentoEmitido['kind']) =>
-        escolhaDownload === 'both' ||
-        (escolhaDownload === 'commercial' && kind === 'COMERCIAL') ||
-        (escolhaDownload === 'technical' && kind === 'TECNICA');
-
-      for (const documento of documentos) {
-        if (querer(documento.kind)) await baixar(documento);
-      }
-
-      setRecado(
-        'Documentos gerados e guardados no servidor. O envio ao Nectar e ao ' +
-          'SharePoint ainda não está disponível.'
-      );
-    } catch (error) {
-      setRecado(mensagemDeErro(error, 'Não foi possível gerar os documentos.'));
-    } finally {
-      setGerandoPdf(false);
-    }
-  }
-
-  async function baixar(documento: DocumentoEmitido) {
-    const blob = await baixarDocumento(documento.id);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = documento.fileName;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   /**
@@ -779,12 +738,26 @@ export function PropostaPage() {
           form={form}
           codigo={codigoExibido}
           vinculoCrm={vinculoCrm}
-          escolha={escolhaDownload}
-          onEscolha={setEscolhaDownload}
-          pastaOneDrive={pastaOneDrive}
-          onPastaOneDrive={setPastaOneDrive}
-          anexos={anexos}
-          onAnexos={setAnexos}
+          funis={finalizacao.funis}
+          funisCarregando={finalizacao.funisCarregando}
+          funisMensagem={finalizacao.funisMensagem}
+          funilId={finalizacao.funilId}
+          onFunil={finalizacao.escolherFunil}
+          escolhaCard={finalizacao.escolhaCard}
+          onEscolhaCard={finalizacao.escolherCard}
+          escolha={finalizacao.escolhaDownload}
+          onEscolha={finalizacao.setEscolhaDownload}
+          pastaOneDrive={finalizacao.pastaOneDrive}
+          onPastaOneDrive={finalizacao.setPastaOneDrive}
+          anexos={finalizacao.anexos}
+          onAnexos={finalizacao.setAnexos}
+          anexosEnviados={finalizacao.anexosEnviados}
+          removendoAnexoId={finalizacao.removendoAnexoId}
+          onRemoverAnexo={id => {
+            finalizacao.removerAnexo(id).catch(() => {});
+          }}
+          erroFinalizacao={finalizacao.erroFinalizacao}
+          bloqueada={finalizacao.bloqueada}
         />
       )}
 
@@ -794,31 +767,37 @@ export function PropostaPage() {
         </p>
       )}
 
-      {/* Emitidos e guardados no servidor. Ficam à mão porque o download pode
-          ter sido bloqueado pelo navegador, ou a pessoa pode ter escolhido só
-          uma das duas e mudado de ideia — os arquivos continuam lá. */}
-      {emitidos.length > 0 && (
-        <section className="com-painel com-emitidos">
-          <strong>Documentos emitidos</strong>
-          <ul>
-            {emitidos.map(documento => (
-              <li key={documento.id}>
-                <button
-                  type="button"
-                  className="com-btn com-btn-fantasma"
-                  onClick={() => {
-                    baixar(documento).catch(error =>
-                      setRecado(mensagemDeErro(error, 'Não foi possível baixar o documento.'))
-                    );
-                  }}
-                >
-                  Baixar {documento.fileName}
-                </button>
+      {finalizacao.etapaFinalizacao >= 0 && (
+        <section className="com-painel com-progresso-finalizacao" aria-live="polite">
+          <strong>Finalização da proposta</strong>
+          <ol>
+            {ETAPAS_VISIVEIS_DA_FINALIZACAO.map((item, i) => (
+              <li
+                key={item.etapaTecnica}
+                className={
+                  i < finalizacao.etapaFinalizacao
+                    ? 'is-concluida'
+                    : i === finalizacao.etapaFinalizacao
+                      ? 'is-ativa'
+                      : undefined
+                }
+              >
+                <b aria-hidden="true">{i < finalizacao.etapaFinalizacao ? '✓' : i + 1}</b>
+                <span>{item.mensagem}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         </section>
       )}
+
+      <FinalizacaoPanel
+        documentos={finalizacao.emitidos}
+        escolha={finalizacao.escolhaDownload}
+        baixandoId={finalizacao.baixandoId}
+        onBaixar={documentos => {
+          finalizacao.baixarDocumentos(documentos).catch(() => {});
+        }}
+      />
 
       <PropostaFooter
         primeiraEtapa={indice === 0}
@@ -826,11 +805,17 @@ export function PropostaPage() {
         rotulo={
           salvando
             ? 'Salvando...'
+            : finalizacao.finalizando
+              ? ETAPAS_VISIVEIS_DA_FINALIZACAO[
+                  Math.max(0, finalizacao.etapaFinalizacao)
+                ].mensagem
+              : finalizacao.finalizada
+                ? 'Proposta finalizada'
             : gerandoPdf
               ? 'Gerando os documentos...'
               : rotuloDoAvanco(pendencias, ultima)
         }
-        ocupado={salvando || gerandoPdf}
+        ocupado={salvando || gerandoPdf || finalizacao.bloqueada}
         onVoltar={() =>
           indice === 0
             ? navigate(moduleRoutePath('comercial', 'index'))

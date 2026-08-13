@@ -1,7 +1,7 @@
 # Passagem de ambiente — módulo Comercial
 
-Estado em **10/08/2026**, branch `feat/modulo-comercial`, no commit
-`060518f`. Escrito para quem retoma o desenvolvimento em outra máquina.
+Estado em **13/08/2026**, branch `feat/modulo-comercial`. Escrito para quem
+retoma o desenvolvimento em outra máquina.
 
 Leia a Parte 1 antes de rodar qualquer coisa: há quatro coisas que **não viajam
 com o `git clone`**, e sem elas o módulo parece quebrado sem estar.
@@ -135,7 +135,7 @@ na Parte 3.
 
 ### O que está aberto, por ordem de dependência
 
-A emissão de verdade é o próximo bloco, e é o que falta para o módulo servir:
+A finalização de verdade já está ligada. O próximo bloco é o histórico:
 
 | Tarefa | O que é |
 |---|---|
@@ -145,14 +145,15 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 | ~~**T076, T077, T078, T079a, T080, T085**~~ | **Feitas em 11/08.** `jobs.js`, a rota de finalização, o contrato de falha, a permissão, a exclusividade e a auditoria. **Só o Nectar** — SharePoint abaixo. |
 | ~~**T076a, T076b, T076c**~~ | **Feitas em 11/08.** A planilha de custos, com os dois formatos por `schemaVersion`. Vão **três** arquivos ao CRM: as duas propostas e a memória de cálculo. |
 | ~~**SharePoint, T076f**~~ | **Feito em 11/08.** Microsoft Graph com os mesmos três modos do Nectar e `off` por padrão. **Os dois destinos falham de forma independente**: SharePoint fora do ar não impede o card de entrar no CRM, e vice-versa. |
-| ~~**T076d, T076e**~~ | **Feitos em 11/08.** Anexos do cliente, um por requisição, e o limite agregado conferido no upload e de novo na finalização. **Falta remover anexo** — T128, precisa de decisão. |
-| **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
+| ~~**T076d, T076e, T128**~~ | **Feitos.** Anexos do cliente, um por requisição, limite agregado no upload e na finalização, e remoção somente antes de finalizar. A tela lista, envia sem duplicar numa retomada e remove. |
+| ~~**T081, T082, T083**~~ | **Feitas em 13/08.** A tela carrega funis autorizados, valida cada pendência antes de gerar, chama a finalização real, preserva os PDFs no `502` parcial e oferece os dois downloads juntos ou separados. A busca de empresa/contato da proposta nova continua sendo a T121a. |
 | **T084** | Tela de histórico — `frontend/src/pages/comercial/historico/`, ainda não existe. |
+| **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
 
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**143 tarefas fechadas, 36 abertas** (13/08/2026) — o crescimento do total vem das
+**146 tarefas fechadas, 33 abertas** (13/08/2026) — o crescimento do total vem das
 sete sugestões do comercial (T121–T127, registradas em 11/08) e do bloco T128–T134
 (12/08). Este número e o de [tasks.md](./tasks.md) precisam ser corrigidos **juntos**:
 ficaram divergentes por três dias (117/47 aqui, 94/61 lá) e os dois foram lidos como
@@ -173,9 +174,11 @@ Três contenções:
 3. **No CRM, não no código:** o token do Nectar **herda as permissões do usuário
    responsável** e tem validade. Crie um usuário restrito para os testes.
 
-O caminho está fechado ponta a ponta na tela: **criar → salvar → emitir →
-baixar**. O que falta para o módulo servir é a finalização (T076–T077) — o envio
-ao Nectar e ao SharePoint.
+O caminho está fechado na tela até a finalização: **criar → salvar → anexar →
+gerar → integrar → baixar**. Falha de Nectar ou SharePoint depois da geração
+mantém os dois PDFs disponíveis. Para proposta nova, a validação ainda para em
+empresa/contato até a busca da etapa Cliente ser ligada (T121a); revisões com
+snapshot e vínculo preservados já reutilizam o card existente.
 
 > **O que NÃO foi verificado rodando.** A conversão `.docx → PDF` exige
 > LibreOffice, que só existe dentro do contêiner, e o backend em Docker roda

@@ -278,6 +278,126 @@ export interface DocumentoEmitido {
   byteSize: number;
 }
 
+export interface FunilNectar {
+  id: string;
+  nome: string;
+  primeiraEtapa: number;
+}
+
+export interface AnexoDaProposta {
+  id: string;
+  originalName: string;
+  byteSize: number;
+  createdAt: string;
+}
+
+export interface EstadoDaIntegracao {
+  status: 'SUCESSO' | 'ERRO';
+  mensagem: string;
+  opportunityId?: string;
+  pipelineId?: string;
+  pipelineName?: string;
+  pasta?: string;
+}
+
+export interface ResultadoDaFinalizacao {
+  ok: boolean;
+  documentos: DocumentoEmitido[];
+  integracao: EstadoDaIntegracao;
+  sharepoint: EstadoDaIntegracao;
+  error?: string;
+  documentosDisponiveis?: boolean;
+}
+
+/** Funis já filtrados pela lista branca do servidor. */
+export async function listarFunisNectar() {
+  const { data } = await apiClient.get<{
+    items: FunilNectar[];
+    motivoIndisponivel: string;
+  }>('/comercial/nectar/funis');
+  return data;
+}
+
+/**
+ * Conclui documentos, histórico e integrações.
+ *
+ * O `502` desta rota é uma resposta útil: os PDFs já foram gravados e vêm no
+ * corpo. Ele não pode virar uma exceção genérica do Axios, senão a tela perde
+ * justamente os links que o FR-034 manda preservar.
+ */
+export async function finalizarProposta(
+  proposalId: string,
+  pipelineId: string,
+  pastaExistente: string
+): Promise<ResultadoDaFinalizacao> {
+  // O interceptor global achata erros HTTP numa `ApiClientError` e, com isso,
+  // descarta o corpo. Aceitar somente o 502 aqui preserva o corpo útil sem
+  // afrouxar 401, 403, 409 ou qualquer outro erro da rota.
+  const resposta = await apiClient.post<Partial<ResultadoDaFinalizacao>>(
+    '/comercial/propostas/finalizar',
+    { proposalId, pipelineId, pastaExistente },
+    { validateStatus: status => (status >= 200 && status < 300) || status === 502 }
+  );
+  return interpretarRespostaDaFinalizacao(resposta.status, resposta.data);
+}
+
+export function interpretarRespostaDaFinalizacao(
+  status: number,
+  data: Partial<ResultadoDaFinalizacao>
+): ResultadoDaFinalizacao {
+  const completa =
+    typeof data?.ok === 'boolean' &&
+    Array.isArray(data.documentos) &&
+    Boolean(data.integracao) &&
+    Boolean(data.sharepoint);
+  if (status !== 502) {
+    if (completa) return data as ResultadoDaFinalizacao;
+    throw new Error('O servidor devolveu uma resposta inválida ao finalizar a proposta.');
+  }
+  if (!Array.isArray(data?.documentos) || !data.integracao || !data.sharepoint) {
+    throw new Error(data?.error || 'Não foi possível concluir as integrações.');
+  }
+  return {
+    ok: false,
+    documentos: data.documentos,
+    integracao: data.integracao,
+    sharepoint: data.sharepoint,
+    error: data.error,
+    documentosDisponiveis: true
+  };
+}
+
+export async function enviarAnexoDaProposta(proposalId: string, arquivo: File) {
+  const { data } = await apiClient.post<AnexoDaProposta>(
+    `/comercial/propostas/${proposalId}/anexos`,
+    arquivo,
+    {
+      headers: {
+        'Content-Type': arquivo.type || 'application/octet-stream',
+        'x-file-name': encodeURIComponent(arquivo.name)
+      }
+    }
+  );
+  return data;
+}
+
+export async function listarAnexosDaProposta(proposalId: string) {
+  const { data } = await apiClient.get<{
+    items: AnexoDaProposta[];
+    total: number;
+    bytesUsados: number;
+    bytesDisponiveis: number;
+  }>(`/comercial/propostas/${proposalId}/anexos`);
+  return data;
+}
+
+export async function removerAnexoDaProposta(proposalId: string, anexoId: string) {
+  const { data } = await apiClient.delete<{ id: string; originalName: string }>(
+    `/comercial/propostas/${proposalId}/anexos/${anexoId}`
+  );
+  return data;
+}
+
 /**
  * Emite os dois documentos: gera os PDFs e **grava no servidor**.
  *

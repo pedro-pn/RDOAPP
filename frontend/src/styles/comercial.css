@@ -1875,6 +1875,178 @@
   font-size: 0.82rem;
 }
 
+.com-root .com-lista-anexos li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.com-root .com-lista-anexos .com-btn {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.76rem;
+}
+
+/* Funil e card são decisões da etapa final, não campos soltos. O grid usa
+   `min(100%, ...)` para que nenhum rótulo crie rolagem horizontal no celular. */
+.com-root .com-funil {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+}
+
+.com-root .com-funil-titulo strong,
+.com-root .com-funil-titulo span {
+  display: block;
+}
+
+.com-root .com-funil-titulo span {
+  color: var(--com-texto-fraco);
+  font-size: 0.82rem;
+}
+
+.com-root .com-funil-opcoes,
+.com-root .com-card-opcoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.6rem;
+}
+
+.com-root .com-funil-opcoes button,
+.com-root .com-card-opcoes button {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio-controle);
+  background: var(--com-superficie);
+  color: var(--com-texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.com-root .com-funil-opcoes button.is-ativa,
+.com-root .com-card-opcoes button.is-ativa {
+  border-color: var(--com-acao);
+  background: var(--com-acao-suave);
+}
+
+.com-root .com-funil-opcoes span,
+.com-root .com-card-opcoes span {
+  color: var(--com-texto-fraco);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.com-root .com-card-opcoes button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.com-root .com-nota-alerta {
+  border-color: #e3a578;
+  background: #fff8f1;
+}
+
+/* Quatro recados em sequência visível. A tela pode receber a resposta final de
+   uma vez, mas a ordem permanece conferível e o estágio atual fica marcado. */
+.com-root .com-progresso-finalizacao {
+  margin-top: 1rem;
+}
+
+.com-root .com-progresso-finalizacao > strong {
+  display: block;
+  margin-bottom: 0.7rem;
+}
+
+.com-root .com-progresso-finalizacao ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.com-root .com-progresso-finalizacao li {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+  min-width: 0;
+  color: var(--com-texto-fraco);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.com-root .com-progresso-finalizacao li b {
+  display: grid;
+  flex: 0 0 1.45rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  place-items: center;
+  border: 1px solid var(--com-borda);
+  border-radius: 50%;
+  background: var(--com-superficie);
+}
+
+.com-root .com-progresso-finalizacao li.is-ativa,
+.com-root .com-progresso-finalizacao li.is-concluida {
+  color: var(--com-texto);
+}
+
+.com-root .com-progresso-finalizacao li.is-ativa b,
+.com-root .com-progresso-finalizacao li.is-concluida b {
+  border-color: var(--com-acao);
+  background: var(--com-acao);
+  color: #fff;
+}
+
+.com-root .com-finalizacao-painel {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  border-left: 3px solid var(--com-acao);
+}
+
+.com-root .com-finalizacao-painel > div:first-child strong,
+.com-root .com-finalizacao-painel > div:first-child span {
+  display: block;
+}
+
+.com-root .com-finalizacao-painel > div:first-child span {
+  margin-top: 0.2rem;
+  color: var(--com-texto-fraco);
+  font-size: 0.82rem;
+}
+
+.com-root .com-download-selecionado {
+  justify-self: start;
+}
+
+.com-root .com-download-separado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 760px) {
+  .com-root .com-progresso-finalizacao ol {
+    grid-template-columns: 1fr;
+  }
+
+  .com-root .com-download-selecionado,
+  .com-root .com-download-separado .com-btn {
+    width: 100%;
+  }
+}
+
 /* ==========================================================================
    Faixa da PROPOSTA — a segunda das duas da referência (`.hero`, app/page.tsx)
    ========================================================================== */

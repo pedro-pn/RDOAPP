@@ -1,26 +1,13 @@
 import { Field } from '../../components/Field';
-import type { VinculoCrmDaProposta } from '../../../../api/comercial';
+import type {
+  AnexoDaProposta,
+  FunilNectar,
+  VinculoCrmDaProposta
+} from '../../../../api/comercial';
 import { ETAPAS } from '../etapas';
-
-/**
- * Etapa 7 — Revisão e integração (`PROP-CTL-072..085` e `129..130`).
- *
- * Porte de `app/page.tsx:1073-1140`.
- *
- * **A escolha de download não decide o que é gerado.** As duas propostas são sempre
- * geradas e salvas no banco, mesmo quando o usuário baixa só uma — e a tela diz isso
- * em voz alta, porque quem escolhe "somente comercial" naturalmente supõe que a
- * técnica não foi feita.
- *
- * O funil do Nectar e a escolha de card (`PROP-CTL-073..079`, `129..130`) dependem da
- * integração (T076) e aparecem aqui **desabilitados, dizendo por quê**. O mesmo
- * critério da busca de empresa na etapa 1: um controle que some é indistinguível de
- * um que nunca existiu.
- */
+import type { EscolhaDeCard, EscolhaDeDownload } from '../finalizacao';
 
 type AnyRecord = Record<string, unknown>;
-
-export type EscolhaDeDownload = 'both' | 'commercial' | 'technical';
 
 const DOWNLOADS: Array<{ value: EscolhaDeDownload; label: string }> = [
   { value: 'both', label: 'Técnica + comercial' },
@@ -32,24 +19,51 @@ export function RevisaoStep({
   form,
   codigo,
   vinculoCrm,
+  funis,
+  funisCarregando,
+  funisMensagem,
+  funilId,
+  onFunil,
+  escolhaCard,
+  onEscolhaCard,
   escolha,
   onEscolha,
   pastaOneDrive,
   onPastaOneDrive,
   anexos,
-  onAnexos
+  onAnexos,
+  anexosEnviados,
+  removendoAnexoId,
+  onRemoverAnexo,
+  erroFinalizacao,
+  bloqueada
 }: {
   form: AnyRecord;
   codigo: string;
   vinculoCrm: VinculoCrmDaProposta | null;
+  funis: FunilNectar[];
+  funisCarregando: boolean;
+  funisMensagem: string;
+  funilId: string;
+  onFunil: (id: string) => void;
+  escolhaCard: EscolhaDeCard;
+  onEscolhaCard: (valor: EscolhaDeCard) => void;
   escolha: EscolhaDeDownload;
   onEscolha: (valor: EscolhaDeDownload) => void;
   pastaOneDrive: string;
   onPastaOneDrive: (valor: string) => void;
   anexos: File[];
   onAnexos: (arquivos: File[]) => void;
+  anexosEnviados: AnexoDaProposta[];
+  removendoAnexoId: string;
+  onRemoverAnexo: (id: string) => void;
+  erroFinalizacao: string;
+  bloqueada: boolean;
 }) {
   const cliente = String(form.client || '').trim() || 'CLIENTE';
+  const companyId = String(form.companyId || '').trim();
+  const contactId = String(form.contactId || '').trim();
+  const cardEfetivo: EscolhaDeCard = vinculoCrm ? 'existing' : escolhaCard;
 
   return (
     <section className="com-painel">
@@ -60,26 +74,96 @@ export function RevisaoStep({
         </div>
       </div>
 
+      <section className="com-funil" aria-label="Funil do Nectar">
+        <div className="com-funil-titulo">
+          <div>
+            <strong>Funil do Nectar *</strong>
+            <span>Escolha um dos funis autorizados para o card.</span>
+          </div>
+        </div>
+        {funisCarregando ? (
+          <p className="com-nota">Consultando os funis autorizados...</p>
+        ) : funis.length ? (
+          <div className="com-funil-opcoes">
+            {funis.map((funil) => (
+              <button
+                type="button"
+                key={funil.id}
+                className={funilId === funil.id ? 'is-ativa' : undefined}
+                disabled={bloqueada || Boolean(vinculoCrm)}
+                onClick={() => onFunil(funil.id)}
+              >
+                <strong>{funil.nome}</strong>
+                <span>Primeira etapa: {funil.primeiraEtapa}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="com-recado com-recado-erro">
+            {funisMensagem || 'Os funis autorizados não estão disponíveis.'}
+          </p>
+        )}
+      </section>
+
       <div className="com-nota-regra">
-        <strong>{vinculoCrm ? 'Card existente do Nectar' : 'Funil e card do Nectar'}</strong>
+        <strong>
+          {vinculoCrm ? 'Card existente do Nectar' : 'Destino no Nectar *'}
+        </strong>
         {vinculoCrm ? (
           <p>
             O card <b>{vinculoCrm.opportunityId}</b> será reutilizado no funil{' '}
-            <b>{vinculoCrm.pipelineName || vinculoCrm.pipelineId}</b>. A revisão não
-            abrirá uma segunda oportunidade.
+            <b>{vinculoCrm.pipelineName || vinculoCrm.pipelineId}</b>. A revisão
+            não abrirá uma segunda oportunidade.
           </p>
         ) : (
-          <p>
-            Esta proposta não tem vínculo salvo. O funil e o card serão escolhidos
-            nesta etapa quando a finalização estiver disponível.
-          </p>
+          <>
+            <p>
+              Escolha se o conjunto será anexado a um card existente ou a um
+              novo card.
+            </p>
+            <div className="com-card-opcoes">
+              <button
+                type="button"
+                disabled
+                title="Disponível quando a proposta ou revisão já possui vínculo salvo"
+              >
+                <b>Usar card existente</b>
+                <span>
+                  Carregue uma proposta vinculada para reutilizar o card com
+                  segurança.
+                </span>
+              </button>
+              <button
+                type="button"
+                className={cardEfetivo === 'create' ? 'is-ativa' : undefined}
+                disabled={bloqueada}
+                onClick={() => onEscolhaCard('create')}
+              >
+                <b>Criar card novo</b>
+                <span>Cria na primeira etapa real do funil selecionado.</span>
+              </button>
+            </div>
+          </>
         )}
       </div>
 
-      {/* O visto marca as etapas percorridas — todas, já que só se chega aqui
-          passando por elas. É confirmação, não navegação. */}
+      <div
+        className={
+          companyId && contactId
+            ? 'com-nota-regra'
+            : 'com-nota-regra com-nota-alerta'
+        }
+      >
+        <strong>Empresa e contato do Nectar</strong>
+        <p>
+          {companyId && contactId
+            ? 'Empresa e contato estão vinculados à proposta.'
+            : 'Volte à etapa Cliente e selecione a empresa e o contato no Nectar antes de finalizar.'}
+        </p>
+      </div>
+
       <div className="com-checklist">
-        {ETAPAS.slice(0, -1).map(etapa => (
+        {ETAPAS.slice(0, -1).map((etapa) => (
           <div key={etapa.value}>
             <b aria-hidden="true">✓</b>
             <span>{etapa.label}</span>
@@ -95,7 +179,6 @@ export function RevisaoStep({
           </strong>
           <small>Valores, pagamento, impostos, know-how e aceite.</small>
         </article>
-
         <article className="com-dado com-dado-destaque">
           <span>Documento técnico</span>
           <strong className="com-quebrar">
@@ -109,12 +192,12 @@ export function RevisaoStep({
         <legend>
           <strong>O que deseja baixar?</strong>
           <span>
-            As duas propostas sempre serão geradas e salvas no banco, mesmo quando
-            você baixar apenas uma.
+            As duas propostas sempre serão geradas e salvas no banco, mesmo
+            quando você baixar apenas uma.
           </span>
         </legend>
         <div className="com-escolha-opcoes">
-          {DOWNLOADS.map(item => (
+          {DOWNLOADS.map((item) => (
             <label
               key={item.value}
               className={escolha === item.value ? 'is-ativa' : undefined}
@@ -124,6 +207,7 @@ export function RevisaoStep({
                 name="com-download"
                 value={item.value}
                 checked={escolha === item.value}
+                disabled={bloqueada}
                 onChange={() => onEscolha(item.value)}
               />
               <span>{item.label}</span>
@@ -136,28 +220,54 @@ export function RevisaoStep({
         label="Pasta existente no OneDrive (opcional)"
         value={pastaOneDrive}
         hint="Havendo valor, os arquivos são gravados dentro dela em vez de uma pasta nova."
+        disabled={bloqueada}
         onChange={onPastaOneDrive}
       />
 
       <div className="field-group">
-        <label htmlFor="com-anexos">Arquivos adicionais do cliente (opcional)</label>
+        <label htmlFor="com-anexos">
+          Arquivos adicionais do cliente (opcional)
+        </label>
         <input
           id="com-anexos"
           type="file"
           multiple
-          onChange={evento => onAnexos(Array.from(evento.target.files || []))}
+          disabled={bloqueada}
+          onChange={(evento) => onAnexos(Array.from(evento.target.files || []))}
         />
         <small className="field-hint">
           Os anexos serão salvos na mesma pasta dos dois PDFs.
         </small>
-        {anexos.length > 0 && (
+        {(anexosEnviados.length > 0 || anexos.length > 0) && (
           <ul className="com-lista-anexos">
-            {anexos.map(arquivo => (
-              <li key={arquivo.name}>{arquivo.name}</li>
+            {anexosEnviados.map((anexo) => (
+              <li key={anexo.id}>
+                <span>{anexo.originalName}</span>
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  disabled={bloqueada || removendoAnexoId === anexo.id}
+                  onClick={() => onRemoverAnexo(anexo.id)}
+                >
+                  {removendoAnexoId === anexo.id ? 'Removendo...' : 'Remover'}
+                </button>
+              </li>
+            ))}
+            {anexos.map((arquivo, i) => (
+              <li key={`${arquivo.name}-${arquivo.size}-${i}`}>
+                <span>{arquivo.name}</span>
+                <small>Aguardando envio</small>
+              </li>
             ))}
           </ul>
         )}
       </div>
+
+      {erroFinalizacao && (
+        <p className="com-recado com-recado-erro" role="alert">
+          {erroFinalizacao}
+        </p>
+      )}
     </section>
   );
 }
