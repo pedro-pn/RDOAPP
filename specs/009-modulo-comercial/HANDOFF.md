@@ -44,7 +44,7 @@ precisa dela para provar fidelidade.
 **Leve-a para o ambiente novo.** A maior parte do que falta é porte a partir
 dela: as rotas de proposta (T051/T052), a finalização com Nectar e SharePoint
 (T075/T076, que vivem em `app/api/finalize/route.ts`), a tela de histórico
-(T084, que sai de `app/historico/page.tsx` e ainda não tem esqueleto) e a
+(T084, portada de `app/historico/page.tsx`) e a
 comparação lado a lado da validação final (T113/T114).
 
 O caminho esperado é `~/comercialAPP`. São **27 MB sem as dependências**:
@@ -147,13 +147,13 @@ A finalização de verdade já está ligada. O próximo bloco é o histórico:
 | ~~**SharePoint, T076f**~~ | **Feito em 11/08.** Microsoft Graph com os mesmos três modos do Nectar e `off` por padrão. **Os dois destinos falham de forma independente**: SharePoint fora do ar não impede o card de entrar no CRM, e vice-versa. |
 | ~~**T076d, T076e, T128**~~ | **Feitos.** Anexos do cliente, um por requisição, limite agregado no upload e na finalização, e remoção somente antes de finalizar. A tela lista, envia sem duplicar numa retomada e remove. |
 | ~~**T081, T082, T083**~~ | **Feitas em 13/08.** A tela carrega funis autorizados, valida cada pendência antes de gerar, chama a finalização real, preserva os PDFs no `502` parcial e oferece os dois downloads juntos ou separados. A busca de empresa/contato da proposta nova continua sendo a T121a. |
-| **T084** | Tela de histórico — `frontend/src/pages/comercial/historico/`, ainda não existe. |
+| ~~**T084**~~ | **Feita em 13/08.** Tela, busca, status das integrações, revisão, custos e downloads. O backend omite valores e o documento comercial para `viewer`; o guard também o mantém fora de custos e do gerador. |
 | **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
 
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**146 tarefas fechadas, 33 abertas** (13/08/2026) — o crescimento do total vem das
+**147 tarefas fechadas, 32 abertas** (13/08/2026) — o crescimento do total vem das
 sete sugestões do comercial (T121–T127, registradas em 11/08) e do bloco T128–T134
 (12/08). Este número e o de [tasks.md](./tasks.md) precisam ser corrigidos **juntos**:
 ficaram divergentes por três dias (117/47 aqui, 94/61 lá) e os dois foram lidos como

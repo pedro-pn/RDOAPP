@@ -29,14 +29,17 @@ type Destino = {
   icone: ReactNode;
 };
 
-type RotaKey = 'custos' | 'propostas' | 'configuracoes';
+type RotaKey = 'custos' | 'propostas' | 'historico' | 'configuracoes';
 
-const DESTINOS: Array<Omit<Destino, 'rota'> & { rotaKey: RotaKey; soGestor?: boolean }> = [
+const DESTINOS: Array<
+  Omit<Destino, 'rota'> & { rotaKey: RotaKey; soGestor?: boolean; soOrcamentista?: boolean }
+> = [
   {
     titulo: 'Levantar custos',
     descricao:
       'Calcula custos, impostos, comissões e margem. É ele que carimba o código da proposta.',
     rotaKey: 'custos',
+    soOrcamentista: true,
     icone: (
       <>
         <rect x="4" y="3" width="16" height="18" rx="2" />
@@ -50,14 +53,27 @@ const DESTINOS: Array<Omit<Destino, 'rota'> & { rotaKey: RotaKey; soGestor?: boo
   },
   {
     titulo: 'Propostas',
-    descricao: 'Monta a proposta técnica e a comercial, e consulta o histórico de emissões.',
+    descricao: 'Monta a proposta técnica e a comercial para uma nova emissão.',
     rotaKey: 'propostas',
+    soOrcamentista: true,
     icone: (
       <>
         <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
         <path d="M14 3v6h6" />
         <path d="M9 13h6" />
         <path d="M9 17h4" />
+      </>
+    )
+  },
+  {
+    titulo: 'Histórico',
+    descricao: 'Consulta propostas emitidas, documentos e o estado das integrações.',
+    rotaKey: 'historico',
+    icone: (
+      <>
+        <path d="M3 12a9 9 0 1 0 3-6.7" />
+        <path d="M3 4v5h5" />
+        <path d="M12 7v5l3 2" />
       </>
     )
   },
@@ -84,7 +100,12 @@ export function ComercialPage() {
   // que ele veria seria uma tela quebrada, não uma permissão que não tem.
   const ehGestor =
     user?.accountType === 'ADMIN' || Boolean(user?.moduleRoles?.includes('comercial:manager'));
-  const destinos = DESTINOS.filter(destino => !destino.soGestor || ehGestor);
+  const ehOrcamentista =
+    ehGestor || Boolean(user?.moduleRoles?.includes('comercial:seller'));
+  const destinos = DESTINOS.filter(
+    destino =>
+      (!destino.soGestor || ehGestor) && (!destino.soOrcamentista || ehOrcamentista)
+  );
 
   return (
     <ComercialChrome

@@ -177,6 +177,28 @@ test('serializeListForUser limpa a lista inteira', () => {
   assert.ok(serializeListForUser(gestor, lista).every(item => 'totalValue' in item));
 });
 
+test('a lista da consulta não entrega nem o identificador do PDF comercial', () => {
+  const lista = [
+    {
+      id: 'p1',
+      totalValue: '10000.00',
+      documents: [
+        { id: 'dc', kind: 'COMERCIAL', fileName: 'Comercial.pdf' },
+        { id: 'dt', kind: 'TECNICA', fileName: 'Tecnica.pdf' }
+      ]
+    }
+  ];
+
+  const [paraConsulta] = serializeListForUser(consulta, lista);
+  assert.deepEqual(paraConsulta.documents, [
+    { id: 'dt', kind: 'TECNICA', fileName: 'Tecnica.pdf' }
+  ]);
+  assert.equal(lista[0].documents.length, 2, 'a serialização não pode mutar o registro original');
+
+  const [paraGestor] = serializeListForUser(gestor, lista);
+  assert.equal(paraGestor.documents.length, 2);
+});
+
 // ---------------------------------------------------------------------------
 // Documentos.
 // ---------------------------------------------------------------------------

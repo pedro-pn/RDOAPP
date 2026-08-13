@@ -11,6 +11,7 @@ import {
   getProposal,
   listProposals,
   numeroBase,
+  propostaParaHistorico,
   proximaRevisao,
   updateProposal
 } from '../src/lib/comercial/proposals.js';
@@ -236,6 +237,36 @@ test('a listagem ordena por número e revisão, não pelo texto do código', asy
 
   const { items } = await listProposals(prisma, gestor);
   assert.deepEqual(items.map(i => i.id), ['p3', 'p2', 'p1']);
+});
+
+test('a listagem projeta os dados que a tela de histórico realmente usa', () => {
+  const antiga = new Date('2026-08-12T10:00:00.000Z');
+  const nova = new Date('2026-08-13T10:00:00.000Z');
+  const item = propostaParaHistorico({
+    id: 'p1',
+    proposalCode: '4418',
+    revisionNumber: 2,
+    payload: { title: 'Filtragem de óleo isolante', prices: [{ value: 'segredo' }] },
+    costEstimate: { totalCost: '8500.00', marginPercent: '15.50' },
+    documents: [
+      { id: 'dc-novo', kind: 'COMERCIAL', byteSize: 30, createdAt: nova },
+      { id: 'dc-antigo', kind: 'COMERCIAL', byteSize: 20, createdAt: antiga },
+      { id: 'dt', kind: 'TECNICA', byteSize: 25, createdAt: nova }
+    ]
+  });
+
+  assert.equal(item.title, 'Filtragem de óleo isolante');
+  assert.equal(item.totalCost, '8500.00');
+  assert.equal(item.marginPercent, '15.50');
+  assert.deepEqual(
+    item.documents.map(documento => [documento.id, documento.fileName]),
+    [
+      ['dc-novo', 'Proposta Comercial - 4418 Rev 2.pdf'],
+      ['dt', 'Proposta Técnica - 4418 Rev 2.pdf']
+    ]
+  );
+  assert.ok(!('payload' in item), 'o formulário inteiro não pode vazar na resposta da lista');
+  assert.ok(!('costEstimate' in item), 'a relação interna não faz parte do contrato HTTP');
 });
 
 test('vendedor pedindo proposta de outro autor recebe 403, não 404', async () => {

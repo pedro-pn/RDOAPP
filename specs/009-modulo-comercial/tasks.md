@@ -14,13 +14,13 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 146 tarefas fechadas, 33 abertas** (de 179). O contador
+> **Estado em 13/08/2026: 147 tarefas fechadas, 32 abertas** (de 179). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
 >
-> O caminho crítico do que falta, em ordem: histórico (T084) → concorrência de
-> edição (T079b) → busca do CRM na etapa Cliente (T121a). Depois: arrastar
+> O caminho crítico do que falta, em ordem: concorrência de edição (T079b) →
+> busca do CRM na etapa Cliente (T121a). Depois: arrastar
 > (T068–T071), tutorial e
 > login (T096–T098a), validação das 7 etapas (T067), mobile restante e a matriz de
 > permissões (T108–T112).
@@ -475,7 +475,13 @@ documentos e o registro no histórico.
   > criar vínculo a partir de texto livre.
 - [X] T083a [US3] Implementar `arquivar`/`desarquivar` para levantamento e proposta em `backend/lib/comercial/access.js` e nas rotas, com autoria (FR-061). **Nenhuma rota do módulo apaga levantamento nem proposta.** A exceção do anexo veio depois, na T128.  ↳ `FR-060` `FR-061` `FR-063`
 - [X] T083b [US3] Adicionar `archivedAt`/`archivedByUserId` a `CostEstimate` e `Proposal` em `backend/prisma/schema.prisma`, e incluir o estado nos índices de listagem.  ↳ `FR-062`
-- [ ] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).  ↳ `FR-068`
+- [X] T084 [US3] Implementar a tela de histórico `frontend/src/pages/comercial/historico/` — `HIST-CTL-001..007`, `HIST-H-001` e `HIST-TXT-001..033` —, com status de integração, valor, revisão e arquivos, **variando por papel** (viewer sem valor e sem link comercial).  ↳ `FR-068`
+
+  > **Feita em 13/08.** A listagem projeta título, custos, integrações e somente o
+  > documento mais recente de cada tipo, sem expor `payload` nem caminho de
+  > armazenamento. O papel de consulta recebe o PDF técnico, mas valores e até o
+  > identificador do PDF comercial são removidos no backend. A rota e o menu
+  > também separam histórico (três papéis) de custos/gerador (só orçamentistas).
 - [X] T085 [US3] [P] Escrever `backend/test/comercial-finalizacao.test.js`, incluindo o caso **integração falha depois dos PDFs prontos → documentos continuam baixáveis**.  ↳ `SC-009`
 
 **Checkpoint**: MVP completo. US1 + US2 + US3 entregam o produto.

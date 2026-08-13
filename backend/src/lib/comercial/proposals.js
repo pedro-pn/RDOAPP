@@ -2,6 +2,7 @@ import { canRead, canWrite, denialReason, proposalScopeFilter } from './access.j
 import { resolverConsultor } from './consultores.js';
 import { ComercialError } from './cost-estimates.js';
 import { lerDinheiro } from './dinheiro.js';
+import { nomeDoArquivo } from './documentos.js';
 
 /**
  * Propostas — histórico, revisões e vínculo com o levantamento (tarefa T051).
@@ -88,8 +89,9 @@ export function calcularTotal(payload) {
  * de consulta enxerga todas as propostas e nenhum valor. A supressão dos valores
  * acontece na serialização da rota (`serializeListForUser`), na origem.
  *
- * A busca é a da referência (`listProposalHistory`), reduzida aos campos que
- * existem aqui: código, cliente, contato e vendedor.
+ * A busca é a da referência (`listProposalHistory`) sobre os campos indexáveis
+ * que existem aqui. Nome de documento contém o próprio código da proposta, por
+ * isso a busca por documento é atendida por `proposalCode` sem carregar arquivo.
  */
 export async function listProposals(prisma, user, { arquivados = false, busca = '' } = {}) {
   const termo = String(busca || '').trim();
@@ -105,7 +107,11 @@ export async function listProposals(prisma, user, { arquivados = false, busca = 
               { proposalCode: contains },
               { clientName: contains },
               { contact: contains },
-              { sellerName: contains }
+              { email: contains },
+              { site: contains },
+              { sellerName: contains },
+              { estimatorName: contains },
+              { nectarPipelineName: contains }
             ]
           }
         : {})
@@ -123,21 +129,45 @@ export async function listProposals(prisma, user, { arquivados = false, busca = 
       proposalCode: true,
       revisionNumber: true,
       costEstimateId: true,
+      costEstimate: {
+        select: {
+          totalCost: true,
+          marginPercent: true
+        }
+      },
       clientName: true,
       contact: true,
       email: true,
+      site: true,
       sellerUserId: true,
       sellerName: true,
       estimatorName: true,
       status: true,
       totalValue: true,
       finalizedAt: true,
+      nectarStatus: true,
+      nectarOpportunityId: true,
+      nectarPipelineId: true,
+      nectarPipelineName: true,
+      sharepointStatus: true,
+      sharepointFolder: true,
+      integrationError: true,
       createdByUserId: true,
       archivedAt: true,
       createdAt: true,
-      updatedAt: true
-      // `payload` fica de fora: a listagem carregaria o formulário inteiro de
-      // 250 propostas para mostrar oito colunas.
+      updatedAt: true,
+      // O título ainda vive dentro do snapshot legado. O payload é descartado
+      // por `propostaParaHistorico` antes da resposta; só o título atravessa.
+      payload: true,
+      documents: {
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          kind: true,
+          byteSize: true,
+          createdAt: true
+        }
+      }
     }
   });
 
@@ -147,7 +177,41 @@ export async function listProposals(prisma, user, { arquivados = false, busca = 
       (b.revisionNumber ?? 0) - (a.revisionNumber ?? 0)
   );
 
-  return { items, total: items.length };
+  const historico = items.map(propostaParaHistorico);
+  return { items: historico, total: historico.length };
+}
+
+/**
+ * Contrato enxuto da tela de histórico.
+ *
+ * Uma proposta pode ter documentos antigos de uma tentativa anterior. A tela
+ * mostra somente o mais recente de cada tipo, na mesma regra usada pela
+ * finalização, e recompõe o nome público sem expor `storagePath`.
+ */
+export function propostaParaHistorico(item) {
+  const { payload, costEstimate, documents = [], ...proposal } = item;
+  const vistos = new Set();
+  const documentosAtuais = [];
+
+  for (const document of documents) {
+    if (!document?.kind || vistos.has(document.kind)) continue;
+    vistos.add(document.kind);
+    documentosAtuais.push({
+      ...document,
+      fileName: nomeDoArquivo(document.kind, item.proposalCode, item.revisionNumber)
+    });
+  }
+
+  return {
+    ...proposal,
+    title:
+      payload && typeof payload === 'object' && typeof payload.title === 'string'
+        ? payload.title
+        : '',
+    totalCost: costEstimate?.totalCost ?? null,
+    marginPercent: costEstimate?.marginPercent ?? null,
+    documents: documentosAtuais
+  };
 }
 
 export async function getProposal(prisma, user, id) {

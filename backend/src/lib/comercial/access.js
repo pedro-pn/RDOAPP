@@ -168,12 +168,25 @@ export function stripValues(record) {
  * Use sempre que a resposta puder alcançar `comercial:viewer`.
  */
 export function serializeForUser(user, record) {
-  return canViewValues(user) ? record : stripValues(record);
+  return canViewValues(user) ? record : stripViewerRestrictedFields(record);
 }
 
 export function serializeListForUser(user, records) {
   if (canViewValues(user)) return records;
-  return records.map(stripValues);
+  return records.map(stripViewerRestrictedFields);
+}
+
+/**
+ * O histórico do papel de consulta também não entrega o id do PDF comercial.
+ * A rota de download já responderia 403, mas não mandar o identificador impede
+ * que a própria lista publique um link que o papel nunca poderá abrir.
+ */
+function stripViewerRestrictedFields(record) {
+  const clean = stripValues(record);
+  if (Array.isArray(clean?.documents)) {
+    clean.documents = clean.documents.filter(document => document?.kind === 'TECNICA');
+  }
+  return clean;
 }
 
 /**

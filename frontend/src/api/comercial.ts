@@ -203,6 +203,23 @@ export interface PropostaSalva {
   nectarOpportunityId?: string | null;
   nectarPipelineId?: string | null;
   nectarPipelineName?: string | null;
+  nectarStatus?: 'PENDENTE' | 'SUCESSO' | 'ERRO';
+  sharepointStatus?: 'PENDENTE' | 'SUCESSO' | 'ERRO';
+  sharepointFolder?: string | null;
+  integrationError?: string | null;
+  clientName?: string;
+  contact?: string;
+  email?: string;
+  site?: string;
+  sellerName?: string;
+  estimatorName?: string;
+  title?: string;
+  finalizedAt?: string | null;
+  createdAt?: string;
+  /** Ausentes para o papel de consulta, como `totalValue`. */
+  totalCost?: string | number | null;
+  marginPercent?: string | number | null;
+  documents?: DocumentoEmitido[];
   payload?: Record<string, unknown>;
   updatedAt?: string;
 }
