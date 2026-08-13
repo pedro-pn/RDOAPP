@@ -56,6 +56,7 @@ vão usar.
 | `status` | enum `CostEstimateStatus` | explícito |
 | `archivedAt` / `archivedByUserId` | `DateTime?` / `String?` | arquivamento — **não há exclusão** |
 | `createdByUserId` | `String` | **sustenta a regra de autoria** (FR-029); indexado |
+| `updatedByUserId` / `updatedByLabel` | `String?` / `String?` | última edição; id + nome congelado sustentam o aviso de concorrência (FR-070) |
 | `createdAt` / `updatedAt` | `DateTime` | |
 
 **Índices**: `(createdByUserId, createdAt)` — é a consulta da listagem filtrada por
@@ -105,9 +106,10 @@ margem.
 | `nectarOpportunityId` | `String?` | card do CRM; a revisão herda este vínculo no servidor (FR-066) |
 | `nectarPipelineId` | `String?` | id do funil usado pelo card |
 | `nectarPipelineName` | `String?` | nome congelado do funil no momento da emissão |
-| `finalizedAt` / `finalizedByUserId` | `DateTime?` / `String?` | quem finalizou e quando; a segunda tentativa usa isto na mensagem |
+| `finalizedAt` / `finalizedByUserId` / `finalizedByLabel` | `DateTime?` / `String?` / `String?` | quem finalizou e quando; id + nome congelado entram na recusa da segunda tentativa |
 | `archivedAt` / `archivedByUserId` | `DateTime?` / `String?` | arquivamento — **não há exclusão** |
 | `createdByUserId` | `String` | **autoria**; indexado |
+| `updatedByUserId` / `updatedByLabel` | `String?` / `String?` | última edição mutável; sustenta o 409 de concorrência (FR-070) |
 | `createdAt` / `updatedAt` | `DateTime` | |
 
 **Índices**: `(createdByUserId, createdAt)`, `(proposalCode, revisionNumber)`,

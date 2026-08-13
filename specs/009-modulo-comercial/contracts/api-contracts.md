@@ -53,6 +53,8 @@ recebe **403**, não `404` genérico nem tela vazia.
 ### `PUT /api/comercial/levantamentos/:id`
 
 `requireComercialEstimator` + autoria. Cria `CostEstimateVersion` com hash do payload.
+O corpo inclui obrigatoriamente `expectedUpdatedAt` (ISO 8601); após um aviso de
+concorrência, a tentativa confirmada repete o corpo com `forceOverwrite: true`.
 
 ---
 
@@ -81,6 +83,10 @@ Omitir na serialização, não ocultar no cliente (D13).
 
 `requireComercialEstimator` + autoria. O `viewer` não alcança — sua superfície é a
 listagem (FR-030).
+
+O `PUT`, como o do levantamento, exige `expectedUpdatedAt`. A versão participa do
+próprio `WHERE` do `UPDATE`, não só de uma conferência anterior — assim uma segunda
+escrita que entre entre o `SELECT` e o `UPDATE` também é detectada.
 
 ### `POST /api/comercial/propostas/documentos`
 
@@ -272,6 +278,32 @@ sucesso.
 `PUT` de levantamento e de proposta compara o `updatedAt` que o cliente carregou com o
 atual. Divergiu: **409** nomeando quem alterou e quando. É **aviso, não trava** — o
 cliente decide recarregar ou prosseguir.
+
+Primeira tentativa:
+
+```json
+{
+  "expectedUpdatedAt": "2026-08-13T12:00:00.000Z",
+  "forceOverwrite": false
+}
+```
+
+Resposta ao conflito:
+
+```json
+{
+  "error": "Este registro foi alterado por Colega Ana em 13/08/2026, 09:05...",
+  "code": "COMERCIAL_CONCURRENT_WRITE",
+  "conflict": {
+    "updatedAt": "2026-08-13T12:05:00.000Z",
+    "updatedByUserId": "...",
+    "updatedByLabel": "Colega Ana"
+  }
+}
+```
+
+Prosseguir repete o `PUT` com `forceOverwrite: true`. Recarregar busca a versão atual.
+O servidor grava `updatedByUserId` e o rótulo congelado `updatedByLabel` em toda edição.
 
 ---
 

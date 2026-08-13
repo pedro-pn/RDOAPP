@@ -28,6 +28,74 @@ import { hasModuleRole } from '../module-roles.js';
 export const ROLE_MANAGER = 'comercial:manager';
 export const ROLE_SELLER = 'comercial:seller';
 export const ROLE_VIEWER = 'comercial:viewer';
+export const CONCURRENT_WRITE_CODE = 'COMERCIAL_CONCURRENT_WRITE';
+
+/**
+ * Conflito otimista de edição (FR-070).
+ *
+ * Não é um bloqueio: a resposta leva a versão atual e o cliente pode reenviar
+ * com `forceOverwrite`. É uma classe própria porque `access.js` é importado por
+ * `cost-estimates.js`; importar `ComercialError` daqui criaria um ciclo entre
+ * os dois módulos justamente no caminho de autorização.
+ */
+export class ConcurrentWriteError extends Error {
+  constructor(record) {
+    const updatedAt = dataValida(record?.updatedAt);
+    const updatedByLabel =
+      String(record?.updatedByLabel || '').trim() || 'outro usuário';
+    const quando = updatedAt
+      ? new Intl.DateTimeFormat('pt-BR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+          timeZone: 'America/Sao_Paulo'
+        }).format(updatedAt)
+      : 'um momento anterior';
+
+    super(
+      `Este registro foi alterado por ${updatedByLabel} em ${quando}. ` +
+        'Recarregue para ver a versão atual ou confirme que deseja sobrescrevê-la.'
+    );
+    this.name = 'ConcurrentWriteError';
+    this.statusCode = 409;
+    this.code = CONCURRENT_WRITE_CODE;
+    this.conflict = {
+      updatedAt: updatedAt?.toISOString() || null,
+      updatedByUserId: record?.updatedByUserId || null,
+      updatedByLabel
+    };
+  }
+}
+
+function dataValida(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Nome congelado nas escritas/auditorias; id continua separado. */
+export function actorLabel(user) {
+  return String(user?.name || user?.username || user?.id || 'Usuário').trim();
+}
+
+/**
+ * Compara a versão que a tela abriu com a versão atual.
+ *
+ * Retorna `true` quando o `UPDATE` ainda precisa levar `updatedAt` no `where`.
+ * Essa segunda checagem fecha a janela entre o SELECT e o UPDATE: sem ela duas
+ * requisições simultâneas poderiam ler a mesma versão e as duas sobrescreverem.
+ */
+export function assertNoConcurrentWrite(record, options = {}) {
+  if (options.forceOverwrite === true) return false;
+
+  const expected = dataValida(options.expectedUpdatedAt);
+  const current = dataValida(record?.updatedAt);
+  // Chamadas internas antigas continuam possíveis; a rota HTTP exige a versão.
+  if (!expected || !current) return false;
+  if (expected.getTime() !== current.getTime()) {
+    throw new ConcurrentWriteError(record);
+  }
+  return true;
+}
 
 export function isManager(user) {
   return Boolean(user) && hasModuleRole(user, ROLE_MANAGER);

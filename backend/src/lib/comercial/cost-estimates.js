@@ -6,7 +6,15 @@ import {
   validateCostEstimate
 } from '../../../../shared/comercial/dist/cost-model.js';
 
-import { authorshipFilter, canRead, canWrite, denialReason } from './access.js';
+import {
+  ConcurrentWriteError,
+  actorLabel,
+  assertNoConcurrentWrite,
+  authorshipFilter,
+  canRead,
+  canWrite,
+  denialReason
+} from './access.js';
 
 /**
  * Levantamentos de custos — regra de negócio.
@@ -190,6 +198,7 @@ export async function updateCostEstimate(prisma, user, id, data) {
   if (existing.archivedAt) {
     throw new ComercialError('Levantamento arquivado. Desarquive antes de editar.', 409);
   }
+  const protegerVersao = assertNoConcurrentWrite(existing, data);
 
   const payload = data.payload ?? existing.payload;
   const validation = validateCostEstimate(payload);
@@ -200,34 +209,46 @@ export async function updateCostEstimate(prisma, user, id, data) {
   const { normalized, totalCost, salePrice, marginPercent } = computeTotals(payload);
   const hash = payloadHash(normalized);
 
-  return prisma.$transaction(async tx => {
-    const estimate = await tx.costEstimate.update({
-      where: { id },
-      data: {
-        title: data.title ?? existing.title,
-        payload: normalized,
-        totalCost,
-        salePrice,
-        marginPercent
-      }
-    });
-
-    // Versão nova só quando o conteúdo mudou de verdade. Gravar uma versão por
-    // salvamento encheria a tabela de cópias idênticas e tiraria o sentido do hash.
-    const last = await tx.costEstimateVersion.findFirst({
-      where: { costEstimateId: id },
-      orderBy: { createdAt: 'desc' },
-      select: { payloadHash: true }
-    });
-
-    if (!last || last.payloadHash !== hash) {
-      await tx.costEstimateVersion.create({
-        data: { costEstimateId: id, payloadHash: hash, snapshot: normalized }
+  try {
+    return await prisma.$transaction(async tx => {
+      const estimate = await tx.costEstimate.update({
+        // O `updatedAt` fecha atomicamente a janela entre a leitura e a escrita.
+        where: protegerVersao ? { id, updatedAt: existing.updatedAt } : { id },
+        data: {
+          title: data.title ?? existing.title,
+          payload: normalized,
+          totalCost,
+          salePrice,
+          marginPercent,
+          updatedByUserId: user.id,
+          updatedByLabel: actorLabel(user)
+        }
       });
-    }
 
-    return estimate;
-  });
+      // Versão nova só quando o conteúdo mudou de verdade. Gravar uma versão por
+      // salvamento encheria a tabela de cópias idênticas e tiraria o sentido do hash.
+      const last = await tx.costEstimateVersion.findFirst({
+        where: { costEstimateId: id },
+        orderBy: { createdAt: 'desc' },
+        select: { payloadHash: true }
+      });
+
+      if (!last || last.payloadHash !== hash) {
+        await tx.costEstimateVersion.create({
+          data: { costEstimateId: id, payloadHash: hash, snapshot: normalized }
+        });
+      }
+
+      return estimate;
+    });
+  } catch (error) {
+    if (protegerVersao && error?.code === 'P2025') {
+      const atual = await prisma.costEstimate.findUnique({ where: { id } });
+      if (atual) throw new ConcurrentWriteError(atual);
+      throw new ComercialError('Levantamento não encontrado.', 404);
+    }
+    throw error;
+  }
 }
 
 export async function archiveCostEstimate(prisma, user, id, { archive = true } = {}) {

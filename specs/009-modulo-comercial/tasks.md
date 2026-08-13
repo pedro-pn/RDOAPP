@@ -14,13 +14,13 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 147 tarefas fechadas, 32 abertas** (de 179). O contador
+> **Estado em 13/08/2026: 149 tarefas fechadas, 30 abertas** (de 179). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
 >
-> O caminho crítico do que falta, em ordem: concorrência de edição (T079b) →
-> busca do CRM na etapa Cliente (T121a). Depois: arrastar
+> O próximo item do caminho crítico é a busca do CRM na etapa Cliente (T121a).
+> Depois: arrastar
 > (T068–T071), tutorial e
 > login (T096–T098a), validação das 7 etapas (T067), mobile restante e a matriz de
 > permissões (T108–T112).
@@ -460,7 +460,13 @@ documentos e o registro no histórico.
   > com a listagem. O teste do caso crítico está em `comercial-documentos.test.js`;
   > a matriz completa continua sendo a T110.
 - [X] T079a [US3] Implementar a **exclusividade da finalização** (FR-069) em `backend/lib/comercial/proposals.js`: verificar o estado **antes de gerar qualquer coisa** e devolver **409** informando **quando e por quem** foi finalizada. Sem isso, dois cliques com segundos de diferença geram dois pares de documentos, duas oportunidades no CRM e duas pastas — e as duas requisições respondem sucesso.  ↳ `FR-069`
-- [ ] T079b [US3] Implementar o **aviso de escrita concorrente** (FR-070) em `backend/lib/comercial/access.js`: comparar o `updatedAt` carregado pelo cliente com o atual e devolver **409** nomeando quem alterou e quando. **Aviso, não trava** — o cliente decide recarregar ou prosseguir.  ↳ `FR-070`
+- [X] T079b [US3] Implementar o **aviso de escrita concorrente** (FR-070) em `backend/lib/comercial/access.js`: comparar o `updatedAt` carregado pelo cliente com o atual e devolver **409** nomeando quem alterou e quando. **Aviso, não trava** — o cliente decide recarregar ou prosseguir.  ↳ `FR-070`
+
+  > **Feita em 13/08.** Os dois `PUT` exigem a versão carregada, a repetem no
+  > `WHERE` atômico e gravam id + nome congelado da última pessoa que editou. O
+  > `409` é estruturado; a proposta oferece recarregar ou prosseguir com
+  > sobrescrita explícita. A finalização passou a registrar/exibir também o nome
+  > congelado durante e depois da operação.
 - [X] T080 [US3] Registrar `ProposalAuditLog` em `backend/lib/comercial/proposals.js` nas duas ações irreversíveis — finalização e envio externo —, no padrão de `ReportAuditLog`.
 - [X] T081 [US3] Implementar na tela os **4 estágios** anunciados ao usuário, na ordem da referência, a partir de `shared/comercial/finalization.ts`.  ↳ `FR-032`
 - [X] T082 [US3] Implementar em `frontend/src/pages/comercial/proposta/steps/RevisaoStep.tsx` as validações pré-finalização com **mensagem específica por problema**: e-mail, CNPJ de 14 dígitos, departamento, consultor + orçamentista, funil, empresa e contato do Nectar, escolha de card.  ↳ `FR-031`
@@ -575,7 +581,10 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 - [X] T110 Escrever em `backend/test/comercial-permissoes.test.js` o caso `viewer` pedindo documento `COMERCIAL` → **403 na rota**, e `TECNICA` → 200.
 
   > **Feito** em `comercial-access.test.js` — *"consulta baixa a técnica e NÃO baixa a comercial"*.
-- [ ] T110a Escrever em `backend/test/comercial-concorrencia.test.js` os dois casos de concorrência: **finalizar proposta já finalizada → 409** com autor e data, e **salvar registro alterado por outro → 409** com aviso.
+- [X] T110a Escrever em `backend/test/comercial-concorrencia.test.js` os dois casos de concorrência: **finalizar proposta já finalizada → 409** com autor e data, e **salvar registro alterado por outro → 409** com aviso.
+
+  > **Feita em 13/08.** O teste cobre ainda a corrida entre `SELECT` e `UPDATE` e
+  > a segunda tentativa confirmada, para provar que o aviso não virou trava.
 - [ ] T110b [P] Escrever em `backend/test/comercial-permissoes.test.js` a prova de que o **único `DELETE` do módulo é o de anexo** (`DELETE /propostas/:id/anexos/:anexoId`), e que ele **recusa depois de finalizada**. Reformulada em 13/08: a redação original — "não existe rota de exclusão" — nasceu antes da T128 e hoje falharia contra a exceção aprovada. Enumerar as rotas e afirmar a única permitida é mais forte do que afirmar nenhuma: pega tanto um `DELETE` novo de proposta quanto a perda do portão de "só antes de finalizar".
 - [X] T111 [P] Escrever em `backend/test/comercial-permissoes.test.js` o teste de que a resposta para `viewer` **não contém** `totalValue`, custo nem margem — omissão na serialização, não ocultação na tela.
 

@@ -19,11 +19,13 @@ import {
   mensagemDeErro,
   obterProposta,
   reservarProximoNumero,
+  ComercialConcurrentWriteError,
   type Consultor
 } from '../../../api/comercial';
 import { useAuth } from '../../../auth/AuthContext';
 import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
+import { ConflitoDeEdicaoDialog } from '../components/ConflitoDeEdicaoDialog';
 import { useRascunhoLocal } from '../useRascunhoLocal';
 import {
   TEXTO_IMPOSTOS,
@@ -193,6 +195,9 @@ export function PropostaPage() {
   const [recado, setRecado] = useState('');
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [versaoCarregada, setVersaoCarregada] = useState('');
+  const [conflitoDeEdicao, setConflitoDeEdicao] =
+    useState<ComercialConcurrentWriteError | null>(null);
   const { aplicarSnapshot, carregarRevisao, setVinculoCrm, vinculoCrm } =
     usePropostaRevision({
       modo,
@@ -293,6 +298,7 @@ export function PropostaPage() {
         if (!vivo) return;
         const dados = (proposta.payload ?? {}) as AnyRecord;
         aplicarSnapshot(dados, proposta.sellerUserId);
+        setVersaoCarregada(proposta.updatedAt || '');
         finalizacao.marcarFinalizada(proposta.status === 'FINALIZADA');
         setVinculoCrm(
           proposta.nectarOpportunityId
@@ -443,6 +449,8 @@ export function PropostaPage() {
     setParams(proximos, { replace: true });
     setVinculoCrm(null);
     finalizacao.reiniciarFinalizacao();
+    setVersaoCarregada('');
+    setConflitoDeEdicao(null);
     setRecado('');
   }
 
@@ -457,8 +465,12 @@ export function PropostaPage() {
    * abertura da tela. Ele **consome** — abrir o assistente e desistir não pode
    * gastar um número, porque o próximo sairia com um buraco no meio.
    */
-  async function salvar(): Promise<string | null> {
+  async function salvar(forceOverwrite = false): Promise<string | null> {
     if (salvando) return null;
+    if (propostaId && !versaoCarregada) {
+      setRecado('Aguarde a proposta terminar de carregar antes de salvar.');
+      return null;
+    }
     setSalvando(true);
     setRecado(propostaId ? 'Salvando...' : 'Salvando a proposta...');
 
@@ -472,16 +484,26 @@ export function PropostaPage() {
       const entrada = entradaDaProposta(conteudo(codigoAtual), levantamentoId);
 
       const salva = propostaId
-        ? await atualizarProposta(propostaId, entrada)
+        ? await atualizarProposta(propostaId, entrada, {
+            expectedUpdatedAt: versaoCarregada,
+            forceOverwrite
+          })
         : await criarProposta(entrada);
 
       // Gravada no servidor, o rascunho local não pode sobrar para reaparecer
       // depois como se fosse trabalho não salvo.
       rascunho.limparTudo();
       if (!propostaId) trocarParametros({ id: salva.id });
+      if (salva.updatedAt) setVersaoCarregada(salva.updatedAt);
+      setConflitoDeEdicao(null);
       setRecado('');
       return salva.id;
     } catch (error) {
+      if (error instanceof ComercialConcurrentWriteError) {
+        setConflitoDeEdicao(error);
+        setRecado('');
+        return null;
+      }
       setRecado(mensagemDeErro(error, 'Não foi possível salvar a proposta.'));
       return null;
     } finally {
@@ -584,6 +606,15 @@ export function PropostaPage() {
         </nav>
       }
     >
+      {conflitoDeEdicao && (
+        <ConflitoDeEdicaoDialog
+          conflito={conflitoDeEdicao}
+          salvando={salvando}
+          onRecarregar={() => window.location.reload()}
+          onProsseguir={() => void salvar(true)}
+          onCancelar={() => setConflitoDeEdicao(null)}
+        />
+      )}
       {/* Primeiro escolhe o modo. Modelo é uma decisão posterior e, em uma
           revisão com snapshot completo, já vem da proposta anterior. */}
       {modo === null && (

@@ -141,28 +141,44 @@ const gerarPdf = async (dados, tipo) => Buffer.from(`%PDF-${tipo}-${dados.propos
 // Exclusividade — antes de gerar qualquer coisa
 // ---------------------------------------------------------------------------
 
-test('proposta já finalizada é 409, e a recusa diz QUANDO', () => {
+test('proposta já finalizada é 409, e a recusa diz QUANDO e POR QUEM', () => {
   // "Já finalizada" sozinho manda a pessoa procurar quem foi — e normalmente é o
   // colega ao lado.
   const quando = new Date('2026-08-10T14:30:00Z');
 
   assert.throws(
-    () => exigirNaoFinalizada(propostaBase({ status: 'FINALIZADA', finalizedAt: quando })),
+    () =>
+      exigirNaoFinalizada(
+        propostaBase({
+          status: 'FINALIZADA',
+          finalizedAt: quando,
+          finalizedByUserId: 'u-vend-a',
+          finalizedByLabel: 'Vendedor A'
+        })
+      ),
     error => {
       assert.equal(error.statusCode, 409);
       assert.match(error.message, /2026|10\/08/);
+      assert.match(error.message, /Vendedor A/);
       assert.equal(error.finalizedAt, quando);
       return true;
     }
   );
 });
 
-test('proposta em finalização é 409 — dois cliques não geram dois pares', async () => {
-  const prisma = fakePrisma([propostaBase({ status: 'FINALIZANDO' })]);
+test('proposta em finalização é 409 com autor — dois cliques não geram dois pares', async () => {
+  const prisma = fakePrisma([
+    propostaBase({
+      status: 'FINALIZANDO',
+      finalizedAt: new Date('2026-08-10T14:30:00Z'),
+      finalizedByUserId: 'u-vend-b',
+      finalizedByLabel: 'Vendedor B'
+    })
+  ]);
 
   await assert.rejects(
     () => finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf }),
-    error => error.statusCode === 409
+    error => error.statusCode === 409 && /Vendedor B/.test(error.message)
   );
 
   assert.equal(prisma.store.documentos.length, 0, 'gerou documento de uma segunda finalização');

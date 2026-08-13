@@ -1,4 +1,4 @@
-import { canFinalize, denialReason } from './access.js';
+import { actorLabel, canFinalize, denialReason } from './access.js';
 import { arquivosAnexados, exigirLimiteAgregado } from './anexos.js';
 import { planilhaDeCustos } from './cost-csv.js';
 import { ComercialError } from './cost-estimates.js';
@@ -66,10 +66,31 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
   // diferença, encontrar `FINALIZANDO` em vez de encontrar `RASCUNHO` e produzir
   // um segundo par de documentos, uma segunda oportunidade e uma segunda pasta —
   // com as duas requisições respondendo sucesso.
-  await prisma.proposal.update({
-    where: { id: proposalId },
-    data: { status: EM_ANDAMENTO, integrationError: null }
-  });
+  try {
+    await prisma.proposal.update({
+      // A exclusividade também precisa estar no UPDATE. Dois SELECTs podem ler
+      // RASCUNHO ao mesmo tempo; só um deles consegue trocar aquele estado.
+      where: { id: proposalId, status: proposta.status, archivedAt: null },
+      data: {
+        status: EM_ANDAMENTO,
+        integrationError: null,
+        // Enquanto o processo está rodando estes campos respondem quem começou
+        // e quando. Se falhar, são limpos; no sucesso recebem a data de conclusão.
+        finalizedAt: new Date(),
+        finalizedByUserId: user.id,
+        finalizedByLabel: actorLabel(user)
+      }
+    });
+  } catch (error) {
+    if (error?.code !== 'P2025') throw error;
+    const atual = await prisma.proposal.findUnique({ where: { id: proposalId } });
+    if (!atual) throw new ComercialError('Proposta não encontrada.', 404);
+    if (atual.archivedAt) {
+      throw new ComercialError('Proposta arquivada. Desarquive antes de finalizar.', 409);
+    }
+    exigirNaoFinalizada(atual);
+    throw new ComercialError('A proposta mudou antes de iniciar a finalização. Tente novamente.', 409);
+  }
 
   let documentos;
   try {
@@ -79,7 +100,13 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
     // senão ela fica presa em FINALIZANDO e ninguém consegue tentar de novo.
     await prisma.proposal.update({
       where: { id: proposalId },
-      data: { status: estadoAnterior, integrationError: null }
+      data: {
+        status: estadoAnterior,
+        integrationError: null,
+        finalizedAt: null,
+        finalizedByUserId: null,
+        finalizedByLabel: null
+      }
     });
     throw error;
   }
@@ -115,6 +142,7 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
       status: sucesso ? CONCLUIDA : 'FALHA_INTEGRACAO',
       finalizedAt: sucesso ? new Date() : null,
       finalizedByUserId: sucesso ? user.id : null,
+      finalizedByLabel: sucesso ? actorLabel(user) : null,
       nectarStatus: integracao.status,
       nectarOpportunityId: integracao.opportunityId || proposta.nectarOpportunityId,
       nectarPipelineId: integracao.pipelineId || proposta.nectarPipelineId,
@@ -151,16 +179,30 @@ export function exigirNaoFinalizada(proposta) {
     const quando = proposta.finalizedAt
       ? new Date(proposta.finalizedAt).toLocaleString('pt-BR')
       : 'anteriormente';
+    const porQuem =
+      String(proposta.finalizedByLabel || '').trim() ||
+      (proposta.finalizedByUserId ? `usuário ${proposta.finalizedByUserId}` : 'outro usuário');
     throw new ComercialError(
-      `Esta proposta já foi finalizada em ${quando}. Crie uma revisão para emitir de novo.`,
+      `Esta proposta já foi finalizada por ${porQuem} em ${quando}. ` +
+        'Crie uma revisão para emitir de novo.',
       409,
-      { finalizedAt: proposta.finalizedAt, finalizedByUserId: proposta.finalizedByUserId }
+      {
+        finalizedAt: proposta.finalizedAt,
+        finalizedByUserId: proposta.finalizedByUserId,
+        finalizedByLabel: proposta.finalizedByLabel || null
+      }
     );
   }
 
   if (proposta.status === EM_ANDAMENTO) {
+    const quando = proposta.finalizedAt
+      ? new Date(proposta.finalizedAt).toLocaleString('pt-BR')
+      : 'agora';
+    const porQuem =
+      String(proposta.finalizedByLabel || '').trim() ||
+      (proposta.finalizedByUserId ? `usuário ${proposta.finalizedByUserId}` : 'outro usuário');
     throw new ComercialError(
-      'Esta proposta está sendo finalizada neste momento. Aguarde o término.',
+      `Esta proposta está sendo finalizada por ${porQuem} desde ${quando}. Aguarde o término.`,
       409
     );
   }

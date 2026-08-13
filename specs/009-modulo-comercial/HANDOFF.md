@@ -148,12 +148,13 @@ A finalização de verdade já está ligada. O próximo bloco é o histórico:
 | ~~**T076d, T076e, T128**~~ | **Feitos.** Anexos do cliente, um por requisição, limite agregado no upload e na finalização, e remoção somente antes de finalizar. A tela lista, envia sem duplicar numa retomada e remove. |
 | ~~**T081, T082, T083**~~ | **Feitas em 13/08.** A tela carrega funis autorizados, valida cada pendência antes de gerar, chama a finalização real, preserva os PDFs no `502` parcial e oferece os dois downloads juntos ou separados. A busca de empresa/contato da proposta nova continua sendo a T121a. |
 | ~~**T084**~~ | **Feita em 13/08.** Tela, busca, status das integrações, revisão, custos e downloads. O backend omite valores e o documento comercial para `viewer`; o guard também o mantém fora de custos e do gerador. |
-| **T079b, T110a** | Aviso de escrita concorrente (o 409 de finalização já existe). |
+| ~~**T079b, T110a**~~ | **Feitas em 13/08.** Versão otimista obrigatória nos dois `PUT`, condição atômica no `UPDATE`, autoria congelada, `409` estruturado e diálogo de recarregar/sobrescrever. A recusa da finalização agora nomeia autor e data de fato. |
+| **T121a** | Próximo item crítico: ligar à etapa Cliente as rotas de busca de empresa/contato do Nectar que já existem no backend. |
 
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**147 tarefas fechadas, 32 abertas** (13/08/2026) — o crescimento do total vem das
+**149 tarefas fechadas, 30 abertas** (13/08/2026) — o crescimento do total vem das
 sete sugestões do comercial (T121–T127, registradas em 11/08) e do bloco T128–T134
 (12/08). Este número e o de [tasks.md](./tasks.md) precisam ser corrigidos **juntos**:
 ficaram divergentes por três dias (117/47 aqui, 94/61 lá) e os dois foram lidos como

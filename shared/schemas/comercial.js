@@ -211,6 +211,15 @@ export function makeComercialSchemas(z) {
     // CRM um valor que o PDF não confirma — e ninguém confere os dois.
   });
 
+  /**
+   * Versão otimista obrigatória nos dois PUTs (FR-070). `forceOverwrite` é a
+   * segunda tentativa, feita somente depois da confirmação explícita na tela.
+   */
+  const concurrentUpdate = {
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    forceOverwrite: z.boolean().default(false)
+  };
+
   return {
     MODES: COST_ESTIMATE_MODES,
     COST_STATUSES: COST_ESTIMATE_STATUSES,
@@ -224,10 +233,12 @@ export function makeComercialSchemas(z) {
 
     costEstimatePayload,
     costEstimateCreate,
-    costEstimateUpdate: costEstimateCreate.partial({ mode: true }),
+    costEstimateUpdate: costEstimateCreate
+      .partial({ mode: true })
+      .extend(concurrentUpdate),
     scopeContentBlocks,
     proposalCreate,
-    proposalUpdate: proposalCreate.partial(),
+    proposalUpdate: proposalCreate.partial().extend(concurrentUpdate),
 
     /** Listagem: o filtro de arquivados é explícito, nunca implícito. */
     listQuery: z.object({

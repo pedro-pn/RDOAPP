@@ -37,6 +37,30 @@ export class ComercialValidationError extends Error {
   }
 }
 
+export const CONCURRENT_WRITE_CODE = 'COMERCIAL_CONCURRENT_WRITE';
+
+export interface ConflitoDeEdicao {
+  updatedAt: string | null;
+  updatedByUserId: string | null;
+  updatedByLabel: string;
+}
+
+/** 409 que a tela resolve recarregando ou reenviando com confirmação. */
+export class ComercialConcurrentWriteError extends Error {
+  conflict: ConflitoDeEdicao;
+
+  constructor(message: string, conflict: ConflitoDeEdicao) {
+    super(message);
+    this.name = 'ComercialConcurrentWriteError';
+    this.conflict = conflict;
+  }
+}
+
+export interface OpcoesDeConcorrencia {
+  expectedUpdatedAt: string;
+  forceOverwrite?: boolean;
+}
+
 export interface LevantamentoSalvo {
   id: string;
   proposalCode: string;
@@ -45,6 +69,7 @@ export interface LevantamentoSalvo {
   salePrice?: string | number | null;
   marginPercent?: string | number | null;
   status?: string;
+  updatedAt: string;
 }
 
 export interface LevantamentoEntrada {
@@ -72,11 +97,15 @@ export async function criarLevantamento(entrada: LevantamentoEntrada) {
   }
 }
 
-export async function atualizarLevantamento(id: string, entrada: LevantamentoEntrada) {
+export async function atualizarLevantamento(
+  id: string,
+  entrada: LevantamentoEntrada,
+  concorrencia: OpcoesDeConcorrencia
+) {
   try {
     const { data } = await apiClient.put<LevantamentoSalvo>(
       `/comercial/levantamentos/${id}`,
-      entrada
+      { ...entrada, ...concorrencia }
     );
     return data;
   } catch (error) {
@@ -92,6 +121,8 @@ export async function obterLevantamento(id: string) {
 }
 
 function traduzirErro(error: unknown): unknown {
+  const conflito = interpretarConflitoDeEdicao(error);
+  if (conflito) return conflito;
   if (!axios.isAxiosError(error) || error.response?.status !== 422) return error;
 
   const corpo = error.response.data as { issues?: ComercialIssue[]; message?: string };
@@ -100,6 +131,27 @@ function traduzirErro(error: unknown): unknown {
   // Sem `issues` não há o que endereçar — deixa o erro original subir em vez de
   // fabricar uma lista vazia, que a tela leria como "nenhuma pendência".
   return issues.length ? new ComercialValidationError(issues) : error;
+}
+
+/** Mantida pura e exportada para provar o contrato HTTP no teste do frontend. */
+export function interpretarConflitoDeEdicao(
+  error: unknown
+): ComercialConcurrentWriteError | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 409) return null;
+  const corpo = error.response.data as {
+    error?: string;
+    code?: string;
+    conflict?: Partial<ConflitoDeEdicao>;
+  };
+  if (corpo?.code !== CONCURRENT_WRITE_CODE || !corpo.conflict) return null;
+  return new ComercialConcurrentWriteError(
+    corpo.error || 'Este registro foi alterado enquanto você editava.',
+    {
+      updatedAt: corpo.conflict.updatedAt || null,
+      updatedByUserId: corpo.conflict.updatedByUserId || null,
+      updatedByLabel: corpo.conflict.updatedByLabel || 'outro usuário'
+    }
+  );
 }
 
 /**
@@ -258,9 +310,20 @@ export async function criarProposta(entrada: PropostaEntrada) {
   return data;
 }
 
-export async function atualizarProposta(id: string, entrada: Partial<PropostaEntrada>) {
-  const { data } = await apiClient.put<PropostaSalva>(`/comercial/propostas/${id}`, entrada);
-  return data;
+export async function atualizarProposta(
+  id: string,
+  entrada: Partial<PropostaEntrada>,
+  concorrencia: OpcoesDeConcorrencia
+) {
+  try {
+    const { data } = await apiClient.put<PropostaSalva>(`/comercial/propostas/${id}`, {
+      ...entrada,
+      ...concorrencia
+    });
+    return data;
+  } catch (error) {
+    throw interpretarConflitoDeEdicao(error) || error;
+  }
 }
 
 export async function obterProposta(id: string) {

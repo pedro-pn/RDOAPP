@@ -1494,6 +1494,20 @@
 
 .com-root .com-btn-perigo:disabled { opacity: 0.4; cursor: not-allowed; }
 
+.com-root .com-conflito-card { width: min(620px, 100%); }
+
+.com-root .com-conflito-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .com-root .com-conflito-acoes .com-btn { width: 100%; }
+}
+
 .com-root .com-fase-paineis {
   display: grid;
   gap: 12px;

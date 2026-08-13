@@ -1,4 +1,12 @@
-import { canRead, canWrite, denialReason, proposalScopeFilter } from './access.js';
+import {
+  ConcurrentWriteError,
+  actorLabel,
+  assertNoConcurrentWrite,
+  canRead,
+  canWrite,
+  denialReason,
+  proposalScopeFilter
+} from './access.js';
 import { resolverConsultor } from './consultores.js';
 import { ComercialError } from './cost-estimates.js';
 import { lerDinheiro } from './dinheiro.js';
@@ -363,6 +371,7 @@ export async function updateProposal(prisma, user, id, data) {
       409
     );
   }
+  const protegerVersao = assertNoConcurrentWrite(existing, data);
 
   const costEstimateId =
     data.costEstimateId === undefined
@@ -378,25 +387,38 @@ export async function updateProposal(prisma, user, id, data) {
 
   const payload = data.payload ?? existing.payload;
 
-  return prisma.proposal.update({
-    where: { id },
-    data: {
-      // `proposalCode` e `revisionNumber` NÃO entram: o código vem da numeração
-      // que já foi consumida, e trocá-lo depois desfaria o vínculo com o
-      // levantamento, com os documentos e com o número reservado.
-      costEstimateId,
-      clientName: data.clientName ?? existing.clientName,
-      cnpj: data.cnpj ?? existing.cnpj,
-      contact: data.contact ?? existing.contact,
-      email: data.email ?? existing.email,
-      site: data.site ?? existing.site,
-      department: data.department === undefined ? existing.department : data.department,
-      sellerUserId: consultor.sellerUserId,
-      sellerName: consultor.sellerName,
-      payload,
-      totalValue: calcularTotal(payload)
+  try {
+    return await prisma.proposal.update({
+      // `updatedAt` torna a conferência atômica. Só comparar o SELECT acima
+      // ainda permitiria que duas requisições passassem juntas pela checagem.
+      where: protegerVersao ? { id, updatedAt: existing.updatedAt } : { id },
+      data: {
+        // `proposalCode` e `revisionNumber` NÃO entram: o código vem da numeração
+        // que já foi consumida, e trocá-lo depois desfaria o vínculo com o
+        // levantamento, com os documentos e com o número reservado.
+        costEstimateId,
+        clientName: data.clientName ?? existing.clientName,
+        cnpj: data.cnpj ?? existing.cnpj,
+        contact: data.contact ?? existing.contact,
+        email: data.email ?? existing.email,
+        site: data.site ?? existing.site,
+        department: data.department === undefined ? existing.department : data.department,
+        sellerUserId: consultor.sellerUserId,
+        sellerName: consultor.sellerName,
+        payload,
+        totalValue: calcularTotal(payload),
+        updatedByUserId: user.id,
+        updatedByLabel: actorLabel(user)
+      }
+    });
+  } catch (error) {
+    if (protegerVersao && error?.code === 'P2025') {
+      const atual = await prisma.proposal.findUnique({ where: { id } });
+      if (atual) throw new ConcurrentWriteError(atual);
+      throw new ComercialError('Proposta não encontrada.', 404);
     }
-  });
+    throw error;
+  }
 }
 
 export async function archiveProposal(prisma, user, id, { archive = true } = {}) {

@@ -126,6 +126,8 @@ test('a autoria e o arquivamento existem nas duas entidades', () => {
   for (const nome of ['CostEstimate', 'Proposal']) {
     const bloco = blocoDe(nome);
     assert.match(bloco, /createdByUserId\s+String/, `${nome}: falta createdByUserId`);
+    assert.match(bloco, /updatedByUserId\s+String\?/, `${nome}: falta updatedByUserId`);
+    assert.match(bloco, /updatedByLabel\s+String\?/, `${nome}: falta updatedByLabel`);
     assert.match(bloco, /archivedAt\s+DateTime\?/, `${nome}: falta archivedAt`);
     // O índice de listagem precisa considerar autoria E arquivamento —
     // é a consulta que o vendedor faz, e é onde o vazamento apareceria.
@@ -149,6 +151,7 @@ test('a finalização tem os campos que a tornam exclusiva', () => {
   const bloco = blocoDe('Proposal');
   assert.match(bloco, /finalizedAt\s+DateTime\?/);
   assert.match(bloco, /finalizedByUserId\s+String\?/);
+  assert.match(bloco, /finalizedByLabel\s+String\?/);
 
   // O estado "em finalização" é o que faz a segunda tentativa parar ANTES de
   // gerar qualquer coisa — sem ele, dois cliques produzem dois pares de

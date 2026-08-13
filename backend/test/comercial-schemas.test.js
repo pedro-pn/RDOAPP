@@ -91,6 +91,31 @@ test('a criação de levantamento NÃO aceita totais do cliente', () => {
   assert.ok(!('marginPercent' in parsed), 'marginPercent não pode entrar pelo corpo');
 });
 
+test('os dois PUTs exigem a versão carregada e aceitam sobrescrita confirmada', () => {
+  const esperado = '2026-08-13T12:00:00.000Z';
+  assert.equal(schemas.proposalUpdate.safeParse({ clientName: 'X' }).success, false);
+  assert.equal(
+    schemas.proposalUpdate.safeParse({
+      clientName: 'X',
+      expectedUpdatedAt: esperado,
+      forceOverwrite: true
+    }).success,
+    true
+  );
+
+  const levantamento = {
+    proposalCode: '4418',
+    title: 'Levantamento',
+    payload: { schemaVersion: 2 },
+    expectedUpdatedAt: esperado
+  };
+  assert.equal(schemas.costEstimateUpdate.safeParse(levantamento).success, true);
+  assert.equal(
+    schemas.costEstimateUpdate.safeParse({ ...levantamento, expectedUpdatedAt: 'ontem' }).success,
+    false
+  );
+});
+
 test('os blocos de conteúdo respeitam os limites de foto e tabela', () => {
   const foto = index => ({
     id: `f${index}`,

@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/schemas/comercial.js';
 import asyncHandler from '../../lib/async-handler.js';
 import {
+  ConcurrentWriteError,
   canViewValues,
   serializeForUser,
   serializeListForUser
@@ -83,6 +84,14 @@ function handleComercialError(error, res) {
     // Pendências item a item, com o endereço do campo — é o que permite à tela
     // destacar cada campo em vez de despejar tudo num banner único (L1).
     res.status(error.statusCode).json({ error: error.message, issues: error.issues });
+    return true;
+  }
+  if (error instanceof ConcurrentWriteError) {
+    res.status(409).json({
+      error: error.message,
+      code: error.code,
+      conflict: error.conflict
+    });
     return true;
   }
   if (error instanceof ComercialError) {
