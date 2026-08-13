@@ -955,11 +955,17 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > vezes. Agora é um por código distinto, na ordem do documento. As frases do
   > `reportText()` foram substituídas pelas do `.docx` (desvio nº 12), e a função morreu.
   >
-  > **Consequência para a T133**: a frase do RLF passa a ser a do `.docx` ("Após a
-  > conclusão **dos serviços de** flushing … da estrutura.") e não a da planilha ("Após
-  > a conclusão **do** flushing … da estrutura **caso aplicado**."). Diferença de
-  > redação, mesmo conteúdo; o que a planilha decidiu — a **sigla** RLF — está aplicado
-  > nos dois lados. Manter a da planilha faria prévia e PDF discordarem de novo.
+  > **Consequência para a T133, confirmada pelo mantenedor em 13/08** ("foi só erro
+  > meu, pode alinhar com o que já estava no documento"): a frase do RLF é a do `.docx`
+  > ("Após a conclusão **dos serviços de** flushing … da estrutura.") e não a da
+  > planilha ("Após a conclusão **do** flushing … da estrutura **caso aplicado**."). O
+  > que a planilha decidiu — a **sigla** RLF — está aplicado nos dois lados.
+  >
+  > **E a conferência caractere a caractere valeu na hora**: eu havia copiado a frase
+  > do RDO terminando em ponto final, e no documento ela termina em **ponto e vírgula**,
+  > como as outras do item 8. Um caractere. Um teste passou a comparar cada frase do
+  > código contra o documento gerado, porque comparar por trecho ou por regex não veria
+  > — e é assim que as duas verdades voltam a existir.
 
 ## Rastreabilidade que faltava — apontada pela revisão de 13/08
 

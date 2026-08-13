@@ -482,9 +482,15 @@ export const TECHNICAL_REPORT_SENTENCES: Record<TechnicalReportCode, string> = {
   RLF: "Após a conclusão dos serviços de flushing será emitido um RLF (relatório de flushing) descrevendo as informações específicas das atividades, bem como, as imagens do antes e depois de alguns pontos da estrutura.",
 };
 
-/** O RDO **aparece sempre**, contratado o que for. Texto do `.docx`. */
+/**
+ * O RDO **aparece sempre**, contratado o que for. Texto do `.docx`.
+ *
+ * Termina em **ponto e vírgula**, como as outras frases do item 8 — eu tinha
+ * copiado com ponto final. Um caractere, e é o tipo de divergência que o
+ * desvio nº 12 existe para não deixar passar: o documento é o original.
+ */
 export const RDO_SENTENCE =
-  "Será entregue diariamente o RDO (relatório diário de obra) descrevendo quais serviços foram executados referente ao dia de trabalho.";
+  "Será entregue diariamente o RDO (relatório diário de obra) descrevendo quais serviços foram executados referente ao dia de trabalho;";
 
 /** A ressalva que só faz sentido quando existe relatório específico. */
 export const REPORTS_NOTICE =

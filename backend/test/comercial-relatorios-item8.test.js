@@ -20,6 +20,7 @@ import AdmZip from 'adm-zip';
 import {
   RDO_SENTENCE,
   REPORTS_NOTICE,
+  TECHNICAL_REPORT_SENTENCES,
   buildTechnicalReportsText,
   createTechnicalServiceSelection,
   technicalReportCodesFor,
@@ -138,8 +139,25 @@ test('a ordem é a do documento, não a da escolha do vendedor', () => {
   assert.deepEqual(trocada, naOrdem);
 });
 
-test('a ressalva e a frase do RDO são as do .docx, não uma reescrita', () => {
+test('TODA frase do item 8 no código é IDÊNTICA à do .docx', async () => {
   // Desvio nº 12: onde o texto fixo diverge do documento, o documento vence.
-  assert.match(RDO_SENTENCE, /^Será entregue diariamente o RDO \(relatório diário de obra\)/);
-  assert.match(REPORTS_NOTICE, /^Obs: Visando a redução de tempo e retrabalho/);
+  //
+  // Este teste é caractere a caractere de propósito, e pegou o primeiro caso no
+  // dia em que foi escrito: eu tinha copiado a frase do RDO terminando em ponto
+  // final, e no documento ela termina em **ponto e vírgula**, como as outras do
+  // item 8. Um caractere — e é assim que as duas verdades voltam a existir,
+  // porque uma comparação por trecho ou por regex não veria.
+  const documento = await item8DoDocumento([
+    'limpeza_quimica',
+    'flushing_primario',
+    'teste_hidrostatico',
+    'limpeza_reservatorio',
+    'flushing_agua',
+  ]);
+
+  assert.ok(documento.includes(RDO_SENTENCE), 'a frase do RDO no código não é a do .docx');
+  assert.ok(documento.includes(REPORTS_NOTICE), 'a ressalva no código não é a do .docx');
+  for (const [codigo, frase] of Object.entries(TECHNICAL_REPORT_SENTENCES)) {
+    assert.ok(documento.includes(frase), `a frase do ${codigo} no código não é a do .docx`);
+  }
 });
