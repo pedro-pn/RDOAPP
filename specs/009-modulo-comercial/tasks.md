@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 150 tarefas fechadas, 29 abertas** (de 179). O contador
+> **Estado em 13/08/2026: 151 tarefas fechadas, 29 abertas** (de 180). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -910,6 +910,24 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > escolhas já feitas. Para o flushing com água, aponta o
   > "Serviço especializado em flushing com água" (4 usos) contra "Flushing com
   > água" (3).
+
+- [X] T138 **Tirar dos `.docx` os relatórios que não existem, e acertar a sigla do
+  flushing.** Decidido pelo mantenedor em 13/08, ao rever o item 8: `RH (relatório de
+  hidrojateamento)` e `RTPP (relatório de passagem de PIG)` **saem** — não existem; e
+  `RFA (relatório de flushing com água)` vira `RLF (relatório de flushing)`, que é o
+  nome usado. ↳ `backend/scripts/comercial-corrigir-relatorios.mjs`, aplicado nos
+  `modelos/` **e** nos `.docx` de origem.
+
+  > **Mexer só no `modelos/` seria conserto que se desfaz sozinho**: a próxima rodada
+  > do `comercial-gerar-modelos.mjs` traria os parágrafos de volta, e ninguém
+  > desconfiaria, porque o documento continuaria bonito.
+  >
+  > A armadilha da T132 voltou, e desta vez me pegou: `RFA` cabia num `<w:t>` e trocou
+  > na primeira tentativa, mas `relatório de flushing com água` estava partido em
+  > `(relatório ` + `de flushing com água`, e o regex sobre a frase inteira **não achou
+  > nada, em silêncio**. O script ganhou uma remoção que trabalha sobre o texto
+  > concatenado do parágrafo e devolve o corte aos nós certos, preservando a formatação
+  > de cada run.
 
 ## Rastreabilidade que faltava — apontada pela revisão de 13/08
 
