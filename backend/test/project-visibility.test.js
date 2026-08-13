@@ -2,11 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  activeReportProjectWhere,
   assertProjectReadyForReports,
   clearPendingProjectLegacyExternalSignatureState,
   shouldProvisionProjectClientAccounts,
   withoutProjectLegacyExternalSignatureState
 } from '../src/lib/project-visibility.js';
+
+test('activeReportProjectWhere preserves filters and requires a non-deleted project', () => {
+  assert.deepEqual(activeReportProjectWhere({ id: 'project-1', deletedAt: new Date() }), {
+    id: 'project-1',
+    deletedAt: null
+  });
+});
 
 test('assertProjectReadyForReports blocks pending registrations with a stable conflict', () => {
   assert.doesNotThrow(() => assertProjectReadyForReports({ registrationPending: false }));

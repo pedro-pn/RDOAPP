@@ -95,3 +95,42 @@ export function pendingProjectRegistrationMessage(projects: Project[]) {
   }
   return `Há ${projects.length} projetos aguardando verificação manual: ${webhookCount} via webhook e ${romaneioCount} pelo Romaneio.`;
 }
+
+export function formatProjectSequences(project: Project) {
+  const sequences = project.reportSequences || [];
+  if (!sequences.length) return 'Sem sequenciais cadastrados';
+  return sequences
+    .map(sequence => `${sequence.reportType}: próximo ${sequence.nextNumber}`)
+    .join(', ');
+}
+
+export function projectVisibilityLabel(project: Pick<Project, 'managerOnly' | 'visibleToCollaborators'>) {
+  if (project.managerOnly) return 'Somente gestor';
+  if (project.visibleToCollaborators) return 'Gestor, coordenador e colaboradores responsáveis';
+  return 'Gestor e coordenador';
+}
+
+export function projectTitle(project: Project) {
+  const name = String(project.name || '').trim();
+  return name ? `${project.code} - ${name}` : `Missão ${project.code}`;
+}
+
+export function projectSearchParts(project: Project) {
+  return [
+    project.code,
+    project.name,
+    project.registrationPending ? 'cadastro pendente' : '',
+    project.clientName,
+    project.clientCnpj,
+    project.clientEmailPrimary,
+    project.clientSignerFirstName,
+    project.clientSignerLastName,
+    ...(project.clientEmailCc || []),
+    ...(project.clientSigners || []).flatMap(signer => [signer.name, signer.firstName, signer.lastName, signer.email]),
+    project.contractCode,
+    project.location,
+    project.operator?.name,
+    projectVisibilityLabel(project),
+    formatProjectSequences(project)
+  ];
+}

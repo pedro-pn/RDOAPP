@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import prisma from './prisma.js';
-import { statisticsProjectsCache } from './resource-list-cache.js';
+import prisma from '../prisma.js';
+import { statisticsProjectsCache } from '../resource-list-cache.js';
 
 const requiredText = (label, max) => z.string()
   .trim()

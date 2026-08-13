@@ -10,7 +10,7 @@ import {
   projectIntakeCreateData,
   projectIntakeSchema,
   receiveProjectIntake
-} from '../src/lib/project-intake.js';
+} from '../src/lib/projects/project-intake.js';
 
 const validPayload = {
   code: '005719',

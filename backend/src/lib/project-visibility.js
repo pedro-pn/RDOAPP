@@ -17,6 +17,10 @@ export function assertProjectReadyForReports(project) {
   throw error;
 }
 
+export function activeReportProjectWhere(projectWhere = {}) {
+  return { ...projectWhere, deletedAt: null };
+}
+
 export function withoutProjectLegacyExternalSignatureState(specialConditions) {
   const next = { ...(specialConditions || {}) };
   for (const key of LEGACY_EXTERNAL_SIGNATURE_KEYS) delete next[key];

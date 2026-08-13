@@ -62,7 +62,7 @@ import { coordinatorNotificationEmails, NotificationEmailCategory, notificationR
 import { createMemoryRateLimit } from '../../lib/rate-limit.js';
 import prisma from '../../lib/prisma.js';
 import { logSlowOperation } from '../../lib/performance-logging.js';
-import { assertProjectReadyForReports } from '../../lib/project-visibility.js';
+import { activeReportProjectWhere, assertProjectReadyForReports } from '../../lib/project-visibility.js';
 import { statisticsProjectsCache } from '../../lib/resource-list-cache.js';
 import { buildReportFileName, safePath } from '../../lib/report-filename.js';
 import {
@@ -1479,10 +1479,6 @@ export function collaboratorReportProjectWhere(collaboratorId, userId) {
       }
     ]
   };
-}
-
-function activeReportProjectWhere(projectWhere = {}) {
-  return { ...projectWhere, deletedAt: null };
 }
 
 function parseReportStatusFilter(query) {

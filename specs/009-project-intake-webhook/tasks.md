@@ -22,7 +22,7 @@
 
 **⚠️ CRITICAL**: Nenhuma história deve prosseguir sem estes contratos estabilizados.
 
-- [X] T002 Criar schema Zod estrito, normalização de CNPJ sem truncamento, seleção pública, defaults seguros e erro de conflito em `backend/src/lib/project-intake.js`
+- [X] T002 Criar schema Zod estrito, normalização de CNPJ sem truncamento, seleção pública, defaults seguros e erro de conflito em `backend/src/lib/projects/project-intake.js`
 - [X] T003 Criar o router dedicado com autenticação Bearer em tempo constante e montá-lo em `/api/webhooks/projects` usando `backend/src/routes/resources/project-intake-webhook.js` e `backend/src/routes/index.js`
 
 **Checkpoint**: payload e autenticação disponíveis para a implementação das histórias.
@@ -42,7 +42,7 @@
 
 ### Implementation for User Story 1
 
-- [X] T006 [US1] Implementar criação idempotente, recuperação de corrida `P2002`, preservação do estado revisado e limpeza de `statisticsProjectsCache` em `backend/src/lib/project-intake.js`
+- [X] T006 [US1] Implementar criação idempotente, recuperação de corrida `P2002`, preservação do estado revisado e limpeza de `statisticsProjectsCache` em `backend/src/lib/projects/project-intake.js`
 - [X] T007 [US1] Integrar o serviço ao POST e devolver os resultados `created`/`already_exists` em `backend/src/routes/resources/project-intake-webhook.js`
 - [X] T008 [US1] Reforçar `registrationPending=false` nos fluxos backend que criam ou reassociam relatórios, preservando o fluxo de Romaneio, em `backend/src/routes/resources/reports.js` e `backend/src/lib/project-visibility.js`
 
@@ -84,7 +84,7 @@
 
 ### Implementation for User Story 3
 
-- [X] T016 [US3] Finalizar respostas 400/409/503 estáveis e seguras, mantendo Zod e falhas inesperadas no handler global, em `backend/src/routes/resources/project-intake-webhook.js` e `backend/src/lib/project-intake.js`
+- [X] T016 [US3] Finalizar respostas 400/409/503 estáveis e seguras, mantendo Zod e falhas inesperadas no handler global, em `backend/src/routes/resources/project-intake-webhook.js` e `backend/src/lib/projects/project-intake.js`
 
 **Checkpoint**: todas as classes de erro do contrato são distinguíveis e não causam mutação.
 

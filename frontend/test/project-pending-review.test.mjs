@@ -86,6 +86,13 @@ test('pending projects are counted, partitioned and identify webhook or Romaneio
 
   assert.deepEqual(groups.pending.map(item => item.id), ['pending']);
   assert.deepEqual(groups.ready.map(item => item.id), ['ready']);
+  const sequencedProject = project({
+    reportSequences: [{ id: 'sequence-1', projectId: 'project-1', reportType: 'RDO', nextNumber: 8 }]
+  });
+  assert.equal(review.projectTitle(sequencedProject), '005719 - Ilha Solteira');
+  assert.equal(review.projectVisibilityLabel(sequencedProject), 'Gestor e coordenador');
+  assert.match(review.formatProjectSequences(sequencedProject), /RDO: próximo 8/);
+  assert.ok(review.projectSearchParts(sequencedProject).includes('Ilha Solteira - SP'));
   assert.equal(review.pendingProjectRegistrationSource(pendingProject), 'WEBHOOK');
   assert.equal(review.pendingProjectRegistrationSource(romaneioProject), 'ROMANEIO');
   assert.equal(

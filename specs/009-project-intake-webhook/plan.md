@@ -84,7 +84,7 @@ specs/009-project-intake-webhook/
 ```text
 backend/
 ├── src/config/env.js
-├── src/lib/project-intake.js
+├── src/lib/projects/project-intake.js
 ├── src/routes/index.js
 ├── src/routes/resources/project-intake-webhook.js
 ├── src/routes/resources/reports.js

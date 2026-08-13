@@ -100,10 +100,8 @@ import { PendingProjectReviewForm } from './PendingProjectReviewForm';
 import { ProjectIntakeWebhookNovelty } from './ProjectIntakeWebhookNovelty';
 import { ProjectTabPendingBadges } from './ProjectTabPendingBadges';
 import {
-  automaticProjectReviewMessage,
-  partitionProjectsByRegistration,
-  pendingProjectRegistrationMessage,
-  projectRegistrationPending
+  automaticProjectReviewMessage, formatProjectSequences, partitionProjectsByRegistration, pendingProjectRegistrationMessage,
+  projectRegistrationPending, projectSearchParts, projectTitle, projectVisibilityLabel
 } from './projectPendingReview';
 
 type GestorTab =
@@ -514,26 +512,6 @@ function initials(name: string) {
     .toUpperCase() || 'CL';
 }
 
-function projectSearchParts(project: Project) {
-  return [
-    project.code,
-    project.name,
-    project.registrationPending ? 'cadastro pendente' : '',
-    project.clientName,
-    project.clientCnpj,
-    project.clientEmailPrimary,
-    project.clientSignerFirstName,
-    project.clientSignerLastName,
-    ...(project.clientEmailCc || []),
-    ...(project.clientSigners || []).flatMap(signer => [signer.name, signer.firstName, signer.lastName, signer.email]),
-    project.contractCode,
-    project.location,
-    project.operator?.name,
-    projectVisibilityLabel(project),
-    formatProjectSequences(project)
-  ];
-}
-
 function collaboratorSearchParts(collaborator: Collaborator) {
   return [collaborator.code, collaborator.name, collaborator.role, collaborator.email];
 }
@@ -571,28 +549,9 @@ function formatPrimaryProjectSigner(project: Project) {
   return name || 'Não informado';
 }
 
-function formatProjectSequences(project: Project) {
-  const sequences = project.reportSequences || [];
-  if (!sequences.length) return 'Sem sequenciais cadastrados';
-  return sequences
-    .map(sequence => `${sequence.reportType}: próximo ${sequence.nextNumber}`)
-    .join(', ');
-}
-
 function projectVisibilityMode(form: Pick<ProjectFormState, 'managerOnly' | 'visibleToCollaborators'>): ProjectVisibilityMode {
   if (form.managerOnly) return 'manager-only';
   return form.visibleToCollaborators ? 'all-authorized' : 'manager-coordinator';
-}
-
-function projectVisibilityLabel(project: Pick<Project, 'managerOnly' | 'visibleToCollaborators'>) {
-  if (project.managerOnly) return 'Somente gestor';
-  if (project.visibleToCollaborators) return 'Gestor, coordenador e colaboradores responsáveis';
-  return 'Gestor e coordenador';
-}
-
-function projectTitle(project: Project) {
-  const name = String(project.name || '').trim();
-  return name ? `${project.code} - ${name}` : `Missão ${project.code}`;
 }
 
 function applyProjectVisibilityMode(mode: ProjectVisibilityMode): Pick<ProjectFormState, 'managerOnly' | 'visibleToCollaborators'> {

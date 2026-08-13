@@ -4,7 +4,7 @@ import { Router } from 'express';
 
 import env from '../../config/env.js';
 import asyncHandler from '../../lib/async-handler.js';
-import { ProjectIntakeConflictError, receiveProjectIntake } from '../../lib/project-intake.js';
+import { ProjectIntakeConflictError, receiveProjectIntake } from '../../lib/projects/project-intake.js';
 import { createMemoryRateLimit } from '../../lib/rate-limit.js';
 
 const router = Router();
