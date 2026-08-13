@@ -200,8 +200,33 @@ export interface PropostaSalva {
   totalValue?: string | number | null;
   costEstimateId?: string | null;
   sellerUserId?: string;
+  nectarOpportunityId?: string | null;
+  nectarPipelineId?: string | null;
+  nectarPipelineName?: string | null;
   payload?: Record<string, unknown>;
   updatedAt?: string;
+}
+
+export interface VinculoCrmDaProposta {
+  opportunityId: string;
+  pipelineId: string;
+  pipelineName: string;
+}
+
+export interface ProximaRevisaoDaProposta {
+  /** Nome mantido do contrato congelado. */
+  base_number: number;
+  /** Alias da camada de domínio do backend. */
+  baseNumber: number;
+  proposalCode: string;
+  nextRevision: number;
+  snapshot: Record<string, unknown>;
+  snapshotAvailable: boolean;
+  message: string;
+  costEstimateId?: string | null;
+  sellerUserId?: string;
+  sellerName?: string;
+  crm: VinculoCrmDaProposta | null;
 }
 
 /**
@@ -223,6 +248,18 @@ export async function atualizarProposta(id: string, entrada: Partial<PropostaEnt
 
 export async function obterProposta(id: string) {
   const { data } = await apiClient.get<PropostaSalva>(`/comercial/propostas/${id}`);
+  return data;
+}
+
+/**
+ * Carrega o ponto de partida de uma revisão sem criar registro nem consumir
+ * numeração. Ausência de snapshot completo é uma resposta normal: o backend
+ * devolve nesse caso os campos que ainda existem no histórico.
+ */
+export async function prepararRevisaoDaProposta(codigo: string) {
+  const { data } = await apiClient.get<ProximaRevisaoDaProposta>(
+    `/comercial/propostas/${encodeURIComponent(codigo)}/revisao`
+  );
   return data;
 }
 

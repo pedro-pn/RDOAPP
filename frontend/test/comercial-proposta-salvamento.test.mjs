@@ -63,9 +63,10 @@ function conteudo(extra = {}) {
 // ---------------------------------------------------------------------------
 
 test('cada campo do formulário cai no campo certo da API', () => {
-  const entrada = mod.entradaDaProposta(conteudo(), 'e1');
+  const entrada = mod.entradaDaProposta(conteudo(), 'e1', 2);
 
   assert.equal(entrada.proposalCode, '4418');
+  assert.equal(entrada.revisionNumber, 2);
   assert.equal(entrada.clientName, 'Petrobras');
   assert.equal(entrada.cnpj, '33.000.167/0001-01');
   assert.equal(entrada.contact, 'Fulano');
@@ -113,11 +114,12 @@ test('espaço em volta do que o usuário digitou não vai para o banco', () => {
 // ---------------------------------------------------------------------------
 
 test('o payload leva tudo que o gerador do documento espera', () => {
-  const payload = mod.dadosDaProposta(conteudo());
+  const payload = mod.dadosDaProposta(conteudo({ revisionNumber: 2 }));
 
   // Os nomes são os que `proposta-docx.js` procura. Renomear um deles aqui
   // produziria documento com o campo em branco, sem erro nenhum.
   assert.equal(payload.proposalCode, '4418');
+  assert.equal(payload.revision, '2');
   assert.equal(payload.estimator, 'Orçamentista');
   assert.equal(payload.modelo, 'padrao');
   assert.equal(payload.scopeItems.length, 1);
@@ -179,4 +181,9 @@ test('reconhece quando o número ainda não foi reservado', () => {
   assert.equal(mod.precisaDeNumero('—'), true, 'é o que a tela mostra sem número');
   assert.equal(mod.precisaDeNumero(''), true);
   assert.equal(mod.precisaDeNumero('4418'), false);
+});
+
+test('o rótulo da revisão não altera o número base salvo', () => {
+  assert.equal(mod.rotuloDaProposta('4418', 0), '4418');
+  assert.equal(mod.rotuloDaProposta('4418', 3), '4418 Rev 3');
 });

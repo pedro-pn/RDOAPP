@@ -14,13 +14,13 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 141 tarefas fechadas, 38 abertas** (de 179). O contador
+> **Estado em 13/08/2026: 143 tarefas fechadas, 36 abertas** (de 179). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
 >
-> O caminho crítico do que falta, em ordem: revisão (T053a/b) → finalização de
-> verdade na tela (T081–T083) → histórico (T084) → concorrência de edição (T079b) →
+> O caminho crítico do que falta, em ordem: finalização de verdade na tela
+> (T081–T083) → histórico (T084) → concorrência de edição (T079b) →
 > busca do CRM na etapa Cliente (T121a). Depois: arrastar (T068–T071), tutorial e
 > login (T096–T098a), validação das 7 etapas (T067), mobile restante e a matriz de
 > permissões (T108–T112).
@@ -307,12 +307,23 @@ da finalização.
 
 ### Backend `(E5)`
 
-- [X] T051 [US2] Implementar `backend/src/lib/comercial/proposals.js`: histórico, revisões e vínculo com o levantamento. O `totalValue` é **calculado no servidor** a partir dos itens de preço, com a mesma leitura de moeda do gerador do documento (`comercial/dinheiro.js`) — histórico e PDF não podem discordar. `proximaRevisao` já está aqui, testada; falta só expor a rota (T053a).
+- [X] T051 [US2] Implementar `backend/src/lib/comercial/proposals.js`: histórico, revisões e vínculo com o levantamento. O `totalValue` é **calculado no servidor** a partir dos itens de preço, com a mesma leitura de moeda do gerador do documento (`comercial/dinheiro.js`) — histórico e PDF não podem discordar. `proximaRevisao` está aqui, testada e exposta pela T053a.
 - [X] T052 [US2] Implementar `GET|POST /api/comercial/propostas` e `GET|PUT /api/comercial/propostas/:id`, com autoria (T024) e **a resposta variando por papel** (T025): `viewer` recebe a listagem sem `totalValue` e sem link do documento comercial. Inclui `arquivar`/`desarquivar` (parte da T083a). **A listagem é a única rota de proposta sem `requireComercialEstimator`** — é a superfície inteira do papel de consulta.
 - [X] T053 [US2] Implementar `GET /api/comercial/propostas/proximo-numero` consumindo a sequence do schema `comercial` (T021). **Não toca o Nectar** — cai a varredura de `next-number` da referência.  ↳ `FR-035`
-- [ ] T053a [US2] Implementar `GET /api/comercial/propostas/:codigo/revisao` em `backend/lib/comercial/proposals.js`, devolvendo `base_number`, `nextRevision`, o vínculo com o CRM e **`snapshotAvailable`** (FR-064, FR-065). O caminho **sem snapshot é normal, não erro** — proposta antiga não pode falhar.  ↳ `FR-064` `FR-065`
-- [ ] T053b [US2] Reutilizar o **card existente do CRM** quando houver vínculo salvo (FR-066), informando qual card e em qual funil. Sem vínculo, funil e card ficam para a última etapa.  ↳ `FR-066`
-- [X] T054 [US2] [P] Escrever `backend/test/comercial-propostas.test.js` cobrindo criação, revisão e vínculo com levantamento. 30 testes, incluindo o caso em que o papel de consulta **alcança todas as propostas** (o contrário do levantamento) e o do hidrojateamento, onde o total é a **maior** das duas tabelas e não a soma.
+- [X] T053a [US2] Implementar `GET /api/comercial/propostas/:codigo/revisao` em `backend/lib/comercial/proposals.js`, devolvendo `base_number`, `nextRevision`, o vínculo com o CRM e **`snapshotAvailable`** (FR-064, FR-065). O caminho **sem snapshot é normal, não erro** — proposta antiga não pode falhar.  ↳ `FR-064` `FR-065`
+
+  > **Ligada nas duas entradas.** O diálogo Nova/Revisar da proposta carrega o
+  > snapshot (inclusive fotos e tabelas); a tela de custos usa `costEstimateId`
+  > para preservar a composição anterior. Base, revisão e origem vivem na URL e
+  > são recompostos no F5. Sem snapshot, os campos indexados do histórico ainda
+  > voltam e a resposta traz a mensagem distinta do FR-065.
+- [X] T053b [US2] Reutilizar o **card existente do CRM** quando houver vínculo salvo (FR-066), informando qual card e em qual funil. Sem vínculo, funil e card ficam para a última etapa.  ↳ `FR-066`
+
+  > O backend procura o vínculo mais recente para trás e copia card, id e nome
+  > do funil para a nova `Proposal` — esses campos nunca são aceitos do cliente.
+  > A etapa final e o cabeçalho dizem qual card/funil será reutilizado; sem vínculo,
+  > deixam explícito que a escolha ocorrerá na finalização.
+- [X] T054 [US2] [P] Escrever `backend/test/comercial-propostas.test.js` cobrindo criação, revisão e vínculo com levantamento. 40 testes, incluindo o caso em que o papel de consulta **alcança todas as propostas** (o contrário do levantamento), o do hidrojateamento e a herança do card/funil na revisão.
 - [X] T054a [US2] **Ligar a tela às rotas** — tarefa que não existia no plano e apareceu quando o backend ficou pronto: as rotas existiam e ninguém as chamava. "Salvar e continuar" passa a **salvar de verdade** (`POST` na primeira etapa, `PUT` depois), o id da proposta vai para o **endereço** junto com a etapa e o modelo (L3), e reabrir com `?id=` recarrega o conteúdo do servidor — sem isso o `?id=` sobreviveria ao F5 com o formulário em branco, e o salvamento seguinte gravaria o vazio por cima. O número é reservado no **primeiro salvamento**, não na abertura da tela: ele consome, e abrir o assistente e desistir deixaria um buraco na numeração. Na última etapa o botão salva, **emite** e baixa conforme a escolha. O mapeamento formulário → API saiu para `proposta/salvamento.ts` com teste próprio — é a parte que erra em silêncio, gravando o campo errado sem quebrar nada.  ↳ `FR-018`
 
 ### Frontend — as 7 etapas `(E8)`

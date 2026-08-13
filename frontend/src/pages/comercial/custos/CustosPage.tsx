@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   ComercialValidationError,
   criarLevantamento,
   mensagemDeErro,
+  obterLevantamento,
+  prepararRevisaoDaProposta,
   reservarProximoNumero
 } from '../../../api/comercial';
 import { moduleRoutePath } from '../../../modules/registry';
@@ -62,18 +64,55 @@ export function CustosPage() {
 
   const modo = (params.get('modo') as EstimateMode | null) ?? null;
   const base = params.get('base') ?? '';
+  const revisionNumber = Math.max(0, Number(params.get('revisao')) || 0);
+  const levantamentoOrigemId = params.get('origem') ?? '';
   const secao = (params.get('secao') as CostSection | null) ?? 'premises';
 
   const [baseDigitada, setBaseDigitada] = useState('');
   const [mostrarRevisao, setMostrarRevisao] = useState(false);
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
   const [reservando, setReservando] = useState(false);
+  const [carregandoRevisao, setCarregandoRevisao] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [recado, setRecado] = useState('');
   const [salvo, setSalvo] = useState<string | null>(null);
 
   const levantamento = useLevantamento(user?.name || '');
   const { draft, setDraft, result, revelarErros, aplicarIssuesDoServidor } = levantamento;
+  const origemCarregada = useRef('');
+
+  /** No F5, recompõe o levantamento que originou a revisão. */
+  useEffect(() => {
+    if (
+      modo !== 'revision' ||
+      !levantamentoOrigemId ||
+      origemCarregada.current === levantamentoOrigemId
+    ) {
+      return;
+    }
+
+    origemCarregada.current = levantamentoOrigemId;
+    let vivo = true;
+    obterLevantamento(levantamentoOrigemId)
+      .then(anterior => {
+        if (!vivo || !anterior.payload) return;
+        setDraft({
+          ...anterior.payload,
+          estimatorName: user?.name || anterior.payload.estimatorName || ''
+        });
+      })
+      .catch(error => {
+        if (vivo) {
+          setRecado(
+            mensagemDeErro(error, 'Não foi possível recarregar o levantamento anterior.')
+          );
+        }
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [levantamentoOrigemId, modo, setDraft, user?.name]);
 
   /**
    * L3 — o trabalho não se perde num F5.
@@ -156,6 +195,47 @@ export function CustosPage() {
     }
   }
 
+  async function iniciarRevisao() {
+    const procurado = baseDigitada.trim();
+    if (!procurado || carregandoRevisao) return;
+
+    setCarregandoRevisao(true);
+    setRecado('Carregando o levantamento anterior...');
+    try {
+      const revisao = await prepararRevisaoDaProposta(procurado);
+      let anterior = null;
+      if (revisao.costEstimateId) {
+        anterior = await obterLevantamento(revisao.costEstimateId);
+        if (anterior.payload) {
+          setDraft({
+            ...anterior.payload,
+            estimatorName: user?.name || anterior.payload.estimatorName || ''
+          });
+        }
+        origemCarregada.current = revisao.costEstimateId;
+      }
+
+      const proximos = new URLSearchParams();
+      proximos.set('modo', 'revision');
+      proximos.set('base', String(revisao.base_number));
+      proximos.set('revisao', String(revisao.nextRevision));
+      proximos.set('secao', 'premises');
+      if (revisao.costEstimateId) proximos.set('origem', revisao.costEstimateId);
+      setParams(proximos, { replace: true });
+
+      setMostrarRevisao(false);
+      setRecado(
+        anterior
+          ? 'Levantamento anterior carregado por completo.'
+          : 'A proposta não tem levantamento anterior; a revisão foi iniciada em branco com o número calculado.'
+      );
+    } catch (error) {
+      setRecado(mensagemDeErro(error, 'Não foi possível carregar a revisão.'));
+    } finally {
+      setCarregandoRevisao(false);
+    }
+  }
+
   /**
    * Salva o levantamento.
    *
@@ -175,11 +255,7 @@ export function CustosPage() {
     try {
       const gravado = await criarLevantamento({
         proposalCode: base,
-        // PROVISÓRIO no modo revisão: o número da revisão vem de
-        // `GET /propostas/:codigo/revisao` (T053a), que ainda não existe. Enquanto
-        // não existir, o modo revisão abre um rascunho em branco — carregar o
-        // levantamento anterior é a mesma tarefa.
-        revisionNumber: modo === 'revision' ? 1 : 0,
+        revisionNumber: modo === 'revision' ? revisionNumber : 0,
         title: String(draft.title || ''),
         mode: modo === 'revision' ? 'REVISAO' : 'NOVA',
         payload: draft
@@ -193,7 +269,9 @@ export function CustosPage() {
       setRecado('');
       navigate(
         `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}` +
-          `&proposta=${encodeURIComponent(gravado.proposalCode)}&etapa=cliente`
+          `&proposta=${encodeURIComponent(gravado.proposalCode)}` +
+          `&modo=${modo === 'revision' ? 'revision' : 'new'}` +
+          `&revisao=${gravado.revisionNumber}&etapa=cliente`
       );
     } catch (error) {
       setMostrarConfirmacao(false);
@@ -287,10 +365,10 @@ export function CustosPage() {
                   <button
                     type="button"
                     className="com-btn com-btn-fantasma"
-                    disabled={!baseDigitada}
-                    onClick={() => iniciarModo('revision', baseDigitada)}
+                    disabled={carregandoRevisao || !baseDigitada}
+                    onClick={iniciarRevisao}
                   >
-                    Carregar revisão
+                    {carregandoRevisao ? 'Carregando...' : 'Carregar revisão'}
                   </button>
                 </div>
               )}

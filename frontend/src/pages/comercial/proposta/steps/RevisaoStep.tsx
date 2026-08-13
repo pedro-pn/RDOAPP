@@ -1,4 +1,5 @@
 import { Field } from '../../components/Field';
+import type { VinculoCrmDaProposta } from '../../../../api/comercial';
 import { ETAPAS } from '../etapas';
 
 /**
@@ -30,6 +31,7 @@ const DOWNLOADS: Array<{ value: EscolhaDeDownload; label: string }> = [
 export function RevisaoStep({
   form,
   codigo,
+  vinculoCrm,
   escolha,
   onEscolha,
   pastaOneDrive,
@@ -39,6 +41,7 @@ export function RevisaoStep({
 }: {
   form: AnyRecord;
   codigo: string;
+  vinculoCrm: VinculoCrmDaProposta | null;
   escolha: EscolhaDeDownload;
   onEscolha: (valor: EscolhaDeDownload) => void;
   pastaOneDrive: string;
@@ -58,11 +61,19 @@ export function RevisaoStep({
       </div>
 
       <div className="com-nota-regra">
-        <strong>Funil e card do Nectar</strong>
-        <p>
-          A escolha do funil e do card entra junto com a integração do CRM. Até lá os
-          documentos são gerados e salvos normalmente, sem envio automático.
-        </p>
+        <strong>{vinculoCrm ? 'Card existente do Nectar' : 'Funil e card do Nectar'}</strong>
+        {vinculoCrm ? (
+          <p>
+            O card <b>{vinculoCrm.opportunityId}</b> será reutilizado no funil{' '}
+            <b>{vinculoCrm.pipelineName || vinculoCrm.pipelineId}</b>. A revisão não
+            abrirá uma segunda oportunidade.
+          </p>
+        ) : (
+          <p>
+            Esta proposta não tem vínculo salvo. O funil e o card serão escolhidos
+            nesta etapa quando a finalização estiver disponível.
+          </p>
+        )}
       </div>
 
       {/* O visto marca as etapas percorridas — todas, já que só se chega aqui

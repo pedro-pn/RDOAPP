@@ -204,6 +204,18 @@ async function vincularLevantamento(prisma, user, costEstimateId, proposalCode) 
 }
 
 export async function createProposal(prisma, user, data) {
+  const revisionNumber = data.revisionNumber ?? 0;
+  const contextoDaRevisao =
+    revisionNumber > 0 ? await proximaRevisao(prisma, user, data.proposalCode) : null;
+
+  if (contextoDaRevisao && revisionNumber !== contextoDaRevisao.nextRevision) {
+    throw new ComercialError(
+      `A próxima revisão da proposta ${data.proposalCode} é ${contextoDaRevisao.nextRevision}, ` +
+        `não ${revisionNumber}. Recarregue a proposta antes de salvar.`,
+      409
+    );
+  }
+
   const costEstimateId = await vincularLevantamento(
     prisma,
     user,
@@ -226,7 +238,7 @@ export async function createProposal(prisma, user, data) {
     return await prisma.proposal.create({
       data: {
         proposalCode: data.proposalCode,
-        revisionNumber: data.revisionNumber ?? 0,
+        revisionNumber,
         costEstimateId,
         clientName: data.clientName,
         cnpj: data.cnpj,
@@ -239,6 +251,12 @@ export async function createProposal(prisma, user, data) {
         estimatorName: user.name || user.username || '',
         payload,
         totalValue: calcularTotal(payload),
+        // Vem do histórico, nunca do corpo. Além de impedir que o cliente
+        // injete um card arbitrário, isto faz a finalização da revisão cair
+        // no caminho de atualizar/anexar ao card existente (FR-066).
+        nectarOpportunityId: contextoDaRevisao?.crm?.opportunityId ?? null,
+        nectarPipelineId: contextoDaRevisao?.crm?.pipelineId ?? null,
+        nectarPipelineName: contextoDaRevisao?.crm?.pipelineName ?? null,
         createdByUserId: user.id
       }
     });
@@ -361,16 +379,51 @@ export async function proximaRevisao(prisma, user, proposalCode) {
 
   const ultima = revisoes[0];
   const comSnapshot = revisoes.find(item => temConteudo(item.payload));
+  // O vínculo pode estar numa revisão anterior. Isto acontece com dados
+  // importados e também com um rascunho antigo criado antes de o reuso existir.
+  // Procurar para trás evita abrir um segundo card para a mesma proposta.
+  const comVinculoCrm = revisoes.find(item => item.nectarOpportunityId);
+  const snapshot = comSnapshot ? comSnapshot.payload : snapshotDoHistorico(ultima);
 
   return {
+    // `base_number` é o nome do contrato congelado; `baseNumber` permanece por
+    // compatibilidade com a função de domínio que já era testada antes da rota.
+    base_number: base,
     baseNumber: base,
     proposalCode: ultima.proposalCode,
     nextRevision: Math.max(...revisoes.map(item => Number(item.revisionNumber) || 0)) + 1,
-    snapshot: comSnapshot ? comSnapshot.payload : {},
+    snapshot,
     snapshotAvailable: Boolean(comSnapshot),
+    message: comSnapshot
+      ? 'Proposta anterior carregada por completo.'
+      : 'Dados disponíveis no histórico carregados.',
     costEstimateId: ultima.costEstimateId,
     sellerUserId: ultima.sellerUserId,
-    sellerName: ultima.sellerName
+    sellerName: ultima.sellerName,
+    crm: comVinculoCrm
+      ? {
+          opportunityId: comVinculoCrm.nectarOpportunityId,
+          pipelineId: comVinculoCrm.nectarPipelineId || '',
+          pipelineName: comVinculoCrm.nectarPipelineName || ''
+        }
+      : null
+  };
+}
+
+/**
+ * Propostas importadas antes do snapshot ainda têm os campos indexados do
+ * histórico. Eles não recompõem escopo, preços ou responsabilidades, mas
+ * evitam abrir a revisão como se nada fosse conhecido (FR-065).
+ */
+function snapshotDoHistorico(proposal) {
+  return {
+    client: proposal.clientName || '',
+    cnpj: proposal.cnpj || '',
+    contact: proposal.contact || '',
+    email: proposal.email || '',
+    site: proposal.site || '',
+    department: proposal.department || '',
+    seller: proposal.sellerUserId || ''
   };
 }
 

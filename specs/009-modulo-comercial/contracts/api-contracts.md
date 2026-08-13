@@ -220,6 +220,31 @@ o que separa cinco "Avenida Paulista, 1000" em cinco cidades diferentes.
 `requireComercialEstimator`. Devolve `base_number`, `nextRevision`, o vínculo com o CRM
 se existir, e **`snapshotAvailable`**.
 
+```json
+{
+  "base_number": 4418,
+  "baseNumber": 4418,
+  "proposalCode": "4418",
+  "nextRevision": 3,
+  "snapshot": { "client": "Cliente S.A.", "modelo": "padrao" },
+  "snapshotAvailable": true,
+  "message": "Proposta anterior carregada por completo.",
+  "costEstimateId": "...",
+  "sellerUserId": "...",
+  "sellerName": "...",
+  "crm": {
+    "opportunityId": "card-77",
+    "pipelineId": "funil-3",
+    "pipelineName": "Propostas industriais"
+  }
+}
+```
+
+`baseNumber` é alias de compatibilidade da função de domínio; `base_number` é o
+nome congelado deste contrato. Sem vínculo, `crm` é `null`. Os três campos do CRM
+são copiados pelo **servidor** ao criar a revisão e não são aceitos no corpo do
+`POST /propostas`.
+
 | `snapshotAvailable` | Mensagem ao usuário |
 |---|---|
 | `true` | "Proposta anterior carregada por completo." |

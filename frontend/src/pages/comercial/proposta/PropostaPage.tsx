@@ -29,14 +29,12 @@ import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { useRascunhoLocal } from '../useRascunhoLocal';
 import {
-  MODELOS_PROPOSTA,
   TEXTO_IMPOSTOS,
   TEXTO_OBSERVACOES_GERAIS,
   textoCondicoesPagamento,
   textoJornada as jornadaEmTexto,
   type ModeloProposta
 } from '../../../../../shared/comercial/dist/modelo-documento.js';
-import { LOGO_URL } from '../components/marca';
 import {
   ETAPAS,
   indiceDaEtapa,
@@ -54,9 +52,15 @@ import {
   dadosDaProposta,
   entradaDaProposta,
   precisaDeNumero,
+  rotuloDaProposta,
   type ConteudoDaProposta
 } from './salvamento';
-import { DocumentoPrevia, type TipoDeDocumento } from './DocumentoPrevia';
+import type { TipoDeDocumento } from './DocumentoPrevia';
+import { PropostaFooter } from './PropostaFooter';
+import { PropostaModeDialog } from './PropostaModeDialog';
+import { PropostaModeloDialog } from './PropostaModeloDialog';
+import { PropostaPreviewPanel } from './PropostaPreviewPanel';
+import { usePropostaRevision } from './usePropostaRevision';
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
 import { PrazosStep } from './steps/PrazosStep';
@@ -82,6 +86,7 @@ import { TecnicaStep } from './steps/TecnicaStep';
  */
 
 type AnyRecord = Record<string, unknown>;
+type ModoDaProposta = 'new' | 'revision';
 
 function formularioInicial(): AnyRecord {
   return {
@@ -129,9 +134,19 @@ export function PropostaPage() {
   const indice = indiceDaEtapa(etapa);
   const levantamentoId = params.get('levantamento') ?? '';
   const codigo = params.get('proposta') ?? '—';
+  const revisionNumber = Math.max(0, Number(params.get('revisao')) || 0);
   /* O id da proposta salva mora no ENDEREÇO, como a etapa e o modelo (L3): F5
      não pode transformar uma proposta já gravada numa segunda proposta. */
   const propostaId = params.get('id') ?? '';
+  const modoNaUrl = params.get('modo');
+  const modo: ModoDaProposta | null =
+    modoNaUrl === 'new' || modoNaUrl === 'revision'
+      ? modoNaUrl
+      : propostaId || levantamentoId
+        ? revisionNumber > 0
+          ? 'revision'
+          : 'new'
+        : null;
 
   /* O modelo mora no endereço, como o modo do levantamento: recarregar não pode
      perguntar de novo, e o diálogo serve para ESCOLHER, não para confirmar. */
@@ -182,6 +197,28 @@ export function PropostaPage() {
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [emitidos, setEmitidos] = useState<DocumentoEmitido[]>([]);
+  const { aplicarSnapshot, carregarRevisao, setVinculoCrm, vinculoCrm } =
+    usePropostaRevision({
+      modo,
+      codigo,
+      revisionNumber,
+      propostaId,
+      params,
+      setParams,
+      formularioInicial,
+      setForm,
+      setItensEscopo,
+      setBlocos,
+      setResponsabilidades,
+      setCategorias,
+      setServicosTecnicos,
+      setComplementoRelatorios,
+      setPrecos,
+      setIncluirUnitario,
+      setMaiorVisitada,
+      setTentouAvancar,
+      setRecado
+    });
 
   const rascunho = useRascunhoLocal({
     tela: 'proposta',
@@ -249,39 +286,28 @@ export function PropostaPage() {
       .then(proposta => {
         if (!vivo) return;
         const dados = (proposta.payload ?? {}) as AnyRecord;
-
-        setForm(atual => ({ ...atual, ...dados }));
-        if (Array.isArray(dados.scopeItems) && dados.scopeItems.length) {
-          setItensEscopo(dados.scopeItems as ScopeServiceItem[]);
-        }
-        if (Array.isArray(dados.scopeBlocks)) setBlocos(dados.scopeBlocks as ScopeBlock[]);
-        if (Array.isArray(dados.rows) && dados.rows.length) {
-          setResponsabilidades(dados.rows as LinhaResponsabilidade[]);
-        }
-        if (Array.isArray(dados.categorias) && dados.categorias.length) {
-          setCategorias(dados.categorias as string[]);
-        }
-        if (dados.technicalServices) {
-          // Pelo normalizador, como no rascunho: a proposta pode ter sido salva
-          // com uma versão anterior do catálogo técnico.
-          setServicosTecnicos(normalizeTechnicalServiceSelections(dados.technicalServices));
-        }
-        if (typeof dados.technicalReports === 'string') {
-          setComplementoRelatorios(dados.technicalReports);
-        }
-        if (Array.isArray(dados.prices) && dados.prices.length) {
-          setPrecos(dados.prices as ItemDePreco[]);
-        }
-        if (typeof dados.includeUnitValue === 'boolean') {
-          setIncluirUnitario(dados.includeUnitValue);
-        }
+        aplicarSnapshot(dados, proposta.sellerUserId);
+        setVinculoCrm(
+          proposta.nectarOpportunityId
+            ? {
+                opportunityId: proposta.nectarOpportunityId,
+                pipelineId: proposta.nectarPipelineId || '',
+                pipelineName: proposta.nectarPipelineName || ''
+              }
+            : null
+        );
 
         // O modelo mora no endereço. Reabrir sem ele mostraria o diálogo de
         // escolha por cima de uma proposta que já escolheu.
         const salvo = dados.modelo;
-        if (!modeloNaUrl && (salvo === 'padrao' || salvo === 'hidrojateamento')) {
-          trocarParametros({ modelo: salvo });
-        }
+        trocarParametros({
+          ...(!modeloNaUrl && (salvo === 'padrao' || salvo === 'hidrojateamento')
+            ? { modelo: salvo }
+            : {}),
+          modo: proposta.revisionNumber > 0 ? 'revision' : 'new',
+          proposta: proposta.proposalCode,
+          revisao: String(proposta.revisionNumber)
+        });
         // Reabrir uma proposta é chegar depois do começo: as etapas já visitadas
         // continuam alcançáveis pelo stepper.
         setMaiorVisitada(ETAPAS.length - 1);
@@ -294,7 +320,7 @@ export function PropostaPage() {
       vivo = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propostaId]);
+  }, [aplicarSnapshot, propostaId]);
 
   useEffect(() => {
     setMaiorVisitada(atual => Math.max(atual, indice));
@@ -308,6 +334,7 @@ export function PropostaPage() {
   });
   const erros = indiceDePendencias(pendencias);
   const ultima = indice === ETAPAS.length - 1;
+  const codigoExibido = rotuloDaProposta(codigo, revisionNumber);
 
   function irPara(destino: EtapaProposta) {
     const proximos = new URLSearchParams(params);
@@ -380,6 +407,7 @@ export function PropostaPage() {
     return {
       form,
       codigo: codigoAtual,
+      revisionNumber,
       orcamentista: user?.name || '',
       modelo: modelo ?? 'padrao',
       itensEscopo,
@@ -397,6 +425,17 @@ export function PropostaPage() {
     const proximos = new URLSearchParams(params);
     for (const [chave, valor] of Object.entries(mudancas)) proximos.set(chave, valor);
     setParams(proximos, { replace: true });
+  }
+
+  function iniciarNovaProposta() {
+    const proximos = new URLSearchParams(params);
+    proximos.set('modo', 'new');
+    proximos.set('etapa', 'cliente');
+    proximos.delete('revisao');
+    proximos.delete('id');
+    setParams(proximos, { replace: true });
+    setVinculoCrm(null);
+    setRecado('');
   }
 
   /**
@@ -506,7 +545,7 @@ export function PropostaPage() {
       const blob = await baixarPreviaEmPdf(documentoNaPrevia, dadosDaProposta(conteudo()));
 
       const url = URL.createObjectURL(blob);
-      const nome = `Proposta ${documentoNaPrevia === 'technical' ? 'Técnica' : 'Comercial'} - ${codigo}.pdf`;
+      const nome = `Proposta ${documentoNaPrevia === 'technical' ? 'Técnica' : 'Comercial'} - ${codigoExibido}.pdf`;
       const link = document.createElement('a');
       link.href = url;
       link.download = nome;
@@ -523,14 +562,14 @@ export function PropostaPage() {
     <ComercialChrome
       variante="proposta"
       semContainer
-      eyebrow="FILTROVALI / NOVA PROPOSTA"
+      eyebrow={`FILTROVALI / ${modo === 'revision' ? 'REVISÃO' : 'NOVA PROPOSTA'}`}
       titulo="Propostas "
-      tituloComplemento={codigo}
+      tituloComplemento={codigoExibido}
       descricao="Um cadastro, dois documentos: técnico e comercial."
       chips={
         <>
           <span className="com-chip">
-            <i aria-hidden="true" /> Nectar pendente
+            <i aria-hidden="true" /> {vinculoCrm ? 'Nectar conectado' : 'Nectar pendente'}
           </span>
           <span className="com-chip">
             <i aria-hidden="true" /> Microsoft 365
@@ -548,9 +587,15 @@ export function PropostaPage() {
       }
       heroExtra={
         <div className="com-sequencia">
-          <small>NUMERAÇÃO AUTOMÁTICA</small>
-          <strong>{codigo}</strong>
-          <span>Integração Nectar na etapa final</span>
+          <small>{modo === 'revision' ? 'REVISÃO AUTOMÁTICA' : 'NUMERAÇÃO AUTOMÁTICA'}</small>
+          <strong>{codigoExibido}</strong>
+          <span>
+            {vinculoCrm
+              ? `Card ${vinculoCrm.opportunityId} · ${
+                  vinculoCrm.pipelineName || vinculoCrm.pipelineId
+                }`
+              : 'Integração Nectar na etapa final'}
+          </span>
         </div>
       }
       faixa={
@@ -580,40 +625,24 @@ export function PropostaPage() {
         </nav>
       }
     >
+      {/* Primeiro escolhe o modo. Modelo é uma decisão posterior e, em uma
+          revisão com snapshot completo, já vem da proposta anterior. */}
+      {modo === null && (
+        <PropostaModeDialog
+          recado={recado}
+          onNova={iniciarNovaProposta}
+          onRevisao={carregarRevisao}
+        />
+      )}
+
       {/* Mesmo padrão do diálogo de custos: só aparece quando NÃO há modelo no
           endereço. Recarregar com `?modelo=` já definido volta direto ao
           trabalho — o diálogo serve para escolher, não para confirmar. */}
-      {modelo === null && (
-        <div
-          className="com-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="com-modelo-titulo"
-        >
-          <section className="com-painel com-modo-card">
-            <img className="com-modo-logo" src={LOGO_URL} alt="Filtrovali" />
-            <span className="com-eyebrow">NOVA PROPOSTA</span>
-            <h1 id="com-modelo-titulo">Qual modelo de documento?</h1>
-            <p>
-              O modelo define a matriz de responsabilidade, a jornada e as tabelas de
-              preço que o documento vai trazer.
-            </p>
-
-            <div className="com-modo-opcoes">
-              {MODELOS_PROPOSTA.map(opcao => (
-                <button
-                  key={opcao.id}
-                  type="button"
-                  onClick={() => escolherModelo(opcao.id)}
-                >
-                  <b aria-hidden="true">{opcao.id === 'padrao' ? '📄' : '💧'}</b>
-                  <strong>{opcao.titulo}</strong>
-                  <span>{opcao.descricao}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
+      {modo !== null && modelo === null && (
+        <PropostaModeloDialog
+          revisao={modo === 'revision'}
+          onEscolher={escolherModelo}
+        />
       )}
 
       <section className="com-workspace">
@@ -748,7 +777,8 @@ export function PropostaPage() {
       ) : (
         <RevisaoStep
           form={form}
-          codigo={codigo}
+          codigo={codigoExibido}
+          vinculoCrm={vinculoCrm}
           escolha={escolhaDownload}
           onEscolha={setEscolhaDownload}
           pastaOneDrive={pastaOneDrive}
@@ -790,114 +820,47 @@ export function PropostaPage() {
         </section>
       )}
 
-      <footer className="com-rodape">
-        <button
-          type="button"
-          className="com-btn com-btn-fantasma"
-          onClick={() =>
-            indice === 0
-              ? navigate(moduleRoutePath('comercial', 'index'))
-              : irPara(ETAPAS[indice - 1].value)
-          }
-        >
-          {indice === 0 ? 'Cancelar e voltar' : '← Voltar'}
-        </button>
-
-        {/* "Preencha N campo(s) obrigatório(s)" fica ao LADO do botão, em
-            laranja, como na referência — não dentro dele. */}
-        <span className="com-faltando">{avisoDePendencias(pendencias)}</span>
-
-        <button
-          type="button"
-          className="com-btn com-btn-primario"
-          /* NÃO desabilitado quando há pendência: o clique é o que revela onde
-             ela está. Desabilitar esconderia a resposta de quem está perdido —
-             é a mesma escolha do rodapé-guia da tela de custos.
-
-             Durante a gravação ele trava, e por outro motivo: dois cliques
-             seguidos criariam duas propostas com dois números. */
-          disabled={salvando || gerandoPdf}
-          onClick={avancar}
-        >
-          {salvando
+      <PropostaFooter
+        primeiraEtapa={indice === 0}
+        aviso={avisoDePendencias(pendencias)}
+        rotulo={
+          salvando
             ? 'Salvando...'
             : gerandoPdf
               ? 'Gerando os documentos...'
-              : rotuloDoAvanco(pendencias, ultima)}
-        </button>
-      </footer>
+              : rotuloDoAvanco(pendencias, ultima)
+        }
+        ocupado={salvando || gerandoPdf}
+        onVoltar={() =>
+          indice === 0
+            ? navigate(moduleRoutePath('comercial', 'index'))
+            : irPara(ETAPAS[indice - 1].value)
+        }
+        onAvancar={avancar}
+      />
       </div>
 
       {/* A prévia é metade da tela na referência, e a razão dela é essa: o
           orçamentista não preenche um cadastro, monta um documento que vai ao
           cliente. Ver o documento se formar é o que faz alguém perceber que o
           escopo saiu vazio ANTES de gerar o PDF. */}
-      <aside className="com-previa">
-        <div className="com-previa-topo">
-          <div>
-            <strong>Prévia oficial Filtrovali</strong>
-            <span>As duas saídas usam o mesmo cadastro</span>
-          </div>
-          <b>
-            {indice + 1}/{ETAPAS.length}
-          </b>
-        </div>
-
-        <div className="com-previa-abas" role="tablist" aria-label="Documento em prévia">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={documentoNaPrevia === 'commercial'}
-            className={documentoNaPrevia === 'commercial' ? 'is-ativa' : undefined}
-            onClick={() => setDocumentoNaPrevia('commercial')}
-          >
-            Comercial
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={documentoNaPrevia === 'technical'}
-            className={documentoNaPrevia === 'technical' ? 'is-ativa' : undefined}
-            onClick={() => setDocumentoNaPrevia('technical')}
-          >
-            Técnica
-          </button>
-        </div>
-
-        <div className="com-previa-rolagem">
-          <DocumentoPrevia
-            tipo={documentoNaPrevia}
-            form={{ ...form, estimator: user?.name || '' }}
-            codigo={codigo}
-            itensEscopo={itensEscopo}
-            blocos={blocos}
-            responsabilidades={responsabilidades}
-            precos={precos}
-            incluirUnitario={incluirUnitario}
-            servicosTecnicos={servicosTecnicos}
-            complementoRelatorios={complementoRelatorios}
-            modelo={modelo ?? 'padrao'}
-          />
-        </div>
-
-        <div className="com-previa-acoes">
-          <button
-            type="button"
-            className="com-previa-imprimir"
-            disabled={gerandoPdf}
-            onClick={gerarPdf}
-          >
-            {gerandoPdf ? 'Gerando…' : 'Baixar PDF'}
-          </button>
-          <button
-            type="button"
-            className="com-previa-imprimir com-previa-imprimir-secundario"
-            onClick={() => window.print()}
-          >
-            Imprimir prévia
-          </button>
-        </div>
-      </aside>
+      <PropostaPreviewPanel
+        indice={indice}
+        documento={documentoNaPrevia}
+        onDocumento={setDocumentoNaPrevia}
+        form={{ ...form, estimator: user?.name || '' }}
+        codigo={codigoExibido}
+        itensEscopo={itensEscopo}
+        blocos={blocos}
+        responsabilidades={responsabilidades}
+        precos={precos}
+        incluirUnitario={incluirUnitario}
+        servicosTecnicos={servicosTecnicos}
+        complementoRelatorios={complementoRelatorios}
+        modelo={modelo ?? 'padrao'}
+        gerando={gerandoPdf}
+        onGerarPdf={gerarPdf}
+      />
       </section>
     </ComercialChrome>
   );

@@ -102,6 +102,9 @@ margem.
 | `payload` | `Json` | escopo, matriz, prazos, técnica, preços; contrato validado |
 | `totalValue` | `Decimal @db.Decimal(14,2)` | **suprimido na origem** para `comercial:viewer` (FR-030) |
 | `status` | enum `ProposalStatus` | inclui o estado de finalização — é o que torna a finalização **exclusiva** (FR-069) |
+| `nectarOpportunityId` | `String?` | card do CRM; a revisão herda este vínculo no servidor (FR-066) |
+| `nectarPipelineId` | `String?` | id do funil usado pelo card |
+| `nectarPipelineName` | `String?` | nome congelado do funil no momento da emissão |
 | `finalizedAt` / `finalizedByUserId` | `DateTime?` / `String?` | quem finalizou e quando; a segunda tentativa usa isto na mensagem |
 | `archivedAt` / `archivedByUserId` | `DateTime?` / `String?` | arquivamento — **não há exclusão** |
 | `createdByUserId` | `String` | **autoria**; indexado |

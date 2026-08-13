@@ -22,7 +22,11 @@ import {
   updateCostEstimate
 } from '../../lib/comercial/cost-estimates.js';
 import { listarConsultores } from '../../lib/comercial/consultores.js';
-import { baixarDocumento, emitirDocumentos } from '../../lib/comercial/documentos.js';
+import {
+  baixarDocumento,
+  emitirDocumentos,
+  rotuloDaProposta
+} from '../../lib/comercial/documentos.js';
 import { anexarArquivo, listarAnexos, removerAnexo } from '../../lib/comercial/anexos.js';
 import {
   conferirEndereco,
@@ -40,6 +44,7 @@ import {
   createProposal,
   getProposal,
   listProposals,
+  proximaRevisao,
   updateProposal
 } from '../../lib/comercial/proposals.js';
 import { gravarFoto, lerFoto } from '../../lib/comercial/scope-assets.js';
@@ -481,7 +486,10 @@ router.post(
       tecnico ? 'technical' : 'commercial'
     );
 
-    const codigo = String(corpo.proposalCode || 'sem-numero');
+    const codigo = rotuloDaProposta(
+      String(corpo.proposalCode || 'sem-numero'),
+      corpo.revision
+    );
     const nome = `Proposta ${tecnico ? 'Técnica' : 'Comercial'} - ${codigo}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -535,6 +543,27 @@ router.post(
       const data = schemas.proposalCreate.parse(req.body);
       const proposal = await createProposal(prisma, req.auth.user, data);
       res.status(201).json(serializeForUser(req.auth.user, proposal));
+    } catch (error) {
+      if (handleComercialError(error, res)) return;
+      throw error;
+    }
+  })
+);
+
+/**
+ * Prepara uma nova revisão sem escrever nada.
+ *
+ * Precisa vir antes de `/propostas/:id`: embora este caminho tenha um segmento
+ * a mais e não colida no Express, mantê-lo junto das rotas estáticas deixa
+ * explícito que `codigo` é o número base, não o id interno da Proposal.
+ */
+router.get(
+  '/propostas/:codigo/revisao',
+  requireComercialEstimator,
+  asyncHandler(async (req, res) => {
+    try {
+      const codigo = z.string().trim().min(1).max(40).parse(req.params.codigo);
+      res.json(await proximaRevisao(prisma, req.auth.user, codigo));
     } catch (error) {
       if (handleComercialError(error, res)) return;
       throw error;

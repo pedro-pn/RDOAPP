@@ -511,24 +511,41 @@ test('a próxima revisão é a maior existente mais um', async () => {
   const revisao = await proximaRevisao(prisma, vendedorA, '4418');
 
   assert.equal(revisao.baseNumber, 4418);
+  assert.equal(revisao.base_number, 4418, 'mantém o nome do contrato congelado');
   assert.equal(revisao.nextRevision, 3);
   assert.equal(revisao.snapshotAvailable, true);
   assert.equal(revisao.snapshot.client, 'Cliente');
 });
 
-test('proposta antiga SEM snapshot não falha — é caminho normal', async () => {
+test('proposta antiga SEM snapshot não falha e carrega os campos do histórico', async () => {
   // FR-065. Tratar a ausência de snapshot como erro tornaria impossível revisar
   // qualquer proposta gravada antes de o snapshot existir.
   const prisma = fakePrisma({
     propostas: [
-      { id: 'p1', proposalCode: '4400', revisionNumber: 0, createdByUserId: 'u-vend-a', payload: {}, updatedAt: new Date() }
+      {
+        id: 'p1',
+        proposalCode: '4400',
+        revisionNumber: 0,
+        createdByUserId: 'u-vend-a',
+        clientName: 'Cliente legado',
+        cnpj: '11.222.333/0001-81',
+        contact: 'Ana',
+        email: 'ana@cliente.com.br',
+        site: 'Volta Redonda/RJ',
+        department: 'Manutenção',
+        sellerUserId: 'u-vend-a',
+        payload: {},
+        updatedAt: new Date()
+      }
     ]
   });
 
   const revisao = await proximaRevisao(prisma, vendedorA, '4400');
 
   assert.equal(revisao.snapshotAvailable, false);
-  assert.deepEqual(revisao.snapshot, {});
+  assert.equal(revisao.snapshot.client, 'Cliente legado');
+  assert.equal(revisao.snapshot.cnpj, '11.222.333/0001-81');
+  assert.equal(revisao.snapshot.seller, 'u-vend-a');
   assert.equal(revisao.nextRevision, 1);
 });
 
@@ -544,6 +561,72 @@ test('o snapshot vem da revisão mais nova que tiver conteúdo', async () => {
 
   assert.equal(revisao.snapshotAvailable, true);
   assert.equal(revisao.snapshot.client, 'Antigo', 'devia ter caído para a revisão anterior');
+});
+
+test('a revisão informa o card e o funil mais recentes que tiverem vínculo', async () => {
+  const prisma = fakePrisma({
+    propostas: [
+      {
+        id: 'p2',
+        proposalCode: '4418',
+        revisionNumber: 1,
+        createdByUserId: 'u-vend-a',
+        payload: payload(),
+        nectarOpportunityId: null,
+        updatedAt: new Date(2)
+      },
+      {
+        id: 'p1',
+        proposalCode: '4418',
+        revisionNumber: 0,
+        createdByUserId: 'u-vend-a',
+        payload: payload(),
+        nectarOpportunityId: 'card-77',
+        nectarPipelineId: 'funil-3',
+        nectarPipelineName: 'Propostas industriais',
+        updatedAt: new Date(1)
+      }
+    ]
+  });
+
+  const revisao = await proximaRevisao(prisma, vendedorA, '4418');
+
+  assert.deepEqual(revisao.crm, {
+    opportunityId: 'card-77',
+    pipelineId: 'funil-3',
+    pipelineName: 'Propostas industriais'
+  });
+});
+
+test('criar revisão copia o vínculo CRM no servidor, sem confiar no cliente', async () => {
+  const prisma = fakePrisma({
+    propostas: [
+      {
+        id: 'p1',
+        proposalCode: '4418',
+        revisionNumber: 0,
+        createdByUserId: 'u-vend-a',
+        payload: payload(),
+        nectarOpportunityId: 'card-77',
+        nectarPipelineId: 'funil-3',
+        nectarPipelineName: 'Propostas industriais',
+        updatedAt: new Date(1)
+      }
+    ]
+  });
+
+  await createProposal(prisma, vendedorA, {
+    ...dadosBase,
+    revisionNumber: 1,
+    // Mesmo que um cliente tente indicar outro card, o contrato de criação
+    // nem aceita estes campos; a origem é sempre o histórico do servidor.
+    nectarOpportunityId: 'card-forjado'
+  });
+
+  const criada = prisma.store.propostas.find(item => item.revisionNumber === 1);
+  assert.equal(criada.nectarOpportunityId, 'card-77');
+  assert.equal(criada.nectarPipelineId, 'funil-3');
+  assert.equal(criada.nectarPipelineName, 'Propostas industriais');
 });
 
 test('revisão de proposta que não existe é 404', async () => {

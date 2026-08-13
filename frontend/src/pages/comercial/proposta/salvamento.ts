@@ -19,6 +19,7 @@ type AnyRecord = Record<string, unknown>;
 export type ConteudoDaProposta = {
   form: AnyRecord;
   codigo: string;
+  revisionNumber?: number;
   orcamentista: string;
   modelo: string;
   itensEscopo: ScopeServiceItem[];
@@ -53,6 +54,7 @@ export function dadosDaProposta(conteudo: ConteudoDaProposta): AnyRecord {
       ? { priceScenario: cenarioInformado === 'OFFSHORE' ? 'OFFSHORE' : 'ONSHORE' }
       : {}),
     proposalCode: conteudo.codigo,
+    revision: conteudo.revisionNumber ? String(conteudo.revisionNumber) : '',
     estimator: conteudo.orcamentista,
     modelo: conteudo.modelo,
     scopeItems: conteudo.itensEscopo,
@@ -77,12 +79,14 @@ export function dadosDaProposta(conteudo: ConteudoDaProposta): AnyRecord {
  */
 export function entradaDaProposta(
   conteudo: ConteudoDaProposta,
-  levantamentoId: string
+  levantamentoId: string,
+  revisionNumber = conteudo.revisionNumber ?? 0
 ): PropostaEntrada {
   const texto = (campo: string) => String(conteudo.form[campo] ?? '').trim();
 
   return {
     proposalCode: conteudo.codigo,
+    revisionNumber,
     // Proposta avulsa não tem levantamento, e `''` não é um id — seria uma
     // busca por registro inexistente, que o servidor recusa com 422.
     costEstimateId: levantamentoId || null,
@@ -100,4 +104,9 @@ export function entradaDaProposta(
 /** O código ainda não foi reservado? A tela mostra "—" enquanto não há número. */
 export function precisaDeNumero(codigo: string): boolean {
   return !codigo || codigo === '—';
+}
+
+/** O banco guarda base e revisão separados; a tela recompõe o rótulo. */
+export function rotuloDaProposta(codigo: string, revisionNumber = 0): string {
+  return revisionNumber > 0 ? `${codigo} Rev ${revisionNumber}` : codigo;
 }
