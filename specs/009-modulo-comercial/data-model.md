@@ -250,6 +250,34 @@ cliente mandou.
 **Distinto de `ScopeAsset`**: o anexo é do cliente e vai ao destino externo; a foto de
 escopo é conteúdo do documento e é renderizada dentro do PDF.
 
+**Exclusão**: este é o **único** model do módulo com `DELETE` (FR-078, T128), e só
+antes de a proposta ser finalizada.
+
+---
+
+### `ComercialSettings` — configuração do módulo *(acrescentado em 12/08, T131)*
+
+Linha **única** (`id @default("singleton")`). Existe para tirar o endereço da sede da
+variável de ambiente: é dado de negócio, muda sem deploy, e quem muda é o gestor.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | `String @id @default("singleton")` | linha única — não há segunda configuração |
+| `sedeAddress` | `String @default("")` | o que o gestor digitou |
+| `sedeFormattedAddress` | `String?` | o que o Google devolveu — o que a tela mostra |
+| `sedePlaceId` | `String?` | veio de sugestão escolhida; dispensa geocodificar a origem |
+| `updatedAt` | `DateTime @updatedAt` | |
+| `updatedByUserId` / `updatedByLabel` | `String?` | quem mudou a origem de todo cálculo |
+
+**Sem fallback para `.env`.** `COMERCIAL_SEDE_ENDERECO` foi removida do `env.js` e do
+`.env.example`: com duas fontes, o servidor calcularia a partir de um endereço que a
+tela nega estar usando, e ninguém descobriria — a distância sai plausível de qualquer
+jeito.
+
+**A armadilha do cache**: a chave do cache de distâncias é **composta**
+(`sede > destino`), não só o destino. Com chave simples, trocar a sede continuaria
+servindo as distâncias da sede antiga até o processo reiniciar.
+
 ---
 
 ### Arquivamento — `archivedAt` em `CostEstimate` e `Proposal`

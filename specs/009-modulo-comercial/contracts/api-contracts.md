@@ -154,10 +154,51 @@ muitos anexos.
 **O limite é agregado** (FR-059): os dois PDFs + a planilha + todos os anexos, somados.
 Validar cada anexo isoladamente deixa passar o conjunto.
 
+### `DELETE /api/comercial/propostas/:id/anexos/:anexoId`
+
+`requireComercialEstimator` + autoria. **O único `DELETE` do módulo** (FR-078, T128), e
+só **antes de finalizar** — depois, o arquivo já foi ao CRM e ao SharePoint, e apagar
+aqui deixaria o nosso registro dizendo uma coisa e o destino, outra. A ordem é
+**registro primeiro, arquivo depois**: o que não pode sobrar é registro apontando para
+arquivo que não existe.
+
 ### `POST /api/comercial/propostas/finalizar` — campo adicional
 
 Aceita também a **pasta existente no OneDrive** (`PROP-CTL-080`, opcional): havendo
 valor, grava dentro dela em vez de criar pasta nova.
+
+---
+
+## Configuração do módulo e endereços *(acrescentado em 12/08 — T131, T126, T134)*
+
+Detalhes, contratos de resposta e as três armadilhas em
+[`distancias-automaticas.md`](./distancias-automaticas.md).
+
+### `GET /api/comercial/configuracao` — `requireComercialEstimator`
+
+Devolve o endereço da sede em uso. É `estimator` e não `manager` de propósito: quem
+levanta custo precisa **ver** a origem do cálculo; só mudar é que é do gestor.
+
+### `PUT /api/comercial/configuracao/sede` — `requireComercialManager`
+
+`{ sedeEndereco, sedePlaceId }`. Com `sedePlaceId` preenchido (veio de sugestão
+escolhida), **não geocodifica** — o lugar já está identificado. Salvar com o Maps `off`
+é caminho normal, não erro: o endereço digitado serve de origem sozinho.
+
+### `POST /api/comercial/configuracao/sede/localizar` — `requireComercialManager`
+
+Confere o endereço antes de salvar e devolve o que o Google encontrou, com a confiança.
+
+### `POST /api/comercial/distancia` — `requireComercialEstimator`
+
+Sede → destino. **Nunca lança**: sem resposta, devolve o motivo específico (limite
+diário, sem rota rodoviária, sede não configurada) e a tela deixa digitar à mão.
+
+### `GET /api/comercial/enderecos/sugestoes` — `requireComercialEstimator`
+
+`?termo=` com no mínimo 4 caracteres. Cota diária **própria**, separada da de rotas.
+Cada item traz `placeId`, `principal` e `secundario` — o `secundario` não é enfeite: é
+o que separa cinco "Avenida Paulista, 1000" em cinco cidades diferentes.
 
 ---
 
@@ -287,7 +328,20 @@ Oráculo dos testes da E9. Cada célula é um caso:
 | `POST /propostas/:id/arquivar` | 200 | 200 | **403** | **403** |
 | `POST /propostas/finalizar` **já finalizada** | **409** | **409** | — | **403** |
 | `PUT /propostas/:id` **alterada por outro** | **409** | **409** | **403** | **403** |
-| **qualquer `DELETE`** | **não existe** | **não existe** | **não existe** | **não existe** |
+| `DELETE /propostas/:id/anexos/:anexoId` | 200 | 200 | **403** | **403** |
+| `DELETE /propostas/:id/anexos/:anexoId` **já finalizada** | **409** | **409** | **403** | **403** |
+| **qualquer outro `DELETE`** | **não existe** | **não existe** | **não existe** | **não existe** |
+| `GET /configuracao` | 200 | 200 | — | **403** |
+| `PUT /configuracao/sede` | 200 | **403** | — | **403** |
+| `POST /configuracao/sede/localizar` | 200 | **403** | — | **403** |
+| `POST /distancia` | 200 | 200 | — | **403** |
+| `GET /enderecos/sugestoes` | 200 | 200 | — | **403** |
+
+> A linha do `DELETE` mudou em 13/08. Ela dizia "qualquer `DELETE` — não existe", e
+> deixou de ser verdade com a T128: o anexo é a **exceção nomeada** (FR-078). O teste
+> da T110b foi reescrito para **enumerar** as rotas de exclusão e afirmar que só existe
+> esta, em vez de afirmar que não existe nenhuma — assim ele pega tanto um `DELETE` novo
+> de proposta quanto a perda do portão de "só antes de finalizar".
 
 O caso que mais importa e que passa despercebido: **`seller` A lendo a listagem
 enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e

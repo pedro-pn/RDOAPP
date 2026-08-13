@@ -48,10 +48,24 @@ mão introduz erro silencioso. O critério de aceite é o SQL: deve conter só
 
 ---
 
-## D3 — PDF gerado no backend com `pdf-lib`
+## D3 — PDF gerado no backend com `pdf-lib` — ⚠ **SUPERADA em 05/08 (desvio nº 12)**
 
-**Decisão**: portar `app/proposal-pdf.ts` da referência para `pdf-lib` no backend,
-com `sharp` para o preparo de imagens.
+> **O que vale hoje**: o documento é um **`.docx` modelo preenchido e convertido em PDF
+> pelo LibreOffice**, com o mesmo `convertDocxToPdf` dos relatórios —
+> `backend/src/lib/comercial/proposta-docx.js`, modelos gerados por
+> `backend/scripts/comercial-gerar-modelos.mjs` a partir de
+> `Modelos/definitivos/Comercial/`. O gerador em `pdf-lib` chegou a existir e **foi
+> removido** (T072).
+>
+> **Por que a decisão caiu**: ela otimizava a coisa errada. Traduzir as primitivas 1:1
+> era barato, mas prendia o texto do documento dentro do código — cada ajuste de
+> redação viraria tarefa de programador e deploy. Com o `.docx` como modelo, quem
+> escreve a proposta edita a proposta. O `sharp` continua, para as fotos do escopo.
+>
+> O texto abaixo fica como registro do que se decidiu em 31/07 e do que mudou de ideia.
+
+**Decisão (superada)**: portar `app/proposal-pdf.ts` da referência para `pdf-lib` no
+backend, com `sharp` para o preparo de imagens.
 
 **Rationale**: a constitution fixa a stack; geração no cliente não é opção. As duas
 dependências **já estão no `backend/package.json`** (`pdf-lib ^1.17.1`,

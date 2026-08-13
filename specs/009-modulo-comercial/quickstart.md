@@ -148,7 +148,7 @@ gera erro: só some**.
 - [ ] 16/16 goldens dígito a dígito
 - [ ] Matriz de permissão verde, incluindo listagem cruzada entre dois `seller`
 - [ ] 616 controles e 916 textos presentes, conferidos item a item
-- [ ] Zero divergências fora dos 9 desvios
+- [ ] Zero divergências fora dos 16 desvios
 - [ ] Zero rolagem horizontal de página em 390 px nas 4 telas
 - [ ] L1 a L7 validadas na tela
 - [ ] `/speckit-analyze` sem item de inventário descoberto

@@ -4,9 +4,9 @@
 
 **Created**: 2026-07-31
 
-**Status**: Draft
+**Status**: Aprovada — em implementação (desde 31/07/2026)
 
-**Input**: Portar o aplicativo de propostas comerciais `~/comercialAPP` (rascunho nunca colocado em produção) para dentro do filtroAPP como módulo novo **Comercial**, com paridade total de UI e UX recriadas na stack do projeto. Fontes da verdade: `contracts/ui-inventory.md` (oráculo de paridade visual), `contracts/goldens/` (oráculo numérico), `contracts/lacunas-constitucionais.md` (L1–L7), `contracts/e0-8-desvios-e-estimativa.md` (lista fechada de 9 desvios) e `contracts/baseline/` (baseline visual + roteiro clicável).
+**Input**: Portar o aplicativo de propostas comerciais `~/comercialAPP` (rascunho nunca colocado em produção) para dentro do filtroAPP como módulo novo **Comercial**, com paridade total de UI e UX recriadas na stack do projeto. Fontes da verdade: `contracts/ui-inventory.md` (oráculo de paridade visual), `contracts/goldens/` (oráculo numérico), `contracts/lacunas-constitucionais.md` (L1–L7), `contracts/e0-8-desvios-e-estimativa.md` (lista fechada de 16 desvios) e `contracts/baseline/` (baseline visual + roteiro clicável).
 
 ## Contexto e fonte da verdade
 
@@ -55,7 +55,7 @@ Decisões já registradas na E0 e na §12.5 do plano, que esta spec incorpora:
   comercial traz tabela de preços, condições de pagamento e valor total.
 - **O menu de entrada e o diálogo de modo coexistem** (decidido em 31/07): dois passos
   de escolha, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em
-  9 desvios.
+  16 desvios.
 - **A lista de vendedores é derivada dos usuários, não um cadastro** (decidido em
   31/07, revendo a decisão 4 da §12.5): todo consultor de vendas é um usuário do app
   com o papel `comercial:seller`, então a lista se atualiza sozinha. Não há model
@@ -353,7 +353,7 @@ aparecer na seleção da etapa Cliente para um gestor — sem nenhum passo de ca
 - **FR-005**: O módulo DEVE preservar o índice dos documentos: 13 itens no comercial e
   10 no técnico, na mesma ordem (`PROP-H-006`…`PROP-H-021`).
 - **FR-006**: Toda divergência em relação à referência DEVE constar da lista fechada de
-  9 desvios. Divergência não listada **é defeito**, não escolha.
+  16 desvios. Divergência não listada **é defeito**, não escolha.
 
 #### Motor de custos
 
@@ -512,8 +512,14 @@ tabelas e fotos próprias.
 - **FR-045**: Cada item de escopo DEVE aceitar **blocos de conteúdo** de dois tipos —
   tabela e foto —, exibidos na ordem definida pelo usuário.
 - **FR-046**: Os limites da referência DEVEM ser preservados: **8 fotos** e **8 tabelas**
-  por item; tabela com no máximo **6 colunas**, **40 linhas** e **300 caracteres** por
-  célula; legenda de foto com até **240 caracteres**.
+  **por proposta**; tabela com no máximo **6 colunas**, **40 linhas** e **300 caracteres**
+  por célula; legenda de foto com até **240 caracteres**.
+
+  > **Corrigido em 13/08: dizia "por item", e estava errado.** A referência conta
+  > **globalmente** — `app/page.tsx:491` e `:502` contam `scopeBlocks` inteiro, e a
+  > própria mensagem dela é "A proposta aceita até 8 tabelas no escopo". O código
+  > (`shared/schemas/comercial.js:177-194`) já seguia a referência, inclusive no texto
+  > da mensagem. Quem estava fora de paridade era esta frase.
 - **FR-047**: O upload DEVE aceitar **JPEG, PNG e WebP**. O arquivo original NÃO PODE
   passar de **10 MB** nem de **24 megapixels**.
 - **FR-048**: A imagem DEVE ser **otimizada antes do envio**: redimensionada para no
@@ -560,7 +566,14 @@ junto com os blocos de conteúdo.
 > exclusão definitiva"*.
 
 - **FR-060**: Levantamentos e propostas PODEM ser **arquivados**. **Não existe exclusão
-  definitiva** em nenhuma superfície do módulo.
+  definitiva** de levantamento nem de proposta em nenhuma superfície do módulo.
+
+  > **Uma exceção, aprovada em 12/08 (T128): o anexo.** `DELETE
+  > /propostas/:id/anexos/:anexoId` é o **único `DELETE` do módulo**, e só **antes de
+  > finalizar**. A regra de não apagar foi escrita para registro de negócio, que tem
+  > história; anexo é arquivo que o vendedor acabou de juntar e pode ser o errado.
+  > Depois de finalizar o arquivo já foi ao CRM e ao SharePoint, e apagar aqui deixaria
+  > o nosso registro dizendo uma coisa e o destino, outra.
 - **FR-061**: Arquivar DEVE ser permitido ao **autor ou a um gestor**, a mesma regra de
   escrita do FR-029.
 - **FR-062**: Item arquivado NÃO aparece na listagem padrão, mas continua alcançável por
@@ -623,6 +636,45 @@ Não existe proteção na referência. É trabalho novo.
   > própria.
 - **FR-044**: Quando o endereço já trouxer o modo (por recuperação de estado, FR-018), o
   diálogo NÃO deve reaparecer — ele existe para escolher o modo, não para confirmá-lo.
+
+#### Escopo acrescentado em 11–12/08 — pedidos do Comercial e decisões do mantenedor
+
+> Estes requisitos **não são porte**: a referência congelada não tem nada disso. Eles
+> entraram depois de o mantenedor usar o módulo, e estavam registrados só como tarefas
+> (T121–T134) — uma revisão externa em 13/08 apontou, com razão, que decisão de produto
+> viva só na lista de tarefas não é rastreável. Os desvios correspondentes são o
+> nº 14 (máscara de R$), nº 15 (cabeçalho) e nº 16 (serviços por fluido).
+
+- **FR-071**: O **endereço da sede** DEVE ser configuração do módulo, editável por
+  gestor em `/comercial/configuracoes`, e NÃO PODE morar em variável de ambiente — dado
+  de negócio muda sem deploy. Não existe fallback para `.env`: duas fontes fariam o
+  servidor calcular a partir de um endereço que a tela nega estar usando. *(T131)*
+- **FR-072**: A **distância até a obra** DEVE poder ser calculada pelo Google Maps a
+  partir da sede, e o campo DEVE continuar digitável — o cálculo é atalho, não portão.
+  Resposta **exata** preenche em silêncio; **parcial ou só a cidade** preenche **e pede
+  conferência**, com o endereço encontrado à vista; **sem número** não preenche e
+  repassa o motivo específico do servidor. `0 km` é resposta, não ausência. *(T126/T126b)*
+- **FR-073**: Todo campo de endereço do módulo DEVE **sugerir enquanto se digita**, e
+  escolher da lista DEVE enviar o `placeId` junto, dispensando a geocodificação. Sem
+  sugestão a pessoa digita o endereço inteiro — a lista falha em silêncio, nunca
+  bloqueia. *(T134)*
+- **FR-074**: No modelo de **hidrojateamento**, as tabelas ONSHORE e OFFSHORE são
+  cenários **alternativos**. O vendedor DEVE escolher qual foi contratado, e é essa
+  soma que vai ao CRM e ao histórico. O servidor NÃO PODE decidir sozinho. Proposta
+  **já gravada**, sem o campo, mantém o critério antigo — mudá-lo reescreveria o total
+  dela na primeira reabertura. *(T130)*
+- **FR-075**: A integração com o CRM DEVE enviar **produto do catálogo** quando o funil
+  o exigir, e a **busca de empresa** por trecho depende de espelho persistido — a API do
+  Nectar só casa por início. Enquanto o espelho não existir, a busca fica **desligada na
+  tela**, não meio funcionando. *(T121a/T122/T123)*
+- **FR-076**: O destino no SharePoint DEVE poder ser identificado por `driveId` direto,
+  sem descoberta de site, para caber em permissão `Sites.Selected` — a de menor alcance
+  que serve. *(T129)*
+- **FR-077**: O uso do Google Maps DEVE ter **cota diária própria por tipo de chamada**
+  (rota e sugestão contam separado) e, atingido o limite, DEVE dizer isso — não falhar
+  genericamente.
+- **FR-078**: Anexo enviado por engano PODE ser removido **antes da finalização**. É a
+  exceção nomeada ao FR-060. *(T128)*
 
 ### Visual/UI Contract *(mandatory if feature touches frontend)*
 
@@ -727,7 +779,7 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   depender de credencial externa.
 - As decisões da §12.5 do plano (permissões, autoria, lista de vendedores, numeração,
   retenção) são **escopo além do porte fiel** e já foram aprovadas. Elas divergem da
-  referência sem constar da lista de 9 desvios porque aquela lista trata de paridade de
+  referência sem constar da lista de 16 desvios porque aquela lista trata de paridade de
   UI/UX, não de regra de negócio.
 - **As decisões 1 e 2 da §12.5 foram revistas em 31/07** e o plano precisa acompanhar:
   o levantamento deixa de ser exclusivo do gestor (passa a incluir o vendedor, limitado

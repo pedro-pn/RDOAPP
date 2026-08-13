@@ -14,9 +14,16 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 10/08/2026: 94 tarefas fechadas, 61 abertas.** O próximo bloco é a
-> emissão de verdade — T051/T052 (proposta no banco), T074 (storage), T075
-> (documentos gravados antes da integração) e T076* (Nectar e SharePoint).
+> **Estado em 13/08/2026: 141 tarefas fechadas, 37 abertas** (de 178). O contador
+> vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
+> nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
+> **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
+>
+> O caminho crítico do que falta, em ordem: revisão (T053a/b) → finalização de
+> verdade na tela (T081–T083) → histórico (T084) → concorrência de edição (T079b) →
+> busca do CRM na etapa Cliente (T121a). Depois: arrastar (T068–T071), tutorial e
+> login (T096–T098a), validação das 7 etapas (T067), mobile restante e a matriz de
+> permissões (T108–T112).
 
 **Tests**: **Obrigatórios.** Esta feature tem dois oráculos que só existem como teste — os
 16 goldens e a matriz de permissão. Sem eles não há como provar paridade.
@@ -256,9 +263,9 @@ existir.
 - [X] T045 [US1] Implementar `frontend/src/pages/comercial/custos/ConfirmarPropostaModal.tsx` — "Confirme a proposta", com as três saídas: confirmar o código, trocar para nova, informar outro número. **"Trocar para nova" é mantida** apesar de o mantenedor a considerar saída morta — remover quebraria a regra de aceite "se algo sumiu, é bug".
 
   > **Implementado dentro do `CustosPage.tsx`**, e com **duas correções da E0**: (1) o diálogo de modo tem **duas** opções, não três — "Levantar custos" é um *link*, não um modo, e o tipo da referência é `EstimateMode = "new" | "revision"`; (2) a terceira saída do modal de confirmação é **"Trocar para revisão"**, não "Informar outro número". O enum Prisma foi corrigido de `LEVANTAR` para `NOVA | REVISAO`.
-- [ ] T046 [US1] Ligar os formulários de `frontend/src/pages/comercial/custos/sections/` a `react-hook-form` + `zodResolver` (T003), preservando o **recálculo ao vivo a cada tecla** — é calculadora, não CRUD, e está no Complexity Tracking.
+- [X] T046 [US1] ~~Ligar os formulários de `frontend/src/pages/comercial/custos/sections/` a `react-hook-form` + `zodResolver` (T003)~~ — **fechada por decisão, não por implementação**: o desvio nº 11 foi aprovado em 12/08 e dispensa a conversão. A tarefa fica no lugar porque apagá-la esconderia que o Princípio III tem aqui uma exceção nomeada.
 
-  > **ABERTA, e virou uma decisão a tomar.** As cinco seções foram implementadas com
+  > **A decisão, e o porquê.** As cinco seções foram implementadas com
   > estado controlado em `custos/useLevantamento.ts`, sem `react-hook-form`. Não foi
   > descuido: a tela recalcula **a cada tecla** sobre ~40 coleções aninhadas, e o
   > `react-hook-form` existe justamente para *evitar* re-render por tecla — adotá-lo
@@ -514,24 +521,34 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 ### L7 — layout mobile `(E8.5)`
 
 - [ ] T103 **(L7)** Escrever o layout mobile das 4 telas. A referência **não tem layout mobile** para portar — 39 regras de `min-width` em pixel, a pior `.preview{min-width:390px}`. **Em largura de celular não há paridade pixel-a-pixel a perseguir**; o desktop continua pixel-a-pixel.  ↳ `FR-036`
-- [ ] T104 **(L7)** Resolver em `frontend/src/styles/comercial.css` os dois estouros conhecidos: a **faixa de 7 indicadores de custo** e a **tira de 5 seções** — quebrar, rolar internamente por design, ou virar `select`/menu mobile, sem alargar a página.
+- [X] T104 **(L7)** Resolver em `frontend/src/styles/comercial.css` os dois estouros conhecidos: a **faixa de 7 indicadores de custo** e a **tira de 5 seções** — quebrar, rolar internamente por design, ou virar `select`/menu mobile, sem alargar a página.
+
+  > **Feito, e antes da fase de mobile.** Os dois estouros rolam dentro de si por desenho: `.com-tabs.com-tabs-scroll` (`comercial.css:165`) para os 7 indicadores e `.com-secoes { flex-wrap: nowrap; overflow-x: auto }` dentro do `@media (max-width: 700px)` (`:625`) para a tira de 5 seções. Marcada em 13/08, ao conferir a revisão externa.
 - [ ] T105 **(L7)** Converter em `frontend/src/styles/comercial.css` as tabelas largas em cards empilhados em tela estreita, com valores monetários, status e ações quebrando ou truncando **sem alargar o card**.  ↳ `FR-037` `FR-038`
-- [ ] T106 **(L7)** Remover de `frontend/src/styles/comercial.css` a `min-width` em pixel da prévia lateral — é a regra que sozinha estoura qualquer viewport de 390 px.
+- [X] T106 **(L7)** Remover de `frontend/src/styles/comercial.css` a `min-width` em pixel da prévia lateral — é a regra que sozinha estoura qualquer viewport de 390 px.
+
+  > **Feito.** A `.preview{min-width:390px}` da referência não existe mais. Restam 4 `min-width` em pixel no arquivo, todas em célula de tabela ou coluna dentro de contêiner com `overflow-x: auto` — nenhuma alarga a página. Marcada em 13/08.
 - [ ] T107 [P] Escrever `frontend/test/comercial-mobile.test.mjs` verificando **zero rolagem horizontal de página** nas 4 telas em 390 px.  ↳ `SC-004`
 
 ### Testes e CI `(E9)`
 
 - [ ] T108 Escrever `backend/test/comercial-permissoes.test.js` com a **matriz completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 3 papéis × 2 entidades × (criar, ler, editar, finalizar), mais documentos.  ↳ `FR-027b` `SC-008`
-- [ ] T109 Escrever em `backend/test/comercial-permissoes.test.js` o caso crítico da matriz: **`seller` A lendo a listagem enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e não no índice, este é o único teste que pega — e é o vazamento mais provável.  ↳ `SC-008a`
-- [ ] T110 Escrever em `backend/test/comercial-permissoes.test.js` o caso `viewer` pedindo documento `COMERCIAL` → **403 na rota**, e `TECNICA` → 200.
+- [X] T109 Escrever em `backend/test/comercial-permissoes.test.js` o caso crítico da matriz: **`seller` A lendo a listagem enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e não no índice, este é o único teste que pega — e é o vazamento mais provável.  ↳ `SC-008a`
+
+  > **Feito, em arquivo diferente do previsto**: `backend/test/comercial-access.test.js` — *"vendedor A não recebe registro do vendedor B pela listagem"*. O arquivo `comercial-permissoes.test.js` nunca foi criado; a matriz mora no `comercial-access.test.js` junto do próprio módulo de acesso. A T108 é que precisa fechar a matriz **completa**, e é lá que essa consolidação cabe.
+- [X] T110 Escrever em `backend/test/comercial-permissoes.test.js` o caso `viewer` pedindo documento `COMERCIAL` → **403 na rota**, e `TECNICA` → 200.
+
+  > **Feito** em `comercial-access.test.js` — *"consulta baixa a técnica e NÃO baixa a comercial"*.
 - [ ] T110a Escrever em `backend/test/comercial-concorrencia.test.js` os dois casos de concorrência: **finalizar proposta já finalizada → 409** com autor e data, e **salvar registro alterado por outro → 409** com aviso.
-- [ ] T110b [P] Escrever em `backend/test/comercial-permissoes.test.js` a prova de que **não existe rota de exclusão** em nenhuma superfície do módulo.
-- [ ] T111 [P] Escrever em `backend/test/comercial-permissoes.test.js` o teste de que a resposta para `viewer` **não contém** `totalValue`, custo nem margem — omissão na serialização, não ocultação na tela.
+- [ ] T110b [P] Escrever em `backend/test/comercial-permissoes.test.js` a prova de que o **único `DELETE` do módulo é o de anexo** (`DELETE /propostas/:id/anexos/:anexoId`), e que ele **recusa depois de finalizada**. Reformulada em 13/08: a redação original — "não existe rota de exclusão" — nasceu antes da T128 e hoje falharia contra a exceção aprovada. Enumerar as rotas e afirmar a única permitida é mais forte do que afirmar nenhuma: pega tanto um `DELETE` novo de proposta quanto a perda do portão de "só antes de finalizar".
+- [X] T111 [P] Escrever em `backend/test/comercial-permissoes.test.js` o teste de que a resposta para `viewer` **não contém** `totalValue`, custo nem margem — omissão na serialização, não ocultação na tela.
+
+  > **Feito** em `comercial-access.test.js` — *"os campos de valor são removidos do objeto, não escondidos"* e *"serializeListForUser limpa a lista inteira"*. A distinção importa: o teste falha se alguém trocar remoção por ocultação na tela.
 - [ ] T112 Rodar `npm run architecture:check`, `npm --prefix frontend run lint` e as duas suítes (`backend/test/*.test.js` e `frontend/test/*.test.mjs`).
 
 ### Aceite de paridade
 
-- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **9 desvios aprovados**. Divergência não listada é defeito, não escolha.  ↳ `FR-006` `SC-003`
+- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **16 desvios aprovados**. Divergência não listada é defeito, não escolha.  ↳ `FR-006` `SC-003`
 - [ ] T114 Comparar as capturas de `contracts/baseline/*-1440.png` com as mesmas telas no módulo. **Diferença esperada e aceita**: a fonte do chrome (desvio nº 5) e o reflow que ela causa.
 - [ ] T115 Conferir os **616 controles e 916 textos** item a item contra `contracts/ui-inventory.md`, marcando o checklist de paridade. É item da Definição de Pronto, não conferência informal.  ↳ `SC-001`
 - [ ] T116 Rodar `/speckit-analyze` e resolver **todo** item de inventário órfão.
@@ -604,14 +621,15 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   é regra escrita, não acaso: a busca do CRM entrou como **auxílio**, e a empresa
   sem CNPJ **não é escondida** (a referência exigia 14 dígitos e a esconderia). Ver
   T121a para a tela.
-- [ ] T121a **Ligar a busca na etapa Cliente.** O backend está pronto —
+- [ ] T121a **Ligar a busca na etapa Cliente.**  ↳ `FR-075`
+  O backend está pronto —
   `GET /comercial/crm/empresas?busca=` e `/crm/empresas/:id`. A tela ainda tem o
   campo desabilitado com o aviso de "integração não ligada". Precisa também
   **mostrar o aviso** quando `porTrechoDisponivel` vier `false`.
 - [X] T122 **Salvamento prévio** — **já feito nas duas camadas**: rascunho local
   com autossalvamento (T089) e gravação no servidor a cada "Salvar e continuar"
   (T054a). Falta autossalvar no servidor; hoje o automático é só local.
-- [ ] T123 **Busca do CRM por trecho, não por início.**
+- [ ] T123 **Busca do CRM por trecho, não por início.**  ↳ `FR-075`
 
   > **Medido em 11/08, com o token real (só leitura).** O filtro `nome` do Nectar
   > casa **só por prefixo**: `nome=petro` devolve 9 contatos, entre eles
@@ -650,8 +668,8 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
 - [ ] T125 **Zero à esquerda em campo numérico** (o "070"). **Provavelmente não
   reproduz aqui**: nossos campos guardam número, não texto. Conferir no navegador
   antes de mexer — o defeito é da referência, que usa estado em texto.
-- [X] T126 **Levantamento** das opções de cálculo automático de distâncias —
-  [`contracts/distancias-automaticas.md`](./contracts/distancias-automaticas.md).
+- [X] T126 **Levantamento** das opções de cálculo automático de distâncias.  ↳ `FR-072` `FR-077`
+  Ver [`contracts/distancias-automaticas.md`](./contracts/distancias-automaticas.md).
   **Decidido em 11/08: Google Routes API.** O tier gratuito de **10.000
   chamadas/mês por SKU** (Essentials) foi confirmado na fonte oficial e cobre o
   volume previsto com folga de uma ordem de grandeza — custo zero.
@@ -669,7 +687,8 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   nº 15**, aprovado em 11/08. Mexe no que a T114 compara pixel a pixel, então o
   registro é o que impede a validação final de acusá-lo como defeito de porte.
 
-- [X] T128 **Remover anexo enviado por engano.** Decidido pelo mantenedor em
+- [X] T128 **Remover anexo enviado por engano.**  ↳ `FR-078`
+  Decidido pelo mantenedor em
   12/08: **exceção explícita ao FR-060**. `DELETE /propostas/:id/anexos/:anexoId`
   é o **único `DELETE` do módulo** — a regra de não apagar foi feita para
   levantamento e proposta, que são registro de negócio com história; anexo é
@@ -680,8 +699,8 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > A ordem é registro primeiro, arquivo depois — o inverso da gravação, e pelo
   > mesmo motivo: o que não pode sobrar é registro apontando para arquivo que não
   > existe.
-- [X] T126b **Ligar o cálculo de distância na tela** de destinos da logística:
-  botão de calcular ao lado do campo, o endereço encontrado exibido para
+- [X] T126b **Ligar o cálculo de distância na tela** de destinos da logística.  ↳ `FR-072`
+  Tem botão de calcular ao lado do campo, o endereço encontrado exibido para
   conferência, e o aviso quando a confiança for `parcial` ou `regiao`. O campo
   continua editável, e a origem do valor — calculado ou informado — fica visível.
   ↳ `DistanciaDoDestino.tsx` na célula, e a decisão de aceitar ou pedir
@@ -690,7 +709,8 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   falsy**, e tratá-lo como "não achou" faria a tela recusar o resultado correto
   de uma obra na própria sede.
 
-- [X] T129 **Produto obrigatório na oportunidade.** Resolvido pela **opção (b)**,
+- [X] T129 **Produto obrigatório na oportunidade.**  ↳ `FR-075`
+  Resolvido pela **opção (b)**,
   escolhida pelo mantenedor: *respeitar a lógica que o comercial já adotou* e
   mandar o produto. A regra do CRM **não foi alterada** — o desligamento que eu
   tinha feito no funil de testes foi **revertido**, e as 12 etapas voltaram ao
@@ -740,7 +760,7 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > mobilização…" parecem candidatos), o que exige decidir **qual** e como o valor
   > se relaciona com o `valorAvulso`; (c) criar sempre no funil 55031.
 
-- [X] T130 **`totalValue` do hidrojateamento passa a ser escolhido pelo vendedor.**
+- [X] T130 **`totalValue` do hidrojateamento passa a ser escolhido pelo vendedor.**  ↳ `FR-074`
   Decidido em 12/08. Hoje o servidor manda ao CRM **a maior** das duas tabelas
   (ONSHORE/OFFSHORE); o mantenedor apurou que **o mais comum é ONSHORE**, e que o
   certo é perguntar. Precisa de um campo na finalização — qual cenário vale — e de
@@ -755,8 +775,8 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   gravadas**, que não têm o campo. O leitor de moeda foi para
   `shared/comercial/src/dinheiro.ts` porque a tela precisa somar **igual** ao servidor
   (o `dinheiroDigitado` do front diverge 100× em valor sem máscara).
-- [X] T131 **Endereço da sede vira configuração do módulo**, editável por gestor,
-  com busca no Google Maps para localizá-lo. Hoje é `COMERCIAL_SEDE_ENDERECO` no
+- [X] T131 **Endereço da sede vira configuração do módulo**, editável por gestor.  ↳ `FR-071`
+  Tem busca no Google Maps para localizá-lo. Hoje é `COMERCIAL_SEDE_ENDERECO` no
   `.env`, e **a variável deve sumir** — decisão do mantenedor em 12/08: dado de
   negócio não mora em arquivo de ambiente. É migration + rota + aba de configuração.
   ↳ `comercial.ComercialSettings` (linha única), `lib/comercial/configuracao.js`,
@@ -779,7 +799,8 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   modelos **e** nos originais. A nota da tabela estava errada na contagem: são
   duas tabelas e 4 linhas ao todo, não três — leitura confirmada pelo mantenedor e
   registrada no contrato.
-- [X] T134 **Sugestões de endereço enquanto se digita**, pedidas pelo mantenedor
+- [X] T134 **Sugestões de endereço enquanto se digita**.  ↳ `FR-073` `FR-077`
+  Pedidas pelo mantenedor
   em 12/08 depois de configurar a sede à mão: sem a lista, quem digita não sabe
   se escreveu de um jeito que o Google reconhece.
   ↳ `Places Autocomplete (New)` via `sugerirEnderecos` em `distancias.js`, rota
@@ -799,7 +820,8 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   guardado no destino — o payload é normalizado campo a campo pelo motor
   compartilhado, e acrescentar campo lá mexe no que os goldens protegem; o texto
   escolhido já é o do Google, que é o que faz a distância resolver certo depois.
-- [X] T135 **SharePoint com menor privilégio** — decisão do mantenedor em 12/08:
+- [X] T135 **SharePoint com menor privilégio**.  ↳ `FR-076`
+  Decisão do mantenedor em 12/08:
   `Sites.Selected` em vez de `Sites.ReadWrite.All`, que alcança todo site e todo
   OneDrive da empresa. `Sites.Selected` libera site a site e **restringe
   descoberta**, então o adaptador ganhou `SHAREPOINT_DRIVE_ID`: com ele, grava
@@ -819,3 +841,17 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > escolhas já feitas. Para o flushing com água, aponta o
   > "Serviço especializado em flushing com água" (4 usos) contra "Flushing com
   > água" (3).
+
+## Rastreabilidade que faltava — apontada pela revisão de 13/08
+
+- [ ] T136 Escrever o teste de aceite do **SC-007** — "um orçamentista que nunca usou o
+  módulo conclui um levantamento completo sem ajuda externa, apoiado apenas no tutorial
+  e na cadeia do rodapé". Era o **único critério de sucesso sem tarefa**, e não é
+  automatizável como os outros: é uma sessão observada com alguém que nunca viu a tela,
+  cronometrada, com registro de cada vez que a pessoa **pergunta** em vez de achar. O
+  roteiro sai de `contracts/baseline/roteiro.md`.
+
+  > **Depende da T096–T097** (o tutorial permanente). Fazer a sessão antes é medir a
+  > cadeia do rodapé sozinha — que é metade do critério, e a metade que já existe.
+  > Registrar o resultado aqui, não só "passou": onde a pessoa travou é o que conserta
+  > a tela.

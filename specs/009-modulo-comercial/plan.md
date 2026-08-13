@@ -34,7 +34,12 @@ consolidadas: [research.md](./research.md).
 
 **Primary Dependencies**: Express 5.2 · Prisma 7.9 · React 19.2 · Vite 6.3 ·
 `react-router` 8.3 · `@tanstack/react-query` 5.101 · Zod 4.4 · `react-hook-form` 7.81 ·
-`pdf-lib` 1.17 · `sharp` 0.35 · `driver.js` 1.7
+`sharp` 0.35 · `driver.js` 1.7 · `adm-zip` (modelos `.docx`) + LibreOffice (`soffice`,
+já usado pelos relatórios)
+
+> `pdf-lib` **saiu** da lista em 05/08: o documento passou a ser `.docx` modelo
+> convertido em PDF (desvio nº 12). A dependência continua no `package.json` porque
+> outros módulos a usam — só não é mais o caminho do Comercial.
 
 **Dependência nova**: `@hookform/resolvers`. Não está instalada e `zodResolver` não
 aparece em nenhum arquivo do frontend, apesar de o Princípio III exigir "react-hook-form
@@ -135,7 +140,7 @@ acessibilidade, responsividade ou consistência funcional é dispensada:
 ```text
 specs/009-modulo-comercial/
 ├── plan.md                    # Este arquivo
-├── spec.md                    # 48 FR, 12 SC
+├── spec.md                    # 86 FR, 12 SC
 ├── research.md                # Fase 0 — D1 a D15
 ├── data-model.md              # Fase 1 — models + matriz de acesso
 ├── quickstart.md              # Fase 1 — roteiro de validação
@@ -175,7 +180,14 @@ backend/
     ├── access.js              # autoria em DUAS entidades + filtro de listagem
     ├── cost-estimates.js
     ├── proposals.js
-    ├── proposal-pdf.js        # porte para pdf-lib
+    ├── proposta-docx.js       # .docx modelo → PDF pelo LibreOffice (desvio 12;
+    │                          #   substituiu o proposal-pdf.js em pdf-lib, removido)
+    ├── documentos.js          # emissão, versões e gravação antes da integração
+    ├── configuracao.js        # endereço da sede, editável por gestor (T131)
+    ├── distancias.js          # Google Maps: rota, geocodificação e sugestões
+    ├── anexos.js              # anexos da proposta — o único DELETE do módulo
+    ├── nectar.js / nectar-produtos.js / crm-contatos.js / consultores.js
+    ├── sharepoint.js          # Graph app-only, Sites.Selected
     ├── pdf-images.js          # sharp
     ├── storage.js             # disco sob COMERCIAL_DIR
     ├── scope-assets.js        # fotos do escopo: assinatura de bytes, escopo/AAAA/MM/

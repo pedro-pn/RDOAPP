@@ -152,8 +152,11 @@ A emissão de verdade é o próximo bloco, e é o que falta para o módulo servi
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**117 tarefas fechadas, 47 abertas** — o crescimento vem das sete sugestões do
-comercial (T121–T127), registradas em 11/08.
+**141 tarefas fechadas, 37 abertas** (13/08/2026) — o crescimento do total vem das
+sete sugestões do comercial (T121–T127, registradas em 11/08) e do bloco T128–T134
+(12/08). Este número e o de [tasks.md](./tasks.md) precisam ser corrigidos **juntos**:
+ficaram divergentes por três dias (117/47 aqui, 94/61 lá) e os dois foram lidos como
+estado real numa revisão externa.
 
 ### O Nectar não tem sandbox — e isso virou decisão de arquitetura
 

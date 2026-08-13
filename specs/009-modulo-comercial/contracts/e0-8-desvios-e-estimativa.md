@@ -258,7 +258,7 @@ filtroAPP, o que se promove é um layout já em produção, não um protótipo.
 
 ---
 
-### 11. Tela de custos sem `react-hook-form` — *proposto, pendente de decisão*
+### 11. Tela de custos sem `react-hook-form` — *aprovado em 12/08*
 
 **Situação:** as cinco seções do levantamento (T038–T042) foram implementadas com
 estado controlado em `custos/useLevantamento.ts`. O Princípio III pede
@@ -281,7 +281,13 @@ funciona sem RHF, porque `validateCostEstimate` devolve o endereço do campo e o
 compartilhado. O que se perde é uniformidade de código entre módulos.
 
 **Custo de reverter:** reescrever cinco seções e ~2 000 linhas, sem ganho para o
-usuário. **Decisão do mantenedor pendente.**
+usuário.
+
+**APROVADO pelo mantenedor em 12/08.** A exceção fica, restrita à tela de custos; as
+7 etapas da proposta continuam com RHF + `zodResolver`. Em consequência, a **T046 é
+fechada por decisão, não por implementação** — ela pedia exatamente a conversão que
+este desvio dispensa. O Princípio III passa a ter uma exceção nomeada e datada, que é
+a forma que a constitution admite: desvio registrado vale, desvio silencioso não.
 
 ### 12. Os documentos seguem os `.docx`, não a referência — *decidido em 05/08*
 
