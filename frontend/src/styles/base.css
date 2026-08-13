@@ -1464,13 +1464,19 @@ a {
   margin-bottom: 10px;
 }
 
+.project-admin-card-pending {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  box-shadow: 0 8px 24px var(--warning-shadow);
+}
+
 .project-registration-alert {
   margin: 8px 0 12px;
   padding: 10px 12px;
-  border: 1px solid #fbbf24;
+  border: 1px solid var(--warning-border);
   border-radius: var(--rs);
-  background: #fffbeb;
-  color: #92400e;
+  background: var(--warning-bg);
+  color: var(--warning-text);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -1481,6 +1487,8 @@ a {
 
 .project-registration-fixed-block {
   margin-bottom: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .project-admin-panel {
@@ -4134,7 +4142,21 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .field-invalid textarea,
 .field-invalid-panel {
   border-color: var(--rd) !important;
-  background-color: #fff5f5 !important;
+  background-color: var(--error-bg) !important;
+}
+
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--rd);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .admin-inline-grid.pending-project-review-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field-invalid-panel {

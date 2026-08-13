@@ -62,6 +62,7 @@ import { coordinatorNotificationEmails, NotificationEmailCategory, notificationR
 import { createMemoryRateLimit } from '../../lib/rate-limit.js';
 import prisma from '../../lib/prisma.js';
 import { logSlowOperation } from '../../lib/performance-logging.js';
+import { assertProjectReadyForReports } from '../../lib/project-visibility.js';
 import { statisticsProjectsCache } from '../../lib/resource-list-cache.js';
 import { buildReportFileName, safePath } from '../../lib/report-filename.js';
 import {
@@ -3835,10 +3836,11 @@ function buildReportUpdateFromSnapshot(project, snapshot) {
   };
 }
 
-async function restoreReportFromSnapshot(tx, reportId, originalSnapshot) {
+export async function restoreReportFromSnapshot(tx, reportId, originalSnapshot) {
   const project = await tx.project.findFirstOrThrow({
     where: { id: originalSnapshot.projectId, ...activeReportProjectWhere() }
   });
+  assertProjectReadyForReports(project);
 
   await tx.reportCollaborator.deleteMany({ where: { reportId } });
   await tx.reportService.deleteMany({ where: { reportId } });
@@ -5979,6 +5981,7 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
     where: { id: data.projectId, deletedAt: null },
     include: { operator: true, authorizedUsers: true }
   });
+  assertProjectReadyForReports(project);
   const manualSpecialConditions = {
     source: 'MANUAL_UPLOAD',
     ...(data.reportType === ReportType.RDO ? {} : { serviceOnly: true }),
@@ -6124,6 +6127,7 @@ router.put('/:id/manual-pdf', requireAuth, requireRdoManager, asyncHandler(async
     where: { id: targetProjectId, deletedAt: null },
     include: { operator: true, authorizedUsers: true }
   });
+  assertProjectReadyForReports(targetProject);
 
   const manualSpecialConditions = {
     ...(existing.specialConditions || {}),
@@ -6497,6 +6501,7 @@ router.post('/service-only', requireAuth, requireRdoAccess, asyncHandler(async (
       where: { id: data.projectId, ...activeReportProjectWhere() },
       include: { operator: true, authorizedUsers: true }
     });
+    assertProjectReadyForReports(project);
     assertProjectAllowsInhibition(project, data.services);
 
     return createIndependentServiceReports(tx, project, {
@@ -6529,6 +6534,7 @@ router.post('/', requireAuth, requireRdoAccess, asyncHandler(async (req, res) =>
       where: { id: data.projectId, ...activeReportProjectWhere() },
       include: { operator: true, authorizedUsers: true }
     });
+    assertProjectReadyForReports(project);
     assertProjectAllowsInhibition(project, data.services);
     if (project.managerOnly && req.auth.user.role !== 'MANAGER') {
       const error = new Error('Este projeto é visível somente para o gestor.');
@@ -6706,6 +6712,7 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
         authorizedUsers: true
       }
     });
+    assertProjectReadyForReports(targetProject);
     if (targetProject.managerOnly) {
       return res.status(403).json({ error: 'Este projeto é visível somente para o gestor.' });
     }
@@ -6727,6 +6734,7 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
       where: { id: data.projectId, ...activeReportProjectWhere() },
       include: { operator: true, authorizedUsers: true }
     });
+    assertProjectReadyForReports(project);
     assertProjectAllowsInhibition(project, data.services);
     if (!manualUploadedReport) {
       await assertUniqueReportDate(tx, {

@@ -22,6 +22,16 @@ test('loadEnv parses defaults from a minimal valid environment', () => {
   assert.equal(env.operationsBackupMaxAgeHours, 26);
   assert.equal(env.operationsAlertJobEnabled, false);
   assert.equal(env.errorTrackingWebhookUrl, '');
+  assert.equal(env.projectIntakeWebhookToken, '');
+});
+
+test('loadEnv parses the project intake webhook token without making it mandatory', () => {
+  const env = loadEnv({
+    DATABASE_URL: databaseUrl,
+    PROJECT_INTAKE_WEBHOOK_TOKEN: '  intake-secret  '
+  });
+
+  assert.equal(env.projectIntakeWebhookToken, 'intake-secret');
 });
 
 test('loadEnv fails fast when DATABASE_URL is missing', () => {

@@ -1,0 +1,77 @@
+openapi: 3.1.0
+info:
+  title: Project Intake Webhook
+  version: 1.0.0
+paths:
+  /api/webhooks/projects:
+    post:
+      summary: Recebe um projeto criado por sistema externo
+      security:
+        - projectWebhookToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectIntake'
+      responses:
+        '201':
+          description: Projeto criado e aguardando revisão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectIntakeResult'
+        '200':
+          description: Repetição idempotente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectIntakeResult'
+        '400':
+          description: JSON ou dados inválidos
+        '401':
+          description: Credencial ausente ou inválida
+        '409':
+          description: Número já usado com dados diferentes
+        '429':
+          description: Limite temporário de envios excedido
+        '503':
+          description: Integração não configurada neste ambiente
+components:
+  securitySchemes:
+    projectWebhookToken:
+      type: http
+      scheme: bearer
+  schemas:
+    ProjectIntake:
+      type: object
+      additionalProperties: false
+      required: [code, name, clientName, clientCnpj, contractCode, location]
+      properties:
+        code: { type: string, minLength: 1, example: '005719' }
+        name: { type: string, minLength: 1, example: Ilha Solteira }
+        clientName: { type: string, minLength: 1, example: Cliente Exemplo S.A. }
+        clientCnpj: { type: string, example: 12.345.678/0001-90 }
+        contractCode: { type: string, minLength: 1, example: CT-2026-001 }
+        location: { type: string, minLength: 1, example: Ilha Solteira - SP }
+    ProjectSummary:
+      type: object
+      required: [id, code, name, clientName, clientCnpj, contractCode, location, registrationPending]
+      properties:
+        id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        clientName: { type: string }
+        clientCnpj: { type: string }
+        contractCode: { type: string }
+        location: { type: string }
+        registrationPending: { type: boolean }
+    ProjectIntakeResult:
+      type: object
+      required: [status, project]
+      properties:
+        status:
+          type: string
+          enum: [created, already_exists]
+        project:
+          $ref: '#/components/schemas/ProjectSummary'

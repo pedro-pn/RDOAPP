@@ -19,6 +19,7 @@ import manometersRouter from './resources/manometers.js';
 import operationsRouter from './resources/operations.js';
 import projectSegmentsRouter from './resources/project-segments.js';
 import privacyRouter from './resources/privacy.js';
+import projectIntakeWebhookRouter from './resources/project-intake-webhook.js';
 import projectsRouter from './resources/projects.js';
 import qualidadeRouter from './resources/qualidade.js';
 import reportsRouter from './resources/reports.js';
@@ -56,6 +57,7 @@ mountRdoRoutes(rdoRouter);
 
 router.use('/auth', authRouter);
 router.use('/privacy', privacyRouter);
+router.use('/webhooks/projects', projectIntakeWebhookRouter);
 router.use('/rdo', rdoRouter);
 router.use('/romaneio', romaneiosRouter);
 router.use('/epi', episRouter);

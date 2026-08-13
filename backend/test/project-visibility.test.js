@@ -2,10 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  assertProjectReadyForReports,
   clearPendingProjectLegacyExternalSignatureState,
   shouldProvisionProjectClientAccounts,
   withoutProjectLegacyExternalSignatureState
 } from '../src/lib/project-visibility.js';
+
+test('assertProjectReadyForReports blocks pending registrations with a stable conflict', () => {
+  assert.doesNotThrow(() => assertProjectReadyForReports({ registrationPending: false }));
+  assert.throws(
+    () => assertProjectReadyForReports({ registrationPending: true }),
+    error => error.statusCode === 409 && error.code === 'PROJECT_REGISTRATION_PENDING'
+  );
+});
 
 test('shouldProvisionProjectClientAccounts skips manager-only projects', () => {
   assert.equal(shouldProvisionProjectClientAccounts({ managerOnly: true }), false);
