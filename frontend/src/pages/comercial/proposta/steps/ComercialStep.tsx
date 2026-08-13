@@ -239,11 +239,13 @@ function CenarioContratado({
         As duas tabelas vão no documento. Este é o valor que será registrado no CRM e no
         histórico — o cliente contrata um cenário, não os dois.
       </p>
-      <div className="com-modo-opcoes">
+      <div className="com-cenario-opcoes">
         {locais.map(local => (
           <label
             key={local}
-            className={escolhido === local ? 'com-modo-card com-modo-ativo' : 'com-modo-card'}
+            className={
+              escolhido === local ? 'com-cenario-opcao com-cenario-ativo' : 'com-cenario-opcao'
+            }
           >
             <input
               type="radio"

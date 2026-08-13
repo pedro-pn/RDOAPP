@@ -745,6 +745,16 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   (ONSHORE/OFFSHORE); o mantenedor apurou que **o mais comum é ONSHORE**, e que o
   certo é perguntar. Precisa de um campo na finalização — qual cenário vale — e de
   `calcularTotal` passar a respeitá-lo em vez de decidir sozinho.
+  ↳ **Desvio do texto acima**: a escolha ficou na etapa **Comercial**, gravada em
+  `payload.priceScenario`, e não num campo só da finalização. Motivo: `calcularTotal`
+  roda em **todo salvamento** (`proposals.js:229` e `:303`), não só ao finalizar — um
+  campo que só existisse na última etapa deixaria todo rascunho gravado com o total
+  do critério antigo. A etapa Comercial é também onde as duas tabelas estão à vista.
+  ONSHORE nasce pré-selecionado (`PADRAO_DE_CENARIO`), com as duas somas lado a lado.
+  Sem `priceScenario` o servidor mantém a maior — é o caso das propostas **já
+  gravadas**, que não têm o campo. O leitor de moeda foi para
+  `shared/comercial/src/dinheiro.ts` porque a tela precisa somar **igual** ao servidor
+  (o `dinheiroDigitado` do front diverge 100× em valor sem máscara).
 - [X] T131 **Endereço da sede vira configuração do módulo**, editável por gestor,
   com busca no Google Maps para localizá-lo. Hoje é `COMERCIAL_SEDE_ENDERECO` no
   `.env`, e **a variável deve sumir** — decisão do mantenedor em 12/08: dado de

@@ -2555,6 +2555,61 @@
   font-size: 13px;
 }
 
+/* Escolha do cenário contratado (T130): dois cartões de rádio lado a lado.
+   Classes PRÓPRIAS, e não `com-modo-card`/`com-modo-opcoes` do diálogo de
+   entrada — aquele cartão é o painel do diálogo (940px, sombra de 80px) e
+   aquelas opções estilizam `> button`, não `label`: reaproveitar renderiza dois
+   painéis gigantes sem estado de selecionado. */
+.com-root .com-cenario-opcoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.com-root .com-cenario-opcao {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 10px;
+  padding: 12px 14px;
+  border: 1px solid #d6e1d9;
+  border-radius: 11px;
+  background: #f8fbf9;
+  cursor: pointer;
+}
+
+.com-root .com-cenario-opcao:hover {
+  border-color: var(--com-acao);
+}
+
+/* O selecionado precisa se ver SEM depender só do ponto do rádio: é ele que
+   define o valor que vai ao CRM. */
+.com-root .com-cenario-ativo {
+  border-color: var(--com-acao);
+  background: #edf5ef;
+  box-shadow: inset 0 0 0 1px var(--com-acao);
+}
+
+.com-root .com-cenario-opcao input {
+  grid-row: 1 / 3;
+  margin: 0;
+  accent-color: var(--com-acao);
+}
+
+.com-root .com-cenario-opcao strong {
+  color: var(--com-marca-forte);
+  font-size: 15px;
+}
+
+.com-root .com-cenario-opcao span {
+  color: var(--com-texto-fraco);
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .com-root .com-cenario-opcoes { grid-template-columns: 1fr; }
+}
+
 /* Assinatura no fim da proposta comercial: as linhas do documento, centradas. */
 .com-root .com-doc-assinatura {
   margin-top: 10px;
