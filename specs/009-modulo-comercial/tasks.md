@@ -14,16 +14,19 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 166 tarefas fechadas, 15 abertas** (de 181). O contador
+> **Estado em 14/08/2026: 166 tarefas fechadas, 15 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
 >
-> O próximo item do caminho crítico é a busca do CRM na etapa Cliente (T121a).
-> Depois: arrastar
-> (T068–T071), tutorial e
-> login (T096–T098a), validação das 7 etapas (T067), mobile restante e a matriz de
-> permissões (T108–T112).
+> **O caminho crítico acabou em 14/08.** Nenhuma das 15 abertas bloqueia o uso: o
+> módulo levanta custo, monta proposta, emite os dois documentos, finaliza com CRM e
+> SharePoint e lista no histórico. O que resta é **conferência de paridade** (T043,
+> T066, T113–T116), **mobile e acabamento** (T103, T105, T107, T125, T127, T136,
+> T137) e duas de depois do go-live (T120, T123).
+>
+> **Para subir**: `prisma migrate deploy` (duas migrations — sede e tutorial) e a
+> semeadura da numeração, ambas em [deploy/COMERCIAL.md](../../deploy/COMERCIAL.md).
 
 **Tests**: **Obrigatórios.** Esta feature tem dois oráculos que só existem como teste — os
 16 goldens e a matriz de permissão. Sem eles não há como provar paridade.
