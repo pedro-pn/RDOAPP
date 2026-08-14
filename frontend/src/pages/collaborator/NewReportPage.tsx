@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { listDdsThemes } from '../../api/ddsThemes';
 import { listReports } from '../../api/reports';
+import { DraftSaveStatus, type DraftSaveStatusValue } from '../../components/reports/DraftSaveStatus';
 import { NewReportSpecialConditions } from '../../components/reports/NewReportSpecialConditions';
 import { RdoDdsNovelty } from '../../components/reports/RdoDdsNovelty';
 import { ServiceCollaboratorsBlock, ServiceFields } from '../../components/reports/ServiceFields';
@@ -294,7 +295,7 @@ export function NewReportPage() {
   const [ddsNoveltyActive, setDdsNoveltyActive] = useState(true);
   const [collaboratorsPrefilled, setCollaboratorsPrefilled] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [draftSaveStatus, setDraftSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatusValue>('idle');
   const canCreateServiceOnly = user?.role === 'MANAGER';
   const canCreateReportWithoutLeader = user?.role === 'MANAGER' || user?.role === 'COORDINATOR';
   const effectiveServiceOnly = canCreateServiceOnly && serviceOnly;
@@ -1246,21 +1247,7 @@ export function NewReportPage() {
               </button>
             ))}
           </div>
-          {projectId && reportDate ? (
-            <div
-              className={`rdo-draft-save-status ${draftSaveStatus}`}
-              role="status"
-              aria-live="polite"
-            >
-              {draftSaveStatus === 'saving'
-                ? 'Salvando rascunho...'
-                : draftSaveStatus === 'error'
-                  ? 'Falha ao salvar o rascunho'
-                  : draftSaveStatus === 'saved'
-                    ? 'Rascunho salvo na nuvem'
-                    : null}
-            </div>
-          ) : null}
+          <DraftSaveStatus status={draftSaveStatus} visible={Boolean(projectId && reportDate)} />
         </section>
 
         {step === 0 ? (
