@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/AuthContext';
 import { moduleRoutePath } from '../../modules/registry';
 import { ComercialChrome } from './components/ComercialChrome';
+import { TutorialDoModulo } from './TutorialDoModulo';
+import { ROTEIRO_DA_ENTRADA } from './roteiroDoTutorial';
 
 /**
  * Menu de entrada do módulo Comercial — desvio nº 9.
@@ -120,6 +122,7 @@ export function ComercialPage() {
                 key={destino.rotaKey}
                 type="button"
                 className="com-cartao"
+                data-tutorial={`menu-${destino.rotaKey}`}
                 onClick={() => navigate(moduleRoutePath('comercial', destino.rotaKey))}
               >
                 <span className="com-cartao-icone" aria-hidden="true">
@@ -142,6 +145,13 @@ export function ComercialPage() {
             ))}
         </div>
       </section>
+
+      {/* A entrada é a ÚNICA tela que abre o tutorial sozinha (T096). Nas
+          outras, o botão é o caminho — abrir automático saltaria por cima de
+          quem está no meio de um levantamento. */}
+      <div className="com-tutorial-rodape">
+        <TutorialDoModulo passos={ROTEIRO_DA_ENTRADA} abrirSozinho />
+      </div>
     </ComercialChrome>
   );
 }

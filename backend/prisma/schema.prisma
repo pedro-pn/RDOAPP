@@ -2566,16 +2566,36 @@ model ProposalNumberingState {
 ///   ele que vai como origem da rota, para o Google **não** reinterpretar o
 ///   texto por conta própria a cada cálculo e mudar a origem sem ninguém pedir.
 model ComercialSettings {
-  id String @id @default("singleton")
+  id                   String   @id @default("singleton")
   /// Origem de toda distância calculada. Vazio = cálculo automático indisponível.
-  sedeAddress String @default("")
+  sedeAddress          String   @default("")
   /// O endereço oficial que o Google devolveu, para a tela mostrar o que gravou.
   sedeFormattedAddress String?
   sedePlaceId          String?
   updatedAt            DateTime @updatedAt
   updatedByUserId      String?
   /// Nome de quem editou, congelado: a tela mostra sem precisar de join.
-  updatedByLabel String?
+  updatedByLabel       String?
+
+  @@schema("comercial")
+}
+
+/// Quem já viu o tutorial de primeiro acesso do módulo (FR-025a, T096).
+///
+/// **Por usuário e no servidor**, não em `localStorage`: no navegador, dois
+/// usuários da mesma máquina compartilhariam o marcador, e o mesmo usuário veria
+/// o tutorial de novo em outro computador. O tutorial acompanha a pessoa.
+///
+/// A campanha de novidade de 10 dias continua no navegador (FR-025b) — ela
+/// acompanha o **dispositivo**, e são dois mecanismos com propósitos diferentes.
+///
+/// Sem `updatedAt`: ver o tutorial é evento, não estado que se edita. Reabrir
+/// pelo botão "Rever tutorial" não mexe aqui — o marcador diz "já apareceu
+/// sozinho uma vez", e é só isso que ele precisa dizer.
+model ComercialTutorialSeen {
+  /// FK lógica → `public.User`. Sem relação declarada, como o resto do módulo.
+  userId String   @id
+  seenAt DateTime @default(now())
 
   @@schema("comercial")
 }

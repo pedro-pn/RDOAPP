@@ -96,6 +96,7 @@ export function ClienteStep({
 
         <Field
           label="CNPJ"
+          dataTutorial="cnpj"
           required
           inputMode="numeric"
           value={valor('cnpj')}

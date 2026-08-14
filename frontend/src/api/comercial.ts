@@ -636,6 +636,23 @@ export async function obterEmpresaCrm(id: string) {
   return data;
 }
 
+/**
+ * O tutorial já foi visto por **esta conta**? (FR-025a)
+ *
+ * Vem do servidor, e não do `localStorage`, porque o marcador é da pessoa: no
+ * navegador, dois usuários da mesma máquina o compartilhariam — o segundo nunca
+ * veria o tutorial — e o mesmo usuário o veria de novo em outro computador.
+ */
+export async function tutorialComercialVisto() {
+  const { data } = await apiClient.get<{ visto: boolean }>('/comercial/tutorial');
+  return data.visto;
+}
+
+/** Dispensa. Idempotente: fechar em duas abas abertas juntas não é erro. */
+export async function marcarTutorialComercialVisto() {
+  await apiClient.post('/comercial/tutorial/visto');
+}
+
 export async function obterConfiguracaoComercial() {
   const { data } = await apiClient.get<ComercialConfiguracao>('/comercial/configuracao');
   return data;

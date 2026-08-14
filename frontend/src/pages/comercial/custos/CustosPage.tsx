@@ -25,6 +25,8 @@ import { ResumoSection } from './sections/ResumoSection';
 import { useLevantamento } from './useLevantamento';
 import { useRascunhoLocal } from '../useRascunhoLocal';
 import { LOGO_URL } from '../components/marca';
+import { TutorialDoModulo } from '../TutorialDoModulo';
+import { ROTEIRO_DOS_CUSTOS } from '../roteiroDoTutorial';
 
 
 /**
@@ -473,6 +475,11 @@ export function CustosPage() {
 
             {/* Tira de seções. As abas são LIVRES: dá para pular para qualquer
                 uma a qualquer momento. A cadeia do rodapé guia, não prende. */}
+            {/* O tutorial não abre sozinho aqui: quem chegou nesta tela já passou
+                pela entrada. O botão replica o roteiro DESTA tela (T096). */}
+            <div className="com-tutorial-rodape">
+              <TutorialDoModulo passos={ROTEIRO_DOS_CUSTOS} />
+            </div>
             <nav className="com-workflow-nav" aria-label="Etapas do levantamento">
               {SECOES.map((item, indice) => (
                 <button

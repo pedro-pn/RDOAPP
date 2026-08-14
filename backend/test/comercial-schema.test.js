@@ -34,6 +34,7 @@ const MODELS_COMERCIAIS = [
   'ProposalNumberingState',
   'ScopePhotoAsset',
   'ComercialSettings',
+  'ComercialTutorialSeen',
 ];
 
 function blocoDe(nome) {

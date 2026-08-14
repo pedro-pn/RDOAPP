@@ -42,6 +42,15 @@ type FieldProps = {
   /** Texto de apoio permanente, exibido mesmo sem erro. */
   hint?: string;
   inputMode?: 'text' | 'numeric' | 'decimal' | 'email' | 'tel' | 'url';
+  /**
+   * Âncora para o tutorial (T096/T097).
+   *
+   * Declarada de propósito, e não deixada como `data-*` solto: TypeScript
+   * **aceita qualquer `data-*` em JSX sem reclamar**, e o `Field` não repassa
+   * props extras — escrever `data-tutorial="cnpj"` na chamada compilava, não
+   * chegava ao DOM, e o passo do tutorial sumia sem erro nenhum.
+   */
+  dataTutorial?: string;
 };
 
 export function Field({
@@ -56,7 +65,8 @@ export function Field({
   readOnly,
   maxLength,
   hint,
-  inputMode
+  inputMode,
+  dataTutorial
 }: FieldProps) {
   const id = useId();
   const errorId = `${id}-erro`;
@@ -64,7 +74,7 @@ export function Field({
   const invalid = Boolean(error);
 
   return (
-    <div className={groupClass(invalid)}>
+    <div className={groupClass(invalid)} data-tutorial={dataTutorial}>
       <label htmlFor={id}>
         {label}
         {required && <span className="survey-required-marker">*</span>}

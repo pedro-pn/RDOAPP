@@ -70,6 +70,8 @@ import { ComercialStep } from './steps/ComercialStep';
 import { ResponsabilidadesStep } from './steps/ResponsabilidadesStep';
 import { RevisaoStep } from './steps/RevisaoStep';
 import { TecnicaStep } from './steps/TecnicaStep';
+import { TutorialDoModulo } from '../TutorialDoModulo';
+import { ROTEIRO_DA_PROPOSTA } from '../roteiroDoTutorial';
 
 /**
  * Montagem da proposta — container das 7 etapas (`PROP-CTL-001..010`, `PROP-H-001..003`).
@@ -584,6 +586,12 @@ export function PropostaPage() {
         </div>
       }
       faixa={
+        <>
+          {/* O tutorial não abre sozinho aqui: quem chegou nesta tela já passou
+              pela entrada. O botão replica o roteiro DESTA tela (T096). */}
+          <div className="com-tutorial-rodape">
+            <TutorialDoModulo passos={ROTEIRO_DA_PROPOSTA} />
+          </div>
         <nav className="com-stepper" aria-label="Etapas da proposta">
           {ETAPAS.map((item, i) => {
             const alcancavel = i <= maiorVisitada;
@@ -608,6 +616,7 @@ export function PropostaPage() {
             );
           })}
         </nav>
+        </>
       }
     >
       {conflitoDeEdicao && (

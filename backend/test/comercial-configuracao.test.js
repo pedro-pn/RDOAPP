@@ -319,3 +319,53 @@ test('sem sede gravada, a distância diz onde configurar', async () => {
   assert.equal(resultado.km, null);
   assert.match(resultado.aviso, /Configurações/i);
 });
+
+/* ------------------------------------------------------------------------- *
+ * O marcador do tutorial (FR-025a, T096).
+ * ------------------------------------------------------------------------- */
+
+test('o tutorial é marcado por USUÁRIO, e marcar duas vezes não é erro', async () => {
+  const { jaViuTutorial, marcarTutorialVisto } = await import(
+    '../src/lib/comercial/tutorial.js'
+  );
+
+  const vistos = new Map();
+  const prisma = {
+    comercialTutorialSeen: {
+      findUnique: async ({ where }) => vistos.get(where.userId) ?? null,
+      upsert: async ({ where }) => {
+        // `upsert` de propósito: fechar o tutorial em duas abas abertas juntas
+        // manda dois pedidos, e o segundo não pode explodir.
+        vistos.set(where.userId, { userId: where.userId });
+        return vistos.get(where.userId);
+      }
+    }
+  };
+
+  assert.equal(await jaViuTutorial(prisma, 'ana'), false);
+
+  await marcarTutorialVisto(prisma, 'ana');
+  await marcarTutorialVisto(prisma, 'ana');
+
+  assert.equal(await jaViuTutorial(prisma, 'ana'), true);
+  // O de Ana não vale para Bruno — é exatamente o que o `localStorage` erraria
+  // quando os dois usam a mesma máquina.
+  assert.equal(await jaViuTutorial(prisma, 'bruno'), false);
+});
+
+test('sem usuário, ou com o banco fora, o tutorial NÃO se impõe', async () => {
+  const { jaViuTutorial } = await import('../src/lib/comercial/tutorial.js');
+
+  const quebrado = {
+    comercialTutorialSeen: {
+      findUnique: async () => {
+        throw new Error('banco fora');
+      }
+    }
+  };
+
+  // Entre repetir o tutorial para quem já o dispensou e não mostrá-lo a quem
+  // nunca viu, o segundo é o erro menos intrusivo — e este ainda tem o botão.
+  assert.equal(await jaViuTutorial(quebrado, 'ana'), true);
+  assert.equal(await jaViuTutorial(quebrado, ''), true);
+});

@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router';
 
 import { useAuth } from '../auth/AuthContext';
 import { preferredEntryPath } from '../auth/moduleNavigation';
+import { validateLoginFields } from '../auth/loginValidation';
 import { normalizeCnpjInput } from '../utils/formatCnpj';
 
 const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
@@ -17,6 +18,16 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(() => Boolean(localStorage.getItem(REMEMBERED_USER_KEY)));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  /**
+   * Pendências por campo (T098 do módulo Comercial).
+   *
+   * O login **não tinha nenhum `aria-invalid`**: entrar com campo vazio ia ao
+   * servidor e voltava com uma mensagem geral, sem dizer qual dos dois campos
+   * faltava. Quem usa leitor de tela não recebia nada. A dívida foi corrigida
+   * **na fonte**, e não contornada no módulo, porque este login é a porta de
+   * todos os módulos.
+   */
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
 
   const redirectPath = useMemo(() => preferredEntryPath(user), [user]);
   if (isBootstrapping || (token && !user)) return null;
@@ -25,6 +36,14 @@ export function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
+
+    // Campo vazio nem chega ao servidor: a resposta dele seria "usuário ou
+    // senha inválidos", que manda procurar erro de digitação onde não há nada
+    // digitado.
+    const pendencias = validateLoginFields(username, password);
+    setFieldErrors(pendencias);
+    if (pendencias.username || pendencias.password) return;
+
     setIsSubmitting(true);
     try {
       await login({ username, password, rememberMe });
@@ -50,12 +69,20 @@ export function LoginPage() {
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="field-group">
+          <div className={fieldErrors.username ? 'field-group field-invalid' : 'field-group'}>
             <label htmlFor="username">Usuário</label>
             <input
               id="username"
               value={username}
-              onChange={event => setUsername(event.target.value)}
+              required
+              aria-invalid={fieldErrors.username ? true : undefined}
+              aria-describedby={fieldErrors.username ? 'username-erro' : undefined}
+              onChange={event => {
+                setUsername(event.target.value);
+                // Apaga ao digitar: manter o vermelho enquanto a pessoa corrige
+                // é dizer que ela continua errada quando já não está.
+                if (fieldErrors.username) setFieldErrors(atual => ({ ...atual, username: undefined }));
+              }}
               onBlur={() => {
                 const digits = username.replace(/\D/g, '');
                 if (digits.length === 14 && !/[A-Za-z@]/.test(username)) {
@@ -63,9 +90,14 @@ export function LoginPage() {
                 }
               }}
             />
+            {fieldErrors.username && (
+              <span className="field-error" id="username-erro">
+                {fieldErrors.username}
+              </span>
+            )}
           </div>
 
-          <div className="field-group">
+          <div className={fieldErrors.password ? 'field-group field-invalid' : 'field-group'}>
             <label htmlFor="password">Senha</label>
             <div className="password-input-wrap">
               <input
@@ -73,7 +105,15 @@ export function LoginPage() {
                 type={isPasswordVisible ? 'text' : 'password'}
                 value={password}
                 autoComplete="current-password"
-                onChange={event => setPassword(event.target.value)}
+                required
+                aria-invalid={fieldErrors.password ? true : undefined}
+                aria-describedby={fieldErrors.password ? 'password-erro' : undefined}
+                onChange={event => {
+                  setPassword(event.target.value);
+                  if (fieldErrors.password) {
+                    setFieldErrors(atual => ({ ...atual, password: undefined }));
+                  }
+                }}
               />
               <button
                 className="password-visibility-button"
@@ -99,6 +139,11 @@ export function LoginPage() {
                 )}
               </button>
             </div>
+            {fieldErrors.password && (
+              <span className="field-error" id="password-erro">
+                {fieldErrors.password}
+              </span>
+            )}
           </div>
 
           <div className="auth-options-row">

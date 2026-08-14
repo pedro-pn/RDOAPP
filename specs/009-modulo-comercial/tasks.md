@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 159 tarefas fechadas, 22 abertas** (de 181). O contador
+> **Estado em 13/08/2026: 163 tarefas fechadas, 18 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -583,10 +583,38 @@ vez, é dispensável e não volta sozinho.
   > nada**: apagar a lista não dá erro de tipo nem de teste, só passa a mostrar o
   > Comercial para a empresa inteira. `frontend/test/comercial-hub.test.mjs` trava isso
   > em 14/08.
-- [ ] T096 [US5] **(L4)** Implementar o **tutorial permanente de primeiro acesso** com `driver.js`, dispensável e rechamável, sem reaparecer sozinho. O marcador de "já viu" é **por usuário, persistido no servidor** (FR-025a) — não em `localStorage`, senão dois usuários da mesma máquina compartilham o marcador e o mesmo usuário vê o tutorial de novo em outro computador. **`localStorage` fica só para a campanha de novidade** (FR-025b): o tutorial acompanha a pessoa, a campanha acompanha o dispositivo. Módulo novo mantém onboarding permanente — a campanha de novidade de 10 dias é para função nova dentro de módulo existente, não se aplica.  ↳ `FR-025` `FR-025a` `FR-025b`
-- [ ] T097 [US5] **(L4)** Escrever o roteiro do tutorial a partir de `contracts/baseline/roteiro.md`, cobrindo no mínimo: (a) a **cadeia de prioridade do rodapé** de `/comercial/custos`, que é o caminho que o mantenedor confirmou usar; (b) a **armadilha de e-mail/CNPJ inválido** da etapa 1.  ↳ `FR-026`
-- [ ] T098 [US5] **(L5)** Corrigir `frontend/src/pages/LoginPage.tsx` do filtroAPP para usar `.field-group.field-invalid` + `.field-error` + `aria-invalid` em campo obrigatório vazio. **Hoje tem zero `aria-invalid`.** O módulo reusa este login, e o template exige que dívida na fonte seja corrigida **na fonte** — não contornada no módulo. Beneficia o app inteiro.  ↳ `FR-013`
-- [ ] T098a [US5] Registrar em `specs/009-modulo-comercial/contracts/ui-inventory.md` que `LOGIN-CTL-001..007`, `LOGIN-H-001` e `LOGIN-TXT-001..012` **não são portados**, com o motivo: o módulo reusa o login do filtroAPP, premissa desde o início do projeto. Sem esse registro o `/speckit-analyze` os acusa como itens órfãos — e o silêncio deles não pode ser confundido com esquecimento.
+- [X] T096 [US5] **(L4)** Implementar o **tutorial permanente de primeiro acesso** com `driver.js`, dispensável e rechamável, sem reaparecer sozinho. O marcador de "já viu" é **por usuário, persistido no servidor** (FR-025a) — não em `localStorage`, senão dois usuários da mesma máquina compartilham o marcador e o mesmo usuário vê o tutorial de novo em outro computador. **`localStorage` fica só para a campanha de novidade** (FR-025b): o tutorial acompanha a pessoa, a campanha acompanha o dispositivo. Módulo novo mantém onboarding permanente — a campanha de novidade de 10 dias é para função nova dentro de módulo existente, não se aplica.  ↳ `FR-025` `FR-025a` `FR-025b`
+- [X] T097 [US5] **(L4)** Escrever o roteiro do tutorial a partir de `contracts/baseline/roteiro.md`, cobrindo no mínimo: (a) a **cadeia de prioridade do rodapé** de `/comercial/custos`, que é o caminho que o mantenedor confirmou usar; (b) a **armadilha de e-mail/CNPJ inválido** da etapa 1.  ↳ `FR-026`
+- [X] T098 [US5] **(L5)** Corrigir `frontend/src/pages/LoginPage.tsx` do filtroAPP para usar `.field-group.field-invalid` + `.field-error` + `aria-invalid` em campo obrigatório vazio. **Hoje tem zero `aria-invalid`.** O módulo reusa este login, e o template exige que dívida na fonte seja corrigida **na fonte** — não contornada no módulo. Beneficia o app inteiro.  ↳ `FR-013`
+- [X] T098a [US5] Registrar em `specs/009-modulo-comercial/contracts/ui-inventory.md` que `LOGIN-CTL-001..007`, `LOGIN-H-001` e `LOGIN-TXT-001..012` **não são portados**, com o motivo: o módulo reusa o login do filtroAPP, premissa desde o início do projeto. Sem esse registro o `/speckit-analyze` os acusa como itens órfãos — e o silêncio deles não pode ser confundido com esquecimento.
+
+  > **As quatro juntas, em 14/08.** O marcador de "já viu" virou
+  > `comercial.ComercialTutorialSeen` (migration `20260814120000`), **por usuário e no
+  > servidor** — o resto do app usa `localStorage`, e é justamente o que o FR-025a
+  > proíbe aqui: dois usuários da mesma máquina compartilhariam o marcador, e o segundo
+  > nunca veria o tutorial.
+  >
+  > **Um roteiro por tela, não um percorrendo as três.** `driver.js` aponta para
+  > elementos da página aberta; passo mirando seletor de outra tela **não destaca nada
+  > e não reclama**. Por isso `passosPresentes` filtra antes de abrir, e é isso que faz
+  > o mesmo roteiro servir à proposta com e sem a prévia aberta.
+  >
+  > **Rever não marca.** `abrir(true)` só na abertura automática; o botão chama
+  > `abrir(false)`. Marcar no botão transformaria "quis rever" em "nunca mais aparece".
+  >
+  > **A âncora do CNPJ quase virou passo mudo.** Escrevi `data-tutorial="cnpj"` na
+  > chamada do `Field`, `tsc` não reclamou — **TypeScript aceita qualquer `data-*` em
+  > JSX** — e o atributo não chegava ao DOM, porque o `Field` não repassa props extras.
+  > Virou prop declarada (`dataTutorial`), que é o que faz o compilador cobrar.
+  >
+  > **T098, a dívida na fonte.** O login tinha **zero `aria-invalid`** e mandava campo
+  > vazio ao servidor, que respondia "usuário ou senha inválidos" — mensagem que manda
+  > procurar erro de digitação onde nada foi digitado, e que não diz qual campo faltou.
+  > Agora recusa antes, com `.field-invalid` + `.field-error` + `aria-invalid` +
+  > `aria-describedby` e mensagem por campo. Corrigido no filtroAPP, não contornado no
+  > módulo: este login é a porta de todos os módulos.
+  >
+  > ⚠ **Precisa de `prisma migrate deploy` no servidor**, junto com a da T131.
 
 ---
 

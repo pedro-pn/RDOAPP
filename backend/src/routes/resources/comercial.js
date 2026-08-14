@@ -37,6 +37,7 @@ import {
 } from '../../lib/comercial/configuracao.js';
 import { buscarEmpresas, empresaComContatos } from '../../lib/comercial/crm-contatos.js';
 import { sugerirEnderecos } from '../../lib/comercial/distancias.js';
+import { jaViuTutorial, marcarTutorialVisto } from '../../lib/comercial/tutorial.js';
 import { finalizarProposta } from '../../lib/comercial/jobs.js';
 import { indisponivel, listarFunis } from '../../lib/comercial/nectar.js';
 import { attachmentContentDisposition } from '../../lib/documents/storage.js';
@@ -256,6 +257,28 @@ router.get(
  * "ainda buscando por trecho", em vez de deixar o usuário concluir que a empresa
  * não existe.
  */
+/**
+ * O tutorial de primeiro acesso — FR-025a, T096.
+ *
+ * `requireComercialAccess`, os três papéis: quem só consulta também precisa
+ * aprender a tela. O marcador é **por usuário**, não do navegador, e é por isso
+ * que ele passa pelo servidor em vez de morar no `localStorage`.
+ */
+router.get(
+  '/tutorial',
+  asyncHandler(async (req, res) => {
+    res.json({ visto: await jaViuTutorial(prisma, req.user?.id) });
+  })
+);
+
+/** Dispensar. Idempotente: fechar em duas abas não é erro. */
+router.post(
+  '/tutorial/visto',
+  asyncHandler(async (req, res) => {
+    res.json(await marcarTutorialVisto(prisma, req.user?.id));
+  })
+);
+
 router.get(
   '/crm/empresas',
   requireComercialEstimator,

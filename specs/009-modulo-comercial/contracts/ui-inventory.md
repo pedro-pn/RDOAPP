@@ -55,6 +55,29 @@ padrão compartilhado, navegação em URL, tutorial de primeiro acesso).
 
 Origem: `app/login/page.tsx`
 
+> ## ⚠ NÃO PORTADOS — `LOGIN-CTL-001..007`, `LOGIN-H-001`, `LOGIN-TXT-001..012`
+>
+> **Registrado na T098a, em 14/08/2026.** O módulo **não traz login próprio**:
+> ele reusa o do filtroAPP. Isso é premissa desde o início do projeto — "mesmo
+> nginx, mesmo login" —, não uma decisão tomada durante a implementação, e por
+> isso não entra na lista fechada de desvios, que trata de paridade de UI dentro
+> das telas portadas.
+>
+> **O registro existe para o silêncio não ser confundido com esquecimento.** Sem
+> ele, o `/speckit-analyze` acusa 20 itens de inventário órfãos, e quem revisar
+> a paridade vai procurar uma tela de login que nunca deveria existir.
+>
+> **A dívida que o reuso expôs foi corrigida na fonte** (T098): o
+> `frontend/src/pages/LoginPage.tsx` do filtroAPP tinha **zero `aria-invalid`** e
+> mandava campo vazio ao servidor, que respondia "usuário ou senha inválidos" —
+> mensagem que manda procurar erro de digitação onde nada foi digitado, e que
+> não diz qual dos dois campos faltou. Agora usa `.field-group.field-invalid` +
+> `.field-error` + `aria-invalid` + `aria-describedby`, com mensagem por campo.
+> Corrigir no módulo teria deixado a dívida para o próximo que reusasse o login.
+>
+> A tabela abaixo fica como está: ela é o inventário da **referência**, e a
+> referência tinha essa tela. O que mudou é o destino dela, não o registro.
+
 ### LOGIN: títulos
 
 | ID | Linha | Nível | Texto |
