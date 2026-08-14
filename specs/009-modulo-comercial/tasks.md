@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 163 tarefas fechadas, 18 abertas** (de 181). O contador
+> **Estado em 13/08/2026: 166 tarefas fechadas, 15 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -664,7 +664,25 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
 ### Testes e CI `(E9)`
 
-- [ ] T108 Escrever `backend/test/comercial-permissoes.test.js` com a **matriz completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 3 papéis × 2 entidades × (criar, ler, editar, finalizar), mais documentos.  ↳ `FR-027b` `SC-008`
+- [X] T108 Escrever `backend/test/comercial-permissoes.test.js` com a **matriz completa** de [contracts/api-contracts.md](./contracts/api-contracts.md): 3 papéis × 2 entidades × (criar, ler, editar, finalizar), mais documentos.  ↳ `FR-027b` `SC-008`
+
+  > **Dois níveis, e o segundo é o que faltava.** A matriz do `api-contracts.md` era
+  > **prosa**: cada célula escrita, nenhuma provada junta. O nível 1 transcreve a tabela
+  > como **dado** e a percorre — célula esquecida numa tabela salta aos olhos, `assert`
+  > faltando não. O nível 2 lê a declaração do router e confere o portão de **cada
+  > rota**, porque o modo mais provável de vazar não é regra errada: é regra certa que
+  > ninguém chamou. Rota nova sem célula na matriz falha o teste.
+  >
+  > É textual de propósito: não há harness HTTP no repositório e o plano fixa **nenhuma
+  > dependência de teste nova**. Ler a declaração é o que dá para provar sem inventar
+  > infraestrutura, e pega o risco real.
+  >
+  > **O teste corrigiu a mim, não ao código.** A primeira versão chamava
+  > `canDownloadDocument` direto e "provou" que um vendedor baixa a proposta comercial
+  > de outro. A rota não vaza — `baixarDocumento` compõe `canRead` (autoria) com o
+  > predicado, que responde só sobre o **papel**. O teste passou a exercitar o ponto de
+  > decisão real, e o predicado ganhou o aviso que faltava: usá-lo sozinho como portão
+  > abriria a proposta de um vendedor para outro.
 - [X] T109 Escrever em `backend/test/comercial-permissoes.test.js` o caso crítico da matriz: **`seller` A lendo a listagem enquanto existe registro de `seller` B**. Se a filtragem estiver só na rota de item e não no índice, este é o único teste que pega — e é o vazamento mais provável.  ↳ `SC-008a`
 
   > **Feito, em arquivo diferente do previsto**: `backend/test/comercial-access.test.js` — *"vendedor A não recebe registro do vendedor B pela listagem"*. O arquivo `comercial-permissoes.test.js` nunca foi criado; a matriz mora no `comercial-access.test.js` junto do próprio módulo de acesso. A T108 é que precisa fechar a matriz **completa**, e é lá que essa consolidação cabe.
@@ -675,11 +693,20 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
   > **Feita em 13/08.** O teste cobre ainda a corrida entre `SELECT` e `UPDATE` e
   > a segunda tentativa confirmada, para provar que o aviso não virou trava.
-- [ ] T110b [P] Escrever em `backend/test/comercial-permissoes.test.js` a prova de que o **único `DELETE` do módulo é o de anexo** (`DELETE /propostas/:id/anexos/:anexoId`), e que ele **recusa depois de finalizada**. Reformulada em 13/08: a redação original — "não existe rota de exclusão" — nasceu antes da T128 e hoje falharia contra a exceção aprovada. Enumerar as rotas e afirmar a única permitida é mais forte do que afirmar nenhuma: pega tanto um `DELETE` novo de proposta quanto a perda do portão de "só antes de finalizar".
+- [X] T110b [P] Escrever em `backend/test/comercial-permissoes.test.js` a prova de que o **único `DELETE` do módulo é o de anexo** (`DELETE /propostas/:id/anexos/:anexoId`), e que ele **recusa depois de finalizada**. Reformulada em 13/08: a redação original — "não existe rota de exclusão" — nasceu antes da T128 e hoje falharia contra a exceção aprovada. Enumerar as rotas e afirmar a única permitida é mais forte do que afirmar nenhuma: pega tanto um `DELETE` novo de proposta quanto a perda do portão de "só antes de finalizar".
+
+  > **Feita com a T108.** Enumera os `router.delete` e afirma que só existe o do anexo;
+  > cobre a recusa depois de finalizada (409) e a ordem das checagens: **autoria antes
+  > do estado**. Ao contrário, o vendedor B descobriria pelo código do erro que a
+  > proposta de A já foi finalizada — informação sobre registro que ele não pode ler.
 - [X] T111 [P] Escrever em `backend/test/comercial-permissoes.test.js` o teste de que a resposta para `viewer` **não contém** `totalValue`, custo nem margem — omissão na serialização, não ocultação na tela.
 
   > **Feito** em `comercial-access.test.js` — *"os campos de valor são removidos do objeto, não escondidos"* e *"serializeListForUser limpa a lista inteira"*. A distinção importa: o teste falha se alguém trocar remoção por ocultação na tela.
-- [ ] T112 Rodar `npm run architecture:check`, `npm --prefix frontend run lint` e as duas suítes (`backend/test/*.test.js` e `frontend/test/*.test.mjs`).
+- [X] T112 Rodar `npm run architecture:check`, `npm --prefix frontend run lint` e as duas suítes (`backend/test/*.test.js` e `frontend/test/*.test.mjs`).
+
+  > **14/08**: `architecture:check` passa, `lint` com **0 erros** (resta 1 warning
+  > pré-existente em `OmieCostCategoriesPanel`, fora do módulo), backend **1160/1160**,
+  > frontend **300/300**.
 
 ### Aceite de paridade
 

@@ -263,6 +263,13 @@ function stripViewerRestrictedFields(record) {
  * Só a técnica. A comercial traz tabela de preços, condições de pagamento e
  * valor total — liberá-la contornaria a restrição de valores por outra porta,
  * e a restrição deixaria de valer para qualquer um com o link.
+ *
+ * ⚠ **Responde sobre o PAPEL, não sobre a autoria.** Para orçamentista devolve
+ * `true` sempre, inclusive em documento de outro vendedor — a autoria é checada
+ * por `canRead`, e quem compõe as duas é `baixarDocumento`. Usar este predicado
+ * sozinho como portão de download abriria a proposta de um vendedor para outro.
+ * Foi escrito ao montar a matriz da T108, quando o teste "provou" um vazamento
+ * que a rota não tem.
  */
 export function canDownloadDocument(user, document) {
   if (!document) return false;
