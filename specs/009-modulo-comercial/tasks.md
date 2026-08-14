@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 152 tarefas fechadas, 29 abertas** (de 181). O contador
+> **Estado em 13/08/2026: 153 tarefas fechadas, 28 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -520,7 +520,14 @@ pela URL e que o não salvo é oferecido de volta.
 vez, é dispensável e não volta sozinho.
 
 - [X] T094 [US5] Implementar o menu de entrada `frontend/src/pages/comercial/ComercialPage.tsx` (**desvio nº 9**) com dois cartões — levantar custos e ver/criar propostas —, reusando a linguagem de cartões de `frontend/src/pages/HubPage.tsx`. **Sem baseline visual**: não existe na referência para ser fotografado.  ↳ `FR-023` `FR-043`
-- [ ] T095 [US5] Ocultar em `frontend/src/pages/hubModules.ts` o card do módulo no hub do filtroAPP para quem não tem nenhum dos três papéis.  ↳ `FR-024`
+- [X] T095 [US5] Ocultar em `frontend/src/pages/hubModules.ts` o card do módulo no hub do filtroAPP para quem não tem nenhum dos três papéis.  ↳ `FR-024`
+
+  > **Já estava feita, e sem teste — a combinação que mais engana.** A regra é
+  > declarativa: `hub.roles` no registro do módulo lista os três papéis, e
+  > `hubModulesForUser` filtra por eles. Por ser declarativa, ela **some sem quebrar
+  > nada**: apagar a lista não dá erro de tipo nem de teste, só passa a mostrar o
+  > Comercial para a empresa inteira. `frontend/test/comercial-hub.test.mjs` trava isso
+  > em 14/08.
 - [ ] T096 [US5] **(L4)** Implementar o **tutorial permanente de primeiro acesso** com `driver.js`, dispensável e rechamável, sem reaparecer sozinho. O marcador de "já viu" é **por usuário, persistido no servidor** (FR-025a) — não em `localStorage`, senão dois usuários da mesma máquina compartilham o marcador e o mesmo usuário vê o tutorial de novo em outro computador. **`localStorage` fica só para a campanha de novidade** (FR-025b): o tutorial acompanha a pessoa, a campanha acompanha o dispositivo. Módulo novo mantém onboarding permanente — a campanha de novidade de 10 dias é para função nova dentro de módulo existente, não se aplica.  ↳ `FR-025` `FR-025a` `FR-025b`
 - [ ] T097 [US5] **(L4)** Escrever o roteiro do tutorial a partir de `contracts/baseline/roteiro.md`, cobrindo no mínimo: (a) a **cadeia de prioridade do rodapé** de `/comercial/custos`, que é o caminho que o mantenedor confirmou usar; (b) a **armadilha de e-mail/CNPJ inválido** da etapa 1.  ↳ `FR-026`
 - [ ] T098 [US5] **(L5)** Corrigir `frontend/src/pages/LoginPage.tsx` do filtroAPP para usar `.field-group.field-invalid` + `.field-error` + `aria-invalid` em campo obrigatório vazio. **Hoje tem zero `aria-invalid`.** O módulo reusa este login, e o template exige que dívida na fonte seja corrigida **na fonte** — não contornada no módulo. Beneficia o app inteiro.  ↳ `FR-013`
