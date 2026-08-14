@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 153 tarefas fechadas, 28 abertas** (de 181). O contador
+> **Estado em 13/08/2026: 154 tarefas fechadas, 27 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -388,7 +388,33 @@ da finalização.
   > de servir para o que existe — conferir antes de emitir. Quando a T072 portar o
   > gerador, ele consome estas mesmas funções.
 - [ ] T066 [US2] Conferir os **330 textos** `PROP-TXT-001..330` item a item contra o inventário.  ↳ `FR-004` `SC-011`
-- [ ] T067 [US2] **(L1)** Aplicar a validação por campo às 7 etapas de `frontend/src/pages/comercial/proposta/steps/`, com "E-mail inválido"/"CNPJ inválido" distintos de "Campo obrigatório". **É o ponto de travamento mais provável do app**: o contador acusa pendência num campo visivelmente preenchido.
+- [X] T067 [US2] **(L1)** Aplicar a validação por campo às 7 etapas de `frontend/src/pages/comercial/proposta/steps/`, com "E-mail inválido"/"CNPJ inválido" distintos de "Campo obrigatório". **É o ponto de travamento mais provável do app**: o contador acusa pendência num campo visivelmente preenchido.
+
+  > **Quatro das sete já estavam ligadas** — Cliente, Escopo, Prazos e Comercial recebiam
+  > `erroDe` e passavam `error` aos campos, e as mensagens de vazio e de inválido já eram
+  > distintas em `pendenciasDoCliente` ("Informe o CNPJ." × "Informe um CNPJ válido com
+  > 14 dígitos."). O que faltava era a **Técnica**, e ali era o caso da tarefa inteiro.
+  >
+  > `validateTechnicalServiceSelections` devolvia só frases — "Flushing primário:
+  > informe a classe NAS desejada." —, que a tela empilhava num aviso. **Nenhum campo
+  > acendia.** A etapa aceita 11 serviços, cada um com até três parâmetros: com um dá
+  > para achar, com onze o vendedor lê a frase e procura. Nasceu
+  > `validateTechnicalServiceIssues`, que devolve `{ instanceId, field, message }`, e a
+  > lista de frases passou a **derivar** dela — duas listas escritas à mão divergiriam no
+  > primeiro parâmetro novo, e a tela acenderia um campo que o contador não conta.
+  >
+  > **O `field` é a mesma chave de `updateTechnicalServiceParameter`**, de propósito:
+  > sem isso a tela precisaria de uma tabela traduzindo pendência → campo, e essa tabela
+  > envelheceria calada. Há teste travando a identidade das duas chaves.
+  >
+  > **Escrever o teste corrigiu a premissa**: os modelos já nascem com valor nos
+  > parâmetros que sabem sugerir (`flushing_primario` vem com `NAS 6`), então cartão
+  > recém-adicionado **não** está pendente — é o vendedor apagando o campo que cria a
+  > pendência. O primeiro teste testava o caso que não acontece.
+  >
+  > Na Responsabilidades, a mensagem estava escrita **duas vezes**, palavra por palavra:
+  > em `pendenciasDasResponsabilidades` e dentro do próprio passo. Agora chega por
+  > `erroDe`. A marcação por linha (`com-campo-invalido` + `aria-invalid`) já existia.
 
 ### L2 — reordenação
 

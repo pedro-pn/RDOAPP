@@ -426,39 +426,101 @@ export function normalizeTechnicalServiceSelections(value: unknown) {
   });
 }
 
-export function validateTechnicalServiceSelections(selections: TechnicalServiceSelection[]) {
-  const errors: string[] = [];
-  if (!selections.length) return ["Selecione pelo menos um serviço técnico."];
-  if (selections.length > MAX_TECHNICAL_SERVICES) errors.push(`Selecione no máximo ${MAX_TECHNICAL_SERVICES} serviços.`);
+/**
+ * Onde a pendência mora — o cartão do serviço e o campo dentro dele.
+ *
+ * `instanceId` vazio é pendência da etapa inteira ("selecione pelo menos um
+ * serviço"), que não tem campo para acender.
+ */
+export type TechnicalServiceIssue = {
+  instanceId: string;
+  field: "" | "title" | "text" | "nasTarget" | "ppmTarget" | "oilType" | "material" | "otherMaterial";
+  message: string;
+};
+
+/**
+ * A validação da etapa técnica, **com endereço** (T067).
+ *
+ * Antes ela devolvia só frases — "Flushing primário: informe a classe NAS
+ * desejada." — e a tela as empilhava num aviso. Com um serviço só, dá para
+ * achar; com os onze que a etapa aceita, cada um com até três parâmetros, o
+ * vendedor lê a frase e **procura**. É o caso que a T067 chama de ponto de
+ * travamento mais provável do app: o contador acusa pendência e nada na tela
+ * aponta para onde.
+ *
+ * O `field` é o nome do parâmetro de propósito: é a mesma chave que
+ * `updateTechnicalServiceParameter` usa, então a tela liga um no outro sem
+ * tabela de tradução no meio — tabela que envelheceria calada quando um
+ * parâmetro novo entrasse.
+ */
+export function validateTechnicalServiceIssues(
+  selections: TechnicalServiceSelection[],
+): TechnicalServiceIssue[] {
+  const issues: TechnicalServiceIssue[] = [];
+  const daEtapa = (message: string) => issues.push({ instanceId: "", field: "", message });
+
+  if (!selections.length) {
+    daEtapa("Selecione pelo menos um serviço técnico.");
+    return issues;
+  }
+  if (selections.length > MAX_TECHNICAL_SERVICES) {
+    daEtapa(`Selecione no máximo ${MAX_TECHNICAL_SERVICES} serviços.`);
+  }
+
   for (const selection of selections) {
     const definition = getTechnicalServiceDefinition(selection.serviceId);
+    const aqui = (field: TechnicalServiceIssue["field"], message: string) =>
+      issues.push({ instanceId: selection.instanceId, field, message });
+
     if (!definition) {
-      errors.push("Há um serviço técnico inválido.");
+      // Sem definição não há campo a acender: o cartão inteiro é o problema.
+      aqui("", "Há um serviço técnico inválido.");
       continue;
     }
-    if (!selection.title.trim()) errors.push(`${definition.title}: informe o título.`);
-    if (!selection.text.trim()) errors.push(`${definition.title}: informe o texto técnico.`);
+
+    if (!selection.title.trim()) aqui("title", `${definition.title}: informe o título.`);
+    if (!selection.text.trim()) aqui("text", `${definition.title}: informe o texto técnico.`);
     if (selection.reportCode !== definition.reportCode) {
-      errors.push(`${definition.title}: a configuração automática do relatório está inválida; remova e adicione o modelo novamente.`);
+      aqui(
+        "",
+        `${definition.title}: a configuração automática do relatório está inválida; remova e adicione o modelo novamente.`,
+      );
     }
     if (definition.asksNas && !selection.parameters.nasTarget?.trim()) {
-      errors.push(`${definition.title}: informe a classe NAS desejada.`);
+      aqui("nasTarget", `${definition.title}: informe a classe NAS desejada.`);
     }
     if (definition.asksPpm) {
       const ppm = Number(String(selection.parameters.ppmTarget || "").replace(",", "."));
-      if (!Number.isFinite(ppm) || ppm <= 0) errors.push(`${definition.title}: informe um limite de PPM válido.`);
+      if (!Number.isFinite(ppm) || ppm <= 0) {
+        aqui("ppmTarget", `${definition.title}: informe um limite de PPM válido.`);
+      }
     }
     if (definition.asksOilType && !selection.parameters.oilType) {
-      errors.push(`${definition.title}: selecione o tipo de óleo.`);
+      aqui("oilType", `${definition.title}: selecione o tipo de óleo.`);
     }
     if (definition.asksMaterial) {
-      if (!selection.parameters.material) errors.push(`${definition.title}: selecione o material.`);
+      if (!selection.parameters.material) {
+        aqui("material", `${definition.title}: selecione o material.`);
+      }
       if (selection.parameters.material === "Outro metal" && !selection.parameters.otherMaterial?.trim()) {
-        errors.push(`${definition.title}: especifique o outro metal.`);
+        aqui("otherMaterial", `${definition.title}: especifique o outro metal.`);
       }
     }
   }
-  return errors;
+
+  return issues;
+}
+
+/**
+ * As mesmas pendências, só as frases.
+ *
+ * Continua existindo porque o contador da etapa e o aviso do topo só precisam
+ * do texto — e porque **deriva** de `validateTechnicalServiceIssues`, não
+ * repete a regra. Duas listas escritas à mão divergiriam no primeiro parâmetro
+ * novo, e a tela acenderia um campo que o contador não conta.
+ */
+export function validateTechnicalServiceSelections(selections: TechnicalServiceSelection[]) {
+  return validateTechnicalServiceIssues(selections).map((issue) => issue.message);
 }
 
 /**

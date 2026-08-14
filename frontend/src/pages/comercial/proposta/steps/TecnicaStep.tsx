@@ -5,6 +5,7 @@ import {
   getTechnicalServiceDefinition,
   resetTechnicalServiceTemplate,
   updateTechnicalServiceParameter,
+  type TechnicalServiceIssue,
   type TechnicalServiceParameters,
   type TechnicalServiceSelection
 } from '../../../../../../shared/comercial/dist/technical-services.js';
@@ -53,6 +54,12 @@ type Props = {
   observacoes: string;
   onObservacoes: (valor: string) => void;
   erros: string[];
+  /**
+   * As mesmas pendências, **com endereço** — cartão e campo (T067). Vêm de
+   * `validateTechnicalServiceIssues`, a mesma fonte de `erros`, para que o
+   * campo que acende seja exatamente o que o contador conta.
+   */
+  pendencias: TechnicalServiceIssue[];
   mostrarErros: boolean;
 };
 
@@ -68,9 +75,23 @@ export function TecnicaStep({
   observacoes,
   onObservacoes,
   erros,
+  pendencias,
   mostrarErros
 }: Props) {
   const escolhidos = new Set(selecoes.map(item => item.serviceId));
+
+  /**
+   * O erro de um campo de um cartão — vazio enquanto o vendedor não tentou
+   * avançar.
+   *
+   * O portão é o mesmo do resto da proposta e existe pelo motivo aprendido na
+   * T048: um serviço recém-adicionado está legitimamente incompleto, e acender
+   * tudo desde o primeiro render vira papel de parede.
+   */
+  const erroDoCampo = (instanceId: string, campo: TechnicalServiceIssue['field']) =>
+    mostrarErros
+      ? pendencias.find(p => p.instanceId === instanceId && p.field === campo)?.message
+      : undefined;
 
   function alternar(serviceId: string) {
     onSelecoes(atual => {
@@ -222,6 +243,7 @@ export function TecnicaStep({
               label="Título que aparecerá na proposta"
               value={selecao.title}
               maxLength={120}
+              error={erroDoCampo(selecao.instanceId, 'title')}
               onChange={valor =>
                 atualizar(selecao.instanceId, atual => ({ ...atual, title: valor }))
               }
@@ -235,6 +257,7 @@ export function TecnicaStep({
                     required
                     value={selecao.parameters.nasTarget || ''}
                     placeholder="Ex.: NAS 6"
+                    error={erroDoCampo(selecao.instanceId, 'nasTarget')}
                     onChange={valor => mudarParametro('nasTarget', valor)}
                   />
                 )}
@@ -246,6 +269,7 @@ export function TecnicaStep({
                     inputMode="numeric"
                     value={selecao.parameters.ppmTarget || ''}
                     placeholder="Ex.: 200"
+                    error={erroDoCampo(selecao.instanceId, 'ppmTarget')}
                     onChange={valor => mudarParametro('ppmTarget', valor)}
                   />
                 )}
@@ -256,6 +280,7 @@ export function TecnicaStep({
                     value={selecao.parameters.oilType || ''}
                     emptyLabel="Selecione o tipo de óleo"
                     options={TIPOS_DE_OLEO}
+                    error={erroDoCampo(selecao.instanceId, 'oilType')}
                     onChange={valor => mudarParametro('oilType', valor)}
                   />
                 )}
@@ -266,6 +291,7 @@ export function TecnicaStep({
                     value={selecao.parameters.material || ''}
                     emptyLabel="Selecione o material"
                     options={MATERIAIS}
+                    error={erroDoCampo(selecao.instanceId, 'material')}
                     onChange={valor => mudarParametro('material', valor)}
                   />
                 )}
@@ -275,6 +301,7 @@ export function TecnicaStep({
                     required
                     value={selecao.parameters.otherMaterial || ''}
                     placeholder="Ex.: cobre, alumínio ou liga especial"
+                    error={erroDoCampo(selecao.instanceId, 'otherMaterial')}
                     onChange={valor => mudarParametro('otherMaterial', valor)}
                   />
                 )}
@@ -322,6 +349,7 @@ export function TecnicaStep({
               rows={10}
               readOnly={selecao.usesTemplate}
               maxLength={MAX_TECHNICAL_SERVICE_TEXT}
+              error={erroDoCampo(selecao.instanceId, 'text')}
               onChange={valor =>
                 atualizar(selecao.instanceId, atual => ({ ...atual, text: valor }))
               }

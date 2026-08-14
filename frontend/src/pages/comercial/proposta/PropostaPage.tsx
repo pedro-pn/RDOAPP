@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   normalizeTechnicalServiceSelections,
-  validateTechnicalServiceSelections,
+  validateTechnicalServiceIssues,
   type TechnicalServiceSelection
 } from '../../../../../shared/comercial/dist/technical-services.js';
 import {
@@ -187,7 +187,11 @@ export function PropostaPage() {
   // A validação técnica inteira vem de `shared/comercial` — é regra de
   // engenharia, e reescrevê-la aqui criaria a segunda verdade que o módulo
   // compartilhado existe para evitar.
-  const errosTecnicos = validateTechnicalServiceSelections(servicosTecnicos);
+  // As duas leituras da MESMA validação: as frases alimentam o contador da
+  // etapa e o aviso do topo; as pendências com endereço acendem o campo exato
+  // dentro do cartão do serviço (T067).
+  const pendenciasTecnicas = validateTechnicalServiceIssues(servicosTecnicos);
+  const errosTecnicos = pendenciasTecnicas.map(pendencia => pendencia.message);
   const [maiorVisitada, setMaiorVisitada] = useState(indice);
   const [tentouAvancar, setTentouAvancar] = useState(false);
   const [consultores, setConsultores] = useState<Consultor[]>([]);
@@ -738,6 +742,7 @@ export function PropostaPage() {
           onCategorias={setCategorias}
           onLinhas={setResponsabilidades}
           mostrarErros={tentouAvancar}
+          erroDe={erroDe}
         />
       ) : etapa === 'prazos' ? (
         <PrazosStep form={form} editar={editar} erroDe={erroDe} />
@@ -750,6 +755,7 @@ export function PropostaPage() {
           observacoes={String(form.technicalObservations ?? '')}
           onObservacoes={valor => editar({ technicalObservations: valor })}
           erros={errosTecnicos}
+          pendencias={pendenciasTecnicas}
           mostrarErros={tentouAvancar}
         />
       ) : etapa === 'comercial' ? (

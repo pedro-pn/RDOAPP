@@ -34,15 +34,24 @@ export function ResponsabilidadesStep({
   onLinhas,
   categorias,
   onCategorias,
+  erroDe,
   mostrarErros
 }: {
   linhas: LinhaResponsabilidade[];
   onLinhas: (atualizar: (atual: LinhaResponsabilidade[]) => LinhaResponsabilidade[]) => void;
   categorias: string[];
   onCategorias: (proximas: string[]) => void;
+  /**
+   * A pendência da etapa, vinda de `pendenciasDasResponsabilidades` (T067).
+   *
+   * A mensagem chega por aqui em vez de ser escrita no aviso abaixo porque
+   * estava escrita nos dois lugares, palavra por palavra. Duas cópias da mesma
+   * frase divergem na primeira vez que alguém melhora uma delas — e aí o
+   * contador conta uma coisa e a tela diz outra.
+   */
+  erroDe: (campo: string) => string | undefined;
   mostrarErros: boolean;
 }) {
-  const preenchidas = linhas.filter(linha => linha.item.trim()).length;
   const [novaCategoria, setNovaCategoria] = useState('');
   const [recado, setRecado] = useState('');
   const [gerenciando, setGerenciando] = useState(false);
@@ -139,10 +148,8 @@ export function ResponsabilidadesStep({
         )}
       </div>
 
-      {mostrarErros && preenchidas === 0 && (
-        <AvisoPendencia>
-          Informe ao menos uma responsabilidade com o item preenchido.
-        </AvisoPendencia>
+      {mostrarErros && erroDe('responsabilidades') && (
+        <AvisoPendencia>{erroDe('responsabilidades')}</AvisoPendencia>
       )}
 
       {linhas.length > 0 ? (
