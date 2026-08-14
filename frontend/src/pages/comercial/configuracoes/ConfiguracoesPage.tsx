@@ -10,6 +10,7 @@ import {
 } from '../../../api/comercial';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { EnderecoField } from '../components/EnderecoField';
+import { moduleRoutePath } from '../../../modules/registry';
 
 /**
  * Configurações do módulo Comercial — só gestor (T131).
@@ -134,6 +135,7 @@ export function ConfiguracoesPage() {
 
   return (
     <ComercialChrome
+      voltarPara={moduleRoutePath('comercial', 'index')}
       eyebrow="FILTROVALI / COMERCIAL"
       titulo="Configurações"
       descricao="Ajustes do módulo que valem para todo mundo. Só gestores alcançam esta tela."

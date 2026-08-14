@@ -83,6 +83,17 @@ export function HistoricoPage() {
           <span className="com-usuario">
             Orçamentista: <b className="com-quebrar">{user?.name || '—'}</b>
           </span>
+          {/* "Voltar ao gerador" é `HIST-CTL-002`, portado, e leva ao gerador —
+              que abre o diálogo "Como deseja começar?". Não serve de volta.
+              O menu do módulo é desvio nº 9 e não existia na referência, então
+              ganha botão próprio em vez de trocar o de lá. */}
+          <button
+            type="button"
+            className="com-btn com-btn-fantasma"
+            onClick={() => navigate(moduleRoutePath('comercial', 'index'))}
+          >
+            ← Menu do módulo
+          </button>
           <button
             type="button"
             className="com-btn com-btn-fantasma"

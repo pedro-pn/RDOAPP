@@ -42,7 +42,19 @@ export function BotaoFecharDialogo({
 
   return (
     <button type="button" className="com-fechar-dialogo" aria-label={rotulo} onClick={fechar}>
-      ×
+      {/* Desenhado, e não o caractere `×`.
+          O glifo se alinha pelo **eixo matemático** da fonte, que fica acima do
+          centro da caixa — com `place-items: center` ele assenta visivelmente
+          alto, e o quanto depende da fonte de quem abre. Duas linhas num SVG
+          centram pela geometria e ficam iguais em qualquer lugar. */}
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <path
+          d="M3 3l10 10M13 3L3 13"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
     </button>
   );
 }

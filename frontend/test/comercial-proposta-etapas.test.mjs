@@ -482,3 +482,33 @@ test('o módulo separa sair do MÓDULO de sair do SISTEMA', () => {
   // Os rótulos dizem o destino porque errar aqui custa o trabalho não salvo.
   assert.match(chrome, /logout\(\)/);
 });
+
+test('as telas internas têm caminho de volta que não depende do navegador', () => {
+  const config = readFileSync(
+    new URL('../src/pages/comercial/configuracoes/ConfiguracoesPage.tsx', import.meta.url),
+    'utf8'
+  );
+  const historico = readFileSync(
+    new URL('../src/pages/comercial/historico/HistoricoPage.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(config, /voltarPara=/, 'Configurações sem botão de voltar');
+  assert.match(historico, /Menu do módulo/, 'Histórico sem volta ao menu');
+  // `HIST-CTL-002` é portado e continua: "Voltar ao gerador" leva ao gerador,
+  // que abre o diálogo de modo — por isso ele não substitui a volta ao menu.
+  assert.match(historico, /Voltar ao gerador/, 'HIST-CTL-002 sumiu');
+});
+
+test('o × do diálogo é desenhado, não é o caractere', () => {
+  // O glifo `×` se alinha pelo eixo matemático da fonte, acima do centro da
+  // caixa: com `place-items: center` ele assenta alto, e o quanto depende da
+  // fonte de quem abre. Foi assim que apareceu torto em staging.
+  const fonte = readFileSync(
+    new URL('../src/pages/comercial/components/FecharDialogo.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(fonte, /<svg/);
+  assert.doesNotMatch(fonte, />\s*×\s*</);
+});

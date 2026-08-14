@@ -53,6 +53,14 @@ type ComercialChromeProps = {
   /** Sem o contêiner padrão: quem passa isto desenha a própria grade. */
   semContainer?: boolean;
   children: ReactNode;
+  /**
+   * Para onde o "← Voltar" leva. Ausente = sem botão, que é o caso da entrada
+   * do módulo: dali não há para onde voltar dentro do Comercial.
+   *
+   * Existe porque as telas internas dependiam do botão do NAVEGADOR para sair —
+   * e o logo da barra, que leva ao menu, não se anuncia como caminho de volta.
+   */
+  voltarPara?: string;
 };
 
 export function ComercialChrome({
@@ -66,6 +74,7 @@ export function ComercialChrome({
   chips,
   faixa,
   semContainer,
+  voltarPara,
   children
 }: ComercialChromeProps) {
   const { user, logout } = useAuth();
@@ -84,6 +93,15 @@ export function ComercialChrome({
         </button>
 
         <div className="com-topbar-acoes">
+          {voltarPara && (
+            <button
+              type="button"
+              className="com-btn com-btn-fantasma"
+              onClick={() => navigate(voltarPara)}
+            >
+              ← Voltar
+            </button>
+          )}
           {chips}
           <span className="com-usuario">
             Orçamentista: <b className="com-quebrar">{user?.name || '—'}</b>

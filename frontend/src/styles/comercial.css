@@ -3185,14 +3185,17 @@
   right: 16px;
   width: 34px;
   height: 34px;
-  display: grid;
-  place-items: center;
+  /* `inline-flex` + `center` nos dois eixos, e o conteúdo é um SVG: a caixa do
+     glifo não entra na conta, então o × fica no meio de verdade. `line-height`
+     e `font-size` saíram porque não têm mais nada para dimensionar. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid var(--com-borda);
   border-radius: 8px;
   background: transparent;
   color: var(--com-texto-fraco);
-  font-size: 22px;
-  line-height: 1;
   cursor: pointer;
 }
 
