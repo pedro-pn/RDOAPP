@@ -432,7 +432,9 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 15px;
-  margin-top: 4px;
+  /* A margem de baixo faltava, e o que vinha depois — o recado de erro, que tem
+     `margin: 0` — encostava nos cartões. */
+  margin: 4px 0 18px;
 }
 
 .com-root .com-modo-opcoes.com-modo-tres {
@@ -446,6 +448,14 @@
   grid-template-columns: auto 1fr;
   gap: 4px 12px;
   align-items: center;
+  /* **`align-content: start` alinha os títulos dos dois cartões.**
+     Os cartões têm a mesma altura (a grade os estica), mas as descrições não
+     têm o mesmo número de linhas — "Reserva o próximo número e inicia um
+     levantamento por fases." quebra em duas, a outra não. Sem isto, o `normal`
+     da grade distribui a sobra ESTICANDO as linhas, e o título do cartão de
+     descrição curta desce alguns pixels: os dois ficam tortos um em relação ao
+     outro, e o olho vê antes de saber por quê. */
+  align-content: start;
   padding: 20px;
   text-align: left;
   border: 1px solid #d6e1d9;

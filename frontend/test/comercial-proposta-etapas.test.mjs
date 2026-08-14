@@ -532,3 +532,24 @@ test('o × do diálogo é desenhado, não é o caractere', () => {
   assert.match(fonte, /<svg/);
   assert.doesNotMatch(fonte, />\s*×\s*</);
 });
+
+test('os cartões do diálogo alinham os títulos e não encostam no que vem depois', () => {
+  // Relatado com captura em 14/08. Dois defeitos de CSS que não têm outro
+  // guarda: não há teste de layout no repositório, e os dois só aparecem com
+  // conteúdo real — descrições de tamanhos diferentes e um recado de erro logo
+  // abaixo dos cartões.
+  const css = readFileSync(
+    new URL('../src/styles/comercial.css', import.meta.url),
+    'utf8'
+  );
+  const bloco = css.slice(
+    css.indexOf('.com-root .com-modo-opcoes {'),
+    css.indexOf('.com-root .com-modo-opcoes b {')
+  );
+
+  // Sem `align-content: start`, a grade estica as linhas do cartão de descrição
+  // curta e o título dele desce em relação ao do outro.
+  assert.match(bloco, /align-content:\s*start/);
+  // O recado de erro tem `margin: 0`; a separação precisa vir daqui.
+  assert.match(bloco, /margin:\s*4px 0 18px/);
+});
