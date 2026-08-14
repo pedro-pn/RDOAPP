@@ -39,6 +39,7 @@ import { sortProjects } from '../utils/projectSort';
 import { reportDownloadFileName } from '../utils/reportFileName';
 import { buildReportServicePayload, normalizeServiceType } from '../utils/reportServicePayload';
 import { loadUploadAssetUrl, normalizeLocalUploadUrl } from '../utils/uploadAssetUrl';
+import { reportEditorOperationalMode } from './reportEditorOperationalMode';
 import { REPORT_DETAIL_TEXT as TEXT } from './reportDetailText';
 
 const serviceTypeModalOptions = [
@@ -672,6 +673,7 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   const serviceReportMode = serviceOnly || derivedServiceReport;
   const manualReport = isManualUploadedReport(report);
   const manualServiceReport = manualReport && report.reportType !== 'RDO';
+  const operationalMode = reportEditorOperationalMode({ manualReport, serviceOnly, derivedServiceReport });
   const isManager = user?.role === 'MANAGER';
   const canEditSequence = isManager && !readOnly && !manualReport;
   const canApproveInEditor = report.status === 'PENDING' || report.status === 'RETURNED' || hasActiveClientRejection(report);
@@ -1051,9 +1053,9 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
         </div>
       </section>
 
-      {(manualReport || !serviceReportMode) ? (
+      {operationalMode !== 'hidden' ? (
         <section className="page-card">
-          <div className="section-title">Horários e equipe</div>
+          <div className="section-title">{operationalMode === 'team-only' ? 'Equipe' : 'Horários e equipe'}</div>
           <ManualReportOperationalFields
             value={manualOperationalFormValue}
             collaborators={collaborators}
@@ -1061,9 +1063,12 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
             disabled={readOnly}
             includeInactiveCollaborators={manualReport}
             embedded
-            showNightShift
-            showStandby={report.reportType === 'RDO'}
-            showDds={showDdsFields}
+            showTimes={operationalMode === 'full'}
+            showNightShift={operationalMode === 'full'}
+            showStandby={operationalMode === 'full' && report.reportType === 'RDO'}
+            showDds={operationalMode === 'full' && showDdsFields}
+            summaryLabel={operationalMode === 'team-only' ? 'Equipe do relatório' : undefined}
+            teamLabel={operationalMode === 'team-only' ? 'Colaboradores' : undefined}
             ddsAlert={
               <DdsCustomThemeReviewAlert
                 dayThemes={form.ddsDayThemes}
