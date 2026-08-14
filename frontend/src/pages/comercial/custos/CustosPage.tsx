@@ -27,6 +27,7 @@ import { useRascunhoLocal } from '../useRascunhoLocal';
 import { LOGO_URL } from '../components/marca';
 import { TutorialDoModulo } from '../TutorialDoModulo';
 import { ROTEIRO_DOS_CUSTOS } from '../roteiroDoTutorial';
+import { BotaoFecharDialogo } from '../components/FecharDialogo';
 
 
 /**
@@ -317,6 +318,7 @@ export function CustosPage() {
         {modo === null && (
           <div className="com-overlay" role="dialog" aria-modal="true" aria-labelledby="com-modo-titulo">
             <section className="com-painel com-modo-card">
+              <BotaoFecharDialogo fechar={() => navigate(moduleRoutePath('comercial', 'index'))} />
               <img
                 className="com-modo-logo"
                 src={LOGO_URL}
@@ -386,6 +388,12 @@ export function CustosPage() {
             aria-labelledby="com-confirmar-titulo"
           >
             <section className="com-painel com-modo-card">
+              {/* Aqui fechar volta ao levantamento, não ao menu: este diálogo
+                  interrompe um trabalho em andamento, e o trabalho continua. */}
+              <BotaoFecharDialogo
+                fechar={() => setMostrarConfirmacao(false)}
+                rotulo="Fechar e voltar ao levantamento"
+              />
               <img
                 className="com-modo-logo"
                 src={LOGO_URL}

@@ -439,3 +439,46 @@ test('o selo do Nectar segue os FUNIS, não o vínculo da proposta', () => {
   assert.match(selo, /funis\.length/);
   assert.doesNotMatch(selo, /vinculoCrm \?/);
 });
+
+/**
+ * As duas saídas que faltavam — relatadas em 14/08, antes do uso em staging.
+ *
+ * Os quatro diálogos de escolha abriam **sem porta de saída**: quem clicava em
+ * "Levantar custos" ou "Propostas" por engano tinha de escolher uma opção ou
+ * recarregar a página no endereço da entrada. E o módulo tinha "Sair do módulo",
+ * que leva ao hub, mas **nenhum jeito de sair do sistema** — deslogar exigia
+ * voltar ao hub primeiro.
+ */
+test('todo diálogo de escolha tem como fechar', () => {
+  const arquivos = [
+    '../src/pages/comercial/custos/CustosPage.tsx',
+    '../src/pages/comercial/proposta/PropostaModeDialog.tsx',
+    '../src/pages/comercial/proposta/PropostaModeloDialog.tsx'
+  ];
+
+  for (const arquivo of arquivos) {
+    const fonte = readFileSync(new URL(arquivo, import.meta.url), 'utf8');
+    assert.match(fonte, /BotaoFecharDialogo/, `${arquivo} tem diálogo sem saída`);
+  }
+
+  // O `aria-modal` promete um diálogo, e de diálogo se espera poder sair pelo
+  // Escape — que é o gesto que todo mundo tenta antes de procurar o ×.
+  const fechar = readFileSync(
+    new URL('../src/pages/comercial/components/FecharDialogo.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(fechar, /Escape/);
+  assert.match(fechar, /aria-label/);
+});
+
+test('o módulo separa sair do MÓDULO de sair do SISTEMA', () => {
+  const chrome = readFileSync(
+    new URL('../src/pages/comercial/components/ComercialChrome.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(chrome, /Sair do módulo/);
+  assert.match(chrome, /Sair do sistema/);
+  // Os rótulos dizem o destino porque errar aqui custa o trabalho não salvo.
+  assert.match(chrome, /logout\(\)/);
+});

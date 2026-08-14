@@ -643,6 +643,7 @@ export function PropostaPage() {
           recado={recado}
           onNova={iniciarNovaProposta}
           onRevisao={carregarRevisao}
+          onFechar={() => navigate(moduleRoutePath('comercial', 'index'))}
         />
       )}
 
@@ -653,6 +654,7 @@ export function PropostaPage() {
         <PropostaModeloDialog
           revisao={modo === 'revision'}
           onEscolher={escolherModelo}
+          onFechar={() => navigate(moduleRoutePath('comercial', 'index'))}
         />
       )}
 

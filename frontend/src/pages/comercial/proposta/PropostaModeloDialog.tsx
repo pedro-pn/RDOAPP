@@ -1,13 +1,17 @@
 import { MODELOS_PROPOSTA, type ModeloProposta } from '../../../../../shared/comercial/dist/modelo-documento.js';
+import { BotaoFecharDialogo } from '../components/FecharDialogo';
 import { LOGO_URL } from '../components/marca';
 
 /** O modelo é escolhido depois do modo; revisão com snapshot já pula este passo. */
 export function PropostaModeloDialog({
   revisao,
-  onEscolher
+  onEscolher,
+  onFechar
 }: {
   revisao: boolean;
   onEscolher: (modelo: ModeloProposta) => void;
+  /** Fechar sem escolher volta ao menu do módulo. */
+  onFechar: () => void;
 }) {
   return (
     <div
@@ -17,6 +21,7 @@ export function PropostaModeloDialog({
       aria-labelledby="com-modelo-titulo"
     >
       <section className="com-painel com-modo-card">
+        <BotaoFecharDialogo fechar={onFechar} />
         <img className="com-modo-logo" src={LOGO_URL} alt="Filtrovali" />
         <span className="com-eyebrow">
           {revisao ? 'REVISÃO DE PROPOSTA' : 'NOVA PROPOSTA'}

@@ -1,16 +1,20 @@
 import { useState } from 'react';
 
+import { BotaoFecharDialogo } from '../components/FecharDialogo';
 import { LOGO_URL } from '../components/marca';
 
 /** Entrada da proposta: nova ou revisão de um número existente (PROP-CTL-001..005). */
 export function PropostaModeDialog({
   recado,
   onNova,
-  onRevisao
+  onRevisao,
+  onFechar
 }: {
   recado: string;
   onNova: () => void;
   onRevisao: (codigo: string) => Promise<boolean>;
+  /** Fechar sem escolher volta ao menu do módulo. */
+  onFechar: () => void;
 }) {
   const [mostrarRevisao, setMostrarRevisao] = useState(false);
   const [codigo, setCodigo] = useState('');
@@ -35,6 +39,7 @@ export function PropostaModeDialog({
       aria-labelledby="com-proposta-modo-titulo"
     >
       <section className="com-painel com-modo-card">
+        <BotaoFecharDialogo fechar={onFechar} />
         <img className="com-modo-logo" src={LOGO_URL} alt="Filtrovali" />
         <span className="com-eyebrow">PROPOSTA TÉCNICA E COMERCIAL</span>
         <h1 id="com-proposta-modo-titulo">Como deseja começar?</h1>

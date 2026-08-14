@@ -68,7 +68,7 @@ export function ComercialChrome({
   semContainer,
   children
 }: ComercialChromeProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -95,6 +95,23 @@ export function ComercialChrome({
             onClick={() => navigate('/modulos')}
           >
             Sair do módulo
+          </button>
+          {/* **Sair do módulo e sair do sistema são coisas diferentes**, e só a
+              primeira existia: quem entrava no Comercial tinha de voltar ao hub
+              para deslogar. Relatado em 14/08, antes do uso em staging. Os dois
+              ficam lado a lado com rótulos que dizem o destino, porque errar
+              aqui custa o trabalho não salvo. */}
+          <button
+            type="button"
+            className="com-btn com-btn-fantasma"
+            onClick={() => {
+              // O `catch` existe porque a sessão pode já ter caído no servidor.
+              // Falhar ao avisar o servidor não pode prender o usuário na tela:
+              // o `logout` limpa o estado local de qualquer jeito.
+              void logout().catch(() => {});
+            }}
+          >
+            Sair do sistema
           </button>
         </div>
       </header>

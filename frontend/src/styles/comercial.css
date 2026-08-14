@@ -3172,6 +3172,36 @@
   padding: 6px 12px;
 }
 
+/* O × dos diálogos de escolha (14/08). O cartão não tinha `position`, então o
+   `absolute` do botão se penduraria na janela em vez do cartão — e o × apareceria
+   no canto da tela, longe do diálogo. */
+.com-root .com-modo-card {
+  position: relative;
+}
+
+.com-root .com-fechar-dialogo {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--com-borda);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--com-texto-fraco);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.com-root .com-fechar-dialogo:hover {
+  border-color: var(--com-acao);
+  color: var(--com-acao);
+  background: #f1f7f3;
+}
+
 /* Assinatura no fim da proposta comercial: as linhas do documento, centradas. */
 .com-root .com-doc-assinatura {
   margin-top: 10px;
