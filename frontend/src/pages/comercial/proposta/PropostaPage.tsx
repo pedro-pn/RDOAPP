@@ -555,8 +555,16 @@ export function PropostaPage() {
       descricao="Um cadastro, dois documentos: técnico e comercial."
       chips={
         <>
-          <span className="com-chip">
-            <i aria-hidden="true" /> {vinculoCrm ? 'Nectar conectado' : 'Nectar pendente'}
+          {/* **A pergunta é sobre a INTEGRAÇÃO, não sobre esta proposta.** O porte
+              tinha trocado a condição por `vinculoCrm` — "esta proposta já tem
+              card" —, e aí um ambiente com o Nectar ligado e respondendo exibia
+              "pendente" em toda proposta nova. O mantenedor leu como configuração
+              faltando, que é exatamente o que a palavra sugere. A referência
+              pergunta `pipelines.length` (`app/page.tsx:835`), e é isso: o CRM
+              respondeu com os funis. Corrigido em 14/08. */}
+          <span className={finalizacao.funis.length ? 'com-chip is-conectado' : 'com-chip'}>
+            <i aria-hidden="true" />{' '}
+            {finalizacao.funis.length ? 'Nectar conectado' : 'Nectar pendente'}
           </span>
           <span className="com-chip">
             <i aria-hidden="true" /> Microsoft 365

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 /**
@@ -404,4 +405,37 @@ test('a lista padrão cobre todas as categorias que a matriz semeada usa', () =>
       );
     }
   }
+});
+
+/**
+ * O selo do Nectar responde sobre a INTEGRAÇÃO, não sobre a proposta.
+ *
+ * Defeito de porte achado em 14/08, e achado pelo mantenedor olhando a tela: com
+ * o Nectar ligado, respondendo e com funil configurado, toda proposta nova
+ * exibia "Nectar pendente" — porque a condição tinha virado `vinculoCrm`, que é
+ * "esta proposta já tem card". A palavra "pendente" sugere configuração
+ * faltando, e foi assim que ele leu.
+ *
+ * A referência pergunta `pipelines.length` (`app/page.tsx:835`): o CRM respondeu
+ * com os funis. Os dois textos são `PROP-TXT-120` e `PROP-TXT-121`, e continuam
+ * palavra por palavra — o que estava errado era a pergunta, não a resposta.
+ */
+test('o selo do Nectar segue os FUNIS, não o vínculo da proposta', () => {
+  // Lê do disco, e não por `transformRequest`: transformar a `PropostaPage`
+  // acorda o otimizador de dependências do Vite e o teste pendura. O que
+  // interessa aqui é o texto do arquivo.
+  const fonte = readFileSync(
+    new URL('../src/pages/comercial/proposta/PropostaPage.tsx', import.meta.url),
+    'utf8'
+  );
+
+  // O trecho do selo, isolado: `vinculoCrm` continua legítimo no hero, que fala
+  // do card desta proposta — o que não pode é decidir o selo.
+  const selo = fonte.slice(
+    fonte.indexOf('Nectar conectado') - 400,
+    fonte.indexOf('Nectar pendente') + 40
+  );
+
+  assert.match(selo, /funis\.length/);
+  assert.doesNotMatch(selo, /vinculoCrm \?/);
 });
