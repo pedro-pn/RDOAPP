@@ -40,7 +40,7 @@ mudar o produto entregue.
 | Questão | Onde | Resposta |
 |---|---|---|
 | Alcance do papel de consulta | FR-030 | **Somente leitura** — mantido, e endurecido na iteração 2 (também não vê valores) |
-| Menu de entrada × diálogo de modo | FR-043 | **Os dois passos coexistem**, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em 16 desvios. O diálogo não reaparece quando o modo já vem no endereço (FR-044) |
+| Menu de entrada × diálogo de modo | FR-043 | **Os dois passos coexistem**, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em 17 desvios. O diálogo não reaparece quando o modo já vem no endereço (FR-044) |
 
 **Checklist completo.** Nenhum marcador remanescente.
 
@@ -91,6 +91,6 @@ proposta, não só a proposta como a §12.5 previa.
   pede "existing reference inspected" com referências concretas.
 - **Escopo além do porte**: as decisões da §12.5 (permissões, autoria, cadastro de
   vendedores, numeração própria, retenção) divergem da referência **sem** constar da
-  lista fechada de 16 desvios, porque aquela lista trata de paridade de UI/UX e estas
+  lista fechada de 17 desvios, porque aquela lista trata de paridade de UI/UX e estas
   são regra de negócio. Registrado em Assumptions para o `/speckit-analyze` não
   acusar contradição.

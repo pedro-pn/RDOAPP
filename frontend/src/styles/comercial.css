@@ -3158,15 +3158,10 @@
   letter-spacing: 0.4px;
 }
 
-/* Botão de rever o tutorial. Discreto e no mesmo lugar nas três telas: ele é
-   uma saída de emergência, e saída de emergência se acha por estar sempre onde
-   se espera. */
-.com-root .com-tutorial-rodape {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 10px;
-}
-
+/* Botão de rever o tutorial. Mora na BARRA DE CIMA, ao lado dos outros botões
+   do módulo — pedido do mantenedor em 14/08. Ele é uma saída de emergência, e
+   saída de emergência se acha por estar sempre no mesmo lugar; solto acima do
+   conteúdo, mudava de altura conforme a tela. */
 .com-root .com-tutorial-botao {
   font-size: 12px;
   padding: 6px 12px;

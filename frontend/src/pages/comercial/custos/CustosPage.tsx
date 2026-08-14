@@ -303,6 +303,9 @@ export function CustosPage() {
       eyebrow="FILTROVALI / LEVANTAMENTO DE CUSTOS"
       titulo={`Custos ${codigo}`}
       descricao="Engenharia de custos Filtrovali: equipe, circuitos, materiais, logística e formação do preço em um só lugar."
+      /* Não abre sozinho: quem chegou aqui já passou pela entrada. O botão
+         replica o roteiro DESTA tela. */
+      acoes={<TutorialDoModulo passos={ROTEIRO_DOS_CUSTOS} />}
       heroExtra={
         modo !== null ? (
           <FaixaIndicadores
@@ -483,11 +486,6 @@ export function CustosPage() {
 
             {/* Tira de seções. As abas são LIVRES: dá para pular para qualquer
                 uma a qualquer momento. A cadeia do rodapé guia, não prende. */}
-            {/* O tutorial não abre sozinho aqui: quem chegou nesta tela já passou
-                pela entrada. O botão replica o roteiro DESTA tela (T096). */}
-            <div className="com-tutorial-rodape">
-              <TutorialDoModulo passos={ROTEIRO_DOS_CUSTOS} />
-            </div>
             <nav className="com-workflow-nav" aria-label="Etapas do levantamento">
               {SECOES.map((item, indice) => (
                 <button

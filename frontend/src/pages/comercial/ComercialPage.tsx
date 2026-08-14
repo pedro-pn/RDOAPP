@@ -114,6 +114,10 @@ export function ComercialPage() {
       eyebrow="FILTROVALI / COMERCIAL"
       titulo="O que você quer fazer?"
       descricao="O levantamento vem antes da proposta — é ele que define o código que os dois documentos vão usar."
+      /* A entrada é a ÚNICA tela que abre o tutorial sozinha (T096). Nas outras,
+         o botão é o caminho — abrir automático saltaria por cima de quem está no
+         meio de um levantamento. */
+      acoes={<TutorialDoModulo passos={ROTEIRO_DA_ENTRADA} abrirSozinho />}
     >
       <section className="com-painel com-menu">
         <div className="com-grid">
@@ -146,12 +150,6 @@ export function ComercialPage() {
         </div>
       </section>
 
-      {/* A entrada é a ÚNICA tela que abre o tutorial sozinha (T096). Nas
-          outras, o botão é o caminho — abrir automático saltaria por cima de
-          quem está no meio de um levantamento. */}
-      <div className="com-tutorial-rodape">
-        <TutorialDoModulo passos={ROTEIRO_DA_ENTRADA} abrirSozinho />
-      </div>
     </ComercialChrome>
   );
 }

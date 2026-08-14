@@ -41,6 +41,7 @@ da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 | 14 | Campos de valor com **máscara de R$** (centavos ao digitar) | **Novo** (11/08) — aprovado |
 | 15 | **Cabeçalho mais baixo**, para sobrar área de trabalho | **Novo** (11/08) — aprovado, com prévia |
 | 16 | **Serviços separados por fluido**: desidratação e filtragem | **Novo** (12/08) — aprovado |
+| 17 | Histórico **sem** "Voltar ao gerador" (`HIST-CTL-002`) | **Novo** (14/08) — aprovado. **Primeira remoção de controle da referência** |
 
 ### 1. PDF gerado no backend
 
@@ -468,6 +469,32 @@ bate com o CRM — produto desativado ou renomeado passaria despercebido —,
 `backend/scripts/comercial-conferir-produtos.mjs`.
 
 ---
+
+### 17. Histórico sem "Voltar ao gerador" — *decidido em 14/08*
+
+**O que muda:** `HIST-CTL-002` / `HIST-TXT-003` — o botão "← Voltar ao gerador"
+do histórico — **sai**. No lugar fica um "← Voltar" que leva ao menu do módulo,
+com o mesmo rótulo e o mesmo destino do das Configurações.
+
+**Por que é desvio, e não ajuste:** é o **primeiro controle da referência que o
+porte remove**. A regra de aceite do projeto sempre foi "se algo sumiu, é bug";
+a exceção é do mantenedor e precisa estar escrita, senão a conferência de
+paridade (T113/T115) acusa como defeito — e acusaria com razão.
+
+**Por que ele deixou de fazer sentido:** na referência, "voltar ao gerador" era
+a única saída do histórico, e o gerador (`/`) era a tela inicial do app. Aqui a
+entrada do módulo é um **menu** (desvio nº 9), e o gerador virou uma das duas
+opções desse menu — que **abre o diálogo "Como deseja começar?"** ao ser
+alcançado. O botão portado, então, não voltava: empurrava para dentro de outro
+fluxo, e ainda pedia uma escolha que ninguém tinha pedido.
+
+Com o "← Voltar" ao lado, eram dois botões de voltar em sequência levando a
+lugares diferentes — e o que parecia o certo era o errado.
+
+**O que se perde:** o atalho direto do histórico para o gerador. Quem quiser
+montar proposta a partir do histórico agora passa pelo menu, um clique a mais.
+Aceito pelo mantenedor em 14/08.
+
 
 ## Parte B — Revisão da estimativa
 

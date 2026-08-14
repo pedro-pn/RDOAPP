@@ -6,7 +6,7 @@
 
 **Status**: Aprovada — em implementação (desde 31/07/2026)
 
-**Input**: Portar o aplicativo de propostas comerciais `~/comercialAPP` (rascunho nunca colocado em produção) para dentro do filtroAPP como módulo novo **Comercial**, com paridade total de UI e UX recriadas na stack do projeto. Fontes da verdade: `contracts/ui-inventory.md` (oráculo de paridade visual), `contracts/goldens/` (oráculo numérico), `contracts/lacunas-constitucionais.md` (L1–L7), `contracts/e0-8-desvios-e-estimativa.md` (lista fechada de 16 desvios) e `contracts/baseline/` (baseline visual + roteiro clicável).
+**Input**: Portar o aplicativo de propostas comerciais `~/comercialAPP` (rascunho nunca colocado em produção) para dentro do filtroAPP como módulo novo **Comercial**, com paridade total de UI e UX recriadas na stack do projeto. Fontes da verdade: `contracts/ui-inventory.md` (oráculo de paridade visual), `contracts/goldens/` (oráculo numérico), `contracts/lacunas-constitucionais.md` (L1–L7), `contracts/e0-8-desvios-e-estimativa.md` (lista fechada de 17 desvios) e `contracts/baseline/` (baseline visual + roteiro clicável).
 
 ## Contexto e fonte da verdade
 
@@ -20,7 +20,7 @@ desta especificação — requisito que não deriva deles é invenção:
 | **Inventário de UI** | Todo elemento visível: 616 controles e 916 textos, com IDs estáveis | `contracts/ui-inventory.md` |
 | **Goldens** | Todo resultado numérico: 16 cenários, 40 invariantes | `contracts/goldens/` |
 | **Lacunas L1–L7** | O que a referência **não** tem e a constitution exige | `contracts/lacunas-constitucionais.md` |
-| **Desvios (16, lista fechada)** | Toda divergência permitida. Fora da lista **é bug** | `contracts/e0-8-desvios-e-estimativa.md` |
+| **Desvios (17, lista fechada)** | Toda divergência permitida. Fora da lista **é bug** | `contracts/e0-8-desvios-e-estimativa.md` |
 | **Baseline + roteiro** | Aparência de referência e caminho clicável revisado | `contracts/baseline/` |
 
 O plano técnico `docs/PLANO_MODULO_COMERCIAL.md` entra como **insumo/`research.md`**,
@@ -55,7 +55,7 @@ Decisões já registradas na E0 e na §12.5 do plano, que esta spec incorpora:
   comercial traz tabela de preços, condições de pagamento e valor total.
 - **O menu de entrada e o diálogo de modo coexistem** (decidido em 31/07): dois passos
   de escolha, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em
-  16 desvios.
+  17 desvios.
 - **A lista de vendedores é derivada dos usuários, não um cadastro** (decidido em
   31/07, revendo a decisão 4 da §12.5): todo consultor de vendas é um usuário do app
   com o papel `comercial:seller`, então a lista se atualiza sozinha. Não há model
@@ -353,7 +353,7 @@ aparecer na seleção da etapa Cliente para um gestor — sem nenhum passo de ca
 - **FR-005**: O módulo DEVE preservar o índice dos documentos: 13 itens no comercial e
   10 no técnico, na mesma ordem (`PROP-H-006`…`PROP-H-021`).
 - **FR-006**: Toda divergência em relação à referência DEVE constar da lista fechada de
-  16 desvios. Divergência não listada **é defeito**, não escolha.
+  17 desvios. Divergência não listada **é defeito**, não escolha.
 
 #### Motor de custos
 
@@ -779,7 +779,7 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   depender de credencial externa.
 - As decisões da §12.5 do plano (permissões, autoria, lista de vendedores, numeração,
   retenção) são **escopo além do porte fiel** e já foram aprovadas. Elas divergem da
-  referência sem constar da lista de 16 desvios porque aquela lista trata de paridade de
+  referência sem constar da lista de 17 desvios porque aquela lista trata de paridade de
   UI/UX, não de regra de negócio.
 - **As decisões 1 e 2 da §12.5 foram revistas em 31/07** e o plano precisa acompanhar:
   o levantamento deixa de ser exclusivo do gestor (passa a incluir o vendedor, limitado

@@ -572,13 +572,17 @@ export function PropostaPage() {
         </>
       }
       acoes={
-        <button
-          type="button"
-          className="com-btn com-btn-fantasma"
-          onClick={() => window.print()}
-        >
-          Imprimir prévia
-        </button>
+        <>
+          {/* Não abre sozinho: quem chegou nesta tela já passou pela entrada. */}
+          <TutorialDoModulo passos={ROTEIRO_DA_PROPOSTA} />
+          <button
+            type="button"
+            className="com-btn com-btn-fantasma"
+            onClick={() => window.print()}
+          >
+            Imprimir prévia
+          </button>
+        </>
       }
       heroExtra={
         <div className="com-sequencia">
@@ -595,11 +599,6 @@ export function PropostaPage() {
       }
       faixa={
         <>
-          {/* O tutorial não abre sozinho aqui: quem chegou nesta tela já passou
-              pela entrada. O botão replica o roteiro DESTA tela (T096). */}
-          <div className="com-tutorial-rodape">
-            <TutorialDoModulo passos={ROTEIRO_DA_PROPOSTA} />
-          </div>
         <nav className="com-stepper" aria-label="Etapas da proposta">
           {ETAPAS.map((item, i) => {
             const alcancavel = i <= maiorVisitada;

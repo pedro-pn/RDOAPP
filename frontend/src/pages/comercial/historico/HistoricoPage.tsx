@@ -83,26 +83,18 @@ export function HistoricoPage() {
           <span className="com-usuario">
             Orçamentista: <b className="com-quebrar">{user?.name || '—'}</b>
           </span>
-          {/* "Voltar ao gerador" é `HIST-CTL-002`, portado, e leva ao gerador —
-              que abre o diálogo "Como deseja começar?". Não serve de volta.
-              O menu do módulo é desvio nº 9 e não existia na referência, então
-              ganha botão próprio em vez de trocar o de lá.
-              O rótulo é "← Voltar", **igual ao das Configurações**: as duas telas
-              fazem a mesma coisa, e nome diferente para o mesmo destino faz
-              parecer que são caminhos diferentes. */}
+          {/* Um "← Voltar" só, para o menu do módulo, com o mesmo rótulo das
+              Configurações. O "← Voltar ao gerador" da referência
+              (`HIST-CTL-002`) foi **removido por decisão do mantenedor em
+              14/08** — desvio nº 17. Ele levava ao gerador, que abre o diálogo
+              "Como deseja começar?": dois botões de voltar lado a lado, e o da
+              referência empurrava para dentro de outro fluxo. */}
           <button
             type="button"
             className="com-btn com-btn-fantasma"
             onClick={() => navigate(moduleRoutePath('comercial', 'index'))}
           >
             ← Voltar
-          </button>
-          <button
-            type="button"
-            className="com-btn com-btn-fantasma"
-            onClick={() => navigate(moduleRoutePath('comercial', 'propostas'))}
-          >
-            ← Voltar ao gerador
           </button>
           <button type="button" className="com-btn com-btn-fantasma" onClick={() => void sair()}>
             Sair

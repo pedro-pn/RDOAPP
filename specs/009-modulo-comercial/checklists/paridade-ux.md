@@ -14,7 +14,7 @@ Pronto**, não conferência informal.
 **Como usar**: referência de pé de um lado (`localhost:3000`, login `baseline` /
 `baseline-e0`), módulo do outro, percorrendo `contracts/baseline/roteiro.md`.
 
-**Regra de classificação**: cada divergência é **defeito** ou um dos **16 desvios
+**Regra de classificação**: cada divergência é **defeito** ou um dos **17 desvios
 aprovados**. Divergência não listada é defeito, não escolha.
 
 **Diferença esperada e aceita**: a fonte do chrome (desvio nº 5) e o reflow que ela
@@ -89,7 +89,7 @@ e ausência não aparece em revisão de código.
 
 ---
 
-## 3. Os 16 desvios aprovados — reconhecer, não abrir defeito
+## 3. Os 17 desvios aprovados — reconhecer, não abrir defeito
 
 Cada linha é uma divergência que o revisor **vai** encontrar.
 

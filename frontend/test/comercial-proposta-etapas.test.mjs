@@ -483,6 +483,13 @@ test('o módulo separa sair do MÓDULO de sair do SISTEMA', () => {
   assert.match(chrome, /logout\(\)/);
 });
 
+// O código sem comentários de bloco nem de linha — para asserção sobre o que a
+// tela realmente mostra. (Escrito com `//` de propósito: um docblock aqui
+// precisaria citar a sintaxe de comentário JSX, e o `*/` dela fecharia o bloco.)
+function semComentarios(fonte) {
+  return fonte.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
 test('as telas internas têm caminho de volta que não depende do navegador', () => {
   const config = readFileSync(
     new URL('../src/pages/comercial/configuracoes/ConfiguracoesPage.tsx', import.meta.url),
@@ -497,9 +504,20 @@ test('as telas internas têm caminho de volta que não depende do navegador', ()
   // O mesmo rótulo nas duas telas: destino igual, nome igual. Nome diferente
   // para o mesmo destino faz parecer que são caminhos diferentes.
   assert.match(historico, /← Voltar\s*</, 'Histórico sem volta ao menu');
-  // `HIST-CTL-002` é portado e continua: "Voltar ao gerador" leva ao gerador,
-  // que abre o diálogo de modo — por isso ele não substitui a volta ao menu.
-  assert.match(historico, /Voltar ao gerador/, 'HIST-CTL-002 sumiu');
+
+  // `HIST-CTL-002` ("← Voltar ao gerador") **saiu** — desvio nº 17, decidido em
+  // 14/08. É a primeira remoção de controle da referência no porte, e por isso
+  // está travada aqui: ela precisa continuar sendo uma decisão, não um
+  // reaparecimento por engano de quem for mexer nesta barra.
+  //
+  // Sem os comentários: a primeira versão desta asserção falhou contra o
+  // **comentário** que explica a remoção, e o comentário precisa poder nomear o
+  // que foi removido. O que não pode voltar é o rótulo na tela.
+  assert.doesNotMatch(
+    semComentarios(historico),
+    /Voltar ao gerador/,
+    'HIST-CTL-002 voltou sem passar pela lista de desvios'
+  );
 });
 
 test('o × do diálogo é desenhado, não é o caractere', () => {

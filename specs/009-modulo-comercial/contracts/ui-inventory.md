@@ -1687,7 +1687,7 @@ Origem: `app/historico/page.tsx`
 | ID | Linha | Elemento | Rótulo | Atributos |
 |---|---:|---|---|---|
 | `HIST-CTL-001` | 51 | `Link` | — | aria-label=Filtrovali Engenharia |
-| `HIST-CTL-002` | 52 | `Link` | ← Voltar ao gerador | — |
+| ~~`HIST-CTL-002`~~ | 52 | `Link` | ~~← Voltar ao gerador~~ | **REMOVIDO — desvio nº 17 (14/08)** |
 | `HIST-CTL-003` | 52 | `button` | Sair | type=button |
 | `HIST-CTL-004` | 56 | `form` | Buscar | — |
 | `HIST-CTL-005` | 56 | `input` | — | value={query}, placeholder=Buscar por número, cliente, documento, responsável ou funil... |
@@ -1703,7 +1703,7 @@ erro, rótulo de opção, texto de confirmação).
 |---|---:|---|---|
 | `HIST-TXT-001` | 32 | codigo | Falha ao consultar o histórico. |
 | `HIST-TXT-002` | 52 | jsx | Orçamentista: |
-| `HIST-TXT-003` | 52 | jsx | ← Voltar ao gerador |
+| ~~`HIST-TXT-003`~~ | 52 | jsx | ~~← Voltar ao gerador~~ — **REMOVIDO, desvio nº 17** |
 | `HIST-TXT-004` | 52 | jsx | Sair |
 | `HIST-TXT-005` | 54 | jsx | COMERCIAL / PROPOSTAS |
 | `HIST-TXT-006` | 54 | jsx | Histórico de propostas |

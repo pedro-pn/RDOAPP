@@ -710,7 +710,7 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
 ### Aceite de paridade
 
-- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **16 desvios aprovados**. Divergência não listada é defeito, não escolha.  ↳ `FR-006` `SC-003`
+- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **17 desvios aprovados**. Divergência não listada é defeito, não escolha.  ↳ `FR-006` `SC-003`
 - [ ] T114 Comparar as capturas de `contracts/baseline/*-1440.png` com as mesmas telas no módulo. **Diferença esperada e aceita**: a fonte do chrome (desvio nº 5) e o reflow que ela causa.
 - [ ] T115 Conferir os **616 controles e 916 textos** item a item contra `contracts/ui-inventory.md`, marcando o checklist de paridade. É item da Definição de Pronto, não conferência informal.  ↳ `SC-001`
 - [ ] T116 Rodar `/speckit-analyze` e resolver **todo** item de inventário órfão.
