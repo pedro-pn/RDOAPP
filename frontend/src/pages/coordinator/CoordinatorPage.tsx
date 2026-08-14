@@ -14,6 +14,7 @@ import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
 import { useToast } from '../../components/ui/ToastContext';
+import { useDraftMutations, useDrafts } from '../../hooks/useDrafts';
 import { useProjects } from '../../hooks/useProjects';
 import { useAccumulatedReportsPage, useReportCounts } from '../../hooks/useReports';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
@@ -27,11 +28,12 @@ import { MonthlyAllocationDashboardOverlay, StatsDashboardOverlay, StatsOverview
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { useRdoStore } from '../../store/rdoStore';
-import type { Project, ReportSummary, SatisfactionSurveySummary } from '../../types/domain';
+import type { Project, ReportDraft, ReportSummary, SatisfactionSurveySummary } from '../../types/domain';
 import { downloadBlob } from '../../utils/download';
 import { compareReportTypes, sortProjects, sortReportsInGroup, type ProjectSortDirection } from '../../utils/projectSort';
 import { ProjectSortButton } from '../../utils/ProjectSortButton';
 import { reportDownloadFileName } from '../../utils/reportFileName';
+import { reportDraftDateLabel, reportDraftServiceCount, reportDraftToRdoState } from '../../utils/reportDraft';
 import { matchesSearch, projectSearchParts, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 
@@ -130,7 +132,7 @@ export function CoordinatorPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { reset } = useRdoStore();
+  const { hydrate, reset } = useRdoStore();
   const [tab, setTab] = useUrlParamState<CoordinatorTab>({
     param: 'tab',
     defaultValue: 'pending',
@@ -196,6 +198,8 @@ export function CoordinatorPage() {
   ]);
   const archivedProjectsQuery = useProjects(false);
   const surveysQuery = useSurveys();
+  const draftsQuery = useDrafts();
+  const draftMutations = useDraftMutations();
 
   const visibleReports = reportsQuery.items;
   const reportPagination = reportsQuery.pagination;
@@ -235,6 +239,11 @@ export function CoordinatorPage() {
 
   function handleNewReport() {
     reset();
+    navigate(rdoPath('/relatorio/novo'));
+  }
+
+  function handleResumeDraft(draft: ReportDraft) {
+    hydrate(reportDraftToRdoState(draft));
     navigate(rdoPath('/relatorio/novo'));
   }
 
@@ -618,6 +627,40 @@ export function CoordinatorPage() {
 
     if (reportsQuery.isLoading) return <ReportListSkeleton />;
 
+    const drafts = (draftsQuery.data || []).filter(draft => draft.projectId || draft.payload?.projectId);
+    const draftsBlock = tab === 'pending' && drafts.length ? (
+      <section className="page-card">
+        <div className="section-title">Relatórios em andamento</div>
+        <div className="admin-stack">
+          {drafts.map(draft => {
+            const serviceCount = reportDraftServiceCount(draft);
+            return (
+              <article className="card admin-card" key={draft.id}>
+                <div className="admin-card-head">
+                  <div>
+                    <div className="admin-card-title">{draft.title || 'Relatório em andamento'}</div>
+                    <div className="admin-card-meta">
+                      <span>{draft.project?.code || draft.projectId || 'Projeto'}</span>
+                      <span>{reportDraftDateLabel(draft)}</span>
+                      {serviceCount ? <span>{serviceCount} serviço(s)</span> : null}
+                    </div>
+                  </div>
+                  <div className="admin-card-actions">
+                    <button className="mini-btn alt" type="button" onClick={() => handleResumeDraft(draft)}>
+                      Continuar
+                    </button>
+                    <button className="mini-btn danger" type="button" onClick={() => draftMutations.removeDraft.mutate(draft.id)}>
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    ) : null;
+
     return (
       <>
         <div className="admin-create-toolbar">
@@ -631,6 +674,7 @@ export function CoordinatorPage() {
             onToggle={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
           />
         </div>
+        {draftsBlock}
         {!visibleReports.length ? (
           <div className="page-card placeholder-copy">
             {tab === 'pending' ? TEXT.noPending : TEXT.noApproved}

@@ -17,6 +17,22 @@ async function loadDraftAutosave() {
   }
 }
 
+async function loadReportDraft() {
+  const server = await createServer({
+    configFile: false,
+    root: new URL('..', import.meta.url).pathname,
+    server: { middlewareMode: true },
+    optimizeDeps: { noDiscovery: true },
+    appType: 'custom'
+  });
+
+  try {
+    return await server.ssrLoadModule('/src/utils/reportDraft.ts');
+  } finally {
+    await server.close();
+  }
+}
+
 test('autosaveDraftTargetId keeps updating the active draft when project/date changes', async () => {
   const { autosaveDraftTargetId } = await loadDraftAutosave();
 
@@ -30,4 +46,33 @@ test('autosaveDraftTargetId falls back to matching project/date only without an 
   assert.equal(autosaveDraftTargetId(null, ['draft-same-date']), 'draft-same-date');
   assert.equal(autosaveDraftTargetId('', [null, undefined, 'draft-next']), 'draft-next');
   assert.equal(autosaveDraftTargetId('', []), '');
+});
+
+test('coordinator draft can be hydrated back into the shared report editor', async () => {
+  const { reportDraftDateLabel, reportDraftServiceCount, reportDraftToRdoState } = await loadReportDraft();
+  const draft = {
+    id: 'draft-coordinator',
+    projectId: 'project-1',
+    reportDate: '2026-08-14',
+    title: '5822 - Projeto teste',
+    payload: {
+      serviceOnly: false,
+      projectId: 'project-1',
+      reportDate: '2026-08-14',
+      arrivalTime: '08:00',
+      collaboratorIds: ['collaborator-1'],
+      ddsDayThemes: [{ id: 'theme-1', name: 'Segurança' }],
+      services: [{ id: 'service-1', type: 'FLUSHING', data: { pressure: '2 bar' } }]
+    }
+  };
+
+  const state = reportDraftToRdoState(draft);
+  assert.equal(state.draftId, 'draft-coordinator');
+  assert.equal(state.projectId, 'project-1');
+  assert.equal(state.reportDate, '2026-08-14');
+  assert.deepEqual(state.collaboratorIds, ['collaborator-1']);
+  assert.deepEqual(state.ddsDayThemes, [{ id: 'theme-1', name: 'Segurança' }]);
+  assert.deepEqual(state.services, [{ id: 'service-1', type: 'FLUSHING', data: { pressure: '2 bar' } }]);
+  assert.equal(reportDraftDateLabel(draft), '2026-08-14');
+  assert.equal(reportDraftServiceCount(draft), 1);
 });
