@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { BotaoFecharDialogo } from '../components/FecharDialogo';
 import { LOGO_URL } from '../components/marca';
+import { MarcaDeOpcao } from '../components/MarcaDeOpcao';
 
 /** Entrada da proposta: nova ou revisão de um número existente (PROP-CTL-001..005). */
 export function PropostaModeDialog({
@@ -50,12 +51,12 @@ export function PropostaModeDialog({
 
         <div className="com-modo-opcoes">
           <button type="button" onClick={onNova}>
-            <b aria-hidden="true">＋</b>
+            <MarcaDeOpcao tipo="nova" />
             <strong>Nova proposta</strong>
             <span>Gera o conjunto técnico e comercial com novo número.</span>
           </button>
           <button type="button" onClick={() => setMostrarRevisao(true)}>
-            <b aria-hidden="true">↻</b>
+            <MarcaDeOpcao tipo="revisao" />
             <strong>Revisar proposta</strong>
             <span>Carrega os dados salvos e calcula a próxima revisão.</span>
           </button>

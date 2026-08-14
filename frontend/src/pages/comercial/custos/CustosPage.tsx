@@ -28,6 +28,7 @@ import { LOGO_URL } from '../components/marca';
 import { TutorialDoModulo } from '../TutorialDoModulo';
 import { ROTEIRO_DOS_CUSTOS } from '../roteiroDoTutorial';
 import { BotaoFecharDialogo } from '../components/FecharDialogo';
+import { MarcaDeOpcao } from '../components/MarcaDeOpcao';
 
 
 /**
@@ -336,7 +337,7 @@ export function CustosPage() {
 
               <div className="com-modo-opcoes">
                 <button type="button" disabled={reservando} onClick={iniciarNova}>
-                  <b aria-hidden="true">＋</b>
+                  <MarcaDeOpcao tipo="nova" />
                   <strong>Nova proposta</strong>
                   <span>
                     Reserva o próximo número e inicia um levantamento por fases.
@@ -347,7 +348,7 @@ export function CustosPage() {
                   type="button"
                   onClick={() => setMostrarRevisao(true)}
                 >
-                  <b aria-hidden="true">↻</b>
+                  <MarcaDeOpcao tipo="revisao" />
                   <strong>Revisar proposta</strong>
                   <span>
                     Carrega o último levantamento e preserva toda a composição.
@@ -411,7 +412,7 @@ export function CustosPage() {
 
               <div className="com-modo-opcoes com-modo-tres">
                 <button type="button" disabled={salvando} onClick={salvar}>
-                  <b aria-hidden="true">✓</b>
+                  <MarcaDeOpcao tipo="ok" />
                   <strong>{salvando ? 'Salvando...' : `Confirmar ${codigo}`}</strong>
                   <span>
                     Salvar e abrir a criação das propostas.
@@ -426,7 +427,7 @@ export function CustosPage() {
                     iniciarNova();
                   }}
                 >
-                  <b aria-hidden="true">＋</b>
+                  <MarcaDeOpcao tipo="nova" />
                   <strong>Trocar para nova</strong>
                   <span>Reservar outra numeração.</span>
                 </button>
@@ -439,7 +440,7 @@ export function CustosPage() {
                     setMostrarRevisao(true);
                   }}
                 >
-                  <b aria-hidden="true">↻</b>
+                  <MarcaDeOpcao tipo="revisao" />
                   <strong>Trocar para revisão</strong>
                   <span>Selecionar uma proposta existente.</span>
                 </button>

@@ -553,3 +553,37 @@ test('os cartões do diálogo alinham os títulos e não encostam no que vem dep
   // O recado de erro tem `margin: 0`; a separação precisa vir daqui.
   assert.match(bloco, /margin:\s*4px 0 18px/);
 });
+
+test('os emblemas dos cartões e o × são desenhados — glifo não centraliza', () => {
+  // Terceiro caso da mesma causa em dois dias: `×`, `＋` e `↻` se alinham pelas
+  // métricas da fonte, não pela caixa. O `＋` é o **fullwidth** U+FF0B, e o eixo
+  // matemático dos três fica acima do centro — dentro de um círculo de 38px isso
+  // salta aos olhos, e o desvio muda com a fonte da máquina.
+  const marca = readFileSync(
+    new URL('../src/pages/comercial/components/MarcaDeOpcao.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(marca, /<svg/);
+
+  for (const arquivo of [
+    '../src/pages/comercial/custos/CustosPage.tsx',
+    '../src/pages/comercial/proposta/PropostaModeDialog.tsx'
+  ]) {
+    const fonte = semComentarios(readFileSync(new URL(arquivo, import.meta.url), 'utf8'));
+    assert.doesNotMatch(fonte, /<b aria-hidden="true">[＋↻✓]<\/b>/, `${arquivo} voltou ao glifo`);
+  }
+});
+
+test('o campo da revisão não empurra o botão ao lado para baixo', () => {
+  // `.com-root .field-group` tem `margin-bottom: 17px`, para formulário
+  // empilhado. A linha da revisão usa `align-items: flex-end`, que alinha a
+  // borda da MARGEM — então o campo terminava 17px acima do botão, e o
+  // "Carregar revisão" ficava torto em relação ao campo que ele preenche.
+  const css = readFileSync(new URL('../src/styles/comercial.css', import.meta.url), 'utf8');
+  const bloco = css.slice(
+    css.indexOf('.com-root .com-revisao-entrada .field-group'),
+    css.indexOf('.com-root .com-revisao-entrada .field-group') + 220
+  );
+
+  assert.match(bloco, /margin-bottom:\s*0/);
+});

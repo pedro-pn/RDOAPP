@@ -482,11 +482,14 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
+  /* `inline-flex` com centro nos dois eixos, e o conteúdo é um SVG: a caixa do
+     glifo não entra mais na conta. O `font-size` saiu junto — não há texto para
+     dimensionar, e ele só servia para a versão em caractere, que não centrava. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--com-marca-forte);
   color: #fff;
-  font-size: 22px;
   font-style: normal;
   font-weight: 400;
 }
@@ -517,7 +520,16 @@
   background: #f8fbf9;
 }
 
-.com-root .com-revisao-entrada .field-group { flex: 1 1 200px; min-width: 0; }
+/* **Sem a margem de baixo, senão o botão ao lado desce 17px.**
+   `.com-root .field-group` tem `margin-bottom: 17px`, pensado para formulário
+   empilhado. Aqui a linha é `align-items: flex-end`, que alinha a borda da
+   MARGEM — então o campo termina 17px acima do botão, e o "Carregar revisão"
+   aparece torto em relação ao campo que ele preenche. */
+.com-root .com-revisao-entrada .field-group {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin-bottom: 0;
+}
 
 /* --- Tira de seções ------------------------------------------------------ */
 

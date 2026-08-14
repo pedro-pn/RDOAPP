@@ -151,6 +151,17 @@ Origem: `app/page.tsx`
 
 | ID | Linha | Elemento | Rótulo | Atributos |
 |---|---:|---|---|---|
+> **Nota de 14/08 — os emblemas `＋`, `↻` e `✓` são desenhados, não digitados.**
+> Onde as linhas abaixo mostram esses caracteres dentro de um cartão de opção, o
+> módulo renderiza um SVG com o mesmo desenho. Motivo: os três se alinham pelas
+> métricas da fonte — o `＋` (que é o **fullwidth** U+FF0B) e o `↻` pelo eixo
+> matemático, acima do centro — e não centralizavam dentro do círculo de 38 px,
+> com o desvio variando conforme a fonte da máquina.
+>
+> **Não é remoção de texto nem de controle**: o emblema continua visível e com o
+> mesmo desenho, e o nome acessível do botão não muda (ele já era `aria-hidden`).
+> Registrado aqui para a conferência da T115 não parar na ausência do caractere.
+
 | `PROP-CTL-001` | 802 | `button` | ＋ Nova proposta Gera o conjunto técnico e comercial com novo número. | — |
 | `PROP-CTL-002` | 803 | `button` | ↻ Revisar proposta Carrega os dados salvos e calcula a próxima revisão. | — |
 | `PROP-CTL-003` | 807 | `label` | Número da proposta existente | — |
