@@ -9,7 +9,8 @@ import {
   buildProgressHistory,
   buildRequiredWeeklyProgress,
   realizedReportWhere,
-  isRealizedSourceReport
+  isRealizedSourceReport,
+  selectRealizedSourceReportData
 } from '../src/lib/acompanhamento/avanco.js';
 
 test('consulta do avanço considera relatórios ativos do projeto', () => {
@@ -28,6 +29,24 @@ test('fonte do realizado aceita RDO e relatório independente, mas ignora deriva
     reportType: 'RLQ',
     specialConditions: { parentRdoId: 'rdo-1' }
   }), false);
+});
+
+test('seleção do realizado inclui equipe de serviceOnly independente e exclui equipe de derivado', () => {
+  const reports = [
+    { id: 'rdo-1', reportType: 'RDO', specialConditions: {} },
+    { id: 'service-only-1', reportType: 'RLQ', specialConditions: { serviceOnly: true } },
+    { id: 'derived-1', reportType: 'RLQ', specialConditions: { parentRdoId: 'rdo-1' } }
+  ];
+  const collaborators = [
+    { reportId: 'rdo-1', collaboratorId: 'maria' },
+    { reportId: 'service-only-1', collaboratorId: 'ronaldo' },
+    { reportId: 'derived-1', collaboratorId: 'duplicado' }
+  ];
+
+  const selected = selectRealizedSourceReportData(reports, collaborators);
+
+  assert.deepEqual(selected.reports.map(report => report.id), ['rdo-1', 'service-only-1']);
+  assert.deepEqual(selected.collaborators.map(item => item.collaboratorId), ['maria', 'ronaldo']);
 });
 
 test('isServiceFinalized: coluna booleana e campo textual do extraData', () => {

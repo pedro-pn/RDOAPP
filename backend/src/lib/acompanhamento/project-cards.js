@@ -1,13 +1,15 @@
 /*
  * Aba "Projetos" do módulo Acompanhamento — um card por projeto com indicadores cruzando o previsto
- * (comercial + escopo manual) e o realizado (RDOs). Reaproveita listCommercialDashboard como base
+ * (comercial + escopo manual) e o realizado (RDOs e relatórios de serviço independentes).
+ * Reaproveita listCommercialDashboard como base
  * (mesmos projetos casados com proposta, já com plannedDays/workedDays/startDate/avanço) e enriquece
- * com agregações dos RDOs: dias trabalhados (datas distintas), horas normais/extra, colaboradores
+ * com agregações dos relatórios-fonte: dias trabalhados (datas distintas), horas normais/extra, colaboradores
  * distintos e status do último dia (trabalhado / parado por standby de jornada cheia).
  */
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
+import { selectRealizedSourceReportData } from './avanco.js';
 import { laborCostByProject } from './labor-cost.js';
 import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { reportAllCollaboratorIds, reportPersonTimeMetrics } from './report-time.js';
@@ -114,7 +116,7 @@ export function deriveProjectCardCategory({ archived = false, workedDays = 0, wo
     : PROJECT_CARD_CATEGORIES.IN_PROGRESS;
 }
 
-// Status do último RDO: parado quando houve standby cobrindo a jornada cheia; senão trabalhado.
+// Status do último relatório-fonte: parado quando houve standby cobrindo a jornada cheia; senão trabalhado.
 export function lastDayStatus(lastReport, project) {
   if (!lastReport) return { date: null, status: 'SEM_RDO' };
   const sc = lastReport.specialConditions || {};
@@ -133,16 +135,17 @@ export async function listProjectCards() {
   const projectIds = rows.map(r => r.projectId);
   if (projectIds.length === 0) return [];
 
-  const [projects, reports, collaborators, labor, plannedNormalHours, plannedOvertime] = await Promise.all([
+  const [projects, queriedReports, queriedCollaborators, labor, plannedNormalHours, plannedOvertime] = await Promise.all([
     prisma.project.findMany({
       where: { id: { in: projectIds } },
       select: { id: true, workdayHours: true, weekendWorkdayHours: true }
     }),
     prisma.report.findMany({
-      where: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null },
+      where: { projectId: { in: projectIds }, deletedAt: null },
       select: {
         id: true,
         projectId: true,
+        reportType: true,
         reportDate: true,
         specialConditions: true,
         daytimeCount: true,
@@ -155,7 +158,7 @@ export async function listProjectCards() {
       orderBy: { reportDate: 'asc' }
     }),
     prisma.reportCollaborator.findMany({
-      where: { report: { projectId: { in: projectIds }, reportType: 'RDO', deletedAt: null } },
+      where: { report: { projectId: { in: projectIds }, deletedAt: null } },
       select: { reportId: true, collaboratorId: true }
     }),
     laborCostByProject(), // custo de mão de obra (HH) do ponto vigente — separado do realizado Omie
@@ -168,6 +171,7 @@ export async function listProjectCards() {
       select: { projectId: true, hours: true }
     })
   ]);
+  const { reports, collaborators } = selectRealizedSourceReportData(queriedReports, queriedCollaborators);
   const laborByProject = labor.byProjectId;
   const equipmentByProject = await getEquipmentUsageByProject(projectIds);
   const now = new Date();
@@ -179,7 +183,7 @@ export async function listProjectCards() {
     dayCollaboratorIdsByReport.get(c.reportId).push(c.collaboratorId);
   }
 
-  // Agrega por projeto: datas distintas de RDO, colaboradores distintos e o último RDO.
+  // Agrega por projeto: datas distintas de execução, colaboradores distintos e o último relatório-fonte.
   const agg = new Map();
   const ensure = (id) => {
     if (!agg.has(id)) {
