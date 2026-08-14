@@ -25,9 +25,16 @@ type Props = {
   km: number;
   onChange: (km: number) => void;
   invalido?: boolean;
+  obrigatorio?: boolean;
 };
 
-export function DistanciaDoDestino({ endereco, km, onChange, invalido }: Props) {
+export function DistanciaDoDestino({
+  endereco,
+  km,
+  onChange,
+  invalido,
+  obrigatorio
+}: Props) {
   const [calculando, setCalculando] = useState(false);
   const [recado, setRecado] = useState('');
   const [tom, setTom] = useState<'ok' | 'aviso' | 'erro'>('ok');
@@ -51,6 +58,11 @@ export function DistanciaDoDestino({ endereco, km, onChange, invalido }: Props) 
   return (
     <div className="com-distancia">
       <div className="com-distancia-linha">
+        {obrigatorio && (
+          <span className="survey-required-marker" title="Campo obrigatório">
+            *
+          </span>
+        )}
         <input
           type="number"
           aria-label="Distância só ida em quilômetros"
@@ -58,7 +70,7 @@ export function DistanciaDoDestino({ endereco, km, onChange, invalido }: Props) 
           aria-invalid={invalido || undefined}
           min={0}
           step={1}
-          value={km ?? ''}
+          value={km || ''}
           onChange={evento => onChange(evento.target.value === '' ? 0 : Number(evento.target.value))}
         />
         <button

@@ -130,7 +130,7 @@ export function FiltrosTabela({ levantamento }: { levantamento: Levantamento }) 
                       <input
                         type="number"
                         aria-label="Quantidade"
-                        value={(item.quantity as number) ?? ''}
+                        value={Number(item.quantity) || ''}
                         min={0}
                         step={1}
                         onChange={event =>

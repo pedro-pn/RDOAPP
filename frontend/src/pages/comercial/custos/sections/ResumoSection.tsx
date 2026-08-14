@@ -92,6 +92,7 @@ export function ResumoSection({ levantamento }: { levantamento: Levantamento }) 
           {precoImposto && (
             <MoneyField
               label="Valor global fechado"
+              required
               value={comercial.globalValue}
               error={erroSe(numberValue(comercial.globalValue) <= 0, 'Informe o valor fechado')}
               onChange={valor => editarComercial({ globalValue: valor })}

@@ -80,12 +80,18 @@ export function AlocacoesTabela({
           <table>
             <thead>
               <tr>
-                <th scope="col">Cargo</th>
+                <th scope="col">
+                  Cargo<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">Turno</th>
-                <th scope="col">Pessoas</th>
+                <th scope="col">
+                  Pessoas<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">Salário base</th>
                 <th scope="col">Adicional</th>
-                <th scope="col">Alocação (%)</th>
+                <th scope="col">
+                  Alocação (%)<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">HH</th>
                 <th scope="col">Custo</th>
                 <th scope="col">
@@ -137,7 +143,7 @@ export function AlocacoesTabela({
                       <input
                         type="number"
                         aria-label="Quantidade de pessoas"
-                        value={(alocacao.quantity as number) ?? ''}
+                        value={Number(alocacao.quantity) || ''}
                         min={0}
                         onChange={event =>
                           editar(id, {
@@ -161,18 +167,10 @@ export function AlocacoesTabela({
                     </td>
 
                     <td>
-                      <input
-                        type="number"
+                      <MoneyInput
                         aria-label="Adicional"
-                        value={(alocacao.adjustment as number) ?? ''}
-                        min={0}
-                        step={0.01}
-                        onChange={event =>
-                          editar(id, {
-                            adjustment:
-                              event.target.value === '' ? 0 : Number(event.target.value)
-                          })
-                        }
+                        value={alocacao.adjustment}
+                        onChange={valor => editar(id, { adjustment: valor })}
                       />
                     </td>
 
@@ -180,7 +178,7 @@ export function AlocacoesTabela({
                       <input
                         type="number"
                         aria-label="Percentual de alocação"
-                        value={(alocacao.allocationPercent as number) ?? ''}
+                        value={Number(alocacao.allocationPercent) || ''}
                         min={0}
                         max={100}
                         step={1}

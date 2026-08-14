@@ -312,11 +312,17 @@ function TabelaDePrecos({
           <table>
             <thead>
               <tr>
-                <th scope="col">Descrição</th>
-                <th scope="col">Unidade</th>
+                <th scope="col">
+                  Descrição<span className="survey-required-marker">*</span>
+                </th>
+                <th scope="col">
+                  Unidade<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">Qtd.</th>
                 {incluirUnitario && <th scope="col">Valor unitário</th>}
-                <th scope="col">Valor total</th>
+                <th scope="col">
+                  Valor total<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">
                   <span className="com-sr">Ações</span>
                 </th>

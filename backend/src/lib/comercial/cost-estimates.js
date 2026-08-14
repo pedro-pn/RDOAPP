@@ -155,9 +155,12 @@ export async function getCostEstimate(prisma, user, id) {
 }
 
 export async function createCostEstimate(prisma, user, data) {
-  const validation = validateCostEstimate(data.payload);
-  if (!validation.valid) {
-    throw new CostEstimateValidationError(toFieldIssues(validation));
+  const status = data.status === 'RASCUNHO' ? 'RASCUNHO' : 'SALVO';
+  if (status === 'SALVO') {
+    const validation = validateCostEstimate(data.payload);
+    if (!validation.valid) {
+      throw new CostEstimateValidationError(toFieldIssues(validation));
+    }
   }
 
   const { normalized, totalCost, salePrice, marginPercent } = computeTotals(data.payload);
@@ -169,6 +172,7 @@ export async function createCostEstimate(prisma, user, data) {
         revisionNumber: data.revisionNumber ?? 0,
         title: data.title,
         mode: data.mode,
+        status,
         payload: normalized,
         totalCost,
         salePrice,
@@ -177,13 +181,18 @@ export async function createCostEstimate(prisma, user, data) {
       }
     });
 
-    await tx.costEstimateVersion.create({
-      data: {
-        costEstimateId: estimate.id,
-        payloadHash: payloadHash(normalized),
-        snapshot: normalized
-      }
-    });
+    // Rascunho é mutável e pode ser salvo a cada avanço. A trilha imutável
+    // começa quando ele vira SALVO; caso contrário cada etapa produziria uma
+    // falsa "versão final" de um formulário ainda incompleto.
+    if (status === 'SALVO') {
+      await tx.costEstimateVersion.create({
+        data: {
+          costEstimateId: estimate.id,
+          payloadHash: payloadHash(normalized),
+          snapshot: normalized
+        }
+      });
+    }
 
     return estimate;
   });
@@ -201,9 +210,12 @@ export async function updateCostEstimate(prisma, user, id, data) {
   const protegerVersao = assertNoConcurrentWrite(existing, data);
 
   const payload = data.payload ?? existing.payload;
-  const validation = validateCostEstimate(payload);
-  if (!validation.valid) {
-    throw new CostEstimateValidationError(toFieldIssues(validation));
+  const status = data.status ?? existing.status ?? 'SALVO';
+  if (status === 'SALVO') {
+    const validation = validateCostEstimate(payload);
+    if (!validation.valid) {
+      throw new CostEstimateValidationError(toFieldIssues(validation));
+    }
   }
 
   const { normalized, totalCost, salePrice, marginPercent } = computeTotals(payload);
@@ -216,6 +228,7 @@ export async function updateCostEstimate(prisma, user, id, data) {
         where: protegerVersao ? { id, updatedAt: existing.updatedAt } : { id },
         data: {
           title: data.title ?? existing.title,
+          status,
           payload: normalized,
           totalCost,
           salePrice,
@@ -227,16 +240,18 @@ export async function updateCostEstimate(prisma, user, id, data) {
 
       // Versão nova só quando o conteúdo mudou de verdade. Gravar uma versão por
       // salvamento encheria a tabela de cópias idênticas e tiraria o sentido do hash.
-      const last = await tx.costEstimateVersion.findFirst({
-        where: { costEstimateId: id },
-        orderBy: { createdAt: 'desc' },
-        select: { payloadHash: true }
-      });
-
-      if (!last || last.payloadHash !== hash) {
-        await tx.costEstimateVersion.create({
-          data: { costEstimateId: id, payloadHash: hash, snapshot: normalized }
+      if (status === 'SALVO') {
+        const last = await tx.costEstimateVersion.findFirst({
+          where: { costEstimateId: id },
+          orderBy: { createdAt: 'desc' },
+          select: { payloadHash: true }
         });
+
+        if (!last || last.payloadHash !== hash) {
+          await tx.costEstimateVersion.create({
+            data: { costEstimateId: id, payloadHash: hash, snapshot: normalized }
+          });
+        }
       }
 
       return estimate;

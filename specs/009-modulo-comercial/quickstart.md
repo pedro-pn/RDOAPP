@@ -107,10 +107,13 @@ Não estão na baseline — não há do que ser fiel. Conferir na tela:
 | Lacuna | Como validar |
 |---|---|
 | **L1** | Salvar levantamento com campo obrigatório vazio → **cada** campo pendente em vermelho com mensagem, e o banner-resumo permanece |
+| **L1** | Abrir um levantamento novo → nenhum campo começa vermelho; obrigatórios têm `*` vermelho e opcionais não; custos exibem máscara `R$` e números zerados aceitam a primeira digitação sem formar `01` |
 | **L1** | Digitar e-mail inválido na etapa 1 → mensagem diz **"E-mail inválido"**, não "Campo obrigatório". Idem CNPJ |
 | **L2** | Arrastar item de escopo pela alça → fantasma + espaço no destino; cancelar restaura; **as setas ↑/↓ continuam funcionando** |
 | **L2** | Repetir em tela sensível ao toque |
 | **L3** | F5 no meio do levantamento → volta no mesmo modo/base/seção, e o rascunho não salvo é **oferecido**, não restaurado em silêncio |
+| **L3** | Avançar no levantamento → o rascunho incompleto é persistido na conta, o endereço ganha `id` e o início da nova seção volta à área visível; F5 nesse endereço recarrega o mesmo rascunho |
+| **L3** | Avançar na proposta → o início da nova etapa volta à área visível |
 | **L3** | Fechar a aba com alteração pendente → aviso do navegador. Vale para as duas telas |
 | **L4** | Primeiro acesso → tutorial aparece; segundo acesso → não reaparece sozinho, mas é rechamável |
 | **L5** | Login com campo vazio → estado de campo inválido, não só erro global |

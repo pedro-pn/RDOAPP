@@ -191,9 +191,7 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
                         aria-label={manual ? 'Quantidade manual' : 'Dosagem'}
                         min={0}
                         step={0.0001}
-                        value={
-                          ((manual ? item.manualQuantity : item.dose) as number) ?? ''
-                        }
+                        value={Number(manual ? item.manualQuantity : item.dose) || ''}
                         onChange={numero(manual ? 'manualQuantity' : 'dose')}
                       />
                     </td>
@@ -218,7 +216,7 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
                         aria-label="Densidade em kg por litro"
                         min={0}
                         step={0.001}
-                        value={(item.densityKgPerL as number) ?? ''}
+                        value={Number(item.densityKgPerL) || ''}
                         onChange={numero('densityKgPerL')}
                       />
                     </td>
@@ -229,7 +227,7 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
                         aria-label="Perda em porcentagem"
                         min={0}
                         step={0.1}
-                        value={(item.wastePercent as number) ?? ''}
+                        value={Number(item.wastePercent) || ''}
                         onChange={numero('wastePercent')}
                       />
                     </td>
@@ -240,7 +238,7 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
                         aria-label="Tamanho da embalagem"
                         min={0}
                         step={0.01}
-                        value={(item.packageSize as number) ?? ''}
+                        value={Number(item.packageSize) || ''}
                         onChange={numero('packageSize')}
                       />
                     </td>

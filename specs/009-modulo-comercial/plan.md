@@ -46,8 +46,9 @@ aparece em nenhum arquivo do frontend, apesar de o Princípio III exigir "react-
 com resolver Zod" — ver D8 do research.
 
 **Storage**: PostgreSQL com **dois schemas** na mesma instância — `public` (operação) e
-`comercial` (módulo). Documentos gerados em disco sob `COMERCIAL_DIR`; rascunhos não
-salvos em `localStorage`.
+`comercial` (módulo). Documentos gerados em disco sob `COMERCIAL_DIR`; rascunhos locais
+em `localStorage`, isolados por conta, e rascunhos de levantamento persistidos como
+`CostEstimate/RASCUNHO` no servidor a cada avanço.
 
 **Testing**: `node --test` — `backend/test/*.test.js` e `frontend/test/*.test.mjs`.
 Nenhuma dependência de teste nova. Oráculos: os 16 goldens e a matriz de permissão.
@@ -140,7 +141,7 @@ acessibilidade, responsividade ou consistência funcional é dispensada:
 ```text
 specs/009-modulo-comercial/
 ├── plan.md                    # Este arquivo
-├── spec.md                    # 86 FR, 12 SC
+├── spec.md                    # 89 FR, 12 SC
 ├── research.md                # Fase 0 — D1 a D15
 ├── data-model.md              # Fase 1 — models + matriz de acesso
 ├── quickstart.md              # Fase 1 — roteiro de validação

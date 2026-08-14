@@ -38,8 +38,13 @@ Resposta: `{ items: [{ id, proposalCode, revisionNumber, title, salePrice, margi
 
 `requireComercialEstimator`
 
-Corpo: o payload do levantamento. **Os totais enviados pelo cliente são ignorados** —
-o servidor recalcula com `calculateEstimate` e grava os seus. Impede forjar margem.
+Corpo: o payload do levantamento, com `status: "RASCUNHO" | "SALVO"` opcional
+(`SALVO` por compatibilidade). **Os totais enviados pelo cliente são ignorados** — o
+servidor recalcula com `calculateEstimate` e grava os seus. Impede forjar margem.
+
+`RASCUNHO` aceita os campos ainda incompletos, fica sob a autoria da conta autenticada
+e não cria `CostEstimateVersion`. `SALVO` aplica a validação integral abaixo e cria a
+primeira versão.
 
 Erros: `422` com `issues: [{ path, message, severity }]` — **um item por pendência,
 com o endereço do campo**. É o que sustenta o FR-009 e a L1; a referência concatenava
@@ -52,9 +57,11 @@ recebe **403**, não `404` genérico nem tela vazia.
 
 ### `PUT /api/comercial/levantamentos/:id`
 
-`requireComercialEstimator` + autoria. Cria `CostEstimateVersion` com hash do payload.
-O corpo inclui obrigatoriamente `expectedUpdatedAt` (ISO 8601); após um aviso de
-concorrência, a tentativa confirmada repete o corpo com `forceOverwrite: true`.
+`requireComercialEstimator` + autoria. O corpo inclui obrigatoriamente
+`expectedUpdatedAt` (ISO 8601); após um aviso de concorrência, a tentativa confirmada
+repete o corpo com `forceOverwrite: true`. Atualizar como `RASCUNHO` aceita conteúdo
+incompleto e não versiona; atualizar/promover como `SALVO` valida tudo e cria
+`CostEstimateVersion` com hash do payload.
 
 ---
 

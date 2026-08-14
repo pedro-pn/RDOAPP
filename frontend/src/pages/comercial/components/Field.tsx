@@ -154,7 +154,7 @@ export function NumberField({
       <input
         id={id}
         type="number"
-        value={(value as string | number | null | undefined) ?? ''}
+        value={Number(value) === 0 ? '' : ((value as string | number | null | undefined) ?? '')}
         min={min}
         max={max}
         step={step}

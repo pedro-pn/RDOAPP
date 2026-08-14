@@ -139,7 +139,7 @@ export function DespesasFase({
                       <input
                         type="number"
                         aria-label="Quantidade"
-                        value={(despesa.quantity as number) ?? ''}
+                        value={Number(despesa.quantity) || ''}
                         min={0}
                         step={0.01}
                         disabled={combustivelDoTrajeto}

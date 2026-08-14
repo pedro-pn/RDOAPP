@@ -1,7 +1,8 @@
 import {
   LOGISTICS_TRAVEL_DEFAULTS,
   VEHICLE_RENTAL_CALENDAR_DAY_EXPENSE_CODE,
-  logisticsCrewCoverage
+  logisticsCrewCoverage,
+  normalizeCostEstimatePayload
 } from '../../../../../shared/comercial/dist/cost-model.js';
 import { numberValue } from './formato';
 
@@ -223,6 +224,44 @@ export function itemPrecisaAtencao(item: AnyRecord, fases: AnyRecord[] = []): bo
         despesa.included !== false
     );
 
+  const exigeHospedagem =
+    usaVeiculoRodoviario ||
+    (onibus && item.busOvernightMode === 'hotel_stop') ||
+    (aereo && numberValue(item.travelCalendarDaysPerTrip) > 1);
+
+  const custosDeViagemInvalidos =
+    numberValue(item.travelHoursPerDay) <= 0 ||
+    numberValue(item.travelHoursPerDay) >
+      (comPassagem
+        ? 24
+        : ((LOGISTICS_TRAVEL_DEFAULTS as AnyRecord).travelHoursPerDay as number)) ||
+    numberValue(item.trips) <= 0 ||
+    numberValue(item.mealPerPersonDay) <= 0 ||
+    (comPassagem &&
+      (!Number.isInteger(numberValue(item.travelCalendarDaysPerTrip)) ||
+        numberValue(item.travelCalendarDaysPerTrip) <= 0)) ||
+    (exigeHospedagem && numberValue(item.lodgingPerPersonDay) <= 0) ||
+    (usaVeiculoRodoviario &&
+      (numberValue(item.dailyDistanceLimitKm) <= 0 ||
+        numberValue(item.dailyDistanceLimitKm) >
+          ((LOGISTICS_TRAVEL_DEFAULTS as AnyRecord).dailyDistanceLimitKm as number) ||
+        numberValue(item.fuelEfficiencyKmPerLiter) <= 0 ||
+        numberValue(item.fuelPricePerLiter) <= 0)) ||
+    (comPassagem && numberValue(item.ticketPerPersonPerTrip) <= 0) ||
+    (onibus && !item.busOvernightMode) ||
+    (onibus &&
+      item.busOvernightMode === 'hotel_stop' &&
+      numberValue(item.lodgingNightsPerTrip) <= 0) ||
+    (aereo &&
+      numberValue(item.travelCalendarDaysPerTrip) > 1 &&
+      numberValue(item.lodgingNightsPerTrip) <= 0) ||
+    (veiculoAlugado &&
+      (!item.rentalUse ||
+        numberValue(item.rentalDailyRate) <= 0 ||
+        (item.direction === 'mobilization' &&
+          item.rentalUse === 'mobilization_and_site' &&
+          numberValue(item.rentalSiteDays) <= 0)));
+
   return (
     !item.contextId ||
     fase?.enabled === false ||
@@ -248,6 +287,7 @@ export function itemPrecisaAtencao(item: AnyRecord, fases: AnyRecord[] = []): bo
           !Number.isInteger(numberValue(item.passengersPerVehicle))) ||
         veiculos * capacidade < pessoas)) ||
     (caminhaoProprio && pessoas < veiculos) ||
+    custosDeViagemInvalidos ||
     Boolean(aluguelDuplicado)
   );
 }
@@ -304,10 +344,28 @@ export function gruposPrecisamAtencao(
  * Porte de `missingRequiredLogisticsInfo` (`app/custos/page.tsx:111-134`).
  */
 export function faltaLogistica(draft: AnyRecord, result: AnyRecord = {}): boolean {
+  // O motor sincroniza os campos de uma desmobilização espelhada durante a
+  // normalização. Validar o rascunho cru aqui deixava a etapa travada porque
+  // a tela mostrava os valores herdados da ida, mas o predicado ainda lia os
+  // zeros anteriores do retorno.
+  const normalizado = normalizeCostEstimatePayload(draft) as unknown as AnyRecord;
   const confirmacoes = (draft.scopeConfirmations as AnyRecord) || {};
   if (confirmacoes.noLogistics === true) return false;
 
-  const logistica = registros(draft.logistics);
+  const logisticaNormalizada = registros(normalizado.logistics);
+  // A normalização também cria os quatro slots estruturais quando recebe um
+  // rascunho legado. Aqui só queremos os valores sincronizados dos itens que
+  // já existem na tela, sem inventar novas pendências no predicado local.
+  const logistica = registros(draft.logistics).map(item => {
+    const retornoEspelhado =
+      item.direction === 'demobilization' &&
+      item.requiredSlot === true &&
+      item.autoSyncedFromMobilization === true &&
+      item.returnSetup === 'mirrored';
+    return retornoEspelhado
+      ? logisticaNormalizada.find(candidato => candidato.id === item.id) || item
+      : item;
+  });
   const destinos = registros(draft.logisticsDestinations);
   const fases = registros(draft.laborContexts);
 
@@ -348,7 +406,9 @@ export function faltaLogistica(draft: AnyRecord, result: AnyRecord = {}): boolea
           item =>
             item.destinationId === destino.id &&
             item.included !== false &&
-            item.requiredSlot
+            (item.requiredSlot ||
+              item.calculationMode === 'company_crew_vehicle' ||
+              item.calculationMode === 'company_truck_driver')
         )
     )
   ) {

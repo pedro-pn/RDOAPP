@@ -135,10 +135,14 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
           <table>
             <thead>
               <tr>
-                <th scope="col">Descrição</th>
+                <th scope="col">
+                  Descrição<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">Categoria</th>
                 <th scope="col">Unidade</th>
-                <th scope="col">Quantidade</th>
+                <th scope="col">
+                  Quantidade<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">Custo unitário</th>
                 <th scope="col">Perda</th>
                 <th scope="col">Frete</th>
@@ -193,7 +197,7 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
                       <input
                         type="number"
                         aria-label="Quantidade"
-                        value={(item.quantity as number) ?? ''}
+                        value={Number(item.quantity) || ''}
                         min={0}
                         step={0.01}
                         onChange={editarNumero('quantity')}
@@ -210,7 +214,7 @@ function MateriaisBloco({ levantamento }: { levantamento: Levantamento }) {
                       <input
                         type="number"
                         aria-label="Perda em porcentagem"
-                        value={(item.wastePercent as number) ?? ''}
+                        value={Number(item.wastePercent) || ''}
                         min={0}
                         step={0.1}
                         onChange={editarNumero('wastePercent')}

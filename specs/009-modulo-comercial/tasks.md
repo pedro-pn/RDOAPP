@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 14/08/2026: 166 tarefas fechadas, 15 abertas** (de 181). O contador
+> **Estado em 14/08/2026: 167 tarefas fechadas, 15 abertas** (de 182). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -1106,6 +1106,15 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   > como as outras do item 8. Um caractere. Um teste passou a comparar cada frase do
   > código contra o documento gerado, porque comparar por trecho ou por regex não veria
   > — e é assim que as duas verdades voltam a existir.
+
+- [X] T140 **Corrigir a continuidade e os estados dos formulários Comercial.** ↳ `FR-010` `FR-019` `FR-079` `FR-080` `FR-081`
+  Em proposta e custos, o avanço volta ao início do formulário; campos numéricos não
+  começam com `0` visual, valores monetários usam máscara `R$`, e os asteriscos refletem
+  a obrigatoriedade real. No levantamento, campos não começam inválidos, a logística
+  expõe e valida todos os custos condicionais e o retorno espelhado, e cada avanço salva
+  um `RASCUNHO` incompleto no servidor sob a autoria da conta, promovido a `SALVO` só
+  depois da validação integral. Coberto por testes de campo, navegação, logística,
+  rascunho local por conta e persistência/versionamento no backend.
 
 ## Rastreabilidade que faltava — apontada pela revisão de 13/08
 

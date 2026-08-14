@@ -49,6 +49,7 @@ export function PremissasSection({ levantamento }: { levantamento: Levantamento 
         <div className="com-form-wide">
           <Field
             label="Nome do levantamento"
+            required
             value={String(draft.title || '')}
             placeholder="Ex.: Limpeza química e flushing das linhas"
             error={erroDe('title')}
@@ -58,6 +59,7 @@ export function PremissasSection({ levantamento }: { levantamento: Levantamento 
 
         <Field
           label="Orçamentista responsável"
+          required
           value={String(draft.estimatorName || '')}
           readOnly
           onChange={() => {}}

@@ -158,7 +158,9 @@ export function ResponsabilidadesStep({
             <thead>
               <tr>
                 <th scope="col">Categoria</th>
-                <th scope="col">Item / escopo</th>
+                <th scope="col">
+                  Item / escopo<span className="survey-required-marker">*</span>
+                </th>
                 <th scope="col">Responsável</th>
                 <th scope="col">Nota</th>
                 <th scope="col">

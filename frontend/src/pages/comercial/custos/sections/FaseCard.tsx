@@ -52,6 +52,7 @@ export function FaseCard({
   const id = String(fase.id);
   const emViagem = fase.workCondition === 'travel';
   const confirmada = fase.workConditionConfirmed === true;
+  const erroDoNome = erroSe(!String(fase.name || '').trim(), 'Campo obrigatório');
 
   function editar(patch: AnyRecord) {
     updateCollection('laborContexts', id, patch);
@@ -63,12 +64,22 @@ export function FaseCard({
         <div className="com-fase-identidade">
           <span className="com-fase-indice">{indice + 1}</span>
           <label>
-            <small>Nome da fase</small>
+            <small>
+              Nome da fase<span className="survey-required-marker">*</span>
+            </small>
             <input
               aria-label="Nome da fase"
+              className={erroDoNome ? 'com-campo-invalido' : undefined}
+              aria-invalid={erroDoNome ? true : undefined}
+              aria-describedby={erroDoNome ? `${id}-nome-erro` : undefined}
               value={String(fase.name || '')}
               onChange={event => editar({ name: event.target.value })}
             />
+            {erroDoNome && (
+              <small id={`${id}-nome-erro`} className="field-error">
+                {erroDoNome}
+              </small>
+            )}
           </label>
         </div>
         <div className="com-fase-acoes">
@@ -143,6 +154,7 @@ export function FaseCard({
 
             <NumberField
               label="Deslocamento hotel ↔ obra / dia (km)"
+              required={emViagem}
               value={
                 fase.hotelSiteDistanceKmPerDay ??
                 (LEC_CONTEXT_EXPENSES as AnyRecord).hotelSiteDistanceKmPerDay
@@ -161,6 +173,7 @@ export function FaseCard({
             {fase.vehicleCountMode === 'manual' && (
               <NumberField
                 label="Nº de veículos"
+                required
                 value={fase.vehicleCount || 0}
                 min={0}
                 step={1}

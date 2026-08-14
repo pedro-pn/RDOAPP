@@ -18,9 +18,9 @@
  *    por cima de dados antigos, e o resultado é um levantamento híbrido que ninguém
  *    consegue explicar depois.
  *
- * 2. **A chave inclui modo e código da proposta.** Um rascunho da proposta 4435 não
- *    pode reaparecer quando alguém abre a 4436 — seriam números do cliente errado
- *    numa proposta que já tem dono.
+ * 2. **A chave inclui conta, modo e código da proposta.** Um rascunho da proposta
+ *    4435 não pode reaparecer na 4436 nem para outra pessoa que use o mesmo
+ *    navegador — seriam dados do cliente errado numa conta que não é a autora.
  */
 
 const PREFIXO = 'filtrovali:comercial:rascunho';
@@ -37,9 +37,14 @@ export type RascunhoGuardado = {
   rotulo?: string;
 };
 
-export function chaveDoRascunho(tela: string, modo: string, codigo: string) {
+export function chaveDoRascunho(
+  conta: string,
+  tela: string,
+  modo: string,
+  codigo: string
+) {
   // O código entra normalizado: `4435` e `4435 ` são a mesma proposta.
-  return `${PREFIXO}:${tela}:${modo}:${String(codigo || '').trim()}`;
+  return `${PREFIXO}:${String(conta || '').trim()}:${tela}:${modo}:${String(codigo || '').trim()}`;
 }
 
 export function guardarRascunho(
@@ -106,8 +111,8 @@ export function descartarRascunho(storage: Storage, chave: string) {
 }
 
 /** Remove todo rascunho do módulo. Usado depois de salvar no servidor (T091). */
-export function descartarRascunhosDaTela(storage: Storage, tela: string) {
-  const alvo = `${PREFIXO}:${tela}:`;
+export function descartarRascunhosDaTela(storage: Storage, conta: string, tela: string) {
+  const alvo = `${PREFIXO}:${String(conta || '').trim()}:${tela}:`;
   const chaves: string[] = [];
   try {
     for (let i = 0; i < storage.length; i += 1) {

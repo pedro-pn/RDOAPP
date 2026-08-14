@@ -25,6 +25,8 @@ let Field;
 let Area;
 let SelectField;
 let FieldPanel;
+let NumberField;
+let MoneyField;
 
 test.before(async () => {
   server = await createServer({
@@ -41,7 +43,7 @@ test.before(async () => {
   // Renderizar como ELEMENTO, não chamar a função: hooks (`useId`) precisam
   // do dispatcher do React, que só existe dentro do render.
   render = (Componente, props) => renderToStaticMarkup(createElement(Componente, props));
-  ({ Field, Area, SelectField, FieldPanel } = componentes);
+  ({ Field, Area, SelectField, FieldPanel, NumberField, MoneyField } = componentes);
 });
 
 test.after(async () => {
@@ -99,6 +101,28 @@ test('VAZIO e INVÁLIDO são mensagens diferentes', () => {
 test('o asterisco de obrigatório aparece', () => {
   const html = render(Field, { label: 'Cliente', value: '', onChange: noop, required: true });
   assert.match(html, /survey-required-marker/);
+});
+
+test('campo numérico zerado começa vazio para a digitação não virar 01', () => {
+  const html = render(NumberField, {
+    label: 'Quantidade',
+    value: 0,
+    onChange: noop
+  });
+
+  assert.match(html, /type="number"/);
+  assert.match(html, /value=""/);
+  assert.ok(!html.includes('value="0"'), 'zero inicial não pode ficar à esquerda');
+});
+
+test('campo monetário sempre exibe a máscara de reais', () => {
+  const html = render(MoneyField, {
+    label: 'Adicional',
+    value: 1250.5,
+    onChange: noop
+  });
+
+  assert.match(html, /R\$\s*1\.250,50/);
 });
 
 test('a dica cede a vez para a mensagem de erro', () => {

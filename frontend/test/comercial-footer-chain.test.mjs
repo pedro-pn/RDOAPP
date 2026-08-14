@@ -19,6 +19,7 @@ let server;
 let footerAction;
 let chainSummary;
 let saveBlockedByContent;
+let deveRevelarErrosAutomaticamente;
 
 test.before(async () => {
   server = await createServer({
@@ -27,7 +28,12 @@ test.before(async () => {
     server: { middlewareMode: true },
     appType: 'custom'
   });
-  ({ footerAction, chainSummary, saveBlockedByContent } = await server.ssrLoadModule(
+  ({
+    footerAction,
+    chainSummary,
+    saveBlockedByContent,
+    deveRevelarErrosAutomaticamente
+  } = await server.ssrLoadModule(
     '/src/pages/comercial/custos/footerChain.ts'
   ));
 });
@@ -156,4 +162,12 @@ test('um levantamento recém-aberto não acende nada sozinho', () => {
   const acao = footerAction({ ...nadaPendente, labor: true }, podeSalvar);
   assert.equal(acao.kind, 'goto');
   assert.notEqual(acao.kind, 'save');
+});
+
+test('trava de conteúdo só revela erros automaticamente depois de chegar ao resumo', () => {
+  assert.equal(deveRevelarErrosAutomaticamente('premises', true, true), false);
+  assert.equal(deveRevelarErrosAutomaticamente('labor', true, true), false);
+  assert.equal(deveRevelarErrosAutomaticamente('summary', true, false), false);
+  assert.equal(deveRevelarErrosAutomaticamente('summary', true, true), true);
+  assert.equal(deveRevelarErrosAutomaticamente('summary', false, true), false);
 });

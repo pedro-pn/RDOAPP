@@ -70,10 +70,24 @@ function novoItem(direcao: string, destinoId?: string): AnyRecord {
     passengersPerVehicle: padroes.passengersPerCompanyCar,
     distanceKmPerVehicle: 0,
     dailyDistanceLimitKm: padroes.dailyDistanceLimitKm,
+    travelHoursPerDay: padroes.travelHoursPerDay,
     travelCalendarDaysPerTrip: 1,
     travelSaturdayDays: 0,
     travelSundayDays: 0,
+    ticketPerPersonPerTrip: 0,
+    busOvernightMode: '',
+    lodgingNightsPerTrip: 0,
+    lodgingPerPersonDay: padroes.lodgingPerPersonDay,
+    mealPerPersonDay: padroes.mealPerPersonDay,
+    rentalUse: '',
+    rentalDailyRate: 0,
+    rentalSiteDays: 0,
+    fuelEfficiencyKmPerLiter: padroes.companyCarFuelEfficiencyKmPerLiter,
+    fuelPricePerLiter: padroes.gasolinePricePerLiter,
+    tollPerVehicleKm: padroes.companyCarTollPerVehicleKm,
     additionalCosts: [],
+    unitCost: 0,
+    returnSetup: 'custom',
     included: true
   };
 }
@@ -182,7 +196,9 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
                 <table>
                   <thead>
                     <tr>
-                      <th scope="col">Destino</th>
+                      <th scope="col">
+                        Destino<span className="survey-required-marker">*</span>
+                      </th>
                       <th scope="col">Endereço</th>
                       <th scope="col">Distância só ida (km)</th>
                       <th scope="col">
@@ -204,7 +220,9 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
                         item =>
                           item.destinationId === destinoId &&
                           item.included !== false &&
-                          item.requiredSlot
+                          (item.requiredSlot ||
+                            item.calculationMode === 'company_crew_vehicle' ||
+                            item.calculationMode === 'company_truck_driver')
                       );
                       const semDistancia =
                         errosVisiveis &&
@@ -242,6 +260,7 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
                               endereco={String(destino.address || '')}
                               km={numberValue(destino.oneWayDistanceKm)}
                               invalido={semDistancia}
+                              obrigatorio={cobrado}
                               onChange={km => editar({ oneWayDistanceKm: km })}
                             />
                           </td>

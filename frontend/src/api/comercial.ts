@@ -77,6 +77,7 @@ export interface LevantamentoEntrada {
   revisionNumber?: number;
   title: string;
   mode: 'NOVA' | 'REVISAO';
+  status?: 'RASCUNHO' | 'SALVO';
   payload: Record<string, unknown>;
 }
 

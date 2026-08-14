@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import {
   ComercialValidationError,
+  atualizarLevantamento,
   criarLevantamento,
   mensagemDeErro,
   obterLevantamento,
@@ -13,7 +14,12 @@ import { moduleRoutePath } from '../../../modules/registry';
 import { ComercialChrome } from '../components/ComercialChrome';
 import { useAuth } from '../../../auth/AuthContext';
 import { FaixaIndicadores } from './FaixaIndicadores';
-import { footerAction, saveBlockedByContent, type CostSection } from './footerChain';
+import {
+  deveRevelarErrosAutomaticamente,
+  footerAction,
+  saveBlockedByContent,
+  type CostSection
+} from './footerChain';
 import { numberValue } from './formato';
 import { pendenciasDe } from './pendencias';
 import { primeiraSecaoPendente } from './secaoDoCaminho';
@@ -29,6 +35,10 @@ import { TutorialDoModulo } from '../TutorialDoModulo';
 import { ROTEIRO_DOS_CUSTOS } from '../roteiroDoTutorial';
 import { BotaoFecharDialogo } from '../components/FecharDialogo';
 import { MarcaDeOpcao } from '../components/MarcaDeOpcao';
+import {
+  parametrosDoLevantamentoAposAvanco,
+  rolarParaInicioDoFormulario
+} from '../navegacao';
 
 
 /**
@@ -70,6 +80,7 @@ export function CustosPage() {
   const base = params.get('base') ?? '';
   const revisionNumber = Math.max(0, Number(params.get('revisao')) || 0);
   const levantamentoOrigemId = params.get('origem') ?? '';
+  const levantamentoAtualId = params.get('id') ?? '';
   const secao = (params.get('secao') as CostSection | null) ?? 'premises';
 
   const [baseDigitada, setBaseDigitada] = useState('');
@@ -78,17 +89,49 @@ export function CustosPage() {
   const [reservando, setReservando] = useState(false);
   const [carregandoRevisao, setCarregandoRevisao] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [salvandoRascunho, setSalvandoRascunho] = useState(false);
+  const [versaoDoRascunho, setVersaoDoRascunho] = useState('');
+  const [tentouAvancar, setTentouAvancar] = useState(false);
   const [recado, setRecado] = useState('');
   const [salvo, setSalvo] = useState<string | null>(null);
 
   const levantamento = useLevantamento(user?.name || '');
   const { draft, setDraft, result, revelarErros, aplicarIssuesDoServidor } = levantamento;
   const origemCarregada = useRef('');
+  const atualCarregado = useRef('');
+  const formularioRef = useRef<HTMLElement>(null);
+
+  /** Reabre o rascunho persistido pela conta quando o id está no endereço. */
+  useEffect(() => {
+    if (!levantamentoAtualId || atualCarregado.current === levantamentoAtualId) return;
+    atualCarregado.current = levantamentoAtualId;
+
+    let vivo = true;
+    obterLevantamento(levantamentoAtualId)
+      .then(atual => {
+        if (!vivo || !atual.payload) return;
+        setDraft({
+          ...atual.payload,
+          estimatorName: user?.name || atual.payload.estimatorName || ''
+        });
+        setVersaoDoRascunho(atual.updatedAt || '');
+      })
+      .catch(error => {
+        if (vivo) {
+          setRecado(mensagemDeErro(error, 'Não foi possível recarregar o rascunho salvo.'));
+        }
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [levantamentoAtualId, setDraft, user?.name]);
 
   /** No F5, recompõe o levantamento que originou a revisão. */
   useEffect(() => {
     if (
       modo !== 'revision' ||
+      levantamentoAtualId ||
       !levantamentoOrigemId ||
       origemCarregada.current === levantamentoOrigemId
     ) {
@@ -116,7 +159,7 @@ export function CustosPage() {
     return () => {
       vivo = false;
     };
-  }, [levantamentoOrigemId, modo, setDraft, user?.name]);
+  }, [levantamentoAtualId, levantamentoOrigemId, modo, setDraft, user?.name]);
 
   /**
    * L3 — o trabalho não se perde num F5.
@@ -126,6 +169,7 @@ export function CustosPage() {
    * conteúdo. A recuperação é **oferecida**, nunca aplicada em silêncio.
    */
   const rascunho = useRascunhoLocal({
+    conta: user?.id || '',
     tela: 'custos',
     modo,
     codigo: base,
@@ -137,7 +181,7 @@ export function CustosPage() {
   // A cadeia do rodapé está completa: as quatro seções sabem dizer se pendem.
   const pendencias = pendenciasDe(draft, result);
   const guardas = {
-    saving: salvando,
+    saving: salvando || salvandoRascunho,
     title: String(draft.title || ''),
     validPricing: Boolean(result.validPricing),
     salePrice: numberValue(result.salePrice)
@@ -155,15 +199,83 @@ export function CustosPage() {
   const salvarTravadoPorConteudo = acao.kind === 'save' && saveBlockedByContent(guardas);
 
   useEffect(() => {
-    if (salvarTravadoPorConteudo) revelarErros();
-  }, [salvarTravadoPorConteudo, revelarErros]);
+    if (
+      deveRevelarErrosAutomaticamente(
+        secao,
+        salvarTravadoPorConteudo,
+        tentouAvancar
+      )
+    ) {
+      revelarErros();
+    }
+  }, [salvarTravadoPorConteudo, secao, tentouAvancar, revelarErros]);
 
   const codigo = base || '—';
 
-  function trocarSecao(destino: CostSection) {
-    const proximos = new URLSearchParams(params);
-    proximos.set('secao', destino);
+  function trocarSecao(
+    destino: CostSection,
+    rolar = false,
+    idPersistido = levantamentoAtualId
+  ) {
+    const proximos = parametrosDoLevantamentoAposAvanco(
+      params,
+      destino,
+      idPersistido
+    );
     setParams(proximos, { replace: true });
+    if (rolar) {
+      window.requestAnimationFrame(() =>
+        rolarParaInicioDoFormulario(formularioRef.current)
+      );
+    }
+  }
+
+  /**
+   * Persiste o levantamento incompleto pela conta antes de trocar de seção.
+   * É o equivalente do "Salvar e continuar" da proposta: a validação integral
+   * fica para a promoção a SALVO, mas o trabalho já não depende do navegador.
+   */
+  async function persistirRascunho(): Promise<string | null> {
+    if (!modo || salvandoRascunho) return null;
+    if (levantamentoAtualId && !versaoDoRascunho) {
+      setRecado('Aguarde o rascunho terminar de carregar antes de continuar.');
+      return null;
+    }
+
+    setSalvandoRascunho(true);
+    setRecado('Salvando rascunho na sua conta...');
+    const entrada = {
+      proposalCode: base,
+      revisionNumber: modo === 'revision' ? revisionNumber : 0,
+      title: String(draft.title || 'Rascunho de levantamento'),
+      mode: modo === 'revision' ? 'REVISAO' as const : 'NOVA' as const,
+      status: 'RASCUNHO' as const,
+      payload: draft
+    };
+
+    try {
+      const gravado = levantamentoAtualId
+        ? await atualizarLevantamento(levantamentoAtualId, entrada, {
+            expectedUpdatedAt: versaoDoRascunho
+          })
+        : await criarLevantamento(entrada);
+
+      setVersaoDoRascunho(gravado.updatedAt || '');
+      if (!levantamentoAtualId) {
+        const proximos = new URLSearchParams(params);
+        proximos.set('id', gravado.id);
+        setParams(proximos, { replace: true });
+        atualCarregado.current = gravado.id;
+      }
+      rascunho.limparAtual();
+      setRecado('Rascunho salvo na sua conta.');
+      return gravado.id;
+    } catch (error) {
+      setRecado(mensagemDeErro(error, 'Não foi possível salvar o rascunho.'));
+      return null;
+    } finally {
+      setSalvandoRascunho(false);
+    }
   }
 
   function iniciarModo(novoModo: EstimateMode, numero?: string) {
@@ -253,17 +365,27 @@ export function CustosPage() {
    */
   async function salvar() {
     if (salvando) return;
+    if (levantamentoAtualId && !versaoDoRascunho) {
+      setRecado('Aguarde o rascunho terminar de carregar antes de salvar.');
+      return;
+    }
     setSalvando(true);
     setRecado('Validando e salvando o levantamento...');
 
     try {
-      const gravado = await criarLevantamento({
+      const entrada = {
         proposalCode: base,
         revisionNumber: modo === 'revision' ? revisionNumber : 0,
         title: String(draft.title || ''),
         mode: modo === 'revision' ? 'REVISAO' : 'NOVA',
+        status: 'SALVO' as const,
         payload: draft
-      });
+      } as const;
+      const gravado = levantamentoAtualId
+        ? await atualizarLevantamento(levantamentoAtualId, entrada, {
+            expectedUpdatedAt: versaoDoRascunho
+          })
+        : await criarLevantamento(entrada);
 
       // T091: gravado no servidor, o rascunho local não pode sobrar para
       // reaparecer depois como se fosse trabalho não salvo.
@@ -487,7 +609,11 @@ export function CustosPage() {
 
             {/* Tira de seções. As abas são LIVRES: dá para pular para qualquer
                 uma a qualquer momento. A cadeia do rodapé guia, não prende. */}
-            <nav className="com-workflow-nav" aria-label="Etapas do levantamento">
+            <nav
+              ref={formularioRef}
+              className="com-workflow-nav"
+              aria-label="Etapas do levantamento"
+            >
               {SECOES.map((item, indice) => (
                 <button
                   key={item.value}
@@ -540,17 +666,25 @@ export function CustosPage() {
                 /* Salvo uma vez, não salva de novo: um segundo POST criaria um
                    segundo levantamento com o MESMO código de proposta. Reabrir
                    para editar é `PUT`, e depende da tela de listagem. */
-                disabled={acao.disabled || salvo !== null}
+                disabled={acao.disabled || salvo !== null || salvandoRascunho}
                 onClick={() => {
                   // Tentar avançar é o gatilho: daqui em diante os campos
                   // obrigatórios que faltam ficam marcados, e passam a acender
                   // e apagar ao vivo enquanto o usuário corrige.
+                  setTentouAvancar(true);
                   revelarErros();
-                  if (acao.kind === 'goto') trocarSecao(acao.target);
-                  else setMostrarConfirmacao(true);
+                  if (acao.kind === 'goto') {
+                    void persistirRascunho().then(idPersistido => {
+                      if (idPersistido) trocarSecao(acao.target, true, idPersistido);
+                    });
+                  } else setMostrarConfirmacao(true);
                 }}
               >
-                {salvo ? 'Levantamento salvo' : acao.label}
+                {salvo
+                  ? 'Levantamento salvo'
+                  : salvandoRascunho
+                    ? 'Salvando rascunho...'
+                    : acao.label}
               </button>
             </footer>
           </>

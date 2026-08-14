@@ -72,6 +72,7 @@ import { RevisaoStep } from './steps/RevisaoStep';
 import { TecnicaStep } from './steps/TecnicaStep';
 import { TutorialDoModulo } from '../TutorialDoModulo';
 import { ROTEIRO_DA_PROPOSTA } from '../roteiroDoTutorial';
+import { rolarParaInicioDoFormulario } from '../navegacao';
 
 /**
  * Montagem da proposta — container das 7 etapas (`PROP-CTL-001..010`, `PROP-H-001..003`).
@@ -204,6 +205,7 @@ export function PropostaPage() {
   const [versaoCarregada, setVersaoCarregada] = useState('');
   const [conflitoDeEdicao, setConflitoDeEdicao] =
     useState<ComercialConcurrentWriteError | null>(null);
+  const formularioRef = useRef<HTMLDivElement>(null);
   const { aplicarSnapshot, carregarRevisao, setVinculoCrm, vinculoCrm } =
     usePropostaRevision({
       modo,
@@ -228,6 +230,7 @@ export function PropostaPage() {
     });
 
   const rascunho = useRascunhoLocal({
+    conta: user?.id || '',
     tela: 'proposta',
     modo: levantamentoId ? 'levantamento' : 'avulsa',
     codigo: levantamentoId,
@@ -355,11 +358,16 @@ export function PropostaPage() {
   const ultima = indice === ETAPAS.length - 1;
   const codigoExibido = rotuloDaProposta(codigo, revisionNumber);
 
-  function irPara(destino: EtapaProposta) {
+  function irPara(destino: EtapaProposta, rolar = false) {
     const proximos = new URLSearchParams(params);
     proximos.set('etapa', destino);
     setParams(proximos, { replace: true });
     setTentouAvancar(false);
+    if (rolar) {
+      window.requestAnimationFrame(() =>
+        rolarParaInicioDoFormulario(formularioRef.current)
+      );
+    }
   }
 
   /**
@@ -382,7 +390,7 @@ export function PropostaPage() {
 
     const id = await salvar();
     if (!id) return;
-    irPara(ETAPAS[indice + 1].value);
+    irPara(ETAPAS[indice + 1].value, true);
   }
 
   function editar(patch: AnyRecord) {
@@ -658,7 +666,7 @@ export function PropostaPage() {
       )}
 
       <section className="com-workspace">
-      <div className="com-form-panel">
+      <div ref={formularioRef} className="com-form-panel">
       {rascunho.oferta && (
         <section className="com-painel com-oferta-rascunho" role="alertdialog">
           <div>

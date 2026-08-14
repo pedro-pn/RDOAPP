@@ -266,6 +266,7 @@ export function TecnicaStep({
 
             <Field
               label="Título que aparecerá na proposta"
+              required
               value={selecao.title}
               maxLength={120}
               error={erroDoCampo(selecao.instanceId, 'title')}
@@ -370,6 +371,7 @@ export function TecnicaStep({
 
             <Area
               label="Texto técnico"
+              required
               value={selecao.text}
               rows={10}
               readOnly={selecao.usesTemplate}

@@ -76,9 +76,14 @@ function veiculoProprio(extras = {}) {
     vehicleCountMode: 'automatic',
     distanceKmPerVehicle: 200,
     dailyDistanceLimitKm: 400,
+    travelHoursPerDay: 10,
     trips: 1,
     travelSaturdayDays: 0,
     travelSundayDays: 0,
+    lodgingPerPersonDay: 180,
+    mealPerPersonDay: 90,
+    fuelEfficiencyKmPerLiter: 10,
+    fuelPricePerLiter: 6,
     additionalCosts: [],
     ...extras
   };
@@ -219,6 +224,70 @@ test('veículo rodoviário exige distância por veículo', () => {
   assert.equal(itemPrecisaAtencao(semDistancia, [faseComEquipe()]), true);
 });
 
+test('veículo rodoviário cobra os custos condicionais que a tela precisa expor', () => {
+  for (const campo of [
+    'travelHoursPerDay',
+    'lodgingPerPersonDay',
+    'mealPerPersonDay',
+    'fuelEfficiencyKmPerLiter',
+    'fuelPricePerLiter'
+  ]) {
+    assert.equal(
+      itemPrecisaAtencao(veiculoProprio({ [campo]: 0 }), [faseComEquipe()]),
+      true,
+      `${campo} zerado precisa apontar pendência`
+    );
+  }
+
+  assert.equal(
+    itemPrecisaAtencao(veiculoProprio({ dailyDistanceLimitKm: 751 }), [faseComEquipe()]),
+    true,
+    'limite diário acima do máximo do motor precisa pender na mesma etapa'
+  );
+  assert.equal(
+    itemPrecisaAtencao(veiculoProprio({ travelHoursPerDay: 11 }), [faseComEquipe()]),
+    true,
+    'jornada rodoviária acima de dez horas precisa pender na mesma etapa'
+  );
+});
+
+test('transporte com passagem exige dias e jornada de viagem válidos', () => {
+  const passagem = veiculoProprio({
+    calculationMode: 'air_crew_transport',
+    distanceKmPerVehicle: 0,
+    dailyDistanceLimitKm: 0,
+    fuelEfficiencyKmPerLiter: 0,
+    fuelPricePerLiter: 0,
+    travelCalendarDaysPerTrip: 1,
+    travelHoursPerDay: 12,
+    ticketPerPersonPerTrip: 800,
+    mealPerPersonDay: 90,
+    lodgingPerPersonDay: 180
+  });
+
+  assert.equal(itemPrecisaAtencao(passagem, [faseComEquipe()]), false);
+  assert.equal(
+    itemPrecisaAtencao({ ...passagem, travelCalendarDaysPerTrip: 0 }, [faseComEquipe()]),
+    true
+  );
+  assert.equal(
+    itemPrecisaAtencao({ ...passagem, travelHoursPerDay: 25 }, [faseComEquipe()]),
+    true
+  );
+});
+
+test('desmobilização obrigatória exige decidir entre espelhar e preencher', () => {
+  const pendente = freteExterno({
+    direction: 'demobilization',
+    requiredSlot: true,
+    returnSetup: 'pending'
+  });
+  const preenchida = { ...pendente, returnSetup: 'custom' };
+
+  assert.equal(itemPrecisaAtencao(pendente), true);
+  assert.equal(itemPrecisaAtencao(preenchida), false);
+});
+
 test('capacidade menor que a equipe pende', () => {
   // 2 pessoas, 1 lugar por veículo, contagem automática de veículos: cabe.
   // Mas com veículo manual em 1, não cabe.
@@ -341,6 +410,15 @@ test('destino sem distância com item obrigatório apontando faz pender', () => 
   assert.equal(faltaLogistica(draft), true);
 });
 
+test('destino rodoviário exige distância mesmo em item adicional', () => {
+  const draft = {
+    logistics: [veiculoProprio({ destinationId: 'd1', requiredSlot: false })],
+    logisticsDestinations: [{ id: 'd1', name: 'Obra', oneWayDistanceKm: 0 }],
+    laborContexts: [faseComEquipe()]
+  };
+  assert.equal(faltaLogistica(draft), true);
+});
+
 test('slot obrigatório excluído sem dispensa faz pender', () => {
   const draft = {
     logistics: [
@@ -378,5 +456,35 @@ test('logística completa e simples não pende', () => {
     logisticsDestinations: [{ id: 'd1', name: 'Obra', oneWayDistanceKm: 120 }],
     laborContexts: []
   };
+  assert.equal(faltaLogistica(draft), false);
+});
+
+test('retorno espelhado é validado com os valores normalizados da ida', () => {
+  const ida = freteExterno({
+    destinationId: 'd1',
+    slotType: 'equipment',
+    requiredSlot: true
+  });
+  const volta = {
+    id: 'l2',
+    destinationId: 'd1',
+    slotType: 'equipment',
+    requiredSlot: true,
+    direction: 'demobilization',
+    included: true,
+    autoSyncedFromMobilization: true,
+    returnSetup: 'mirrored',
+    calculationMode: '',
+    calculationModeConfirmed: false,
+    quantity: 0,
+    trips: 0,
+    unitCost: 0
+  };
+  const draft = {
+    logistics: [ida, volta],
+    logisticsDestinations: [{ id: 'd1', name: 'Obra', oneWayDistanceKm: 100 }],
+    laborContexts: []
+  };
+
   assert.equal(faltaLogistica(draft), false);
 });

@@ -45,21 +45,27 @@ function storageFalso(inicial = {}) {
   };
 }
 
-test('a chave separa modo e código da proposta', () => {
+test('a chave separa conta, modo e código da proposta', () => {
   // Um rascunho da 4435 reaparecendo na 4436 seriam números do cliente errado
   // numa proposta que já tem dono.
-  const a = mod.chaveDoRascunho('custos', 'new', '4435');
-  const b = mod.chaveDoRascunho('custos', 'new', '4436');
-  const c = mod.chaveDoRascunho('custos', 'revision', '4435');
+  const a = mod.chaveDoRascunho('u-ana', 'custos', 'new', '4435');
+  const b = mod.chaveDoRascunho('u-ana', 'custos', 'new', '4436');
+  const c = mod.chaveDoRascunho('u-ana', 'custos', 'revision', '4435');
+  const d = mod.chaveDoRascunho('u-bruno', 'custos', 'new', '4435');
 
   assert.notEqual(a, b);
   assert.notEqual(a, c);
-  assert.equal(a, mod.chaveDoRascunho('custos', 'new', '  4435  '), 'código vem normalizado');
+  assert.notEqual(a, d, 'contas no mesmo navegador não podem compartilhar rascunho');
+  assert.equal(
+    a,
+    mod.chaveDoRascunho('u-ana', 'custos', 'new', '  4435  '),
+    'código vem normalizado'
+  );
 });
 
 test('guarda e lê de volta', () => {
   const storage = storageFalso();
-  const chave = mod.chaveDoRascunho('custos', 'new', '4435');
+  const chave = mod.chaveDoRascunho('u-ana', 'custos', 'new', '4435');
 
   assert.equal(mod.guardarRascunho(storage, chave, { title: 'Limpeza química' }), true);
 
@@ -72,7 +78,7 @@ test('rascunho vencido não é oferecido, e some', () => {
   // Oferecer trabalho de duas semanas atrás confunde mais do que ajuda: o
   // usuário não lembra o que havia ali e aceita sem conferir.
   const storage = storageFalso();
-  const chave = mod.chaveDoRascunho('custos', 'new', '4435');
+  const chave = mod.chaveDoRascunho('u-ana', 'custos', 'new', '4435');
   const agora = Date.now();
 
   mod.guardarRascunho(storage, chave, { title: 'velho' }, undefined, agora - mod.VALIDADE_MS - 1);
@@ -84,8 +90,8 @@ test('rascunho vencido não é oferecido, e some', () => {
 test('registro corrompido é descartado em silêncio', () => {
   // Oferecer "recuperar" e falhar na restauração seria prometer o trabalho de
   // volta e não entregar.
-  const storage = storageFalso({ 'filtrovali:comercial:rascunho:custos:new:4435': '{ isto não é json' });
-  const chave = mod.chaveDoRascunho('custos', 'new', '4435');
+  const storage = storageFalso({ 'filtrovali:comercial:rascunho:u-ana:custos:new:4435': '{ isto não é json' });
+  const chave = mod.chaveDoRascunho('u-ana', 'custos', 'new', '4435');
 
   assert.equal(mod.lerRascunho(storage, chave), null);
   assert.equal(storage.getItem(chave), null);
@@ -93,7 +99,7 @@ test('registro corrompido é descartado em silêncio', () => {
 
 test('registro sem os campos esperados também é descartado', () => {
   const storage = storageFalso();
-  const chave = mod.chaveDoRascunho('custos', 'new', '4435');
+  const chave = mod.chaveDoRascunho('u-ana', 'custos', 'new', '4435');
   storage.setItem(chave, JSON.stringify({ dados: { a: 1 } })); // sem salvoEm
 
   assert.equal(mod.lerRascunho(storage, chave), null);
@@ -115,25 +121,27 @@ test('storage indisponível não derruba a tela', () => {
       throw new Error('bloqueado');
     }
   };
-  const chave = mod.chaveDoRascunho('custos', 'new', '4435');
+  const chave = mod.chaveDoRascunho('u-ana', 'custos', 'new', '4435');
 
   assert.equal(mod.guardarRascunho(quebrado, chave, { a: 1 }), false);
   assert.equal(mod.lerRascunho(quebrado, chave), null);
   assert.doesNotThrow(() => mod.descartarRascunho(quebrado, chave));
-  assert.doesNotThrow(() => mod.descartarRascunhosDaTela(quebrado, 'custos'));
+  assert.doesNotThrow(() => mod.descartarRascunhosDaTela(quebrado, 'u-ana', 'custos'));
 });
 
 test('salvar no servidor limpa TODO rascunho da tela', () => {
   // T091: não pode sobrar para reaparecer depois como trabalho não salvo.
   const storage = storageFalso();
-  mod.guardarRascunho(storage, mod.chaveDoRascunho('custos', 'new', '4435'), { a: 1 });
-  mod.guardarRascunho(storage, mod.chaveDoRascunho('custos', 'revision', '4400'), { b: 2 });
-  mod.guardarRascunho(storage, mod.chaveDoRascunho('proposta', 'new', '4435'), { c: 3 });
+  mod.guardarRascunho(storage, mod.chaveDoRascunho('u-ana', 'custos', 'new', '4435'), { a: 1 });
+  mod.guardarRascunho(storage, mod.chaveDoRascunho('u-ana', 'custos', 'revision', '4400'), { b: 2 });
+  mod.guardarRascunho(storage, mod.chaveDoRascunho('u-ana', 'proposta', 'new', '4435'), { c: 3 });
+  mod.guardarRascunho(storage, mod.chaveDoRascunho('u-bruno', 'custos', 'new', '4435'), { d: 4 });
 
-  mod.descartarRascunhosDaTela(storage, 'custos');
+  mod.descartarRascunhosDaTela(storage, 'u-ana', 'custos');
 
-  assert.equal(storage.length, 1, 'só o da outra tela sobrevive');
-  assert.ok(mod.lerRascunho(storage, mod.chaveDoRascunho('proposta', 'new', '4435')));
+  assert.equal(storage.length, 2, 'a outra tela e a outra conta sobrevivem');
+  assert.ok(mod.lerRascunho(storage, mod.chaveDoRascunho('u-ana', 'proposta', 'new', '4435')));
+  assert.ok(mod.lerRascunho(storage, mod.chaveDoRascunho('u-bruno', 'custos', 'new', '4435')));
 });
 
 test('a idade é dita em português comum', () => {

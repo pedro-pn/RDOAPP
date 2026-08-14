@@ -105,6 +105,20 @@ export function saveBlockedByContent(guards: SaveGuards): boolean {
   return !guards.title.trim() || !guards.validPricing || !(guards.salePrice > 0);
 }
 
+/**
+ * A trava final só pode acender campos automaticamente quando o usuário já
+ * chegou ao resumo **depois de uma tentativa de avanço**. Na abertura, o
+ * levantamento estar incompleto é o estado normal — vermelho ali significaria
+ * uma tentativa que nunca aconteceu.
+ */
+export function deveRevelarErrosAutomaticamente(
+  secao: CostSection,
+  salvarTravadoPorConteudo: boolean,
+  houveTentativaDeAvanco: boolean
+): boolean {
+  return houveTentativaDeAvanco && secao === 'summary' && salvarTravadoPorConteudo;
+}
+
 /** A cadeia em texto, para o roteiro do tutorial de primeiro acesso (L4). */
 export function chainSummary(): string[] {
   return [...CHAIN.map(step => step.label), 'Salvar levantamento e criar proposta →'];

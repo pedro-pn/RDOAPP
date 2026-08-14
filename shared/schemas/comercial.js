@@ -151,6 +151,7 @@ export function makeComercialSchemas(z) {
     revisionNumber: z.number().int().min(0).default(0),
     title: z.string().trim().min(1).max(200),
     mode: z.enum(COST_ESTIMATE_MODES),
+    status: z.enum(COST_ESTIMATE_STATUSES).default('SALVO'),
     payload: costEstimatePayload
     // totalCost, salePrice e marginPercent NÃO entram: são recalculados no
     // servidor com calculateEstimate. Aceitar do cliente permitiria forjar margem.

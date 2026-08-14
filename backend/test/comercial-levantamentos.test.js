@@ -189,6 +189,53 @@ test('salvar levantamento inválido levanta erro 422 com as pendências', async 
   assert.equal(prisma.store.estimates.length, 0, 'não pode gravar levantamento inválido');
 });
 
+test('rascunho incompleto é persistido pela conta e só valida ao virar SALVO', async () => {
+  const goldenIncompleto = carregarGolden('01-default-intocado');
+  const prisma = fakePrisma();
+
+  const rascunho = await createCostEstimate(prisma, vendedorA, {
+    proposalCode: '4418',
+    title: 'Rascunho',
+    mode: 'NOVA',
+    status: 'RASCUNHO',
+    payload: goldenIncompleto.payload
+  });
+
+  assert.equal(rascunho.status, 'RASCUNHO');
+  assert.equal(rascunho.createdByUserId, vendedorA.id);
+  assert.equal(prisma.store.versions.length, 0, 'rascunho mutável não cria versão final');
+
+  await assert.rejects(
+    () =>
+      updateCostEstimate(prisma, vendedorA, rascunho.id, {
+        status: 'SALVO',
+        payload: goldenIncompleto.payload
+      }),
+    error => error instanceof CostEstimateValidationError && error.statusCode === 422
+  );
+});
+
+test('rascunho válido é promovido para SALVO e ganha versão imutável', async () => {
+  const incompleto = carregarGolden('01-default-intocado');
+  const completo = carregarGolden('02-sede-sem-hora-extra');
+  const prisma = fakePrisma();
+
+  const rascunho = await createCostEstimate(prisma, vendedorA, {
+    proposalCode: '4418',
+    title: 'Rascunho',
+    mode: 'NOVA',
+    status: 'RASCUNHO',
+    payload: incompleto.payload
+  });
+  const salvo = await updateCostEstimate(prisma, vendedorA, rascunho.id, {
+    status: 'SALVO',
+    payload: completo.payload
+  });
+
+  assert.equal(salvo.status, 'SALVO');
+  assert.equal(prisma.store.versions.length, 1);
+});
+
 // ---------------------------------------------------------------------------
 // Autoria — o caso crítico é a LISTAGEM
 // ---------------------------------------------------------------------------

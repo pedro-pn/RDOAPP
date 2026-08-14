@@ -91,6 +91,25 @@ test('a criação de levantamento NÃO aceita totais do cliente', () => {
   assert.ok(!('marginPercent' in parsed), 'marginPercent não pode entrar pelo corpo');
 });
 
+test('levantamento aceita rascunho explícito e mantém SALVO como padrão compatível', () => {
+  const entrada = {
+    proposalCode: '4418',
+    title: 'Levantamento',
+    mode: 'NOVA',
+    payload: { schemaVersion: 2 }
+  };
+
+  assert.equal(schemas.costEstimateCreate.parse(entrada).status, 'SALVO');
+  assert.equal(
+    schemas.costEstimateCreate.parse({ ...entrada, status: 'RASCUNHO' }).status,
+    'RASCUNHO'
+  );
+  assert.equal(
+    schemas.costEstimateCreate.safeParse({ ...entrada, status: 'QUALQUER' }).success,
+    false
+  );
+});
+
 test('os dois PUTs exigem a versão carregada e aceitam sobrescrita confirmada', () => {
   const esperado = '2026-08-13T12:00:00.000Z';
   assert.equal(schemas.proposalUpdate.safeParse({ clientName: 'X' }).success, false);

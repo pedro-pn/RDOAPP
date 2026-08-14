@@ -185,7 +185,7 @@ export function CircuitosBloco({ levantamento }: { levantamento: Levantamento })
                       type="number"
                       min={1}
                       step={1}
-                      value={(circuito.cycles as number) ?? ''}
+                      value={Number(circuito.cycles) || ''}
                       onChange={event =>
                         editar({
                           cycles: event.target.value === '' ? 1 : Number(event.target.value)
@@ -339,7 +339,7 @@ function SubTabela({
                         aria-label="Quantidade"
                         min={0}
                         step={1}
-                        value={(item.quantity as number) ?? ''}
+                        value={Number(item.quantity) || ''}
                         onChange={numero('quantity')}
                       />
                     </td>
@@ -352,7 +352,7 @@ function SubTabela({
                             aria-label="Comprimento em metros"
                             min={0}
                             step={0.01}
-                            value={(item.lengthM as number) ?? ''}
+                            value={Number(item.lengthM) || ''}
                             onChange={numero('lengthM')}
                           />
                         </td>
@@ -362,7 +362,7 @@ function SubTabela({
                             aria-label="Diâmetro interno em milímetros"
                             min={0}
                             step={0.1}
-                            value={(item.internalDiameterMm as number) ?? ''}
+                            value={Number(item.internalDiameterMm) || ''}
                             onChange={numero('internalDiameterMm')}
                           />
                         </td>
@@ -373,7 +373,7 @@ function SubTabela({
                             min={0}
                             max={100}
                             step={1}
-                            value={(item.fillPercent as number) ?? ''}
+                            value={Number(item.fillPercent) || ''}
                             onChange={numero('fillPercent')}
                           />
                         </td>
@@ -385,7 +385,7 @@ function SubTabela({
                           aria-label="Volume em litros"
                           min={0}
                           step={0.01}
-                          value={(item.volumeLiters as number) ?? ''}
+                          value={Number(item.volumeLiters) || ''}
                           onChange={numero('volumeLiters')}
                         />
                       </td>

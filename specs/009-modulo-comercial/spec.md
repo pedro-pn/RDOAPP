@@ -368,7 +368,9 @@ aparecer na seleção da etapa Cliente para um gestor — sem nenhum passo de ca
 
 - **FR-010**: Ao tentar salvar com campo obrigatório vazio, o sistema DEVE destacar em
   vermelho **cada campo pendente**, no padrão compartilhado de campo inválido do
-  filtroAPP, com mensagem visível associada ao campo.
+  filtroAPP, com mensagem visível associada ao campo. Antes da primeira tentativa, os
+  campos DEVEM permanecer neutros. Todo campo obrigatório DEVE exibir `*` vermelho e
+  nenhum campo opcional PODE exibi-lo.
 - **FR-011**: O sistema DEVE distinguir dois estados na mensagem: **vazio** ("Campo
   obrigatório") e **preenchido porém inválido** ("E-mail inválido", "CNPJ inválido").
   Marcar sem distinguir não atende.
@@ -395,8 +397,8 @@ aparecer na seleção da etapa Cliente para um gestor — sem nenhum passo de ca
   forma que recarregar restaure a posição e que o endereço possa ser compartilhado.
   Parâmetros incompatíveis DEVEM ser limpos na troca.
 - **FR-019**: O levantamento **e** o assistente de proposta DEVEM manter rascunho local
-  do que ainda não foi salvo, com salvamento automático, chave por modo e código de
-  proposta.
+  do que ainda não foi salvo, com salvamento automático, chave por **conta autenticada**,
+  modo e código de proposta.
 - **FR-020**: A recuperação de rascunho DEVE ser **oferecida explicitamente** ao
   usuário, nunca aplicada em silêncio.
 - **FR-021**: O rascunho local DEVE ser descartado quando o conteúdo é salvo no
@@ -675,6 +677,15 @@ Não existe proteção na referência. É trabalho novo.
   genericamente.
 - **FR-078**: Anexo enviado por engano PODE ser removido **antes da finalização**. É a
   exceção nomeada ao FR-060. *(T128)*
+- **FR-079**: Ao avançar uma etapa ou seção nos formulários de proposta e levantamento,
+  o início do formulário DEVE voltar para a área visível. *(T140)*
+- **FR-080**: Campos numéricos que ainda valem zero DEVEM começar visualmente vazios,
+  sem produzir um zero à esquerda na primeira digitação; todo campo que representa
+  dinheiro DEVE usar a máscara monetária `R$`. *(T140)*
+- **FR-081**: Cada avanço do levantamento de custos DEVE persistir no servidor um
+  `RASCUNHO` pertencente à conta autenticada. O rascunho PODE estar incompleto e NÃO
+  cria versão imutável; a transição para `SALVO` exige a validação completa e cria a
+  versão. Reabrir o endereço com o `id` DEVE restaurá-lo. *(T140)*
 
 ### Visual/UI Contract *(mandatory if feature touches frontend)*
 

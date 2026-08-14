@@ -25,6 +25,7 @@ import {
 const DEBOUNCE_MS = 800;
 
 export function useRascunhoLocal({
+  conta,
   tela,
   modo,
   codigo,
@@ -32,6 +33,8 @@ export function useRascunhoLocal({
   ativo,
   rotulo
 }: {
+  /** Id da conta autenticada; separa pessoas que usam o mesmo navegador. */
+  conta: string;
   tela: string;
   modo: string | null;
   codigo: string;
@@ -41,7 +44,7 @@ export function useRascunhoLocal({
   rotulo?: string;
 }) {
   const storage = typeof window === 'undefined' ? null : window.localStorage;
-  const chave = modo ? chaveDoRascunho(tela, modo, codigo) : null;
+  const chave = conta && modo ? chaveDoRascunho(conta, tela, modo, codigo) : null;
 
   const [oferta, setOferta] = useState<RascunhoGuardado | null>(null);
   const [alterado, setAlterado] = useState(false);
@@ -119,9 +122,15 @@ export function useRascunhoLocal({
   /** Depois de gravar no servidor o rascunho não pode sobrar (T091). */
   const limparTudo = useCallback(() => {
     if (!storage) return;
-    descartarRascunhosDaTela(storage, tela);
+    descartarRascunhosDaTela(storage, conta, tela);
     setAlterado(false);
-  }, [storage, tela]);
+  }, [storage, conta, tela]);
+
+  /** Remove só o rascunho corrente depois de persistir este trabalho no servidor. */
+  const limparAtual = useCallback(() => {
+    if (storage && chave) descartarRascunho(storage, chave);
+    setAlterado(false);
+  }, [storage, chave]);
 
   return {
     oferta,
@@ -129,6 +138,7 @@ export function useRascunhoLocal({
     alterado,
     recuperar,
     descartarOferta,
+    limparAtual,
     limparTudo
   };
 }

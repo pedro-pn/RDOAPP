@@ -47,13 +47,13 @@ vão usar.
 | `id` | `String @id @default(cuid())` | |
 | `proposalCode` | `String` | o código carimbado; indexado |
 | `revisionNumber` | `Int` | |
-| `title` | `String` | obrigatório para salvar |
+| `title` | `String` | obrigatório para promover a `SALVO`; rascunho usa rótulo provisório |
 | `mode` | enum `CostEstimateMode` | `LEVANTAR` \| `NOVA` \| `REVISAR` |
 | `payload` | `Json` | o levantamento inteiro; contrato validado |
 | `totalCost` | `Decimal @db.Decimal(14,2)` | **recalculado no servidor** |
 | `salePrice` | `Decimal @db.Decimal(14,2)` | idem |
 | `marginPercent` | `Decimal @db.Decimal(6,2)` | idem |
-| `status` | enum `CostEstimateStatus` | explícito |
+| `status` | enum `CostEstimateStatus` | `RASCUNHO` \| `SALVO`, explícito |
 | `archivedAt` / `archivedByUserId` | `DateTime?` / `String?` | arquivamento — **não há exclusão** |
 | `createdByUserId` | `String` | **sustenta a regra de autoria** (FR-029); indexado |
 | `updatedByUserId` / `updatedByLabel` | `String?` / `String?` | última edição; id + nome congelado sustentam o aviso de concorrência (FR-070) |
@@ -65,6 +65,10 @@ autoria (D14); `(proposalCode, revisionNumber)`.
 **Regra de segurança**: os totais gravados são **sempre os do servidor**, nunca os
 enviados pelo cliente. Recalcular com `calculateEstimate` no `POST` impede forjar
 margem.
+
+**Regra de continuidade**: `RASCUNHO` pertence ao autor, aceita payload incompleto e
+não cria `CostEstimateVersion`. Apenas a promoção para `SALVO` executa a validação
+completa e congela uma versão imutável.
 
 **Acesso**: `comercial:manager` alcança todos; `comercial:seller` apenas onde
 `createdByUserId` for o seu; `comercial:viewer` **nenhum**.
