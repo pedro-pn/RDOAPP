@@ -1171,7 +1171,7 @@ export function ProjectDetailDashboard({
         </details>
       </div>
 
-      {/* Colaboradores em largura total, tabela retrátil: nome · cargo · horas · valor gasto (custo/hora). */}
+      {/* Colaboradores em largura total: apropriação financeira em destaque e jornada dos RDOs para conferência. */}
       <div className="page-card acp-det-block">
         <details className="acp-det-collabs-details" open>
           <summary className="acp-det-collabs-summary">
@@ -1180,31 +1180,80 @@ export function ProjectDetailDashboard({
           {data.colaboradores.length === 0 ? (
             <div className="placeholder-copy" style={{ marginTop: 8 }}>Nenhum colaborador nos relatórios de execução.</div>
           ) : (
-            <div className="acp-table-wrap" style={{ marginTop: 8 }}>
-              <table className="acp-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th>Cargo</th>
-                    <th style={{ textAlign: 'right' }}>Horas</th>
-                    <th style={{ textAlign: 'right' }}>Custo (HH)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.colaboradores.map((c, i) => (
-                    <tr key={i}>
-                      <td>{c.name}</td>
-                      <td>{c.role}</td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtHours(c.horas)}</td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {c.custo != null ? (
-                          <>{brl(c.custo)}<span className="acp-det-collab-rate">{c.custoHora != null ? ` (${brl(c.custoHora)}/h)` : ''}</span></>
-                        ) : '—'}
-                      </td>
+            <div className="acp-det-collab-body">
+              <div className="acp-det-collab-context" role="note">
+                <strong>Base da apropriação: ponto de {fmtDate(data.maoDeObra.periodStart)} a {fmtDate(data.maoDeObra.periodEnd)}</strong>
+                <span>As horas, o custo e o custo/hora abaixo usam o mesmo rateio financeiro.</span>
+              </div>
+
+              <div className="acp-table-wrap">
+                <table className="acp-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Cargo</th>
+                      <th style={{ textAlign: 'right' }}>
+                        <HelpTip help="Horas do ponto atribuídas ao projeto pelo mesmo rateio que calculou o custo. Em um grupo, soma a apropriação das missões.">Horas apropriadas</HelpTip>
+                      </th>
+                      <th style={{ textAlign: 'right' }}>
+                        <HelpTip help="Parcela do custo total do colaborador atribuída ao projeto no período do ponto.">Custo apropriado</HelpTip>
+                      </th>
+                      <th style={{ textAlign: 'right' }}>
+                        <HelpTip help="Custo apropriado dividido pelas horas apropriadas. Por isso este valor pode variar entre colaboradores com salários-base próximos.">Custo efetivo/h</HelpTip>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.colaboradores.map((c, i) => (
+                      <tr key={i}>
+                        <td>{c.name}</td>
+                        <td data-label="Cargo">{c.role}</td>
+                        <td data-label="Horas apropriadas" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtHours(c.horasApropriadas)}</td>
+                        <td data-label="Custo apropriado" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{brl(c.custo)}</td>
+                        <td data-label="Custo efetivo/h" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {c.custoHora != null ? `${brl(c.custoHora)}/h` : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <details className="acp-det-collab-audit">
+                <summary className="acp-det-collabs-summary">Conferir jornada dos relatórios</summary>
+                <p className="acp-det-collab-audit-copy">
+                  {isGroup
+                    ? 'Esta jornada vem dos RDOs e não é usada para calcular o custo. O total sem sobreposição considera, em cada data, a maior jornada lançada entre as missões mescladas.'
+                    : 'Esta jornada vem dos RDOs e não é usada para calcular o custo.'}
+                </p>
+                <div className="acp-table-wrap">
+                  <table className="acp-table acp-det-collab-audit-table">
+                    <thead>
+                      <tr>
+                        <th>Nome</th>
+                        <th style={{ textAlign: 'right' }}>{isGroup ? 'Jornada sem sobreposição' : 'Jornada dos relatórios'}</th>
+                        {isGroup ? <th style={{ textAlign: 'right' }}>Soma por missão</th> : null}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.colaboradores.map((c, i) => (
+                        <tr key={i}>
+                          <td>{c.name}</td>
+                          <td data-label={isGroup ? 'Sem sobreposição' : 'Jornada dos relatórios'} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtHours(c.horas)}</td>
+                          {isGroup ? (
+                            <td data-label="Soma por missão" style={{ textAlign: 'right' }}>
+                              <span className={c.sobreposicaoHoras > 0 ? 'acp-det-collab-overlap' : undefined}>{fmtHours(c.horasLancadas)}</span>
+                              {c.sobreposicaoHoras > 0 ? (
+                                <small className="acp-det-collab-overlap-note">{fmtHours(c.sobreposicaoHoras)} em sobreposição</small>
+                              ) : null}
+                            </td>
+                          ) : null}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             </div>
           )}
         </details>
