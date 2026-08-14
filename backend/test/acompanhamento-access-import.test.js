@@ -11,6 +11,7 @@ import {
   mapProposalRow,
   parentProposalCodeFromRow,
   refreshSelectedProjectBudgetsFromProposals,
+  setProjectBudgetRevisionWithClient,
   shouldRecordManualProgressHistory,
   toCnpj,
   toDate,
@@ -19,7 +20,50 @@ import {
   toStr
 } from '../src/lib/acompanhamento/access-import.js';
 
-test('contractToProposalCode extrai a primeira parte numérica do contrato', () => {
+test('setProjectBudgetRevisionWithClient reutiliza a seleção manual com um client transacional injetado', async () => {
+  const calls = [];
+  const proposal = {
+    codBd: 9902,
+    codProp: 3088,
+    parentCodProp: null,
+    serviceModality: 'INLOCO',
+    salePrice: 1000,
+    plannedCost: 600,
+    expectedProfit: 400,
+    expectedMargin: 40,
+    taxes: 100,
+    plannedDays: 5,
+    mobilizationLeadDays: 2,
+    isComplete: true
+  };
+  const transactionClient = {
+    commercialProposal: {
+      async findUnique() { return proposal; }
+    },
+    project: {
+      async findUnique() {
+        return { id: 'project-1', contractCode: '3088 Rev. 2', code: '005719' };
+      },
+      async update(args) {
+        calls.push(['projectUpdate', args]);
+      }
+    },
+    projectBudget: {
+      async upsert(args) {
+        calls.push(['budgetUpsert', args]);
+        return { sourceProposalCodBd: proposal.codBd };
+      }
+    }
+  };
+
+  const budget = await setProjectBudgetRevisionWithClient(transactionClient, 'project-1', 9902);
+
+  assert.equal(budget.sourceProposalCodBd, 9902);
+  assert.equal(calls.find(([name]) => name === 'budgetUpsert')[1].create.sourceProposalCodBd, 9902);
+  assert.equal(calls.find(([name]) => name === 'projectUpdate')[1].data.commercialProposalCode, '3088');
+});
+
+test('contractToProposalCode extrai a primeira parte numérica da proposta persistida', () => {
   assert.equal(contractToProposalCode('4096 - Rev. 1'), 4096);
   assert.equal(contractToProposalCode('4096'), 4096);
   assert.equal(contractToProposalCode(' 4096 '), 4096);

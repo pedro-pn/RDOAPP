@@ -96,7 +96,13 @@ import {
   type SurveyQuestionDraft
 } from './gestorSurveyHelpers';
 import { commercialPendenciaAlertText, commercialPendenciaMapByProject, pendingCommercialProposalCountForProjects } from './commercialPendencias';
+import { PendingProjectReviewForm } from './PendingProjectReviewForm';
+import { ProjectIntakeWebhookNovelty } from './ProjectIntakeWebhookNovelty';
 import { ProjectTabPendingBadges } from './ProjectTabPendingBadges';
+import {
+  automaticProjectReviewMessage, formatProjectSequences, partitionProjectsByRegistration, pendingProjectRegistrationMessage,
+  projectRegistrationPending, projectSearchParts, projectTitle, projectVisibilityLabel
+} from './projectPendingReview';
 
 type GestorTab =
   | 'pendentes'
@@ -506,26 +512,6 @@ function initials(name: string) {
     .toUpperCase() || 'CL';
 }
 
-function projectSearchParts(project: Project) {
-  return [
-    project.code,
-    project.name,
-    project.registrationPending ? 'cadastro pendente' : '',
-    project.clientName,
-    project.clientCnpj,
-    project.clientEmailPrimary,
-    project.clientSignerFirstName,
-    project.clientSignerLastName,
-    ...(project.clientEmailCc || []),
-    ...(project.clientSigners || []).flatMap(signer => [signer.name, signer.firstName, signer.lastName, signer.email]),
-    project.contractCode,
-    project.location,
-    project.operator?.name,
-    projectVisibilityLabel(project),
-    formatProjectSequences(project)
-  ];
-}
-
 function collaboratorSearchParts(collaborator: Collaborator) {
   return [collaborator.code, collaborator.name, collaborator.role, collaborator.email];
 }
@@ -563,32 +549,9 @@ function formatPrimaryProjectSigner(project: Project) {
   return name || 'Não informado';
 }
 
-function formatProjectSequences(project: Project) {
-  const sequences = project.reportSequences || [];
-  if (!sequences.length) return 'Sem sequenciais cadastrados';
-  return sequences
-    .map(sequence => `${sequence.reportType}: próximo ${sequence.nextNumber}`)
-    .join(', ');
-}
-
 function projectVisibilityMode(form: Pick<ProjectFormState, 'managerOnly' | 'visibleToCollaborators'>): ProjectVisibilityMode {
   if (form.managerOnly) return 'manager-only';
   return form.visibleToCollaborators ? 'all-authorized' : 'manager-coordinator';
-}
-
-function projectVisibilityLabel(project: Pick<Project, 'managerOnly' | 'visibleToCollaborators'>) {
-  if (project.managerOnly) return 'Somente gestor';
-  if (project.visibleToCollaborators) return 'Gestor, coordenador e colaboradores responsáveis';
-  return 'Gestor e coordenador';
-}
-
-function projectRegistrationPending(project: Project) {
-  return Boolean(project.registrationPending);
-}
-
-function projectTitle(project: Project) {
-  const name = String(project.name || '').trim();
-  return name ? `${project.code} - ${name}` : `Missão ${project.code}`;
 }
 
 function applyProjectVisibilityMode(mode: ProjectVisibilityMode): Pick<ProjectFormState, 'managerOnly' | 'visibleToCollaborators'> {
@@ -1017,7 +980,7 @@ function renderProjectCard(
   const title = projectTitle(project);
   const commercialPendenciaText = options.commercialPendencia ? commercialPendenciaAlertText(options.commercialPendencia) : null;
   return (
-    <article className="card admin-card project-admin-card" key={project.id}>
+    <article className={`card admin-card project-admin-card ${pendingRegistration ? 'project-admin-card-pending' : ''}`} key={project.id}>
       <div className="project-admin-head">
         {options.onToggleReports ? (
           <button className="project-admin-toggle" type="button" onClick={() => options.onToggleReports?.(project)}>
@@ -1036,7 +999,7 @@ function renderProjectCard(
       </div>
       {pendingRegistration ? (
         <div className="project-registration-alert">
-          Projeto criado automaticamente pelo romaneio. Complete o cadastro antes de usar em relatórios, ou exclua se o código não deve permanecer.
+          {automaticProjectReviewMessage(project)}
         </div>
       ) : null}
       {commercialPendenciaText ? (
@@ -1072,8 +1035,12 @@ function renderProjectCard(
             <span className="det-val">{formatProjectSigners(project.clientSigners)}</span>
           </div>
           <div className="det-row">
-            <span className="det-label">Contrato</span>
+            <span className="det-label">Proposta</span>
             <span className="det-val">{project.contractCode || '-'}</span>
+          </div>
+          <div className="det-row">
+            <span className="det-label">Local</span>
+            <span className="det-val">{project.location || '-'}</span>
           </div>
           {options.commercialPendencia ? <ProjectRevisionPicker projectId={project.id} /> : null}
           <div className="det-row">
@@ -1103,8 +1070,13 @@ function renderProjectCard(
         <button className="mini-btn alt" type="button" onClick={() => options.onToggleArchive(project)}>
           {project.isActive ? 'Arquivar' : 'Desarquivar'}
         </button>
-        <button className="mini-btn alt" type="button" onClick={() => options.onEdit(project)}>
-          Editar
+        <button
+          className="mini-btn alt"
+          type="button"
+          aria-label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar'}: ${title}`}
+          onClick={() => options.onEdit(project)}
+        >
+          {pendingRegistration ? 'Revisar cadastro' : 'Editar'}
         </button>
         {options.onRemove ? (
           <button className="mini-btn danger" type="button" onClick={() => options.onRemove?.(project)}>
@@ -3018,9 +2990,9 @@ export function GestorPage() {
   function renderProjectsTab() {
     const allActiveProjects = (activeProjectsQuery.data || [])
       .filter(project => project.isActive !== false);
-    const pendingRegistrationProjects = allActiveProjects.filter(projectRegistrationPending);
-    const activeProjects = allActiveProjects
-      .filter(project => !projectRegistrationPending(project))
+    const projectRegistrationGroups = partitionProjectsByRegistration(allActiveProjects);
+    const pendingRegistrationProjects = projectRegistrationGroups.pending;
+    const activeProjects = projectRegistrationGroups.ready
       .filter(project => matchesSearch(projectSearchParts(project), gestorSearch));
 
     if (activeProjectsQuery.isLoading) {
@@ -3030,6 +3002,22 @@ export function GestorPage() {
     const renderEditableProjectCard = (project: Project) => renderProjectCard(project, {
       commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
       children: projectEditingId === project.id ? (
+        projectRegistrationPending(project) ? (
+          <PendingProjectReviewForm
+            project={project}
+            saving={projectMutations.updateProject.isPending}
+            onCancel={resetProjectForm}
+            onSubmit={async payload => {
+              try {
+                await projectMutations.updateProject.mutateAsync({ id: project.id, payload });
+                showToast('Projeto verificado e liberado.', 'success');
+                resetProjectForm();
+              } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Não foi possível confirmar o projeto.', 'error');
+              }
+            }}
+          />
+        ) : (
         <form className="admin-inline-form admin-inline-grid" onSubmit={handleProjectSubmit}>
             <div className="field-group">
               <label htmlFor={`project-code-${project.id}`}>Número da missão</label>
@@ -3049,7 +3037,7 @@ export function GestorPage() {
             </div>
             <ProjectClientFields form={projectForm} idPrefix={`project-${project.id}`} setForm={setProjectForm} />
             <div className="field-group">
-              <label htmlFor={`project-contract-${project.id}`}>Contrato</label>
+              <label htmlFor={`project-contract-${project.id}`}>Proposta</label>
               <input id={`project-contract-${project.id}`} value={projectForm.contractCode} onChange={event => setProjectForm(current => ({ ...current, contractCode: event.target.value }))} />
             </div>
             <div className="field-group">
@@ -3149,6 +3137,7 @@ export function GestorPage() {
               <button className="mini-btn alt" type="button" onClick={resetProjectForm}>Cancelar edição</button>
             </div>
         </form>
+        )
       ) : null,
       onEdit: item => {
         setProjectEditingId(item.id);
@@ -3211,7 +3200,7 @@ export function GestorPage() {
                 </div>
                 <ProjectClientFields form={projectForm} idPrefix="project" setForm={setProjectForm} />
                 <div className="field-group">
-                  <label htmlFor="project-contract">Contrato</label>
+                  <label htmlFor="project-contract">Proposta</label>
                   <input id="project-contract" value={projectForm.contractCode} onChange={event => setProjectForm(current => ({ ...current, contractCode: event.target.value }))} />
                 </div>
                 <div className="field-group">
@@ -3315,16 +3304,19 @@ export function GestorPage() {
         </section>
 
         {pendingRegistrationProjects.length ? (
-          <div className="project-registration-fixed-block">
-            <div className="project-registration-alert project-registration-alert-panel">
-              {pendingRegistrationProjects.length === 1
-                ? 'Há 1 projeto criado pelo romaneio aguardando conclusão do cadastro.'
-                : `Há ${pendingRegistrationProjects.length} projetos criados pelo romaneio aguardando conclusão do cadastro.`}
+          <section
+            className="project-registration-fixed-block"
+            aria-labelledby="pending-project-registration-title"
+            data-project-intake-pending
+          >
+            <h2 className="section-title" id="pending-project-registration-title">Projetos aguardando revisão</h2>
+            <div className="project-registration-alert project-registration-alert-panel" role="status" aria-live="polite">
+              {pendingProjectRegistrationMessage(pendingRegistrationProjects)}
             </div>
             <div className="admin-stack">
               {sortProjects(pendingRegistrationProjects, projectSortDir).map(renderEditableProjectCard)}
             </div>
-          </div>
+          </section>
         ) : null}
 
         {activeProjects.length ? (
@@ -4319,6 +4311,11 @@ export function GestorPage() {
         {renderGestorSearch()}
         {renderTabContent()}
       </main>
+
+      <ProjectIntakeWebhookNovelty
+        user={user}
+        enabled={tab === 'projetos' && pendingProjectRegistrationCount > 0}
+      />
 
       {renderManualReportModal()}
 

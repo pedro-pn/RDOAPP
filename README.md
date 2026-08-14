@@ -303,6 +303,7 @@ O acesso é organizado por **módulo** e **papel dentro do módulo** (`ModuleRol
 
 - **Omie**: sincronização periódica de contas a pagar/receber, categorias e projetos para o módulo de Acompanhamento. Habilitada por `OMIE_SYNC_ENABLED` e credenciais `OMIE_APP_KEY` / `OMIE_APP_SECRET`.
 - **Importação comercial**: propostas e projetos importados via endpoint protegido por `COMMERCIAL_IMPORT_TOKEN`.
+- **Webhook de projetos**: recebe número, nome, cliente, CNPJ, `proposalCode`, revisão e local em `POST /api/webhooks/projects`, protegido por `PROJECT_INTAKE_WEBHOOK_TOKEN`. A proposta é exibida como `3088 Rev. 2`; quando a revisão principal já existe na base comercial e ainda não há escolha vigente, ela é selecionada automaticamente. O projeto entra destacado e aguarda verificação manual do cadastro, mantendo disponível a troca manual da revisão. Como a integração ainda não entrou em produção, `contractCode` não é aceito pelo webhook.
 - **Ponto**: importação de espelhos de ponto para cálculo de custo de mão de obra.
 - **Monitoramento operacional**: endpoint `/operations/status` e job de alerta configurável (backup/restore, webhooks) para saúde da stack.
 - **Error tracking**: captura de erros de cliente (`/operations/client-errors`) e provider configurável no backend/frontend.
@@ -452,6 +453,7 @@ Nginx :443 (SSL Let's Encrypt)
 | `SIGNATURE_TOKEN_SECRET` | Sim em produção | Segredo longo e estável para links de assinatura de RDO |
 | `SIGNATURE_TOKEN_SECRET_PREVIOUS` | Não | Segredos antigos aceitos durante rotação de tokens de assinatura |
 | `COMMERCIAL_IMPORT_TOKEN` | Não | Token que protege o endpoint de importação comercial do Acompanhamento |
+| `PROJECT_INTAKE_WEBHOOK_TOKEN` | Não | Token Bearer exclusivo do webhook de projetos; vazio mantém o endpoint desabilitado |
 | `OMIE_APP_KEY` / `OMIE_APP_SECRET` | Não | Credenciais da API Omie |
 | `OMIE_SYNC_ENABLED` | Não | Ativa a sincronização automática com o Omie |
 | `OMIE_SYNC_INTERVAL_MINUTES` | Não | Intervalo entre sincronizações Omie |
@@ -621,6 +623,7 @@ Prefixo base: `/api`. As rotas do módulo de relatórios são servidas tanto sob
 | `GET/PUT` | `/rdo/surveys/questions` · `PATCH /rdo/surveys/:id/follow-up` | Perguntas e follow-up |
 | `GET/POST` | `/rdo/project-segments` | Segmentos de cliente |
 | `GET/POST` | `/acompanhamento/comercial/import` · `/imports` | Importação comercial |
+| `POST` | `/webhooks/projects` | Recebimento autenticado e idempotente de projeto externo para revisão manual |
 | `GET` | `/acompanhamento/comercial/dashboard` · `/projetos-cards` · `/sede` · `/pendencias` | Dashboards do Acompanhamento |
 | `GET/POST/PATCH/DELETE` | `/acompanhamento/comercial/projetos/:id/...` | Detalhe, avanço, cronograma, escopo, custos manuais e revisões |
 | `GET/PUT/POST` | `/acompanhamento/custo/perfis` · `/cargos` · `/config` · `/simular` · `/categorias-omie` | Parâmetros e simulação de custo |

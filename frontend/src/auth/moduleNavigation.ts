@@ -20,6 +20,7 @@ const ACOMPANHAMENTO_REVIEW_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-revi
 const ACOMPANHAMENTO_FINALIZED_SEEN_KEY_PREFIX = 'filtrovali:acompanhamento-finalized-seen:v1:';
 // v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
 const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
+const PROJECT_INTAKE_NOVELTY_KEY_PREFIX = 'filtrovali:project-intake-novelty:v1:';
 
 function storageKey(user: Pick<AuthUser, 'id'>) {
   return `${LAST_MODULE_KEY_PREFIX}${user.id}`;
@@ -290,6 +291,19 @@ export function shouldShowRdoDdsNovelty(user: Pick<AuthUser, 'id'> | null | unde
 export function markRdoDdsNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${RDO_DDS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade do recebimento automático de projetos: 13/08/2026 a 23/08/2026.
+const PROJECT_INTAKE_NOVELTY_EXPIRES_AT = new Date('2026-08-23T23:59:59-03:00');
+
+export function shouldShowProjectIntakeNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user || Date.now() > PROJECT_INTAKE_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${PROJECT_INTAKE_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markProjectIntakeNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${PROJECT_INTAKE_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 export function shouldOpenHubOnFirstLogin(user: AuthUser | null | undefined) {

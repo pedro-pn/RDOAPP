@@ -233,7 +233,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const currentRevision: CommercialRevision | undefined = revisions.find(r => r.codBd === current) ?? undefined;
 
   if (current == null || !currentRevision) {
-    return <div className="placeholder-copy">Aguardando seleção do contrato fechado pela gestão.</div>;
+    return <div className="placeholder-copy">Aguardando seleção da proposta aprovada pela gestão.</div>;
   }
 
   const leadDays = data?.mobilizationLeadDays ?? null;
@@ -371,7 +371,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
 
       <div className="admin-inline-grid" style={{ marginTop: 8 }}>
         <div className="field-group">
-          <label htmlFor={`acp-aprov-${projectId}`}>Aprovação do contrato <HelpTip icon help="Data em que o contrato/proposta foi aprovado pelo cliente. Base para o prazo de mobilização." /></label>
+          <label htmlFor={`acp-aprov-${projectId}`}>Aprovação da proposta <HelpTip icon help="Data em que a proposta foi aprovada pelo cliente. Base para o prazo de mobilização." /></label>
           <input id={`acp-aprov-${projectId}`} type="date" value={approvalValue} onChange={e => setApprovalEdit(e.target.value)} />
         </div>
         <div className="field-group">

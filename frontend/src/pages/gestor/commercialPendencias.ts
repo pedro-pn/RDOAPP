@@ -33,5 +33,5 @@ export function commercialPendenciaAlertText(pendencia: CommercialPendencia) {
   const pendingAdditional = Math.max(0, Number(pendencia.pendingAdditionalProposalCount ?? 0));
   if (pendingAdditional > 0) details.push(`${pendingAdditional} adicional${pluralSuffix(pendingAdditional, 'is')}`);
   const detailText = details.length ? ` (${details.join(' + ')})` : '';
-  return `Há ${pendingCount} proposta${pluralSuffix(pendingCount)} comercial${pluralSuffix(pendingCount, 'is')} pendente${pluralSuffix(pendingCount)} para o contrato ${pendencia.proposalCode}${detailText}. Abra os detalhes e escolha as revisões que valem para esta missão.`;
+  return `Há ${pendingCount} proposta${pluralSuffix(pendingCount)} comercial${pluralSuffix(pendingCount, 'is')} pendente${pluralSuffix(pendingCount)} para a proposta ${pendencia.proposalCode}${detailText}. Abra os detalhes e escolha as revisões que valem para esta missão.`;
 }
