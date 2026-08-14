@@ -58,6 +58,15 @@ export function indisponivel(biblioteca = bibliotecaDoAmbiente()) {
     return `Integração Microsoft pendente: ${faltando.join(', ')} não configurado(s).`;
   }
 
+  // **A pasta é obrigatória no modo real, e a checagem existe por causa do que
+  // acontece sem ela**: `garantirPastas` cria o caminho que falta, então um
+  // valor vazio ou esquecido não daria erro — gravaria as propostas na raiz da
+  // biblioteca do cliente, ou numa pasta inventada, e ninguém procuraria ali.
+  // É a única contenção que não depende da Microsoft.
+  if (!env.sharepointBaseFolder.trim()) {
+    return 'SHAREPOINT_BASE_FOLDER não configurado: sem ele as propostas seriam gravadas na raiz da biblioteca.';
+  }
+
   // O destino aceita três formas, e basta uma. Cobrar hostname + caminho de quem
   // configurou o `DRIVE_ID` faria a instalação de menor privilégio — a que não
   // pode descobrir site — parecer incompleta.

@@ -218,7 +218,13 @@ app procurar o site, que e uma operacao de descoberta e pode voltar `403`.
 **`SHAREPOINT_BASE_FOLDER` e a unica contencao que nao depende da Microsoft.**
 Tudo e criado dentro dela, e **ela e criada se nao existir** — um caminho errado
 nao da erro, cria uma pasta nova onde ninguem procura. Confira que o caminho
-existe antes.
+existe antes, com a barra e os espacos exatamente como aparecem no SharePoint.
+
+Ela **nao tem valor padrao** (mudado em 14/08): com `SHAREPOINT_MODE=real` e a
+variavel vazia, o envio **recusa** com o motivo, em vez de gravar na raiz da
+biblioteca. Antes havia um padrao — `02 - Comercial/Projetos em cotacao` —, que
+nao existe no tenant: esquecer a variavel criaria essa pasta na biblioteca do
+cliente e gravaria as propostas la dentro, sem erro nenhum.
 
 Na primeira vez, aponte para uma pasta de descarte (`teste`), emita uma proposta,
 veja os arquivos chegarem, e so entao troque para a pasta real.

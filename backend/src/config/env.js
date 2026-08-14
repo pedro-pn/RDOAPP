@@ -216,7 +216,17 @@ const rawEnvSchema = z.object({
    * Microsoft. Apontar o ambiente de teste para outra mantém o erro de código
    * longe da pasta onde o comercial trabalha.
    */
-  SHAREPOINT_BASE_FOLDER: stringWithDefault('02 - Comercial/Projetos em cotação'),
+  /**
+   * A pasta onde as propostas são gravadas, dentro da biblioteca.
+   *
+   * **Sem valor padrão, de propósito.** Havia um — `02 - Comercial/Projetos em
+   * cotação` —, e ele era perigoso por três coisas que se somam: o caminho não
+   * existe no tenant real, `garantirPastas` **cria** o que falta, e nada
+   * verificava a variável. Esquecer de configurá-la em produção não daria erro:
+   * criaria uma pasta inventada na biblioteca do cliente e gravaria as
+   * propostas lá dentro, caladamente. Com `real` e sem valor, agora recusa.
+   */
+  SHAREPOINT_BASE_FOLDER: stringWithDefault(''),
 
   /**
    * Cálculo automático da distância sede → obra (Google Maps).

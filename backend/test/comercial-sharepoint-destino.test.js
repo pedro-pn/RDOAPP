@@ -179,3 +179,28 @@ test('hostname sem caminho não é destino', () => {
   const motivo = indisponivel({ driveId: '', siteId: '', hostname: 'x.sharepoint.com', sitePath: '' });
   assert.match(motivo, /SHAREPOINT_SITE_PATH/);
 });
+
+/**
+ * A pasta base é obrigatória no modo `real`.
+ *
+ * Este teste existe por causa de uma pergunta do mantenedor em 14/08 — "o
+ * base_folder vai no `.env` de produção, correto?" —, que expôs o que
+ * acontecia com a resposta "sim, e esqueci": a variável tinha um valor padrão
+ * (`02 - Comercial/Projetos em cotação`) que **não existe no tenant**,
+ * `garantirPastas` cria o caminho que falta, e `indisponivel()` não a olhava.
+ * Esquecer não daria erro: criaria uma pasta inventada na biblioteca do cliente
+ * e gravaria as propostas dentro dela, caladamente.
+ */
+test('modo real sem SHAREPOINT_BASE_FOLDER recusa, em vez de gravar na raiz', async () => {
+  const semPasta = await import('../src/config/env.js').then(m => m.default);
+  const original = semPasta.sharepointBaseFolder;
+
+  try {
+    semPasta.sharepointBaseFolder = '   ';
+    const motivo = indisponivel({ driveId: 'b!qualquer' });
+    assert.match(motivo, /SHAREPOINT_BASE_FOLDER/);
+    assert.match(motivo, /raiz da biblioteca/);
+  } finally {
+    semPasta.sharepointBaseFolder = original;
+  }
+});
