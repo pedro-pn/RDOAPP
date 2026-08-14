@@ -1,4 +1,5 @@
 import { Field, SelectField } from '../../components/Field';
+import { BuscaDeEmpresa } from '../BuscaDeEmpresa';
 import { formatarCnpj } from '../etapas';
 
 /**
@@ -46,23 +47,11 @@ export function ClienteStep({
         <span className="com-obrigatorios">Campos com * são obrigatórios</span>
       </div>
 
-      {/* Busca no CRM (`PROP-CTL-012..015`). A integração com o Nectar é a T076;
-          até lá o controle existe e diz por que não responde, em vez de tentar,
-          falhar e parecer defeito. */}
-      <div className="com-crm-busca">
-        <input
-          aria-label="Buscar empresa no Nectar"
-          placeholder="Buscar empresa no Nectar..."
-          disabled
-        />
-        <button type="button" disabled title="Integração com o Nectar ainda não ligada">
-          Buscar no CRM
-        </button>
-      </div>
-      <p className="com-nota">
-        A busca no CRM entra junto com a integração do Nectar. Por ora os dados do
-        cliente são digitados.
-      </p>
+      {/* Busca no CRM (`PROP-CTL-012..015`, T121a). Ligada em 14/08. O controle
+          esteve desabilitado enquanto a integração não existia; agora ela existe,
+          e é por aqui que `companyId` e `contactId` entram — sem eles a
+          finalização recusa, e digitar o nome à mão nunca os produziria. */}
+      <BuscaDeEmpresa onEscolher={editar} />
 
       <div className="com-form-grid">
         <SelectField

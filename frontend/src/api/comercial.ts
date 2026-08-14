@@ -578,6 +578,64 @@ export async function sugerirEnderecos(termo: string, signal?: AbortSignal) {
   return data;
 }
 
+/** Uma pessoa dentro da empresa do CRM. */
+export type ContatoCrm = {
+  id: string;
+  nome: string;
+  email: string;
+  departamento: string;
+};
+
+/** Uma empresa do CRM, como a busca a devolve. */
+export type EmpresaCrm = {
+  id: string;
+  nome: string;
+  cnpj: string;
+  site: string;
+  contatos: ContatoCrm[];
+};
+
+export type BuscaDeEmpresas = {
+  items: EmpresaCrm[];
+  /**
+   * `false` quando o índice do espelho ainda não existe — e aí a busca só casa
+   * pelo **começo** do nome, porque é só isso que a API do Nectar faz (T123).
+   * A tela precisa dizer isso: sem o aviso, quem procura "brasileiro" e não acha
+   * a Petrobras conclui que a empresa não está no CRM.
+   */
+  porTrechoDisponivel: boolean;
+  /** O índice está sendo construído agora; a próxima busca já pega por trecho. */
+  indiceEmPreparo: boolean;
+};
+
+/**
+ * Busca empresa no CRM pelo nome (T121a).
+ *
+ * **Nunca cai em cima da digitação**: o `signal` cancela a busca anterior. Sem
+ * isso, respostas fora de ordem pintam a lista com o resultado de um termo que
+ * o usuário já apagou.
+ */
+export async function buscarEmpresasCrm(busca: string, signal?: AbortSignal) {
+  const { data } = await apiClient.get<BuscaDeEmpresas>('/comercial/crm/empresas', {
+    params: { busca },
+    signal
+  });
+  return data;
+}
+
+/**
+ * A empresa com seus contatos.
+ *
+ * A busca já devolve contatos, mas nem sempre completos — este é o registro
+ * cheio, pedido só quando o vendedor escolhe uma empresa.
+ */
+export async function obterEmpresaCrm(id: string) {
+  const { data } = await apiClient.get<EmpresaCrm>(
+    `/comercial/crm/empresas/${encodeURIComponent(id)}`
+  );
+  return data;
+}
+
 export async function obterConfiguracaoComercial() {
   const { data } = await apiClient.get<ComercialConfiguracao>('/comercial/configuracao');
   return data;

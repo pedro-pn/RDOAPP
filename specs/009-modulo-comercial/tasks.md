@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 154 tarefas fechadas, 27 abertas** (de 181). O contador
+> **Estado em 13/08/2026: 155 tarefas fechadas, 26 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -699,11 +699,31 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   é regra escrita, não acaso: a busca do CRM entrou como **auxílio**, e a empresa
   sem CNPJ **não é escondida** (a referência exigia 14 dígitos e a esconderia). Ver
   T121a para a tela.
-- [ ] T121a **Ligar a busca na etapa Cliente.**  ↳ `FR-075`
-  O backend está pronto —
-  `GET /comercial/crm/empresas?busca=` e `/crm/empresas/:id`. A tela ainda tem o
-  campo desabilitado com o aviso de "integração não ligada". Precisa também
-  **mostrar o aviso** quando `porTrechoDisponivel` vier `false`.
+- [X] T121a **Ligar a busca na etapa Cliente.**  ↳ `FR-075`
+  Feita em 14/08. ↳ `frontend/src/pages/comercial/proposta/BuscaDeEmpresa.tsx`
+  (componente), `buscaDeEmpresa.ts` (as decisões, sem React) e
+  `frontend/test/comercial-busca-empresa.test.mjs`.
+
+  > **Era bloqueio de finalização, não conveniência.** `validarFinalizacao` exige
+  > `companyId` e `contactId`, e a `RevisaoStep` mandava "voltar à etapa Cliente e
+  > selecionar a empresa no Nectar" — recado para uma tela que não tinha como fazer
+  > isso. Digitar o nome à mão nunca produziria o vínculo: o que o CRM precisa é o
+  > **id**. Nenhuma proposta finalizava.
+  >
+  > **O aviso do alcance é o ponto da T123 aparecendo na tela.** Sem o espelho, o
+  > Nectar casa só pelo começo do nome; quem procura "brasileiro", não acha a
+  > Petrobras e não é avisado, conclui que a empresa não está no CRM e cadastra uma
+  > segunda. O aviso traz o exemplo de propósito — "a busca é por prefixo" não diz a
+  > ninguém o que fazer diferente. `indiceEmPreparo` tem mensagem **própria**: ali a
+  > saída é tentar de novo, não mudar o termo.
+  >
+  > **Trocar de empresa apaga o contato.** Manter o da anterior mandaria ao CRM um
+  > vínculo que não existe e ao documento o nome de quem não trabalha lá.
+  >
+  > Os campos seguem digitáveis, como no cálculo de distância: a busca é atalho, e
+  > corrigir o nome na tela não desfaz o vínculo. Integração desligada devolve `503`,
+  > que é caminho normal — o padrão do ambiente é `off` — e a etapa continua
+  > preenchível à mão, como era antes desta tarefa.
 - [X] T122 **Salvamento prévio** — **já feito nas duas camadas**: rascunho local
   com autossalvamento (T089) e gravação no servidor a cada "Salvar e continuar"
   (T054a). Falta autossalvar no servidor; hoje o automático é só local.
