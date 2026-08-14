@@ -180,6 +180,37 @@ export function buildOmieCostPaymentSummary(groups = []) {
   };
 }
 
+export function buildProjectDetailCollaborator({
+  name = '',
+  role = '',
+  rate = null,
+  allocation = null,
+  workedMinutes = 0,
+  workedMinutesByDate = new Map(),
+  includeCollaboratorCosts = false
+} = {}) {
+  const custo = allocation?.cost ?? null;
+  const custoHora = allocation && allocation.hours > 0 ? allocation.cost / allocation.hours : null;
+  const horasRelatorios = minutesToHours(workedMinutes);
+  const horasRelatoriosPorData = [...workedMinutesByDate.entries()]
+    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+    .map(([data, minutes]) => ({ data, horas: minutes / 60 }));
+
+  return {
+    name: name || rate?.name || '—',
+    role: role || rate?.role || '—',
+    // Jornada informada nos RDOs. Em grupos, ela sera deduplicada por pessoa e data.
+    horas: horasRelatorios,
+    horasLancadas: Math.max(0, workedMinutes) / 60,
+    horasApropriadas: allocation?.hours ?? null,
+    sobreposicaoHoras: 0,
+    horasRelatoriosPorData,
+    // Custo é dado sensível (salário): só para gestores.
+    custo: includeCollaboratorCosts ? custo : null,
+    custoHora: includeCollaboratorCosts ? custoHora : null
+  };
+}
+
 // Status do dia a partir do standby agregado vs jornada cheia.
 function dayStatus(standbyMin, journeyMin) {
   if (standbyMin > 0 && journeyMin > 0 && standbyMin >= journeyMin) return 'PARADO';
@@ -305,6 +336,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   let overtimeWorkedMinutesTotal = 0;
   let lastRdoDate = null;
   const workedMinutesByCollaborator = new Map();
+  const workedMinutesByCollaboratorAndDate = new Map();
 
   for (const r of reports) {
     const key = dateKey(r.reportDate);
@@ -320,6 +352,11 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     overtimeWorkedMinutesTotal += metrics.overtimeWorkedMinutes;
     for (const [collaboratorId, minutes] of reportWorkedMinutesByCollaborator(r, dayCollaboratorIds)) {
       workedMinutesByCollaborator.set(collaboratorId, (workedMinutesByCollaborator.get(collaboratorId) || 0) + minutes);
+      if (!workedMinutesByCollaboratorAndDate.has(collaboratorId)) {
+        workedMinutesByCollaboratorAndDate.set(collaboratorId, new Map());
+      }
+      const minutesByDate = workedMinutesByCollaboratorAndDate.get(collaboratorId);
+      minutesByDate.set(key, (minutesByDate.get(key) || 0) + minutes);
     }
 
     const acc = byDay.get(key) || { standbyMin: 0, statusStandbyMin: 0, workedMin: 0, overtimeMin: 0, reportDate: r.reportDate };
@@ -350,17 +387,15 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     if (!collaboratorId || collabMap.has(collaboratorId)) return;
     const rate = ratesById.get(collaboratorId) || null;
     const alloc = rate?.byProject?.[projectId] || null;
-    // Valor gasto com o colaborador NESTA obra (rateado) e o custo/hora dele na obra.
-    const custo = alloc?.cost ?? null;
-    const custoHora = alloc && alloc.hours > 0 ? alloc.cost / alloc.hours : null;
-    collabMap.set(collaboratorId, {
-      name: name || rate?.name || '—',
-      role: role || rate?.role || '—',
-      horas: minutesToHours(workedMinutesByCollaborator.get(collaboratorId) || 0),
-      // Custo é dado sensível (salário): só para gestores.
-      custo: includeCollaboratorCosts ? custo : null,
-      custoHora: includeCollaboratorCosts ? custoHora : null
-    });
+    collabMap.set(collaboratorId, buildProjectDetailCollaborator({
+      name,
+      role,
+      rate,
+      allocation: alloc,
+      workedMinutes: workedMinutesByCollaborator.get(collaboratorId) || 0,
+      workedMinutesByDate: workedMinutesByCollaboratorAndDate.get(collaboratorId) || new Map(),
+      includeCollaboratorCosts
+    }));
   };
   for (const c of collaborators) {
     ensureCollaborator(c.collaboratorId, {

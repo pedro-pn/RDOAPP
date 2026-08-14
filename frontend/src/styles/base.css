@@ -2864,14 +2864,34 @@ a {
 .acp-det-collab-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acp-det-collab-role { color: var(--mu); font-size: 12px; flex: 0 0 auto; }
 .acp-det-collab-rate { color: var(--mu); font-weight: 500; }
-/* Bloco de colaboradores retrátil (nome · cargo · valor gasto). */
+/* Bloco de colaboradores retrátil (apropriação financeira + jornada dos RDOs). */
 .acp-det-collabs-summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--mu); letter-spacing: .02em; list-style: none; user-select: none; }
 .acp-det-collabs-summary::-webkit-details-marker { display: none; }
 .acp-det-collabs-summary::before { content: '▸'; display: inline-block; margin-right: 6px; transition: transform .15s; }
 .acp-det-collabs-details[open] > .acp-det-collabs-summary::before,
 .acp-det-equips-details[open] > .acp-det-collabs-summary::before,
 .acp-proposal-details[open] > .acp-det-collabs-summary::before,
-.acp-det-tax-details[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
+.acp-det-tax-details[open] > .acp-det-collabs-summary::before,
+.acp-det-collab-audit[open] > .acp-det-collabs-summary::before { transform: rotate(90deg); }
+.acp-det-collab-body { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.acp-det-collab-context {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--bg);
+  color: var(--mu);
+  font-size: 12px;
+}
+.acp-det-collab-context strong { color: var(--tx); }
+.acp-det-collab-audit { border-top: 1px solid var(--br); padding-top: 10px; }
+.acp-det-collab-audit-copy { margin: 8px 0; color: var(--mu); font-size: 12px; line-height: 1.45; }
+.acp-det-collab-overlap { color: var(--warning-text); font-weight: 700; }
+.acp-det-collab-overlap-note { display: block; margin-top: 2px; color: var(--warning-text); font-size: 11px; white-space: nowrap; }
+.acp-det-collab-audit-table td:last-child { vertical-align: top; }
 .acp-det-tax-body { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
 .acp-det-tax-summary-value { float: right; color: var(--tx); font-size: 13px; letter-spacing: 0; }
 .acp-det-equips-grid {

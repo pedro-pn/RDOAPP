@@ -615,6 +615,21 @@ export interface ManualProjectCostPayload {
   note?: string | null;
 }
 
+export interface ProjectDetailCollaborator {
+  name: string;
+  role: string;
+  /** Jornada dos RDOs; em grupos, usa o maior lançamento por data para evitar duplicidade entre missões. */
+  horas: number;
+  /** Soma bruta das jornadas de todas as missões, inclusive quando elas se sobrepõem. */
+  horasLancadas: number;
+  /** Horas usadas pelo rateio financeiro do ponto para apropriar o custo ao projeto ou grupo. */
+  horasApropriadas: number | null;
+  sobreposicaoHoras: number;
+  horasRelatoriosPorData: Array<{ data: string; horas: number }>;
+  custo: number | null;
+  custoHora: number | null;
+}
+
 export interface ProjectDetail {
   group?: {
     id: string;
@@ -664,7 +679,7 @@ export interface ProjectDetail {
   standby: { count: number; minutes: number };
   ultimosDias: Array<{ date: string; status: DayStatus; workedMinutes: number; standbyMinutes: number }>;
   overtimeMinutes: number;
-  colaboradores: Array<{ name: string; role: string; horas: number; custo: number | null; custoHora: number | null }>;
+  colaboradores: ProjectDetailCollaborator[];
   equipamentos: Array<{ name: string; days: number; since: string }>;
   plannedScope?: PlannedScope;
   footer: {

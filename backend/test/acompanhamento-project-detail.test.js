@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildOmieCostPaymentSummary, buildPlannedRoleCounts } from '../src/lib/acompanhamento/project-detail.js';
+import {
+  buildOmieCostPaymentSummary,
+  buildPlannedRoleCounts,
+  buildProjectDetailCollaborator
+} from '../src/lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../src/lib/acompanhamento/salary.js';
 
 test('isSalaryCategory: reconhece categorias de folha/mão de obra (acentos e caixa)', () => {
@@ -81,6 +85,49 @@ test('buildPlannedRoleCounts omite cargos previstos sem colaborador corresponden
   );
 
   assert.deepEqual(out, []);
+});
+
+test('buildProjectDetailCollaborator separa apropriação financeira da jornada dos RDOs', () => {
+  const result = buildProjectDetailCollaborator({
+    name: 'Ana',
+    role: 'Operadora',
+    allocation: { cost: 212.5, hours: 4.25 },
+    workedMinutes: 630,
+    workedMinutesByDate: new Map([
+      ['2026-07-17', 150],
+      ['2026-07-16', 480]
+    ]),
+    includeCollaboratorCosts: true
+  });
+
+  assert.deepEqual(result, {
+    name: 'Ana',
+    role: 'Operadora',
+    horas: 10.5,
+    horasLancadas: 10.5,
+    horasApropriadas: 4.25,
+    sobreposicaoHoras: 0,
+    horasRelatoriosPorData: [
+      { data: '2026-07-16', horas: 8 },
+      { data: '2026-07-17', horas: 2.5 }
+    ],
+    custo: 212.5,
+    custoHora: 50
+  });
+});
+
+test('buildProjectDetailCollaborator oculta valores financeiros sem ocultar as horas apropriadas', () => {
+  const result = buildProjectDetailCollaborator({
+    rate: { name: 'Carlos', role: 'Assistente' },
+    allocation: { cost: 180, hours: 6 },
+    includeCollaboratorCosts: false
+  });
+
+  assert.equal(result.name, 'Carlos');
+  assert.equal(result.role, 'Assistente');
+  assert.equal(result.horasApropriadas, 6);
+  assert.equal(result.custo, null);
+  assert.equal(result.custoHora, null);
 });
 
 test('buildOmieCostPaymentSummary separa pago de títulos previstos a pagar', () => {

@@ -161,18 +161,56 @@ function combineCollaborators(details) {
       const existing = byPerson.get(key) ?? {
         name,
         role,
-        horas: 0,
+        horasLancadas: 0,
+        horasApropriadas: null,
+        horasRelatoriosPorData: new Map(),
         custo: null,
         custoHora: null
       };
-      existing.horas += toNumber(item.horas) ?? 0;
+      existing.horasLancadas += toNumber(item.horasLancadas) ?? toNumber(item.horas) ?? 0;
+      const horasApropriadas = toNumber(item.horasApropriadas);
+      if (horasApropriadas !== null) {
+        existing.horasApropriadas = (existing.horasApropriadas ?? 0) + horasApropriadas;
+      }
+      for (const day of item.horasRelatoriosPorData ?? []) {
+        if (!day?.data) continue;
+        const horas = toNumber(day.horas) ?? 0;
+        existing.horasRelatoriosPorData.set(
+          day.data,
+          Math.max(existing.horasRelatoriosPorData.get(day.data) ?? 0, horas)
+        );
+      }
       const cost = toNumber(item.custo);
       if (cost !== null) existing.custo = round2((existing.custo ?? 0) + cost);
       byPerson.set(key, existing);
     }
   }
   return Array.from(byPerson.values())
-    .map(item => ({ ...item, horas: round1(item.horas) }))
+    .map(item => {
+      const horasRelatoriosPorData = [...item.horasRelatoriosPorData.entries()]
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+        .map(([data, horas]) => ({ data, horas }));
+      const horasSemSobreposicao = horasRelatoriosPorData.length
+        ? horasRelatoriosPorData.reduce((sum, day) => sum + day.horas, 0)
+        : item.horasLancadas;
+      const horasLancadas = round1(item.horasLancadas);
+      const horas = round1(horasSemSobreposicao);
+      const sobreposicaoHoras = round1(Math.max(0, item.horasLancadas - horasSemSobreposicao));
+      const custoHora = item.custo !== null && item.horasApropriadas > 0
+        ? item.custo / item.horasApropriadas
+        : null;
+      return {
+        name: item.name,
+        role: item.role,
+        horas,
+        horasLancadas,
+        horasApropriadas: item.horasApropriadas,
+        sobreposicaoHoras,
+        horasRelatoriosPorData,
+        custo: item.custo,
+        custoHora
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 
