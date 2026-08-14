@@ -6,6 +6,7 @@ import {
 } from '../../../../../../shared/comercial/dist/scope-content.js';
 import { Area, Field } from '../../components/Field';
 import { ScopeContentEditor } from './ScopeContentEditor';
+import { useReordenacao } from '../useReordenacao';
 
 /**
  * Etapa 2 — Escopo comum (`PROP-CTL-026..033` e `113..128`).
@@ -53,6 +54,16 @@ export function EscopoStep({
 }: Props) {
   const noLimite = itens.length >= MAX_SCOPE_SERVICE_ITEMS;
 
+  const reordenar = useReordenacao({
+    itens,
+    aoReordenar: proximos => onItens(() => proximos),
+    idDe: item => item.id,
+    seletorDaLinha: '.com-escopo-card',
+    // Com um item só não há para onde arrastar, e a alça acesa prometeria
+    // um gesto que não faz nada.
+    desligado: itens.length < 2
+  });
+
   return (
     <section className="com-painel">
       <div className="com-secao-titulo">
@@ -93,7 +104,15 @@ export function EscopoStep({
       </div>
 
       {itens.map((item, indice) => (
-        <article className="com-fase-card com-escopo-card" key={item.id}>
+        <article
+          className={
+            reordenar.idArrastado === item.id
+              ? 'com-fase-card com-escopo-card drag-placeholder'
+              : 'com-fase-card com-escopo-card'
+          }
+          key={item.id}
+          {...reordenar.propsDaLinha(item.id)}
+        >
           <header className="com-fase-card-topo">
             <div className="com-escopo-numero">
               <b aria-hidden="true">2.{indice + 1}</b>
@@ -103,6 +122,17 @@ export function EscopoStep({
               </div>
             </div>
             <div className="com-fase-acoes">
+              {/* A alça é o gesto novo (L2); as setas ficam ao lado, que é o
+                  desvio nº 6 — arrastar é acréscimo, não substituição, e o
+                  teclado precisa de um caminho. */}
+              <span
+                className="com-alca"
+                role="button"
+                tabIndex={-1}
+                {...reordenar.propsDaAlca(item.id, `serviço ${indice + 1}`)}
+              >
+                ⠿
+              </span>
               <button
                 type="button"
                 className="com-btn com-btn-fantasma"

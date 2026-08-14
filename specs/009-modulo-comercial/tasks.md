@@ -14,7 +14,7 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 13/08/2026: 155 tarefas fechadas, 26 abertas** (de 181). O contador
+> **Estado em 13/08/2026: 159 tarefas fechadas, 22 abertas** (de 181). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
@@ -418,10 +418,39 @@ da finalização.
 
 ### L2 — reordenação
 
-- [ ] T068 [US2] **(L2)** Aplicar `frontend/src/utils/reorderDrag.ts` (auditado em T001) às **três** listas reordenáveis — itens de serviço do escopo, serviços técnicos e **blocos de conteúdo do `ScopeContentEditor` (T058a)** —, com alça dedicada, reordenação ao vivo, espaço indicando o destino, fantasma, cancelar restaurando a ordem inicial e persistência só ao soltar.  ↳ `FR-015` `FR-052`
-- [ ] T069 [US2] **(L2)** Garantir o funcionamento em toque de `frontend/src/utils/reorderDrag.ts` nas três listas, via Pointer Events com `touch-action: none`.  ↳ `FR-016`
-- [ ] T070 [US2] **(L2)** **Manter os botões ↑/↓** ao lado da alça em `frontend/src/pages/comercial/proposta/steps/EscopoStep.tsx` e `TecnicaStep.tsx`, com `aria-label`, como caminho de teclado — `PROP-CTL-029`, `PROP-CTL-030` e equivalentes. O desvio nº 6 é **acréscimo puro**: nenhum controle da referência é removido.  ↳ `FR-017`
-- [ ] T071 [US2] [P] Escrever `frontend/test/comercial-reorder.test.mjs` cobrindo o padrão compartilhado e o cancelamento.
+- [X] T068 [US2] **(L2)** Aplicar `frontend/src/utils/reorderDrag.ts` (auditado em T001) às **três** listas reordenáveis — itens de serviço do escopo, serviços técnicos e **blocos de conteúdo do `ScopeContentEditor` (T058a)** —, com alça dedicada, reordenação ao vivo, espaço indicando o destino, fantasma, cancelar restaurando a ordem inicial e persistência só ao soltar.  ↳ `FR-015` `FR-052`
+- [X] T069 [US2] **(L2)** Garantir o funcionamento em toque de `frontend/src/utils/reorderDrag.ts` nas três listas, via Pointer Events com `touch-action: none`.  ↳ `FR-016`
+- [X] T070 [US2] **(L2)** **Manter os botões ↑/↓** ao lado da alça em `frontend/src/pages/comercial/proposta/steps/EscopoStep.tsx` e `TecnicaStep.tsx`, com `aria-label`, como caminho de teclado — `PROP-CTL-029`, `PROP-CTL-030` e equivalentes. O desvio nº 6 é **acréscimo puro**: nenhum controle da referência é removido.  ↳ `FR-017`
+- [X] T071 [US2] [P] Escrever `frontend/test/comercial-reorder.test.mjs` cobrindo o padrão compartilhado e o cancelamento.
+
+  > **As quatro juntas, em 14/08.** O `utils/reorderDrag.ts` foi auditado na T001 e
+  > aprovado sem dívida, mas ele é um **kit**: a auditoria listou as três peças que ele
+  > não dá — alça com `aria-label`, placeholder e cancelamento que restaura. Elas viraram
+  > `proposta/useReordenacao.ts`, **uma vez e não três**. O `QualityNaturesTab`, que é o
+  > uso mais maduro do repositório, monta tudo inline em ~90 linhas; repetir isso nas
+  > três listas garantiria que divergissem, e a que divergiria em silêncio é justamente
+  > o cancelamento.
+  >
+  > **`Escape` além de `pointercancel`**, como a auditoria pediu nominalmente: quem usa
+  > as setas ↑/↓ — que ficam, desvio nº 6 — é quem vai tentar `Escape` no meio do arrasto.
+  >
+  > **A T069 mora numa linha de CSS.** `touch-action: none` na alça: sem ela o navegador
+  > entende o primeiro movimento do dedo como rolagem, engole o `pointermove`, e o
+  > arrasto não acontece no celular **sem erro nenhum**.
+  >
+  > **Duas armadilhas apareceram ao ligar as listas.** (1) Os blocos de conteúdo de
+  > todos os serviços vivem num array só, e escrever a ordem local por cima dele
+  > embaralharia os blocos dos outros serviços — `aplicarOrdemLocal` reocupa as posições
+  > globais que aqueles blocos já ocupavam. É a mesma armadilha que a `moverBloco` já
+  > tratava, chegando por outro caminho. (2) `.drag-placeholder` do `base.css` é
+  > **escopado por classe de cartão**: sem declarar a regra para cada lista, o arrasto
+  > funciona e o destino não aparece.
+  >
+  > **O teste começou fraco e foi refeito.** A primeira versão lia o código-fonte com
+  > regex — passaria com a restauração quebrada. A sessão de arrasto saiu para
+  > `sessaoDeArrasto.ts`, sem React, e agora o cancelamento é exercitado de verdade:
+  > arrastar por várias posições e cancelar volta à ordem do **início**, não à de um
+  > passo atrás.
 
 **Checkpoint**: US2 entregável — monta proposta completa, sem finalizar.
 

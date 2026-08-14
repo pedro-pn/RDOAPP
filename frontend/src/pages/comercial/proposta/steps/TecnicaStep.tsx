@@ -11,6 +11,7 @@ import {
 } from '../../../../../../shared/comercial/dist/technical-services.js';
 import { AvisoPendencia } from '../../custos/ConfirmacaoEscopo';
 import { Area, Field, SelectField } from '../../components/Field';
+import { useReordenacao } from '../useReordenacao';
 
 /**
  * Etapa 5 — Serviços da proposta técnica (`PROP-CTL-049..057` e `098..112`).
@@ -79,6 +80,14 @@ export function TecnicaStep({
   mostrarErros
 }: Props) {
   const escolhidos = new Set(selecoes.map(item => item.serviceId));
+
+  const reordenar = useReordenacao({
+    itens: selecoes,
+    aoReordenar: proximos => onSelecoes(() => proximos),
+    idDe: item => item.instanceId,
+    seletorDaLinha: '.com-tecnica-card',
+    desligado: selecoes.length < 2
+  });
 
   /**
    * O erro de um campo de um cartão — vazio enquanto o vendedor não tentou
@@ -197,7 +206,15 @@ export function TecnicaStep({
           definicao.asksOilType;
 
         return (
-          <article className="com-fase-card" key={selecao.instanceId}>
+          <article
+            className={
+              reordenar.idArrastado === selecao.instanceId
+                ? 'com-fase-card com-tecnica-card drag-placeholder'
+                : 'com-fase-card com-tecnica-card'
+            }
+            key={selecao.instanceId}
+            {...reordenar.propsDaLinha(selecao.instanceId)}
+          >
             <header className="com-fase-card-topo">
               <div className="com-escopo-numero">
                 <b aria-hidden="true">7.{indice + 1}</b>
@@ -210,6 +227,14 @@ export function TecnicaStep({
                 </div>
               </div>
               <div className="com-fase-acoes">
+                <span
+                  className="com-alca"
+                  role="button"
+                  tabIndex={-1}
+                  {...reordenar.propsDaAlca(selecao.instanceId, selecao.title)}
+                >
+                  ⠿
+                </span>
                 <button
                   type="button"
                   className="com-btn com-btn-fantasma"

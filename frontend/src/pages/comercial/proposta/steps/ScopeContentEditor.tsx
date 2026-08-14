@@ -14,6 +14,7 @@ import {
 } from '../../../../../../shared/comercial/dist/scope-content.js';
 import { enviarFotoDoEscopo, urlDaFotoDoEscopo } from '../../../../api/comercial';
 import { FotoRecusadaError, otimizarFoto } from '../scopePhoto';
+import { useReordenacao } from '../useReordenacao';
 
 /**
  * Blocos de conteúdo de um item de escopo — tabelas e fotos (`PROP-CTL-113..128`).
@@ -131,6 +132,37 @@ export function ScopeContentEditor({ itemId, blocks, allBlocks, onChange }: Prop
   }
 
   /**
+   * A nova ordem local, devolvida ao array **global**.
+   *
+   * Mesma armadilha da `moverBloco`, por outro caminho: os blocos de todos os
+   * serviços vivem num array só, e escrever a ordem local por cima dele
+   * embaralharia os blocos dos outros serviços. O que se faz é reocupar **as
+   * posições globais que estes blocos já ocupavam**, na ordem nova.
+   */
+  function aplicarOrdemLocal(proximos: ScopeBlock[]) {
+    onChange(atual => {
+      const posicoes = atual
+        .map((bloco, indice) => (blocks.some(b => b.id === bloco.id) ? indice : -1))
+        .filter(indice => indice >= 0);
+      if (posicoes.length !== proximos.length) return atual;
+
+      const resultado = [...atual];
+      posicoes.forEach((posicao, i) => {
+        resultado[posicao] = proximos[i];
+      });
+      return resultado;
+    });
+  }
+
+  const reordenar = useReordenacao({
+    itens: blocks,
+    aoReordenar: aplicarOrdemLocal,
+    idDe: bloco => bloco.id,
+    seletorDaLinha: '.com-bloco',
+    desligado: blocks.length < 2
+  });
+
+  /**
    * Move dentro da lista **do item**, mas edita a lista **global**.
    *
    * Os blocos de todos os serviços vivem num array só. Trocar por índice local
@@ -231,7 +263,13 @@ export function ScopeContentEditor({ itemId, blocks, allBlocks, onChange }: Prop
       ) : (
         <div className="com-blocos-lista">
           {blocks.map((bloco, indice) => (
-            <article className="com-bloco" key={bloco.id}>
+            <article
+              className={
+                reordenar.idArrastado === bloco.id ? 'com-bloco drag-placeholder' : 'com-bloco'
+              }
+              key={bloco.id}
+              {...reordenar.propsDaLinha(bloco.id)}
+            >
               <div className="com-bloco-topo">
                 <strong>
                   {bloco.type === 'table'
@@ -239,6 +277,17 @@ export function ScopeContentEditor({ itemId, blocks, allBlocks, onChange }: Prop
                     : `Foto ${blocks.slice(0, indice + 1).filter(b => b.type === 'photo').length}`}
                 </strong>
                 <div className="com-bloco-ordem">
+                  <span
+                    className="com-alca"
+                    role="button"
+                    tabIndex={-1}
+                    {...reordenar.propsDaAlca(
+                      bloco.id,
+                      bloco.type === 'table' ? 'tabela' : 'foto'
+                    )}
+                  >
+                    ⠿
+                  </span>
                   <button
                     type="button"
                     className="com-btn com-btn-fantasma"

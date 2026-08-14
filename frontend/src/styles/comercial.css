@@ -3083,6 +3083,81 @@
   .com-root .com-cenario-opcoes { grid-template-columns: 1fr; }
 }
 
+/* --- Arrastar para reordenar (L2, T068–T071) -----------------------------
+
+   As três listas do módulo — itens do escopo, serviços técnicos e blocos de
+   conteúdo — usam a mesma alça e o mesmo placeholder. O fantasma
+   (`.app-reorder-touch-ghost`) e o `body.app-reorder-touching` são globais e
+   vêm do `base.css`; o que é do módulo mora aqui. */
+
+.com-root .com-alca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 7px;
+  color: var(--com-texto-fraco);
+  font-size: 15px;
+  line-height: 1;
+  cursor: grab;
+  /* **`touch-action: none` é a T069 inteira.** Sem isso o navegador entende o
+     primeiro movimento do dedo como rolagem da página, engole o `pointermove`
+     e o arrasto simplesmente não acontece no celular — sem erro nenhum. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.com-root .com-alca:hover {
+  background: #eef4f0;
+  color: var(--com-acao);
+}
+
+.com-root .com-alca:active {
+  cursor: grabbing;
+}
+
+/* Alça de lista com um item só: continua visível, e diz por que não move. */
+.com-root .com-alca[draggable='false'] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* O buraco que mostra o destino. O `.drag-placeholder` do `base.css` é escopado
+   por classe de cartão, então cada lista precisa declarar a sua — e a legenda
+   "Soltar aqui" vem junto. */
+.com-root .com-escopo-card.drag-placeholder,
+.com-root .com-tecnica-card.drag-placeholder,
+.com-root .com-bloco.drag-placeholder {
+  position: relative;
+  min-height: 96px;
+  border-style: dashed;
+  border-color: var(--com-acao);
+  background: #f1f7f3;
+}
+
+.com-root .com-escopo-card.drag-placeholder > *,
+.com-root .com-tecnica-card.drag-placeholder > *,
+.com-root .com-bloco.drag-placeholder > * {
+  visibility: hidden;
+}
+
+.com-root .com-escopo-card.drag-placeholder::after,
+.com-root .com-tecnica-card.drag-placeholder::after,
+.com-root .com-bloco.drag-placeholder::after {
+  content: 'Soltar aqui';
+  position: absolute;
+  inset: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--com-acao);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
 /* Assinatura no fim da proposta comercial: as linhas do documento, centradas. */
 .com-root .com-doc-assinatura {
   margin-top: 10px;
