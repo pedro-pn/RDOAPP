@@ -472,7 +472,7 @@ function WorkedHoursMetric({ data }: {
   return (
     <div className="acp-det-metric">
       <div className="acp-det-metric-top">
-        <HelpTip help="Soma das horas-homem dos RDOs, separando horas normais e horas extras. Cada turno é multiplicado pela quantidade de colaboradores daquele turno; as horas previstas já incluem todos os colaboradores.">Horas trabalhadas</HelpTip>
+        <HelpTip help="Soma das horas-homem dos relatórios de execução, separando horas normais e horas extras. Cada turno é multiplicado pela quantidade de colaboradores daquele turno; as horas previstas já incluem todos os colaboradores.">Horas trabalhadas</HelpTip>
         <span className="acp-det-metric-val">
           {fmtHours(data.totalWorkedHours)} / {fmtHours(data.plannedTotalHours)}
           {data.totalPct != null ? ` · ${data.totalPct}%` : ''}
@@ -1017,14 +1017,14 @@ export function ProjectDetailDashboard({
             <ProgressHistoryChart points={data.progressHistory} />
 
             <div className="acp-det-two">
-              <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos RDOs.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
-              <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas-homem de stand-by de todos os RDOs do projeto, multiplicando o tempo pela equipe do turno.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos relatórios de execução.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas-homem de stand-by de todos os relatórios de execução do projeto, multiplicando o tempo pela equipe do turno.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
             </div>
 
-            <div className="acp-det-sub"><HelpTip help="Status dos últimos 5 dias com RDO: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
+            <div className="acp-det-sub"><HelpTip help="Status dos últimos 5 dias com relatório de execução: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
             <div className="acp-det-dots">
               {data.ultimosDias.length === 0 ? (
-                <span className="placeholder-copy">Sem RDOs.</span>
+                <span className="placeholder-copy">Sem relatórios de execução.</span>
               ) : data.ultimosDias.map((d, i) => (
                 <PortalTip
                   key={i}
@@ -1047,7 +1047,7 @@ export function ProjectDetailDashboard({
             </div>
 
             <div className="acp-det-two" style={{ marginTop: 10 }}>
-              <div><span className="acp-det-kpi-label"><HelpTip help="Total de horas extras-homem identificadas nos RDOs do projeto, multiplicando a HE pela equipe do turno.">Horas extras</HelpTip></span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
+              <div><span className="acp-det-kpi-label"><HelpTip help="Total de horas extras-homem identificadas nos relatórios de execução do projeto, multiplicando a HE pela equipe do turno.">Horas extras</HelpTip></span><strong>{fmtHM(data.overtimeMinutes)}</strong></div>
             </div>
           </div>
         </div>
@@ -1178,7 +1178,7 @@ export function ProjectDetailDashboard({
             Colaboradores na obra ({data.colaboradores.length})
           </summary>
           {data.colaboradores.length === 0 ? (
-            <div className="placeholder-copy" style={{ marginTop: 8 }}>Nenhum colaborador nos RDOs.</div>
+            <div className="placeholder-copy" style={{ marginTop: 8 }}>Nenhum colaborador nos relatórios de execução.</div>
           ) : (
             <div className="acp-table-wrap" style={{ marginTop: 8 }}>
               <table className="acp-table">

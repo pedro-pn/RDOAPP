@@ -350,7 +350,7 @@ function Card({
       </div>
 
       <div className="acp-pcard-row">
-        <span>Status último RDO</span>
+        <span>Status último relatório</span>
         <span className={`acp-pcard-status ${status.cls}`}>
           {status.label}{card.lastDay.date ? ` · ${formatDate(card.lastDay.date)}` : ''}
         </span>

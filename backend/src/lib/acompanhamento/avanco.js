@@ -57,6 +57,17 @@ export function isRealizedSourceReport(report) {
   return !report.specialConditions?.parentRdoId;
 }
 
+// Mantém relatórios-fonte e seus colaboradores alinhados. A filtragem em memória é necessária
+// porque parentRdoId fica dentro de um JSON e relatórios antigos podem não ter essa chave.
+export function selectRealizedSourceReportData(reports = [], collaborators = []) {
+  const sourceReports = reports.filter(isRealizedSourceReport);
+  const sourceReportIds = new Set(sourceReports.map(report => report.id));
+  return {
+    reports: sourceReports,
+    collaborators: collaborators.filter(item => sourceReportIds.has(item.reportId))
+  };
+}
+
 // Extrai o realizado comparável de um ReportService.extraData: tubulação (m) e óleo (L).
 export function realizedFromExtraData(extraData) {
   const data = extraData && typeof extraData === 'object' ? extraData : {};

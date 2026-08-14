@@ -1,6 +1,6 @@
 /*
  * Dashboard de um projeto (módulo Acompanhamento). Cruza previsto (comercial + escopo manual) com o
- * realizado dos RDOs e das compras do Omie, para a tela de detalhe aberta ao clicar num card.
+ * realizado dos relatórios-fonte e das compras do Omie, para a tela de detalhe aberta ao clicar num card.
  *
  * Regras do cliente:
  *  - Gasto = TOTAL (pago + a pagar) dos títulos do Omie do projeto.
@@ -19,7 +19,8 @@ import { buildWorkedHoursProgress } from './project-cards.js';
 import {
   buildRequiredWeeklyProgress,
   computeProgressHistoryForProjects,
-  computeProjectProgress
+  computeProjectProgress,
+  selectRealizedSourceReportData
 } from './avanco.js';
 import {
   nightCollaboratorIdsFromReport,
@@ -194,8 +195,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
 
   const [
     project,
-    reports,
-    collaborators,
+    queriedReports,
+    queriedCollaborators,
     costGroups,
     costStatusGroups,
     labor,
@@ -212,9 +213,10 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       select: { clientSegment: true, mobilizationDate: true, workdayHours: true, weekendWorkdayHours: true }
     }),
     prisma.report.findMany({
-      where: { projectId, reportType: 'RDO', deletedAt: null },
+      where: { projectId, deletedAt: null },
       select: {
         id: true,
+        reportType: true,
         reportDate: true, specialConditions: true, totalOvertimeMinutes: true,
         daytimeCount: true,
         daytimeWorkedMinutes: true, nighttimeWorkedMinutes: true,
@@ -223,7 +225,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       orderBy: { reportDate: 'asc' }
     }),
     prisma.reportCollaborator.findMany({
-      where: { report: { projectId, reportType: 'RDO', deletedAt: null } },
+      where: { report: { projectId, deletedAt: null } },
       select: {
         reportId: true,
         collaboratorId: true,
@@ -256,6 +258,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     computeProgressHistoryForProjects([projectId]),
     computeProjectProgress(projectId)
   ]);
+  const { reports, collaborators } = selectRealizedSourceReportData(queriedReports, queriedCollaborators);
 
   // Mão de obra (HH) do ponto — mantido SEPARADO do gasto Omie (em validação, não somado).
   const laborAgg = labor.byProjectId.get(projectId) || null;
@@ -287,7 +290,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
     .sort((a, b) => b.total - a.total || a.categoria.localeCompare(b.categoria, 'pt-BR'))
     .slice(0, 5);
 
-  // --- Agregação dos RDOs (por dia) ---
+  // --- Agregação dos relatórios-fonte de execução (por dia) ---
   const dayCollaboratorIdsByReport = new Map();
   for (const c of collaborators) {
     if (!dayCollaboratorIdsByReport.has(c.reportId)) dayCollaboratorIdsByReport.set(c.reportId, []);
