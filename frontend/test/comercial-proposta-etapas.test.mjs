@@ -494,7 +494,9 @@ test('as telas internas têm caminho de volta que não depende do navegador', ()
   );
 
   assert.match(config, /voltarPara=/, 'Configurações sem botão de voltar');
-  assert.match(historico, /Menu do módulo/, 'Histórico sem volta ao menu');
+  // O mesmo rótulo nas duas telas: destino igual, nome igual. Nome diferente
+  // para o mesmo destino faz parecer que são caminhos diferentes.
+  assert.match(historico, /← Voltar\s*</, 'Histórico sem volta ao menu');
   // `HIST-CTL-002` é portado e continua: "Voltar ao gerador" leva ao gerador,
   // que abre o diálogo de modo — por isso ele não substitui a volta ao menu.
   assert.match(historico, /Voltar ao gerador/, 'HIST-CTL-002 sumiu');

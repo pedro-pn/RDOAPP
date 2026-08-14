@@ -86,13 +86,16 @@ export function HistoricoPage() {
           {/* "Voltar ao gerador" é `HIST-CTL-002`, portado, e leva ao gerador —
               que abre o diálogo "Como deseja começar?". Não serve de volta.
               O menu do módulo é desvio nº 9 e não existia na referência, então
-              ganha botão próprio em vez de trocar o de lá. */}
+              ganha botão próprio em vez de trocar o de lá.
+              O rótulo é "← Voltar", **igual ao das Configurações**: as duas telas
+              fazem a mesma coisa, e nome diferente para o mesmo destino faz
+              parecer que são caminhos diferentes. */}
           <button
             type="button"
             className="com-btn com-btn-fantasma"
             onClick={() => navigate(moduleRoutePath('comercial', 'index'))}
           >
-            ← Menu do módulo
+            ← Voltar
           </button>
           <button
             type="button"
