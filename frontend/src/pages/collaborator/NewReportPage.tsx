@@ -294,6 +294,7 @@ export function NewReportPage() {
   const [ddsNoveltyActive, setDdsNoveltyActive] = useState(true);
   const [collaboratorsPrefilled, setCollaboratorsPrefilled] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftSaveStatus, setDraftSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const canCreateServiceOnly = user?.role === 'MANAGER';
   const canCreateReportWithoutLeader = user?.role === 'MANAGER' || user?.role === 'COORDINATOR';
   const effectiveServiceOnly = canCreateServiceOnly && serviceOnly;
@@ -1009,8 +1010,12 @@ export function NewReportPage() {
     const sameProjectDateIds = matchingDraftIds();
     const targetId = autosaveDraftTargetId(draftId, sameProjectDateIds);
     const signature = JSON.stringify({ targetId: targetId || '', payload });
-    if (signature === lastAutoSaveSignatureRef.current) return true;
+    if (signature === lastAutoSaveSignatureRef.current) {
+      setDraftSaveStatus('saved');
+      return true;
+    }
     lastAutoSaveSignatureRef.current = signature;
+    setDraftSaveStatus('saving');
 
     try {
       const saved = targetId
@@ -1023,9 +1028,11 @@ export function NewReportPage() {
           .filter(id => id !== saved.id)
           .map(id => removeDraftAsync(id).catch(() => undefined))
       );
+      setDraftSaveStatus('saved');
       return true;
     } catch (error) {
       lastAutoSaveSignatureRef.current = '';
+      setDraftSaveStatus('error');
       console.error('Falha ao salvar rascunho de relatório.', error);
       if (notifyOnError) {
         showToast(error instanceof Error ? error.message : 'Não foi possível salvar o rascunho.', 'error');
@@ -1050,6 +1057,13 @@ export function NewReportPage() {
     if (isSubmittingRef.current) return;
     if (draftSaveTimerRef.current) window.clearTimeout(draftSaveTimerRef.current);
 
+    if (!projectId || !reportDate) {
+      setDraftSaveStatus('idle');
+      return;
+    }
+
+    setDraftSaveStatus('saving');
+
     draftSaveTimerRef.current = window.setTimeout(() => {
       void saveDraftNow();
     }, 150);
@@ -1057,7 +1071,7 @@ export function NewReportPage() {
     return () => {
       if (draftSaveTimerRef.current) window.clearTimeout(draftSaveTimerRef.current);
     };
-  }, [saveDraftNow]);
+  }, [projectId, reportDate, saveDraftNow]);
 
   const handleBack = useCallback(async () => {
     if (draftSaveTimerRef.current) {
@@ -1232,6 +1246,21 @@ export function NewReportPage() {
               </button>
             ))}
           </div>
+          {projectId && reportDate ? (
+            <div
+              className={`rdo-draft-save-status ${draftSaveStatus}`}
+              role="status"
+              aria-live="polite"
+            >
+              {draftSaveStatus === 'saving'
+                ? 'Salvando rascunho...'
+                : draftSaveStatus === 'error'
+                  ? 'Falha ao salvar o rascunho'
+                  : draftSaveStatus === 'saved'
+                    ? 'Rascunho salvo na nuvem'
+                    : null}
+            </div>
+          ) : null}
         </section>
 
         {step === 0 ? (
