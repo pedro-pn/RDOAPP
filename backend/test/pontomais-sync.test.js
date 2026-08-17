@@ -10,6 +10,7 @@ import {
   buildAmbiguousDayPendencies,
   createPontoMaisSyncService,
   filterCurrentlyResolvedAmbiguousDays,
+  partitionMissingProjectPendencies,
   PontoSyncError
 } from '../src/lib/pontomais/sync.js';
 
@@ -211,6 +212,32 @@ test('dia sem etiqueta e com dois RDOs atuais continua visível para seleção m
   });
 
   assert.deepEqual(unresolved, [ambiguousDay]);
+});
+
+test('separa somente dias cujos projetos candidatos não existem no cadastro', () => {
+  const knownAndMissing = {
+    externalEmployeeId: '101',
+    date: '2026-08-01',
+    projectCodes: ['5000', '5761']
+  };
+  const onlyMissing = {
+    externalEmployeeId: '102',
+    date: '2025-01-10',
+    projectCodes: ['5000']
+  };
+  const unidentified = {
+    externalEmployeeId: '103',
+    date: '2026-08-02',
+    projectCodes: []
+  };
+
+  assert.deepEqual(partitionMissingProjectPendencies({
+    ambiguousDays: [knownAndMissing, onlyMissing, unidentified],
+    projects: [{ id: 'project-5761', code: '5761' }]
+  }), {
+    actionableDays: [knownAndMissing, unidentified],
+    missingDays: [onlyMissing]
+  });
 });
 
 test('resumo sinaliza dia ambíguo sem copiar nome, matrícula ou CPF', () => {
@@ -935,7 +962,11 @@ test('auditoria e pendências usam projeção segura e ocultam itens já vincula
 
   state.externalLinks.push({ externalEmployeeId: '101', collaboratorId: 'collaborator-1' });
   state.tagAliases.push({ normalizedTag: 'equipe ilha', projectId: 'project-1' });
-  assert.deepEqual(await service.getPending(), { employees: [], projectTags: [], ambiguousDays: [] });
+  assert.deepEqual(await service.getPending(), {
+    employees: [],
+    ambiguousDays: [],
+    missingProjects: { projectTags: [], ambiguousDays: [] }
+  });
 });
 
 test('pendências históricas permanecem visíveis entre lotes e dia ambíguo respeita o lote mais novo', async () => {
@@ -962,8 +993,9 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
 
   const historical = await service.getPending();
   assert.equal(historical.employees[0].externalEmployeeId, 'old-employee');
-  assert.equal(historical.projectTags[0].normalizedTag, 'projeto antigo');
-  assert.equal(historical.ambiguousDays[0].date, '2025-01-10');
+  assert.deepEqual(historical.ambiguousDays, []);
+  assert.equal(historical.missingProjects.projectTags[0].normalizedTag, 'projeto antigo');
+  assert.equal(historical.missingProjects.ambiguousDays[0].date, '2025-01-10');
 
   state.runs.push({
     id: 'run-corrected', status: 'SUCCEEDED',
@@ -975,5 +1007,6 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
   const corrected = await service.getPending();
   assert.deepEqual(corrected.ambiguousDays, []);
   assert.equal(corrected.employees.length, 1);
-  assert.equal(corrected.projectTags.length, 1);
+  assert.equal(corrected.missingProjects.projectTags.length, 1);
+  assert.deepEqual(corrected.missingProjects.ambiguousDays, []);
 });
