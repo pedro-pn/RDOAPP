@@ -6,8 +6,11 @@ import {
   dissolveMissionGroup,
   listMissionGroups,
   MissionGroupError,
-  renameMissionGroup
+  renameMissionGroup,
+  updateMissionGroup
 } from '../src/lib/acompanhamento/mission-groups.js';
+import { parseMissionGroupUpdate } from '../src/routes/resources/acompanhamento-comercial.js';
+import { requireAcompanhamentoManager } from '../src/middleware/auth.js';
 
 function createFakeDb({ projects = [], groups = [], members = [], reports = [], purchases = [], receivables = [] } = {}) {
   const state = {
@@ -71,6 +74,8 @@ function createFakeDb({ projects = [], groups = [], members = [], reports = [], 
           id: `g${state.groups.length + 1}`,
           name: data.name,
           status: data.status,
+          laborAllocationMode: data.laborAllocationMode ?? 'VISUAL_ONLY',
+          primaryLaborProjectId: data.primaryLaborProjectId ?? null,
           createdByUserId: data.createdByUserId ?? null,
           dissolvedByUserId: null,
           createdAt: now,
@@ -210,6 +215,85 @@ test('renameMissionGroup updates only active groups', async () => {
   const renamed = await renameMissionGroup({ groupId: group.id, name: 'Novo grupo', db });
 
   assert.equal(renamed.name, 'Novo grupo');
+});
+
+test('grupos novos são apenas visuais e serializam a política de mão de obra', async () => {
+  const db = createFakeDb({ projects });
+  const group = await createMissionGroup({ projectIds: ['p1', 'p2'], db });
+
+  assert.equal(group.laborAllocationMode, 'VISUAL_ONLY');
+  assert.equal(group.primaryLaborProjectId, null);
+});
+
+test('updateMissionGroup configura execução compartilhada e limpa projeto principal', async () => {
+  const db = createFakeDb({ projects });
+  const group = await createMissionGroup({ projectIds: ['p1', 'p2'], db });
+  const updated = await updateMissionGroup({
+    groupId: group.id,
+    laborAllocationMode: 'SHARED_EXECUTION',
+    primaryLaborProjectId: 'p1',
+    db
+  });
+
+  assert.equal(updated.laborAllocationMode, 'SHARED_EXECUTION');
+  assert.equal(updated.primaryLaborProjectId, null);
+});
+
+test('updateMissionGroup exige que o projeto principal de consolidação seja membro', async () => {
+  const db = createFakeDb({ projects });
+  const group = await createMissionGroup({ projectIds: ['p1', 'p2'], db });
+
+  await assert.rejects(
+    () => updateMissionGroup({
+      groupId: group.id,
+      laborAllocationMode: 'CONSOLIDATE_PRIMARY',
+      primaryLaborProjectId: 'p3',
+      db
+    }),
+    error => error instanceof MissionGroupError && error.code === 'PRIMARY_NOT_MEMBER'
+  );
+
+  const updated = await updateMissionGroup({
+    groupId: group.id,
+    laborAllocationMode: 'CONSOLIDATE_PRIMARY',
+    primaryLaborProjectId: 'p1',
+    db
+  });
+  assert.equal(updated.primaryLaborProjectId, 'p1');
+});
+
+test('rota valida a política e exige projeto principal na consolidação', () => {
+  assert.deepEqual(parseMissionGroupUpdate({
+    laborAllocationMode: 'CONSOLIDATE_PRIMARY',
+    primaryLaborProjectId: 'p1'
+  }), {
+    laborAllocationMode: 'CONSOLIDATE_PRIMARY',
+    primaryLaborProjectId: 'p1'
+  });
+  assert.throws(() => parseMissionGroupUpdate({ laborAllocationMode: 'CONSOLIDATE_PRIMARY' }));
+  assert.throws(() => parseMissionGroupUpdate({ laborAllocationMode: 'INVALID' }));
+});
+
+test('middleware da rota de política continua restrito ao gestor de Acompanhamento', () => {
+  let response = null;
+  let proceeded = false;
+  requireAcompanhamentoManager({
+    auth: {
+      user: {
+        id: 'viewer-1',
+        accountType: 'INTERNAL',
+        moduleRoles: ['acompanhamento:viewer']
+      }
+    }
+  }, {
+    status(status) {
+      return { json(body) { response = { status, body }; } };
+    }
+  }, () => { proceeded = true; });
+
+  assert.equal(proceeded, false);
+  assert.equal(response.status, 403);
+  assert.match(response.body.error, /gestor de Acompanhamento/i);
 });
 
 test('create and dissolve do not mutate operational project/report/omie collections', async () => {

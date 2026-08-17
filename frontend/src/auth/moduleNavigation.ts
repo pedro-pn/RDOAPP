@@ -21,6 +21,8 @@ const ACOMPANHAMENTO_FINALIZED_SEEN_KEY_PREFIX = 'filtrovali:acompanhamento-fina
 // v2: a v1 pôde ser marcada como vista sem exibir (timer cancelado por re-render do formulário).
 const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
 const PROJECT_INTAKE_NOVELTY_KEY_PREFIX = 'filtrovali:project-intake-novelty:v1:';
+const PONTOMAIS_SYNC_NOVELTY_KEY_PREFIX = 'filtrovali:pontomais-sync-novelty:v1:';
+const ACOMPANHAMENTO_LABOR_POLICY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-labor-policy-novelty:v1:';
 
 function storageKey(user: Pick<AuthUser, 'id'>) {
   return `${LAST_MODULE_KEY_PREFIX}${user.id}`;
@@ -145,6 +147,21 @@ export function shouldShowAcompanhamentoGroupRenameNovelty(user: Pick<AuthUser, 
 export function markAcompanhamentoGroupRenameNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade da separação entre folha real e apropriação analítica por grupo.
+// Validade global de 10 dias corridos após a implantação (17/08/2026 a 27/08/2026).
+const ACOMPANHAMENTO_LABOR_POLICY_NOVELTY_EXPIRES_AT = new Date('2026-08-27T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoLaborPolicyNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_LABOR_POLICY_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_LABOR_POLICY_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoLaborPolicyNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_LABOR_POLICY_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 // Novidade do histórico semanal de avanço no dashboard do projeto.
@@ -304,6 +321,19 @@ export function shouldShowProjectIntakeNovelty(user: Pick<AuthUser, 'id'> | null
 export function markProjectIntakeNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${PROJECT_INTAKE_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade da sincronização de jornada: 17/08/2026 a 27/08/2026.
+const PONTOMAIS_SYNC_NOVELTY_EXPIRES_AT = new Date('2026-08-27T23:59:59-03:00');
+
+export function shouldShowPontoMaisSyncNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user || Date.now() > PONTOMAIS_SYNC_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${PONTOMAIS_SYNC_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markPontoMaisSyncNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${PONTOMAIS_SYNC_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 export function shouldOpenHubOnFirstLogin(user: AuthUser | null | undefined) {

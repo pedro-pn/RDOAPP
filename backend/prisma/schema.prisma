@@ -216,6 +216,12 @@ enum AcompanhamentoMissionGroupStatus {
   DISSOLVED
 }
 
+enum AcompanhamentoLaborAllocationMode {
+  VISUAL_ONLY
+  SHARED_EXECUTION
+  CONSOLIDATE_PRIMARY
+}
+
 enum QualityRecordType {
   DESVIO
   LICAO_APRENDIDA
@@ -273,6 +279,8 @@ model Collaborator {
   signatureNoticeLogs       CollaboratorSignatureNoticeLog[]
   pontoPeriods              PontoPeriodSummary[]
   pontoNameAliases          PontoNameAlias[]
+  pontoExternalLinks        PontoExternalEmployeeLink[]
+  pontoDayProjectOverrides  PontoDayProjectOverride[]
 }
 
 model CollaboratorSignatureNoticeLog {
@@ -337,14 +345,15 @@ model AcompanhamentoSetting {
   updatedAt       DateTime @default(now()) @updatedAt
 }
 
-// === Ponto (jornada) importado do Pontomais — base do custo de mão de obra (HH) ===
-// Enquanto não há integração automática com o VR Ponto Mais, a planilha de jornada é enviada
-// manualmente (semanal). Cada import guarda auditoria + um resumo por colaborador no período.
+// === Ponto (jornada) do VR Ponto Mais — base do custo de mão de obra (HH) ===
+// A API é a origem principal quando configurada; XLSX históricos e de contingência permanecem
+// compatíveis. Cada snapshot guarda auditoria + um resumo por colaborador no período.
 
 model PontoImport {
   id                   String               @id @default(cuid())
   fileName             String
   contentHash          String // sha256 hex do arquivo (idempotência)
+  source               String               @default("XLSX")
   periodStart          DateTime             @db.Date
   periodEnd            DateTime             @db.Date
   rowsRead             Int                  @default(0)
@@ -355,17 +364,21 @@ model PontoImport {
   importedByUserId     String?
   createdAt            DateTime             @default(now())
   periods              PontoPeriodSummary[]
+  syncRuns             PontoSyncRun[]
 
   @@index([createdAt])
   @@index([contentHash])
 }
 
-// Resumo por colaborador × import: horas normais + split HE70/HE100 (só existe no "Resumo" da
-// planilha) + dias trabalhados (para cruzar com RDO e derivar dias de viagem).
+// Resumo por colaborador × snapshot: horas normais, HE70/HE100 explícitas quando disponíveis,
+// dias trabalhados e etiquetas diárias para conciliação com os RDOs.
 model PontoPeriodSummary {
   id             String        @id @default(cuid())
   importId       String
   collaboratorId String? // null até o nome ser vinculado a um Collaborator
+  sourceKey      String?
+  externalEmployeeId String?
+  registrationNumber String?
   rawName        String
   normalizedName String
   periodStart    DateTime      @db.Date
@@ -380,7 +393,7 @@ model PontoPeriodSummary {
   import         PontoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
   collaborator   Collaborator? @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
 
-  @@unique([importId, normalizedName])
+  @@unique([importId, sourceKey])
   @@index([collaboratorId])
   @@index([importId])
 }
@@ -397,6 +410,119 @@ model PontoNameAlias {
   collaborator    Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
 
   @@index([collaboratorId])
+}
+
+// Auditoria separada das tentativas de sincronização. Falhas não entram no escopo financeiro.
+model PontoSyncRun {
+  id                     String       @id @default(cuid())
+  periodStart            DateTime     @db.Date
+  periodEnd              DateTime     @db.Date
+  status                 String       @default("RUNNING")
+  trigger                String       @default("MANUAL")
+  requestedByUserId      String?
+  importId               String?
+  employeesRead          Int          @default(0)
+  workDaysRead           Int          @default(0)
+  timeCardsRead          Int          @default(0)
+  collaboratorsMatched   Int          @default(0)
+  pendingCount           Int          @default(0)
+  summary                Json?
+  errorCode              String?
+  errorMessage           String?
+  startedAt              DateTime     @default(now())
+  completedAt            DateTime?
+  import                 PontoImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+
+  @@index([status, startedAt])
+  @@index([importId])
+}
+
+// Cursor persistente da carga histórica e da atualização diária do Ponto Mais.
+// A aplicação usa uma única linha com id="pontomais".
+model PontoSyncState {
+  id                    String    @id
+  bootstrapStatus       String    @default("PENDING")
+  dataRevision          Int       @default(1)
+  targetDataRevision    Int?
+  historyStart          DateTime? @db.Date
+  historyThrough        DateTime? @db.Date
+  nextPeriodStart       DateTime? @db.Date
+  lastDailySyncDate     DateTime? @db.Date
+  lastAttemptAt         DateTime?
+  lastSuccessfulAt      DateTime?
+  lastErrorCode         String?
+  lastErrorMessage      String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([bootstrapStatus, updatedAt])
+}
+
+// Vínculo persistente pelo identificador estável do colaborador no Ponto Mais.
+model PontoExternalEmployeeLink {
+  id                     String       @id @default(cuid())
+  externalEmployeeId     String       @unique
+  registrationNumber     String?
+  externalName           String
+  collaboratorId         String
+  matchSource            String       @default("MANUAL")
+  createdByUserId        String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  collaborator           Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+
+  @@index([collaboratorId])
+}
+
+// Diretório dos colaboradores descobertos na API. Permite excluir pessoas fora da operação
+// sem apagar a trilha histórica nem impedir que a preferência seja revertida pelo gestor.
+model PontoExternalEmployee {
+  externalEmployeeId String    @id
+  registrationNumber String?
+  externalName       String
+  isActive            Boolean?
+  ignoredAt           DateTime?
+  ignoredByUserId     String?
+  firstSeenAt         DateTime  @default(now())
+  lastSeenAt          DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([ignoredAt, externalName])
+}
+
+// Alias de etiqueta livre do Ponto Mais para projeto interno.
+model PontoProjectTagAlias {
+  id                     String   @id @default(cuid())
+  normalizedTag          String   @unique
+  rawTag                 String
+  projectId              String
+  createdByUserId        String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  project                Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+}
+
+// Seleção gerencial para um conflito de projeto em um colaborador/data específico.
+// A escolha não altera o snapshot original e apenas substitui a regra automática no cálculo.
+model PontoDayProjectOverride {
+  id                     String       @id @default(cuid())
+  collaboratorId         String
+  workDate               DateTime     @db.Date
+  projectId              String
+  externalEmployeeId     String?
+  createdByUserId        String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  collaborator           Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  project                Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([collaboratorId, workDate, projectId])
+  @@index([collaboratorId, workDate])
+  @@index([projectId])
+  @@index([externalEmployeeId, workDate])
 }
 
 // Lista gerenciável de cargos (substitui o texto livre em Collaborator.role).
@@ -484,7 +610,10 @@ model Project {
   manualCosts                ProjectManualCost[]
   additionalProposals        ProjectAdditionalProposal[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
+  primaryLaborMissionGroups  AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupPrimaryLaborProject")
   qualityRecords             QualityRecord[]
+  pontoProjectTagAliases     PontoProjectTagAlias[]
+  pontoDayProjectOverrides   PontoDayProjectOverride[]
 
   @@index([deletedAt])
   @@index([registrationPending])
@@ -521,19 +650,24 @@ model ProjectManualCost {
 }
 
 model AcompanhamentoMissionGroup {
-  id                String                             @id @default(cuid())
-  name              String
-  status            AcompanhamentoMissionGroupStatus   @default(ACTIVE)
-  createdByUserId   String?
-  dissolvedByUserId String?
-  createdAt         DateTime                           @default(now())
-  updatedAt         DateTime                           @updatedAt
-  dissolvedAt       DateTime?
-  createdBy         User?                              @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  dissolvedBy       User?                              @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
-  members           AcompanhamentoMissionGroupMember[]
+  id                    String                             @id @default(cuid())
+  name                  String
+  status                AcompanhamentoMissionGroupStatus   @default(ACTIVE)
+  laborAllocationMode   AcompanhamentoLaborAllocationMode  @default(VISUAL_ONLY)
+  primaryLaborProjectId String?
+  createdByUserId       String?
+  dissolvedByUserId     String?
+  createdAt             DateTime                           @default(now())
+  updatedAt             DateTime                           @updatedAt
+  dissolvedAt           DateTime?
+  primaryLaborProject   Project?                           @relation("AcompanhamentoMissionGroupPrimaryLaborProject", fields: [primaryLaborProjectId], references: [id], onDelete: Restrict)
+  createdBy             User?                              @relation("AcompanhamentoMissionGroupCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  dissolvedBy           User?                              @relation("AcompanhamentoMissionGroupDissolvedBy", fields: [dissolvedByUserId], references: [id], onDelete: SetNull)
+  members               AcompanhamentoMissionGroupMember[]
 
   @@index([status, createdAt])
+  @@index([laborAllocationMode])
+  @@index([primaryLaborProjectId])
   @@index([createdByUserId])
   @@index([dissolvedByUserId])
 }

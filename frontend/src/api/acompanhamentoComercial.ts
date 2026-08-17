@@ -195,12 +195,16 @@ export interface MissionGroupResponse {
   id: string;
   name: string;
   status: 'ACTIVE' | 'DISSOLVED';
+  laborAllocationMode: MissionGroupLaborAllocationMode;
+  primaryLaborProjectId: string | null;
   createdAt: string;
   updatedAt: string;
   dissolvedAt: string | null;
   warning?: string;
   members: MissionGroupMemberSummary[];
 }
+
+export type MissionGroupLaborAllocationMode = 'VISUAL_ONLY' | 'SHARED_EXECUTION' | 'CONSOLIDATE_PRIMARY';
 
 export interface CreateMissionGroupRequest {
   name?: string;
@@ -289,6 +293,20 @@ export async function renameMissionGroup(groupId: string, name: string): Promise
   const { data } = await apiClient.patch<MissionGroupResponse>(
     `/acompanhamento/comercial/grupos-missoes/${groupId}`,
     { name }
+  );
+  return data;
+}
+
+export async function updateMissionGroupLaborPolicy(
+  groupId: string,
+  payload: {
+    laborAllocationMode: MissionGroupLaborAllocationMode;
+    primaryLaborProjectId?: string | null;
+  }
+): Promise<MissionGroupResponse> {
+  const { data } = await apiClient.patch<MissionGroupResponse>(
+    `/acompanhamento/comercial/grupos-missoes/${groupId}`,
+    payload
   );
   return data;
 }
@@ -564,6 +582,7 @@ export interface ProjectCard {
   expectedEndDate: string | null;
   laborCost: number | null; // custo de mão de obra COM adicional offshore (do ponto), somado ao realizado
   laborCostBase: number | null; // custo de mão de obra SEM offshore (comparação)
+  laborHours: number | null; // jornada analítica do Ponto Mais apropriada ao projeto
   stockCost: number; // consumo líquido de produtos químicos/filtros via romaneio
   manualCost: number; // custos lançados manualmente no acompanhamento
   equipment: Array<{ name: string; days: number; since: string }>; // equipamentos (módulo Equipamentos) em obra
@@ -573,6 +592,8 @@ export interface ProjectCard {
 export interface MissionGroupCard extends Omit<ProjectCard, 'kind' | 'projectId' | 'progressMethod'> {
   kind: 'GROUP';
   groupId: string;
+  laborAllocationMode: MissionGroupLaborAllocationMode;
+  primaryLaborProjectId: string | null;
   members: MissionGroupMemberSummary[];
   progressMethod?: GroupProgressMethod | null;
 }
@@ -622,7 +643,7 @@ export interface ProjectDetailCollaborator {
   horas: number;
   /** Soma bruta das jornadas de todas as missões, inclusive quando elas se sobrepõem. */
   horasLancadas: number;
-  /** Horas usadas pelo rateio financeiro do ponto para apropriar o custo ao projeto ou grupo. */
+  /** Horas analíticas do Ponto Mais apropriadas ao projeto; podem repetir em execução compartilhada. */
   horasApropriadas: number | null;
   sobreposicaoHoras: number;
   horasRelatoriosPorData: Array<{ data: string; horas: number }>;
@@ -634,6 +655,8 @@ export interface ProjectDetail {
   group?: {
     id: string;
     name: string;
+    laborAllocationMode: MissionGroupLaborAllocationMode;
+    primaryLaborProjectId: string | null;
     members: MissionGroupMemberSummary[];
   };
   header: {

@@ -9,14 +9,17 @@ import {
   getProjectCards,
   renameMissionGroup,
   setProjectTrackingState,
+  updateMissionGroupLaborPolicy,
   type LastDayStatus,
   type MissionGroupCard,
+  type MissionGroupLaborAllocationMode,
   type ProjectCardCategory,
   type ProjectCardItem
 } from '../../api/acompanhamentoComercial';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { ProjectDetailDashboard } from './ProjectDetailDashboard';
 import { ProjectGroupRenameNovelty } from './ProjectGroupRenameNovelty';
+import { ProjectLaborPolicyNovelty } from './ProjectLaborPolicyNovelty';
 import { ProjectTrackingNovelties } from './ProjectTrackingNovelties';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import type { AuthUser } from '../../types/auth';
@@ -109,6 +112,8 @@ function Card({
   onSubmitRename,
   onCancelRename,
   onDissolve,
+  laborPolicySaving = false,
+  onLaborPolicyChange,
   canManage = false,
   trackingSaving = false,
   onArchive,
@@ -130,6 +135,8 @@ function Card({
   onSubmitRename?: () => void;
   onCancelRename?: () => void;
   onDissolve?: () => void;
+  laborPolicySaving?: boolean;
+  onLaborPolicyChange?: (mode: MissionGroupLaborAllocationMode, primaryProjectId: string | null) => void;
   canManage?: boolean;
   trackingSaving?: boolean;
   onArchive?: () => void;
@@ -376,6 +383,10 @@ function Card({
         return (
           <>
             <div className="acp-pcard-row">
+              <span>Horas apropriadas do Ponto<sup title="Jornada do Ponto Mais apropriada analiticamente a este projeto. Em execução compartilhada, ela pode aparecer integralmente em mais de uma missão."> *</sup></span>
+              <span className="acp-pcard-strong">{fmtHours(card.laborHours)}</span>
+            </div>
+            <div className="acp-pcard-row">
               <span>Custo MO{hasOffshore ? ' c/ offshore' : ''}<sup title="Valor gasto com mão de obra do ponto, rateado para este projeto."> *</sup></span>
               <span className="acp-pcard-strong">{brl(card.laborCost)}</span>
             </div>
@@ -423,7 +434,50 @@ function Card({
       </div>
 
       {grouped && canManageGroups ? (
-        <div className="acp-group-actions">
+        <div className="acp-group-actions" data-acp-labor-policy onClick={event => event.stopPropagation()}>
+          <div className="field-group acp-group-labor-policy">
+            <label htmlFor={`group-labor-mode-${card.groupId}`}>Apropriação da mão de obra</label>
+            <select
+              id={`group-labor-mode-${card.groupId}`}
+              value={card.laborAllocationMode || 'VISUAL_ONLY'}
+              disabled={laborPolicySaving}
+              onChange={event => {
+                const mode = event.target.value as MissionGroupLaborAllocationMode;
+                const primaryProjectId = mode === 'CONSOLIDATE_PRIMARY'
+                  ? card.primaryLaborProjectId || card.members[0]?.projectId || null
+                  : null;
+                onLaborPolicyChange?.(mode, primaryProjectId);
+              }}
+            >
+              <option value="VISUAL_ONLY">Somente mesclar o card</option>
+              <option value="SHARED_EXECUTION">Repetir jornada em cada missão</option>
+              <option value="CONSOLIDATE_PRIMARY">Consolidar em uma missão principal</option>
+            </select>
+            <span className="placeholder-copy">
+              {card.laborAllocationMode === 'SHARED_EXECUTION'
+                ? 'Cada RDO confirmado recebe a jornada integral do Ponto Mais; a folha mensal continua única.'
+                : card.laborAllocationMode === 'CONSOLIDATE_PRIMARY'
+                  ? 'Os RDOs deste grupo são apropriados uma única vez na missão principal.'
+                  : 'O agrupamento não altera a regra de apropriação da jornada.'}
+            </span>
+          </div>
+          {card.laborAllocationMode === 'CONSOLIDATE_PRIMARY' ? (
+            <div className="field-group acp-group-labor-policy">
+              <label htmlFor={`group-labor-primary-${card.groupId}`}>Missão principal</label>
+              <select
+                id={`group-labor-primary-${card.groupId}`}
+                value={card.primaryLaborProjectId || card.members[0]?.projectId || ''}
+                disabled={laborPolicySaving}
+                onChange={event => onLaborPolicyChange?.('CONSOLIDATE_PRIMARY', event.target.value || null)}
+              >
+                {card.members.map(member => (
+                  <option key={member.projectId} value={member.projectId}>
+                    {member.code} — {member.name || member.clientName || 'Missão'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <button
             type="button"
             className="mini-btn alt"
@@ -509,6 +563,7 @@ export function ProjectCardsBoard({
   const [renameValue, setRenameValue] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
   const [groupRenameNoveltyActive, setGroupRenameNoveltyActive] = useState(true);
+  const [laborPolicyNoveltyActive, setLaborPolicyNoveltyActive] = useState(true);
   const [dissolveTarget, setDissolveTarget] = useState<MissionGroupCard | null>(null);
   const [trackingTarget, setTrackingTarget] = useState<{ card: ProjectCardItem; action: 'archive' | 'restore' } | null>(null);
   const [seenFinalizations, setSeenFinalizations] = useState<Set<string>>(() => new Set());
@@ -567,6 +622,31 @@ export function ProjectCardsBoard({
     },
     onError: (error: unknown) => {
       setRenameError(mutationErrorMessage(error, 'Não foi possível alterar o nome deste agrupamento.'));
+    }
+  });
+  const laborPolicyMutation = useMutation({
+    mutationFn: ({
+      groupId,
+      laborAllocationMode,
+      primaryLaborProjectId
+    }: {
+      groupId: string;
+      laborAllocationMode: MissionGroupLaborAllocationMode;
+      primaryLaborProjectId: string | null;
+    }) => updateMissionGroupLaborPolicy(groupId, { laborAllocationMode, primaryLaborProjectId }),
+    onSuccess: async () => {
+      setGroupError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['project-cards'] }),
+        queryClient.invalidateQueries({ queryKey: ['commercial-dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] }),
+        queryClient.invalidateQueries({ queryKey: ['mission-groups'] }),
+        queryClient.invalidateQueries({ queryKey: ['ponto-pontomais-pending'] }),
+        queryClient.invalidateQueries({ queryKey: ['ponto-colaboradores'] })
+      ]);
+    },
+    onError: (error: unknown) => {
+      setGroupError(mutationErrorMessage(error, 'Não foi possível atualizar a apropriação de mão de obra.'));
     }
   });
   const trackingMutation = useMutation({
@@ -821,6 +901,10 @@ export function ProjectCardsBoard({
               onSubmitRename={submitRenameGroup}
               onCancelRename={closeRenameGroup}
               onDissolve={isGroupCard(card) ? () => setDissolveTarget(card) : undefined}
+              laborPolicySaving={laborPolicyMutation.isPending}
+              onLaborPolicyChange={isGroupCard(card) ? (laborAllocationMode, primaryLaborProjectId) => {
+                laborPolicyMutation.mutate({ groupId: card.groupId, laborAllocationMode, primaryLaborProjectId });
+              } : undefined}
               onArchive={() => setTrackingTarget({ card, action: card.archivedInAcompanhamento ? 'restore' : 'archive' })}
               onReview={() => trackingMutation.mutate({ card, payload: { reviewed: !card.reviewed } })}
             />
@@ -865,6 +949,11 @@ export function ProjectCardsBoard({
         user={progressHistoryNoveltyUser}
         enabled={groupRenameNoveltyActive && canManageGroups && !selectionMode && renameTarget === null}
         onSeen={() => setGroupRenameNoveltyActive(false)}
+      />
+      <ProjectLaborPolicyNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={laborPolicyNoveltyActive && canManageGroups && !selectionMode && renameTarget === null}
+        onSeen={() => setLaborPolicyNoveltyActive(false)}
       />
       <ProjectTrackingNovelties
         user={progressHistoryNoveltyUser}

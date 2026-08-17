@@ -21,6 +21,9 @@
 import prisma from '../prisma.js';
 import { computeMonthlyCost } from './cost-engine.js';
 import { getAnnualCollaboratorCosts } from './settings.js';
+import { buildProjectTagResolver, isPontoTravelTag } from '../pontomais/normalize.js';
+
+export { isPontoTravelTag } from '../pontomais/normalize.js';
 
 const HORAS_POR_DIA = 8.8;
 
@@ -153,6 +156,21 @@ function numberValue(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function uniqueStrings(values) {
+  return [...new Set((Array.isArray(values) ? values : [])
+    .map(value => String(value || '').trim())
+    .filter(Boolean))];
+}
+
+function monthlyPayload(value) {
+  const monthly = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  if (!monthly) return { schemaVersion: 1, months: null };
+  if (monthly.schemaVersion === 2 && monthly.months && typeof monthly.months === 'object' && !Array.isArray(monthly.months)) {
+    return { schemaVersion: 2, months: monthly.months };
+  }
+  return { schemaVersion: 1, months: monthly };
+}
+
 function effectiveDateKey(set) {
   return set?.effectiveDate ? dateKeyUTC(set.effectiveDate) : '1970-01-01';
 }
@@ -228,9 +246,7 @@ function coverageForRange(monthKey, fileStart, fileEnd, segmentStartKey, segment
 function dayRowsFromPeriod(period) {
   const rows = [];
   const sourceCreatedAt = period.import?.createdAt || period.createdAt || new Date(0);
-  const monthly = period.monthly && typeof period.monthly === 'object' && !Array.isArray(period.monthly)
-    ? period.monthly
-    : null;
+  const { schemaVersion, months: monthly } = monthlyPayload(period.monthly);
 
   if (monthly) {
     for (const [monthKey, monthData] of Object.entries(monthly)) {
@@ -238,11 +254,23 @@ function dayRowsFromPeriod(period) {
       if (Array.isArray(month.days) && month.days.length) {
         for (const day of month.days) {
           if (!day?.date) continue;
+          const explicitOvertime = schemaVersion >= 2;
+          const genericOvertimeMinutes = explicitOvertime
+            ? numberValue(day.genericOvertimeMinutes)
+            : numberValue(day.extrasMinutes);
+          const he70Minutes = explicitOvertime ? numberValue(day.he70Minutes) : 0;
+          const he100Minutes = explicitOvertime ? numberValue(day.he100Minutes) : 0;
           rows.push({
             date: String(day.date),
             workedMinutes: numberValue(day.workedMinutes),
-            extrasMinutes: numberValue(day.extrasMinutes),
+            extrasMinutes: genericOvertimeMinutes + he70Minutes + he100Minutes,
+            genericOvertimeMinutes,
+            he70Minutes,
+            he100Minutes,
             nightMinutes: numberValue(day.nightMinutes),
+            tags: uniqueStrings(day.tags),
+            schemaVersion,
+            explicitOvertime,
             sourceCreatedAt
           });
         }
@@ -252,14 +280,24 @@ function dayRowsFromPeriod(period) {
       const workedDates = Array.isArray(month.workedDates) ? month.workedDates : [];
       if (!workedDates.length) continue;
       const normalPerDay = numberValue(month.normalMinutes) / workedDates.length;
-      const extrasPerDay = numberValue(month.extrasMinutes) / workedDates.length;
+      const genericOvertimePerDay = (schemaVersion >= 2
+        ? numberValue(month.genericOvertimeMinutes)
+        : numberValue(month.extrasMinutes)) / workedDates.length;
+      const he70PerDay = (schemaVersion >= 2 ? numberValue(month.he70Minutes) : 0) / workedDates.length;
+      const he100PerDay = (schemaVersion >= 2 ? numberValue(month.he100Minutes) : 0) / workedDates.length;
       const nightPerDay = numberValue(month.nightMinutes) / workedDates.length;
       for (const date of workedDates) {
         rows.push({
           date: String(date || monthKey),
           workedMinutes: normalPerDay,
-          extrasMinutes: extrasPerDay,
+          extrasMinutes: genericOvertimePerDay + he70PerDay + he100PerDay,
+          genericOvertimeMinutes: genericOvertimePerDay,
+          he70Minutes: he70PerDay,
+          he100Minutes: he100PerDay,
           nightMinutes: nightPerDay,
+          tags: [],
+          schemaVersion,
+          explicitOvertime: false,
           sourceCreatedAt
         });
       }
@@ -277,7 +315,13 @@ function dayRowsFromPeriod(period) {
       date: String(date),
       workedMinutes: normalPerDay,
       extrasMinutes: extrasPerDay,
+      genericOvertimeMinutes: extrasPerDay,
+      he70Minutes: 0,
+      he100Minutes: 0,
       nightMinutes: nightPerDay,
+      tags: [],
+      schemaVersion: 1,
+      explicitOvertime: false,
       sourceCreatedAt
     });
   }
@@ -316,23 +360,43 @@ export function mergePontoPeriods(periods = []) {
   return [...byCollaborator.values()].map(entry => {
     const days = [...entry.dayMap.values()].sort((a, b) => a.date.localeCompare(b.date));
     const monthly = {};
+    let schemaVersion = 1;
     for (const day of days) {
+      schemaVersion = Math.max(schemaVersion, numberValue(day.schemaVersion) || 1);
       const monthKey = day.date.slice(0, 7);
-      if (!monthly[monthKey]) monthly[monthKey] = { normalMinutes: 0, extrasMinutes: 0, nightMinutes: 0, workedDates: [], days: [] };
+      if (!monthly[monthKey]) monthly[monthKey] = {
+        normalMinutes: 0,
+        extrasMinutes: 0,
+        genericOvertimeMinutes: 0,
+        he70Minutes: 0,
+        he100Minutes: 0,
+        nightMinutes: 0,
+        workedDates: [],
+        days: []
+      };
       monthly[monthKey].normalMinutes += day.workedMinutes;
       monthly[monthKey].extrasMinutes += day.extrasMinutes;
+      monthly[monthKey].genericOvertimeMinutes += day.genericOvertimeMinutes;
+      monthly[monthKey].he70Minutes += day.he70Minutes;
+      monthly[monthKey].he100Minutes += day.he100Minutes;
       monthly[monthKey].nightMinutes += day.nightMinutes;
       if (day.workedMinutes > 0) monthly[monthKey].workedDates.push(day.date);
       monthly[monthKey].days.push({
         date: day.date,
         workedMinutes: day.workedMinutes,
         extrasMinutes: day.extrasMinutes,
-        nightMinutes: day.nightMinutes
+        genericOvertimeMinutes: day.genericOvertimeMinutes,
+        he70Minutes: day.he70Minutes,
+        he100Minutes: day.he100Minutes,
+        nightMinutes: day.nightMinutes,
+        tags: uniqueStrings(day.tags),
+        explicitOvertime: Boolean(day.explicitOvertime)
       });
     }
     const workedDates = days.filter(day => day.workedMinutes > 0).map(day => day.date);
     const workedMinutes = days.reduce((sum, day) => sum + day.workedMinutes, 0);
-    const extrasMinutes = days.reduce((sum, day) => sum + day.extrasMinutes, 0);
+    const he70Minutes = days.reduce((sum, day) => sum + day.he70Minutes, 0);
+    const he100Minutes = days.reduce((sum, day) => sum + day.he100Minutes, 0);
     const nightMinutes = days.reduce((sum, day) => sum + day.nightMinutes, 0);
     const dates = days.map(day => day.date);
     return {
@@ -343,13 +407,21 @@ export function mergePontoPeriods(periods = []) {
       periodStart: dates[0] ? dateFromYmd(dates[0]) : null,
       periodEnd: dates[dates.length - 1] ? dateFromYmd(dates[dates.length - 1]) : null,
       workedMinutes,
-      he70Minutes: extrasMinutes,
-      he100Minutes: 0,
+      he70Minutes,
+      he100Minutes,
       nightMinutes,
       workedDates,
-      monthly
+      monthly: schemaVersion >= 2 ? { schemaVersion: 2, months: monthly } : monthly
     };
   });
+}
+
+export function filterIgnoredPontoPeriods(periods = [], ignoredExternalEmployeeIds = []) {
+  const ignored = new Set(ignoredExternalEmployeeIds.map(String));
+  if (!ignored.size) return periods;
+  return periods.filter(period => (
+    !period.externalEmployeeId || !ignored.has(String(period.externalEmployeeId))
+  ));
 }
 
 // Cargo (JobRole.name = Collaborator.role) -> parâmetros efetivos por data. O cargo herda do modelo
@@ -447,15 +519,34 @@ export function rdoDataByCollaboratorFromReports(reports) {
     const dk = dateKeyUTC(report.reportDate);
     const workedHours = workedMinutes / 60;
     const offshore = Boolean(report.project?.offshore);
+    const mobilizationDate = report.project?.mobilizationDate
+      ? dateKeyUTC(report.project.mobilizationDate)
+      : null;
     for (const link of report.collaborators || []) {
       const sleepMode = sleepModeFor(report.project, link.collaboratorId);
       let c = map.get(link.collaboratorId);
-      if (!c) { c = { byProject: new Map(), dayProject: new Map() }; map.set(link.collaboratorId, c); }
+      if (!c) {
+        c = { byProject: new Map(), dayProjects: new Map(), mobilizationProjectsByDate: new Map() };
+        map.set(link.collaboratorId, c);
+      }
       let p = c.byProject.get(report.projectId);
       if (!p) { p = { offshore, sleepMode }; c.byProject.set(report.projectId, p); }
-      const existing = c.dayProject.get(dk);
+      let projectsForDay = c.dayProjects.get(dk);
+      if (!projectsForDay) {
+        projectsForDay = new Map();
+        c.dayProjects.set(dk, projectsForDay);
+      }
+      const existing = projectsForDay.get(report.projectId);
       if (!existing || workedHours > existing.hours) {
-        c.dayProject.set(dk, { projectId: report.projectId, hours: workedHours, offshore, sleepMode });
+        projectsForDay.set(report.projectId, { projectId: report.projectId, hours: workedHours, offshore, sleepMode });
+      }
+      if (report.reportType === 'RDO' && mobilizationDate && dk > mobilizationDate) {
+        let mobilizationProjects = c.mobilizationProjectsByDate.get(mobilizationDate);
+        if (!mobilizationProjects) {
+          mobilizationProjects = new Set();
+          c.mobilizationProjectsByDate.set(mobilizationDate, mobilizationProjects);
+        }
+        mobilizationProjects.add(report.projectId);
       }
     }
   }
@@ -481,7 +572,7 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
       reportDate: true,
       daytimeWorkedMinutes: true,
       nighttimeWorkedMinutes: true,
-      project: { select: { offshore: true, laborSleepModeByCollaborator: true } },
+      project: { select: { offshore: true, laborSleepModeByCollaborator: true, mobilizationDate: true } },
       collaborators: { select: { collaboratorId: true } },
       services: { select: { startTime: true, endTime: true } }
     }
@@ -489,20 +580,377 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
   return rdoDataByCollaboratorFromReports(reports);
 }
 
-function classifyProjectHours(dayRows, rdo) {
-  const projAwayHours = new Map();
-  const projHomeHours = new Map();
-  const projOffshoreHours = new Map();
-  const rdoWorkedByPid = new Map();
-  for (const row of dayRows) {
-    const dp = rdo.dayProject.get(row.date);
-    if (!dp) continue;
-    const hours = Math.max(0, row.normalHours || 0);
-    const target = dp.offshore ? projOffshoreHours : dp.sleepMode === 'HOME' ? projHomeHours : projAwayHours;
-    target.set(dp.projectId, (target.get(dp.projectId) || 0) + hours);
-    rdoWorkedByPid.set(dp.projectId, (rdoWorkedByPid.get(dp.projectId) || 0) + (dp.hours || 0));
+async function getProjectAllocationContext() {
+  const [projects, tagAliases, missionGroups] = await Promise.all([
+    prisma.project.findMany({
+      select: {
+        id: true,
+        code: true,
+        offshore: true,
+        laborSleepModeByCollaborator: true,
+        deletedAt: true
+      }
+    }),
+    prisma.pontoProjectTagAlias.findMany({
+      select: { normalizedTag: true, projectId: true }
+    }),
+    prisma.acompanhamentoMissionGroup.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        laborAllocationMode: true,
+        primaryLaborProjectId: true,
+        members: { select: { projectId: true } }
+      }
+    })
+  ]);
+  return {
+    projects,
+    resolveTag: buildProjectTagResolver({ projects, tagAliases }),
+    missionGroupProjectsByProjectId: buildMissionGroupProjectIndex(missionGroups)
+  };
+}
+
+function projectMetaForCollaborator(projects, collaboratorId) {
+  return new Map(projects.map(project => [project.id, {
+    offshore: Boolean(project.offshore),
+    sleepMode: sleepModeFor(project, collaboratorId)
+  }]));
+}
+
+function manualProjectsByCollaborator(overrides = []) {
+  const result = new Map();
+  for (const override of overrides) {
+    if (!override?.collaboratorId || !override?.projectId || !override?.workDate) continue;
+    if (!result.has(override.collaboratorId)) result.set(override.collaboratorId, new Map());
+    const byDate = result.get(override.collaboratorId);
+    const date = dateKeyUTC(override.workDate);
+    const projectIds = byDate.get(date) || [];
+    if (!projectIds.includes(override.projectId)) projectIds.push(override.projectId);
+    projectIds.sort();
+    byDate.set(date, projectIds);
   }
-  return { projAwayHours, projHomeHours, projOffshoreHours, rdoWorkedByPid };
+  return result;
+}
+
+export function buildMissionGroupProjectIndex(missionGroups = []) {
+  const result = new Map();
+  for (const group of missionGroups || []) {
+    const projectIds = [...new Set((group?.members || [])
+      .map(member => member?.projectId)
+      .filter(Boolean))];
+    if (projectIds.length < 2) continue;
+    const context = {
+      id: group?.id || null,
+      members: new Set(projectIds),
+      laborAllocationMode: group?.laborAllocationMode || 'VISUAL_ONLY',
+      primaryLaborProjectId: group?.primaryLaborProjectId || null
+    };
+    for (const projectId of projectIds) result.set(projectId, context);
+  }
+  return result;
+}
+
+function missionGroupMembers(group) {
+  if (!group) return null;
+  return group.members instanceof Set ? group.members : group instanceof Set ? group : null;
+}
+
+function mergedGroupSingleRdoFallback(taggedProjectIds, rdoByProject, missionGroupProjectsByProjectId) {
+  if (!taggedProjectIds.length || !(missionGroupProjectsByProjectId instanceof Map)) return null;
+  const groups = taggedProjectIds.map(projectId => missionGroupProjectsByProjectId.get(projectId));
+  if (groups.some(group => !group) || groups.some(group => group !== groups[0])) return null;
+  const members = missionGroupMembers(groups[0]);
+  if (!members) return null;
+  const eligible = [...rdoByProject.values()].filter(item => members.has(item.projectId));
+  if (eligible.length !== 1) return null;
+  return {
+    allocations: [{ projectId: eligible[0].projectId, weight: 1, rdo: eligible[0] }],
+    reason: 'MERGED_GROUP_SINGLE_RDO_FALLBACK'
+  };
+}
+
+function explicitMissionGroupDecision({
+  taggedProjectIds,
+  rdoByProject,
+  missionGroupProjectsByProjectId,
+  allocationAxis
+}) {
+  if (rdoByProject.size === 0 || !(missionGroupProjectsByProjectId instanceof Map)) return null;
+  const rdoGroups = [...rdoByProject.keys()].map(projectId => missionGroupProjectsByProjectId.get(projectId));
+  if (rdoGroups.some(group => !group) || rdoGroups.some(group => group !== rdoGroups[0])) return null;
+  const group = rdoGroups[0];
+  const members = missionGroupMembers(group);
+  if (!members || taggedProjectIds.some(projectId => !members.has(projectId))) return null;
+
+  const rdoItems = [...rdoByProject.values()].sort((left, right) => (
+    String(left.projectId).localeCompare(String(right.projectId))
+  ));
+  if (group.laborAllocationMode === 'CONSOLIDATE_PRIMARY' && group.primaryLaborProjectId) {
+    return {
+      allocations: [{
+        projectId: group.primaryLaborProjectId,
+        weight: 1,
+        rdo: rdoByProject.get(group.primaryLaborProjectId) || rdoItems[0] || null
+      }],
+      reason: 'CONSOLIDATE_PRIMARY'
+    };
+  }
+  if (group.laborAllocationMode !== 'SHARED_EXECUTION' || rdoItems.length < 2) return null;
+  if (allocationAxis === 'ANALYTICAL') {
+    return {
+      allocations: rdoItems.map(item => ({ projectId: item.projectId, weight: 1, rdo: item })),
+      reason: 'SHARED_EXECUTION_ANALYTICAL'
+    };
+  }
+  const positiveTotal = rdoItems.reduce((sum, item) => sum + Math.max(0, Number(item.hours) || 0), 0);
+  return {
+    allocations: rdoItems.map(item => ({
+      projectId: item.projectId,
+      weight: positiveTotal > 0
+        ? Math.max(0, Number(item.hours) || 0) / positiveTotal
+        : 1 / rdoItems.length,
+      rdo: item
+    })),
+    reason: 'SHARED_EXECUTION_ACCOUNTING'
+  };
+}
+
+function mobilizationTravelDecision({
+  projectIds,
+  missionGroupProjectsByProjectId,
+  allocationAxis
+}) {
+  const candidates = [...new Set(projectIds || [])].filter(Boolean).sort();
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) {
+    return {
+      allocations: [{ projectId: candidates[0], weight: 1, rdo: null }],
+      reason: 'MOBILIZATION_FUTURE_RDO'
+    };
+  }
+
+  const groups = candidates.map(projectId => missionGroupProjectsByProjectId.get(projectId));
+  const group = groups[0] || null;
+  const sameGroup = group && groups.every(item => item === group);
+  const members = missionGroupMembers(group);
+  if (sameGroup && members && candidates.every(projectId => members.has(projectId))) {
+    if (group.laborAllocationMode === 'CONSOLIDATE_PRIMARY' && group.primaryLaborProjectId) {
+      return {
+        allocations: [{ projectId: group.primaryLaborProjectId, weight: 1, rdo: null }],
+        reason: 'MOBILIZATION_CONSOLIDATE_PRIMARY'
+      };
+    }
+    if (group.laborAllocationMode === 'SHARED_EXECUTION') {
+      return {
+        allocations: candidates.map(projectId => ({
+          projectId,
+          weight: allocationAxis === 'ANALYTICAL' ? 1 : 1 / candidates.length,
+          rdo: null
+        })),
+        reason: allocationAxis === 'ANALYTICAL'
+          ? 'MOBILIZATION_SHARED_ANALYTICAL'
+          : 'MOBILIZATION_SHARED_ACCOUNTING'
+      };
+    }
+  }
+
+  return {
+    allocations: [],
+    candidateProjectIds: candidates,
+    reason: 'MOBILIZATION_RDO_AMBIGUOUS'
+  };
+}
+
+export function buildDailyProjectWeights({
+  tags = [],
+  rdoProjects = new Map(),
+  resolveTag = () => null,
+  manualProjectId = null,
+  manualProjectIds = null,
+  mobilizationProjectIds = null,
+  missionGroupProjectsByProjectId = new Map(),
+  allocationAxis = 'ACCOUNTING'
+} = {}) {
+  const rdoByProject = rdoProjects instanceof Map
+    ? rdoProjects
+    : new Map((rdoProjects || []).map(item => [item.projectId, item]));
+  const selectedManualProjectIds = [...new Set([
+    ...(Array.isArray(manualProjectIds) ? manualProjectIds : []),
+    ...(manualProjectId ? [manualProjectId] : [])
+  ].filter(Boolean))].sort();
+  if (selectedManualProjectIds.length > 0) {
+    const selectedRdos = selectedManualProjectIds.map(projectId => rdoByProject.get(projectId)).filter(Boolean);
+    const rdoTotal = selectedRdos.reduce((sum, item) => sum + Math.max(0, Number(item.hours) || 0), 0);
+    const hasCompleteRdoWeights = selectedRdos.length === selectedManualProjectIds.length
+      && selectedRdos.every(item => Math.max(0, Number(item.hours) || 0) > 0);
+    return {
+      allocations: selectedManualProjectIds.map(projectId => {
+        const rdo = rdoByProject.get(projectId) || null;
+        const weight = allocationAxis === 'ANALYTICAL' || selectedManualProjectIds.length === 1
+          ? 1
+          : hasCompleteRdoWeights && rdoTotal > 0 && rdo
+            ? Math.max(0, Number(rdo.hours) || 0) / rdoTotal
+            : 1 / selectedManualProjectIds.length;
+        return { projectId, weight, rdo };
+      }),
+      reason: selectedManualProjectIds.length === 1 ? 'MANUAL_OVERRIDE' : 'MANUAL_SHARED_OVERRIDE'
+    };
+  }
+  const taggedProjectIds = [...new Set((tags || []).map(resolveTag).filter(Boolean))].sort();
+  const explicitGroupDecision = explicitMissionGroupDecision({
+    taggedProjectIds,
+    rdoByProject,
+    missionGroupProjectsByProjectId,
+    allocationAxis
+  });
+  if (explicitGroupDecision) return explicitGroupDecision;
+
+  if (taggedProjectIds.length === 1) {
+    const projectId = taggedProjectIds[0];
+    if (rdoByProject.size > 0 && !rdoByProject.has(projectId)) {
+      if (rdoByProject.size === 1) {
+        const onlyRdo = [...rdoByProject.values()][0];
+        return {
+          allocations: [{ projectId: onlyRdo.projectId, weight: 1, rdo: onlyRdo }],
+          reason: 'SINGLE_RDO_OVERRIDES_TAG'
+        };
+      }
+      const groupedFallback = mergedGroupSingleRdoFallback(
+        taggedProjectIds,
+        rdoByProject,
+        missionGroupProjectsByProjectId
+      );
+      if (groupedFallback) return groupedFallback;
+      return { allocations: [], reason: 'TAG_RDO_CONFLICT' };
+    }
+    return {
+      allocations: [{ projectId, weight: 1, rdo: rdoByProject.get(projectId) || null }],
+      reason: 'SINGLE_TAG'
+    };
+  }
+
+  if (taggedProjectIds.length > 1) {
+    const confirmed = taggedProjectIds
+      .filter(projectId => rdoByProject.has(projectId))
+      .map(projectId => rdoByProject.get(projectId));
+    if (confirmed.length === 1) {
+      return {
+        allocations: [{ projectId: confirmed[0].projectId, weight: 1, rdo: confirmed[0] }],
+        reason: 'SINGLE_CONFIRMED_TAG'
+      };
+    }
+    if (confirmed.length > 1) {
+      const totalRdoHours = confirmed.reduce((sum, item) => sum + Math.max(0, Number(item.hours) || 0), 0);
+      if (totalRdoHours > 0) {
+        return {
+          allocations: confirmed
+            .filter(item => (Number(item.hours) || 0) > 0)
+            .map(item => ({
+              projectId: item.projectId,
+              weight: Math.max(0, Number(item.hours) || 0) / totalRdoHours,
+              rdo: item
+            })),
+          reason: 'MULTIPLE_CONFIRMED_TAGS'
+        };
+      }
+    }
+    const groupedFallback = mergedGroupSingleRdoFallback(
+      taggedProjectIds,
+      rdoByProject,
+      missionGroupProjectsByProjectId
+    );
+    if (groupedFallback) return groupedFallback;
+    return { allocations: [], reason: 'UNCONFIRMED_MULTIPLE_TAGS' };
+  }
+
+  if (rdoByProject.size === 1) {
+    const onlyRdo = [...rdoByProject.values()][0];
+    return {
+      allocations: [{ projectId: onlyRdo.projectId, weight: 1, rdo: onlyRdo }],
+      reason: 'SINGLE_RDO_FALLBACK'
+    };
+  }
+  if (rdoByProject.size === 0 && (tags || []).some(isPontoTravelTag)) {
+    const mobilizationDecision = mobilizationTravelDecision({
+      projectIds: mobilizationProjectIds instanceof Set
+        ? [...mobilizationProjectIds]
+        : mobilizationProjectIds,
+      missionGroupProjectsByProjectId,
+      allocationAxis
+    });
+    if (mobilizationDecision) return mobilizationDecision;
+  }
+  return {
+    allocations: [],
+    reason: rdoByProject.size > 1 ? 'AMBIGUOUS_WITHOUT_TAGS' : 'NO_PROJECT_EVIDENCE'
+  };
+}
+
+export function classifyProjectHours(
+  dayRows,
+  rdo,
+  resolveTag = () => null,
+  projectMetaById = new Map(),
+  manualProjectByDate = new Map(),
+  missionGroupProjectsByProjectId = new Map(),
+  allocationAxis = 'ACCOUNTING'
+) {
+  const byProject = new Map();
+  const unresolvedDays = [];
+  const dayProjects = rdo?.dayProjects || new Map();
+
+  for (const row of dayRows) {
+    const rdoProjects = dayProjects.get(row.date) || new Map();
+    const mobilizationProjectIds = rdo?.mobilizationProjectsByDate?.get(row.date) || null;
+    const decision = buildDailyProjectWeights({
+      tags: row.tags,
+      rdoProjects,
+      resolveTag,
+      manualProjectIds: manualProjectByDate.get(row.date) || null,
+      mobilizationProjectIds,
+      missionGroupProjectsByProjectId,
+      allocationAxis
+    });
+    if (decision.allocations.length === 0) {
+      if (decision.reason !== 'NO_PROJECT_EVIDENCE') unresolvedDays.push({ date: row.date, reason: decision.reason });
+      continue;
+    }
+
+    for (const allocation of decision.allocations) {
+      const rdoProject = allocation.rdo || rdo?.byProject?.get(allocation.projectId) || null;
+      const projectMeta = projectMetaById.get(allocation.projectId) || rdoProject || {};
+      let project = byProject.get(allocation.projectId);
+      if (!project) {
+        project = {
+          projectId: allocation.projectId,
+          normalHours: 0,
+          he70Hours: 0,
+          he100Hours: 0,
+          rdoWorkedHours: 0,
+          awayHours: 0,
+          homeHours: 0,
+          offshoreHours: 0,
+          travelHours: 0,
+          offshore: Boolean(projectMeta.offshore),
+          sleepMode: projectMeta.sleepMode === 'HOME' ? 'HOME' : 'AWAY'
+        };
+        byProject.set(allocation.projectId, project);
+      }
+      project.normalHours += Math.max(0, Number(row.normalHours) || 0) * allocation.weight;
+      project.he70Hours += Math.max(0, Number(row.he70Horas) || 0) * allocation.weight;
+      project.he100Hours += Math.max(0, Number(row.he100Horas) || 0) * allocation.weight;
+      project.rdoWorkedHours += Math.max(0, Number(allocation.rdo?.hours) || 0);
+      const normalHours = Math.max(0, Number(row.normalHours) || 0) * allocation.weight;
+      const travelContext = (row.tags || []).some(isPontoTravelTag);
+      if (project.offshore) project.offshoreHours += normalHours;
+      else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += normalHours;
+      else project.homeHours += normalHours;
+      if (travelContext) project.travelHours += normalHours;
+    }
+  }
+
+  return { byProject, unresolvedDays };
 }
 
 // Fração do mês coberta pelo arquivo (para proporcionalizar o fixo no mês parcial).
@@ -518,21 +966,21 @@ export function splitOvertime(extrasHoras, cap = 30) {
   return { he70Horas, he100Horas };
 }
 
-function splitOvertimeDays(days, cap = 30) {
+export function splitOvertimeDays(days, cap = 30) {
   let he70Remaining = Math.max(0, cap);
   return days.map(day => {
-    const extrasHoras = Math.max(0, day.extrasHoras || 0);
-    const he70Horas = Math.min(he70Remaining, extrasHoras);
-    he70Remaining -= he70Horas;
+    const genericOvertimeHoras = Math.max(0, Number(day.genericOvertimeHoras) || 0);
+    const genericHe70Horas = Math.min(he70Remaining, genericOvertimeHoras);
+    he70Remaining -= genericHe70Horas;
     return {
       ...day,
-      he70Horas,
-      he100Horas: Math.max(0, extrasHoras - he70Horas)
+      he70Horas: Math.max(0, Number(day.he70Horas) || 0) + genericHe70Horas,
+      he100Horas: Math.max(0, Number(day.he100Horas) || 0) + Math.max(0, genericOvertimeHoras - genericHe70Horas)
     };
   });
 }
 
-function monthRowsFromMonthlyData(monthKey, monthData) {
+function monthRowsFromMonthlyData(monthKey, monthData, schemaVersion = 1) {
   const month = monthData && typeof monthData === 'object' && !Array.isArray(monthData) ? monthData : {};
   if (Array.isArray(month.days) && month.days.length) {
     return month.days
@@ -540,7 +988,14 @@ function monthRowsFromMonthlyData(monthKey, monthData) {
       .map(day => ({
         date: String(day.date),
         normalHours: numberValue(day.workedMinutes) / 60,
-        extrasHoras: numberValue(day.extrasMinutes) / 60
+        extrasHoras: numberValue(day.extrasMinutes) / 60,
+        genericOvertimeHoras: (schemaVersion >= 2
+          ? numberValue(day.genericOvertimeMinutes)
+          : numberValue(day.extrasMinutes)) / 60,
+        he70Horas: (schemaVersion >= 2 ? numberValue(day.he70Minutes) : 0) / 60,
+        he100Horas: (schemaVersion >= 2 ? numberValue(day.he100Minutes) : 0) / 60,
+        tags: uniqueStrings(day.tags),
+        explicitOvertime: schemaVersion >= 2
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }
@@ -551,16 +1006,25 @@ function monthRowsFromMonthlyData(monthKey, monthData) {
   const extrasPerDay = numberValue(month.extrasMinutes) / workedDates.length / 60;
   return workedDates
     .filter(Boolean)
-    .map(date => ({ date: String(date || monthKey), normalHours: normalPerDay, extrasHoras: extrasPerDay }))
+    .map(date => ({
+      date: String(date || monthKey),
+      normalHours: normalPerDay,
+      extrasHoras: extrasPerDay,
+      genericOvertimeHoras: extrasPerDay,
+      he70Horas: 0,
+      he100Horas: 0,
+      explicitOvertime: false
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // Detalhe por mês do colaborador: usa os dias do ponto quando disponíveis; se ausentes (imports
 // antigos), apropria os totais do período pela proporção de dias trabalhados.
 function monthsOf(period) {
-  if (period.monthly && typeof period.monthly === 'object' && Object.keys(period.monthly).length) {
-    return Object.entries(period.monthly).map(([monthKey, month]) => {
-      const days = monthRowsFromMonthlyData(monthKey, month);
+  const { schemaVersion, months: monthly } = monthlyPayload(period.monthly);
+  if (monthly && Object.keys(monthly).length) {
+    return Object.entries(monthly).map(([monthKey, month]) => {
+      const days = monthRowsFromMonthlyData(monthKey, month, schemaVersion);
       return {
         monthKey,
         days,
@@ -578,7 +1042,15 @@ function monthsOf(period) {
     const extrasPerDay = (((period.he70Minutes + period.he100Minutes) / 60) * ratio) / (dates.length || 1);
     return {
       monthKey,
-      days: dates.map(date => ({ date, normalHours: normalPerDay, extrasHoras: extrasPerDay })),
+      days: dates.map(date => ({
+        date,
+        normalHours: normalPerDay,
+        extrasHoras: extrasPerDay,
+        genericOvertimeHoras: extrasPerDay,
+        he70Horas: 0,
+        he100Horas: 0,
+        explicitOvertime: false
+      })),
       workedDates: dates
     };
   });
@@ -644,13 +1116,60 @@ export function examsTrainingAnnualCostForMonth({
   return offshoreYears?.has(year) ? offshoreExamsTrainingAnnualCost : examsTrainingAnnualCost;
 }
 
+function moneyCents(value, label) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < -1e-7) {
+    throw new Error(`Parcela monetária inválida em ${label}.`);
+  }
+  return Math.round(Math.max(0, numeric) * 100);
+}
+
+function reconcileMoneyAxis({ total, byProject, idle, key }) {
+  const targetCents = moneyCents(total, `total.${key}`);
+  const projectEntries = Object.entries(byProject)
+    .map(([projectId, item]) => ({
+      projectId,
+      item,
+      cents: moneyCents(item[key], `projeto.${projectId}.${key}`)
+    }))
+    .sort((left, right) => right.item.hours - left.item.hours || left.projectId.localeCompare(right.projectId));
+  const sede = { item: idle.sede, cents: moneyCents(idle.sede[key], `sede.${key}`) };
+  const folga = { item: idle.folga, cents: moneyCents(idle.folga[key], `folga.${key}`) };
+  const allEntries = [...projectEntries, sede, folga];
+  let residual = targetCents - allEntries.reduce((sum, entry) => sum + entry.cents, 0);
+
+  const candidates = [];
+  if (idle.sede.hours > 0 || sede.cents > 0) candidates.push(sede);
+  if (idle.folga.hours > 0 || folga.cents > 0) candidates.push(folga);
+  if (projectEntries[0]) candidates.push(projectEntries[0]);
+  if (candidates.length === 0) candidates.push(sede);
+
+  if (residual >= 0) {
+    candidates[0].cents += residual;
+    residual = 0;
+  } else {
+    for (const candidate of candidates) {
+      const reduction = Math.min(candidate.cents, -residual);
+      candidate.cents -= reduction;
+      residual += reduction;
+      if (residual === 0) break;
+    }
+  }
+  if (residual !== 0) throw new Error(`Não foi possível reconciliar ${key} sem parcela negativa.`);
+
+  for (const entry of projectEntries) entry.item[key] = entry.cents / 100;
+  idle.sede[key] = sede.cents / 100;
+  idle.folga[key] = folga.cents / 100;
+  return targetCents / 100;
+}
+
 /*
  * Função pura (testável): folha + custo por projeto + sobra (sede/folga) de um colaborador num mês.
  *   projects: [{ pid, rdoDaysHours, awayDaysHours, homeDaysHours, offshoreDaysHours, rdoWorkedHours, offshore }]
  *   fixedCoverage: fração do mês coberta (1 = mês cheio; <1 no mês parcial → fixo proporcional).
  * Garante: Σ projetos + sede + folga = folha.
  */
-export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMensal = 0, normalHours, he70Horas, he100Horas, folgaHours, projects, fixedCoverage = 1 }) {
+export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMensal = 0, normalHours, he70Horas, he100Horas, folgaHours, projects = [], fixedCoverage = 1 }) {
   const dpd = HORAS_POR_DIA;
   const fixedAnnualCostMensal = epiMensal + examsTrainingMensal;
   const hourGroups = projects.map(projectHours);
@@ -660,6 +1179,19 @@ export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMe
   const offshoreDaysHours = hourGroups.reduce((s, p) => s + p.offshoreHours, 0);
   const totalRdoWorked = projects.reduce((s, p) => s + p.rdoWorkedHours, 0);
   const totalHours = normalHours + he70Horas + he100Horas + folgaHours;
+  const explicitOvertimeFlags = projects.map(p => Object.hasOwn(p, 'he70Hours') || Object.hasOwn(p, 'he100Hours'));
+  const usesExplicitOvertime = explicitOvertimeFlags.some(Boolean);
+  if (usesExplicitOvertime && explicitOvertimeFlags.some(value => !value)) {
+    throw new Error('A apropriação explícita de horas extras deve ser informada para todos os projetos.');
+  }
+  if (projectDaysHours > normalHours + 1e-7) throw new Error('Horas normais apropriadas excedem o ponto do colaborador.');
+  if (usesExplicitOvertime) {
+    const allocatedHe70 = projects.reduce((sum, p) => sum + Math.max(0, Number(p.he70Hours) || 0), 0);
+    const allocatedHe100 = projects.reduce((sum, p) => sum + Math.max(0, Number(p.he100Hours) || 0), 0);
+    if (allocatedHe70 > he70Horas + 1e-7 || allocatedHe100 > he100Horas + 1e-7) {
+      throw new Error('Horas extras apropriadas excedem o ponto do colaborador.');
+    }
+  }
 
   const folhaInputs = {
     diasCliente: projectDaysHours / dpd,
@@ -682,8 +1214,12 @@ export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMe
   let sumCostBase = 0;
   let sumProjectHours = 0;
   for (const p of projects) {
-    const he70P = totalRdoWorked > 0 ? he70Horas * (p.rdoWorkedHours / totalRdoWorked) : 0;
-    const he100P = totalRdoWorked > 0 ? he100Horas * (p.rdoWorkedHours / totalRdoWorked) : 0;
+    const he70P = usesExplicitOvertime
+      ? Math.max(0, Number(p.he70Hours) || 0)
+      : totalRdoWorked > 0 ? he70Horas * (p.rdoWorkedHours / totalRdoWorked) : 0;
+    const he100P = usesExplicitOvertime
+      ? Math.max(0, Number(p.he100Hours) || 0)
+      : totalRdoWorked > 0 ? he100Horas * (p.rdoWorkedHours / totalRdoWorked) : 0;
     const hours = projectHours(p);
     const projectHoursTotal = hours.clientHours;
     const inputsP = {
@@ -705,41 +1241,84 @@ export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMe
   }
 
   // Sobra = folha − Σ projetos, quebrada em folga (dias de semana sem ponto) e sede (o resto).
-  if (totalHours <= 0) {
-    return {
-      folha,
-      folhaBase,
-      fixoMensal: fixedBase,
-      variavelMensal,
-      totalHours,
-      byProject,
-      idle: {
-        sede: { cost: folha, costBase: folhaBase, hours: 0 },
-        folga: { cost: 0, costBase: 0, hours: 0 }
-      }
-    };
+  const idleHours = totalHours > 0 ? Math.max(0, totalHours - sumProjectHours) : 0;
+  const rawIdleCost = folha - sumCost;
+  const rawIdleCostBase = folhaBase - sumCostBase;
+  if (rawIdleCost < -1e-7 || rawIdleCostBase < -1e-7) {
+    throw new Error('A apropriação dos projetos ultrapassou o custo mensal do colaborador.');
   }
-
-  const idleHours = Math.max(0, totalHours - sumProjectHours);
-  const idleCost = folha - sumCost;
-  const idleCostBase = folhaBase - sumCostBase;
-  const folgaH = Math.min(folgaHours, idleHours);
-  const sedeH = Math.max(0, idleHours - folgaH);
-  const sedeFrac = idleHours > 0 ? sedeH / idleHours : 0;
+  const idleCost = Math.max(0, rawIdleCost);
+  const idleCostBase = Math.max(0, rawIdleCostBase);
+  const folgaH = totalHours > 0 ? Math.min(folgaHours, idleHours) : 0;
+  const sedeH = totalHours > 0 ? Math.max(0, idleHours - folgaH) : 0;
+  const sedeFrac = idleHours > 0 ? sedeH / idleHours : 1;
   const idle = {
     sede: { cost: idleCost * sedeFrac, costBase: idleCostBase * sedeFrac, hours: sedeH },
     folga: { cost: idleCost * (1 - sedeFrac), costBase: idleCostBase * (1 - sedeFrac), hours: folgaH }
   };
 
+  const reconciledFolha = reconcileMoneyAxis({ total: folha, byProject, idle, key: 'cost' });
+  const reconciledFolhaBase = reconcileMoneyAxis({ total: folhaBase, byProject, idle, key: 'costBase' });
+
   return {
-    folha,
-    folhaBase,
+    folha: reconciledFolha,
+    folhaBase: reconciledFolhaBase,
     fixoMensal: fixedBase,
     variavelMensal,
     totalHours,
     byProject,
     idle
   };
+}
+
+// Projeção de consumo por projeto. Diferentemente de computeCollaboratorCost, esta saída não
+// reconcilia a soma dos projetos contra a folha: uma execução compartilhada pode consumir a
+// mesma jornada integral em mais de um contrato, embora o desembolso do colaborador seja único.
+export function computeAnalyticalProjectCosts({ params, fixedBase = 0, totalHours = 0, projects = [] }) {
+  const zeroNoEpi = computeMonthlyCost(params, {}).totalMensal;
+  const result = {};
+  for (const project of projects) {
+    const hours = projectHours(project);
+    const he70Hours = Math.max(0, Number(project.he70Hours) || 0);
+    const he100Hours = Math.max(0, Number(project.he100Hours) || 0);
+    const inputs = {
+      diasCliente: hours.clientHours / HORAS_POR_DIA,
+      diasFora: hours.awayHours / HORAS_POR_DIA,
+      offshoreDays: hours.offshoreHours / HORAS_POR_DIA,
+      diasCasa: hours.homeHours / HORAS_POR_DIA,
+      he70Horas: he70Hours,
+      he100Horas: he100Hours
+    };
+    const baseInputs = {
+      ...inputs,
+      diasFora: (hours.awayHours + hours.offshoreHours) / HORAS_POR_DIA,
+      offshoreDays: 0
+    };
+    const hoursForProration = hours.clientHours + he70Hours + he100Hours;
+    const fixedProject = totalHours > 0 ? fixedBase * (hoursForProration / totalHours) : 0;
+    const variableProject = computeMonthlyCost(params, inputs).totalMensal - zeroNoEpi;
+    const variableProjectBase = computeMonthlyCost(params, baseInputs).totalMensal - zeroNoEpi;
+    result[project.pid] = {
+      cost: Math.round((fixedProject + variableProject) * 100) / 100,
+      costBase: Math.round((fixedProject + variableProjectBase) * 100) / 100,
+      hours: hoursForProration
+    };
+  }
+  return result;
+}
+
+function costProjectsFromClassification(classified) {
+  return [...classified.byProject.values()].map(project => ({
+    pid: project.projectId,
+    rdoDaysHours: project.normalHours,
+    awayDaysHours: project.awayHours,
+    homeDaysHours: project.homeHours,
+    offshoreDaysHours: project.offshoreHours,
+    rdoWorkedHours: project.rdoWorkedHours,
+    he70Hours: project.he70Hours,
+    he100Hours: project.he100Hours,
+    offshore: project.offshore
+  }));
 }
 
 // Custo/hora e rateio por obra de cada colaborador para o ponto vigente (ou o import indicado),
@@ -752,7 +1331,16 @@ export async function computeCollaboratorRates(importId = null) {
   const periodEndExclusive = endExclusive(pontoScope.periodEnd);
   const fileStart = pontoScope.periodStart;
   const fileEnd = pontoScope.periodEnd;
-  const [periodRows, roleParams, rdoData, offshoreYearsByCollaborator, annualCosts] = await Promise.all([
+  const [
+    periodRows,
+    ignoredEmployees,
+    roleParams,
+    rdoData,
+    offshoreYearsByCollaborator,
+    annualCosts,
+    projectAllocationContext,
+    manualDayOverrides
+  ] = await Promise.all([
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
@@ -760,19 +1348,37 @@ export async function computeCollaboratorRates(importId = null) {
         import: { select: { createdAt: true } }
       }
     }),
+    prisma.pontoExternalEmployee.findMany({
+      where: { ignoredAt: { not: null } },
+      select: { externalEmployeeId: true }
+    }),
     getRoleParamsResolver(),
     getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
     getOffshoreYearsByCollaborator(pontoScope.periodStart, pontoScope.periodEnd),
-    getAnnualCollaboratorCosts()
+    getAnnualCollaboratorCosts(),
+    getProjectAllocationContext(),
+    prisma.pontoDayProjectOverride.findMany({
+      where: { workDate: { gte: pontoScope.periodStart, lt: periodEndExclusive } },
+      select: { collaboratorId: true, workDate: true, projectId: true }
+    })
   ]);
-  const periods = mergePontoPeriods(periodRows);
+  const periods = mergePontoPeriods(filterIgnoredPontoPeriods(
+    periodRows,
+    ignoredEmployees.map(item => item.externalEmployeeId)
+  ));
+  const manualProjects = manualProjectsByCollaborator(manualDayOverrides);
   const epiMensal = annualCosts.epiAnnualCost / 12;
 
   const rates = [];
   const byCollaboratorId = new Map();
   for (const period of periods) {
     const role = period.collaborator?.role || null;
-    const rdo = rdoData.get(period.collaboratorId) || { byProject: new Map(), dayProject: new Map() };
+    const rdo = rdoData.get(period.collaboratorId) || {
+      byProject: new Map(),
+      dayProjects: new Map(),
+      mobilizationProjectsByDate: new Map()
+    };
+    const projectMetaById = projectMetaForCollaborator(projectAllocationContext.projects, period.collaboratorId);
 
     const he70Horas = period.he70Minutes / 60;
     const he100Horas = period.he100Minutes / 60;
@@ -799,6 +1405,7 @@ export async function computeCollaboratorRates(importId = null) {
       custoHoraBase: null,
       idle: { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } },
       byProject: {},
+      analyticalByProject: {},
       months: [] // detalhe por mês (para o filtro da aba Custo/hora)
     };
 
@@ -808,6 +1415,7 @@ export async function computeCollaboratorRates(importId = null) {
       const agg = { folha: 0, folhaBase: 0, fixo: 0, variavel: 0, totalHours: 0, folga: 0, normal: 0, he70: 0, he100: 0 };
       const idle = { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } };
       const byProject = {};
+      const analyticalByProject = {};
       let computedAny = false;
 
       for (const mrec of months) {
@@ -822,6 +1430,7 @@ export async function computeCollaboratorRates(importId = null) {
         const monthAgg = { folha: 0, folhaBase: 0, fixo: 0, variavel: 0, totalHours: 0, folga: 0, normal: 0, he70: 0, he100: 0 };
         const monthIdle = { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } };
         const monthByProject = {};
+        const monthAnalyticalByProject = {};
 
         for (const segment of segments) {
           if (!segment.params) continue;
@@ -833,17 +1442,25 @@ export async function computeCollaboratorRates(importId = null) {
           const he100S = segmentDays.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
           const folgaS = countFolgaWeekdays(segCov.start, segCov.end, workedSet) * HORAS_POR_DIA;
 
-          const { projAwayHours, projHomeHours, projOffshoreHours, rdoWorkedByPid } = classifyProjectHours(segmentDays, rdo);
-          const projectIds = [...new Set([...projAwayHours.keys(), ...projHomeHours.keys(), ...projOffshoreHours.keys()])];
-          const projects = projectIds.map(pid => ({
-            pid,
-            rdoDaysHours: (projAwayHours.get(pid) || 0) + (projHomeHours.get(pid) || 0) + (projOffshoreHours.get(pid) || 0),
-            awayDaysHours: projAwayHours.get(pid) || 0,
-            homeDaysHours: projHomeHours.get(pid) || 0,
-            offshoreDaysHours: projOffshoreHours.get(pid) || 0,
-            rdoWorkedHours: rdoWorkedByPid.get(pid) || 0,
-            offshore: Boolean(rdo.byProject.get(pid)?.offshore)
-          }));
+          const classified = classifyProjectHours(
+            segmentDays,
+            rdo,
+            projectAllocationContext.resolveTag,
+            projectMetaById,
+            manualProjects.get(period.collaboratorId) || new Map(),
+            projectAllocationContext.missionGroupProjectsByProjectId
+          );
+          const analyticalClassified = classifyProjectHours(
+            segmentDays,
+            rdo,
+            projectAllocationContext.resolveTag,
+            projectMetaById,
+            manualProjects.get(period.collaboratorId) || new Map(),
+            projectAllocationContext.missionGroupProjectsByProjectId,
+            'ANALYTICAL'
+          );
+          const projects = costProjectsFromClassification(classified);
+          const analyticalProjects = costProjectsFromClassification(analyticalClassified);
           const examsTrainingMensal = examsTrainingAnnualCostForMonth({
             collaboratorId: period.collaboratorId,
             monthKey: mk,
@@ -856,6 +1473,12 @@ export async function computeCollaboratorRates(importId = null) {
             params: segment.params, epiMensal, examsTrainingMensal, normalHours: normalHoursS, he70Horas: he70S, he100Horas: he100S,
             folgaHours: folgaS, projects, fixedCoverage: segCov.fraction
           });
+          const analyticalCosts = computeAnalyticalProjectCosts({
+            params: segment.params,
+            fixedBase: res.fixoMensal,
+            totalHours: res.totalHours,
+            projects: analyticalProjects
+          });
 
           computedAny = true;
           monthAgg.folha += res.folha; monthAgg.folhaBase += res.folhaBase; monthAgg.fixo += res.fixoMensal;
@@ -864,6 +1487,12 @@ export async function computeCollaboratorRates(importId = null) {
           for (const [pid, a] of Object.entries(res.byProject)) {
             if (!monthByProject[pid]) monthByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
             monthByProject[pid].cost += a.cost; monthByProject[pid].costBase += a.costBase; monthByProject[pid].hours += a.hours;
+          }
+          for (const [pid, a] of Object.entries(analyticalCosts)) {
+            if (!monthAnalyticalByProject[pid]) monthAnalyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+            monthAnalyticalByProject[pid].cost += a.cost;
+            monthAnalyticalByProject[pid].costBase += a.costBase;
+            monthAnalyticalByProject[pid].hours += a.hours;
           }
           monthIdle.sede.cost += res.idle.sede.cost; monthIdle.sede.costBase += res.idle.sede.costBase; monthIdle.sede.hours += res.idle.sede.hours;
           monthIdle.folga.cost += res.idle.folga.cost; monthIdle.folga.costBase += res.idle.folga.costBase; monthIdle.folga.hours += res.idle.folga.hours;
@@ -876,6 +1505,12 @@ export async function computeCollaboratorRates(importId = null) {
         for (const [pid, a] of Object.entries(monthByProject)) {
           if (!byProject[pid]) byProject[pid] = { cost: 0, costBase: 0, hours: 0 };
           byProject[pid].cost += a.cost; byProject[pid].costBase += a.costBase; byProject[pid].hours += a.hours;
+        }
+        for (const [pid, a] of Object.entries(monthAnalyticalByProject)) {
+          if (!analyticalByProject[pid]) analyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+          analyticalByProject[pid].cost += a.cost;
+          analyticalByProject[pid].costBase += a.costBase;
+          analyticalByProject[pid].hours += a.hours;
         }
         idle.sede.cost += monthIdle.sede.cost; idle.sede.costBase += monthIdle.sede.costBase; idle.sede.hours += monthIdle.sede.hours;
         idle.folga.cost += monthIdle.folga.cost; idle.folga.costBase += monthIdle.folga.costBase; idle.folga.hours += monthIdle.folga.hours;
@@ -892,7 +1527,8 @@ export async function computeCollaboratorRates(importId = null) {
           custoHora: monthAgg.totalHours > 0 ? monthAgg.folha / monthAgg.totalHours : 0,
           custoHoraBase: monthAgg.totalHours > 0 ? monthAgg.folhaBase / monthAgg.totalHours : 0,
           idle: monthIdle,
-          byProject: monthByProject
+          byProject: monthByProject,
+          analyticalByProject: monthAnalyticalByProject
         });
       }
       entry.months.sort((a, b) => a.month.localeCompare(b.month));
@@ -912,6 +1548,7 @@ export async function computeCollaboratorRates(importId = null) {
         entry.he100Horas = agg.he100;
         entry.totalHoras = agg.normal + agg.he70 + agg.he100;
         entry.byProject = byProject;
+        entry.analyticalByProject = analyticalByProject;
         entry.idle = idle;
       }
     }
@@ -937,7 +1574,16 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   if (!pontoScope) throw new Error('Sem import de ponto.');
   const importIds = pontoScope.pontoImports.map(item => item.id);
   const periodEndExclusive = endExclusive(pontoScope.periodEnd);
-  const [periodRows, roleParams, rdoData, offshoreYearsByCollaborator, annualCosts] = await Promise.all([
+  const [
+    periodRows,
+    ignoredEmployees,
+    roleParams,
+    rdoData,
+    offshoreYearsByCollaborator,
+    annualCosts,
+    projectAllocationContext,
+    manualDayOverrides
+  ] = await Promise.all([
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
@@ -945,13 +1591,25 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
         import: { select: { createdAt: true } }
       }
     }),
+    prisma.pontoExternalEmployee.findMany({
+      where: { ignoredAt: { not: null } },
+      select: { externalEmployeeId: true }
+    }),
     getRoleParamsResolver(),
     getRdoDataByCollaborator(pontoScope.periodStart, periodEndExclusive),
     getOffshoreYearsByCollaborator(pontoScope.periodStart, pontoScope.periodEnd),
-    getAnnualCollaboratorCosts()
+    getAnnualCollaboratorCosts(),
+    getProjectAllocationContext(),
+    prisma.pontoDayProjectOverride.findMany({
+      where: { workDate: { gte: pontoScope.periodStart, lt: periodEndExclusive } },
+      select: { collaboratorId: true, workDate: true, projectId: true }
+    })
   ]);
   const query = String(nameQuery || '').trim().toLowerCase();
-  const period = mergePontoPeriods(periodRows).find(item => (
+  const period = mergePontoPeriods(filterIgnoredPontoPeriods(
+    periodRows,
+    ignoredEmployees.map(item => item.externalEmployeeId)
+  )).find(item => (
     String(item.collaborator?.name || item.rawName || '').toLowerCase().includes(query)
   ));
   if (!period) throw new Error(`Colaborador "${nameQuery}" não encontrado no ponto vigente.`);
@@ -960,7 +1618,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   const cov = monthCoverage(monthKey, pontoScope.periodStart, pontoScope.periodEnd);
   const params = roleParams.paramsFor(role, cov.startKey);
   if (!params) throw new Error(`Cargo "${role}" sem custo configurado.`);
-  const rdo = rdoData.get(period.collaboratorId) || { byProject: new Map(), dayProject: new Map() };
+  const rdo = rdoData.get(period.collaboratorId) || { byProject: new Map(), dayProjects: new Map() };
 
   const cap = Number(params.he70LimiteHoras) || 30;
   const mrec = monthsOf(period).find(m => m.monthKey === monthKey);
@@ -971,16 +1629,22 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   const he100M = daysM.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
   const folgaHours = countFolgaWeekdays(cov.start, cov.end, new Set(period.workedDates || [])) * HORAS_POR_DIA;
 
-  const { projAwayHours, projHomeHours, projOffshoreHours } = classifyProjectHours(daysM, rdo);
+  const classified = classifyProjectHours(
+    daysM,
+    rdo,
+    projectAllocationContext.resolveTag,
+    projectMetaForCollaborator(projectAllocationContext.projects, period.collaboratorId),
+    manualProjectsByCollaborator(manualDayOverrides).get(period.collaboratorId) || new Map(),
+    projectAllocationContext.missionGroupProjectsByProjectId
+  );
   let projectDaysHours = 0;
   let awayDaysHours = 0;
   let homeDaysHours = 0;
   let offshoreDaysHours = 0;
-  const projectIds = [...new Set([...projAwayHours.keys(), ...projHomeHours.keys(), ...projOffshoreHours.keys()])];
-  for (const pid of projectIds) {
-    const away = projAwayHours.get(pid) || 0;
-    const home = projHomeHours.get(pid) || 0;
-    const offshore = projOffshoreHours.get(pid) || 0;
+  for (const project of classified.byProject.values()) {
+    const away = project.awayHours || 0;
+    const home = project.homeHours || 0;
+    const offshore = project.offshoreHours || 0;
     awayDaysHours += away;
     homeDaysHours += home;
     offshoreDaysHours += offshore;
@@ -1032,7 +1696,7 @@ export async function laborCostByProject(importId = null) {
   const byProjectId = new Map();
   const idle = { cost: 0, costBase: 0, hours: 0 };
   for (const entry of byCollaboratorId.values()) {
-    for (const [pid, alloc] of Object.entries(entry.byProject)) {
+    for (const [pid, alloc] of Object.entries(entry.analyticalByProject || entry.byProject)) {
       let agg = byProjectId.get(pid);
       if (!agg) { agg = { laborCost: 0, laborCostBase: 0, hours: 0 }; byProjectId.set(pid, agg); }
       agg.laborCost += alloc.cost;

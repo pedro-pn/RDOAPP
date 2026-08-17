@@ -345,6 +345,8 @@ export function groupProjectDetails(group, memberDetails = []) {
     group: {
       id: group.id,
       name: group.name,
+      laborAllocationMode: group.laborAllocationMode || 'VISUAL_ONLY',
+      primaryLaborProjectId: group.primaryLaborProjectId || null,
       members
     },
     header: {

@@ -311,6 +311,8 @@ function buildGroupCard(group, memberCardsByProjectId) {
   return {
     kind: 'GROUP',
     groupId: group.id,
+    laborAllocationMode: group.laborAllocationMode || 'VISUAL_ONLY',
+    primaryLaborProjectId: group.primaryLaborProjectId || null,
     code: groupCode(members),
     name: group.name,
     clientName: groupClientName(members),
@@ -357,6 +359,7 @@ function buildGroupCard(group, memberCardsByProjectId) {
     expectedEndDate: maxIsoDate(visibleCards.map(card => card.expectedEndDate)),
     laborCost: sumValues(visibleCards, card => card.laborCost),
     laborCostBase: sumValues(visibleCards, card => card.laborCostBase),
+    laborHours: sumValues(visibleCards, card => card.laborHours),
     stockCost: sumValues(visibleCards, card => card.stockCost, { nullWhenEmpty: false }),
     manualCost: sumValues(visibleCards, card => card.manualCost, { nullWhenEmpty: false }),
     equipment: combineEquipment(visibleCards),

@@ -23,6 +23,16 @@ test('loadEnv parses defaults from a minimal valid environment', () => {
   assert.equal(env.operationsAlertJobEnabled, false);
   assert.equal(env.errorTrackingWebhookUrl, '');
   assert.equal(env.projectIntakeWebhookToken, '');
+  assert.equal(env.pontomaisApiToken, '');
+});
+
+test('loadEnv mantém o token do Ponto Mais opcional e normalizado', () => {
+  const env = loadEnv({
+    DATABASE_URL: databaseUrl,
+    PONTOMAIS_API_TOKEN: '  integration-secret  '
+  });
+
+  assert.equal(env.pontomaisApiToken, 'integration-secret');
 });
 
 test('loadEnv parses the project intake webhook token without making it mandatory', () => {

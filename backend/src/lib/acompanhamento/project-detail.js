@@ -386,7 +386,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   const ensureCollaborator = (collaboratorId, { name = '', role = '' } = {}) => {
     if (!collaboratorId || collabMap.has(collaboratorId)) return;
     const rate = ratesById.get(collaboratorId) || null;
-    const alloc = rate?.byProject?.[projectId] || null;
+    const alloc = rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId] || null;
     collabMap.set(collaboratorId, buildProjectDetailCollaborator({
       name,
       role,

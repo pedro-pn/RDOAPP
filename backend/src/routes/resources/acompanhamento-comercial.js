@@ -40,7 +40,7 @@ import {
   listMissionGroups,
   loadActiveMissionGroups,
   MissionGroupError,
-  renameMissionGroup
+  updateMissionGroup
 } from '../../lib/acompanhamento/mission-groups.js';
 import { isSalaryCategory } from '../../lib/acompanhamento/salary.js';
 import { listSedeCosts } from '../../lib/acompanhamento/sede-costs.js';
@@ -92,9 +92,25 @@ const missionGroupCreateSchema = z.object({
   }
 });
 
-const missionGroupRenameSchema = z.object({
-  name: z.string().trim().min(1, 'Informe um nome para o agrupamento.').max(120, 'Nome muito longo.')
+const missionGroupUpdateSchema = z.object({
+  name: z.string().trim().min(1, 'Informe um nome para o agrupamento.').max(120, 'Nome muito longo.').optional(),
+  laborAllocationMode: z.enum(['VISUAL_ONLY', 'SHARED_EXECUTION', 'CONSOLIDATE_PRIMARY']).optional(),
+  primaryLaborProjectId: z.string().trim().min(1).max(200).nullable().optional()
+}).strict().refine(value => value.name !== undefined || value.laborAllocationMode !== undefined, {
+  message: 'Informe o nome ou a política de mão de obra a alterar.'
+}).superRefine((value, ctx) => {
+  if (value.laborAllocationMode === 'CONSOLIDATE_PRIMARY' && !value.primaryLaborProjectId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['primaryLaborProjectId'],
+      message: 'Selecione a missão principal da consolidação.'
+    });
+  }
 });
+
+export function parseMissionGroupUpdate(body) {
+  return missionGroupUpdateSchema.parse(body);
+}
 
 const projectTrackingStateSchema = z.object({
   archived: z.boolean().optional(),
@@ -280,11 +296,11 @@ router.patch(
   requireAuth,
   requireAcompanhamentoManager,
   asyncHandler(async (req, res) => {
-    const data = missionGroupRenameSchema.parse(req.body);
+    const data = parseMissionGroupUpdate(req.body);
     try {
-      const group = await renameMissionGroup({
+      const group = await updateMissionGroup({
         groupId: req.params.groupId,
-        name: data.name
+        ...data
       });
       res.json(group);
     } catch (error) {
