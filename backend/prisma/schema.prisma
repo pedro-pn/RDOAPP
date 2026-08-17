@@ -1944,14 +1944,15 @@ model ProjectPlannedOvertime {
 
 // Cache dos projetos do Omie (codigo interno -> nº da OS/missão extraído do nome).
 model OmieProject {
-  id        String   @id @default(cuid())
-  codigo    String   @unique // codigo interno do Omie
-  osNumber  String? // nº da OS/missão (= Project.code) extraído do nome
-  nome      String?
-  inativo   Boolean  @default(false)
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  syncedAt  DateTime @default(now())
+  id                    String    @id @default(cuid())
+  codigo                String    @unique // codigo interno do Omie
+  osNumber              String? // nº da OS/missão (= Project.code) extraído do nome
+  nome                  String?
+  inativo               Boolean   @default(false)
+  projectId             String?
+  project               Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  purchasesBackfilledAt DateTime? // histórico de contas a pagar concluído para o vínculo atual
+  syncedAt              DateTime  @default(now())
 
   @@index([osNumber])
   @@index([projectId])
