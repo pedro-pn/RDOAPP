@@ -52,9 +52,10 @@ function importSourceLabel(item: PontoImportRow) {
   return item.source === 'PONTOMAIS_API' ? 'API Ponto Mais' : 'Planilha XLSX';
 }
 
-type PontoDetailTab = 'sync' | 'employees';
+type PontoDetailTab = 'sync' | 'missing-projects' | 'employees';
 
 function parsePontoDetailTab(value: string | null): PontoDetailTab {
+  if (value === 'missing-projects') return 'missing-projects';
   return value === 'employees' ? 'employees' : 'sync';
 }
 
@@ -182,6 +183,12 @@ export function PontoImportPanel() {
 
   const unmatched = colaboradores?.unmatched ?? [];
   const integrationConfigured = integrationStatus?.configured === true;
+  const actionablePendingCount = pending
+    ? pending.employees.length + pending.ambiguousDays.length
+    : 0;
+  const missingProjectsCount = pending
+    ? pending.missingProjects.projectTags.length + pending.missingProjects.ambiguousDays.length
+    : 0;
 
   return (
     <>
@@ -203,6 +210,18 @@ export function PontoImportPanel() {
               onClick={() => setDetailTab('sync')}
             >
               Sincronização e pendências
+              <span className="acp-seg-count">{actionablePendingCount}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={detailTab === 'missing-projects'}
+              className={`acp-seg-btn${detailTab === 'missing-projects' ? ' active' : ''}`}
+              onClick={() => setDetailTab('missing-projects')}
+              data-pontomais-missing-projects-tab
+            >
+              Projetos não encontrados
+              <span className="acp-seg-count">{missingProjectsCount}</span>
             </button>
             <button
               type="button"
@@ -262,7 +281,7 @@ export function PontoImportPanel() {
         {integrationConfigured && isManager && pending ? (
           <div className="det-section ponto-pending-section">
             <div className="sec ponto-subtitle">
-              Pendências da integração ({pending.employees.length + pending.projectTags.length + pending.ambiguousDays.length})
+              Pendências da integração ({actionablePendingCount})
             </div>
             <div
               className="ponto-local-scroll"
@@ -301,47 +320,6 @@ export function PontoImportPanel() {
                     onClick={() => externalEmployeeLinkMutation.mutate({
                       externalEmployeeId: item.externalEmployeeId,
                       collaboratorId: externalEmployeeLinks[item.externalEmployeeId]
-                    })}
-                  >
-                    Vincular
-                  </Button>
-                </div>
-              );
-            })}
-
-            {pending.projectTags.map(item => {
-              const fieldId = `pontomais-tag-${encodeURIComponent(item.normalizedTag)}`;
-              return (
-                <div key={item.normalizedTag} className="field-row ponto-link-row">
-                  <div className="ponto-link-copy">
-                    <strong>{item.rawTag}</strong>
-                    <span>Etiqueta de projeto não reconhecida</span>
-                  </div>
-                  <div className="field-group ponto-link-field">
-                    <label htmlFor={fieldId}>Vincular ao projeto</label>
-                    <select
-                      id={fieldId}
-                      value={projectTagLinks[item.normalizedTag] ?? ''}
-                      onChange={event => setProjectTagLinks(previous => ({
-                        ...previous,
-                        [item.normalizedTag]: event.target.value
-                      }))}
-                    >
-                      <option value="">Selecione o projeto…</option>
-                      {(projects ?? []).map(project => (
-                        <option key={project.id} value={project.id}>
-                          {project.code} — {project.name}
-                          {project.historical ? ' (histórico)' : project.isActive ? '' : ' (inativo)'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    variant="mini"
-                    disabled={!projectTagLinks[item.normalizedTag] || projectTagLinkMutation.isPending}
-                    onClick={() => projectTagLinkMutation.mutate({
-                      rawTag: item.rawTag,
-                      projectId: projectTagLinks[item.normalizedTag]
                     })}
                   >
                     Vincular
@@ -427,7 +405,7 @@ export function PontoImportPanel() {
               );
             })}
 
-            {!pending.employees.length && !pending.projectTags.length && !pending.ambiguousDays.length ? (
+            {!pending.employees.length && !pending.ambiguousDays.length ? (
               <p className="placeholder-copy ponto-section-copy">Nenhuma pendência na última sincronização.</p>
             ) : null}
             </div>
@@ -542,6 +520,82 @@ export function PontoImportPanel() {
           </div>
         ) : <p className="placeholder-copy">Nenhuma atualização ainda.</p>}
           </>
+        ) : null}
+
+        {detailTab === 'missing-projects' && integrationConfigured && isManager && pending ? (
+          <section className="det-section ponto-employee-section" aria-labelledby="ponto-missing-projects-title">
+            <div id="ponto-missing-projects-title" className="sec ponto-subtitle">
+              Projetos não encontrados ({missingProjectsCount})
+            </div>
+            <p className="placeholder-copy ponto-section-copy">
+              Estes códigos e etiquetas vieram do Ponto Mais, mas não existem no cadastro do app. Eles podem ser de missões antigas e ficam separados das pendências operacionais. Vincule somente quando houver um projeto correspondente.
+            </p>
+            <div
+              className="ponto-local-scroll"
+              role="region"
+              aria-labelledby="ponto-missing-projects-title"
+              tabIndex={0}
+            >
+              {pending.missingProjects.projectTags.map(item => {
+                const fieldId = `pontomais-missing-tag-${encodeURIComponent(item.normalizedTag)}`;
+                return (
+                  <div key={item.normalizedTag} className="field-row ponto-link-row">
+                    <div className="ponto-link-copy">
+                      <strong>{item.rawTag}</strong>
+                      <span>Etiqueta de projeto não reconhecida</span>
+                    </div>
+                    <div className="field-group ponto-link-field">
+                      <label htmlFor={fieldId}>Vincular ao projeto</label>
+                      <select
+                        id={fieldId}
+                        value={projectTagLinks[item.normalizedTag] ?? ''}
+                        onChange={event => setProjectTagLinks(previous => ({
+                          ...previous,
+                          [item.normalizedTag]: event.target.value
+                        }))}
+                      >
+                        <option value="">Selecione o projeto…</option>
+                        {(projects ?? []).map(project => (
+                          <option key={project.id} value={project.id}>
+                            {project.code} — {project.name}
+                            {project.historical ? ' (histórico)' : project.isActive ? '' : ' (inativo)'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      variant="mini"
+                      disabled={!projectTagLinks[item.normalizedTag] || projectTagLinkMutation.isPending}
+                      onClick={() => projectTagLinkMutation.mutate({
+                        rawTag: item.rawTag,
+                        projectId: projectTagLinks[item.normalizedTag]
+                      })}
+                    >
+                      Vincular
+                    </Button>
+                  </div>
+                );
+              })}
+
+              {pending.missingProjects.ambiguousDays.map(item => {
+                const pendingKey = `${item.externalEmployeeId}:${item.date}`;
+                return (
+                  <div key={pendingKey} className="field-row ponto-link-row ponto-missing-project-day-row">
+                    <div className="ponto-link-copy">
+                      <strong>{item.externalName} · {fmtDate(item.date)}</strong>
+                      <span>
+                        Projetos candidatos sem cadastro: {item.projectCodes.join(', ')}. As horas permanecem em sede enquanto nenhum desses projetos existir no app.
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {!missingProjectsCount ? (
+                <p className="placeholder-copy ponto-section-copy">Nenhum projeto não encontrado.</p>
+              ) : null}
+            </div>
+          </section>
         ) : null}
 
         {detailTab === 'employees' && integrationConfigured && isManager ? (

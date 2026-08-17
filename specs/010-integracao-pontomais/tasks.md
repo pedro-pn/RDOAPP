@@ -354,3 +354,16 @@ The minimum production-safe scope is Setup + Foundational + US1 + US2. Shipping 
 - [x] T100 Update the feature contracts and run focused/full backend validation, `git diff --check`, refresh the code-review graph and inspect affected flows/tests; record evidence in `specs/010-integracao-pontomais/quickstart.md`
 
 **Dependencies**: T096 and T097 precede T098 and T099; T100 follows all implementation tasks.
+
+---
+
+## Phase 16: Missing Project Isolation
+
+**Purpose**: Keep historical or absent project references consultable without crowding the operational reconciliation queue.
+
+- [x] T101 [P] [US2] Add a partition regression proving a day moves out of the operational queue only when every candidate code is absent, while mixed and unidentified cases remain actionable, in `backend/test/pontomais-sync.test.js`
+- [x] T102 [US2] Partition unresolved project tags and fully absent candidate days in the pending service while retaining current project, inactive-project and historical-project recognition in `backend/src/lib/pontomais/sync.js`
+- [x] T103 [US3] Add a URL-persisted “Projetos não encontrados” tab with independent counts, optional tag linking, explanatory empty state, responsive layout and local scrolling in `frontend/src/api/acompanhamentoPonto.ts`, `frontend/src/components/projects/PontoImportPanel.tsx`, and `frontend/src/styles/base.css`
+- [x] T104 Update feature contracts and run focused/full backend and frontend validation, audits, lint, build, `git diff --check`, refresh the code-review graph and inspect affected flows/tests; record evidence in `specs/010-integracao-pontomais/quickstart.md`
+
+**Dependencies**: T101 precedes T102; T102 precedes T103; T104 follows all implementation tasks.

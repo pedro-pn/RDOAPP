@@ -245,3 +245,19 @@ Finally, add `EM VIAGEM - exemplo` to the point day without a mission tag. Confi
 - Regressions cover exact mobilization date, strictly later nominal RDO, rejection of same-day/RTP evidence, unique and incompatible destinations, group sharing/consolidation, manual/same-day precedence and zero later-RDO hours copied into the travel date.
 - The refreshed code-review graph classified the combined financial/synchronization files as high impact, with 54 dependent files within two hops. Its `tests_for` relation still does not associate every untracked Ponto Mais test, but caller analysis identifies the direct allocation tests and the full backend suite covers all consumers.
 - No schema migration, frontend change, backend server, Docker service, external API write or deployment operation was required or executed.
+
+## 15. Missing project isolation
+
+1. Synchronize an unknown project tag and confirm it appears only under `pontoDetalhe=missing-projects`, without increasing the operational-pendency badge.
+2. Reconstruct an ambiguous historical day whose only candidate code is absent from every current, inactive and soft-deleted project. Confirm it appears in the same separated tab and remains out of the operational queue.
+3. Repeat with one absent code and one registered candidate; confirm the day remains under “Sincronização e pendências” so the registered project can still be selected.
+4. Link an unknown tag to a registered project and confirm it disappears from “Projetos não encontrados” after query invalidation.
+5. Confirm the separated list has localized keyboard-accessible scrolling and the three-tab selector stacks on mobile.
+
+### Validation evidence — 2026-08-17
+
+- Focused synchronization/service and HTTP route tests passed, including the absent-only, mixed known/unknown and unidentified-candidate partitions.
+- Backend suite: 103/103 test files passed. Frontend suite: 12/12 test files passed; production TypeScript/Vite build succeeded.
+- Backend and frontend audits reported zero vulnerabilities. ESLint completed with zero errors and the same two unrelated pre-existing hook warnings in `OmieCostCategoriesPanel.tsx` and `ProjectTrackingNovelties.tsx`; `git diff --check` passed.
+- The refreshed code-review graph rated the eight-file change as medium risk (`0.40`) and reported no affected execution flows. Its automatic `tests_for` relation did not connect the new pure regression to `partitionMissingProjectPendencies`, so the focused test plus both full suites are the concrete coverage evidence.
+- No schema migration, synchronization replay, backend server, Docker service, external API write or deployment operation was required or executed.
