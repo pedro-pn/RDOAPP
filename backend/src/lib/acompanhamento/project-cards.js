@@ -318,6 +318,7 @@ export async function listProjectCards() {
       // laborCost = com adicional offshore; laborCostBase = sem offshore (para comparação).
       laborCost,
       laborCostBase: laborByProject.get(row.projectId)?.laborCostBase ?? null,
+      laborHours: laborByProject.get(row.projectId)?.hours ?? null,
       stockCost,
       manualCost: toNum(row.manualCost) ?? 0,
       equipment, // equipamentos (módulo Equipamentos) em obra: { name, days, since }

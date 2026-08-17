@@ -9,7 +9,123 @@ export interface PontoImportRow {
   collaboratorsTotal: number;
   collaboratorsMatched: number;
   status: string;
+  source?: 'XLSX' | 'PONTOMAIS_API' | string;
   createdAt: string;
+}
+
+export interface PontoMaisRunSummary {
+  id: string;
+  trigger: 'MANUAL' | 'AUTOMATIC_BOOTSTRAP' | 'AUTOMATIC_DAILY' | string;
+  periodStart: string;
+  periodEnd: string;
+  completedAt: string | null;
+  pendingCount: number;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface PontoMaisIntegrationStatus {
+  configured: boolean;
+  running: boolean;
+  automation: {
+    bootstrapStatus: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | string;
+    historyStart: string | null;
+    historyThrough: string | null;
+    nextPeriodStart: string | null;
+    lastDailySyncDate: string | null;
+    lastAttemptAt: string | null;
+    lastSuccessfulAt: string | null;
+    lastErrorCode: string | null;
+    lastErrorMessage: string | null;
+    scheduledTime: string;
+    timeZone: string;
+  };
+  lastSuccessfulRun: PontoMaisRunSummary | null;
+  lastFailure: PontoMaisRunSummary | null;
+}
+
+export interface PontoMaisSyncResult {
+  runId: string;
+  status: 'SUCCEEDED';
+  trigger: 'MANUAL' | 'AUTOMATIC_BOOTSTRAP' | 'AUTOMATIC_DAILY' | string;
+  skippedDuplicate: boolean;
+  importId: string;
+  periodStart: string;
+  periodEnd: string;
+  employeesRead: number;
+  workDaysRead: number;
+  timeCardsRead: number;
+  collaboratorsTotal: number;
+  collaboratorsMatched: number;
+  pendingCount: number;
+}
+
+export interface PontoMaisSyncRun extends PontoMaisRunSummary {
+  status: 'RUNNING' | 'SUCCEEDED' | 'FAILED' | string;
+  employeesRead: number;
+  workDaysRead: number;
+  timeCardsRead: number;
+  collaboratorsMatched: number;
+  startedAt: string;
+}
+
+export interface PontoMaisPendingEmployee {
+  externalEmployeeId: string;
+  registrationNumber: string | null;
+  externalName: string;
+  reason: string;
+}
+
+export interface PontoMaisPendingProjectTag {
+  rawTag: string;
+  normalizedTag: string;
+  reason: string;
+}
+
+export interface PontoMaisPendingAmbiguousDay {
+  externalEmployeeId: string;
+  externalName: string;
+  date: string;
+  projectCodes: string[];
+  tagProjectCodes: string[];
+  rdoProjectCodes: string[];
+  reason: string;
+}
+
+export interface PontoMaisPending {
+  employees: PontoMaisPendingEmployee[];
+  projectTags: PontoMaisPendingProjectTag[];
+  ambiguousDays: PontoMaisPendingAmbiguousDay[];
+}
+
+export interface PontoMaisReconciliationProject {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  historical: boolean;
+}
+
+export interface PontoMaisExternalEmployee {
+  externalEmployeeId: string;
+  registrationNumber: string | null;
+  externalName: string;
+  isActive: boolean | null;
+  ignored: boolean;
+}
+
+export function pontoMaisSyncTriggerLabel(trigger: string): string {
+  if (trigger === 'AUTOMATIC_BOOTSTRAP') return 'Carga histórica automática';
+  if (trigger === 'AUTOMATIC_DAILY') return 'Atualização diária automática';
+  return 'Contingência manual';
+}
+
+export function pontoMaisBootstrapStatusLabel(status: string, running = false): string {
+  if (running) return 'Sincronização em andamento';
+  if (status === 'SUCCEEDED') return 'Carga histórica concluída';
+  if (status === 'FAILED') return 'Carga histórica aguardando nova tentativa automática';
+  if (status === 'RUNNING') return 'Carga histórica em andamento';
+  return 'Carga histórica aguardando início';
 }
 
 export interface UnmatchedPontoName {
@@ -81,6 +197,88 @@ export interface PontoImportResult {
 
 export async function getPontoImports(): Promise<PontoImportRow[]> {
   const { data } = await apiClient.get<PontoImportRow[]>('/acompanhamento/ponto/imports');
+  return data;
+}
+
+export async function getPontoMaisIntegrationStatus(): Promise<PontoMaisIntegrationStatus> {
+  const { data } = await apiClient.get<PontoMaisIntegrationStatus>('/acompanhamento/ponto/integration-status');
+  return data;
+}
+
+export async function syncPontoMais(payload: { startDate: string; endDate: string }): Promise<PontoMaisSyncResult> {
+  const { data } = await apiClient.post<PontoMaisSyncResult>('/acompanhamento/ponto/sync', payload);
+  return data;
+}
+
+export async function getPontoMaisSyncRuns(limit = 50): Promise<PontoMaisSyncRun[]> {
+  const { data } = await apiClient.get<PontoMaisSyncRun[]>('/acompanhamento/ponto/sync-runs', { params: { limit } });
+  return data;
+}
+
+export async function getPontoMaisPending(): Promise<PontoMaisPending> {
+  const { data } = await apiClient.get<PontoMaisPending>('/acompanhamento/ponto/pending');
+  return data;
+}
+
+export async function getPontoMaisExternalEmployees(): Promise<PontoMaisExternalEmployee[]> {
+  const { data } = await apiClient.get<PontoMaisExternalEmployee[]>('/acompanhamento/ponto/external-employees');
+  return data;
+}
+
+export async function setPontoMaisExternalEmployeeIgnored(payload: {
+  externalEmployeeId: string;
+  ignored: boolean;
+}): Promise<PontoMaisExternalEmployee> {
+  const { data } = await apiClient.post<PontoMaisExternalEmployee>(
+    '/acompanhamento/ponto/external-employees/ignore',
+    payload
+  );
+  return data;
+}
+
+export async function getPontoMaisReconciliationProjects(): Promise<PontoMaisReconciliationProject[]> {
+  const { data } = await apiClient.get<PontoMaisReconciliationProject[]>(
+    '/acompanhamento/ponto/reconciliation-projects'
+  );
+  return data;
+}
+
+export async function linkPontoMaisExternalEmployee(payload: { externalEmployeeId: string; collaboratorId: string }) {
+  const { data } = await apiClient.post<{ externalEmployeeId: string; collaboratorId: string; relinked: number }>(
+    '/acompanhamento/ponto/external-employees/link',
+    payload
+  );
+  return data;
+}
+
+export async function linkPontoMaisProjectTag(payload: { rawTag: string; projectId: string }) {
+  const { data } = await apiClient.post<{ normalizedTag: string; projectId: string }>(
+    '/acompanhamento/ponto/project-tags/link',
+    payload
+  );
+  return data;
+}
+
+export async function setPontoMaisDayProjectOverride(payload: {
+  externalEmployeeId: string;
+  date: string;
+  projectIds: string[];
+}) {
+  const { data } = await apiClient.post<{
+    externalEmployeeId: string;
+    date: string;
+    projectIds: string[];
+  }>('/acompanhamento/ponto/day-project-overrides', payload);
+  return data;
+}
+
+export async function setPontoMaisDayProjectOverridesBatch(payload: {
+  items: Array<{ externalEmployeeId: string; date: string; projectIds: string[] }>;
+}) {
+  const { data } = await apiClient.post<{ updated: number }>(
+    '/acompanhamento/ponto/day-project-overrides/batch',
+    payload
+  );
   return data;
 }
 
