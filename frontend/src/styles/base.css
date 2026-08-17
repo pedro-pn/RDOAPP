@@ -55,6 +55,10 @@
 }
 
 .ponto-detail-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  align-self: stretch;
   margin-top: 16px;
 }
 
@@ -104,6 +108,11 @@
   align-items: end;
   padding: 12px 0;
   border-bottom: 1px solid var(--br);
+}
+
+.ponto-missing-project-day-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
 }
 
 .ponto-link-copy {
@@ -250,6 +259,10 @@
 }
 
 @media (max-width: 760px) {
+  .ponto-detail-tabs {
+    grid-template-columns: 1fr;
+  }
+
   .ponto-sync-form,
   .ponto-link-row,
   .ponto-employee-row {

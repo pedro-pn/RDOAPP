@@ -87,7 +87,14 @@ function integrationRouteFixture() {
       };
     },
     async listSyncRuns(input) { calls.push(['runs', input]); return []; },
-    async getPending() { calls.push(['pending']); return { employees: [], projectTags: [], ambiguousDays: [] }; },
+    async getPending() {
+      calls.push(['pending']);
+      return {
+        employees: [],
+        ambiguousDays: [],
+        missingProjects: { projectTags: [], ambiguousDays: [] }
+      };
+    },
     async listExternalEmployees() {
       calls.push(['employees']);
       return [{

@@ -250,6 +250,30 @@ export function filterCurrentlyResolvedAmbiguousDays({
   });
 }
 
+export function partitionMissingProjectPendencies({
+  ambiguousDays = [],
+  projects = []
+} = {}) {
+  const knownProjectCodes = new Set(projects
+    .map(project => String(project?.code || '').trim())
+    .filter(Boolean));
+  const actionableDays = [];
+  const missingDays = [];
+
+  for (const item of ambiguousDays) {
+    const candidateCodes = [...new Set((item.projectCodes || [])
+      .map(code => String(code || '').trim())
+      .filter(Boolean))];
+    if (candidateCodes.length > 0 && candidateCodes.every(code => !knownProjectCodes.has(code))) {
+      missingDays.push(item);
+    } else {
+      actionableDays.push(item);
+    }
+  }
+
+  return { actionableDays, missingDays };
+}
+
 function externalEmployeeDirectoryData(employee, seenAt) {
   const externalEmployeeId = String(employee?.id ?? '').trim();
   const externalName = String(employee?.name || `${employee?.first_name || ''} ${employee?.last_name || ''}`)
@@ -623,7 +647,13 @@ export function createPontoMaisSyncService({
       orderBy: { completedAt: 'desc' },
       select: { periodStart: true, periodEnd: true, summary: true }
     });
-    if (!runs.length) return { employees: [], projectTags: [], ambiguousDays: [] };
+    if (!runs.length) {
+      return {
+        employees: [],
+        ambiguousDays: [],
+        missingProjects: { projectTags: [], ambiguousDays: [] }
+      };
+    }
 
     const employeesById = new Map();
     const tagsByKey = new Map();
@@ -798,15 +828,24 @@ export function createPontoMaisSyncService({
       })
       : [];
     const externalNameById = new Map(externalDirectory.map(item => [String(item.externalEmployeeId), String(item.externalName || '')]));
+    const visibleProjectTags = pending.projectTags.filter(item => !linkedTags.has(item.normalizedTag));
+    const namedAmbiguousDays = ambiguousDays.map(item => ({
+      ...item,
+      externalName: externalNameById.get(item.externalEmployeeId) || `ID externo ${item.externalEmployeeId}`
+    }));
+    const { actionableDays, missingDays } = partitionMissingProjectPendencies({
+      ambiguousDays: namedAmbiguousDays,
+      projects
+    });
     return {
       employees: pending.employees.filter(item => (
         !linkedEmployees.has(item.externalEmployeeId) && !ignoredExternalIds.has(item.externalEmployeeId)
       )),
-      projectTags: pending.projectTags.filter(item => !linkedTags.has(item.normalizedTag)),
-      ambiguousDays: ambiguousDays.map(item => ({
-        ...item,
-        externalName: externalNameById.get(item.externalEmployeeId) || `ID externo ${item.externalEmployeeId}`
-      }))
+      ambiguousDays: actionableDays,
+      missingProjects: {
+        projectTags: visibleProjectTags,
+        ambiguousDays: missingDays
+      }
     };
   }
 
@@ -908,7 +947,10 @@ export function createPontoMaisSyncService({
       throw new PontoSyncError('Selecione ao menos um projeto candidato.', { code: 'INVALID_PROJECT_SELECTION' });
     }
     const pending = await getPending();
-    const item = pending.ambiguousDays.find(candidate => (
+    const item = [
+      ...pending.ambiguousDays,
+      ...pending.missingProjects.ambiguousDays
+    ].find(candidate => (
       candidate.externalEmployeeId === externalEmployeeId && candidate.date === date
     ));
     if (!item) {

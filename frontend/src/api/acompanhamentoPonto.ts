@@ -94,8 +94,11 @@ export interface PontoMaisPendingAmbiguousDay {
 
 export interface PontoMaisPending {
   employees: PontoMaisPendingEmployee[];
-  projectTags: PontoMaisPendingProjectTag[];
   ambiguousDays: PontoMaisPendingAmbiguousDay[];
+  missingProjects: {
+    projectTags: PontoMaisPendingProjectTag[];
+    ambiguousDays: PontoMaisPendingAmbiguousDay[];
+  };
 }
 
 export interface PontoMaisReconciliationProject {
