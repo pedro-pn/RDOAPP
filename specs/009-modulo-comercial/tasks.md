@@ -14,15 +14,15 @@ description: "Task list — Módulo Comercial (porte fiel do gerador de proposta
 > módulo carrega. O documento também lista as armadilhas do `.docx` que já
 > custaram tempo, e a única falha de teste que é esperada.
 >
-> **Estado em 14/08/2026: 167 tarefas fechadas, 15 abertas** (de 182). O contador
+> **Estado em 18/08/2026: 169 tarefas fechadas, 14 abertas** (de 183). O contador
 > vinha desatualizado desde 10/08 — dizia 94/61 — e um contador velho é pior do que
 > nenhum: ele foi lido como estado real numa revisão. Ao fechar tarefa, corrija aqui
 > **e** no [HANDOFF.md](./HANDOFF.md), que tem o seu próprio.
 >
-> **O caminho crítico acabou em 14/08.** Nenhuma das 15 abertas bloqueia o uso: o
+> **O caminho crítico acabou em 14/08.** Nenhuma das 14 abertas bloqueia o uso: o
 > módulo levanta custo, monta proposta, emite os dois documentos, finaliza com CRM e
 > SharePoint e lista no histórico. O que resta é **conferência de paridade** (T043,
-> T066, T113–T116), **mobile e acabamento** (T103, T105, T107, T125, T127, T136,
+> T066, T113–T116), **mobile e acabamento** (T103, T105, T107, T125, T136,
 > T137) e duas de depois do go-live (T120, T123).
 >
 > **Para subir**: `prisma migrate deploy` (duas migrations — sede e tutorial) e a
@@ -713,7 +713,7 @@ a aparecer na seleção da etapa Cliente para um gestor — sem passo de cadastr
 
 ### Aceite de paridade
 
-- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **17 desvios aprovados**. Divergência não listada é defeito, não escolha.  ↳ `FR-006` `SC-003`
+- [ ] T113 Percorrer `contracts/baseline/roteiro.md` **lado a lado** — referência de um lado, módulo do outro —, classificando cada divergência como **defeito** ou como um dos **20 desvios aprovados**. Divergência não listada é defeito, não escolha.  ↳ `FR-006` `SC-003`
 - [ ] T114 Comparar as capturas de `contracts/baseline/*-1440.png` com as mesmas telas no módulo. **Diferença esperada e aceita**: a fonte do chrome (desvio nº 5) e o reflow que ela causa.
 - [ ] T115 Conferir os **616 controles e 916 textos** item a item contra `contracts/ui-inventory.md`, marcando o checklist de paridade. É item da Definição de Pronto, não conferência informal.  ↳ `SC-001`
 - [ ] T116 Rodar `/speckit-analyze` e resolver **todo** item de inventário órfão.
@@ -867,10 +867,12 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   **chave restrita** por API e por IP no console — defeito em laço passa dos
   10.000 sem ninguém notar, e chave sem restrição que vaze gasta a franquia da
   empresa.
-- [ ] T127 **Reduzir a altura do cabeçalho** para sobrar área de trabalho.
-  **Por último, e com prévia para aprovação** — condição do mantenedor. **Desvio
-  nº 15**, aprovado em 11/08. Mexe no que a T114 compara pixel a pixel, então o
-  registro é o que impede a validação final de acusá-lo como defeito de porte.
+- [X] T127 **Reduzir a altura do cabeçalho** para sobrar área de trabalho. ↳ `FR-085`
+  **Desvio nº 15**, aprovado em 11/08 e executado em 18/08 depois de o mantenedor
+  reenviar a captura e pedir explicitamente o cabeçalho fixo e mais baixo. Na tela de
+  custos, topbar e resumo permanecem `sticky` no desktop; topbar cai de 72 para 58 px,
+  o hero e os KPIs perdem espaçamento, e abaixo de 900 px volta a altura segura. Coberto
+  por `frontend/test/comercial-ajustes-operacionais.test.mjs`.
 
 - [X] T128 **Remover anexo enviado por engano.**  ↳ `FR-078`
   Decidido pelo mantenedor em
@@ -1115,6 +1117,16 @@ parte já está resolvida de outro jeito. Registradas para não se perderem.
   um `RASCUNHO` incompleto no servidor sob a autoria da conta, promovido a `SALVO` só
   depois da validação integral. Coberto por testes de campo, navegação, logística,
   rascunho local por conta e persistência/versionamento no backend.
+
+- [X] T141 **Ajustar veículo, jornadas individuais e circuitos no levantamento.** ↳ `FR-082` `FR-083` `FR-084`
+  O veículo continua obrigatório, mas “Sem veículo” é decisão válida e desliga custos
+  rodoviários. Cada alocação pode guardar cenário por cargo ou colaborador com dias,
+  horas normais/extras, turno e percentual da HE; a escala pode ser aplicada à equipe
+  inteira e percentuais variáveis entram no motor, QQP e CSV. Alocações históricas
+  continuam herdando a fase e os 16 goldens não mudam. Os dois circuitos iniciais ficam
+  minimizados, mantendo nome e volume no resumo; circuito novo abre para preenchimento.
+  Coberto por `comercial-alocacoes`, `comercial-jornadas`, `comercial-pendencias`,
+  `comercial-ajustes-operacionais`, `comercial-cost-csv` e `comercial-goldens`.
 
 ## Rastreabilidade que faltava — apontada pela revisão de 13/08
 

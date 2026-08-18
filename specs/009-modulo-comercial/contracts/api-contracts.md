@@ -46,6 +46,16 @@ servidor recalcula com `calculateEstimate` e grava os seus. Impede forjar margem
 e não cria `CostEstimateVersion`. `SALVO` aplica a validação integral abaixo e cria a
 primeira versão.
 
+O contrato interno do `payload` permanece normalizado por
+`normalizeCostEstimatePayload`, sem duplicação em Zod. A partir de 18/08 ele aceita
+`laborContexts[].vehicleType = "none"` e
+`laborContexts[].assignments[].workSchedule` com alvo (`role` ou `collaborator`) e
+grupos de dias (`weekday`, `saturday`, `sunday_holiday`), horas normais/extras e
+percentual da HE. Campo ausente preserva a jornada global da fase. No alvo nominal,
+`collaboratorName` é obrigatório e a quantidade precisa ser 1. A resposta calculada
+pode trazer `customExtraHours` e `customExtraCost` quando o percentual não é 70% nem
+100%; esses valores também seguem para QQP e CSV.
+
 Erros: `422` com `issues: [{ path, message, severity }]` — **um item por pendência,
 com o endereço do campo**. É o que sustenta o FR-009 e a L1; a referência concatenava
 tudo numa string só.

@@ -171,3 +171,89 @@ test('alocar destrava o preço de venda', () => {
   assert.ok(Number(comEquipe.salePrice) > 0, 'com equipe alocada tem de haver preço');
   assert.equal(comEquipe.validPricing, true);
 });
+
+function jornada(extras = {}) {
+  return {
+    name: 'Jornada individual',
+    targetType: 'role',
+    days: [
+      { dayType: 'weekday', days: 5, normalHoursPerDay: 8, extraHoursPerDay: 4, overtimePercent: 70 },
+      { dayType: 'saturday', days: 0, normalHoursPerDay: 0, extraHoursPerDay: 0, overtimePercent: 70 },
+      { dayType: 'sunday_holiday', days: 0, normalHoursPerDay: 0, extraHoursPerDay: 0, overtimePercent: 100 }
+    ],
+    ...extras
+  };
+}
+
+test('cada cargo pode ter dias, horas e turno próprios na mesma equipe', () => {
+  const gerente = motor.LEC_LABOR_ROLES[0].role;
+  const coordenador = motor.LEC_LABOR_ROLES[1].role;
+  const payload = faseCompleta([
+    alocacao(gerente, { id: 'gerente', shift: 'night', workSchedule: jornada() }),
+    alocacao(coordenador, {
+      id: 'coordenador',
+      workSchedule: jornada({
+        name: 'Coordenador sem HE',
+        days: [
+          { dayType: 'weekday', days: 4, normalHoursPerDay: 8, extraHoursPerDay: 0, overtimePercent: 70 },
+          { dayType: 'saturday', days: 0, normalHoursPerDay: 0, extraHoursPerDay: 0, overtimePercent: 70 },
+          { dayType: 'sunday_holiday', days: 0, normalHoursPerDay: 0, extraHoursPerDay: 0, overtimePercent: 100 }
+        ]
+      })
+    })
+  ]);
+
+  const resultado = motor.calculateEstimate(payload);
+  const porId = Object.fromEntries(
+    resultado.contextResults[0].assignments.map(item => [item.id, item])
+  );
+
+  assert.equal(porId.gerente.laborHours, 60, '5 dias × (8 h normais + 4 h extras)');
+  assert.equal(porId.coordenador.laborHours, 32, '4 dias × 8 h normais');
+  assert.equal(resultado.totalLaborHours, 92);
+  assert.ok(porId.gerente.total > porId.coordenador.total);
+});
+
+test('a jornada pode apontar para um colaborador nominal, sempre individual', () => {
+  const cargo = motor.LEC_LABOR_ROLES[2].role;
+  const payload = faseCompleta([
+    alocacao(cargo, {
+      id: 'maria',
+      quantity: 1,
+      workSchedule: jornada({ targetType: 'collaborator', collaboratorName: 'Maria' })
+    })
+  ]);
+
+  const normalizado = motor.normalizeCostEstimatePayload(payload);
+  const alocacaoNormalizada = normalizado.laborContexts[0].assignments[0];
+
+  assert.equal(alocacaoNormalizada.workSchedule.targetType, 'collaborator');
+  assert.equal(alocacaoNormalizada.workSchedule.collaboratorName, 'Maria');
+  assert.equal(
+    motor.validateCostEstimate(payload).errors.some(
+      issue => issue.path.includes('workSchedule') || issue.path.endsWith('.quantity')
+    ),
+    false
+  );
+});
+
+test('percentual de hora extra configurado no dia altera o custo sem alterar as horas', () => {
+  const cargo = motor.LEC_LABOR_ROLES[2].role;
+  const comPercentual = percentual => faseCompleta([
+    alocacao(cargo, {
+      workSchedule: jornada({
+        days: [{
+          dayType: 'weekday', days: 1, normalHoursPerDay: 8,
+          extraHoursPerDay: 2, overtimePercent: percentual
+        }]
+      })
+    })
+  ]);
+
+  const cinquenta = motor.calculateEstimate(comPercentual(50));
+  const cem = motor.calculateEstimate(comPercentual(100));
+
+  assert.equal(cinquenta.totalLaborHours, cem.totalLaborHours);
+  assert.ok(cem.laborCost > cinquenta.laborCost, 'HE 100% precisa custar mais que HE 50%');
+  assert.ok(cinquenta.contextResults[0].assignments[0].customExtraCost > 0);
+});

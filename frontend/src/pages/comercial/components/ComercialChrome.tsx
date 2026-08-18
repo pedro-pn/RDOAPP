@@ -81,7 +81,7 @@ export function ComercialChrome({
   const navigate = useNavigate();
 
   return (
-    <div className="com-root com-app">
+    <div className={`com-root com-app com-app-${variante}`}>
       <header className="com-topbar">
         <button
           type="button"

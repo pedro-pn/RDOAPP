@@ -207,6 +207,39 @@ test('fase em Sede NÃO exige distância nem combustível de viagem', () => {
   assert.equal(typeof semComposicao, 'boolean');
 });
 
+test('"Sem veículo" é uma escolha obrigatória válida e não cobra custos rodoviários', () => {
+  const draft = padrao();
+  const semVeiculo = {
+    ...draft,
+    laborContexts: [{
+      ...draft.laborContexts[0],
+      enabled: true,
+      workCondition: 'travel',
+      workConditionConfirmed: true,
+      vehicleType: 'none',
+      hotelSiteDistanceKmPerDay: 0,
+      expenses: [],
+      assignments: [{
+        id: 'sem-veiculo-a1',
+        role: motor.LEC_LABOR_ROLES[0].role,
+        quantity: 1,
+        monthlySalary: motor.LEC_LABOR_ROLES[0].salary,
+        adjustment: 0,
+        allocationPercent: 100,
+        shift: 'day'
+      }]
+    }]
+  };
+
+  assert.equal(faltaMaoDeObra(semVeiculo), false);
+  assert.equal(
+    motor.validateCostEstimate(semVeiculo).errors.some(
+      issue => /vehicleType|hotelSiteDistanceKmPerDay|expenses/.test(issue.path)
+    ),
+    false
+  );
+});
+
 test('comissão de representante só pende quando HABILITADA', () => {
   const draft = padrao();
 

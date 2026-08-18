@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { number, numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
 
@@ -88,18 +90,30 @@ export function CircuitosBloco({ levantamento }: { levantamento: Levantamento })
 
   const circuitos = registros(draft.volumeSystems);
   const calculados = registros(result.volumeResults);
+  const [circuitosAbertos, setCircuitosAbertos] = useState<Set<string>>(() => new Set());
 
   function acrescentarCircuito() {
+    const novo = NOVO.circuito(circuitos.length);
     setDraft(atual => {
       const atuais = registros(atual.volumeSystems);
       return {
         ...atual,
-        volumeSystems: [...atuais, NOVO.circuito(atuais.length)],
+        volumeSystems: [...atuais, novo],
         scopeConfirmations: {
           ...((atual.scopeConfirmations as AnyRecord) || {}),
           noInputs: false
         }
       };
+    });
+    setCircuitosAbertos(atuais => new Set(atuais).add(String(novo.id)));
+  }
+
+  function alternarCircuito(circuitoId: string) {
+    setCircuitosAbertos(atuais => {
+      const proximos = new Set(atuais);
+      if (proximos.has(circuitoId)) proximos.delete(circuitoId);
+      else proximos.add(circuitoId);
+      return proximos;
     });
   }
 
@@ -129,12 +143,42 @@ export function CircuitosBloco({ levantamento }: { levantamento: Levantamento })
             const volume = numberValue(
               calculado.totalVolumeLiters ?? calculado.volumeLiters ?? calculado.total
             );
+            const aberto = circuitosAbertos.has(circuitoId);
 
             const editar = (patch: AnyRecord) =>
               updateCollection('volumeSystems', circuitoId, patch);
 
             return (
-              <article key={circuitoId} className="com-fase-card">
+              <article key={circuitoId} className="com-fase-card com-circuito-card">
+                <header className="com-fase-card-topo com-circuito-resumo">
+                  <button
+                    type="button"
+                    className="com-circuito-toggle"
+                    aria-expanded={aberto}
+                    aria-controls={`${circuitoId}-corpo`}
+                    onClick={() => alternarCircuito(circuitoId)}
+                  >
+                    <span className="com-fase-indice">{indice + 1}</span>
+                    <span>
+                      <small>Circuito</small>
+                      <strong>{String(circuito.name || `Circuito ${indice + 1}`)}</strong>
+                    </span>
+                    <span className="com-volume-badge">{number(volume)} L</span>
+                    <span className="com-circuito-seta" aria-hidden="true">
+                      {aberto ? '▴' : '▾'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="com-btn com-btn-fantasma"
+                    onClick={() => alternarCircuito(circuitoId)}
+                  >
+                    {aberto ? 'Minimizar' : 'Abrir para preencher'}
+                  </button>
+                </header>
+
+                {aberto && (
+                <div id={`${circuitoId}-corpo`} className="com-circuito-corpo">
                 <header className="com-fase-card-topo">
                   <div className="com-fase-identidade">
                     <span className="com-fase-indice">{indice + 1}</span>
@@ -155,7 +199,14 @@ export function CircuitosBloco({ levantamento }: { levantamento: Levantamento })
                       type="button"
                       className="com-btn com-btn-perigo"
                       disabled={circuitos.length <= 1}
-                      onClick={() => removeCollection('volumeSystems', circuitoId)}
+                      onClick={() => {
+                        removeCollection('volumeSystems', circuitoId);
+                        setCircuitosAbertos(atuais => {
+                          const proximos = new Set(atuais);
+                          proximos.delete(circuitoId);
+                          return proximos;
+                        });
+                      }}
                     >
                       Remover
                     </button>
@@ -250,6 +301,8 @@ export function CircuitosBloco({ levantamento }: { levantamento: Levantamento })
                     addNested('volumeSystems', circuitoId, 'manualVolumes', NOVO.volume())
                   }
                 />
+                </div>
+                )}
               </article>
             );
           })}

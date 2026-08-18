@@ -27,6 +27,7 @@ const CONDICOES = [
 ];
 
 const VEICULOS = [
+  { value: 'none', label: 'Sem veículo' },
   { value: 'sedan', label: 'Carro sedan · 3 pessoas' },
   { value: 'pickup', label: 'Pickup · 2 pessoas' },
   { value: 'hr', label: 'HR · 2 pessoas' }
@@ -51,6 +52,8 @@ export function FaseCard({
   const { updateCollection, removeCollection, erroSe } = levantamento;
   const id = String(fase.id);
   const emViagem = fase.workCondition === 'travel';
+  const semVeiculo = fase.vehicleType === 'none';
+  const exigeDeslocamentoRodoviario = emViagem && !semVeiculo;
   const confirmada = fase.workConditionConfirmed === true;
   const erroDoNome = erroSe(!String(fase.name || '').trim(), 'Campo obrigatório');
 
@@ -136,25 +139,29 @@ export function FaseCard({
             </div>
 
             <SelectField
-              label="Veículo obrigatório"
+              label="Veículo da equipe"
               required
               value={String(fase.vehicleType || '')}
               emptyLabel="Selecione o veículo"
               options={VEICULOS}
               error={erroSe(!fase.vehicleType, 'Campo obrigatório')}
-              onChange={valor => editar({ vehicleType: valor })}
+              onChange={valor => editar(valor === 'none'
+                ? { vehicleType: valor, vehicleCountMode: 'automatic', vehicleCount: 0 }
+                : { vehicleType: valor })}
             />
 
-            <SelectField
-              label="Quantidade de veículos"
-              value={String(fase.vehicleCountMode || 'automatic')}
-              options={MODO_VEICULOS}
-              onChange={valor => editar({ vehicleCountMode: valor })}
-            />
+            {!semVeiculo && (
+              <SelectField
+                label="Quantidade de veículos"
+                value={String(fase.vehicleCountMode || 'automatic')}
+                options={MODO_VEICULOS}
+                onChange={valor => editar({ vehicleCountMode: valor })}
+              />
+            )}
 
             <NumberField
               label="Deslocamento hotel ↔ obra / dia (km)"
-              required={emViagem}
+              required={exigeDeslocamentoRodoviario}
               value={
                 fase.hotelSiteDistanceKmPerDay ??
                 (LEC_CONTEXT_EXPENSES as AnyRecord).hotelSiteDistanceKmPerDay
@@ -162,15 +169,15 @@ export function FaseCard({
               min={0}
               step={1}
               /* Só faz sentido em viagem, e só depois de confirmar a condição. */
-              disabled={!confirmada || !emViagem}
+              disabled={!confirmada || !exigeDeslocamentoRodoviario}
               error={erroSe(
-                emViagem && numberValue(fase.hotelSiteDistanceKmPerDay) <= 0,
+                exigeDeslocamentoRodoviario && numberValue(fase.hotelSiteDistanceKmPerDay) <= 0,
                 'Informe a distância diária entre hotel e obra'
               )}
               onChange={valor => editar({ hotelSiteDistanceKmPerDay: valor })}
             />
 
-            {fase.vehicleCountMode === 'manual' && (
+            {!semVeiculo && fase.vehicleCountMode === 'manual' && (
               <NumberField
                 label="Nº de veículos"
                 required
@@ -185,8 +192,11 @@ export function FaseCard({
 
         <section className="com-fase-painel">
           <header>
-            <strong>Período e jornada</strong>
-            <small>Defina quando a fase acontece e a carga horária normal.</small>
+            <strong>Período e jornada padrão</strong>
+            <small>
+              Esta escala é herdada pelos cargos sem cenário próprio. As exceções são
+              configuradas individualmente em Equipe alocada.
+            </small>
           </header>
 
           <div className="com-form-grid">
@@ -225,10 +235,24 @@ export function FaseCard({
               onChange={valor => editar({ saturdayCount: valor })}
             />
             <NumberField
+              label="HE sábado (h/dia)"
+              value={fase.saturdayHoursPerDay}
+              min={0}
+              step={0.5}
+              onChange={valor => editar({ saturdayHoursPerDay: valor })}
+            />
+            <NumberField
               label="Domingos e feriados"
               value={fase.sundayCount}
               min={0}
               onChange={valor => editar({ sundayCount: valor })}
+            />
+            <NumberField
+              label="HE domingo/feriado (h/dia)"
+              value={fase.sundayHoursPerDay}
+              min={0}
+              step={0.5}
+              onChange={valor => editar({ sundayHoursPerDay: valor })}
             />
           </div>
         </section>

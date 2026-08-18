@@ -300,3 +300,38 @@ test('a planilha do golden 02 sai inteira, sem célula indefinida', () => {
   assert.ok(!texto.includes('NaN'), 'sobrou "NaN" impresso na planilha');
   assert.ok(!texto.includes('[object Object]'), 'sobrou objeto impresso na planilha');
 });
+
+test('a memória de cálculo registra jornada individual, HE variável e sem veículo', () => {
+  const payload = structuredClone(carregarGolden('02-sede-sem-hora-extra').payload);
+  const contexto = payload.laborContexts[0];
+  const alocacao = contexto.assignments[0];
+  contexto.vehicleType = 'none';
+  contexto.workCondition = 'travel';
+  contexto.hotelSiteDistanceKmPerDay = 0;
+  contexto.expenses = [];
+  alocacao.workSchedule = {
+    name: 'Plantão de Maria',
+    targetType: 'collaborator',
+    collaboratorName: 'Maria',
+    days: [{
+      dayType: 'saturday', days: 1, normalHoursPerDay: 8,
+      extraHoursPerDay: 2, overtimePercent: 50
+    }]
+  };
+
+  const linhas = linhasDaPlanilha(levantamento(payload), CONTEXTO);
+  const inicio = linhas.findIndex(l => l[0] === 'MÃO DE OBRA POR FASE / CONTEXTO');
+  const cabecalho = linhas[inicio + 1];
+  const linha = linhas[inicio + 2];
+  const linhaVeiculo = linhas.find(l => String(l[1] || '').includes('VEÍCULO:'));
+
+  assert.equal(linha.length, cabecalho.length);
+  assert.equal(linha[cabecalho.indexOf('CENÁRIO DE JORNADA')], 'Plantão de Maria');
+  assert.equal(linha[cabecalho.indexOf('ALVO DA JORNADA')], 'COLABORADOR');
+  assert.equal(linha[cabecalho.indexOf('COLABORADOR')], 'Maria');
+  assert.equal(Number(linha[cabecalho.indexOf('HH EXTRA COM PERCENTUAL CONFIGURADO')]), 2);
+  assert.ok(Number(linha[cabecalho.indexOf('CUSTO EXTRA COM PERCENTUAL CONFIGURADO')]) > 0);
+  assert.equal(linhaVeiculo.length, cabecalho.length);
+  assert.match(linhaVeiculo[1], /SEM VEÍCULO/);
+  assert.match(linhaVeiculo[11], /NÃO APLICÁVEL/);
+});

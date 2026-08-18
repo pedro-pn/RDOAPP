@@ -46,10 +46,12 @@ export function MaoDeObraSection({ levantamento }: { levantamento: Levantamento 
   const faseSemCondicao = fases.some(f => !f.workCondition || !f.workConditionConfirmed);
   const faseSemVeiculo = fases.some(f => !f.vehicleType);
   const faseSemDistancia = fases.some(
-    f => f.workCondition === 'travel' && numberValue(f.hotelSiteDistanceKmPerDay) <= 0
+    f => f.workCondition === 'travel'
+      && f.vehicleType !== 'none'
+      && numberValue(f.hotelSiteDistanceKmPerDay) <= 0
   );
   const faseSemCombustivel = fases.some(f => {
-    if (f.workCondition !== 'travel') return false;
+    if (f.workCondition !== 'travel' || f.vehicleType === 'none') return false;
     const combustivel = registros(f.expenses).find(
       d => d.code === HOTEL_SITE_COMMUTE_EXPENSE_CODE
     );

@@ -154,9 +154,18 @@ A finalização de verdade já está ligada. O próximo bloco é o histórico:
 Depois disso: L2 (arrastar, T068–T071), L4 (tutorial, T096–T097), mobile
 (T103–T107) e a matriz de permissões (T108–T111).
 
-**167 tarefas fechadas, 15 abertas** (14/08/2026) — o crescimento do total vem das
-sete sugestões do comercial (T121–T127, registradas em 11/08) e do bloco T128–T134
-(12/08). Este número e o de [tasks.md](./tasks.md) precisam ser corrigidos **juntos**:
+**Ajustes operacionais de 18/08 (T127/T141).** O cabeçalho de custos continua fixo,
+mas ficou compacto; os circuitos 1 e 2 começam recolhidos; “Sem veículo” virou uma
+decisão válida no seletor obrigatório; e a equipe ganhou cenários de jornada por cargo
+ou colaborador, com dias, horas normais/extras, turno, percentual por tipo de dia e
+aplicação em massa. O motor e o CSV calculam HE variável; payload antigo sem cenário
+continua na regra global e os 16 goldens permanecem idênticos.
+
+**169 tarefas fechadas, 14 abertas** (18/08/2026) — T127 foi concluída com a nova
+confirmação visual do mantenedor, e a T141 registra os ajustes de veículo, jornadas e
+circuitos pedidos em 18/08. O total também inclui as sete sugestões do comercial
+(T121–T127, registradas em 11/08) e o bloco T128–T134 (12/08). Este número e o de
+[tasks.md](./tasks.md) precisam ser corrigidos **juntos**:
 ficaram divergentes por três dias (117/47 aqui, 94/61 lá) e os dois foram lidos como
 estado real numa revisão externa.
 

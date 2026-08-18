@@ -47,7 +47,7 @@ export function faltaMaoDeObra(draft: AnyRecord): boolean {
     if (!contexto.workCondition || !contexto.workConditionConfirmed) return true;
     if (!contexto.vehicleType) return true;
 
-    if (contexto.workCondition !== 'travel') return false;
+    if (contexto.workCondition !== 'travel' || contexto.vehicleType === 'none') return false;
 
     // Fase em viagem: distância hotel ↔ obra e o combustível do trajeto.
     if (numberValue(contexto.hotelSiteDistanceKmPerDay) <= 0) return true;

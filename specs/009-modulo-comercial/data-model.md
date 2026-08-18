@@ -70,6 +70,35 @@ margem.
 não cria `CostEstimateVersion`. Apenas a promoção para `SALVO` executa a validação
 completa e congela uma versão imutável.
 
+#### Jornada e veículo dentro do `payload`
+
+Não há nova tabela: fase, alocação e cenário continuam no `Json` versionado do
+levantamento e são normalizados pelo motor compartilhado.
+
+```text
+laborContexts[]
+├── vehicleType: "" | "none" | "sedan" | "pickup" | "hr"
+└── assignments[]
+    ├── role, quantity, shift, monthlySalary, ...
+    └── workSchedule?                         # ausente = herda a jornada da fase
+        ├── name
+        ├── targetType: "role" | "collaborator"
+        ├── collaboratorName?                 # obrigatório no alvo nominal
+        └── days[]
+            ├── dayType: weekday | saturday | sunday_holiday
+            ├── days
+            ├── normalHoursPerDay
+            ├── extraHoursPerDay
+            └── overtimePercent
+```
+
+`vehicleType = "none"` é decisão preenchida, não ausência: a quantidade efetiva é zero
+mesmo que um rascunho antigo ainda traga `vehicleCount`. `targetType = collaborator`
+exige `quantity = 1`. Percentuais de HE fora dos buckets históricos de 70% e 100% são
+calculados pela base extraordinária do LEC e aparecem separadamente no resultado e na
+memória de cálculo. O estado aberto/fechado dos circuitos é exclusivamente visual e
+**não entra** no payload.
+
 **Acesso**: `comercial:manager` alcança todos; `comercial:seller` apenas onde
 `createdByUserId` for o seu; `comercial:viewer` **nenhum**.
 

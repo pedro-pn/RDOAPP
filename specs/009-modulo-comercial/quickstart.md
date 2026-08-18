@@ -88,7 +88,7 @@ Referência de um lado, módulo novo do outro, percorrendo
 | Finalização em 4 estágios | idem |
 | Histórico | `/comercial/historico` |
 
-**Critério**: cada divergência é classificada como **defeito** ou como um dos **9
+**Critério**: cada divergência é classificada como **defeito** ou como um dos **20
 desvios aprovados**. Divergência não listada é defeito, não escolha. O checklist de
 paridade precisa estar 100% marcado — é item da Definição de Pronto, não conferência
 informal.
@@ -108,6 +108,12 @@ Não estão na baseline — não há do que ser fiel. Conferir na tela:
 |---|---|
 | **L1** | Salvar levantamento com campo obrigatório vazio → **cada** campo pendente em vermelho com mensagem, e o banner-resumo permanece |
 | **L1** | Abrir um levantamento novo → nenhum campo começa vermelho; obrigatórios têm `*` vermelho e opcionais não; custos exibem máscara `R$` e números zerados aceitam a primeira digitação sem formar `01` |
+| **CUSTO** | Em uma fase em viagem, escolher **Sem veículo** → o campo obrigatório fica satisfeito, quantidade efetiva permanece zero e distância/combustível de veículo deixam de ser exigidos |
+| **CUSTO** | Criar dois cenários na mesma fase: gerente com 12 h e coordenador com 8 h; depois pôr um no sábado e outro no domingo → HH e custo de cada linha refletem sua própria escala |
+| **CUSTO** | Trocar um cenário para **colaborador**, informar o nome e usar HE 50% → a linha exige quantidade 1, o custo fica entre a hora normal e a HE 100%, e nome/HE variável aparecem no CSV |
+| **CUSTO** | Usar **Aplicar este horário para toda a equipe** → dias, horas, percentuais e turno são copiados; cargos, quantidades e nomes não são substituídos |
+| **CUSTO** | Abrir Materiais e insumos → os circuitos 1 e 2 mostram apenas nome e volume; clicar abre o formulário; adicionar circuito cria o novo já aberto |
+| **CUSTO** | Rolar a tela em desktop → topbar e resumo em tempo real permanecem visíveis sem cobrir o formulário; em 390 px o cabeçalho volta ao fluxo e não cria rolagem horizontal |
 | **L1** | Digitar e-mail inválido na etapa 1 → mensagem diz **"E-mail inválido"**, não "Campo obrigatório". Idem CNPJ |
 | **L2** | Arrastar item de escopo pela alça → fantasma + espaço no destino; cancelar restaura; **as setas ↑/↓ continuam funcionando** |
 | **L2** | Repetir em tela sensível ao toque |
@@ -151,7 +157,7 @@ gera erro: só some**.
 - [ ] 16/16 goldens dígito a dígito
 - [ ] Matriz de permissão verde, incluindo listagem cruzada entre dois `seller`
 - [ ] 616 controles e 916 textos presentes, conferidos item a item
-- [ ] Zero divergências fora dos 17 desvios
+- [ ] Zero divergências fora dos 20 desvios
 - [ ] Zero rolagem horizontal de página em 390 px nas 4 telas
 - [ ] L1 a L7 validadas na tela
 - [ ] `/speckit-analyze` sem item de inventário descoberto

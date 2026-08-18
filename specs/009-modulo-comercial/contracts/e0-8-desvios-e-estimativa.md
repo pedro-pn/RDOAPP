@@ -36,12 +36,16 @@ da aprovação, na sua revisão do `baseline/roteiro.md` em 31/07.
 | 8 | Fluxo "Nova proposta" sem baseline visual | **Novo** — limitação, não escolha |
 | 9 | Entrada do módulo vira **menu**; proposta sai da raiz | **Novo** (revisão do roteiro, 31/07) |
 | 10 | Módulo usa o **chrome da referência**, não o do filtroAPP | **Novo** (03/08) — *reduz* divergência |
+| 11 | Tela de custos permanece sem `react-hook-form` | **Aprovado** (12/08) — exceção nomeada ao Princípio III |
 | 12 | Documentos seguem os **`.docx` de 07/01/2026**, não o texto da referência | **Novo** (05/08) — decidido |
 | 13 | Proposta de **hidrojateamento** é um modelo próprio, escolhido na criação | **Novo** (05/08) — decidido |
 | 14 | Campos de valor com **máscara de R$** (centavos ao digitar) | **Novo** (11/08) — aprovado |
 | 15 | **Cabeçalho mais baixo**, para sobrar área de trabalho | **Novo** (11/08) — aprovado, com prévia |
 | 16 | **Serviços separados por fluido**: desidratação e filtragem | **Novo** (12/08) — aprovado |
 | 17 | Histórico **sem** "Voltar ao gerador" (`HIST-CTL-002`) | **Novo** (14/08) — aprovado. **Primeira remoção de controle da referência** |
+| 18 | Veículo obrigatório aceita a decisão explícita **“Sem veículo”** | **Novo** (18/08) — solicitado pelo mantenedor |
+| 19 | **Cenários de jornada** por cargo ou colaborador, com HE por tipo de dia | **Novo** (18/08) — solicitado pelo mantenedor |
+| 20 | Circuitos de materiais iniciam **minimizados** | **Novo** (18/08) — solicitado pelo mantenedor |
 
 ### 1. PDF gerado no backend
 
@@ -494,6 +498,42 @@ lugares diferentes — e o que parecia o certo era o errado.
 **O que se perde:** o atalho direto do histórico para o gerador. Quem quiser
 montar proposta a partir do histórico agora passa pelo menu, um clique a mais.
 Aceito pelo mantenedor em 14/08.
+
+### 18. “Sem veículo” como decisão obrigatória — *solicitado em 18/08*
+
+**O que muda:** o seletor obrigatório de veículo ganha a opção “Sem veículo”. A
+escolha é uma resposta válida — diferente do valor vazio — e zera a frota da fase,
+desligando distância hotel ↔ obra, combustível e locação condicionados a veículo.
+
+**Por que é desvio:** a referência exige sedan, pickup ou HR em toda fase. Em projetos
+sem transporte próprio isso cria custo fictício ou trava o levantamento. O campo
+continua obrigatório para que o orçamentista registre conscientemente a ausência.
+
+### 19. Cenários de jornada por cargo ou colaborador — *solicitado em 18/08*
+
+**O que muda:** a jornada global da fase vira padrão herdado. Cada linha da equipe pode
+substituí-la por um cenário próprio, aplicado ao cargo ou a um colaborador nominal, com
+dias úteis, sábados e domingos/feriados, horas normais e extras, percentual de HE e
+turno. Um botão copia a escala e o turno para toda a equipe sem copiar nomes ou cargos.
+
+**Por que é desvio:** a referência calcula toda a fase com uma única escala. Isso não
+representa gerente em 12 h e coordenador em 8 h, nem pessoas distintas no sábado e no
+domingo. A mudança alcança o motor e a memória de cálculo; percentuais explícitos fora
+de 70% e 100% não podem ficar apenas como anotação visual.
+
+**Compatibilidade:** payload sem cenário mantém a conta histórica da fase, preservando
+os 16 goldens. Jornada nominal representa uma pessoa; grupos do mesmo cargo continuam
+usando quantidade maior que um.
+
+### 20. Circuitos minimizados — *solicitado em 18/08*
+
+**O que muda:** cada circuito mostra inicialmente apenas número, nome e volume. O
+orçamentista abre o cartão quando precisar preencher tubos, mangueiras, equipamentos ou
+volumes manuais; circuito recém-criado abre automaticamente.
+
+**Por que é desvio:** a referência deixa todos os blocos profundos abertos, mesmo
+quando o projeto não usa aquele material. O recolhimento é estado efêmero da interface:
+não entra no payload, não muda volume e não altera a dosagem de produtos.
 
 
 ## Parte B — Revisão da estimativa

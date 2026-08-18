@@ -42,6 +42,21 @@ export type LegacyIndirectCost = { name: string; monthly: number; included: bool
 export type CostLine = { role: string; quantity: number; months: number; salary?: number };
 
 export type LaborShift = "day" | "night";
+export type LaborScheduleTarget = "role" | "collaborator";
+export type LaborScheduleDayType = "weekday" | "saturday" | "sunday_holiday";
+export type LaborScheduleDay = {
+  dayType: LaborScheduleDayType;
+  days: number;
+  normalHoursPerDay: number;
+  extraHoursPerDay: number;
+  overtimePercent: number;
+};
+export type LaborWorkSchedule = {
+  name: string;
+  targetType: LaborScheduleTarget;
+  collaboratorName?: string;
+  days: LaborScheduleDay[];
+};
 export type LaborPricingModel = "lec_v1_2" | "legacy_monthly_v1";
 export type OvertimePolicy = "legacy_buckets_v1" | "union_monthly_30_v1";
 export type WorkCondition = "headquarters" | "travel" | "offshore";
@@ -80,7 +95,7 @@ export type LogisticsReturnSetup = "pending" | "mirrored" | "custom";
 export type LogisticsAdditionalCostBasis = "fixed" | "per_vehicle" | "per_trip" | "per_vehicle_trip";
 export type PricingMode = "calculated" | "labor" | "commercial_lines" | "fabrication" | "global";
 export type PricingCalculationModel = "filtrovali_net_revenue_v1" | "legacy_lec";
-export type VehicleType = "sedan" | "pickup" | "hr";
+export type VehicleType = "none" | "sedan" | "pickup" | "hr";
 export type VehicleCountMode = "automatic" | "manual";
 export const HOTEL_SITE_COMMUTE_EXPENSE_CODE = "hotel_site_commute";
 export const LODGING_CALENDAR_DAY_EXPENSE_CODE = "lodging_calendar_day";
@@ -112,6 +127,8 @@ export type LaborAssignment = {
   allocationPercent: number;
   shift?: LaborShift;
   nightPremiumPercent?: number;
+  /** Jornada específica; ausente preserva a jornada histórica do contexto. */
+  workSchedule?: LaborWorkSchedule;
   notes?: string;
 };
 
@@ -415,6 +432,9 @@ export type LaborAssignmentResult = LaborAssignment & {
   normalCost: number;
   extra70Cost: number;
   extra100Cost: number;
+  /** Horas e custo de percentuais explícitos diferentes de 70% e 100%. */
+  customExtraHours?: number;
+  customExtraCost?: number;
   burdenRate: number;
   baseLaborCost: number;
   burdenCost: number;
@@ -700,6 +720,7 @@ export const LEC_CONTEXT_EXPENSE_PRESETS: ReadonlyArray<Omit<ContextExpense, "id
   },
 ] as const;
 export const VEHICLE_CAPACITIES: Record<VehicleType, number> = {
+  none: 0,
   sedan: 3,
   pickup: 2,
   hr: 2,
@@ -955,6 +976,33 @@ export function upgradeLaborDraftToLec<T extends Record<string, unknown>>(
   };
 }
 
+function normalizeLaborWorkSchedule(value: unknown): LaborWorkSchedule | undefined {
+  const source = objectValue(value);
+  if (!Array.isArray(source.days)) return undefined;
+
+  const targetType = enumValue(source.targetType, ["role", "collaborator"] as const, "role");
+  const collaboratorName = textValue(source.collaboratorName).trim();
+  return {
+    name: textValue(source.name, "Jornada personalizada"),
+    targetType,
+    ...(targetType === "collaborator" && collaboratorName ? { collaboratorName } : {}),
+    days: arrayValue(source.days).map((value) => {
+      const day = objectValue(value);
+      return {
+        dayType: enumValue(
+          day.dayType,
+          ["weekday", "saturday", "sunday_holiday"] as const,
+          "weekday",
+        ),
+        days: nonNegative(day.days),
+        normalHoursPerDay: nonNegative(day.normalHoursPerDay),
+        extraHoursPerDay: nonNegative(day.extraHoursPerDay),
+        overtimePercent: boundedPercent(day.overtimePercent, 70, 300),
+      };
+    }),
+  };
+}
+
 function normalizeAssignment(value: unknown, index: number): LaborAssignment {
   const source = objectValue(value);
   const role = textValue(source.role, "COLABORADOR");
@@ -973,6 +1021,9 @@ function normalizeAssignment(value: unknown, index: number): LaborAssignment {
     allocationPercent: boundedPercent(source.allocationPercent, 100),
     shift: enumValue(source.shift, ["day", "night"] as const, "day"),
     nightPremiumPercent: boundedPercent(source.nightPremiumPercent, 35),
+    ...(source.workSchedule === undefined
+      ? {}
+      : { workSchedule: normalizeLaborWorkSchedule(source.workSchedule) }),
     notes: textValue(source.notes) || undefined,
   };
 }
@@ -1123,7 +1174,7 @@ function normalizeLaborContext(value: unknown, index: number, assumptions: CostE
     saturdayHoursPerDay: nonNegative(source.saturdayHoursPerDay),
     sundayCount: nonNegative(source.sundayCount),
     sundayHoursPerDay: nonNegative(source.sundayHoursPerDay),
-    vehicleType: enumValue(source.vehicleType, ["", "sedan", "pickup", "hr"] as const, ""),
+    vehicleType: enumValue(source.vehicleType, ["", "none", "sedan", "pickup", "hr"] as const, ""),
     vehicleCountMode: enumValue(
       source.vehicleCountMode,
       ["automatic", "manual"] as const,
@@ -2440,16 +2491,52 @@ function calculateContext(context: LaborContext, assumptions: CostEstimateAssump
   const overtimeCalendarMonths = Math.max(1, Math.ceil(context.durationDays / 30));
   const assignments = context.assignments.map<LaborAssignmentResult>((assignment) => {
     const allocatedQuantity = assignment.quantity * assignment.allocationPercent / 100;
-    const employeeMonths = allocatedQuantity * months;
-    const activeDays = usesLecLabor
-      ? workingDays + context.saturdayCount + context.sundayCount
-      : workingDays;
+    const scheduleDays = assignment.workSchedule?.days;
+    const scheduledActiveDays = scheduleDays?.reduce(
+      (sum, day) => sum + (day.normalHoursPerDay > 0 || day.extraHoursPerDay > 0 ? day.days : 0),
+      0,
+    );
+    const activeDays = scheduleDays
+      ? (scheduledActiveDays ?? 0)
+      : usesLecLabor
+        ? workingDays + context.saturdayCount + context.sundayCount
+        : workingDays;
+    const assignmentMonths = scheduleDays ? activeDays / assumptions.workdaysPerMonth : months;
+    const employeeMonths = allocatedQuantity * assignmentMonths;
     const personDays = allocatedQuantity * activeDays;
-    const normalHours = allocatedQuantity * workingDays * context.hoursPerDay;
+    const normalHours = scheduleDays
+      ? allocatedQuantity * scheduleDays.reduce(
+        (sum, day) => sum + day.days * day.normalHoursPerDay,
+        0,
+      )
+      : allocatedQuantity * workingDays * context.hoursPerDay;
     const requestedExtra70Hours = usesLecLabor
-      ? allocatedQuantity * (
-        workingDays * context.weekdayExtra70HoursPerDay
-        + context.saturdayCount * context.saturdayHoursPerDay
+      ? scheduleDays
+        ? allocatedQuantity * scheduleDays.reduce(
+          (sum, day) => sum + (day.overtimePercent === 70 ? day.days * day.extraHoursPerDay : 0),
+          0,
+        )
+        : allocatedQuantity * (
+          workingDays * context.weekdayExtra70HoursPerDay
+          + context.saturdayCount * context.saturdayHoursPerDay
+        )
+      : 0;
+    const explicitExtra100Hours = usesLecLabor && scheduleDays
+      ? allocatedQuantity * scheduleDays.reduce(
+        (sum, day) => sum + (day.overtimePercent === 100 ? day.days * day.extraHoursPerDay : 0),
+        0,
+      )
+      : usesLecLabor
+        ? allocatedQuantity * context.sundayCount * context.sundayHoursPerDay
+        : 0;
+    const customExtraHours = usesLecLabor && scheduleDays
+      ? allocatedQuantity * scheduleDays.reduce(
+        (sum, day) => sum + (
+          day.overtimePercent !== 70 && day.overtimePercent !== 100
+            ? day.days * day.extraHoursPerDay
+            : 0
+        ),
+        0,
       )
       : 0;
     const extra70LimitHours = payloadUsesUnionOvertime(assumptions)
@@ -2462,13 +2549,11 @@ function calculateContext(context: LaborContext, assumptions: CostEstimateAssump
       0,
       requestedExtra70Hours - extra70Hours,
     );
-    const extra100Hours = (usesLecLabor
-      ? allocatedQuantity * context.sundayCount * context.sundayHoursPerDay
-      : 0) + extra70ConvertedTo100Hours;
-    const laborHours = normalHours + extra70Hours + extra100Hours;
+    const extra100Hours = explicitExtra100Hours + extra70ConvertedTo100Hours;
+    const laborHours = normalHours + extra70Hours + extra100Hours + customExtraHours;
 
     if (usesLecLabor) {
-      const rates = lecLaborRates(
+      const breakdown = lecLaborCostBreakdown(
         assignment.role,
         context.workCondition || "headquarters",
         assignment.monthlySalary,
@@ -2476,10 +2561,16 @@ function calculateContext(context: LaborContext, assumptions: CostEstimateAssump
         assignment.shift,
         assignment.nightPremiumPercent ?? LEC_NIGHT_PREMIUM_PERCENT,
       );
+      const rates = breakdown;
       const normalCost = roundMoney(normalHours * rates.normalHourlyCost);
       const extra70Cost = roundMoney(extra70Hours * rates.extra70HourlyCost);
       const extra100Cost = roundMoney(extra100Hours * rates.extra100HourlyCost);
-      const baseLaborCost = normalCost + extra70Cost + extra100Cost;
+      const customExtraCost = roundMoney(scheduleDays?.reduce((sum, day) => {
+        if (day.overtimePercent === 70 || day.overtimePercent === 100) return sum;
+        const hours = allocatedQuantity * day.days * day.extraHoursPerDay;
+        return sum + hours * breakdown.extraBaseHourlyCost * (1 + day.overtimePercent / 100);
+      }, 0) ?? 0);
+      const baseLaborCost = normalCost + extra70Cost + extra100Cost + customExtraCost;
       return {
         ...assignment,
         allocatedQuantity: roundMeasure(allocatedQuantity),
@@ -2499,6 +2590,10 @@ function calculateContext(context: LaborContext, assumptions: CostEstimateAssump
         normalCost,
         extra70Cost,
         extra100Cost,
+        ...(scheduleDays ? {
+          customExtraHours: roundMeasure(customExtraHours),
+          customExtraCost,
+        } : {}),
         burdenRate: 0,
         baseLaborCost: roundMoney(baseLaborCost),
         burdenCost: 0,
@@ -2533,6 +2628,10 @@ function calculateContext(context: LaborContext, assumptions: CostEstimateAssump
       normalCost: roundMoney(total),
       extra70Cost: 0,
       extra100Cost: 0,
+      ...(scheduleDays ? {
+        customExtraHours: roundMeasure(customExtraHours),
+        customExtraCost: 0,
+      } : {}),
       burdenRate: rate,
       baseLaborCost: roundMoney(baseLaborCost),
       burdenCost: roundMoney(burdenCost),
@@ -2554,14 +2653,22 @@ function calculateContext(context: LaborContext, assumptions: CostEstimateAssump
   const burdenCost = assignments.reduce((sum, item) => sum + item.burdenCost, 0);
   const laborCost = baseLaborCost + burdenCost;
   const vehicleCapacity = context.vehicleType ? VEHICLE_CAPACITIES[context.vehicleType] : 0;
-  const vehicleCount = context.vehicleCountMode === "manual"
-    ? context.vehicleCount
-    : headcount > 0 && vehicleCapacity > 0
-      ? Math.ceil(headcount / vehicleCapacity)
-      : 0;
-  const staffedDays = usesLecLabor
-    ? workingDays + context.saturdayCount + context.sundayCount
-    : workingDays;
+  const vehicleCount = context.vehicleType === "none"
+    ? 0
+    : context.vehicleCountMode === "manual"
+      ? context.vehicleCount
+      : headcount > 0 && vehicleCapacity > 0
+        ? Math.ceil(headcount / vehicleCapacity)
+        : 0;
+  const hasIndividualSchedules = assignments.some((assignment) => assignment.workSchedule);
+  const staffedDays = hasIndividualSchedules
+    ? assignments.reduce((maximum, assignment) => {
+      if (assignment.allocatedQuantity <= 0) return maximum;
+      return Math.max(maximum, assignment.personDays / assignment.allocatedQuantity);
+    }, 0)
+    : usesLecLabor
+      ? workingDays + context.saturdayCount + context.sundayCount
+      : workingDays;
   const expenses = context.expenses.filter((item) => item.included).map<ContextExpenseResult>((expense) => {
     const quantity = expense.quantity;
     let basisQuantity = 1;
@@ -2570,7 +2677,9 @@ function calculateContext(context: LaborContext, assumptions: CostEstimateAssump
     if (expense.basis === "per_person_calendar_day") {
       basisQuantity = headcount * context.durationDays;
     }
-    if (expense.basis === "per_person_workday") basisQuantity = headcount * workingDays;
+    if (expense.basis === "per_person_workday") {
+      basisQuantity = hasIndividualSchedules ? personDays : headcount * workingDays;
+    }
     if (expense.basis === "per_person_month") basisQuantity = employeeMonths;
     if (expense.basis === "per_vehicle_calendar_day") {
       basisQuantity = vehicleCount * context.durationDays;
@@ -3094,6 +3203,12 @@ function buildCostLineSeeds(payload: CostEstimatePayloadV2, result: CostEstimate
           ["normal", "HH normal", assignment.normalHours, assignment.normalCost],
           ["extra-70", "HH extra 70%", assignment.extra70Hours, assignment.extra70Cost],
           ["extra-100", "HH extra 100%", assignment.extra100Hours, assignment.extra100Cost],
+          [
+            "extra-variable",
+            "HH extra com percentual configurado",
+            assignment.customExtraHours ?? 0,
+            assignment.customExtraCost ?? 0,
+          ],
         ] as const;
         laborLines.forEach(([suffix, label, quantity, costValue]) => {
           if (quantity <= 0 && costValue <= 0) return;
@@ -3872,7 +3987,7 @@ export function validateCostEstimate(value: CostEstimatePayloadV2 | unknown): Co
       if (!context.vehicleType) {
         add("error", `${path}.vehicleType`, "Selecione o veículo obrigatório da etapa.");
       }
-      if (context.workCondition === "travel") {
+      if (context.workCondition === "travel" && context.vehicleType !== "none") {
         const commuteExpense = context.expenses.find((expense) =>
           expense.code === HOTEL_SITE_COMMUTE_EXPENSE_CODE);
         if (context.hotelSiteDistanceKmPerDay <= 0) {
@@ -3887,7 +4002,8 @@ export function validateCostEstimate(value: CostEstimatePayloadV2 | unknown): Co
           );
         }
       }
-      if (context.vehicleCountMode === "manual" && context.vehicleCount <= 0
+      if (context.vehicleType !== "none"
+        && context.vehicleCountMode === "manual" && context.vehicleCount <= 0
         && context.assignments.some((assignment) => assignment.quantity > 0)) {
         add("warning", `${path}.vehicleCount`, "Informe quantos veículos serão usados ou selecione o cálculo automático.");
       }
@@ -3902,6 +4018,80 @@ export function validateCostEstimate(value: CostEstimatePayloadV2 | unknown): Co
       if (assignment.quantity <= 0) add("warning", `${assignmentPath}.quantity`, "A quantidade do colaborador está zerada.");
       if (assignment.monthlySalary + assignment.adjustment <= 0) {
         add("warning", `${assignmentPath}.monthlySalary`, "O custo mensal do colaborador está zerado.");
+      }
+      const schedule = assignment.workSchedule;
+      if (schedule) {
+        if (schedule.targetType === "collaborator" && !schedule.collaboratorName) {
+          add(
+            "error",
+            `${assignmentPath}.workSchedule.collaboratorName`,
+            "Informe o colaborador ao qual esta jornada se aplica.",
+          );
+        }
+        if (schedule.targetType === "collaborator" && assignment.quantity !== 1) {
+          add(
+            "error",
+            `${assignmentPath}.quantity`,
+            "Uma jornada nominal deve representar exatamente um colaborador.",
+          );
+        }
+        if (!schedule.days.length) {
+          add(
+            "error",
+            `${assignmentPath}.workSchedule.days`,
+            "Informe ao menos um grupo de dias para a jornada.",
+          );
+        }
+        const dayTypes = new Set<LaborScheduleDayType>();
+        let scheduledDays = 0;
+        schedule.days.forEach((day, dayIndex) => {
+          const dayPath = `${assignmentPath}.workSchedule.days[${dayIndex}]`;
+          if (dayTypes.has(day.dayType)) {
+            add(
+              "error",
+              `${dayPath}.dayType`,
+              "O mesmo tipo de dia aparece mais de uma vez na jornada.",
+            );
+          }
+          dayTypes.add(day.dayType);
+          if (day.normalHoursPerDay + day.extraHoursPerDay > 24) {
+            add(
+              "error",
+              `${dayPath}.extraHoursPerDay`,
+              "A soma das horas normais e extras não pode ultrapassar 24 horas por dia.",
+            );
+          }
+          if (context.workCondition === "offshore"
+            && day.normalHoursPerDay + day.extraHoursPerDay > 12) {
+            add(
+              "error",
+              `${dayPath}.extraHoursPerDay`,
+              "A jornada offshore não pode ultrapassar 12 horas por dia.",
+            );
+          }
+          if (day.days > 0 && day.normalHoursPerDay + day.extraHoursPerDay <= 0) {
+            add(
+              "warning",
+              `${dayPath}.normalHoursPerDay`,
+              "Há dias trabalhados sem horas informadas.",
+            );
+          }
+          if (day.extraHoursPerDay > 0 && day.overtimePercent <= 0) {
+            add(
+              "error",
+              `${dayPath}.overtimePercent`,
+              "Informe o percentual aplicado à hora extra.",
+            );
+          }
+          if (day.normalHoursPerDay > 0 || day.extraHoursPerDay > 0) scheduledDays += day.days;
+        });
+        if (scheduledDays > context.durationDays) {
+          add(
+            "warning",
+            `${assignmentPath}.workSchedule.days`,
+            "Os dias desta jornada superam a duração da etapa.",
+          );
+        }
       }
     });
   });

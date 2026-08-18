@@ -141,7 +141,7 @@ acessibilidade, responsividade ou consistência funcional é dispensada:
 ```text
 specs/009-modulo-comercial/
 ├── plan.md                    # Este arquivo
-├── spec.md                    # 89 FR, 12 SC
+├── spec.md                    # 93 FR, 12 SC
 ├── research.md                # Fase 0 — D1 a D15
 ├── data-model.md              # Fase 1 — models + matriz de acesso
 ├── quickstart.md              # Fase 1 — roteiro de validação
@@ -163,8 +163,8 @@ specs/009-modulo-comercial/
 
 ```text
 shared/
-├── comercial/                 # copiado sem alterar da referência; tsconfig próprio → dist/
-│   ├── cost-model.ts          # o motor que os goldens verificam
+├── comercial/                 # núcleo portado + extensões aprovadas; tsconfig próprio → dist/
+│   ├── cost-model.ts          # goldens preservados + jornadas individuais/sem veículo
 │   ├── technical-services.ts
 │   ├── scope-content.ts
 │   ├── proposal-visuals.ts

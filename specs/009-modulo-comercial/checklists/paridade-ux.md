@@ -14,7 +14,7 @@ Pronto**, não conferência informal.
 **Como usar**: referência de pé de um lado (`localhost:3000`, login `baseline` /
 `baseline-e0`), módulo do outro, percorrendo `contracts/baseline/roteiro.md`.
 
-**Regra de classificação**: cada divergência é **defeito** ou um dos **17 desvios
+**Regra de classificação**: cada divergência é **defeito** ou um dos **20 desvios
 aprovados**. Divergência não listada é defeito, não escolha.
 
 **Diferença esperada e aceita**: a fonte do chrome (desvio nº 5) e o reflow que ela
@@ -89,7 +89,7 @@ e ausência não aparece em revisão de código.
 
 ---
 
-## 3. Os 17 desvios aprovados — reconhecer, não abrir defeito
+## 3. Os 20 desvios aprovados — reconhecer, não abrir defeito
 
 Cada linha é uma divergência que o revisor **vai** encontrar.
 
@@ -102,6 +102,17 @@ Cada linha é uma divergência que o revisor **vai** encontrar.
 - [ ] PAR-040 - **Desvio 7** — paleta em bloco único `--com-*`, prefixada e nomeada por função. **A cor renderizada não muda**
 - [ ] PAR-041 - **Desvio 8** — fluxo "Nova proposta" sem baseline visual: conferido contra o código, não contra captura
 - [ ] PAR-042 - **Desvio 9** — entrada do módulo é um menu, e a proposta sai da raiz. **Sem baseline** — não existe na referência para ser fotografado
+- [ ] PAR-042a - **Desvio 10** — o módulo mantém o chrome da referência, não o chrome padrão do filtroAPP
+- [ ] PAR-042b - **Desvio 11** — a tela de custos permanece sem `react-hook-form`, por decisão aprovada em 12/08
+- [ ] PAR-042c - **Desvio 12** — documentos seguem os `.docx` de 07/01/2026, não o texto da referência
+- [ ] PAR-042d - **Desvio 13** — hidrojateamento é um modelo próprio, escolhido na criação
+- [ ] PAR-042e - **Desvio 14** — campos monetários usam máscara de R$ com centavos durante a digitação
+- [ ] PAR-042f - **Desvio 15** — o cabeçalho é mais baixo para preservar área útil
+- [ ] PAR-042g - **Desvio 16** — desidratação e filtragem são serviços separados por fluido
+- [ ] PAR-042h - **Desvio 17** — o histórico não oferece “Voltar ao gerador”
+- [ ] PAR-042i - **Desvio 18** — o seletor obrigatório aceita a decisão explícita “Sem veículo”
+- [ ] PAR-042j - **Desvio 19** — jornadas podem ser configuradas por cargo ou colaborador, com HE por tipo de dia
+- [ ] PAR-042k - **Desvio 20** — circuitos existentes começam minimizados e abrem sob demanda
 
 ---
 

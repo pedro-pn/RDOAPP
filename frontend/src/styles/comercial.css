@@ -643,6 +643,7 @@
    ========================================================================== */
 
 .com-root.com-app {
+  --com-topbar-height: 72px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -652,7 +653,7 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  height: 72px;
+  height: var(--com-topbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -727,7 +728,7 @@
 
 .com-root .com-hero {
   position: sticky;
-  top: 72px;
+  top: var(--com-topbar-height);
   z-index: 30;
   isolation: isolate;
   overflow: hidden;
@@ -737,6 +738,18 @@
   background: linear-gradient(125deg, #173b29 0%, #2f6446 72%, #3d7655 100%);
   box-shadow: 0 12px 30px #173d283d;
 }
+
+/* Custos preserva topbar e resumo durante a rolagem, mas em altura compacta. */
+.com-root.com-app-custos { --com-topbar-height: 58px; }
+.com-root.com-app-custos .com-marca img { max-height: 40px; }
+.com-root.com-app-custos .com-topbar { padding-block: 4px; }
+.com-root .com-hero-custos { padding: 10px 4vw 12px; }
+.com-root .com-hero-custos .com-hero-titulo { gap: 12px; margin-bottom: 5px; }
+.com-root .com-hero-custos .com-resumo { margin-top: 5px; }
+.com-root .com-hero-custos .com-resumo-titulo { margin-bottom: 4px; }
+.com-root .com-hero-custos .com-kpis { gap: 8px; }
+.com-root .com-hero-custos .com-kpi { padding: 5px 8px; }
+.com-root .com-hero-custos .com-kpi-margem input { padding-block: 4px; }
 
 /* Os dois elementos decorativos que dão identidade à faixa, e que eu tinha
    deixado de fora — sem eles o hero é só um retângulo verde:
@@ -871,6 +884,7 @@
   /* A tira de 5 seções é um dos dois pontos de estouro conhecidos. Vira duas
      colunas e depois uma — nunca rolagem horizontal de página. */
   .com-root .com-workflow-nav { grid-template-columns: repeat(2, 1fr); }
+  .com-root.com-app-custos { --com-topbar-height: 72px; }
 }
 
 @media (max-width: 600px) {
@@ -1523,6 +1537,110 @@
 .com-root .com-fase-acoes { display: flex; gap: 7px; flex-wrap: wrap; }
 .com-root .com-fase-acoes .com-btn { padding: 8px 12px; font-size: 11px; }
 
+/* Cenários de jornada por linha da equipe. */
+.com-root .com-jornadas {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--com-borda);
+}
+.com-root .com-jornadas > header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 9px;
+}
+.com-root .com-jornadas > header strong { color: var(--com-marca-forte); }
+.com-root .com-jornadas > header small { color: var(--com-texto-fraco); }
+.com-root .com-jornadas-lista { display: grid; gap: 8px; }
+.com-root .com-jornada-card {
+  overflow: hidden;
+  border: 1px solid #d4e0d7;
+  border-radius: 9px;
+  background: #fff;
+}
+.com-root .com-jornada-card > summary {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(240px, 1.5fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--com-marca-forte);
+  cursor: pointer;
+  list-style-position: inside;
+}
+.com-root .com-jornada-card > summary > span:first-of-type {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.com-root .com-jornada-card > summary small,
+.com-root .com-jornada-resumo { color: var(--com-texto-fraco); font-size: 10px; }
+.com-root .com-jornada-resultado { font-size: 11px; font-weight: 800; white-space: nowrap; }
+.com-root .com-jornada-corpo {
+  padding: 14px;
+  border-top: 1px solid #dce6df;
+  background: #f9fbfa;
+}
+.com-root .com-jornada-dias {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+.com-root .com-jornada-dia {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dbe5de;
+  border-radius: 8px;
+  background: #fff;
+}
+.com-root .com-jornada-dia > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--com-marca-forte);
+  font-size: 11px;
+}
+.com-root .com-jornada-dia .com-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.com-root .com-jornada-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.com-root .com-jornada-acoes small { color: var(--com-texto-fraco); }
+
+/* Circuitos existentes começam recolhidos e mantêm nome/volume no resumo. */
+.com-root .com-circuito-resumo { align-items: center; margin-bottom: 0; }
+.com-root .com-circuito-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 280px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--com-marca-forte);
+  text-align: left;
+  cursor: pointer;
+}
+.com-root .com-circuito-toggle > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.com-root .com-circuito-toggle small { color: var(--com-texto-fraco); font-size: 9px; }
+.com-root .com-circuito-toggle strong { overflow-wrap: anywhere; }
+.com-root .com-circuito-toggle .com-volume-badge { margin-left: auto; }
+.com-root .com-circuito-seta { font-size: 15px; }
+.com-root .com-circuito-corpo {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #d7e2da;
+}
+
 .com-root .com-btn-perigo {
   background: #fbe8e8;
   color: #b83232;
@@ -1543,6 +1661,10 @@
 
 @media (max-width: 600px) {
   .com-root .com-conflito-acoes .com-btn { width: 100%; }
+  .com-root .com-jornada-card > summary { grid-template-columns: 1fr; }
+  .com-root .com-jornada-dias { grid-template-columns: 1fr; }
+  .com-root .com-jornada-acoes { align-items: stretch; flex-direction: column; }
+  .com-root .com-jornada-acoes .com-btn { width: 100%; }
 }
 
 .com-root .com-fase-paineis {

@@ -131,7 +131,9 @@ function linhasEsquema2(payload, result, estimate) {
       'DOMINGOS', 'H / DOMINGO (100%)', 'CARGO', 'TURNO', 'QTD.', 'BASE MENSAL INFORMADA',
       'AJUSTE', 'ALOCAÇÃO (%)', 'HH NORMAL', 'TARIFA NORMAL', 'CUSTO NORMAL',
       'HH 70%', 'TARIFA 70%', 'CUSTO 70%', 'HH 100%', 'TARIFA 100%',
-      'CUSTO 100%', 'ENCARGOS (%)', 'CUSTO TOTAL'
+      'CUSTO 100%', 'ENCARGOS (%)', 'CUSTO TOTAL',
+      'CENÁRIO DE JORNADA', 'ALVO DA JORNADA', 'COLABORADOR',
+      'HH EXTRA COM PERCENTUAL CONFIGURADO', 'CUSTO EXTRA COM PERCENTUAL CONFIGURADO'
     ]
   );
 
@@ -167,7 +169,12 @@ function linhasEsquema2(payload, result, estimate) {
         calculado.extra70Cost ?? '', calculado.extra100Hours ?? '',
         calculado.extra100HourlyCost ?? '', calculado.extra100Cost ?? '',
         numero(calculado.burdenRate ?? assignment.burdenRateOverride) * 100,
-        calculado.total ?? ''
+        calculado.total ?? '', assignment.workSchedule?.name ?? '',
+        assignment.workSchedule?.targetType === 'collaborator'
+          ? 'COLABORADOR'
+          : assignment.workSchedule ? 'CARGO' : '',
+        assignment.workSchedule?.collaboratorName ?? '',
+        calculado.customExtraHours ?? '', calculado.customExtraCost ?? ''
       ]);
     }
 
@@ -179,19 +186,23 @@ function linhasEsquema2(payload, result, estimate) {
     const kmPorDia = numero(context.hotelSiteDistanceKmPerDay ?? 50);
     const kmTotal = veiculos * diasComEfetivo * kmPorDia;
 
-    linhas.push([
+    const linhaVeiculo = [
       context.name,
-      `VEÍCULO: ${String(context.vehicleType || 'NÃO SELECIONADO').toUpperCase()}`,
+      `VEÍCULO: ${context.vehicleType === 'none'
+        ? 'SEM VEÍCULO'
+        : String(context.vehicleType || 'NÃO SELECIONADO').toUpperCase()}`,
       '', '', contextResult.workingDays ?? context.workingDays ?? '',
       '', '', '', '', '', '',
       `QTD. VEÍCULOS: ${contextResult.vehicleCount ?? context.vehicleCount ?? ''} · HOTEL ↔ OBRA: ${
-        context.workCondition === 'travel'
+        context.workCondition === 'travel' && context.vehicleType !== 'none'
           ? `${kmPorDia} KM/DIA · ${kmTotal} KM TOTAL`
           : 'NÃO APLICÁVEL'
       }`,
       '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
       ''
-    ]);
+    ];
+    while (linhaVeiculo.length < 33) linhaVeiculo.push('');
+    linhas.push(linhaVeiculo);
 
     const expenseResults = records(contextResult.expenses);
     for (const expense of records(context.expenses)) {
@@ -200,7 +211,7 @@ function linhasEsquema2(payload, result, estimate) {
       // A despesa ocupa colunas espalhadas da MESMA tabela de mão de obra, e não
       // uma tabela própria: é assim que o comercial lê hoje, com a despesa
       // aparecendo sob a fase a que pertence.
-      const linha = Array(28).fill('');
+      const linha = Array(33).fill('');
       linha[0] = context.name;
       linha[11] = `DESPESA: ${String(expense.name || expense.description || '')}`;
       linha[12] = `BASE: ${String(expense.basis || '')}`;

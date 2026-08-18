@@ -4,7 +4,9 @@ import {
   roleSalary
 } from '../../../../../../shared/comercial/dist/cost-model.js';
 import { money, number, numberValue } from '../formato';
+import { aplicarJornadaATodaEquipe } from '../jornadas';
 import type { Levantamento } from '../useLevantamento';
+import { JornadaCard } from './JornadaCard';
 
 /**
  * Tabela de alocações de uma fase — o coração do custo de mão de obra.
@@ -55,7 +57,14 @@ export function AlocacoesTabela({
   fase: AnyRecord;
   levantamento: Levantamento;
 }) {
-  const { updateNested, removeNested, addNested, resultadoDaFase } = levantamento;
+  const {
+    updateCollection,
+    updateNested,
+    removeNested,
+    addNested,
+    resultadoDaFase,
+    erroSe
+  } = levantamento;
   const faseId = String(fase.id);
   const resumo = resultadoDaFase(faseId);
   const alocacoes = registros(fase.assignments);
@@ -218,12 +227,45 @@ export function AlocacoesTabela({
         <div className="com-vazio">Nenhum cargo alocado nesta fase.</div>
       )}
 
+      {alocacoes.length > 0 && (
+        <section className="com-jornadas">
+          <header>
+            <strong>Cenários de jornada</strong>
+            <small>
+              Abra um cargo para definir dias, horas normais e extras, turno e percentual
+              da HE. Para jornadas individuais, use uma linha por colaborador.
+            </small>
+          </header>
+          <div className="com-jornadas-lista">
+            {alocacoes.map(alocacao => {
+              const id = String(alocacao.id);
+              const calculado = calculados.find(item => item.id === id) || {};
+              return (
+                <JornadaCard
+                  key={id}
+                  alocacao={alocacao}
+                  fase={fase}
+                  calculado={calculado}
+                  erroSe={erroSe}
+                  onEditar={patch => editar(id, patch)}
+                  onAplicarATodaEquipe={(jornada, turno) =>
+                    updateCollection('laborContexts', faseId, {
+                      assignments: aplicarJornadaATodaEquipe(alocacoes, jornada, turno)
+                    })
+                  }
+                />
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <button
         type="button"
         className="com-btn-add"
         onClick={() => addNested('laborContexts', faseId, 'assignments', novaAlocacao())}
       >
-        + Adicionar cargo
+        + Adicionar cargo ou colaborador
       </button>
     </section>
   );

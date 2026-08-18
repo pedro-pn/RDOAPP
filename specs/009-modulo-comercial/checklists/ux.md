@@ -51,7 +51,7 @@ comportamento do sistema; testa se o `spec.md` está bem escrito.
 ## Acceptance Criteria Quality
 
 - [ ] CHK025 - O SC-001 exige 100% dos 616 controles e 916 textos. O critério define **o que conta como presente** — mesmo rótulo, mesma posição, mesmo comportamento? [Measurability, Spec §SC-001]
-- [ ] CHK026 - O SC-003 exige "zero divergências fora dos 17 desvios". Existe critério escrito para **classificar** uma divergência como desvio aprovado ou defeito, ou isso fica a critério do revisor? [Measurability, Spec §SC-003]
+- [ ] CHK026 - O SC-003 exige "zero divergências fora dos 20 desvios". Existe critério escrito para **classificar** uma divergência como desvio aprovado ou defeito, ou isso fica a critério do revisor? [Measurability, Spec §SC-003]
 - [ ] CHK027 - O SC-002 ("16 de 16 goldens dígito a dígito") é o critério mais forte da feature. Está claro que **regerar golden não é caminho de correção**? [Clarity, Spec §SC-002, §FR-008]
 - [ ] CHK028 - O SC-006 ("zero perda silenciosa de trabalho") enumera três saídas aceitáveis. As três são **exaustivas**, ou existe um quarto caso? [Coverage, Spec §SC-006]
 - [ ] CHK029 - O SC-011 ("toda a interface em pt-BR") é verificável por inspeção, ou precisa de critério de amostragem, dado o volume de 916 textos? [Measurability, Spec §SC-011]

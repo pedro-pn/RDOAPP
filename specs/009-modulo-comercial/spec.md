@@ -6,7 +6,7 @@
 
 **Status**: Aprovada — em implementação (desde 31/07/2026)
 
-**Input**: Portar o aplicativo de propostas comerciais `~/comercialAPP` (rascunho nunca colocado em produção) para dentro do filtroAPP como módulo novo **Comercial**, com paridade total de UI e UX recriadas na stack do projeto. Fontes da verdade: `contracts/ui-inventory.md` (oráculo de paridade visual), `contracts/goldens/` (oráculo numérico), `contracts/lacunas-constitucionais.md` (L1–L7), `contracts/e0-8-desvios-e-estimativa.md` (lista fechada de 17 desvios) e `contracts/baseline/` (baseline visual + roteiro clicável).
+**Input**: Portar o aplicativo de propostas comerciais `~/comercialAPP` (rascunho nunca colocado em produção) para dentro do filtroAPP como módulo novo **Comercial**, com paridade total de UI e UX recriadas na stack do projeto. Fontes da verdade: `contracts/ui-inventory.md` (oráculo de paridade visual), `contracts/goldens/` (oráculo numérico), `contracts/lacunas-constitucionais.md` (L1–L7), `contracts/e0-8-desvios-e-estimativa.md` (lista fechada de 20 desvios) e `contracts/baseline/` (baseline visual + roteiro clicável).
 
 ## Contexto e fonte da verdade
 
@@ -20,7 +20,7 @@ desta especificação — requisito que não deriva deles é invenção:
 | **Inventário de UI** | Todo elemento visível: 616 controles e 916 textos, com IDs estáveis | `contracts/ui-inventory.md` |
 | **Goldens** | Todo resultado numérico: 16 cenários, 40 invariantes | `contracts/goldens/` |
 | **Lacunas L1–L7** | O que a referência **não** tem e a constitution exige | `contracts/lacunas-constitucionais.md` |
-| **Desvios (17, lista fechada)** | Toda divergência permitida. Fora da lista **é bug** | `contracts/e0-8-desvios-e-estimativa.md` |
+| **Desvios (20, lista fechada)** | Toda divergência permitida. Fora da lista **é bug** | `contracts/e0-8-desvios-e-estimativa.md` |
 | **Baseline + roteiro** | Aparência de referência e caminho clicável revisado | `contracts/baseline/` |
 
 O plano técnico `docs/PLANO_MODULO_COMERCIAL.md` entra como **insumo/`research.md`**,
@@ -55,7 +55,7 @@ Decisões já registradas na E0 e na §12.5 do plano, que esta spec incorpora:
   comercial traz tabela de preços, condições de pagamento e valor total.
 - **O menu de entrada e o diálogo de modo coexistem** (decidido em 31/07): dois passos
   de escolha, sem atalho. Preserva o fluxo da referência e mantém a lista fechada em
-  17 desvios.
+  20 desvios.
 - **A lista de vendedores é derivada dos usuários, não um cadastro** (decidido em
   31/07, revendo a decisão 4 da §12.5): todo consultor de vendas é um usuário do app
   com o papel `comercial:seller`, então a lista se atualiza sozinha. Não há model
@@ -353,7 +353,7 @@ aparecer na seleção da etapa Cliente para um gestor — sem nenhum passo de ca
 - **FR-005**: O módulo DEVE preservar o índice dos documentos: 13 itens no comercial e
   10 no técnico, na mesma ordem (`PROP-H-006`…`PROP-H-021`).
 - **FR-006**: Toda divergência em relação à referência DEVE constar da lista fechada de
-  17 desvios. Divergência não listada **é defeito**, não escolha.
+  20 desvios. Divergência não listada **é defeito**, não escolha.
 
 #### Motor de custos
 
@@ -686,6 +686,24 @@ Não existe proteção na referência. É trabalho novo.
   `RASCUNHO` pertencente à conta autenticada. O rascunho PODE estar incompleto e NÃO
   cria versão imutável; a transição para `SALVO` exige a validação completa e cria a
   versão. Reabrir o endereço com o `id` DEVE restaurá-lo. *(T140)*
+- **FR-082**: O campo obrigatório de veículo de cada fase DEVE oferecer a decisão
+  explícita **“Sem veículo”**. Escolhê-la satisfaz a obrigatoriedade, fixa a quantidade
+  calculada em zero e desliga distância, combustível e locação condicionados a veículo,
+  sem tornar o campo opcional. *(T141)*
+- **FR-083**: Cada alocação de mão de obra DEVE poder ter um **cenário de jornada**
+  próprio, aplicado ao cargo inteiro ou a um colaborador nominal. O cenário DEVE guardar
+  dias úteis, sábados e domingos/feriados, horas normais e extras por dia, percentual da
+  HE e turno; uma jornada nominal representa exatamente uma pessoa. A ação **“Aplicar
+  este horário para toda a equipe”** DEVE copiar apenas escala e turno, preservando
+  cargos e nomes. Alocação antiga sem cenário continua herdando a jornada da fase.
+  Percentuais diferentes de 70% e 100% DEVEM entrar no custo e na memória de cálculo.
+  *(T141)*
+- **FR-084**: Os circuitos de materiais DEVEM iniciar minimizados, mostrando número,
+  nome e volume; cada um DEVE poder ser aberto para preenchimento sem alterar o payload
+  de negócio. Circuito recém-adicionado abre automaticamente. *(T141)*
+- **FR-085**: Na tela de custos, topbar e resumo em tempo real DEVEM permanecer visíveis
+  durante a rolagem em desktop, com altura compactada. Em largura estreita o cabeçalho
+  PODE voltar ao fluxo para não consumir a área útil inteira. *(T127)*
 
 ### Visual/UI Contract *(mandatory if feature touches frontend)*
 
@@ -708,7 +726,7 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
 | Menu de entrada do módulo (novo, desvio nº 9) | `frontend/src/pages/HubPage.tsx` (seletor de cartões do filtroAPP) | linguagem de cartões do hub, sob a raiz do módulo | N/A | N/A | endereço próprio da raiz do módulo | ponto de partida do tutorial permanente | grade de cartões com `minmax(min(100%, N), 1fr)`; sem estouro em 390 px |
 | `LOGIN` — login (7 controles) | `contracts/ui-inventory.md` §LOGIN; `frontend/src/styles/base.css` (`.field-invalid`) | padrão compartilhado de campo inválido | campo obrigatório vazio destacado em vermelho + mensagem; erro de credencial segue global | N/A | N/A | N/A — o tutorial é do módulo, não do login | formulário de dois campos; sem rolagem horizontal |
 | `PROP` — assistente de 7 etapas (137 controles) | `contracts/ui-inventory.md` §PROP; capturas `baseline/PROP-*-1440.png`; `frontend/src/utils/reorderDrag.ts` | padrão compartilhado de campo inválido; utilitário compartilhado de reordenação | destaque por campo com mensagens distintas para vazio e inválido (FR-011); trava de avanço por etapa com contagem | alça + reordenação ao vivo + espaço de destino + fantasma + cancelar restaura + persiste ao soltar + toque; **setas ↑/↓ mantidas** | etapa ativa no endereço; rascunho local com oferta de recuperação e aviso ao sair | tutorial permanente do módulo cobre a armadilha de e-mail/CNPJ | prévia lateral não pode impor largura mínima em pixel; tabelas de preço empilham em tela estreita |
-| `CUSTO` — levantamento, 5 seções (465 controles) | `contracts/ui-inventory.md` §CUSTO; capturas `baseline/CUSTO-*-1440.png`; `baseline/L3-f5-perde-levantamento.png` | padrão compartilhado de campo inválido; primitivas responsivas do projeto | destaque por campo resolvido a partir do endereço de cada pendência da validação; banner-resumo mantido | N/A | modo, base e seção no endereço; rascunho local com oferta de recuperação e aviso ao sair | tutorial permanente cobre a cadeia de prioridade do rodapé | faixa de 7 indicadores e tira de 5 seções são os pontos de estouro conhecidos: quebrar, rolar internamente ou virar seleção em tela estreita |
+| `CUSTO` — levantamento, 5 seções (465 controles) | `contracts/ui-inventory.md` §CUSTO; capturas `baseline/CUSTO-*-1440.png`; `baseline/L3-f5-perde-levantamento.png` | padrão compartilhado de campo inválido; primitivas responsivas do projeto; cenários de jornada e circuitos recolhíveis | destaque por campo resolvido a partir do endereço de cada pendência da validação; banner-resumo mantido; “Sem veículo” é decisão válida, não ausência | N/A | modo, base e seção no endereço; rascunho local com oferta de recuperação e aviso ao sair | tutorial permanente cobre a cadeia de prioridade do rodapé | topbar + resumo sticky e compactos em desktop; circuitos iniciam minimizados; faixa de 7 indicadores e tira de 5 seções quebram em tela estreita |
 | `HIST` — histórico (7 controles) | `contracts/ui-inventory.md` §HIST; captura `baseline/HIST-lista-1440.png` | tabela do padrão do projeto | N/A | N/A | filtros no endereço quando houver | N/A | tabela vira cards empilhados em tela estreita; valores monetários e status não podem alargar o card |
 | Campo "Consultor de Vendas" (`PROP-CTL-016`) | `contracts/ui-inventory.md` §PROP | mesmo `SelectField` do inventário | opções decididas no servidor: **vendedor vê só o próprio nome, pré-selecionado; gestor vê a lista completa** | N/A | N/A | N/A | herda a etapa Cliente |
 
@@ -790,7 +808,7 @@ horizontal de página continuam obrigatórios. A exceção é de aparência.
   depender de credencial externa.
 - As decisões da §12.5 do plano (permissões, autoria, lista de vendedores, numeração,
   retenção) são **escopo além do porte fiel** e já foram aprovadas. Elas divergem da
-  referência sem constar da lista de 17 desvios porque aquela lista trata de paridade de
+  referência sem constar da lista de 20 desvios porque aquela lista trata de paridade de
   UI/UX, não de regra de negócio.
 - **As decisões 1 e 2 da §12.5 foram revistas em 31/07** e o plano precisa acompanhar:
   o levantamento deixa de ser exclusivo do gestor (passa a incluir o vendedor, limitado
