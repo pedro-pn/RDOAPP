@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { formatCnpj, normalizeCnpjInput } from '../../utils/formatCnpj';
 import { compareReportTypes, sortProjects, sortReportsInGroup } from '../../utils/projectSort';
 import { ProjectSortButton } from '../../utils/ProjectSortButton';
-import { reportDownloadFileName } from '../../utils/reportFileName';
+import { manualReportMetadataFromFileName, reportDownloadFileName } from '../../utils/reportFileName';
 import { matchesSearch, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 import {
@@ -46,6 +46,10 @@ import { ProjectRevisionPicker } from '../../components/projects/ProjectRevision
 import { JobRoleManager } from '../../components/projects/JobRoleManager';
 import { CollaboratorListToolbarActions, CollaboratorStatusPill } from '../../components/projects/CollaboratorListControls';
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
+import {
+  replicateManualReportCollaborators,
+  type ManualReportCollaboratorField
+} from './manualReportCollaboratorReplication';
 import { getCommercialPendencias, type CommercialPendencia } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
@@ -234,6 +238,12 @@ interface ManualReportFormState extends ManualReportOperationalFieldsValue {
   fileName: string;
   pdfDataUrl: string;
   files: ManualReportUploadFileState[];
+}
+
+interface ManualReportCollaboratorReplicationPrompt {
+  sourceFileId: string;
+  field: ManualReportCollaboratorField;
+  collaboratorIds: string[];
 }
 
 interface CollaboratorFormState {
@@ -1162,6 +1172,7 @@ export function GestorPage() {
   const [manualReportTarget, setManualReportTarget] = useState<ReportSummary | null>(null);
   const [manualReportModalOpen, setManualReportModalOpen] = useState(false);
   const [manualReportSubmitting, setManualReportSubmitting] = useState(false);
+  const [manualReportCollaboratorPrompts, setManualReportCollaboratorPrompts] = useState<ManualReportCollaboratorReplicationPrompt[]>([]);
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
   const [projectSortDir, setProjectSortDir] = useState<'asc' | 'desc'>(initialUiPrefs.projectSortDir);
   const [closedArchivedProjectIds, setClosedArchivedProjectIds] = useState<string[]>(initialUiPrefs.closedArchivedProjectIds);
@@ -2074,6 +2085,7 @@ export function GestorPage() {
     setManualReportModalOpen(false);
     setManualReportTarget(null);
     setManualReportForm(emptyManualReportForm);
+    setManualReportCollaboratorPrompts([]);
   }
 
   function closeManualReportModal() {
@@ -2083,6 +2095,7 @@ export function GestorPage() {
 
   function openManualReportUpload(projectId = '') {
     setManualReportTarget(null);
+    setManualReportCollaboratorPrompts([]);
     setManualReportForm({
       ...emptyManualReportForm,
       projectId: projectId || manualReportProjectOptions[0]?.id || '',
@@ -2093,6 +2106,7 @@ export function GestorPage() {
 
   function openManualReportReplace(report: ReportSummary) {
     setManualReportTarget(report);
+    setManualReportCollaboratorPrompts([]);
     setManualReportForm({
       projectId: report.projectId,
       reportType: report.reportType,
@@ -2134,6 +2148,7 @@ export function GestorPage() {
   async function handleManualReportFiles(files: File[]) {
     if (!files.length) {
       setManualReportForm(current => ({ ...current, files: [] }));
+      setManualReportCollaboratorPrompts([]);
       return;
     }
 
@@ -2154,16 +2169,19 @@ export function GestorPage() {
     const serviceSystem = manualReportForm.serviceSystem.trim();
 
     try {
-      const uploadFiles = await Promise.all(files.map(async file => ({
-        id: manualReportFileId(),
-        fileName: file.name,
-        pdfDataUrl: await fileToDataUrl(file),
-        sequenceNumber: '',
-        reportDate: baseDate,
-        serviceEquipment,
-        serviceSystem,
-        ...emptyManualReportOperationalFields()
-      })));
+      const uploadFiles = await Promise.all(files.map(async file => {
+        const metadata = manualReportMetadataFromFileName(file.name, manualReportForm.reportType);
+        return {
+          id: manualReportFileId(),
+          fileName: file.name,
+          pdfDataUrl: await fileToDataUrl(file),
+          sequenceNumber: metadata.sequenceNumber,
+          reportDate: metadata.reportDate || baseDate,
+          serviceEquipment,
+          serviceSystem,
+          ...emptyManualReportOperationalFields()
+        };
+      }));
       setManualReportForm(current => ({
         ...current,
         files: [...current.files, ...uploadFiles]
@@ -2180,11 +2198,60 @@ export function GestorPage() {
     }));
   }
 
+  function updateManualReportOperationalFields(
+    file: ManualReportUploadFileState,
+    patch: Partial<ManualReportOperationalFieldsValue>
+  ) {
+    updateManualReportUploadFile(file.id, patch);
+
+    const field = (['collaboratorIds', 'noturnoCollaboratorIds'] as const)
+      .find(candidate => patch[candidate] !== undefined);
+    if (!field) return;
+
+    const nextIds = patch[field] || [];
+    const addedIds = nextIds.filter(id => !file[field].includes(id));
+    const hasOtherReportToUpdate = manualReportForm.files.some(candidate => (
+      candidate.id !== file.id && addedIds.some(id => !candidate[field].includes(id))
+    ));
+
+    setManualReportCollaboratorPrompts(current => {
+      const existing = current.find(prompt => prompt.sourceFileId === file.id && prompt.field === field);
+      const pendingIds = Array.from(new Set([
+        ...(existing?.collaboratorIds || []),
+        ...addedIds
+      ])).filter(id => nextIds.includes(id));
+      const remaining = current.filter(prompt => !(prompt.sourceFileId === file.id && prompt.field === field));
+
+      if (!pendingIds.length || (!existing && !hasOtherReportToUpdate)) return remaining;
+      return [...remaining, { sourceFileId: file.id, field, collaboratorIds: pendingIds }];
+    });
+  }
+
+  function applyManualReportCollaboratorsToOthers(prompt: ManualReportCollaboratorReplicationPrompt) {
+    setManualReportForm(current => ({
+      ...current,
+      files: replicateManualReportCollaborators(
+        current.files,
+        prompt.sourceFileId,
+        prompt.field,
+        prompt.collaboratorIds
+      )
+    }));
+    dismissManualReportCollaboratorPrompt(prompt);
+  }
+
+  function dismissManualReportCollaboratorPrompt(prompt: ManualReportCollaboratorReplicationPrompt) {
+    setManualReportCollaboratorPrompts(current => current.filter(candidate => !(
+      candidate.sourceFileId === prompt.sourceFileId && candidate.field === prompt.field
+    )));
+  }
+
   function removeManualReportUploadFile(id: string) {
     setManualReportForm(current => ({
       ...current,
       files: current.files.filter(file => file.id !== id)
     }));
+    setManualReportCollaboratorPrompts(current => current.filter(prompt => prompt.sourceFileId !== id));
   }
 
   async function handleManualReportSubmit(event: FormEvent<HTMLFormElement>) {
@@ -2735,6 +2802,8 @@ export function GestorPage() {
                 const sequenceId = `manual-report-file-sequence-${file.id}`;
                 const equipmentId = `manual-report-file-equipment-${file.id}`;
                 const systemId = `manual-report-file-system-${file.id}`;
+                const collaboratorPrompts = manualReportCollaboratorPrompts
+                  .filter(prompt => prompt.sourceFileId === file.id);
                 return (
                   <div className="manual-report-file-card" key={file.id}>
                     <div className="manual-report-file-header">
@@ -2802,8 +2871,43 @@ export function GestorPage() {
                       includeInactiveCollaborators
                       showNightShift
                       showStandby={manualReportForm.reportType === 'RDO'}
-                      onChange={patch => updateManualReportUploadFile(file.id, patch)}
+                      onChange={patch => updateManualReportOperationalFields(file, patch)}
                     />
+                    {collaboratorPrompts.map(prompt => {
+                      const names = prompt.collaboratorIds.map(id => (
+                        collaboratorsQuery.data?.find(collaborator => collaborator.id === id)?.name || id
+                      ));
+                      const team = prompt.field === 'collaboratorIds' ? 'equipe diurna' : 'equipe noturna';
+                      return (
+                        <div
+                          className="inline-success manual-report-collaborator-prompt"
+                          role="status"
+                          key={`${prompt.sourceFileId}-${prompt.field}`}
+                        >
+                          <span>
+                            {names.join(', ')}: replicar na {team} dos demais relatórios?
+                          </span>
+                          <div className="manual-report-collaborator-prompt-actions">
+                            <button
+                              className="mini-btn"
+                              type="button"
+                              disabled={submitting}
+                              onClick={() => applyManualReportCollaboratorsToOthers(prompt)}
+                            >
+                              Aplicar nos demais?
+                            </button>
+                            <button
+                              className="mini-btn alt"
+                              type="button"
+                              disabled={submitting}
+                              onClick={() => dismissManualReportCollaboratorPrompt(prompt)}
+                            >
+                              Agora não
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
