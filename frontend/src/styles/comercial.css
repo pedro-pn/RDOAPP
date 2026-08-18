@@ -643,7 +643,7 @@
    ========================================================================== */
 
 .com-root.com-app {
-  --com-topbar-height: 72px;
+  --com-topbar-height: 50px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -657,8 +657,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 0 5vw;
+  gap: 8px;
+  padding: 0 3vw;
   background: #fff;
   border-bottom: 1px solid #dce6df;
   box-shadow: 0 4px 18px #1838250a;
@@ -684,16 +684,16 @@
    evitar. */
 .com-root .com-marca img {
   display: block;
-  width: 184px;
+  width: 152px;
   height: auto;
-  max-height: 52px;
+  max-height: 34px;
   object-fit: contain;
 }
 
 .com-root .com-topbar-acoes {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -702,7 +702,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 11px;
+  padding: 5px 8px;
   border: 1px solid #cbd9cf;
   border-radius: 8px;
   background: #f7faf8;
@@ -717,6 +717,8 @@
 .com-root .com-topbar .com-btn-fantasma {
   border-color: #cbd9cf;
   color: var(--com-marca-forte);
+  padding: 7px 10px;
+  font-size: 12px;
 }
 
 .com-root .com-topbar .com-btn-fantasma:hover:not(:disabled) {
@@ -733,23 +735,24 @@
   isolation: isolate;
   overflow: hidden;
   display: block;
-  padding: 18px 5vw 20px;
+  padding: 12px 4vw 14px;
   color: #fff;
   background: linear-gradient(125deg, #173b29 0%, #2f6446 72%, #3d7655 100%);
   box-shadow: 0 12px 30px #173d283d;
 }
 
-/* Custos preserva topbar e resumo durante a rolagem, mas em altura compacta. */
-.com-root.com-app-custos { --com-topbar-height: 58px; }
-.com-root.com-app-custos .com-marca img { max-height: 40px; }
-.com-root.com-app-custos .com-topbar { padding-block: 4px; }
-.com-root .com-hero-custos { padding: 10px 4vw 12px; }
-.com-root .com-hero-custos .com-hero-titulo { gap: 12px; margin-bottom: 5px; }
-.com-root .com-hero-custos .com-resumo { margin-top: 5px; }
-.com-root .com-hero-custos .com-resumo-titulo { margin-bottom: 4px; }
-.com-root .com-hero-custos .com-kpis { gap: 8px; }
-.com-root .com-hero-custos .com-kpi { padding: 5px 8px; }
-.com-root .com-hero-custos .com-kpi-margem input { padding-block: 4px; }
+/* Em 18/08, custos e proposta passaram a compartilhar uma barra superior de
+   50px. A faixa de custos continua fixa, mas os indicadores precisam consumir
+   o mínimo de altura para preservar a área de trabalho do formulário. */
+.com-root .com-hero-custos { padding: 6px 3vw 8px; }
+.com-root .com-hero-custos .com-hero-titulo { gap: 10px; margin-bottom: 3px; }
+.com-root .com-hero-custos .com-resumo { margin-top: 3px; }
+.com-root .com-hero-custos .com-resumo-titulo { margin-bottom: 3px; }
+.com-root .com-hero-custos .com-kpis { gap: 6px; }
+.com-root .com-hero-custos .com-kpi { padding: 3px 7px; }
+.com-root .com-hero-custos .com-kpi > span { font-size: 10px; }
+.com-root .com-hero-custos .com-kpi > strong { margin-top: 1px; font-size: 12px; }
+.com-root .com-hero-custos .com-kpi-margem input { padding-block: 2px; }
 
 /* Os dois elementos decorativos que dão identidade à faixa, e que eu tinha
    deixado de fora — sem eles o hero é só um retângulo verde:
@@ -884,13 +887,13 @@
   /* A tira de 5 seções é um dos dois pontos de estouro conhecidos. Vira duas
      colunas e depois uma — nunca rolagem horizontal de página. */
   .com-root .com-workflow-nav { grid-template-columns: repeat(2, 1fr); }
-  .com-root.com-app-custos { --com-topbar-height: 72px; }
+  .com-root.com-app { --com-topbar-height: 54px; }
 }
 
 @media (max-width: 600px) {
-  .com-root .com-topbar { height: auto; padding: 10px 18px; flex-wrap: wrap; }
+  .com-root .com-topbar { height: auto; padding: 6px 12px; flex-wrap: wrap; }
   .com-root .com-marca { min-width: 0; }
-  .com-root .com-marca img { width: 145px; }
+  .com-root .com-marca img { width: 128px; }
   .com-root .com-hero::before { right: -18%; bottom: -80%; width: 65%; }
   .com-root .com-hero { position: relative; top: auto; padding: 16px 20px 18px; }
   .com-root .com-hero-titulo { display: block; }
@@ -2463,8 +2466,8 @@
    Faixa da PROPOSTA — a segunda das duas da referência (`.hero`, app/page.tsx)
    ========================================================================== */
 
-/* A de custos é compacta e grudada no topo; esta é alta, empilhada e rola
-   junto. Quem orienta aqui é o stepper logo abaixo, não a faixa. */
+/* A proposta também usa uma faixa verticalmente compacta: o título, a
+   descrição e a numeração continuam legíveis sem retirar área do editor. */
 /* `relative`, nunca `static`: o `::after` do hero é a faixa de 3px da marca
    (azul, lavanda, VERMELHO). Sem bloco de contenção aqui ela se posiciona
    contra um ancestral distante e vai parar no meio da página. Era a listra
@@ -2483,8 +2486,8 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 20px;
-  padding: 34px 6vw;
+  gap: 12px;
+  padding: 12px 4vw;
   box-shadow: none;
 }
 
@@ -2494,8 +2497,8 @@
 }
 
 .com-root .com-hero-proposta h1 {
-  margin: 8px 0 5px;
-  font-size: 34px;
+  margin: 3px 0 2px;
+  font-size: 27px;
 }
 
 .com-root .com-hero-proposta h1 em {
@@ -2504,15 +2507,15 @@
 }
 
 .com-root .com-hero-proposta p {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 /* Cartão de numeração, à direita da faixa. */
 .com-root .com-sequencia {
   display: flex;
   flex-direction: column;
-  min-width: 190px;
-  padding: 18px 25px;
+  min-width: 170px;
+  padding: 7px 14px;
   border: 1px solid #ffffff30;
   border-radius: 10px;
   background: #ffffff12;
@@ -2526,8 +2529,8 @@
 }
 
 .com-root .com-sequencia strong {
-  margin: 6px 0;
-  font-size: 24px;
+  margin: 2px 0;
+  font-size: 20px;
   font-weight: 400;
 }
 
@@ -3096,8 +3099,8 @@
 
 @media (max-width: 640px) {
   .com-root .com-stepper { grid-template-columns: repeat(2, 1fr); }
-  .com-root .com-hero-proposta { padding: 22px 5vw; }
-  .com-root .com-hero-proposta h1 { font-size: 26px; }
+  .com-root .com-hero-proposta { padding: 10px 5vw; }
+  .com-root .com-hero-proposta h1 { font-size: 24px; }
 }
 
 /* Chips de integração da barra superior. O ponto é o estado: âmbar pendente,
@@ -3113,6 +3116,11 @@
   color: var(--com-texto-fraco);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.com-root .com-topbar .com-chip {
+  padding: 5px 9px;
+  font-size: 11px;
 }
 
 .com-root .com-chip i {

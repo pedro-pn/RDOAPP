@@ -80,7 +80,7 @@ test('os circuitos existentes nascem minimizados e mantêm nome e volume no resu
   assert.doesNotMatch(html, /Trechos de tubo/);
 });
 
-test('o chrome de custos mantém topbar e resumo sticky em altura compacta', () => {
+test('o chrome comercial mantém as barras compactas em custos e proposta', () => {
   const base = readFileSync(
     new URL('../src/styles/base.css', import.meta.url),
     'utf8'
@@ -100,7 +100,7 @@ test('o chrome de custos mantém topbar e resumo sticky em altura compacta', () 
   assert.match(chrome, /com-app-\$\{variante\}/);
   assert.match(
     css,
-    /\.com-root\.com-app-custos\s*\{\s*--com-topbar-height:\s*58px/
+    /\.com-root\.com-app\s*\{[\s\S]*?--com-topbar-height:\s*50px/
   );
   assert.match(css, /\.com-root \.com-topbar\s*\{[\s\S]*?position:\s*sticky/);
   assert.match(css, /\.com-root \.com-hero\s*\{[\s\S]*?position:\s*sticky/);
@@ -116,6 +116,10 @@ test('o chrome de custos mantém topbar e resumo sticky em altura compacta', () 
   );
   assert.match(
     css,
-    /\.com-root \.com-hero-custos\s*\{\s*padding:\s*10px 4vw 12px/
+    /\.com-root \.com-hero-custos\s*\{\s*padding:\s*6px 3vw 8px/
+  );
+  assert.match(
+    css,
+    /\.com-root \.com-hero-proposta\s*\{[\s\S]*?padding:\s*12px 4vw/
   );
 });
