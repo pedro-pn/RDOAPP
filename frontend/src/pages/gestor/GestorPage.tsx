@@ -26,7 +26,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { rdoPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
-import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
+import type { ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
 import {
   buildManualReportOperationalData,
   emptyManualReportOperationalFields,
@@ -48,8 +48,14 @@ import { CollaboratorListToolbarActions, CollaboratorStatusPill } from '../../co
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import {
   replicateManualReportCollaborators,
-  type ManualReportCollaboratorField
+  type ManualReportCollaboratorReplicationPrompt
 } from './manualReportCollaboratorReplication';
+import { ManualReportUploadFileCard } from './ManualReportUploadFileCard';
+import {
+  manualReportFileId,
+  manualReportUploadListLabel,
+  type ManualReportUploadFileState
+} from './manualReportUploadFile';
 import { getCommercialPendencias, type CommercialPendencia } from '../../api/acompanhamentoComercial';
 import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
@@ -217,16 +223,6 @@ interface ProjectReportSequenceFormState {
   nextNumber: string;
 }
 
-interface ManualReportUploadFileState extends ManualReportOperationalFieldsValue {
-  id: string;
-  fileName: string;
-  pdfDataUrl: string;
-  sequenceNumber: string;
-  reportDate: string;
-  serviceEquipment: string;
-  serviceSystem: string;
-}
-
 interface ManualReportFormState extends ManualReportOperationalFieldsValue {
   projectId: string;
   reportType: ReportType;
@@ -238,12 +234,6 @@ interface ManualReportFormState extends ManualReportOperationalFieldsValue {
   fileName: string;
   pdfDataUrl: string;
   files: ManualReportUploadFileState[];
-}
-
-interface ManualReportCollaboratorReplicationPrompt {
-  sourceFileId: string;
-  field: ManualReportCollaboratorField;
-  collaboratorIds: string[];
 }
 
 interface CollaboratorFormState {
@@ -456,17 +446,6 @@ function fileToDataUrl(file: File) {
     reader.onerror = () => reject(reader.error || new Error('Falha ao ler arquivo.'));
     reader.readAsDataURL(file);
   });
-}
-
-function manualReportFileId() {
-  const random = Math.random().toString(36).slice(2, 8);
-  return `manual-report-${Date.now()}-${random}`;
-}
-
-function manualReportUploadListLabel(files: ManualReportUploadFileState[]) {
-  if (!files.length) return '';
-  if (files.length === 1) return files[0].fileName;
-  return `${files.length} PDFs selecionados`;
 }
 
 function normalizeSignatureImage(value?: string | null) {
@@ -2798,117 +2777,24 @@ export function GestorPage() {
           {!replacing && manualReportForm.files.length ? (
             <div className="manual-report-file-list">
               {manualReportForm.files.map((file, index) => {
-                const dateId = `manual-report-file-date-${file.id}`;
-                const sequenceId = `manual-report-file-sequence-${file.id}`;
-                const equipmentId = `manual-report-file-equipment-${file.id}`;
-                const systemId = `manual-report-file-system-${file.id}`;
                 const collaboratorPrompts = manualReportCollaboratorPrompts
                   .filter(prompt => prompt.sourceFileId === file.id);
                 return (
-                  <div className="manual-report-file-card" key={file.id}>
-                    <div className="manual-report-file-header">
-                      <span className="manual-report-file-name">{index + 1}. {file.fileName}</span>
-                      <button
-                        className="mini-btn alt"
-                        type="button"
-                        disabled={submitting}
-                        onClick={() => removeManualReportUploadFile(file.id)}
-                      >
-                        Remover
-                      </button>
-                    </div>
-                    <div className={`manual-report-file-fields ${serviceReportSelected ? 'with-service' : ''}`}>
-                      <div className="field-group">
-                        <label htmlFor={dateId}>Data</label>
-                        <input
-                          id={dateId}
-                          type="date"
-                          value={file.reportDate}
-                          onChange={event => updateManualReportUploadFile(file.id, { reportDate: event.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="field-group">
-                        <label htmlFor={sequenceId}>Número</label>
-                        <input
-                          id={sequenceId}
-                          type="number"
-                          min={1}
-                          step={1}
-                          inputMode="numeric"
-                          value={file.sequenceNumber}
-                          onChange={event => updateManualReportUploadFile(file.id, { sequenceNumber: event.target.value.replace(/\D/g, '') })}
-                          placeholder="Automático"
-                        />
-                      </div>
-                      {serviceReportSelected ? (
-                        <>
-                          <div className="field-group">
-                            <label htmlFor={equipmentId}>Equipamento</label>
-                            <input
-                              id={equipmentId}
-                              value={file.serviceEquipment}
-                              onChange={event => updateManualReportUploadFile(file.id, { serviceEquipment: event.target.value })}
-                              placeholder="Equipamento do serviço"
-                            />
-                          </div>
-                          <div className="field-group">
-                            <label htmlFor={systemId}>Sistema</label>
-                            <input
-                              id={systemId}
-                              value={file.serviceSystem}
-                              onChange={event => updateManualReportUploadFile(file.id, { serviceSystem: event.target.value })}
-                              placeholder="Sistema do serviço"
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                    <ManualReportOperationalFields
-                      value={file}
-                      collaborators={collaboratorsQuery.data || []}
-                      disabled={submitting}
-                      includeInactiveCollaborators
-                      showNightShift
-                      showStandby={manualReportForm.reportType === 'RDO'}
-                      onChange={patch => updateManualReportOperationalFields(file, patch)}
-                    />
-                    {collaboratorPrompts.map(prompt => {
-                      const names = prompt.collaboratorIds.map(id => (
-                        collaboratorsQuery.data?.find(collaborator => collaborator.id === id)?.name || id
-                      ));
-                      const team = prompt.field === 'collaboratorIds' ? 'equipe diurna' : 'equipe noturna';
-                      return (
-                        <div
-                          className="inline-success manual-report-collaborator-prompt"
-                          role="status"
-                          key={`${prompt.sourceFileId}-${prompt.field}`}
-                        >
-                          <span>
-                            {names.join(', ')}: replicar na {team} dos demais relatórios?
-                          </span>
-                          <div className="manual-report-collaborator-prompt-actions">
-                            <button
-                              className="mini-btn"
-                              type="button"
-                              disabled={submitting}
-                              onClick={() => applyManualReportCollaboratorsToOthers(prompt)}
-                            >
-                              Aplicar nos demais?
-                            </button>
-                            <button
-                              className="mini-btn alt"
-                              type="button"
-                              disabled={submitting}
-                              onClick={() => dismissManualReportCollaboratorPrompt(prompt)}
-                            >
-                              Agora não
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <ManualReportUploadFileCard
+                    key={file.id}
+                    file={file}
+                    index={index}
+                    serviceReportSelected={serviceReportSelected}
+                    showStandby={manualReportForm.reportType === 'RDO'}
+                    collaborators={collaboratorsQuery.data || []}
+                    disabled={submitting}
+                    collaboratorPrompts={collaboratorPrompts}
+                    onRemove={removeManualReportUploadFile}
+                    onUpdate={updateManualReportUploadFile}
+                    onOperationalChange={updateManualReportOperationalFields}
+                    onApplyPrompt={applyManualReportCollaboratorsToOthers}
+                    onDismissPrompt={dismissManualReportCollaboratorPrompt}
+                  />
                 );
               })}
             </div>

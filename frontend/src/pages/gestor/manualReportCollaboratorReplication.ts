@@ -1,5 +1,11 @@
 export type ManualReportCollaboratorField = 'collaboratorIds' | 'noturnoCollaboratorIds';
 
+export interface ManualReportCollaboratorReplicationPrompt {
+  sourceFileId: string;
+  field: ManualReportCollaboratorField;
+  collaboratorIds: string[];
+}
+
 interface ManualReportCollaboratorFile {
   id: string;
   collaboratorIds: string[];
