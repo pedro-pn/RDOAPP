@@ -6209,6 +6209,20 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.manual-report-collaborator-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.manual-report-collaborator-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .manual-operational-sections {
   grid-column: 1 / -1;
   display: grid;
