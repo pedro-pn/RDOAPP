@@ -81,6 +81,10 @@ test('os circuitos existentes nascem minimizados e mantêm nome e volume no resu
 });
 
 test('o chrome de custos mantém topbar e resumo sticky em altura compacta', () => {
+  const base = readFileSync(
+    new URL('../src/styles/base.css', import.meta.url),
+    'utf8'
+  );
   const css = readFileSync(
     new URL('../src/styles/comercial.css', import.meta.url),
     'utf8'
@@ -100,6 +104,16 @@ test('o chrome de custos mantém topbar e resumo sticky em altura compacta', () 
   );
   assert.match(css, /\.com-root \.com-topbar\s*\{[\s\S]*?position:\s*sticky/);
   assert.match(css, /\.com-root \.com-hero\s*\{[\s\S]*?position:\s*sticky/);
+  assert.match(
+    base,
+    /html,\s*body,\s*#root\s*\{[^}]*overflow-x:\s*clip/,
+    'ancestral com overflow hidden impede o sticky de acompanhar a janela'
+  );
+  assert.doesNotMatch(
+    base,
+    /body\s*\{[^}]*overflow-x:\s*hidden/,
+    'body não pode recriar um contêiner de rolagem fora do sticky'
+  );
   assert.match(
     css,
     /\.com-root \.com-hero-custos\s*\{\s*padding:\s*10px 4vw 12px/

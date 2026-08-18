@@ -7,7 +7,10 @@ body,
 #root {
   min-height: 100%;
   width: 100%;
-  overflow-x: hidden;
+  /* `hidden` cria um ancestral rolável e quebra `position: sticky` nas telas
+     que rolam pela janela. `clip` mantém a contenção horizontal sem mudar o
+     contêiner de rolagem. */
+  overflow-x: clip;
 }
 
 body {
@@ -16,7 +19,7 @@ body {
   font-size: 14px;
   background: var(--bg);
   color: var(--tx);
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 button,
@@ -6696,7 +6699,7 @@ textarea.pre {
 
 @supports (-webkit-touch-callout: none) {
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 }
 
