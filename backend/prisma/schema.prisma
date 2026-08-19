@@ -261,6 +261,7 @@ model Collaborator {
   code                      String                           @unique
   name                      String
   role                      String
+  epiRoleOverride           String?
   email                     String?
   cpf                       String?
   registrationNumber        String?
