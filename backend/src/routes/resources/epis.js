@@ -6,7 +6,9 @@ import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
 import { AUDIT_ENTITY_TYPES, AUDIT_MODULES, recordAuditEvent } from '../../lib/audit/events.js';
+import { effectiveEpiRole } from '../../lib/epi/collaborators.js';
 import { saveEpiPdf } from '../../lib/epi-docx.js';
+import { sortJobRolesByName } from '../../lib/job-roles/index.js';
 import {
   decodableSignatureImageDataUrl,
   signatureEvidenceFromRequest,
@@ -35,7 +37,8 @@ const PUBLIC_PDF_CACHE_MAX = 100;
 const profileSchema = z.object({
   cpf: z.string().trim().max(40).optional().nullable(),
   registrationNumber: z.string().trim().max(80).optional().nullable(),
-  admissionDate: z.string().trim().optional().nullable()
+  admissionDate: z.string().trim().optional().nullable(),
+  epiRoleOverride: z.string().trim().max(160).optional().nullable()
 });
 
 const optionalCaSchema = commonSchemas.optionalTrimmedString({ max: 80, emptyAs: '' });
@@ -370,7 +373,7 @@ export function publicEpiSignaturePayload(request, status = requestStatus(reques
     collaborator: {
       id: request.collaborator.id,
       name: request.collaborator.name,
-      role: request.collaborator.role
+      role: effectiveEpiRole(request.collaborator)
     },
     records: (request.records || []).map(record => ({
       id: record.id,
@@ -645,11 +648,16 @@ async function sendCollaboratorPdf(res, collaboratorId, options = {}) {
   res.send(await fs.readFile(file.pdfPath));
 }
 
-function publicPdfCacheKey(request) {
+export function publicPdfCacheKey(request) {
   const recordStamp = (request.records || [])
     .map(record => `${record.id}:${new Date(record.updatedAt || record.createdAt || 0).getTime()}`)
     .join('|');
-  return `${request.id}:${new Date(request.updatedAt || request.createdAt || 0).getTime()}:${recordStamp}`;
+  const collaboratorStamp = [
+    request.collaborator?.id || request.collaboratorId || '',
+    new Date(request.collaborator?.updatedAt || 0).getTime(),
+    effectiveEpiRole(request.collaborator)
+  ].join(':');
+  return `${request.id}:${new Date(request.updatedAt || request.createdAt || 0).getTime()}:${collaboratorStamp}:${recordStamp}`;
 }
 
 function signedPdfHash(bytes) {
@@ -915,6 +923,14 @@ router.post('/public-sign/:token/confirm', publicSignatureLimiter, asyncHandler(
 
 router.use(requireAuth, requireEpiAccess);
 
+router.get('/job-roles', requireEpiTechnician, asyncHandler(async (_req, res) => {
+  const items = await prisma.jobRole.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' }
+  });
+  res.json(sortJobRolesByName(items));
+}));
+
 router.get('/collaborators', asyncHandler(async (_req, res) => {
   const items = await prisma.collaborator.findMany({
     where: { isActive: true, ...epiCollaboratorAccessWhere(_req.auth) },
@@ -931,7 +947,8 @@ router.put('/collaborators/:id/profile', requireEpiTechnician, asyncHandler(asyn
     data: {
       cpf: normalizeCpf(data.cpf),
       registrationNumber: normalizeNullableText(data.registrationNumber),
-      admissionDate: data.admissionDate ? parseDateOnly(data.admissionDate, 'admissionDate') : null
+      admissionDate: data.admissionDate ? parseDateOnly(data.admissionDate, 'admissionDate') : null,
+      epiRoleOverride: data.epiRoleOverride === undefined ? undefined : normalizeNullableText(data.epiRoleOverride)
     },
     ...selectedCollaboratorFields()
   });

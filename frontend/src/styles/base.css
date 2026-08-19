@@ -9865,12 +9865,22 @@ select:disabled {
   align-items: end;
 }
 
+.epi-profile-role {
+  grid-column: 1 / -1;
+}
+
+.epi-profile-role small,
+.epi-profile-summary small {
+  color: var(--mu);
+  font-size: 11px;
+}
+
 .epi-profile-cpf {
-  grid-column: span 4;
+  grid-column: span 3;
 }
 
 .epi-profile-registration {
-  grid-column: span 3;
+  grid-column: span 2;
 }
 
 .epi-profile-admission {
@@ -9889,7 +9899,7 @@ select:disabled {
 
 .epi-profile-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 10px;
   align-items: stretch;
   border: 1px solid var(--br);
@@ -9960,6 +9970,7 @@ select:disabled {
 .epi-record-form input,
 .epi-record-form select,
 .epi-profile-grid input,
+.epi-profile-grid select,
 .epi-catalog-form input {
   min-height: 42px;
 }
@@ -10154,6 +10165,7 @@ select:disabled {
   }
 
   .epi-profile-cpf,
+  .epi-profile-role,
   .epi-profile-registration,
   .epi-profile-admission,
   .epi-profile-save,
