@@ -331,7 +331,7 @@ function getProductForStep(stepName, material) {
   const isInox = /inox/i.test(material || '');
   if (s.includes('desengraxe')) return 'Hidróxido de sódio, Metassilicato de sódio e Tripolifosfato de sódio';
   if (s.includes('fase acida')) return isInox ? 'Ácido nítrico e Ácido fluorídrico' : 'Ácido cítrico';
-  if (s.includes('fase sequestrant') || s.includes('fase neutralizant')) return 'Carbonato de cálcio';
+  if (s.includes('fase sequestrant') || s.includes('fase neutralizant')) return 'Carbonato de sódio';
   if (s.includes('fase passivant')) return isInox ? '' : 'Nitrito de sódio';
   return '';
 }
