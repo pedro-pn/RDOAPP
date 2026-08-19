@@ -69,6 +69,24 @@ test('service report docx builders preserve observation line breaks', async () =
   }
 });
 
+test('RLQ uses sodium carbonate in neutralizing and sequestering phases', async () => {
+  const base = reportFor('RLQ');
+  const zip = new AdmZip(await buildRlqDocx({
+    ...base,
+    specialConditions: {
+      ...base.specialConditions,
+      serviceData: {
+        ...base.specialConditions.serviceData,
+        'Etapas realizadas no dia': ['Fase neutralizante', 'Fase sequestrante']
+      }
+    }
+  }));
+  const xml = zip.readAsText('word/document.xml');
+
+  assert.equal((xml.match(/Carbonato de sódio/g) || []).length, 2);
+  assert.doesNotMatch(xml, /Carbonato de cálcio/i);
+});
+
 test('RTP removes measurements table for Outro without diameter rows', async () => {
   const base = reportFor('RTP');
   const tubingZip = new AdmZip(await buildRtpDocx({
