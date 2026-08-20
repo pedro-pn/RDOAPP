@@ -43,6 +43,15 @@ export async function expectLegacyRdoShell(page: Page) {
   await expect(page.locator('.fv-theme-toggle')).toHaveCount(0);
 }
 
+export async function expectManagerRdoShell(page: Page) {
+  await expect(page.locator('[data-testid="fv-app-shell"]')).toBeVisible();
+  await expect(page.locator('.app-shell')).toHaveCount(0);
+  await expect(page.locator('.fv-sidebar')).toBeVisible();
+  await expect(page.locator('.fv-topbar')).toBeVisible();
+  await expect(page.locator('.fv-theme-toggle')).toBeVisible();
+  await expect(page.locator('.rdo-manager-tabs-wrap')).toBeVisible();
+}
+
 export async function logoutFromRdo(page: Page) {
   await page.getByRole('button', { name: 'Sair' }).click();
   await expect(page).toHaveURL(/\/login(?:\?.*)?$/);

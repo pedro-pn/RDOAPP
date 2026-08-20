@@ -8,6 +8,8 @@ export interface ListingSelection<T> {
   isRowSelectable?: (row: T) => boolean;
   getRowLabel?: (row: T) => string;
   label?: string;
+  controlClassName?: string;
+  showSelectAll?: boolean;
   disabled?: boolean;
 }
 

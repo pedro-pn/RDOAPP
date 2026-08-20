@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   demoCredentials,
   expectLegacyRdoShell,
+  expectManagerRdoShell,
   loginAs,
   logoutFromRdo
 } from './support/rdo';
@@ -15,7 +16,7 @@ async function openManagerRdo(page: Page) {
   await page.goto(MANAGER_HOME);
 
   await expect(page).toHaveURL(/\/rdo\/gestor(?:\?.*)?$/);
-  await expectLegacyRdoShell(page);
+  await expectManagerRdoShell(page);
   await expect(
     page.getByRole('tablist', { name: 'Seções do gestor' })
   ).toBeVisible();
@@ -97,13 +98,63 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
 
   test('caracteriza os fluxos read-only do gestor com uma única sessão real', async ({
     page
-  }) => {
+  }, testInfo) => {
     await openManagerRdo(page);
 
-    await test.step('login real e Shell legado do Gestor', async () => {
+    await test.step('login real e AppShell do piloto Gestor', async () => {
       await expect(
         page.getByRole('tab', { name: /^Pendentes/ })
       ).toHaveAttribute('aria-selected', 'true');
+    });
+
+    await test.step('contrato mínimo read-only dos dados E2E', async () => {
+      await waitForReportCards(page);
+
+      const reportCount = await page.locator('.rel-item').count();
+      const projectGroupCount = await page
+        .locator('.report-project-group')
+        .count();
+      const selectableProjectGroupCount = await page
+        .locator('.report-project-group')
+        .filter({
+          has: page.locator('.report-select-checkbox input[type="checkbox"]')
+        })
+        .count();
+      const loadMoreCount = await page
+        .getByRole('button', { name: 'Carregar mais', exact: true })
+        .count();
+
+      expect(reportCount).toBeGreaterThan(0);
+      expect(projectGroupCount).toBeGreaterThan(1);
+      expect(selectableProjectGroupCount).toBeGreaterThan(1);
+      expect(loadMoreCount).toBeGreaterThan(0);
+
+      await testInfo.attach('rdo-manager-read-only-data-contract.json', {
+        body: Buffer.from(
+          JSON.stringify(
+            {
+              schemaVersion: 1,
+              route: MANAGER_HOME,
+              tab: 'pendentes',
+              invariants: {
+                reportCount: 'greater-than-zero',
+                projectGroupCount: 'greater-than-one',
+                selectableProjectGroupCount: 'greater-than-one',
+                loadMoreCount: 'greater-than-zero'
+              },
+              observed: {
+                reportCount,
+                projectGroupCount,
+                selectableProjectGroupCount,
+                loadMoreCount
+              }
+            },
+            null,
+            2
+          )
+        ),
+        contentType: 'application/json'
+      });
     });
 
     await test.step('navegação pelas oito abas e URL', async () => {
@@ -174,7 +225,7 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
         );
 
       await page.reload();
-      await expectLegacyRdoShell(page);
+      await expectManagerRdoShell(page);
       await expect(
         page.getByRole('tab', { name: 'Aprovados', exact: true })
       ).toHaveAttribute('aria-selected', 'true');
@@ -193,7 +244,7 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
 
     await test.step('ordenação de projetos persistida no reload', async () => {
       await page.goto(MANAGER_HOME);
-      await expectLegacyRdoShell(page);
+      await expectManagerRdoShell(page);
       await waitForReportCards(page);
 
       const sortButton = topLevelProjectSort(page);
@@ -224,7 +275,7 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       expect(storedDirection).toBe('desc');
 
       await page.reload();
-      await expectLegacyRdoShell(page);
+      await expectManagerRdoShell(page);
       await expect(topLevelProjectSort(page)).toHaveText('Z→A');
       await expect
         .poll(async () => (await visibleProjectLabels(page))[0], {
@@ -239,16 +290,26 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       const firstProjectLabel = (
         await firstProjectToggle.locator('.sec').innerText()
       ).trim();
+      const controlledPanelId =
+        await firstProjectToggle.getAttribute('aria-controls');
+      expect(controlledPanelId).toBeTruthy();
+      await expect(firstProjectToggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(page.locator(`#${controlledPanelId}`)).toBeVisible();
       await expect(
         firstProjectGroup.locator('.report-type-group')
       ).not.toHaveCount(0);
       await firstProjectToggle.click();
+      await expect(firstProjectToggle).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      await expect(page.locator(`#${controlledPanelId}`)).toBeHidden();
       await expect(firstProjectGroup.locator('.report-type-group')).toHaveCount(
         0
       );
 
       await page.reload();
-      await expectLegacyRdoShell(page);
+      await expectManagerRdoShell(page);
       const reloadedProjectGroup = page
         .locator('.report-project-group')
         .filter({ hasText: firstProjectLabel })
@@ -256,18 +317,145 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       const reloadedProjectToggle = reloadedProjectGroup.locator(
         '.project-group-toggle'
       );
+      const reloadedPanelId =
+        await reloadedProjectToggle.getAttribute('aria-controls');
+      expect(reloadedPanelId).toBeTruthy();
+      await expect(reloadedProjectToggle).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      await expect(page.locator(`#${reloadedPanelId}`)).toBeHidden();
       await expect(
         reloadedProjectGroup.locator('.report-type-group')
       ).toHaveCount(0);
       await reloadedProjectToggle.click();
+      await expect(reloadedProjectToggle).toHaveAttribute(
+        'aria-expanded',
+        'true'
+      );
+      await expect(page.locator(`#${reloadedPanelId}`)).toBeVisible();
       await expect(
         reloadedProjectGroup.locator('.report-type-group')
       ).not.toHaveCount(0);
     });
 
+    await test.step('disclosure e ordenação por tipo persistidos', async () => {
+      await page.goto(MANAGER_HOME);
+      await expectManagerRdoShell(page);
+      await waitForReportCards(page);
+
+      const typeGroups = page.locator('.report-type-group');
+      let targetIndex = -1;
+      for (let index = 0; index < (await typeGroups.count()); index += 1) {
+        if ((await typeGroups.nth(index).locator('.rel-item').count()) > 1) {
+          targetIndex = index;
+          break;
+        }
+      }
+      expect(targetIndex).toBeGreaterThanOrEqual(0);
+
+      const targetTypeGroup = typeGroups.nth(targetIndex);
+      const typeToggle = targetTypeGroup.locator('.report-type-header');
+      const projectLabel = (
+        await targetTypeGroup
+          .locator(
+            'xpath=ancestor::*[contains(@class, "report-project-group")]'
+          )
+          .locator('.project-group-toggle .sec')
+          .innerText()
+      ).trim();
+      const typeLabel = (
+        await typeToggle.locator('.rdo-manager-report-type-badge').innerText()
+      ).trim();
+      const controlledPanelId = await typeToggle.getAttribute('aria-controls');
+      expect(controlledPanelId).toBeTruthy();
+      await expect(typeToggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(page.locator(`#${controlledPanelId}`)).toBeVisible();
+
+      const labelsBefore = await targetTypeGroup
+        .locator('.rel-name')
+        .allTextContents();
+      const typeSortButton = targetTypeGroup.locator('.fv-data-table__sort');
+      await expect(typeSortButton).toBeVisible();
+      await expect(typeSortButton).toHaveAccessibleName(
+        /Ordenar relatórios em ordem (?:crescente|decrescente)/
+      );
+      await typeSortButton.click();
+      await expect
+        .poll(
+          async () =>
+            JSON.stringify(
+              await targetTypeGroup.locator('.rel-name').allTextContents()
+            ),
+          { timeout: REPORT_LIST_TIMEOUT }
+        )
+        .not.toBe(JSON.stringify(labelsBefore));
+      const labelsAfter = await targetTypeGroup
+        .locator('.rel-name')
+        .allTextContents();
+
+      await page.reload();
+      await expectManagerRdoShell(page);
+      const reloadedProject = page
+        .locator('.report-project-group')
+        .filter({ hasText: projectLabel })
+        .first();
+      const reloadedTypeGroup = reloadedProject
+        .locator('.report-type-group')
+        .filter({ hasText: typeLabel })
+        .first();
+      await expect
+        .poll(
+          async () =>
+            JSON.stringify(
+              await reloadedTypeGroup.locator('.rel-name').allTextContents()
+            ),
+          { timeout: REPORT_LIST_TIMEOUT }
+        )
+        .toBe(JSON.stringify(labelsAfter));
+
+      const reloadedTypeToggle = reloadedTypeGroup.locator(
+        '.report-type-header'
+      );
+      const reloadedPanelId =
+        await reloadedTypeToggle.getAttribute('aria-controls');
+      expect(reloadedPanelId).toBeTruthy();
+      await reloadedTypeToggle.click();
+      await expect(reloadedTypeToggle).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      await expect(page.locator(`#${reloadedPanelId}`)).toBeHidden();
+      await expect(reloadedTypeGroup.locator('.rel-item')).toHaveCount(0);
+
+      await page.reload();
+      await expectManagerRdoShell(page);
+      const persistedProject = page
+        .locator('.report-project-group')
+        .filter({ hasText: projectLabel })
+        .first();
+      const persistedTypeGroup = persistedProject
+        .locator('.report-type-group')
+        .filter({ hasText: typeLabel })
+        .first();
+      const persistedTypeToggle = persistedTypeGroup.locator(
+        '.report-type-header'
+      );
+      await expect(persistedTypeToggle).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      await persistedTypeToggle.click();
+      await expect(persistedTypeToggle).toHaveAttribute(
+        'aria-expanded',
+        'true'
+      );
+      await expect(persistedTypeGroup.locator('.rel-item')).not.toHaveCount(0);
+    });
+
     await test.step('seleção entre grupos e Carregar mais', async () => {
       await page.goto(MANAGER_HOME);
-      await expectLegacyRdoShell(page);
+      await expectManagerRdoShell(page);
       await waitForReportCards(page);
 
       const groupsWithReports = page.locator('.report-project-group').filter({
@@ -343,7 +531,7 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       ).toBeChecked();
 
       await page.reload();
-      await expectLegacyRdoShell(page);
+      await expectManagerRdoShell(page);
       await waitForReportCards(page);
       await expect
         .poll(() => targetProjectGroup.locator('.rel-item').count(), {
@@ -374,7 +562,7 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       const reportCard = page.locator('.rel-item').first();
       const openedReportLabel = await selectedReportName(reportCard);
       await expect(reportCard.locator('.rel-name')).toBeVisible();
-      await reportCard.locator('.rel-name').click();
+      await reportCard.locator('.rdo-manager-listing__metadata').click();
 
       await expect(page).toHaveURL(/\/rdo\/gestor\/relatorio\/[^/?#]+$/);
       await expectLegacyRdoShell(page);
@@ -403,7 +591,7 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       });
 
       await page.reload();
-      await expectLegacyRdoShell(page);
+      await expectManagerRdoShell(page);
       await expect(
         page.getByRole('tab', { name: 'Aprovados', exact: true })
       ).toHaveAttribute('aria-selected', 'true');

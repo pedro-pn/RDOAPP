@@ -20,6 +20,7 @@ export interface MobileListProps<T> extends Omit<
   getItemId: (item: T) => ListingRowId;
   renderItem: (item: T, index: number) => MobileListItemContent;
   selection?: ListingSelection<T>;
+  getItemClassName?: (item: T, index: number) => string | undefined;
   loading?: boolean;
   loadingItems?: number;
   error?: ReactNode;
@@ -47,6 +48,7 @@ export function MobileList<T>({
   getItemId,
   renderItem,
   selection,
+  getItemClassName,
   loading = false,
   loadingItems = 3,
   error,
@@ -155,14 +157,23 @@ export function MobileList<T>({
 
           return (
             <li
-              className="fv-mobile-list__item"
+              className={joinClassNames(
+                'fv-mobile-list__item',
+                getItemClassName?.(item, index)
+              )}
               key={itemId}
               data-row-id={String(itemId)}
+              aria-selected={selection ? selected : undefined}
             >
               <Card variant="flat" padding="sm" selected={selected}>
                 <div className="fv-mobile-list__header">
                   {selection ? (
-                    <label className="fv-listing-checkbox">
+                    <label
+                      className={joinClassNames(
+                        'fv-listing-checkbox',
+                        selection.controlClassName
+                      )}
+                    >
                       <input
                         type="checkbox"
                         checked={selected}

@@ -1,0 +1,338 @@
+:where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap {
+  position: sticky;
+  inset-block-start: var(--topbar-h-mobile);
+  z-index: var(--z-sticky);
+  max-width: 100%;
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  border-block-end: var(--border-width) solid var(--line);
+  background: var(--surface);
+  scrollbar-width: thin;
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap .nav-tabs {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  grid-template-columns: none;
+  gap: var(--space-2);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap .nav-tab {
+  min-width: calc(var(--space-16) + var(--space-6));
+  min-height: calc(var(--space-10) + var(--space-1));
+  flex: 1 0 auto;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-sm);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap .nav-tab:hover:not(.active) {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  transform: none;
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap .nav-tab.active {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-weight: var(--font-semibold);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap .nav-tab:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap .nav-tab-count {
+  min-width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-page {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0;
+  overflow-y: visible;
+  background: transparent;
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-page :where(.page-card, .admin-card) {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-e1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary {
+  padding: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stat-card-react {
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stat-number-react {
+  color: var(--ink);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  line-height: var(--leading-xl);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stat-label-react {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__filters {
+  width: 100%;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__toolbar,
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__global-load-more {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-listing__toolbar
+  .project-sort-button {
+  margin-inline-start: auto;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__global-load-more {
+  justify-content: center;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__loading {
+  display: grid;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__draft-grid {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__draft-head {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__draft-title {
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-base);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__draft-meta,
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__draft-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__draft-meta {
+  margin-block-start: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__draft-actions .fv-button {
+  min-height: calc(var(--space-10) + var(--space-1));
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-card {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-card
+  .rdo-manager-project-group.card {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .project-group-toggle,
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-type-header {
+  width: 100%;
+  min-height: calc(var(--space-10) + var(--space-1));
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-type-header {
+  border-block-end: var(--border-width) solid var(--line);
+  border-radius: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-group
+  :where(.project-group-toggle, .report-type-header):hover {
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-group
+  :where(.project-group-toggle, .report-type-header):focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-group
+  .project-group-toggle
+  .sec {
+  gap: var(--space-2);
+  color: var(--brand-text);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  letter-spacing: normal;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-group
+  .project-group-toggle
+  .sec::before {
+  width: var(--space-1);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--brand);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-group
+  :where(.group-chevron, .rtype-chevron) {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--muted);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-group
+  :where(.project-group-toggle, .report-type-header)[aria-expanded='false']
+  :where(.group-chevron, .rtype-chevron) {
+  transform: rotate(-90deg);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-type-group {
+  margin-block: var(--space-3) 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .rtype-count {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-type-list {
+  gap: var(--space-3);
+  padding-block-start: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-group
+  .rdo-manager-listing__batch-toolbar {
+  gap: var(--space-3);
+  margin-block: var(--space-2);
+  padding-block: var(--space-2);
+  border-block: var(--border-width) solid var(--line);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-batch-count {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-type-load-more {
+  margin-block: var(--space-4) var(--space-1);
+}
+
+@media (min-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__summary
+    .stats-grid-compact
+    .stat-card-react:nth-child(3) {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  :where(.fv-ds, [data-fv-ds]).rdo-manager-tabs-wrap {
+    inset-block-start: var(--topbar-h);
+  }
+}

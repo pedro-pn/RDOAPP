@@ -23,9 +23,14 @@ import { downloadReportDocx, downloadReportPdf, downloadReportsBatch } from '../
 import type { SurveyQuestionType } from '../../api/surveys';
 
 import { useAuth } from '../../auth/AuthContext';
-import { accountPageStateFromPath } from '../../auth/moduleNavigation';
-import { rdoPath } from '../../auth/rolePath';
+import {
+  accountPageStateFromPath,
+  navigationStateFromLocation
+} from '../../auth/moduleNavigation';
+import { rdoPath, rdoReportDetailPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
+import { ManagerReportListing } from '../../components/reports/manager/ManagerReportListing';
+import { AppIcon } from '../../components/icons/AppIcon';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
 import {
   buildManualReportOperationalData,
@@ -33,10 +38,19 @@ import {
   validateManualReportOperationalFields
 } from '../../components/reports/manualReportOperationalData';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
-import { ReportListSkeleton } from '../../components/ui/Skeleton';
 import { ImageDropzone } from '../../components/ui/ImageDropzone';
 import { InfiniteScrollSentinel } from '../../components/ui/InfiniteScrollSentinel';
 import { SearchBar } from '../../components/ui/SearchBar';
+import {
+  Button,
+  Card,
+  EmptyState,
+  FilterBar,
+  IconButton,
+  SearchInput,
+  Skeleton
+} from '../../components/ui/ds';
+import { DS_ICONS } from '../../components/ui/ds/icons';
 import { Modal } from '../../components/ui/Modal';
 import { ReasonDialog } from '../../components/ui/ReasonDialog';
 import { PdfDropzone } from '../../components/ui/PdfDropzone';
@@ -56,13 +70,18 @@ import { useAccumulatedReportsPage, useReportCounts, useReportMutations } from '
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { usePersistentSearch } from '../../hooks/usePersistentSearch';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
+import {
+  currentPageScrollState,
+  saveCurrentPageScroll
+} from '../../hooks/usePageScrollRestoration';
 import { useUserMutations, useUsers } from '../../hooks/useUsers';
 import { useSurveyMutations } from '../../hooks/useSurveys';
 import { SurveyDashboardOverlay } from '../../components/surveys/SurveyDashboard';
 import { MonthlyAllocationDashboardOverlay, StatsDashboardOverlay, StatsOverview } from '../../components/stats/StatsDashboard';
 import { useProjectSegmentMutations } from '../../hooks/useProjectStats';
-import { Shell } from '../../layout/Shell';
-import { TopBar } from '../../layout/TopBar';
+import { AppShell } from '../../layout/AppShell';
+import { PageHeader } from '../../layout/PageHeader';
+import { createNavigationModel } from '../../layout/navigationModel';
 import { useRdoStore } from '../../store/rdoStore';
 import { COLLABORATOR_SIGNATURE_NOTICE_VERSION } from '../../constants/privacy';
 import type {
@@ -98,6 +117,8 @@ import {
 import { commercialPendenciaAlertText, commercialPendenciaMapByProject, pendingCommercialProposalCountForProjects } from './commercialPendencias';
 import { PendingProjectReviewForm } from './PendingProjectReviewForm';
 import { ProjectIntakeWebhookNovelty } from './ProjectIntakeWebhookNovelty';
+import { hubModulesForUser } from '../hubModules';
+import './GestorPage.ds.css';
 import { ProjectTabPendingBadges } from './ProjectTabPendingBadges';
 import {
   automaticProjectReviewMessage, formatProjectSequences, partitionProjectsByRegistration, pendingProjectRegistrationMessage,
@@ -1109,9 +1130,27 @@ export function GestorPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
+  const managerModules = useMemo(() => hubModulesForUser(user), [user]);
+  const managerNavigation = useMemo(
+    () =>
+      createNavigationModel({
+        modules: managerModules,
+        pathname: location.pathname
+      }),
+    [location.pathname, managerModules]
+  );
+  const managerInitials = user?.name
+    ? user.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join('')
+    : 'FV';
   const { hydrate, reset } = useRdoStore();
   const showToast = useToast();
   const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
+  const reportListingTab = tab === 'pendentes' || tab === 'aprovados';
   const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [gestorSearch, setGestorSearch] = usePersistentSearch(`gestor-search:${user?.id || 'anonymous'}:${tab}`);
@@ -1470,6 +1509,16 @@ export function GestorPage() {
   function handleNewReport() {
     reset();
     navigate(rdoPath('/relatorio/novo'));
+  }
+
+  function handleOpenReport(report: ReportSummary) {
+    saveCurrentPageScroll(location, user?.id || user?.username || 'anonymous');
+    navigate(rdoReportDetailPath(user, report.id), {
+      state: {
+        ...(navigationStateFromLocation(location) || {}),
+        ...currentPageScrollState()
+      }
+    });
   }
 
   function handleResumeDraft(draft: ReportDraft) {
@@ -2328,6 +2377,82 @@ export function GestorPage() {
     const canReview = tab === 'pendentes' && report.status !== 'SIGNED';
     const manualReport = isManualUploadedReport(report);
 
+    if (reportListingTab) {
+      return (
+        <>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleReportDownload(report, 'pdf')}
+          >
+            PDF
+          </Button>
+          {!manualReport ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleReportDownload(report, 'docx')}
+            >
+              DOCX
+            </Button>
+          ) : null}
+          {manualReport ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={reportMutations.replaceManualReportPdf.isPending}
+              onClick={() => openManualReportReplace(report)}
+            >
+              Editar manual
+            </Button>
+          ) : null}
+          {canReview && report.status !== 'APPROVED' ? (
+            <Button
+              variant="primary"
+              size="sm"
+              title={
+                hasActiveClientRejection(report)
+                  ? 'Reenviar para avaliação'
+                  : 'Aprovar'
+              }
+              onClick={() => void handleReportStatus(report, 'APPROVED')}
+            >
+              {hasActiveClientRejection(report) ? 'Reenviar' : 'Aprovar'}
+            </Button>
+          ) : null}
+          {canReview && report.status !== 'RETURNED' ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setReturnReport(report)}
+            >
+              Devolver
+            </Button>
+          ) : null}
+          {report.status !== 'SIGNED' ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={reportMutations.updateSequence.isPending}
+              onClick={() => openReportSequenceEdit(report)}
+            >
+              Nº
+            </Button>
+          ) : null}
+          {report.status !== 'SIGNED' ? (
+            <IconButton
+              icon={DS_ICONS.trash}
+              label="Arquivar relatório"
+              variant="danger"
+              size="sm"
+              disabled={reportMutations.deleteReport.isPending}
+              onClick={() => void handleReportDelete(report)}
+            />
+          ) : null}
+        </>
+      );
+    }
+
     return (
       <>
         <span className="report-download-actions">
@@ -2396,6 +2521,52 @@ export function GestorPage() {
     const selectedVisibleCount = selectedReportIds.filter(id => visibleIds.includes(id)).length;
     const hasSelectedVisible = selectedVisibleCount > 0;
 
+    if (reportListingTab) {
+      return (
+        <div className="report-batch-toolbar rdo-manager-listing__batch-toolbar">
+          <span className="report-batch-count" role="status" aria-live="polite">
+            {selectedVisibleCount} selecionado(s)
+          </span>
+          <div className="admin-form-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setSelectedReportIds(visibleIds)}
+            >
+              Selecionar todos
+            </Button>
+            {hasSelectedVisible ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedReportIds([])}
+                >
+                  Limpar seleção
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void handleBatchReportDownload('pdf', reports)}
+                >
+                  Baixar PDF
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    void handleBatchReportDownload('docx', reports)
+                  }
+                >
+                  Baixar DOCX
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="report-batch-toolbar">
         <span className="report-batch-count">{selectedVisibleCount} selecionado(s)</span>
@@ -2423,39 +2594,66 @@ export function GestorPage() {
 
   function renderProjectReportGroups(reports: ReportSummary[]) {
     return (
-      <GroupedReportList
-        reports={reports}
-        archived={tab === 'arquivados'}
-        sortDirection={projectSortDir}
-        showTypeSort
-        storageKey={`gestor-report-groups:${user?.id || user?.username || 'anonymous'}:${tab}`}
-        renderTypeActions={renderBatchReportActions}
-        onLoadMoreType={reportListQuery.loadMoreGroup}
-        onEnsureTypePage={reportListQuery.ensureGroupPage}
-        isTypePageReady={reportListQuery.isGroupPageReady}
-        getTypeLoadedCount={reportListQuery.groupLoadedCount}
-        hasMoreType={reportListQuery.hasMoreGroup}
-        isTypeLoading={reportListQuery.isGroupLoading}
-        isTypePageErrored={reportListQuery.isGroupError}
-        getTypeTotal={reportListQuery.groupTotal}
-        getProjectTypeTotals={reportListQuery.projectTypeTotals}
-        renderReport={report => (
-          <ReportSummaryCard
-            key={report.id}
-            report={report}
-            leadingControl={(
-              <label className="report-select-checkbox" title="Selecionar relatório">
-                <input
-                  type="checkbox"
-                  checked={selectedReportIds.includes(report.id)}
-                  onChange={event => toggleReportSelection(report.id, event.target.checked)}
-                />
-              </label>
-            )}
-            actions={renderManagerReportActions(report)}
-          />
-        )}
-      />
+      <div className="rdo-manager-listing" id="rdo-manager-report-results">
+        <GroupedReportList
+          reports={reports}
+          appearance="design-system"
+          archived={tab === 'arquivados'}
+          sortDirection={projectSortDir}
+          showTypeSort
+          storageKey={`gestor-report-groups:${user?.id || user?.username || 'anonymous'}:${tab}`}
+          renderTypeActions={renderBatchReportActions}
+          onLoadMoreType={reportListQuery.loadMoreGroup}
+          onEnsureTypePage={reportListQuery.ensureGroupPage}
+          isTypePageReady={reportListQuery.isGroupPageReady}
+          getTypeLoadedCount={reportListQuery.groupLoadedCount}
+          hasMoreType={reportListQuery.hasMoreGroup}
+          isTypeLoading={reportListQuery.isGroupLoading}
+          isTypePageErrored={reportListQuery.isGroupError}
+          getTypeTotal={reportListQuery.groupTotal}
+          getProjectTypeTotals={reportListQuery.projectTypeTotals}
+          renderReportCollection={({
+            reports: typeReports,
+            projectLabel,
+            reportType,
+            sortDirection,
+            onSortChange
+          }) => (
+            <ManagerReportListing
+              reports={typeReports}
+              selectedReportIds={selectedReportIds}
+              onSelectionChange={(ids) => setSelectedReportIds(ids)}
+              onOpenReport={handleOpenReport}
+              renderActions={renderManagerReportActions}
+              reportType={reportType}
+              projectLabel={projectLabel}
+              sortDirection={sortDirection}
+              onSortChange={onSortChange}
+            />
+          )}
+          renderReport={(report) => (
+            <ReportSummaryCard
+              key={report.id}
+              report={report}
+              leadingControl={
+                <label
+                  className="report-select-checkbox"
+                  title="Selecionar relatório"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedReportIds.includes(report.id)}
+                    onChange={(event) =>
+                      toggleReportSelection(report.id, event.target.checked)
+                    }
+                  />
+                </label>
+              }
+              actions={renderManagerReportActions(report)}
+            />
+          )}
+        />
+      </div>
     );
   }
 
@@ -2822,21 +3020,42 @@ export function GestorPage() {
     );
   }
 
-  function renderLoadMoreReports() {
+  function renderLoadMoreReports(
+    appearance: 'design-system' | 'legacy' = 'legacy'
+  ) {
     const showButton = reportListQuery.hasMore || reportListQuery.isLoadingMore;
     return (
       <>
         <div ref={loadMoreReportsRef} aria-hidden="true" />
         {showButton ? (
-          <div className="admin-create-toolbar">
-            <button
-              className="mini-btn"
-              type="button"
-              disabled={reportListQuery.isLoadingMore}
-              onClick={reportListQuery.loadMore}
-            >
-              {reportListQuery.isLoadingMore ? 'Carregando...' : 'Carregar mais'}
-            </button>
+          <div
+            className={
+              appearance === 'design-system'
+                ? 'admin-create-toolbar rdo-manager-listing__global-load-more'
+                : 'admin-create-toolbar'
+            }
+          >
+            {appearance === 'design-system' ? (
+              <Button
+                variant="secondary"
+                loading={reportListQuery.isLoadingMore}
+                disabled={reportListQuery.isLoadingMore}
+                onClick={reportListQuery.loadMore}
+              >
+                Carregar mais
+              </Button>
+            ) : (
+              <button
+                className="mini-btn"
+                type="button"
+                disabled={reportListQuery.isLoadingMore}
+                onClick={reportListQuery.loadMore}
+              >
+                {reportListQuery.isLoadingMore
+                  ? 'Carregando...'
+                  : 'Carregar mais'}
+              </button>
+            )}
           </div>
         ) : null}
       </>
@@ -2849,70 +3068,137 @@ export function GestorPage() {
     const visibleReports = sourceReports;
 
     if (reportListQuery.isLoadingInitial) {
-      return <ReportListSkeleton />;
+      return (
+        <div
+          className="rdo-manager-listing__loading"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="fv-sr-only">Carregando relatórios…</span>
+          <Skeleton variant="card" decorative />
+          <Skeleton variant="card" decorative />
+        </div>
+      );
     }
 
     const topActions = (
-      <div className="admin-create-toolbar">
+      <div className="admin-create-toolbar rdo-manager-listing__toolbar">
         {tab === 'pendentes' ? (
-          <button className="mini-btn" type="button" onClick={handleNewReport}>
-            + Criar Relatório
-          </button>
+          <Button
+            variant="primary"
+            iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+            onClick={handleNewReport}
+          >
+            Criar Relatório
+          </Button>
         ) : null}
-        <ProjectSortButton
-          direction={projectSortDir}
-          onToggle={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
-        />
+        <Button
+          className="project-sort-button"
+          variant="secondary"
+          iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
+          aria-label={
+            projectSortDir === 'asc'
+              ? 'Ordenar projetos de Z a A'
+              : 'Ordenar projetos de A a Z'
+          }
+          onClick={() =>
+            setProjectSortDir((direction) =>
+              direction === 'asc' ? 'desc' : 'asc'
+            )
+          }
+        >
+          {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
+        </Button>
       </div>
     );
-    const drafts = (draftsQuery.data || []).filter(draft => draft.projectId || draft.payload.projectId);
-    const draftsBlock = tab === 'pendentes' && drafts.length ? (
-      <section className="page-card">
-        <div className="section-title">Relatórios em andamento</div>
-        <div className="admin-stack">
-          {drafts.map(draft => (
-            <article className="card admin-card" key={draft.id}>
-              <div className="admin-card-head">
-                <div>
-                  <div className="admin-card-title">{draft.title || 'Relatório em andamento'}</div>
-                  <div className="admin-card-meta">
-                    <span>{draft.project?.code || draft.projectId || 'Projeto'}</span>
-                    <span>{draftDateLabel(draft)}</span>
-                    {(() => {
-                      const count = Array.isArray((draft.payload as Record<string, unknown>).services)
-                        ? (draft.payload as Record<string, unknown>).services as unknown[]
-                        : [];
-                      return count.length ? <span>{count.length} serviço(s)</span> : null;
-                    })()}
+    const drafts = (draftsQuery.data || []).filter(
+      (draft) => draft.projectId || draft.payload.projectId
+    );
+    const draftsBlock =
+      tab === 'pendentes' && drafts.length ? (
+        <Card
+          className="rdo-manager-listing__drafts"
+          padding="md"
+          title="Relatórios em andamento"
+        >
+          <div className="rdo-manager-listing__draft-grid">
+            {drafts.map((draft) => (
+              <Card
+                className="rdo-manager-listing__draft"
+                variant="flat"
+                padding="sm"
+                key={draft.id}
+              >
+                <div className="rdo-manager-listing__draft-head">
+                  <div>
+                    <div className="rdo-manager-listing__draft-title">
+                      {draft.title || 'Relatório em andamento'}
+                    </div>
+                    <div className="rdo-manager-listing__draft-meta">
+                      <span>
+                        {draft.project?.code || draft.projectId || 'Projeto'}
+                      </span>
+                      <span>{draftDateLabel(draft)}</span>
+                      {(() => {
+                        const count = Array.isArray(
+                          (draft.payload as Record<string, unknown>).services
+                        )
+                          ? ((draft.payload as Record<string, unknown>)
+                              .services as unknown[])
+                          : [];
+                        return count.length ? (
+                          <span>{count.length} serviço(s)</span>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="rdo-manager-listing__draft-actions">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleResumeDraft(draft)}
+                    >
+                      Continuar
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() =>
+                        draftMutations.removeDraft.mutate(draft.id)
+                      }
+                    >
+                      Excluir
+                    </Button>
                   </div>
                 </div>
-                <div className="admin-card-actions">
-                  <button className="mini-btn alt" type="button" onClick={() => handleResumeDraft(draft)}>
-                    Continuar
-                  </button>
-                  <button className="mini-btn danger" type="button" onClick={() => draftMutations.removeDraft.mutate(draft.id)}>
-                    Excluir
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    ) : null;
+              </Card>
+            ))}
+          </div>
+        </Card>
+      ) : null;
 
     if (!visibleReports.length) {
       return (
         <>
           {topActions}
           {draftsBlock}
-          <div className="page-card placeholder-copy">
-            {tab === 'pendentes'
-              ? 'Nenhum relatório pendente.'
-              : tab === 'arquivados'
-                ? 'Nenhum relatório arquivado.'
-                : 'Nenhum relatório aprovado.'}
-          </div>
+          <Card padding="lg">
+            <EmptyState
+              variant={gestorSearch.trim() ? 'search' : 'default'}
+              title={
+                tab === 'pendentes'
+                  ? 'Nenhum relatório pendente.'
+                  : tab === 'arquivados'
+                    ? 'Nenhum relatório arquivado.'
+                    : 'Nenhum relatório aprovado.'
+              }
+              description={
+                gestorSearch.trim()
+                  ? 'Revise ou limpe a busca para ver outros relatórios.'
+                  : undefined
+              }
+            />
+          </Card>
         </>
       );
     }
@@ -2980,7 +3266,7 @@ export function GestorPage() {
         {topActions}
         {draftsBlock}
         {renderProjectReportGroups(visibleReports)}
-        {renderLoadMoreReports()}
+        {renderLoadMoreReports('design-system')}
         {reasonDialog}
         {sequenceDialog}
       </>
@@ -4185,6 +4471,30 @@ export function GestorPage() {
     const label = labels[tab];
     if (!label) return null;
 
+    if (tab === 'aprovados') {
+      const reportResultsId =
+        !reportListQuery.isLoadingInitial && approvedReports.length > 0
+          ? 'rdo-manager-report-results'
+          : undefined;
+
+      return (
+        <FilterBar
+          className="rdo-manager-listing__filters"
+          label="Busca dos relatórios aprovados"
+          resultsId={reportResultsId}
+          search={
+            <SearchInput
+              value={gestorSearch}
+              onChange={setGestorSearch}
+              label={label}
+              placeholder={label}
+              autoComplete="off"
+            />
+          }
+        />
+      );
+    }
+
     return (
       <div className="admin-search-row">
         <SearchBar value={gestorSearch} onChange={setGestorSearch} placeholder={label} ariaLabel={label} />
@@ -4228,13 +4538,20 @@ export function GestorPage() {
     const approvedTotal = approvedCount + signedCount;
 
     return (
-      <section className="page-card summary-card-compact">
-        <div className="admin-section-head">
-          <div className="section-title">Resumo</div>
-          <button className="mini-btn" type="button" onClick={() => openManualReportUpload()}>
+      <Card
+        className="page-card summary-card-compact rdo-manager-listing__summary"
+        padding="md"
+        title="Resumo"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => openManualReportUpload()}
+          >
             Upload PDF antigo
-          </button>
-        </div>
+          </Button>
+        }
+      >
         <div className="stats-grid stats-grid-compact">
           {tab === 'pendentes' ? (
             <div className="stat-card-react">
@@ -4253,29 +4570,31 @@ export function GestorPage() {
             </div>
           ) : null}
         </div>
-      </section>
+      </Card>
     );
   }
 
   return (
-    <Shell>
-      <TopBar
-        title="Painel do gestor"
-        subtitle={user?.name}
-        showLogo
-        actions={
-          <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
-              Conta
-            </button>
-            <button className="topbar-chip" type="button" onClick={handleLogout}>
-              Sair
-            </button>
-          </>
-        }
-      />
-
-      <div className="nav-tabs-wrap">
+    <AppShell
+      navigation={managerNavigation}
+      title="RDO"
+      breadcrumb={[{ label: 'Filtrovali', href: '/modulos' }, { label: 'RDO' }]}
+      profile={
+        user
+          ? {
+              name: user.name,
+              description: user.email || user.username,
+              initials: managerInitials,
+              onOpen: () =>
+                navigate('/conta', {
+                  state: accountPageStateFromPath(location)
+                })
+            }
+          : undefined
+      }
+      onLogout={handleLogout}
+    >
+      <div className="fv-ds nav-tabs-wrap rdo-manager-tabs-wrap">
         <div className="nav-tabs" role="tablist" aria-label="Seções do gestor" onKeyDown={handleHorizontalTabListKeyDown}>
           <button className={`nav-tab ${tab === 'pendentes' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'pendentes'} onClick={() => setTab('pendentes')}>
             Pendentes
@@ -4306,7 +4625,27 @@ export function GestorPage() {
         </div>
       </div>
 
-      <main className="page-scroll">
+      <main
+        className={
+          reportListingTab
+            ? 'fv-ds page-scroll rdo-manager-page'
+            : 'page-scroll'
+        }
+      >
+        {reportListingTab ? (
+          <PageHeader
+            title={
+              tab === 'pendentes'
+                ? 'Relatórios pendentes'
+                : 'Relatórios aprovados'
+            }
+            description={
+              tab === 'pendentes'
+                ? 'Acompanhe os relatórios que aguardam revisão ou foram devolvidos.'
+                : 'Consulte os relatórios aprovados e assinados.'
+            }
+          />
+        ) : null}
         {renderReportSummary()}
         {renderGestorSearch()}
         {renderTabContent()}
@@ -4572,6 +4911,6 @@ export function GestorPage() {
           </div>
         </form>
       </Modal>
-    </Shell>
+    </AppShell>
   );
 }

@@ -119,3 +119,20 @@ test('drawer preserves modal accessibility and focus behavior', () => {
   assert.match(drawer, /previousFocusRef\.current\?\.focus\(\)/);
   assert.match(drawer, /createPortal\(/);
 });
+
+test('new AppShell is enabled by Hub and the manager RDO pilot only', () => {
+  const hub = source('src/pages/HubPage.tsx');
+  const manager = source('src/pages/gestor/GestorPage.tsx');
+  const collaborator = source('src/pages/collaborator/MyReportsPage.tsx');
+  const legacyShell = source('src/layout/Shell.tsx');
+
+  assert.match(hub, /import \{ AppShell \}/);
+  assert.match(hub, /<AppShell/);
+  assert.doesNotMatch(hub, /import \{ Shell \}/);
+  assert.match(manager, /import \{ AppShell \}/);
+  assert.match(manager, /<AppShell/);
+  assert.doesNotMatch(manager, /import \{ Shell \}/);
+  assert.match(collaborator, /import \{ Shell \}/);
+  assert.doesNotMatch(collaborator, /import \{ AppShell \}/);
+  assert.match(legacyShell, /className="app-shell"/);
+});

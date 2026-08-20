@@ -32,6 +32,7 @@ interface SelectionCheckboxProps {
   indeterminate?: boolean;
   disabled?: boolean;
   label: string;
+  className?: string;
   onChange: () => void;
 }
 
@@ -40,6 +41,7 @@ function SelectionCheckbox({
   indeterminate = false,
   disabled,
   label,
+  className,
   onChange
 }: SelectionCheckboxProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,7 +51,7 @@ function SelectionCheckbox({
   }, [indeterminate]);
 
   return (
-    <label className="fv-listing-checkbox">
+    <label className={joinClassNames('fv-listing-checkbox', className)}>
       <input
         ref={inputRef}
         type="checkbox"
@@ -98,6 +100,7 @@ export interface DataTableProps<T> extends Omit<
   sort?: DataTableSort | null;
   onSortChange?: (sort: DataTableSort) => void;
   selection?: ListingSelection<T>;
+  getRowClassName?: (row: T, index: number) => string | undefined;
   rowActions?: (
     row: T,
     index: number,
@@ -127,6 +130,7 @@ export function DataTable<T>({
   sort,
   onSortChange,
   selection,
+  getRowClassName,
   rowActions,
   actionsLabel = 'Ações',
   mobile,
@@ -245,6 +249,7 @@ export function DataTable<T>({
           getItemId={getRowId}
           renderItem={mobileRenderItem}
           selection={selection}
+          getItemClassName={getRowClassName}
           loading={loading}
           loadingItems={loadingRows}
           error={error}
@@ -263,22 +268,27 @@ export function DataTable<T>({
               <tr>
                 {selection ? (
                   <th className="fv-data-table__selection" scope="col">
-                    <SelectionCheckbox
-                      checked={allVisibleSelected}
-                      indeterminate={
-                        someVisibleSelected && !allVisibleSelected
-                      }
-                      disabled={
-                        Boolean(selectionDisabled) ||
-                        selectableIds.length === 0
-                      }
-                      label={
-                        allVisibleSelected
-                          ? `Desmarcar ${selectionGroupLabel}`
-                          : `Selecionar ${selectionGroupLabel}`
-                      }
-                      onChange={updateVisibleSelection}
-                    />
+                    {selection.showSelectAll !== false ? (
+                      <SelectionCheckbox
+                        checked={allVisibleSelected}
+                        indeterminate={
+                          someVisibleSelected && !allVisibleSelected
+                        }
+                        disabled={
+                          Boolean(selectionDisabled) ||
+                          selectableIds.length === 0
+                        }
+                        label={
+                          allVisibleSelected
+                            ? `Desmarcar ${selectionGroupLabel}`
+                            : `Selecionar ${selectionGroupLabel}`
+                        }
+                        className={selection.controlClassName}
+                        onChange={updateVisibleSelection}
+                      />
+                    ) : (
+                      <span className="fv-sr-only">Seleção</span>
+                    )}
                   </th>
                 ) : null}
                 {columns.map((column) => {
@@ -381,7 +391,8 @@ export function DataTable<T>({
                   return (
                     <tr
                       className={joinClassNames(
-                        isSelected && 'fv-data-table__row--selected'
+                        isSelected && 'fv-data-table__row--selected',
+                        getRowClassName?.(row, rowIndex)
                       )}
                       key={rowId}
                       data-row-id={String(rowId)}
@@ -393,6 +404,7 @@ export function DataTable<T>({
                             checked={isSelected}
                             disabled={!isSelectable}
                             label={`${isSelected ? 'Desmarcar' : 'Selecionar'} ${rowLabel}`}
+                            className={selection.controlClassName}
                             onChange={() => updateRowSelection(rowId)}
                           />
                         </td>

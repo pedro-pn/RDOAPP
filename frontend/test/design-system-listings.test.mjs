@@ -1,11 +1,26 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const frontendRoot = fileURLToPath(new URL('../', import.meta.url));
 const source = (path) => readFileSync(join(frontendRoot, path), 'utf8');
+
+function sourceFilesUnder(path) {
+  const files = [];
+
+  function visit(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = join(directory, entry.name);
+      if (entry.isDirectory()) visit(absolutePath);
+      else if (/\.(?:ts|tsx)$/.test(entry.name)) files.push(absolutePath);
+    }
+  }
+
+  visit(join(frontendRoot, path));
+  return files;
+}
 
 test('listings barrel exposes every Phase 5 primitive through the DS public API', () => {
   const designSystemBarrel = source('src/components/ui/ds/index.ts');
@@ -93,6 +108,15 @@ test('MobileList renders description-list semantics from an explicit row/column 
   assert.match(mobileList, /inert=\{disabled \|\| undefined\}/);
 });
 
+test('MobileList exposes the current selection state on each list item', () => {
+  const mobileList = source('src/components/ui/ds/listings/MobileList.tsx');
+
+  assert.match(
+    mobileList,
+    /aria-selected=\{selection \? selected : undefined\}/
+  );
+});
+
 test('listing CSS is DS-scoped, tokenized and uses only official breakpoints', () => {
   const css = source('src/components/ui/ds/listings/listings.css');
 
@@ -132,4 +156,42 @@ test('listings harness is an isolated Vite entry without application routing', (
   assert.match(html, /noindex,nofollow/);
   assert.match(entry, /<ListingsDesignSystemPage\s*\/>/);
   assert.doesNotMatch(entry, /BrowserRouter|MemoryRouter|Routes|Route/);
+});
+
+test('Phase 5 listing primitives are enabled only for the manager RDO pilot', () => {
+  const listingNames = 'DataTable|SearchInput|FilterBar|MobileList|Pagination';
+  const namedListingImport = new RegExp(
+    `import\\s*\\{[^}]*\\b(?:${listingNames})\\b[^}]*\\}\\s*from\\s*['"][^'"]*components/ui/ds(?:/listings(?:/[^'"]+)?)?['"]`,
+    's'
+  );
+  const directListingImport = new RegExp(
+    `from\\s*['"][^'"]*components/ui/ds/listings/(?:${listingNames})['"]`
+  );
+  const productionFiles = [
+    ...sourceFilesUnder('src/pages'),
+    ...sourceFilesUnder('src/modules')
+  ];
+  const managerPagePath = new URL(
+    '../src/pages/gestor/GestorPage.tsx',
+    import.meta.url
+  ).pathname;
+  const managerPage = readFileSync(managerPagePath, 'utf8');
+
+  assert.match(managerPage, /ManagerReportListing/);
+  assert.match(managerPage, namedListingImport);
+
+  for (const file of productionFiles.filter(
+    (file) => file !== managerPagePath
+  )) {
+    assert.doesNotMatch(
+      readFileSync(file, 'utf8'),
+      namedListingImport,
+      `${file} não deve adotar os componentes de listagem fora do piloto RDO Gestor`
+    );
+    assert.doesNotMatch(
+      readFileSync(file, 'utf8'),
+      directListingImport,
+      `${file} não deve adotar os componentes de listagem fora do piloto RDO Gestor`
+    );
+  }
 });
