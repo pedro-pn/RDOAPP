@@ -226,7 +226,12 @@ export async function reverseStockMovement(id: string, notes?: string | null) {
   return response.data;
 }
 
-export async function listStockBatches(itemId: string) {
-  const response = await apiClient.get<{ batches: StockBatchSummary[] }>(estoqueApiPath('/lotes'), { params: { itemId } });
+export async function listStockBatches(
+  itemId: string,
+  params?: { reason?: StockMovementReason; projectId?: string }
+) {
+  const response = await apiClient.get<{ batches: StockBatchSummary[] }>(estoqueApiPath('/lotes'), {
+    params: { itemId, ...params }
+  });
   return response.data.batches;
 }
