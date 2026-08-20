@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 import { makeEstoqueSchemas } from '../../../../shared/schemas/estoque.js';
-import { getBatchBalances, getItemBalances } from './stock-balance.js';
+import { getBatchBalances, getItemBalances, getProjectBatchBalances } from './stock-balance.js';
 
 const estoqueSchemas = makeEstoqueSchemas(z);
 const ROMANEIO_RETURN_LOT_NUMBER = 'ROMANEIO';
@@ -153,6 +153,19 @@ async function assertBatchBalance(tx, item, batch, quantity) {
   return available;
 }
 
+async function assertProjectBatchBalance(tx, item, batch, projectId, quantity) {
+  await lockBatch(tx, batch.id);
+  const projectBalances = await getProjectBatchBalances(tx, item.id, projectId);
+  const available = projectBalances.get(batch.id) || decimal(0);
+  if (available.minus(quantity).lt(0)) {
+    throw appError(
+      `Saldo insuficiente na obra para ${stockItemLabel(item)} (devolução: ${quantity.toFixed(3)} ${item.unitLabel}, disponível: ${available.toFixed(3)} ${item.unitLabel}).`,
+      409
+    );
+  }
+  return available;
+}
+
 async function createMovementRow(tx, {
   item,
   batch,
@@ -224,6 +237,9 @@ export async function createMovementInTransaction(tx, { data, createdById, roman
     if (isExpired(batch.expiryDate) && !parsed.confirmExpired) {
       throw appError('Lote vencido. Confirme para registrar a saída.', 422, { requiresConfirmation: true });
     }
+  }
+  if (parsed.reason === 'DEVOLUCAO_OBRA') {
+    await assertProjectBatchBalance(tx, item, batch, parsed.projectId, decimal(parsed.quantity));
   }
 
   const type = parsed.reason === 'COMPRA' || parsed.reason === 'DEVOLUCAO_OBRA'

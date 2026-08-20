@@ -127,10 +127,11 @@ function resolverFor(items: StockItem[]): Resolver<MovementFormValues> {
   };
 }
 
-function batchLabel(batch: StockBatchSummary) {
+function batchLabel(batch: StockBatchSummary, reason: StockMovementReason) {
   const lot = batch.lotNumber || 'Avulso';
   const expiry = batch.expiryDate ? ` · val. ${new Date(batch.expiryDate).toLocaleDateString('pt-BR')}` : '';
-  return `${lot}${expiry} · saldo ${batch.balance}`;
+  const balanceLabel = reason === 'DEVOLUCAO_OBRA' ? 'disponível na obra' : 'saldo';
+  return `${lot}${expiry} · ${balanceLabel} ${batch.balance}`;
 }
 
 function movementUnitLabel(item: StockItem | null) {
@@ -171,14 +172,19 @@ export function StockMovementFormModal({ open, onClose }: Props) {
   });
   const reason = watch('reason');
   const itemId = watch('itemId');
+  const projectId = watch('projectId');
   const item = selectedItem(items, watch('itemId'));
   const needsExistingBatch = reason !== 'COMPRA';
   const needsProject = reason === 'USO_EM_PROJETO' || reason === 'DEVOLUCAO_OBRA';
+  const isProjectReturn = reason === 'DEVOLUCAO_OBRA';
   const needsNotes = ['INVENTARIO', 'PERDA', 'DESCARTE_VALIDADE'].includes(reason);
   const batchesQuery = useQuery({
-    queryKey: ['estoque', 'lotes', itemId],
-    queryFn: () => listStockBatches(itemId),
-    enabled: needsExistingBatch && !!itemId
+    queryKey: ['estoque', 'lotes', { itemId, reason, projectId: isProjectReturn ? projectId : '' }],
+    queryFn: () => listStockBatches(itemId, {
+      reason,
+      projectId: isProjectReturn ? projectId : undefined
+    }),
+    enabled: needsExistingBatch && !!itemId && (!isProjectReturn || !!projectId)
   });
   const batches = useMemo(() => batchesQuery.data || [], [batchesQuery.data]);
   const selectedBatch = batches.find(batch => batch.id === watch('batchId')) || null;
@@ -193,9 +199,9 @@ export function StockMovementFormModal({ open, onClose }: Props) {
   });
 
   useEffect(() => {
-    if (!needsExistingBatch) return;
-    if (batches.length) setValue('batchId', batches[0].id);
-  }, [batches, needsExistingBatch, setValue]);
+    if (!needsExistingBatch || !batchesQuery.isSuccess) return;
+    setValue('batchId', batches[0]?.id || '');
+  }, [batches, batchesQuery.isSuccess, needsExistingBatch, setValue]);
 
   function submit(values: MovementFormValues) {
     const payload = formValuesToPayload(values);
@@ -326,16 +332,6 @@ export function StockMovementFormModal({ open, onClose }: Props) {
                   </select>
                 </div>
               ) : null}
-              <div className="field-group">
-                <label htmlFor="stock-move-batch">Lote *</label>
-                <select id="stock-move-batch" disabled={savingMutation.isPending || batchesQuery.isLoading || !itemId} {...register('batchId')}>
-                  <option value="">Selecione</option>
-                  {batches.map(batch => (
-                    <option key={batch.id} value={batch.id}>{batchLabel(batch)}</option>
-                  ))}
-                </select>
-                {errors.batchId ? <small className="field-error">{errors.batchId.message}</small> : null}
-              </div>
               {needsProject ? (
                 <div className="field-group">
                   <label htmlFor="stock-move-project">Projeto *</label>
@@ -348,6 +344,20 @@ export function StockMovementFormModal({ open, onClose }: Props) {
                   {errors.projectId ? <small className="field-error">{errors.projectId.message}</small> : null}
                 </div>
               ) : null}
+              <div className="field-group">
+                <label htmlFor="stock-move-batch">Lote *</label>
+                <select
+                  id="stock-move-batch"
+                  disabled={savingMutation.isPending || batchesQuery.isLoading || !itemId || (isProjectReturn && !projectId)}
+                  {...register('batchId')}
+                >
+                  <option value="">Selecione</option>
+                  {batches.map(batch => (
+                    <option key={batch.id} value={batch.id}>{batchLabel(batch, reason)}</option>
+                  ))}
+                </select>
+                {errors.batchId ? <small className="field-error">{errors.batchId.message}</small> : null}
+              </div>
               {reason === 'USO_EM_PROJETO' ? (
                 <div className="field-group">
                   <label htmlFor="stock-move-requested">Solicitante</label>

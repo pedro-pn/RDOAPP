@@ -9,7 +9,12 @@ import {
   removeStockFispqAttachment
 } from '../../lib/estoque/stock-attachments.js';
 import { createMovement, reverseMovement } from '../../lib/estoque/stock-movements.js';
-import { decimalBalanceString, getBatchBalances, getItemBalances } from '../../lib/estoque/stock-balance.js';
+import {
+  decimalBalanceString,
+  getBatchBalances,
+  getItemBalances
+} from '../../lib/estoque/stock-balance.js';
+import { getAvailableStockBatchRows } from '../../lib/estoque/stock-batches.js';
 import { normalizeChecklistItems } from '../../lib/equipamentos/equipment-checklist.js';
 import prisma from '../../lib/prisma.js';
 import { syncRomaneioCatalog } from '../../lib/romaneio-catalog.js';
@@ -643,33 +648,22 @@ router.post('/movimentacoes/:id/estorno', requireEstoqueManager, asyncHandler(as
 
 router.get('/lotes', asyncHandler(async (req, res) => {
   const itemId = String(req.query.itemId || '').trim();
+  const reason = String(req.query.reason || '').trim();
+  const projectId = String(req.query.projectId || '').trim();
   if (!itemId) return res.status(400).json({ error: 'Informe o item.' });
+  if (reason === 'DEVOLUCAO_OBRA' && !projectId) {
+    return res.status(400).json({ error: 'Informe o projeto para listar os lotes disponíveis na obra.' });
+  }
 
-  const [batches, balances] = await Promise.all([
-    prisma.stockBatch.findMany({ where: { itemId } }),
-    getBatchBalances(prisma, itemId)
-  ]);
+  const rows = await getAvailableStockBatchRows(prisma, { itemId, reason, projectId });
   const now = new Date();
-  const rows = batches
-    .map(batch => {
-      const balance = balances.get(batch.id) || new Prisma.Decimal(0);
-      return { batch, balance };
-    })
-    .filter(row => row.balance.gt(0))
-    .sort((a, b) => {
-      const aTime = a.batch.expiryDate ? new Date(a.batch.expiryDate).getTime() : Number.POSITIVE_INFINITY;
-      const bTime = b.batch.expiryDate ? new Date(b.batch.expiryDate).getTime() : Number.POSITIVE_INFINITY;
-      if (aTime !== bTime) return aTime - bTime;
-      return new Date(a.batch.createdAt).getTime() - new Date(b.batch.createdAt).getTime();
-    });
-
   res.json({
     batches: rows.map(({ batch, balance }) => ({
       id: batch.id,
       lotNumber: batch.lotNumber,
       expiryDate: serializeDateOnly(batch.expiryDate),
       balance: decimalBalanceString(balance),
-      expired: batch.expiryDate ? new Date(batch.expiryDate) < now : false
+      expired: isExpired(batch.expiryDate, now)
     }))
   });
 }));
