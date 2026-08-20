@@ -6,9 +6,9 @@
 
 ## Summary
 
-Criar a área **Efetivo Operacional** como módulo próprio do APP, entregando de início apenas a
-seção **Produtividade**, com a Improdutividade Real por colaborador e a Taxa Geral do efetivo
-operacional. O cálculo lê as horas normais já sincronizadas do Ponto Mais
+Criar a área **Efetivo Operacional** como módulo próprio do APP, entregando de início duas seções:
+**Produtividade** — Improdutividade Real por colaborador e Taxa Geral do efetivo operacional — e
+**Férias e ausências**, o cadastro que o indicador sinaliza e que todas as seções futuras exigem. O cálculo lê as horas normais já sincronizadas do Ponto Mais
 (`PontoPeriodSummary` → `mergePontoPeriods`), sem novo importador, sem lançamento manual e sem
 depender do motor de custo. A arquitetura nasce com espaço para as demais seções do protótipo
 (Visão geral, Calendário, Colaboradores, Missões, Evolução, Simulações, Administração), mas nenhuma
@@ -35,7 +35,7 @@ adequada a ~20–60 colaboradores e ~12 meses; sem N+1 por colaborador
 **Constraints**: nenhum comando de servidor executado pelo agente; migration Prisma obrigatória
 para qualquer mudança de schema; UI pt-BR e mobile-first
 
-**Scale/Scope**: 1 módulo, 1 seção funcional, ~3 endpoints, 1 migration
+**Scale/Scope**: 1 módulo, 2 seções, ~7 endpoints, 1 migration
 
 ## Constitution Check
 
@@ -45,9 +45,9 @@ para qualquer mudança de schema; UI pt-BR e mobile-first
 |-----------|----------|
 | I — Operação de servidor é sagrada | ✅ Migration e deploy entregues como blocos "rode no servidor"; o agente não executa nada |
 | II — UI pt-BR e mobile-first | ✅ Tabela por colaborador vira cards em telas estreitas; abas/filtros do módulo com quebra ou `select` no mobile; sem scroll horizontal de página |
-| III — Zod nas duas pontas | ✅ Query params do indicador e payload da marcação de função operacional validados com Zod no backend; filtros do frontend tipados |
-| IV — Banco só via Prisma | ✅ `JobRole.isOperational` e o parâmetro de referência entram por migration versionada; nenhum backfill destrutivo |
-| V — Testes no backend | ✅ `backend/test/efetivo-operacional.test.js` cobre a fórmula (piso 0%, média simples, exclusão de HE, meses analisados) e a permissão |
+| III — Zod nas duas pontas | ✅ Query params do indicador, CRUD de férias (datas, sobreposição) e marcação de função operacional validados com Zod no backend; formulário com react-hook-form + resolver Zod |
+| IV — Banco só via Prisma | ✅ `JobRole.isOperational`, `Collaborator.terminationDate`, `CollaboratorAbsence` e o parâmetro de referência entram por migration versionada; nenhum backfill destrutivo |
+| V — Testes no backend | ✅ `backend/test/efetivo-operacional.test.js` cobre a fórmula (piso 0%, média simples, exclusão de HE, pró-rata de admissão/desligamento, exclusão do mês corrente) e a permissão; `efetivo-ausencias.test.js` cobre validação de período e sobreposição |
 | VI — Consistência visual | ✅ Kit `components/ui/`, tokens de `variables.css`, tela análoga = `AcompanhamentoPage` + `SedeCostsBoard`; navegação em `?section=`/`?colaborador=`; tutorial permanente de módulo novo + novidade de 10 dias. **A exceção de identidade portada NÃO se aplica** — o protótipo não é um app aprovado em porte, é referência funcional |
 
 **Sem violações a registrar em Complexity Tracking.** A única escolha que merece justificativa é
@@ -99,7 +99,8 @@ frontend/src/modules/moduleRoutes.tsx→ rota /efetivo
 backend/src/lib/efetivo/
   access.js          → requireEfetivoManager / requireEfetivoViewer
   productivity.js    → funções puras do indicador (sem Prisma)
-  service.js         → orquestra Prisma + productivity.js
+  absences.js        → regras de período de ausência (validação, sobreposição, meses afetados)
+  service.js         → orquestra Prisma + productivity.js + absences.js
   settings.js        → parâmetro de referência (161 HH/mês) e defaults
 backend/src/routes/resources/efetivo.js
 backend/test/efetivo-operacional.test.js
@@ -109,7 +110,9 @@ backend/test/efetivo-operacional.test.js
 
 ```text
 buildMonthlyProductiveHours(periods)            → Map<collaboratorId, Map<'YYYY-MM', horasNormais>>
-selectAnalyzedMonths(monthly, { year, cutoff, admissionDate, ... })
+selectAnalyzedMonths(monthly, { year, cutoff, admissionDate, terminationDate, currentMonth })
+  → meses ativos do período, pró-rata só em admissão/desligamento, mês corrente fora (D-2);
+    férias NÃO reduzem o denominador (D-8), apenas marcam o mês
 computeIndividualRate({ totalHours, analyzedMonths, reference })
 computeGeneralRate(individualRates)             → média simples das taxas válidas
 buildProductivityReport({ collaborators, jobRoles, periods, filters, reference })
@@ -127,6 +130,8 @@ frontend/src/pages/efetivo/components/
   ProductivityBoard.tsx                              → KPIs + evolução mensal + tabela/cards
   ProductivityCollaboratorDetail.tsx                 → detalhe por ?colaborador=
   ProductivityPendingList.tsx                        → pendências (FR-013)
+  AbsencesBoard.tsx                                  → seção ?section=ausencias: lista + formulário
+  AbsenceFormModal.tsx                               → Modal do kit + react-hook-form + Zod
 frontend/src/pages/efetivo/utils/productivityPeriods.ts
 frontend/test/efetivo.test.mjs
 ```
@@ -140,11 +145,48 @@ de módulo novo no padrão de `AcompanhamentoTutorial.tsx` e novidade de 10 dias
 ### Banco (migration única)
 
 ```prisma
+enum CollaboratorAbsenceType {
+  FERIAS        // única exposta na primeira entrega
+  FOLGA         // reservada — não exposta na UI ainda
+  AFASTAMENTO   // reservada
+  ASO           // reservada
+  TREINAMENTO   // reservada
+}
+
 model JobRole {
   // ...
-  isOperational Boolean @default(true)   // valor padrão conforme D-4
+  isOperational Boolean @default(true)   // D-4: todos nascem operacionais
+}
+
+model Collaborator {
+  // ...
+  terminationDate DateTime?              // D-3: delimita os meses analisados
+  absences        CollaboratorAbsence[]
+}
+
+model CollaboratorAbsence {
+  id              String                  @id @default(cuid())
+  collaboratorId  String
+  type            CollaboratorAbsenceType @default(FERIAS)
+  startDate       DateTime                @db.Date
+  endDate         DateTime                @db.Date
+  note            String?
+  createdByUserId String?
+  deletedAt       DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  collaborator    Collaborator            @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@index([collaboratorId, startDate])
+  @@index([type, startDate])
+  @@index([deletedAt])
 }
 ```
+
+O enum já nasce com os demais tipos para que folga, afastamento, ASO/ASU e NR entrem depois sem
+migration estrutural — mas **apenas `FERIAS` é exposta na UI desta entrega**. Sobreposição de
+períodos do mesmo colaborador é recusada na validação (não há constraint de exclusão no Postgres via
+Prisma). Soft delete preserva a trilha.
 
 Parâmetro de referência: reutilizar o padrão de `AcompanhamentoSetting` criando um
 `EfetivoSetting` (chave/valor com `updatedAt` e `updatedByUserId`) ou uma linha de configuração do
@@ -166,6 +208,13 @@ GET  /api/efetivo/produtividade/:collaboratorId?ano=2026
      → detalhe mês a mês
 
 PATCH /api/job-roles/:id  { isOperational }    (rota existente, campo novo)
+
+GET    /api/efetivo/ausencias?colaborador=&ano=
+POST   /api/efetivo/ausencias        { collaboratorId, type, startDate, endDate, note }
+PATCH  /api/efetivo/ausencias/:id    { startDate, endDate, note }
+DELETE /api/efetivo/ausencias/:id    (soft delete)
+
+PATCH  /api/collaborators/:id  { terminationDate }   (rota existente, campo novo)
 ```
 
 Validação Zod nos query params (`ano` inteiro plausível, `ateMes` 1–12) e no corpo do PATCH.
@@ -200,6 +249,8 @@ Classificação de cada funcionalidade/conceito do protótipo contra o que o APP
 | Tela Produtividade (KPIs, evolução mensal, tabela/cards, detalhe) | Kit e tokens do APP; sem cópia do layout do protótipo |
 | Lista de pendências (ponto sem vínculo, sem meses, cargo sem `JobRole`) | Equivalente ao "Lançamentos pendentes" do protótipo |
 | Parâmetro configurável da referência mensal | Evita 161 espalhado no código |
+| **Cadastro de férias** (`CollaboratorAbsence`, tipo `FERIAS`) + seção "Férias e ausências" | Decisão D-1: o APP passa a saber quando alguém esteve de férias |
+| **Data de desligamento** no colaborador | Decisão D-3: fecha os meses analisados de quem saiu |
 | Testes de fórmula e permissão + tutorial/novidade | Constitution V e VI |
 
 ### Preparar arquitetura (agora), implementar depois
@@ -211,7 +262,8 @@ Classificação de cada funcionalidade/conceito do protótipo contra o que o APP
 | Leitura do ponto como biblioteca | `productivity.js` consome funções puras; se a fronteira entre módulos incomodar, mover `mergePontoPeriods`/`filterIgnoredPontoPeriods` para `backend/src/lib/ponto/` |
 | Parâmetros do módulo | Um lugar único para constantes (161 hoje; prazos de folga, metas e janelas amanhã) |
 | Competência mensal | O serviço já expõe "meses analisados" e a data da última sincronização — se o fechamento formal for aprovado (D-2), ele vira um filtro sobre a mesma lista, não uma reescrita |
-| Ausências | Nenhum modelo é criado agora, mas o serviço isola "meses analisados" em uma função (`selectAnalyzedMonths`) — é ali que férias/afastamento entrarão |
+| Demais tipos de ausência (folga, afastamento, ASO/ASU, NR) | O enum `CollaboratorAbsenceType` já nasce com os tipos; a UI expõe só `FERIAS`. Habilitar um tipo depois é liberar opção, não migrar schema |
+| Período aquisitivo / alerta de férias vencidas | O histórico de férias passa a existir com esta entrega; a regra CLT fica para depois (D-9) |
 
 ### Futuro / fora do escopo desta entrega
 
@@ -222,31 +274,41 @@ Classificação de cada funcionalidade/conceito do protótipo contra o que o APP
 | Missões com composição por função em **pessoas**, retorno e "alocar disponíveis" | Hoje a previsão por cargo é em **horas** (`ProjectPlannedNormalHours`), não em cabeças; não há data de retorno nem alocação planejada por pessoa |
 | Kanban de evolução das missões (stand by → … → finalizados) | Não existe status de ciclo de vida em `Project`; é feature própria e toca o Acompanhamento |
 | Simulações de cenário com contratações hipotéticas | Depende de missões planejadas e disponibilidade futura |
-| Alertas de permanência contínua em obra / folgas a programar | Depende de ausências e de regra de negócio (D-5) |
+| Alertas de permanência contínua em obra / folgas a programar | **A regra foi confirmada** (90/60/30 por nível de função, D-5), mas o alerta depende de alocação por pessoa em missão, que não existe |
 | Taxa de alocação / utilização planejada (90 dias, meta 80%) | Indicador distinto; fórmula explicitamente **não presumida** (D-6) |
 | "+ Lançar HH" (entrada manual de horas) | Contraria a feature 010, que eliminou o lançamento manual — Ponto Mais é a verdade do tempo |
 | Papéis "Planejador"/"Leitor" e convites do protótipo | O APP já tem seu próprio modelo de papéis; adotar `manager`/`viewer` |
 
-### Regra de negócio ainda indefinida
+### Regra de negócio: o que já foi decidido e o que falta
+
+Decidido pelo solicitante em 2026-08-20 (detalhe em [spec.md](./spec.md)):
 
 | Tema | Decisão |
 |---|---|
-| O que conta como "meses analisados" (pró-rata, mês parcial, férias) | D-1 |
-| Competências abertas entram no indicador? Haverá fechamento formal? | D-2 |
-| Tratamento de desligados (falta data de desligamento no APP) | D-3 |
-| Quais cargos são operacionais e qual o default da migration | D-4 |
-| Prazos de folga por permanência contínua (90/60/30 do protótipo) | D-5 |
-| Fórmula da Taxa de Alocação/Utilização | D-6 |
-| Meta de improdutividade | D-7 |
+| "Meses analisados" | Meses ativos com pró-rata só em admissão/desligamento — **e o APP ganha cadastro de férias** (D-1) |
+| Competências abertas | O mês corrente fica fora; meses dentro da janela de 31 dias entram com aviso (D-2) |
+| Desligados | Entram pelos meses ativos; novo campo de data de desligamento (D-3) |
+| Cargos operacionais | Todos nascem operacionais; o gestor desmarca depois (D-4) |
+| Prazos de folga por permanência em obra | 90 dias apoio/operadores/encarregados · 60 supervisores · 30 coordenadores/engenheiros — **regra confirmada da empresa** (D-5) |
+| Férias no denominador | **Não descontam**; 161 permanece e os meses com férias são sinalizados (D-8) |
+
+Ainda em aberto, sem bloquear a entrega:
+
+| Tema | Decisão |
+|---|---|
+| Fórmula da Taxa de Alocação/Utilização | D-6 — **não presumir** |
+| Meta de improdutividade (semáforo na tela) | D-7 |
+| Período aquisitivo e alerta de férias vencidas | D-9 |
 
 ## Roadmap de expansão (referência conceitual, não compromisso)
 
 ```text
 Efetivo Operacional
 ├── Produtividade            ← ENTREGA 1 (esta feature)
+├── Férias e ausências       ← ENTREGA 1 (cadastro de férias; demais tipos preparados)
 ├── Administração            ← Entrega 2: funções operacionais, parâmetros, trilha
-├── Colaboradores            ← Entrega 3: base + situação (exige cadastro de ausências)
-├── Calendário               ← Entrega 4: exige ausências + feriados + alocação planejada
+├── Colaboradores            ← Entrega 3: base + situação na data (usa o cadastro da entrega 1)
+├── Calendário               ← Entrega 4: exige feriados + alocação planejada
 ├── Missões                  ← Entrega 5: exige necessidade por função em pessoas e retorno
 ├── Visão Geral              ← Entrega 6: só faz sentido quando 3–5 existirem
 ├── Evolução / Histórico     ← Entrega 7: status de ciclo de vida da missão
@@ -254,15 +316,16 @@ Efetivo Operacional
 ```
 
 Ordem proposta pelo custo de pré-requisito: quase tudo na Visão Geral do protótipo depende de dois
-cadastros que hoje não existem — **ausências** e **alocação planejada por pessoa**. Enquanto eles
-não existirem, qualquer KPI de disponibilidade seria estimativa.
+cadastros que hoje não existem — **ausências** e **alocação planejada por pessoa**. A entrega 1
+resolve o primeiro (começando por férias); o segundo continua sendo o gargalo de Calendário,
+Missões, Visão Geral, Simulações e do alerta de folga da regra 90/60/30.
 
 ## Riscos
 
 | Risco | Impacto | Mitigação |
 |---|---|---|
-| Mês de férias penaliza duas vezes (161 já é anualizada) | Indicador injusto com quem tirou férias | Explicitar na tela o que entra na conta; resolver de verdade só com cadastro de ausências (D-1) |
-| Mês corrente parcial derruba a média geral | Número enganoso no início do mês | D-2; exibir aviso de mês em curso |
+| Recorte parcial do ano penaliza quem tirou férias dentro da janela | Indicador injusto entre pessoas com férias em meses diferentes | Decisão D-8 mantém 161 sem novo desconto; a tela **sinaliza** os meses com férias a partir do cadastro novo. Se incomodar na prática, existe a base equivalente (176 com férias fora do denominador) já analisada |
+| Sobreposição ou digitação errada no cadastro de férias | Sinalização errada e, no futuro, disponibilidade errada | Validação Zod de período invertido e sobreposto; soft delete com autoria |
 | Correção retroativa do Ponto Mais muda número já divulgado | Perda de confiança | Exibir data da última sincronização e alcance do período (FR-014) |
 | Cargo sem `JobRole` correspondente esconde pessoa | Indicador incompleto | Pendência explícita (FR-013) |
 | Dado pessoal (produtividade individual) exposto a papel amplo | LGPD | Papel próprio do módulo; revisar `LGPD_ROPA.md` ao implementar |
@@ -270,8 +333,7 @@ não existirem, qualquer KPI de disponibilidade seria estimativa.
 
 ## Próximos passos
 
-1. Revisar com o solicitante as decisões **D-1 a D-4** (as únicas que mudam números da primeira
-   entrega).
+1. ✅ Decisões **D-1 a D-5 e D-8** respondidas pelo solicitante em 2026-08-20 e incorporadas à spec.
 2. Rodar `/speckit-tasks` para gerar `tasks.md` a partir desta spec e deste plano.
 3. Implementar em uma única PR: registry + migration + backend + frontend + testes.
 4. Migration e deploy entregues como blocos "rode no servidor" (Princípio I).

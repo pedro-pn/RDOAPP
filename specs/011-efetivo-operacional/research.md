@@ -179,6 +179,11 @@ Busca por `férias|feriado|afastamento|atestado|ASO|ASU|treinamento|NR-` em `bac
 programada, ASO/ASU, treinamento/NR nem calendário de feriados operacional. Tudo que o protótipo
 mostra nessas áreas seria criação nova.
 
+> **Atualização (2026-08-20)**: ao responder D-1, o solicitante determinou que o **cadastro de
+> férias entra na primeira entrega**. A feature passa a criar `CollaboratorAbsence` (tipo `FERIAS`
+> exposto; folga, afastamento, ASO e treinamento reservados no enum) e o campo
+> `Collaborator.terminationDate`. Os demais itens desta seção continuam inexistentes.
+
 ### 2.6 Módulos, permissão e UI
 
 - Módulos são declarados em `shared/modules/registry.json` (fonte de verdade de id, papéis, card
@@ -240,10 +245,13 @@ Registrados aqui porque afetam a leitura do indicador, não a sua implementaçã
   (`176 × 11 ÷ 12`), ou seja, as férias já estão diluídas. Se um mês em que a pessoa esteve de
   férias entrar na média como um mês qualquer, ela é penalizada duas vezes. Como o APP não tem
   cadastro de férias (§2.5), hoje **não há como identificar esse mês** — só o padrão de horas
-  sugere. É a maior fragilidade do indicador e está na decisão D-1.
+  sugere. **Decidido em 2026-08-20 (D-8)**: as férias continuam **sem descontar** o denominador —
+  161 permanece como referência —, e o cadastro novo serve para **sinalizar** os meses afetados. A
+  base equivalente (referência 176 com férias fora do denominador), que elimina a distorção em
+  recortes parciais, foi analisada e não foi adotada.
 - **Admissão e desligamento no meio do período.** O protótipo usa "meses equivalentes" com
-  pró-rata. O APP tem `admissionDate`, mas **não tem data de desligamento** — apenas
-  `isActive = false`.
+  pró-rata. O APP tem `admissionDate`, mas **não tinha data de desligamento** — apenas
+  `isActive = false`. Decisão D-3: o campo passa a existir e o pró-rata vale para os dois extremos.
 - **Adicional noturno não é hora extra.** `nightMinutes` é adicional sobre horas já contadas em
   `workedMinutes`; não deve ser somado nem descontado das HH produtivas.
 - **Pessoas sem vínculo no ponto** (`collaboratorId = null`) e pessoas ignoradas

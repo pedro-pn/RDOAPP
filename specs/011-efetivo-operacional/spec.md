@@ -26,8 +26,9 @@ Colaboradores, Missões, Evolução das missões, Simulações, Produtividade e 
 confrontação completa entre o protótipo e o APP está em `research.md` e a classificação de escopo
 está na seção **Protótipo x APP atual** do `plan.md`.
 
-**Esta spec cobre apenas a primeira entrega**: a área nasce como módulo próprio, com uma única
-seção funcional — **Produtividade** — e a arquitetura preparada para as demais seções.
+**Esta spec cobre apenas a primeira entrega**: a área nasce como módulo próprio, com duas seções —
+**Produtividade** (o indicador) e **Férias e ausências** (o cadastro que o indicador e todas as
+seções futuras precisam) — e a arquitetura preparada para as demais.
 
 ### Dois indicadores que não podem ser confundidos
 
@@ -137,7 +138,36 @@ saem da taxa geral, sem apagar dado nenhum.
 
 ---
 
-### User Story 5 - Abrir o detalhe mensal de um colaborador (Priority: P3)
+### User Story 5 - Cadastrar férias e ausências (Priority: P2)
+
+Como gestor, quero cadastrar os períodos de férias de cada colaborador para que o APP passe a saber
+quando alguém esteve afastado e a leitura da produtividade deixe de ser cega a isso.
+
+**Why this priority**: hoje o APP não sabe nada sobre férias, e essa cegueira é a maior fragilidade
+do indicador. O cadastro não altera a taxa oficial (ver D-8), mas permite sinalizar os meses
+afetados e é o pré-requisito de todas as seções futuras do módulo (Calendário, Colaboradores,
+Disponibilidade).
+
+**Independent Test**: cadastrar um período de férias para um colaborador, conferir que ele aparece
+na listagem, que o período é sinalizado na tela de Produtividade e que a taxa oficial dele NÃO muda
+por causa do cadastro.
+
+**Acceptance Scenarios**:
+
+1. **Given** a seção de férias e ausências, **When** o gestor cadastra um período com colaborador,
+   data de início e data de fim, **Then** o período fica registrado e listado.
+2. **Given** um período cadastrado, **When** o gestor edita ou remove, **Then** a mudança é
+   registrada com autor e data, sem apagar a trilha.
+3. **Given** um período com data de fim anterior à de início ou sobreposto a outro período do mesmo
+   colaborador, **When** o gestor tenta salvar, **Then** o sistema recusa com mensagem no padrão
+   visual de campo inválido.
+4. **Given** um colaborador com férias dentro do período analisado, **When** o gestor abre a
+   Produtividade, **Then** os meses afetados aparecem sinalizados e a taxa oficial dele continua
+   calculada sem descontar as férias do denominador.
+
+---
+
+### User Story 6 - Abrir o detalhe mensal de um colaborador (Priority: P3)
 
 Como gestor, quero abrir um colaborador e ver o mês a mês de HH produtivas contra a referência de
 161, para entender de onde vem a taxa dele antes de conversar com a pessoa.
@@ -160,11 +190,15 @@ bate com as HH acumuladas dele na tabela.
 
 - **Mês corrente parcial**: o mês em curso tem poucos dias de ponto e derruba a média de todo mundo
   (ver decisão D-2).
-- **Mês com férias**: sem cadastro de férias no APP, um mês de férias entra como mês normal com
-  horas quase nulas e penaliza duas vezes, já que 161 é referência anualizada (decisão D-1).
+- **Mês com férias**: por decisão D-8 as férias NÃO são descontadas do denominador (161 já é
+  referência anualizada). Em recorte parcial do ano isso penaliza quem tirou férias dentro da
+  janela; o mês precisa aparecer sinalizado na tela.
+- **Férias cobrindo o mês inteiro**: o mês conta como mês analisado com horas próximas de zero — é
+  o caso extremo da distorção acima e o que mais exige a sinalização.
 - **Admissão no meio do período**: meses anteriores à admissão não podem contar como meses
   analisados.
-- **Desligamento**: o APP não tem data de desligamento, apenas `isActive` (decisão D-3).
+- **Desligamento**: o colaborador entra pelos meses em que esteve ativo, com pró-rata no mês do
+  desligamento (decisão D-3); depende do campo novo de data de desligamento.
 - **Colaborador com média acima de 161**: taxa individual é 0%, nunca negativa.
 - **Nenhum colaborador operacional elegível no período**: a taxa geral é exibida como indisponível,
   não como 0%.
@@ -178,7 +212,8 @@ bate com as HH acumuladas dele na tabela.
 ### Functional Requirements
 
 - **FR-001**: A área **Efetivo Operacional** DEVE existir como área própria do APP, com controle de
-  acesso por papéis de módulo, e a primeira entrega DEVE conter apenas a seção **Produtividade**.
+  acesso por papéis de módulo, e a primeira entrega DEVE conter as seções **Produtividade** e
+  **Férias e ausências**.
 - **FR-002**: O sistema DEVE calcular **HH produtivas** a partir das **horas normais** já
   sincronizadas do Ponto Mais, por colaborador e por mês.
 - **FR-003**: Horas extras (HE70, HE100 e extras genéricas) NÃO DEVEM entrar nas HH produtivas;
@@ -216,6 +251,19 @@ bate com as HH acumuladas dele na tabela.
   feature 010).
 - **FR-018**: O módulo DEVE nascer com tutorial permanente de primeiro acesso e campanha de
   novidade temporária de 10 dias, conforme a constitution.
+- **FR-019**: Os **meses analisados** de um colaborador DEVEM ser os meses do período em que ele
+  esteve ativo, com pró-rata proporcional apenas no mês de admissão e no mês de desligamento.
+- **FR-020**: As férias NÃO DEVEM ser descontadas dos meses analisados (a referência de 161 já é
+  anualizada); os meses com férias DEVEM ser sinalizados na tela.
+- **FR-021**: O **mês corrente NÃO DEVE entrar** no cálculo; meses ainda dentro da janela de
+  reprocessamento de 31 dias do Ponto Mais DEVEM ser exibidos com aviso de que ainda podem mudar.
+- **FR-022**: O sistema DEVE permitir cadastrar, editar e remover **períodos de férias** por
+  colaborador (início, fim, observação), com autor e data registrados, recusando período invertido
+  ou sobreposto ao mesmo colaborador.
+- **FR-023**: O cadastro de colaboradores DEVE ganhar **data de desligamento**, usada para delimitar
+  os meses analisados; desligados DEVEM continuar aparecendo pelos meses em que estiveram ativos.
+- **FR-024**: Todos os `JobRole` DEVEM nascer como função operacional (`isOperational = true`),
+  cabendo ao gestor desmarcar os administrativos.
 
 ### Key Entities
 
@@ -226,6 +274,10 @@ bate com as HH acumuladas dele na tabela.
   média (regra exata em D-1/D-2).
 - **Parâmetro do módulo**: referência mensal de HH produtivas (161) e demais constantes do
   indicador.
+- **Ausência do colaborador**: período com tipo (nesta entrega apenas **férias**), início, fim,
+  observação e autoria. Entidade desenhada para receber folga, afastamento, ASO/ASU e
+  treinamento/NR no futuro, sem nova migration estrutural.
+- **Data de desligamento**: novo campo do colaborador, usado para fechar os meses analisados.
 - **Pendência**: registro de ponto ou colaborador que não pôde entrar no indicador, com motivo.
 
 ## Success Criteria *(mandatory)*
@@ -239,57 +291,49 @@ bate com as HH acumuladas dele na tabela.
 - **SC-004**: Trocar o período e recarregar a página preserva o recorte analisado.
 - **SC-005**: A tela funciona em celular sem scroll horizontal de página (tabela vira cards).
 - **SC-006**: Nenhum número do indicador depende de o cargo ter perfil de custo configurado.
+- **SC-007**: Cadastrar férias de um colaborador não altera a taxa oficial dele — apenas sinaliza
+  os meses afetados.
 
 ## Assumptions
 
 - As HH produtivas são as horas **normais** do Ponto Mais, que já é a verdade do tempo no APP.
 - O efetivo operacional é definido por função/cargo, não por pessoa.
-- A primeira entrega é somente leitura: nenhum dado operacional novo é cadastrado além da marcação
-  de função operacional e do parâmetro de referência.
+- A primeira entrega é de leitura no indicador; o único dado operacional novo cadastrado é o
+  período de férias, além da marcação de função operacional, da data de desligamento e do
+  parâmetro de referência.
 
-## Decisões de negócio pendentes
+## Decisões de negócio tomadas
 
-> Nenhuma destas decisões bloqueia o desenho técnico. Todas mudam **quais meses e quais pessoas**
-> entram na conta — não a fórmula, que está fixada nos FR-005 a FR-007.
+*Respondidas pelo solicitante em 2026-08-20. Elas fixam quais meses e quais pessoas entram na conta;
+a fórmula em si continua a dos FR-005 a FR-007.*
 
-- **D-1 — O que é "meses analisados"?**
-  Opções: (a) meses do período com qualquer ponto registrado, mês parcial contando como mês
-  inteiro; (b) meses do período em que o colaborador esteve ativo (admissão/desligamento), com
-  pró-rata só nos meses de entrada e saída, como o protótipo ("meses equiv. 7,00"); (c) meses
-  civis do período, independentemente de ponto.
-  *Recomendação para revisão*: (b) com pró-rata apenas em admissão/desligamento, porque é o que
-  mais se aproxima da referência anualizada de 161 e do texto do protótipo.
-  *Ponto de atenção*: sem cadastro de férias (research §2.5), nenhuma opção consegue neutralizar um
-  mês de férias — a pessoa aparece mais improdutiva do que é.
+- **D-1 — "Meses analisados" = meses em que o colaborador esteve ativo**, com pró-rata apenas nos
+  meses de admissão e de desligamento (opção b). **E o APP passa a ter cadastro de férias** — ver
+  US5, FR-022 e D-8.
+- **D-2 — O mês corrente não entra** no cálculo (opção b). Meses ainda dentro da janela de 31 dias
+  do Ponto Mais entram, mas com aviso de que podem mudar.
+- **D-3 — Desligados entram pelos meses em que estiveram ativos**, e o cadastro de colaboradores
+  ganha **data de desligamento** (FR-023).
+- **D-4 — Todos os cargos nascem operacionais** (`isOperational = true`); o gestor desmarca
+  manualmente os administrativos depois (FR-024).
+- **D-5 — Os prazos de folga por permanência contínua em obra são regra da empresa**: 90 dias para
+  apoio, operadores e encarregados; 60 dias para supervisores; 30 dias para coordenadores e
+  engenheiros. Registrado aqui como regra confirmada; o alerta só pode ser construído quando
+  existir alocação por pessoa em missão (fora desta entrega).
+- **D-8 — Férias não descontam do denominador.** A referência continua 161 HH/mês, que já é
+  anualizada; férias não são descontadas de novo. Consequência aceita: em recorte parcial do ano,
+  quem tirou férias dentro da janela aparece mais improdutivo que quem tirou fora dela — por isso
+  os meses com férias precisam ficar sinalizados na tela (FR-020).
 
-- **D-2 — Competências abertas entram?**
-  O APP não tem competência nem fechamento (research §3). Opções: (a) usar todos os meses,
-  inclusive o mês corrente parcial; (b) excluir o mês corrente; (c) considerar apenas meses já
-  estabilizados pela janela de sincronização de 31 dias do Ponto Mais; (d) criar fechamento manual
-  de competência com autor e trilha, como no protótipo.
-  *Recomendação para revisão*: (b) como regra da primeira entrega, com (c) exibido como aviso de
-  "mês ainda sujeito a correção"; (d) só se o negócio quiser o ritual formal.
-  **A fórmula não foi alterada e nenhuma competência é excluída automaticamente enquanto esta
-  decisão não for tomada.**
+## Decisões ainda pendentes
 
-- **D-3 — Desligados no período.**
-  O APP só tem `isActive`, sem data de desligamento. Entram no indicador enquanto estiveram ativos?
-  Se sim, é preciso um campo de data de desligamento.
+*Nenhuma bloqueia a primeira entrega.*
 
-- **D-4 — Efetivo operacional: quais cargos?**
-  A lista precisa ser confirmada com o negócio. O protótipo mostra 16 funções, incluindo Diretoria e
-  Gerência de Operações — que, se forem consideradas operacionais, entram na taxa geral.
-  Também é preciso definir o padrão da migration (todos operacionais e o gestor desmarca, ou
-  nenhum e o gestor marca).
-
-- **D-5 — Regra de folga por permanência contínua em obra.**
-  O protótipo exibe 90/60/30 dias por nível de função. Não assumir esses prazos como regra da
-  empresa; é regra de negócio a definir junto com o cadastro de ausências.
-
-- **D-6 — Fórmula da Taxa de Alocação/Utilização.**
-  Explicitamente **não presumida** nesta feature. Só será especificada quando existirem missões com
-  período, ausências e disponibilidade cadastradas.
-
-- **D-7 — Meta de improdutividade.**
-  O protótipo exibe "Meta de ocupação: 80%" para alocação. Não há meta definida para
-  improdutividade; sem ela, a tela não exibe semáforo de bom/ruim.
+- **D-6 — Fórmula da Taxa de Alocação/Utilização.** Explicitamente **não presumida**. Só será
+  especificada quando existirem missões com período, ausências e disponibilidade cadastradas.
+- **D-7 — Meta de improdutividade.** Sem meta definida, a tela exibe o número sem semáforo de
+  bom/ruim.
+- **D-9 — Período aquisitivo e alerta de férias vencidas.** O protótipo mostra "férias vencidas",
+  "período aquisitivo até" e "programar até". Depende de regra CLT própria (12 meses aquisitivos +
+  12 concessivos) e do histórico de férias que só passará a existir com o cadastro desta entrega.
+  Fora do escopo agora.
