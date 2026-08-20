@@ -1151,6 +1151,7 @@ export function GestorPage() {
   const showToast = useToast();
   const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
   const reportListingTab = tab === 'pendentes' || tab === 'aprovados';
+  const statisticsTab = tab === 'estatisticas';
   const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [gestorSearch, setGestorSearch] = usePersistentSearch(`gestor-search:${user?.id || 'anonymous'}:${tab}`);
@@ -4505,20 +4506,25 @@ export function GestorPage() {
   function renderEstatisticasTab() {
     return (
       <>
-        {statsDashboardOpen && <StatsDashboardOverlay onClose={() => setStatsDashboardOpen(false)} />}
-        {allocationDashboardOpen && <MonthlyAllocationDashboardOverlay onClose={() => setAllocationDashboardOpen(false)} />}
-        <div className="nps-tab-toolbar">
-          <div className="nps-tab-toolbar-left" />
-          <div className="nps-tab-toolbar-right">
-            <button className="mini-btn alt" type="button" onClick={() => setAllocationDashboardOpen(true)}>
-              Alocação mensal
-            </button>
-            <button className="mini-btn" type="button" onClick={() => setStatsDashboardOpen(true)}>
-              Dashboard detalhado
-            </button>
-          </div>
-        </div>
-        <StatsOverview />
+        <PageHeader
+          className="rdo-manager-stats-page__header"
+          title="Estatísticas"
+          description="Visão geral dos projetos e relatórios aprovados ou assinados."
+          actions={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setAllocationDashboardOpen(true)}
+              >
+                Alocação mensal
+              </Button>
+              <Button onClick={() => setStatsDashboardOpen(true)}>
+                Dashboard detalhado
+              </Button>
+            </>
+          }
+        />
+        <StatsOverview appearance="design-system" />
       </>
     );
   }
@@ -4625,10 +4631,23 @@ export function GestorPage() {
         </div>
       </div>
 
+      {statisticsTab && statsDashboardOpen ? (
+        <StatsDashboardOverlay onClose={() => setStatsDashboardOpen(false)} />
+      ) : null}
+      {statisticsTab && allocationDashboardOpen ? (
+        <MonthlyAllocationDashboardOverlay
+          onClose={() => setAllocationDashboardOpen(false)}
+        />
+      ) : null}
+
       <main
         className={
-          reportListingTab
-            ? 'fv-ds page-scroll rdo-manager-page'
+          reportListingTab || statisticsTab
+            ? `fv-ds page-scroll ${
+                reportListingTab
+                  ? 'rdo-manager-page'
+                  : 'rdo-manager-stats-page'
+              }`
             : 'page-scroll'
         }
       >
