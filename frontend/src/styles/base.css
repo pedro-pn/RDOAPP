@@ -11051,6 +11051,14 @@ select:disabled {
   width: min(100%, 760px);
 }
 
+.stock-documents-description {
+  margin: 0;
+}
+
+.stock-item-document-list {
+  margin: 4px 0 10px;
+}
+
 /* X de fechar fixo no canto: fica sobre a área que rola e não some com a rolagem.
    Alinhado ao padding do modal (18px) e à linha do título para não destoar. */
 .equip-modal-close-float {

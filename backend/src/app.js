@@ -60,11 +60,14 @@ app.use((req, res, next) => {
     '/api/estoque',
     '/api/qualidade/registros'
   ].some(prefix => req.path === prefix || req.path.startsWith(`${prefix}/`));
+  const isStockDocumentUploadApi = /^\/api\/estoque\/itens\/[^/]+\/documentos$/.test(req.path);
   const isManualReportUploadApi = req.path === '/api/reports/manual-upload'
     || req.path === '/api/rdo/reports/manual-upload'
     || /^\/api(?:\/rdo)?\/reports\/[^/]+\/manual-pdf$/.test(req.path);
   const isSignatureApi = req.path.includes('/request-signature') || req.path.includes('/public-sign');
-  const limit = isUploadsApi || isEquipmentUploadApi || isManualReportUploadApi ? '25mb' : isSignatureApi ? '3mb' : '1mb';
+  const limit = isStockDocumentUploadApi
+    ? '30mb'
+    : isUploadsApi || isEquipmentUploadApi || isManualReportUploadApi ? '25mb' : isSignatureApi ? '3mb' : '1mb';
   return express.json({ limit })(req, res, next);
 });
 app.use(morgan('dev'));
@@ -108,7 +111,7 @@ app.get('/api/estoque-anexos/:token', asyncHandler(async (req, res) => {
   if (!resolved) {
     return res.status(404).json({ error: 'Anexo não encontrado.' });
   }
-  res.type('application/pdf');
+  res.type(resolved.document.mimeType || 'application/pdf');
   res.setHeader('Content-Disposition', inlineContentDisposition(stockAttachmentFileName(resolved)));
   return res.sendFile(resolved.targetPath);
 }));
