@@ -4632,7 +4632,10 @@ export function GestorPage() {
       </div>
 
       {statisticsTab && statsDashboardOpen ? (
-        <StatsDashboardOverlay onClose={() => setStatsDashboardOpen(false)} />
+        <StatsDashboardOverlay
+          appearance="design-system"
+          onClose={() => setStatsDashboardOpen(false)}
+        />
       ) : null}
       {statisticsTab && allocationDashboardOpen ? (
         <MonthlyAllocationDashboardOverlay

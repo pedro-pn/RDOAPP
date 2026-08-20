@@ -1,4 +1,12 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode
+} from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 
@@ -11,6 +19,7 @@ import {
   type AllocationReportCollaborator,
   type AllocationReportDay,
   type StatsExportSection,
+  type StatsDailyReport,
   type StatsOverviewProject,
   type StatsOverviewResponse,
   type StatsParams,
@@ -19,6 +28,8 @@ import {
   type StatsSummary,
   type StatsTimelineSlot
 } from '../../api/statistics';
+import { BrandLogo } from '../brand/BrandLogo';
+import { AppIcon } from '../icons/AppIcon';
 import {
   useAllocationReport,
   useAllocationReportRecipientMutations,
@@ -36,9 +47,15 @@ import {
   Card,
   DataTable,
   EmptyState,
+  Field,
+  Input,
+  Select,
   Skeleton,
+  StatusPill,
   type DataTableColumn
 } from '../ui/ds';
+import { DS_ICONS } from '../ui/ds/icons';
+import { Modal } from '../ui/Modal';
 import './StatsDashboard.ds.css';
 
 const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
@@ -97,8 +114,59 @@ function dateInputValue(date: Date): string {
 
 type PeriodPreset = 'today' | 'week' | 'month' | 'year' | 'custom';
 type ProjectStatusFilterValue = NonNullable<StatsParams['projectStatus']>;
+type StatsDashboardAppearance = 'legacy' | 'design-system';
 
-const PROJECT_STATUS_OPTIONS: Array<{ value: ProjectStatusFilterValue; label: string }> = [
+interface DashboardCardProps {
+  appearance: StatsDashboardAppearance;
+  children: ReactNode;
+  className?: string;
+  title?: ReactNode;
+  actions?: ReactNode;
+}
+
+function DashboardCard({
+  appearance,
+  children,
+  className,
+  title,
+  actions
+}: DashboardCardProps) {
+  if (appearance === 'design-system') {
+    return (
+      <Card
+        className={['rdo-stats-dashboard__card', className]
+          .filter(Boolean)
+          .join(' ')}
+        title={title}
+        actions={actions}
+        padding="md"
+      >
+        {children}
+      </Card>
+    );
+  }
+
+  return (
+    <div className={['survey-dash-card', className].filter(Boolean).join(' ')}>
+      {title || actions ? (
+        actions ? (
+          <div className="stats-card-header">
+            {title}
+            {actions}
+          </div>
+        ) : (
+          title
+        )
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+const PROJECT_STATUS_OPTIONS: Array<{
+  value: ProjectStatusFilterValue;
+  label: string;
+}> = [
   { value: 'all', label: 'Todos os projetos' },
   { value: 'active', label: 'Em andamento' },
   { value: 'archived', label: 'Arquivados' }
@@ -137,11 +205,13 @@ function presetParams(preset: PeriodPreset): Pick<StatsParams, 'from' | 'to' | '
 function ProjectStatusFilter({
   value,
   onChange,
-  className = ''
+  className = '',
+  appearance = 'legacy'
 }: {
   value: ProjectStatusFilterValue;
   onChange: (value: ProjectStatusFilterValue) => void;
   className?: string;
+  appearance?: StatsDashboardAppearance;
 }) {
   return (
     <div
@@ -149,41 +219,91 @@ function ProjectStatusFilter({
       role="group"
       aria-label="Status dos projetos"
     >
-      {PROJECT_STATUS_OPTIONS.map(option => (
-        <button
-          key={option.value}
-          type="button"
-          className={`stats-project-status-filter-btn${value === option.value ? ' active' : ''}`}
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
+      {PROJECT_STATUS_OPTIONS.map((option) => {
+        const active = value === option.value;
+        const className = `stats-project-status-filter-btn${active ? ' active' : ''}`;
+
+        return appearance === 'design-system' ? (
+          <Button
+            key={option.value}
+            className={className}
+            variant={active ? 'primary' : 'ghost'}
+            size="sm"
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </Button>
+        ) : (
+          <button
+            key={option.value}
+            type="button"
+            className={className}
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 // ─── KPI Cards ────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stats-kpi-card">
+function KpiCard({
+  label,
+  value,
+  appearance
+}: {
+  label: string;
+  value: string;
+  appearance: StatsDashboardAppearance;
+}) {
+  const content = (
+    <>
       <div className="stats-kpi-value">{value}</div>
       <div className="stats-kpi-label">{label}</div>
-    </div>
+    </>
+  );
+
+  return appearance === 'design-system' ? (
+    <Card className="stats-kpi-card" variant="flat" padding="sm">
+      {content}
+    </Card>
+  ) : (
+    <div className="stats-kpi-card">{content}</div>
   );
 }
 
-function KpiCards({ summary }: { summary: StatsSummary }) {
+function KpiCards({
+  summary,
+  appearance
+}: {
+  summary: StatsSummary;
+  appearance: StatsDashboardAppearance;
+}) {
   return (
     <div className="stats-kpi-layout">
       {/* Linha geral */}
       <div className="stats-kpi-row">
-        <KpiCard label="Dias executados" value={String(summary.totalDays)} />
-        <KpiCard label="Standby (dias)" value={String(summary.standbyCount)} />
+        <KpiCard
+          appearance={appearance}
+          label="Dias executados"
+          value={String(summary.totalDays)}
+        />
+        <KpiCard
+          appearance={appearance}
+          label="Standby (dias)"
+          value={String(summary.standbyCount)}
+        />
         {summary.standbyMinutes > 0 && (
-          <KpiCard label="Standby (horas)" value={fmtMin(summary.standbyMinutes)} />
+          <KpiCard
+            appearance={appearance}
+            label="Standby (horas)"
+            value={fmtMin(summary.standbyMinutes)}
+          />
         )}
       </div>
 
@@ -191,9 +311,21 @@ function KpiCards({ summary }: { summary: StatsSummary }) {
       <div className="stats-kpi-group">
         <div className="stats-kpi-group-label">Diurno</div>
         <div className="stats-kpi-row">
-          <KpiCard label="Horas trabalhadas" value={fmtMin(summary.daytimeWorkedMinutes)} />
-          <KpiCard label="Horas extras" value={fmtMin(summary.daytimeOvertimeMinutes)} />
-          <KpiCard label="Colaboradores (média)" value={fmtNum(summary.avgDaytimeCollaborators)} />
+          <KpiCard
+            appearance={appearance}
+            label="Horas trabalhadas"
+            value={fmtMin(summary.daytimeWorkedMinutes)}
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Horas extras"
+            value={fmtMin(summary.daytimeOvertimeMinutes)}
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Colaboradores (média)"
+            value={fmtNum(summary.avgDaytimeCollaborators)}
+          />
         </div>
       </div>
 
@@ -201,9 +333,21 @@ function KpiCards({ summary }: { summary: StatsSummary }) {
       <div className="stats-kpi-group">
         <div className="stats-kpi-group-label">Noturno</div>
         <div className="stats-kpi-row">
-          <KpiCard label="Horas trabalhadas" value={fmtMin(summary.nighttimeWorkedMinutes)} />
-          <KpiCard label="Horas extras" value={fmtMin(summary.nighttimeOvertimeMinutes)} />
-          <KpiCard label="Colaboradores (média)" value={fmtNum(summary.avgNighttimeCollaborators)} />
+          <KpiCard
+            appearance={appearance}
+            label="Horas trabalhadas"
+            value={fmtMin(summary.nighttimeWorkedMinutes)}
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Horas extras"
+            value={fmtMin(summary.nighttimeOvertimeMinutes)}
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Colaboradores (média)"
+            value={fmtNum(summary.avgNighttimeCollaborators)}
+          />
         </div>
       </div>
     </div>
@@ -212,8 +356,25 @@ function KpiCards({ summary }: { summary: StatsSummary }) {
 
 // ─── Timeline SVG ─────────────────────────────────────────────────────────────
 
-function TimelineChart({ slots, mode }: { slots: StatsTimelineSlot[]; mode: 'hours' | 'services' }) {
-  if (slots.length === 0) return <div className="stats-empty">Nenhum dado no período.</div>;
+function TimelineChart({
+  slots,
+  mode,
+  appearance
+}: {
+  slots: StatsTimelineSlot[];
+  mode: 'hours' | 'services';
+  appearance: StatsDashboardAppearance;
+}) {
+  if (slots.length === 0) {
+    return appearance === 'design-system' ? (
+      <EmptyState
+        title="Nenhum dado no período."
+        description="Altere os filtros para consultar outro intervalo."
+      />
+    ) : (
+      <div className="stats-empty">Nenhum dado no período.</div>
+    );
+  }
 
   const W = 720;
   const H = 180;
@@ -221,12 +382,30 @@ function TimelineChart({ slots, mode }: { slots: StatsTimelineSlot[]; mode: 'hou
   const PAD_R = 12;
   const PAD_T = 12;
   const PAD_B = 32;
-  const barW = Math.max(8, Math.min(40, (W - PAD_L - PAD_R) / slots.length - 3));
+  const barW = Math.max(
+    8,
+    Math.min(40, (W - PAD_L - PAD_R) / slots.length - 3)
+  );
   const step = (W - PAD_L - PAD_R) / slots.length;
 
-  const maxVal = mode === 'hours'
-    ? Math.max(...slots.map(s => s.daytimeWorkedMinutes + s.nighttimeWorkedMinutes + s.daytimeOvertimeMinutes + s.nighttimeOvertimeMinutes), 1)
-    : Math.max(...slots.map(s => Object.values(s.serviceBreakdown).reduce((a, b) => a + b, 0)), 1);
+  const maxVal =
+    mode === 'hours'
+      ? Math.max(
+          ...slots.map(
+            (s) =>
+              s.daytimeWorkedMinutes +
+              s.nighttimeWorkedMinutes +
+              s.daytimeOvertimeMinutes +
+              s.nighttimeOvertimeMinutes
+          ),
+          1
+        )
+      : Math.max(
+          ...slots.map((s) =>
+            Object.values(s.serviceBreakdown).reduce((a, b) => a + b, 0)
+          ),
+          1
+        );
 
   const chartH = H - PAD_T - PAD_B;
 
@@ -234,26 +413,81 @@ function TimelineChart({ slots, mode }: { slots: StatsTimelineSlot[]; mode: 'hou
     return PAD_L + i * step + step / 2 - barW / 2;
   }
 
-  const segments = mode === 'hours'
-    ? [
-        { key: 'nighttimeOvertimeMinutes' as const, color: '#c81519', label: 'HE Noturna' },
-        { key: 'daytimeOvertimeMinutes' as const, color: '#f97316', label: 'HE Diurna' },
-        { key: 'nighttimeWorkedMinutes' as const, color: '#6366f1', label: 'Noturno' },
-        { key: 'daytimeWorkedMinutes' as const, color: '#3b82f6', label: 'Diurno' },
-      ]
-    : [];
+  const isDesignSystem = appearance === 'design-system';
+  const segments =
+    mode === 'hours'
+      ? [
+          {
+            key: 'nighttimeOvertimeMinutes' as const,
+            color: isDesignSystem ? 'var(--danger)' : '#c81519',
+            label: 'HE Noturna'
+          },
+          {
+            key: 'daytimeOvertimeMinutes' as const,
+            color: isDesignSystem ? 'var(--warning)' : '#f97316',
+            label: 'HE Diurna'
+          },
+          {
+            key: 'nighttimeWorkedMinutes' as const,
+            color: isDesignSystem ? 'var(--info)' : '#6366f1',
+            label: 'Noturno'
+          },
+          {
+            key: 'daytimeWorkedMinutes' as const,
+            color: isDesignSystem ? 'var(--brand)' : '#3b82f6',
+            label: 'Diurno'
+          }
+        ]
+      : [];
+  const gridColor = isDesignSystem ? 'var(--line-strong)' : '#d1d5db';
+  const labelColor = isDesignSystem ? 'var(--muted)' : '#6b7280';
+  const serviceColor = isDesignSystem ? 'var(--brand)' : '#30503a';
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: `${Math.max(W, slots.length * 30)}px`, height: 'auto' }}>
+    <div
+      className={isDesignSystem ? 'rdo-stats-dashboard__chart' : undefined}
+      style={isDesignSystem ? undefined : { overflowX: 'auto' }}
+    >
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{
+          width: '100%',
+          minWidth: `${Math.max(W, slots.length * 30)}px`,
+          height: 'auto'
+        }}
+        role={isDesignSystem ? 'img' : undefined}
+        aria-label={
+          isDesignSystem
+            ? mode === 'hours'
+              ? 'Evolução das horas trabalhadas'
+              : 'Evolução dos serviços realizados'
+            : undefined
+        }
+      >
         {/* Y gridlines */}
-        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+        {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
           const y = PAD_T + chartH * (1 - pct);
-          const val = mode === 'hours' ? Math.round(maxVal * pct / 60) : Math.round(maxVal * pct);
+          const val =
+            mode === 'hours'
+              ? Math.round((maxVal * pct) / 60)
+              : Math.round(maxVal * pct);
           return (
             <g key={pct}>
-              <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="#d1d5db" strokeWidth="0.5" />
-              <text x={PAD_L - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#6b7280">
+              <line
+                x1={PAD_L}
+                y1={y}
+                x2={W - PAD_R}
+                y2={y}
+                stroke={gridColor}
+                strokeWidth="0.5"
+              />
+              <text
+                x={PAD_L - 4}
+                y={y + 4}
+                textAnchor="end"
+                fontSize="9"
+                fill={labelColor}
+              >
                 {mode === 'hours' ? `${val}h` : val}
               </text>
             </g>
@@ -267,12 +501,20 @@ function TimelineChart({ slots, mode }: { slots: StatsTimelineSlot[]; mode: 'hou
             let yOffset = 0;
             return (
               <g key={slot.period}>
-                {segments.map(seg => {
-                  const val = slot[seg.key as keyof StatsTimelineSlot] as number || 0;
+                {segments.map((seg) => {
+                  const val =
+                    (slot[seg.key as keyof StatsTimelineSlot] as number) || 0;
                   const h = (val / maxVal) * chartH;
                   const rect = (
-                    <rect key={seg.key} x={x} y={PAD_T + chartH - yOffset - h} width={barW} height={h}
-                      fill={seg.color} rx="2" />
+                    <rect
+                      key={seg.key}
+                      x={x}
+                      y={PAD_T + chartH - yOffset - h}
+                      width={barW}
+                      height={h}
+                      fill={seg.color}
+                      rx="2"
+                    />
                   );
                   yOffset += h;
                   return rect;
@@ -281,11 +523,21 @@ function TimelineChart({ slots, mode }: { slots: StatsTimelineSlot[]; mode: 'hou
               </g>
             );
           } else {
-            const total = Object.values(slot.serviceBreakdown).reduce((a, b) => a + b, 0);
+            const total = Object.values(slot.serviceBreakdown).reduce(
+              (a, b) => a + b,
+              0
+            );
             const h = (total / maxVal) * chartH;
             return (
               <g key={slot.period}>
-                <rect x={x} y={PAD_T + chartH - h} width={barW} height={h} fill="#30503a" rx="2" />
+                <rect
+                  x={x}
+                  y={PAD_T + chartH - h}
+                  width={barW}
+                  height={h}
+                  fill={serviceColor}
+                  rx="2"
+                />
                 <title>{`${slot.label}: ${total} serviços`}</title>
               </g>
             );
@@ -294,8 +546,19 @@ function TimelineChart({ slots, mode }: { slots: StatsTimelineSlot[]; mode: 'hou
 
         {/* X labels */}
         {slots.map((slot, i) => (
-          <text key={slot.period} x={barX(i) + barW / 2} y={H - 4} textAnchor="middle" fontSize="9" fill="#6b7280"
-            transform={slots.length > 12 ? `rotate(-45, ${barX(i) + barW / 2}, ${H - 4})` : undefined}>
+          <text
+            key={slot.period}
+            x={barX(i) + barW / 2}
+            y={H - 4}
+            textAnchor="middle"
+            fontSize="9"
+            fill={labelColor}
+            transform={
+              slots.length > 12
+                ? `rotate(-45, ${barX(i) + barW / 2}, ${H - 4})`
+                : undefined
+            }
+          >
             {slot.label}
           </text>
         ))}
@@ -303,7 +566,7 @@ function TimelineChart({ slots, mode }: { slots: StatsTimelineSlot[]; mode: 'hou
 
       {mode === 'hours' && (
         <div className="stats-chart-legend">
-          {segments.map(s => (
+          {segments.map((s) => (
             <span key={s.key} className="stats-chart-legend-item">
               <span style={{ background: s.color }} />
               {s.label}
@@ -322,7 +585,7 @@ const SERVICE_LABELS: Record<string, string> = {
   flushing: 'Flushing',
   limpeza: 'Limpeza Química',
   mecanica: 'Limpeza mecânica',
-  pressao: 'Teste de Pressão',
+  pressao: 'Teste de Pressão'
 };
 
 interface AggregatedItem {
@@ -375,9 +638,115 @@ function totalTubeLength(tubesByDiameter: Record<string, number>): number {
   return Object.values(tubesByDiameter || {}).reduce((sum, meters) => sum + meters, 0);
 }
 
-function ServicesSection({ services, byProject }: { services: Record<string, StatsServiceStats>; byProject: StatsProjectData[] }) {
-  const entries = Object.entries(services).sort((a, b) => b[1].serviceCount - a[1].serviceCount);
-  if (entries.length === 0) return <div className="stats-empty">Nenhum serviço no período.</div>;
+function ServiceItemMeasurement({
+  item,
+  type
+}: {
+  item: AggregatedItem;
+  type: string;
+}) {
+  const tubes = Object.entries(item.tubesByDiameter);
+  const itemTubeTotal = totalTubeLength(item.tubesByDiameter);
+
+  if (type === 'filtragem') {
+    return item.volumeOleoLiters > 0
+      ? `${fmtNum(item.volumeOleoLiters, 0)} L`
+      : '—';
+  }
+
+  if (tubes.length === 0) return <>—</>;
+
+  return (
+    <>
+      <span className="stats-tube-entry">
+        <strong>Total</strong> → {fmtNum(itemTubeTotal, 1)} m
+      </span>
+      {tubes.map(([diameter, meters]) => (
+        <span key={diameter} className="stats-tube-entry">
+          <strong>{diameter}</strong> → {fmtNum(meters, 1)} m
+        </span>
+      ))}
+    </>
+  );
+}
+
+function DesignSystemServiceItemsTable({
+  items,
+  type
+}: {
+  items: AggregatedItem[];
+  type: string;
+}) {
+  const measurementLabel =
+    type === 'filtragem' ? 'Volume (L)' : 'Diâm. → Metros';
+  const columns: DataTableColumn<AggregatedItem>[] = [
+    {
+      key: 'equipment',
+      header: 'Equipamento / Sistema',
+      rowHeader: true,
+      render: (item) => <ServiceItemLabel item={item} />
+    },
+    {
+      key: 'count',
+      header: 'Qtd.',
+      accessor: 'count',
+      numeric: true
+    },
+    {
+      key: 'measurement',
+      header: measurementLabel,
+      render: (item) => <ServiceItemMeasurement item={item} type={type} />
+    }
+  ];
+
+  return (
+    <DataTable
+      className="rdo-stats-dashboard__service-table"
+      rows={items}
+      columns={columns}
+      getRowId={(item) => item.key}
+      ariaLabel={`Itens do serviço ${SERVICE_LABELS[type] || type}`}
+      density="compact"
+      mobile={{
+        ariaLabel: `Itens do serviço ${SERVICE_LABELS[type] || type}`,
+        renderItem: (item) => ({
+          title: <ServiceItemLabel item={item} />,
+          metadata: [
+            { label: 'Quantidade', value: item.count },
+            {
+              label: measurementLabel,
+              value: <ServiceItemMeasurement item={item} type={type} />
+            }
+          ],
+          accessibleLabel: `${SERVICE_LABELS[type] || type}: ${item.equipmentName || item.system || 'sem identificação'}`
+        })
+      }}
+    />
+  );
+}
+
+function ServicesSection({
+  services,
+  byProject,
+  appearance
+}: {
+  services: Record<string, StatsServiceStats>;
+  byProject: StatsProjectData[];
+  appearance: StatsDashboardAppearance;
+}) {
+  const entries = Object.entries(services).sort(
+    (a, b) => b[1].serviceCount - a[1].serviceCount
+  );
+  if (entries.length === 0) {
+    return appearance === 'design-system' ? (
+      <EmptyState
+        title="Nenhum serviço no período."
+        description="Altere os filtros para consultar outro intervalo."
+      />
+    ) : (
+      <div className="stats-empty">Nenhum serviço no período.</div>
+    );
+  }
 
   const itemsByType = aggregateItemsByEquipment(byProject);
 
@@ -386,18 +755,28 @@ function ServicesSection({ services, byProject }: { services: Record<string, Sta
       {entries.map(([type, stats]) => {
         const items = itemsByType[type] || [];
         const tubeTotal = totalTubeLength(stats.tubesByDiameter);
-        return (
-          <div key={type} className="stats-service-card">
+        const content = (
+          <>
             <div className="stats-service-header">
-              <span className="stats-service-type">{SERVICE_LABELS[type] || type}</span>
-              <span className="stats-service-count">{stats.serviceCount} serviço{stats.serviceCount !== 1 ? 's' : ''}</span>
+              <span className="stats-service-type">
+                {SERVICE_LABELS[type] || type}
+              </span>
+              <span className="stats-service-count">
+                {stats.serviceCount} serviço
+                {stats.serviceCount !== 1 ? 's' : ''}
+              </span>
             </div>
             <div className="stats-service-details">
               {stats.volumeOleoLiters > 0 && (
-                <span>Volume total: <strong>{fmtNum(stats.volumeOleoLiters, 0)} L</strong></span>
+                <span>
+                  Volume total:{' '}
+                  <strong>{fmtNum(stats.volumeOleoLiters, 0)} L</strong>
+                </span>
               )}
               {tubeTotal > 0 && (
-                <span>Comprimento total: <strong>{fmtNum(tubeTotal, 1)} m</strong></span>
+                <span>
+                  Comprimento total: <strong>{fmtNum(tubeTotal, 1)} m</strong>
+                </span>
               )}
               {Object.entries(stats.tubesByDiameter).map(([d, m]) => (
                 <span key={d}>
@@ -405,46 +784,57 @@ function ServicesSection({ services, byProject }: { services: Record<string, Sta
                 </span>
               ))}
               {stats.hasTubulacao > 0 && (
-                <span>Em tubulação: <strong>{stats.hasTubulacao}×</strong></span>
+                <span>
+                  Em tubulação: <strong>{stats.hasTubulacao}×</strong>
+                </span>
               )}
             </div>
-            {items.length > 0 && (
-              <table className="stats-svc-items-table">
-                <thead>
-                  <tr>
-                    <th>Equipamento / Sistema</th>
-                    <th>Qtd.</th>
-                    {type === 'filtragem' ? <th>Volume (L)</th> : <th>Diâm. → Metros</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(item => {
-                    const tubes = Object.entries(item.tubesByDiameter);
-                    const itemTubeTotal = totalTubeLength(item.tubesByDiameter);
-                    return (
+            {items.length > 0 &&
+              (appearance === 'design-system' ? (
+                <DesignSystemServiceItemsTable items={items} type={type} />
+              ) : (
+                <table className="stats-svc-items-table">
+                  <thead>
+                    <tr>
+                      <th>Equipamento / Sistema</th>
+                      <th>Qtd.</th>
+                      {type === 'filtragem' ? (
+                        <th>Volume (L)</th>
+                      ) : (
+                        <th>Diâm. → Metros</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => (
                       <tr key={item.key}>
-                        <td><ServiceItemLabel item={item} /></td>
+                        <td>
+                          <ServiceItemLabel item={item} />
+                        </td>
                         <td>{item.count}</td>
                         <td>
-                          {type === 'filtragem'
-                            ? (item.volumeOleoLiters > 0 ? `${fmtNum(item.volumeOleoLiters, 0)} L` : '—')
-                            : tubes.length > 0
-                              ? (
-                                  <>
-                                    <span className="stats-tube-entry"><strong>Total</strong> → {fmtNum(itemTubeTotal, 1)} m</span>
-                                    {tubes.map(([d, m]) => (
-                                      <span key={d} className="stats-tube-entry"><strong>{d}</strong> → {fmtNum(m, 1)} m</span>
-                                    ))}
-                                  </>
-                                )
-                              : '—'}
+                          <ServiceItemMeasurement item={item} type={type} />
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+                    ))}
+                  </tbody>
+                </table>
+              ))}
+          </>
+        );
+
+        return appearance === 'design-system' ? (
+          <Card
+            key={type}
+            className="stats-service-card"
+            variant="flat"
+            padding="sm"
+          >
+            {content}
+          </Card>
+        ) : (
+          <div key={type} className="stats-service-card">
+            {content}
           </div>
         );
       })}
@@ -456,7 +846,11 @@ function ServicesSection({ services, byProject }: { services: Record<string, Sta
 
 const DAILY_COLS = 10;
 
-function RdoServiceRows({ services }: { services: Record<string, StatsServiceStats> }) {
+function RdoServiceRows({
+  services
+}: {
+  services: Record<string, StatsServiceStats>;
+}) {
   const entries = Object.entries(services);
   if (entries.length === 0) return null;
 
@@ -468,31 +862,50 @@ function RdoServiceRows({ services }: { services: Record<string, StatsServiceSta
           return (
             <tr key={type} className="stats-svc-subrow">
               <td colSpan={DAILY_COLS} className="stats-svc-subrow-cell">
-                <span className="stats-svc-subrow-type">{SERVICE_LABELS[type] || type}</span>
+                <span className="stats-svc-subrow-type">
+                  {SERVICE_LABELS[type] || type}
+                </span>
                 <span className="stats-svc-subrow-detail">—</span>
               </td>
             </tr>
           );
         }
         return items.map((item, idx) => {
-          const label = [item.equipmentName, item.system].filter(Boolean).join(' - ') || '—';
+          const label =
+            [item.equipmentName, item.system].filter(Boolean).join(' - ') ||
+            '—';
           const tubes = Object.entries(item.tubesByDiameter || {});
           const tubeTotal = totalTubeLength(item.tubesByDiameter || {});
-          const hasVolume = type === 'filtragem' && item.volumeOleoLiters != null && item.volumeOleoLiters > 0;
+          const hasVolume =
+            type === 'filtragem' &&
+            item.volumeOleoLiters != null &&
+            item.volumeOleoLiters > 0;
           return (
             <tr key={`${type}-${idx}`} className="stats-svc-subrow">
               <td colSpan={DAILY_COLS} className="stats-svc-subrow-cell">
-                {idx === 0 && <span className="stats-svc-subrow-type">{SERVICE_LABELS[type] || type}</span>}
-                {idx > 0 && <span className="stats-svc-subrow-type stats-svc-subrow-type--cont" />}
+                {idx === 0 && (
+                  <span className="stats-svc-subrow-type">
+                    {SERVICE_LABELS[type] || type}
+                  </span>
+                )}
+                {idx > 0 && (
+                  <span className="stats-svc-subrow-type stats-svc-subrow-type--cont" />
+                )}
                 <span className="stats-svc-subrow-label">{label}</span>
                 {hasVolume && (
-                  <span className="stats-svc-subrow-qty">{fmtNum(item.volumeOleoLiters!, 0)} L</span>
+                  <span className="stats-svc-subrow-qty">
+                    {fmtNum(item.volumeOleoLiters!, 0)} L
+                  </span>
                 )}
                 {tubes.length > 0 && (
                   <span className="stats-svc-subrow-qty">
-                    <span className="stats-tube-entry"><strong>Total</strong> → {fmtNum(tubeTotal, 1)} m</span>
+                    <span className="stats-tube-entry">
+                      <strong>Total</strong> → {fmtNum(tubeTotal, 1)} m
+                    </span>
                     {tubes.map(([d, m]) => (
-                      <span key={d} className="stats-tube-entry"><strong>{d}</strong> → {fmtNum(m, 1)} m</span>
+                      <span key={d} className="stats-tube-entry">
+                        <strong>{d}</strong> → {fmtNum(m, 1)} m
+                      </span>
                     ))}
                   </span>
                 )}
@@ -505,16 +918,205 @@ function RdoServiceRows({ services }: { services: Record<string, StatsServiceSta
   );
 }
 
+function RdoServiceSummary({
+  services
+}: {
+  services: Record<string, StatsServiceStats>;
+}) {
+  const entries = Object.entries(services);
+  if (entries.length === 0) return <>—</>;
+
+  return (
+    <div className="rdo-stats-dashboard__daily-services">
+      {entries.map(([type, service]) => {
+        const items = service.items || [];
+        return (
+          <div key={type} className="rdo-stats-dashboard__daily-service">
+            <strong>{SERVICE_LABELS[type] || type}</strong>
+            {items.length === 0 ? (
+              <span>—</span>
+            ) : (
+              items.map((item, index) => {
+                const label =
+                  [item.equipmentName, item.system]
+                    .filter(Boolean)
+                    .join(' - ') || '—';
+                const tubes = Object.entries(item.tubesByDiameter || {});
+                const tubeTotal = totalTubeLength(item.tubesByDiameter || {});
+                const hasVolume =
+                  type === 'filtragem' &&
+                  item.volumeOleoLiters != null &&
+                  item.volumeOleoLiters > 0;
+
+                return (
+                  <span key={`${type}-${index}`}>
+                    {label}
+                    {hasVolume
+                      ? ` · ${fmtNum(item.volumeOleoLiters!, 0)} L`
+                      : ''}
+                    {tubes.length > 0
+                      ? ` · ${fmtNum(tubeTotal, 1)} m (${tubes
+                          .map(
+                            ([diameter, meters]) =>
+                              `${diameter}: ${fmtNum(meters, 1)} m`
+                          )
+                          .join(', ')})`
+                      : ''}
+                  </span>
+                );
+              })
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DesignSystemDailyReportTable({
+  reports
+}: {
+  reports: StatsDailyReport[];
+}) {
+  const columns: DataTableColumn<StatsDailyReport>[] = [
+    {
+      key: 'date',
+      header: 'Data',
+      rowHeader: true,
+      render: (report) => formatDateOnlyPtBr(report.reportDate)
+    },
+    {
+      key: 'sequence',
+      header: 'RDO',
+      render: (report) => report.sequenceNumber ?? '-'
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (report) => (
+        <StatusPill
+          status={report.status}
+          label={report.status === 'SIGNED' ? 'Assinado' : 'Aprovado'}
+          tone="success"
+        />
+      )
+    },
+    {
+      key: 'daytimeWorkedMinutes',
+      header: 'H. Diur.',
+      render: (report) => fmtMin(report.daytimeWorkedMinutes),
+      numeric: true
+    },
+    {
+      key: 'daytimeOvertimeMinutes',
+      header: 'HE Diur.',
+      render: (report) => fmtMin(report.daytimeOvertimeMinutes),
+      numeric: true
+    },
+    {
+      key: 'nighttimeWorkedMinutes',
+      header: 'H. Not.',
+      render: (report) => fmtMin(report.nighttimeWorkedMinutes),
+      numeric: true
+    },
+    {
+      key: 'nighttimeOvertimeMinutes',
+      header: 'HE Not.',
+      render: (report) => fmtMin(report.nighttimeOvertimeMinutes),
+      numeric: true
+    },
+    {
+      key: 'daytimeCollaborators',
+      header: 'Col. D',
+      accessor: 'daytimeCollaborators',
+      numeric: true
+    },
+    {
+      key: 'nighttimeCollaborators',
+      header: 'Col. N',
+      accessor: 'nighttimeCollaborators',
+      numeric: true
+    },
+    {
+      key: 'standby',
+      header: 'Standby',
+      render: (report) =>
+        report.standby ? fmtMin(report.standbyMinutes) : '—',
+      numeric: true
+    },
+    {
+      key: 'services',
+      header: 'Serviços',
+      render: (report) => <RdoServiceSummary services={report.services} />
+    }
+  ];
+
+  return (
+    <DataTable
+      className="rdo-stats-dashboard__daily-table"
+      rows={reports}
+      columns={columns}
+      getRowId={(report) => report.reportId}
+      ariaLabel="RDOs detalhados do projeto"
+      density="compact"
+      emptyState={
+        <EmptyState
+          title="Nenhum RDO detalhado no período."
+          description="Altere os filtros para consultar outro intervalo."
+        />
+      }
+      mobile={{
+        ariaLabel: 'RDOs detalhados do projeto',
+        renderItem: (report) => ({
+          title: formatDateOnlyPtBr(report.reportDate),
+          subtitle: `RDO ${report.sequenceNumber ?? '-'}`,
+          status: (
+            <StatusPill
+              status={report.status}
+              label={report.status === 'SIGNED' ? 'Assinado' : 'Aprovado'}
+              tone="success"
+            />
+          ),
+          metadata: [
+            { label: 'H. Diur.', value: fmtMin(report.daytimeWorkedMinutes) },
+            { label: 'HE Diur.', value: fmtMin(report.daytimeOvertimeMinutes) },
+            { label: 'H. Not.', value: fmtMin(report.nighttimeWorkedMinutes) },
+            {
+              label: 'HE Not.',
+              value: fmtMin(report.nighttimeOvertimeMinutes)
+            },
+            { label: 'Col. D', value: report.daytimeCollaborators },
+            { label: 'Col. N', value: report.nighttimeCollaborators },
+            {
+              label: 'Standby',
+              value: report.standby ? fmtMin(report.standbyMinutes) : '—'
+            },
+            {
+              label: 'Serviços',
+              value: <RdoServiceSummary services={report.services} />
+            }
+          ],
+          accessibleLabel: `RDO ${report.sequenceNumber ?? '-'} de ${formatDateOnlyPtBr(report.reportDate)}`
+        })
+      }}
+    />
+  );
+}
+
 function ProjectDailyDetail({
   project,
   expanded,
   dailyReportsIncluded,
-  detailParams
+  detailParams,
+  appearance,
+  detailId
 }: {
   project: StatsProjectData;
   expanded: boolean;
   dailyReportsIncluded: boolean;
   detailParams: StatsParams;
+  appearance: StatsDashboardAppearance;
+  detailId?: string;
 }) {
   const detailQuery = useProjectStats(
     {
@@ -525,31 +1127,66 @@ function ProjectDailyDetail({
     expanded && !dailyReportsIncluded
   );
 
-  if (!expanded) return null;
+  if (!expanded) {
+    return appearance === 'design-system' ? (
+      <div className="stats-byproject-detail" id={detailId} hidden />
+    ) : null;
+  }
 
   const detailProject = dailyReportsIncluded
     ? project
-    : detailQuery.data?.byProject.find(item => item.projectId === project.projectId);
+    : detailQuery.data?.byProject.find(
+        (item) => item.projectId === project.projectId
+      );
 
   if (!dailyReportsIncluded) {
     if (detailQuery.isLoading) {
       return (
-        <div className="stats-byproject-detail">
-          <div className="stats-empty">Carregando RDOs detalhados...</div>
+        <div className="stats-byproject-detail" id={detailId}>
+          {appearance === 'design-system' ? (
+            <div
+              className="rdo-stats-dashboard__detail-loading"
+              role="status"
+              aria-label="Carregando RDOs detalhados..."
+            >
+              <Skeleton variant="table-rows" />
+            </div>
+          ) : (
+            <div className="stats-empty">Carregando RDOs detalhados...</div>
+          )}
         </div>
       );
     }
     if (detailQuery.isError) {
       return (
-        <div className="stats-byproject-detail">
-          <div className="stats-empty">Não foi possível carregar os RDOs detalhados deste projeto.</div>
+        <div className="stats-byproject-detail" id={detailId}>
+          {appearance === 'design-system' ? (
+            <Alert
+              tone="danger"
+              title="Não foi possível carregar os RDOs detalhados deste projeto."
+            />
+          ) : (
+            <div className="stats-empty">
+              Não foi possível carregar os RDOs detalhados deste projeto.
+            </div>
+          )}
         </div>
       );
     }
     if (detailQuery.data && !detailQuery.data.meta.dailyReportsIncluded) {
       return (
-        <div className="stats-byproject-detail">
-          <div className="stats-empty">Detalhe diário omitido pelo volume da consulta. Reduza o período deste projeto.</div>
+        <div className="stats-byproject-detail" id={detailId}>
+          {appearance === 'design-system' ? (
+            <EmptyState
+              title="Detalhe diário indisponível para este período."
+              description="Reduza o período deste projeto para consultar os RDOs detalhados."
+            />
+          ) : (
+            <div className="stats-empty">
+              Detalhe diário omitido pelo volume da consulta. Reduza o período
+              deste projeto.
+            </div>
+          )}
         </div>
       );
     }
@@ -557,8 +1194,16 @@ function ProjectDailyDetail({
 
   if (!detailProject) return null;
 
+  if (appearance === 'design-system') {
+    return (
+      <div className="stats-byproject-detail" id={detailId}>
+        <DesignSystemDailyReportTable reports={detailProject.dailyReports} />
+      </div>
+    );
+  }
+
   return (
-    <div className="stats-byproject-detail">
+    <div className="stats-byproject-detail" id={detailId}>
       <table className="stats-daily-table">
         <thead>
           <tr>
@@ -575,12 +1220,15 @@ function ProjectDailyDetail({
           </tr>
         </thead>
         <tbody>
-          {detailProject.dailyReports.map(rdo => {
+          {detailProject.dailyReports.map((rdo) => {
             const dateStr = formatDateOnlyPtBr(rdo.reportDate);
             const hasSvcs = Object.keys(rdo.services).length > 0;
             return (
               <Fragment key={rdo.reportId}>
-                <tr key={rdo.reportId} className={hasSvcs ? 'stats-daily-row--has-svcs' : ''}>
+                <tr
+                  key={rdo.reportId}
+                  className={hasSvcs ? 'stats-daily-row--has-svcs' : ''}
+                >
                   <td>{dateStr}</td>
                   <td>{rdo.sequenceNumber ?? '-'}</td>
                   <td>{rdo.status === 'SIGNED' ? 'Assinado' : 'Aprovado'}</td>
@@ -592,7 +1240,12 @@ function ProjectDailyDetail({
                   <td>{rdo.nighttimeCollaborators}</td>
                   <td>{rdo.standby ? fmtMin(rdo.standbyMinutes) : '—'}</td>
                 </tr>
-                {hasSvcs && <RdoServiceRows key={`${rdo.reportId}-svcs`} services={rdo.services} />}
+                {hasSvcs && (
+                  <RdoServiceRows
+                    key={`${rdo.reportId}-svcs`}
+                    services={rdo.services}
+                  />
+                )}
               </Fragment>
             );
           })}
@@ -607,29 +1260,80 @@ function ProjectRow({
   expanded,
   onToggle,
   dailyReportsIncluded,
-  detailParams
+  detailParams,
+  appearance
 }: {
   project: StatsProjectData;
   expanded: boolean;
   onToggle: () => void;
   dailyReportsIncluded: boolean;
   detailParams: StatsParams;
+  appearance: StatsDashboardAppearance;
 }) {
+  const detailId =
+    appearance === 'design-system'
+      ? `rdo-stats-project-${project.projectId}-detail`
+      : undefined;
+  const content = (
+    <>
+      <span className="stats-byproject-code">{project.code}</span>
+      <span className="stats-byproject-name">{project.name}</span>
+      <span className="stats-byproject-meta">
+        {project.summary.reportCount} RDO
+        {project.summary.reportCount !== 1 ? 's' : ''} ·{' '}
+        {fmtMin(
+          project.summary.daytimeWorkedMinutes +
+            project.summary.nighttimeWorkedMinutes
+        )}{' '}
+        diurnos/noturnos
+      </span>
+      <span
+        className="stats-byproject-chevron"
+        aria-hidden={appearance === 'design-system' ? true : undefined}
+      >
+        {appearance === 'design-system' ? (
+          <AppIcon icon={DS_ICONS.chevronDown} size="sm" />
+        ) : expanded ? (
+          '▲'
+        ) : (
+          '▼'
+        )}
+      </span>
+    </>
+  );
+
   return (
-    <div className="stats-byproject-row">
-      <button className="stats-byproject-toggle" type="button" onClick={onToggle}>
-        <span className="stats-byproject-code">{project.code}</span>
-        <span className="stats-byproject-name">{project.name}</span>
-        <span className="stats-byproject-meta">
-          {project.summary.reportCount} RDO{project.summary.reportCount !== 1 ? 's' : ''} · {fmtMin(project.summary.daytimeWorkedMinutes + project.summary.nighttimeWorkedMinutes)} diurnos/noturnos
-        </span>
-        <span className="stats-byproject-chevron">{expanded ? '▲' : '▼'}</span>
-      </button>
+    <div
+      className="stats-byproject-row"
+      data-expanded={appearance === 'design-system' ? expanded : undefined}
+    >
+      {appearance === 'design-system' ? (
+        <Button
+          className="stats-byproject-toggle"
+          variant="ghost"
+          fullWidth
+          aria-expanded={expanded}
+          aria-controls={detailId}
+          onClick={onToggle}
+        >
+          {content}
+        </Button>
+      ) : (
+        <button
+          className="stats-byproject-toggle"
+          type="button"
+          onClick={onToggle}
+        >
+          {content}
+        </button>
+      )}
       <ProjectDailyDetail
         project={project}
         expanded={expanded}
         dailyReportsIncluded={dailyReportsIncluded}
         detailParams={detailParams}
+        appearance={appearance}
+        detailId={detailId}
       />
     </div>
   );
@@ -638,30 +1342,42 @@ function ProjectRow({
 function ByProjectSection({
   byProject,
   dailyReportsIncluded,
-  detailParams
+  detailParams,
+  appearance
 }: {
   byProject: StatsProjectData[];
   dailyReportsIncluded: boolean;
   detailParams: StatsParams;
+  appearance: StatsDashboardAppearance;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const toggle = (id: string) => setExpanded(prev => {
-    const s = new Set(prev);
-    if (s.has(id)) {
-      s.delete(id);
-    } else {
-      s.add(id);
-    }
-    return s;
-  });
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) {
+        s.delete(id);
+      } else {
+        s.add(id);
+      }
+      return s;
+    });
 
   if (!byProject || byProject.length === 0) {
-    return <div className="stats-empty">Nenhum projeto encontrado para os filtros selecionados.</div>;
+    return appearance === 'design-system' ? (
+      <EmptyState
+        title="Nenhum projeto encontrado para os filtros selecionados."
+        description="Altere os filtros para consultar outros projetos."
+      />
+    ) : (
+      <div className="stats-empty">
+        Nenhum projeto encontrado para os filtros selecionados.
+      </div>
+    );
   }
 
   return (
     <div className="stats-byproject-list">
-      {byProject.map(project => (
+      {byProject.map((project) => (
         <ProjectRow
           key={project.projectId}
           project={project}
@@ -669,6 +1385,7 @@ function ByProjectSection({
           onToggle={() => toggle(project.projectId)}
           dailyReportsIncluded={dailyReportsIncluded}
           detailParams={detailParams}
+          appearance={appearance}
         />
       ))}
     </div>
@@ -677,42 +1394,71 @@ function ByProjectSection({
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
-export function StatsDashboard() {
+interface StatsDashboardProps {
+  appearance?: StatsDashboardAppearance;
+}
+
+export function StatsDashboard({
+  appearance = 'legacy'
+}: StatsDashboardProps = {}) {
   const { user } = useAuth();
+  const isDesignSystem = appearance === 'design-system';
   const [preset, setPreset] = useState<PeriodPreset>('year');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-  const [customGranularity, setCustomGranularity] = useState<StatsParams['granularity']>('month');
+  const [customGranularity, setCustomGranularity] =
+    useState<StatsParams['granularity']>('month');
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [projectStatus, setProjectStatus] = useState<ProjectStatusFilterValue>('all');
-  const [byProjectStatus, setByProjectStatus] = useState<ProjectStatusFilterValue>('all');
+  const [projectStatus, setProjectStatus] =
+    useState<ProjectStatusFilterValue>('all');
+  const [byProjectStatus, setByProjectStatus] =
+    useState<ProjectStatusFilterValue>('all');
   const [segment, setSegment] = useState('');
-  const [timelineMode, setTimelineMode] = useState<'hours' | 'services'>('hours');
-  const [exportingSection, setExportingSection] = useState<StatsExportSection | null>(null);
+  const [timelineMode, setTimelineMode] = useState<'hours' | 'services'>(
+    'hours'
+  );
+  const [exportingSection, setExportingSection] =
+    useState<StatsExportSection | null>(null);
   const [exportError, setExportError] = useState('');
   const projectFilterHighlightStarted = useRef(false);
 
   const projectsQuery = useProjects();
   const segmentsQuery = useProjectSegments();
 
-  const allProjects = useMemo(() => (projectsQuery.data || [])
-    .filter(project => !project.managerOnly)
-    .slice()
-    .sort((a, b) => a.code.localeCompare(b.code, 'pt-BR', { numeric: true })), [projectsQuery.data]);
-  const visibleProjectIds = useMemo(() => new Set(allProjects.map(project => project.id)), [allProjects]);
+  const allProjects = useMemo(
+    () =>
+      (projectsQuery.data || [])
+        .filter((project) => !project.managerOnly)
+        .slice()
+        .sort((a, b) =>
+          a.code.localeCompare(b.code, 'pt-BR', { numeric: true })
+        ),
+    [projectsQuery.data]
+  );
+  const visibleProjectIds = useMemo(
+    () => new Set(allProjects.map((project) => project.id)),
+    [allProjects]
+  );
   const selectedVisibleProjects = useMemo(
-    () => selectedProjects.filter(id => visibleProjectIds.has(id)),
+    () => selectedProjects.filter((id) => visibleProjectIds.has(id)),
     [selectedProjects, visibleProjectIds]
   );
 
-  const periodPart = preset === 'custom'
-    ? { from: customFrom || startOfYear(), to: customTo || today(), granularity: customGranularity }
-    : presetParams(preset);
+  const periodPart =
+    preset === 'custom'
+      ? {
+          from: customFrom || startOfYear(),
+          to: customTo || today(),
+          granularity: customGranularity
+        }
+      : presetParams(preset);
 
   const sharedStatsParams: StatsParams = {
     ...periodPart,
     ...(segment ? { segment } : {}),
-    ...(selectedVisibleProjects.length > 0 ? { projectId: selectedVisibleProjects, includeDailyReports: true } : {})
+    ...(selectedVisibleProjects.length > 0
+      ? { projectId: selectedVisibleProjects, includeDailyReports: true }
+      : {})
   };
 
   const statsParams: StatsParams = {
@@ -726,14 +1472,21 @@ export function StatsDashboard() {
   };
 
   const statsQuery = useProjectStats(statsParams);
-  const byProjectStatsQuery = useProjectStats(byProjectStatsParams, selectedVisibleProjects.length !== 1);
+  const byProjectStatsQuery = useProjectStats(
+    byProjectStatsParams,
+    selectedVisibleProjects.length !== 1
+  );
 
   const data = statsQuery.data;
   const byProjectData = byProjectStatsQuery.data;
   const singleProject = selectedVisibleProjects.length === 1;
 
   useEffect(() => {
-    if (!projectsQuery.data || selectedProjects.length === selectedVisibleProjects.length) return;
+    if (
+      !projectsQuery.data ||
+      selectedProjects.length === selectedVisibleProjects.length
+    )
+      return;
     setSelectedProjects(selectedVisibleProjects);
   }, [projectsQuery.data, selectedProjects, selectedVisibleProjects]);
 
@@ -757,15 +1510,18 @@ export function StatsDashboard() {
           markStatsProjectFilterHighlightSeen(user?.id);
           d.destroy();
         },
-        steps: [{
-          element: selector,
-          popover: {
-            title: 'Novo filtro por status',
-            description: 'Agora a seção Por projeto permite alternar entre todos os projetos, em andamento e arquivados.',
-            side: 'bottom',
-            align: 'center'
+        steps: [
+          {
+            element: selector,
+            popover: {
+              title: 'Novo filtro por status',
+              description:
+                'Agora a seção Por projeto permite alternar entre todos os projetos, em andamento e arquivados.',
+              side: 'bottom',
+              align: 'center'
+            }
           }
-        }]
+        ]
       });
       driverObj.drive();
     }, 600);
@@ -774,12 +1530,15 @@ export function StatsDashboard() {
   }, [data, singleProject, user?.id]);
 
   function toggleProject(id: string) {
-    setSelectedProjects(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    setSelectedProjects((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }
 
-  async function handleExport(section: StatsExportSection, params: StatsParams = statsParams) {
+  async function handleExport(
+    section: StatsExportSection,
+    params: StatsParams = statsParams
+  ) {
     setExportError('');
     setExportingSection(section);
     try {
@@ -787,13 +1546,39 @@ export function StatsDashboard() {
       const blob = await downloadProjectStatsCsv(exportParams);
       downloadBlob(blob, statsExportFileName(exportParams));
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : 'Não foi possível exportar o CSV.');
+      setExportError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível exportar o CSV.'
+      );
     } finally {
       setExportingSection(null);
     }
   }
 
-  function ExportButton({ section, children, params }: { section: StatsExportSection; children: string; params?: StatsParams }) {
+  function ExportButton({
+    section,
+    children,
+    params
+  }: {
+    section: StatsExportSection;
+    children: string;
+    params?: StatsParams;
+  }) {
+    if (isDesignSystem) {
+      return (
+        <Button
+          className="stats-export-button"
+          variant="secondary"
+          size="sm"
+          disabled={exportingSection !== null}
+          onClick={() => void handleExport(section, params)}
+        >
+          {exportingSection === section ? 'Exportando...' : children}
+        </Button>
+      );
+    }
+
     return (
       <button
         type="button"
@@ -807,195 +1592,541 @@ export function StatsDashboard() {
   }
 
   return (
-    <div className="survey-dashboard stats-dashboard">
-
+    <div
+      className={`survey-dashboard stats-dashboard${isDesignSystem ? ' rdo-stats-dashboard' : ''}`}
+      data-appearance={isDesignSystem ? appearance : undefined}
+    >
       {/* ── Filters ── */}
-      <div className="survey-dash-card stats-filters">
+      <DashboardCard appearance={appearance} className="stats-filters">
         <div className="stats-filters-row">
           {/* Period presets */}
-          <div className="stats-filter-group">
-            <label className="stats-filter-label">Período</label>
+          <div
+            className="stats-filter-group"
+            role={isDesignSystem ? 'group' : undefined}
+            aria-labelledby={
+              isDesignSystem ? 'rdo-stats-period-label' : undefined
+            }
+          >
+            <label
+              className="stats-filter-label"
+              id={isDesignSystem ? 'rdo-stats-period-label' : undefined}
+            >
+              Período
+            </label>
             <div className="stats-preset-btns">
-              {(['today', 'week', 'month', 'year'] as const).map(p => (
-                <button key={p} type="button" className={`stats-preset-btn${preset === p ? ' active' : ''}`}
-                  onClick={() => setPreset(p)}>
-                  {p === 'today' ? 'Hoje' : p === 'week' ? 'Semana' : p === 'month' ? 'Mês' : 'Ano'}
+              {(['today', 'week', 'month', 'year'] as const).map((p) => {
+                const active = preset === p;
+                const label =
+                  p === 'today'
+                    ? 'Hoje'
+                    : p === 'week'
+                      ? 'Semana'
+                      : p === 'month'
+                        ? 'Mês'
+                        : 'Ano';
+                return isDesignSystem ? (
+                  <Button
+                    key={p}
+                    className={`stats-preset-btn${active ? ' active' : ''}`}
+                    variant={active ? 'primary' : 'secondary'}
+                    size="sm"
+                    aria-pressed={active}
+                    onClick={() => setPreset(p)}
+                  >
+                    {label}
+                  </Button>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`stats-preset-btn${active ? ' active' : ''}`}
+                    onClick={() => setPreset(p)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              {isDesignSystem ? (
+                <Button
+                  className={`stats-preset-btn${preset === 'custom' ? ' active' : ''}`}
+                  variant={preset === 'custom' ? 'primary' : 'secondary'}
+                  size="sm"
+                  aria-pressed={preset === 'custom'}
+                  onClick={() => setPreset('custom')}
+                >
+                  Personalizado
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  className={`stats-preset-btn${preset === 'custom' ? ' active' : ''}`}
+                  onClick={() => setPreset('custom')}
+                >
+                  Personalizado
                 </button>
-              ))}
-              <button type="button" className={`stats-preset-btn${preset === 'custom' ? ' active' : ''}`}
-                onClick={() => setPreset('custom')}>
-                Personalizado
-              </button>
+              )}
             </div>
             {preset === 'custom' && (
               <div className="stats-custom-period">
-                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
-                <span>até</span>
-                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
-                <select value={customGranularity} onChange={e => setCustomGranularity(e.target.value as StatsParams['granularity'])}>
-                  <option value="day">Por dia</option>
-                  <option value="week">Por semana</option>
-                  <option value="month">Por mês</option>
-                  <option value="year">Por ano</option>
-                </select>
+                {isDesignSystem ? (
+                  <>
+                    <Field label="De" optionalText={null}>
+                      <Input
+                        type="date"
+                        value={customFrom}
+                        onChange={(e) => setCustomFrom(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Até" optionalText={null}>
+                      <Input
+                        type="date"
+                        value={customTo}
+                        onChange={(e) => setCustomTo(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Agrupamento" optionalText={null}>
+                      <Select
+                        value={customGranularity}
+                        onChange={(e) =>
+                          setCustomGranularity(
+                            e.target.value as StatsParams['granularity']
+                          )
+                        }
+                      >
+                        <option value="day">Por dia</option>
+                        <option value="week">Por semana</option>
+                        <option value="month">Por mês</option>
+                        <option value="year">Por ano</option>
+                      </Select>
+                    </Field>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="date"
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                    />
+                    <span>até</span>
+                    <input
+                      type="date"
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                    />
+                    <select
+                      value={customGranularity}
+                      onChange={(e) =>
+                        setCustomGranularity(
+                          e.target.value as StatsParams['granularity']
+                        )
+                      }
+                    >
+                      <option value="day">Por dia</option>
+                      <option value="week">Por semana</option>
+                      <option value="month">Por mês</option>
+                      <option value="year">Por ano</option>
+                    </select>
+                  </>
+                )}
               </div>
             )}
           </div>
 
           {/* Project status */}
-          <div className="stats-filter-group">
-            <label className="stats-filter-label">Status do projeto</label>
-            <select className="stats-filter-select" value={projectStatus}
-              onChange={e => setProjectStatus(e.target.value as ProjectStatusFilterValue)}>
-              <option value="all">Todos os projetos</option>
-              <option value="active">Em andamento</option>
-              <option value="archived">Arquivados</option>
-            </select>
-          </div>
-
-          {/* Segment */}
-          {segmentsQuery.data && segmentsQuery.data.length > 0 && (
+          {isDesignSystem ? (
+            <Field
+              className="stats-filter-group"
+              label="Status do projeto"
+              optionalText={null}
+            >
+              <Select
+                className="stats-filter-select"
+                value={projectStatus}
+                onChange={(e) =>
+                  setProjectStatus(e.target.value as ProjectStatusFilterValue)
+                }
+              >
+                <option value="all">Todos os projetos</option>
+                <option value="active">Em andamento</option>
+                <option value="archived">Arquivados</option>
+              </Select>
+            </Field>
+          ) : (
             <div className="stats-filter-group">
-              <label className="stats-filter-label">Segmento</label>
-              <select className="stats-filter-select" value={segment} onChange={e => setSegment(e.target.value)}>
-                <option value="">Todos os segmentos</option>
-                {segmentsQuery.data.map(s => (
-                  <option key={s.slug} value={s.slug}>{s.label}</option>
-                ))}
+              <label className="stats-filter-label">Status do projeto</label>
+              <select
+                className="stats-filter-select"
+                value={projectStatus}
+                onChange={(e) =>
+                  setProjectStatus(e.target.value as ProjectStatusFilterValue)
+                }
+              >
+                <option value="all">Todos os projetos</option>
+                <option value="active">Em andamento</option>
+                <option value="archived">Arquivados</option>
               </select>
             </div>
           )}
+
+          {/* Segment */}
+          {segmentsQuery.data &&
+            segmentsQuery.data.length > 0 &&
+            (isDesignSystem ? (
+              <Field
+                className="stats-filter-group"
+                label="Segmento"
+                optionalText={null}
+              >
+                <Select
+                  className="stats-filter-select"
+                  value={segment}
+                  onChange={(e) => setSegment(e.target.value)}
+                >
+                  <option value="">Todos os segmentos</option>
+                  {segmentsQuery.data.map((s) => (
+                    <option key={s.slug} value={s.slug}>
+                      {s.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : (
+              <div className="stats-filter-group">
+                <label className="stats-filter-label">Segmento</label>
+                <select
+                  className="stats-filter-select"
+                  value={segment}
+                  onChange={(e) => setSegment(e.target.value)}
+                >
+                  <option value="">Todos os segmentos</option>
+                  {segmentsQuery.data.map((s) => (
+                    <option key={s.slug} value={s.slug}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
         </div>
 
         {/* Project multi-select */}
         <div className="stats-filter-group">
-          <label className="stats-filter-label">
-            Projetos {selectedVisibleProjects.length > 0 ? `(${selectedVisibleProjects.length} selecionados)` : '(todos)'}
+          <label
+            className="stats-filter-label"
+            id={isDesignSystem ? 'rdo-stats-projects-label' : undefined}
+          >
+            Projetos{' '}
+            {selectedVisibleProjects.length > 0
+              ? `(${selectedVisibleProjects.length} selecionados)`
+              : '(todos)'}
           </label>
-          <div className="stats-project-chips">
-            {allProjects.map(p => (
-              <button key={p.id} type="button"
-                className={`stats-project-chip${selectedVisibleProjects.includes(p.id) ? ' active' : ''}`}
-                onClick={() => toggleProject(p.id)}>
-                {p.code}
-              </button>
-            ))}
-            {selectedVisibleProjects.length > 0 && (
-              <button type="button" className="stats-project-chip-clear"
-                onClick={() => setSelectedProjects([])}>
-                Limpar seleção
-              </button>
-            )}
+          <div
+            className="stats-project-chips"
+            role={isDesignSystem ? 'group' : undefined}
+            aria-labelledby={
+              isDesignSystem ? 'rdo-stats-projects-label' : undefined
+            }
+          >
+            {allProjects.map((p) => {
+              const active = selectedVisibleProjects.includes(p.id);
+              return isDesignSystem ? (
+                <Button
+                  key={p.id}
+                  className={`stats-project-chip${active ? ' active' : ''}`}
+                  variant={active ? 'primary' : 'secondary'}
+                  size="sm"
+                  aria-pressed={active}
+                  onClick={() => toggleProject(p.id)}
+                >
+                  {p.code}
+                </Button>
+              ) : (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`stats-project-chip${active ? ' active' : ''}`}
+                  onClick={() => toggleProject(p.id)}
+                >
+                  {p.code}
+                </button>
+              );
+            })}
+            {selectedVisibleProjects.length > 0 &&
+              (isDesignSystem ? (
+                <Button
+                  className="stats-project-chip-clear"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedProjects([])}
+                >
+                  Limpar seleção
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  className="stats-project-chip-clear"
+                  onClick={() => setSelectedProjects([])}
+                >
+                  Limpar seleção
+                </button>
+              ))}
           </div>
         </div>
-      </div>
+      </DashboardCard>
 
       {/* ── Loading / Error ── */}
-      {statsQuery.isLoading && (
-        <div className="page-card placeholder-copy">Carregando estatísticas...</div>
-      )}
-      {statsQuery.isError && (
-        <div className="page-card placeholder-copy" style={{ color: 'var(--rd)' }}>
-          Erro ao carregar estatísticas. Tente novamente.
-        </div>
-      )}
-      {exportError && (
-        <div className="page-card placeholder-copy" style={{ color: 'var(--rd)' }}>
-          {exportError}
-        </div>
-      )}
+      {statsQuery.isLoading &&
+        (isDesignSystem ? (
+          <Card className="rdo-stats-dashboard__state-card">
+            <div
+              className="rdo-stats-dashboard__loading"
+              role="status"
+              aria-label="Carregando estatísticas..."
+            >
+              <Skeleton variant="card" />
+              <Skeleton variant="table-rows" />
+            </div>
+          </Card>
+        ) : (
+          <div className="page-card placeholder-copy">
+            Carregando estatísticas...
+          </div>
+        ))}
+      {statsQuery.isError &&
+        (isDesignSystem ? (
+          <Alert tone="danger" title="Erro ao carregar estatísticas.">
+            Tente novamente.
+          </Alert>
+        ) : (
+          <div
+            className="page-card placeholder-copy"
+            style={{ color: 'var(--rd)' }}
+          >
+            Erro ao carregar estatísticas. Tente novamente.
+          </div>
+        ))}
+      {exportError &&
+        (isDesignSystem ? (
+          <Alert tone="danger" title="Não foi possível exportar o CSV.">
+            {exportError}
+          </Alert>
+        ) : (
+          <div
+            className="page-card placeholder-copy"
+            style={{ color: 'var(--rd)' }}
+          >
+            {exportError}
+          </div>
+        ))}
 
       {data && (
         <>
           {/* ── KPIs ── */}
-          <div className="survey-dash-card">
-            <div className="survey-dash-card-title">Resumo do período</div>
-            <KpiCards summary={data.summary} />
-          </div>
+          <DashboardCard
+            appearance={appearance}
+            title={
+              <div className="survey-dash-card-title">Resumo do período</div>
+            }
+          >
+            <KpiCards summary={data.summary} appearance={appearance} />
+          </DashboardCard>
 
           {/* ── Timeline ── */}
           {data.timeline.length > 0 && (
-            <div className="survey-dash-card">
-              <div className="stats-card-header">
+            <DashboardCard
+              appearance={appearance}
+              title={
                 <div className="survey-dash-card-title">Evolução temporal</div>
-                <div className="stats-tab-btns">
-                  <button type="button" className={`stats-tab-btn${timelineMode === 'hours' ? ' active' : ''}`}
-                    onClick={() => setTimelineMode('hours')}>Horas trabalhadas</button>
-                  <button type="button" className={`stats-tab-btn${timelineMode === 'services' ? ' active' : ''}`}
-                    onClick={() => setTimelineMode('services')}>Serviços realizados</button>
+              }
+              actions={
+                <div
+                  className="stats-tab-btns"
+                  role="group"
+                  aria-label="Métrica da evolução temporal"
+                >
+                  {isDesignSystem ? (
+                    <>
+                      <Button
+                        type="button"
+                        className={`stats-tab-btn${timelineMode === 'hours' ? ' active' : ''}`}
+                        variant={
+                          timelineMode === 'hours' ? 'primary' : 'secondary'
+                        }
+                        size="sm"
+                        aria-pressed={timelineMode === 'hours'}
+                        onClick={() => setTimelineMode('hours')}
+                      >
+                        Horas trabalhadas
+                      </Button>
+                      <Button
+                        type="button"
+                        className={`stats-tab-btn${timelineMode === 'services' ? ' active' : ''}`}
+                        variant={
+                          timelineMode === 'services' ? 'primary' : 'secondary'
+                        }
+                        size="sm"
+                        aria-pressed={timelineMode === 'services'}
+                        onClick={() => setTimelineMode('services')}
+                      >
+                        Serviços realizados
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className={`stats-tab-btn${timelineMode === 'hours' ? ' active' : ''}`}
+                        onClick={() => setTimelineMode('hours')}
+                      >
+                        Horas trabalhadas
+                      </button>
+                      <button
+                        type="button"
+                        className={`stats-tab-btn${timelineMode === 'services' ? ' active' : ''}`}
+                        onClick={() => setTimelineMode('services')}
+                      >
+                        Serviços realizados
+                      </button>
+                    </>
+                  )}
                 </div>
-              </div>
-              <TimelineChart slots={data.timeline} mode={timelineMode} />
-            </div>
+              }
+            >
+              <TimelineChart
+                slots={data.timeline}
+                mode={timelineMode}
+                appearance={appearance}
+              />
+            </DashboardCard>
           )}
 
           {/* ── Services ── */}
-          <div className="survey-dash-card">
-            <div className="survey-dash-card-title">Serviços executados</div>
-            <ServicesSection services={data.services} byProject={data.byProject} />
-          </div>
+          <DashboardCard
+            appearance={appearance}
+            title={
+              <div className="survey-dash-card-title">Serviços executados</div>
+            }
+          >
+            <ServicesSection
+              services={data.services}
+              byProject={data.byProject}
+              appearance={appearance}
+            />
+          </DashboardCard>
 
           {/* ── By Project ── */}
           {!singleProject && (
-            <div className="survey-dash-card">
-              <div className="stats-card-header stats-byproject-card-header">
+            <DashboardCard
+              appearance={appearance}
+              className="stats-byproject-card"
+              title={
                 <div className="stats-card-title-group">
                   <div className="survey-dash-card-title">Por projeto</div>
                   <ProjectStatusFilter
                     value={byProjectStatus}
                     onChange={setByProjectStatus}
                     className="stats-byproject-status-filter"
+                    appearance={appearance}
                   />
                 </div>
+              }
+              actions={
                 <div className="stats-export-btns">
                   <ExportButton section="summary">CSV Resumo</ExportButton>
-                  <ExportButton section="byProject" params={byProjectStatsParams}>CSV Por projeto</ExportButton>
+                  <ExportButton
+                    section="byProject"
+                    params={byProjectStatsParams}
+                  >
+                    CSV Por projeto
+                  </ExportButton>
                   <ExportButton section="services">CSV Serviços</ExportButton>
                 </div>
-              </div>
-              {byProjectStatsQuery.isLoading && (
-                <div className="stats-empty">Carregando projetos...</div>
-              )}
-              {byProjectStatsQuery.isError && (
-                <div className="stats-empty">Não foi possível carregar os projetos para este filtro.</div>
-              )}
+              }
+            >
+              {byProjectStatsQuery.isLoading &&
+                (isDesignSystem ? (
+                  <div
+                    className="rdo-stats-dashboard__detail-loading"
+                    role="status"
+                    aria-label="Carregando projetos..."
+                  >
+                    <Skeleton variant="table-rows" />
+                  </div>
+                ) : (
+                  <div className="stats-empty">Carregando projetos...</div>
+                ))}
+              {byProjectStatsQuery.isError &&
+                (isDesignSystem ? (
+                  <Alert
+                    tone="danger"
+                    title="Não foi possível carregar os projetos para este filtro."
+                  />
+                ) : (
+                  <div className="stats-empty">
+                    Não foi possível carregar os projetos para este filtro.
+                  </div>
+                ))}
               {byProjectData && (
                 <ByProjectSection
                   byProject={byProjectData.byProject}
-                  dailyReportsIncluded={Boolean(byProjectData.meta.dailyReportsIncluded)}
+                  dailyReportsIncluded={Boolean(
+                    byProjectData.meta.dailyReportsIncluded
+                  )}
                   detailParams={byProjectStatsParams}
+                  appearance={appearance}
                 />
               )}
-            </div>
+            </DashboardCard>
           )}
 
           {singleProject && data.byProject.length > 0 && (
-            <div className="survey-dash-card">
-              <div className="stats-card-header">
+            <DashboardCard
+              appearance={appearance}
+              title={
                 <div className="survey-dash-card-title">RDOs do projeto</div>
+              }
+              actions={
                 <div className="stats-export-btns">
                   <ExportButton section="services">CSV Serviços</ExportButton>
                 </div>
-              </div>
+              }
+            >
               <ByProjectSection
                 byProject={data.byProject}
                 dailyReportsIncluded={Boolean(data.meta.dailyReportsIncluded)}
                 detailParams={statsParams}
+                appearance={appearance}
               />
-            </div>
+            </DashboardCard>
           )}
 
           {/* ── Data quality warning ── */}
-          {(data.meta.ignoredLegacyRows.volumeOleo > 0 || data.meta.ignoredLegacyRows.tubulacao > 0) && (
-            <div className="survey-dash-card stats-warning">
-              <div className="survey-dash-card-title">Qualidade dos dados</div>
-              <p>
+          {(data.meta.ignoredLegacyRows.volumeOleo > 0 ||
+            data.meta.ignoredLegacyRows.tubulacao > 0) &&
+            (isDesignSystem ? (
+              <Alert tone="warning" title="Qualidade dos dados">
                 Alguns registros antigos foram ignorados por formato inválido:
-                {data.meta.ignoredLegacyRows.volumeOleo > 0 && ` ${data.meta.ignoredLegacyRows.volumeOleo} volume(s) de óleo`}
-                {data.meta.ignoredLegacyRows.tubulacao > 0 && ` ${data.meta.ignoredLegacyRows.tubulacao} linha(s) de tubulação`}.
-              </p>
-            </div>
-          )}
+                {data.meta.ignoredLegacyRows.volumeOleo > 0 &&
+                  ` ${data.meta.ignoredLegacyRows.volumeOleo} volume(s) de óleo`}
+                {data.meta.ignoredLegacyRows.tubulacao > 0 &&
+                  ` ${data.meta.ignoredLegacyRows.tubulacao} linha(s) de tubulação`}
+                .
+              </Alert>
+            ) : (
+              <div className="survey-dash-card stats-warning">
+                <div className="survey-dash-card-title">
+                  Qualidade dos dados
+                </div>
+                <p>
+                  Alguns registros antigos foram ignorados por formato inválido:
+                  {data.meta.ignoredLegacyRows.volumeOleo > 0 &&
+                    ` ${data.meta.ignoredLegacyRows.volumeOleo} volume(s) de óleo`}
+                  {data.meta.ignoredLegacyRows.tubulacao > 0 &&
+                    ` ${data.meta.ignoredLegacyRows.tubulacao} linha(s) de tubulação`}
+                  .
+                </p>
+              </div>
+            ))}
         </>
       )}
     </div>
@@ -1004,23 +2135,86 @@ export function StatsDashboard() {
 
 // ─── Overlay wrapper ──────────────────────────────────────────────────────────
 
-interface StatsDashboardOverlayProps {
+interface StatsOverlayCloseProps {
   onClose: () => void;
 }
 
-export function StatsDashboardOverlay({ onClose }: StatsDashboardOverlayProps) {
+interface StatsDashboardOverlayProps extends StatsOverlayCloseProps {
+  appearance?: StatsDashboardAppearance;
+}
+
+export function StatsDashboardOverlay({
+  onClose,
+  appearance = 'legacy'
+}: StatsDashboardOverlayProps) {
   useEffect(() => {
-    const handle = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    if (appearance === 'design-system') return undefined;
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handle);
     return () => document.removeEventListener('keydown', handle);
-  }, [onClose]);
+  }, [appearance, onClose]);
+
+  if (appearance === 'design-system') {
+    return (
+      <Modal
+        open
+        appearance="design-system"
+        size="full"
+        panelClassName="rdo-stats-dashboard-modal"
+        title={
+          <span className="rdo-stats-dashboard-modal__title">
+            <BrandLogo
+              className="rdo-stats-dashboard-modal__logo"
+              variant="adaptive"
+              decorative
+            />
+            <span>Dashboard de Estatísticas</span>
+          </span>
+        }
+        headerActions={
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<AppIcon icon={DS_ICONS.previous} size="sm" />}
+            onClick={onClose}
+          >
+            Voltar
+          </Button>
+        }
+        showCloseButton={false}
+        ariaLabel="Dashboard de Estatísticas"
+        onClose={onClose}
+      >
+        <StatsDashboard appearance="design-system" />
+      </Modal>
+    );
+  }
 
   return (
-    <div className="survey-dash-overlay" role="dialog" aria-modal="true" aria-label="Dashboard de Estatísticas">
+    <div
+      className="survey-dash-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Dashboard de Estatísticas"
+    >
       <div className="survey-dash-overlay-topbar">
-        <img className="survey-dash-overlay-logo" src={headerLogoUrl} alt="Filtrovali" />
-        <span className="survey-dash-overlay-title">Dashboard de Estatísticas</span>
-        <button className="survey-dash-overlay-back" type="button" onClick={onClose}>← Voltar</button>
+        <img
+          className="survey-dash-overlay-logo"
+          src={headerLogoUrl}
+          alt="Filtrovali"
+        />
+        <span className="survey-dash-overlay-title">
+          Dashboard de Estatísticas
+        </span>
+        <button
+          className="survey-dash-overlay-back"
+          type="button"
+          onClick={onClose}
+        >
+          ← Voltar
+        </button>
       </div>
       <div className="survey-dash-overlay-scroll">
         <div className="survey-dash-overlay-content">
@@ -1034,7 +2228,13 @@ export function StatsDashboardOverlay({ onClose }: StatsDashboardOverlayProps) {
 // ─── Stats Overview (mini dashboard na aba) ───────────────────────────────────
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
-  RDO: 'RDO', RTP: 'RTP', RLQ: 'RLQ', RCPU: 'RCPU', RLM: 'RLM', RLF: 'RLF', RLI: 'RLI'
+  RDO: 'RDO',
+  RTP: 'RTP',
+  RLQ: 'RLQ',
+  RCPU: 'RCPU',
+  RLM: 'RLM',
+  RLF: 'RLF',
+  RLI: 'RLI'
 };
 
 const ALL_REPORT_TYPES = ['RDO', 'RTP', 'RLQ', 'RCPU', 'RLM', 'RLF', 'RLI'];
@@ -1064,15 +2264,18 @@ function OverviewCountCard({ label, value }: { label: string; value: number }) {
 }
 
 function TopProjectsBar({ rows }: { rows: StatsOverviewProject[] }) {
-  const maxRdo = Math.max(...rows.map(r => r.rdoCount), 1);
+  const maxRdo = Math.max(...rows.map((r) => r.rdoCount), 1);
   return (
     <div className="stats-ov-bar-list">
-      {rows.map(row => (
+      {rows.map((row) => (
         <div key={row.projectId} className="stats-ov-bar-row">
           <span className="stats-ov-bar-code">{row.code}</span>
           <span className="stats-ov-bar-name">{row.name}</span>
           <div className="stats-ov-bar-track">
-            <div className="stats-ov-bar-fill" style={{ width: `${(row.rdoCount / maxRdo) * 100}%` }} />
+            <div
+              className="stats-ov-bar-fill"
+              style={{ width: `${(row.rdoCount / maxRdo) * 100}%` }}
+            />
           </div>
           <span className="stats-ov-bar-count">{row.rdoCount}</span>
         </div>
@@ -1641,7 +2844,7 @@ function MonthlyAllocationDashboard() {
   );
 }
 
-export function MonthlyAllocationDashboardOverlay({ onClose }: StatsDashboardOverlayProps) {
+export function MonthlyAllocationDashboardOverlay({ onClose }: StatsOverlayCloseProps) {
   useEffect(() => {
     const handle = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handle);

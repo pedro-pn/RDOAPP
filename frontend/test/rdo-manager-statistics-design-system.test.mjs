@@ -40,7 +40,6 @@ test('Gestor is the only StatsOverview consumer that opts into the Design System
     'function renderEstatisticasTab',
     'function renderTabContent'
   );
-
   assert.match(manager, /const statisticsTab = tab === 'estatisticas'/);
   assert.match(manager, /reportListingTab \|\| statisticsTab/);
   assert.match(manager, /'rdo-manager-stats-page'/);
@@ -181,7 +180,7 @@ test('the DS overview composes responsive listings and explicit loading, error a
   );
 });
 
-test('detailed and monthly overlays remain legacy with their behavioral anchors intact', () => {
+test('detailed overlay is DS only by Gestor opt-in while Coordinator and monthly stay legacy', () => {
   const stats = source('src/components/stats/StatsDashboard.tsx');
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const detailedOverlay = sectionBetween(
@@ -199,10 +198,18 @@ test('detailed and monthly overlays remain legacy with their behavioral anchors 
     'function renderEstatisticasTab',
     'function renderTabContent'
   );
+  const managerDetailedOverlay = sectionBetween(
+    manager,
+    '{statisticsTab && statsDashboardOpen ? (',
+    ') : null}'
+  );
 
-  assert.match(detailedOverlay, /className="survey-dash-overlay"/);
+  assert.match(detailedOverlay, /appearance = 'legacy'/);
+  assert.match(
+    detailedOverlay,
+    /<StatsDashboard appearance="design-system"\s*\/>/
+  );
   assert.match(detailedOverlay, /<StatsDashboard\s*\/>/);
-  assert.doesNotMatch(detailedOverlay, /appearance=/);
   assert.match(monthlyOverlay, /className="survey-dash-overlay"/);
   assert.match(monthlyOverlay, /<MonthlyAllocationDashboard\s*\/>/);
   assert.doesNotMatch(monthlyOverlay, /appearance=/);
@@ -222,9 +229,11 @@ test('detailed and monthly overlays remain legacy with their behavioral anchors 
     /StatsDashboardOverlay|MonthlyAllocationDashboardOverlay/,
     'overlays legacy não podem permanecer dentro do conteúdo inline DS'
   );
+  assert.match(managerDetailedOverlay, /<StatsDashboardOverlay\b/);
+  assert.match(managerDetailedOverlay, /appearance="design-system"/);
   assert.match(
-    manager,
-    /statisticsTab && statsDashboardOpen \? \(\s*<StatsDashboardOverlay onClose=/
+    managerDetailedOverlay,
+    /onClose=\{\(\) => setStatsDashboardOpen\(false\)\}/
   );
   assert.match(
     manager,
@@ -232,7 +241,7 @@ test('detailed and monthly overlays remain legacy with their behavioral anchors 
   );
   assert.doesNotMatch(
     manager,
-    /(?:StatsDashboardOverlay|MonthlyAllocationDashboardOverlay)[^>]*appearance=/
+    /MonthlyAllocationDashboardOverlay[^>]*appearance=/
   );
 });
 

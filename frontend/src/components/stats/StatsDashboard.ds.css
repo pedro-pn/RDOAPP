@@ -196,3 +196,546 @@
     grid-column: auto;
   }
 }
+
+/* RDO Gestor detailed statistics dashboard. The legacy dashboard remains the
+   default for Coordinator and is intentionally styled by base.css. */
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard-modal {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard-modal > .fv-modal__header {
+  padding-block: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard-modal > .fv-modal__body {
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard-modal__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard-modal__title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard-modal__logo {
+  width: auto;
+  height: var(--space-6);
+  flex: 0 0 auto;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard {
+  display: grid;
+  min-width: 0;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  gap: var(--space-4);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__card {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__card > .fv-card__header {
+  align-items: flex-start;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__card > .fv-card__body {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard__card
+  .survey-dash-card-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-md);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-filters {
+  display: grid;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-filters
+  > .fv-card__body {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-filters-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-filter-group {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-filter-label {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-preset-btns,
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-project-chips,
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-tab-btns,
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-export-btns {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  :where(
+    .stats-preset-btn.fv-button,
+    .stats-project-chip.fv-button,
+    .stats-project-chip-clear.fv-button,
+    .stats-tab-btn.fv-button,
+    .stats-project-status-filter-btn.fv-button,
+    .stats-export-button.fv-button
+  ) {
+  min-height: calc(var(--space-10) + var(--space-1));
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-custom-period {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-project-status-filter
+  .stats-project-status-filter-btn.fv-button {
+  min-width: calc(var(--space-10) + var(--space-1));
+  min-height: calc(var(--space-10) + var(--space-1));
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-filter-select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-project-chip.fv-button {
+  flex: 0 0 auto;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__state-card,
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__loading,
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__detail-loading {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__loading {
+  display: grid;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-layout {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-group {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-group-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-card {
+  min-width: 0;
+  flex: none;
+  padding: 0;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  text-align: start;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-kpi-card
+  > .fv-card__body {
+  display: grid;
+  gap: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-value {
+  color: var(--brand-text);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  line-height: var(--leading-2xl);
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__chart {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__chart svg {
+  display: block;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-3);
+  border-block-start: var(--border-width) solid var(--line);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-chart-legend-item
+  > span {
+  width: var(--space-3);
+  height: var(--space-3);
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-services-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-service-card {
+  min-width: 0;
+  padding: 0;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-service-card
+  > .fv-card__body {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-service-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-service-type {
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-base);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-service-count {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-sm);
+  white-space: nowrap;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-service-details {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-tube-entry {
+  display: block;
+  margin: 0;
+  white-space: normal;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard__service-table
+  .fv-data-table__desktop,
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard__daily-table
+  .fv-data-table__desktop {
+  max-width: 100%;
+  box-shadow: var(--shadow-e0);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-row {
+  min-width: 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-byproject-toggle.fv-button {
+  min-height: calc(var(--space-12) + var(--space-1));
+  justify-content: stretch;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: 0;
+  text-align: start;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-byproject-toggle
+  .fv-button__label {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  overflow: visible;
+  text-overflow: initial;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-code {
+  color: var(--brand-text);
+  font-weight: var(--font-semibold);
+  white-space: nowrap;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: var(--font-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-meta {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  white-space: normal;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-chevron {
+  display: inline-grid;
+  color: var(--muted);
+  place-items: center;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-dashboard
+  .stats-byproject-row[data-expanded='true']
+  .stats-byproject-chevron {
+  transform: rotate(180deg);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-detail {
+  min-width: 0;
+  padding: var(--space-3);
+  overflow: visible;
+  border-block-start: var(--border-width) solid var(--line);
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__daily-services {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__daily-service {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__daily-service strong {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-project-status-filter {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-card-title-group {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-empty {
+  padding: var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-align: center;
+}
+
+@media (max-width: 767.98px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__card > .fv-card__header {
+    flex-wrap: wrap;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-dashboard__card
+    > .fv-card__header
+    > .fv-card__actions {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard__card .stats-export-btns {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard-modal > .fv-modal__body {
+    padding: var(--space-5);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard {
+    gap: var(--space-5);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-filters-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-custom-period {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-kpi-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-dashboard
+    .stats-byproject-toggle
+    .fv-button__label {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-meta {
+    grid-column: auto;
+    white-space: nowrap;
+  }
+}
