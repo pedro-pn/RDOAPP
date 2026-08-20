@@ -1,0 +1,121 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import { createServer } from 'vite';
+
+const source = (path) =>
+  readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+async function loadModule(path) {
+  const server = await createServer({
+    configFile: false,
+    root: new URL('..', import.meta.url).pathname,
+    server: { middlewareMode: true },
+    appType: 'custom'
+  });
+
+  try {
+    return await server.ssrLoadModule(path);
+  } finally {
+    await server.close();
+  }
+}
+
+test('navigation model receives only modules already resolved by existing access rules', async () => {
+  const { hubModulesForUser } = await loadModule('/src/pages/hubModules.ts');
+  const { createNavigationModel } = await loadModule(
+    '/src/layout/navigationModel.ts'
+  );
+  const user = {
+    role: 'COLLABORATOR',
+    accountType: 'INTERNAL',
+    moduleRoles: ['rdo:collaborator', 'estoque:viewer']
+  };
+  const resolvedModules = hubModulesForUser(user);
+  const navigation = createNavigationModel({
+    modules: resolvedModules,
+    pathname: '/estoque'
+  });
+  const moduleItems = navigation.groups.find(
+    (group) => group.id === 'modules'
+  ).items;
+
+  assert.deepEqual(
+    moduleItems.map((item) => item.id),
+    resolvedModules.map((module) => module.id)
+  );
+  assert.equal(moduleItems.find((item) => item.id === 'estoque').active, true);
+  assert.equal(
+    moduleItems.some((item) => item.id === 'admin'),
+    false
+  );
+});
+
+test('all navigation surfaces consume the shared NavigationModel', () => {
+  for (const file of [
+    'src/layout/Sidebar.tsx',
+    'src/layout/NavigationDrawer.tsx',
+    'src/layout/BottomBar.tsx'
+  ]) {
+    assert.match(source(file), /NavigationModel/);
+  }
+
+  assert.match(source('src/layout/Sidebar.tsx'), /<NavigationList/);
+  assert.match(source('src/layout/NavigationDrawer.tsx'), /<Sidebar/);
+  assert.match(
+    source('src/layout/BottomBar.tsx'),
+    /navigationItems\(navigation\)/
+  );
+});
+
+test('new shell styles use semantic tokens and only official breakpoints', () => {
+  const css = `${source('src/layout/AppShell.css')}\n${source(
+    'src/dev/shell-design-system.css'
+  )}`;
+
+  assert.doesNotMatch(css, /#[\da-f]{3,8}\b/i);
+  assert.doesNotMatch(css, /\brgba?\(/i);
+  assert.doesNotMatch(css, /!important/);
+  assert.doesNotMatch(css, /@(media|container)[^{]*(430|560|640|860)px/);
+  for (const breakpoint of ['480px', '768px', '1024px', '1280px']) {
+    assert.match(css, new RegExp(breakpoint));
+  }
+});
+
+test('legacy TopBar and BottomBar APIs remain available as the default branch', () => {
+  const topBar = source('src/layout/TopBar.tsx');
+  const bottomBar = source('src/layout/BottomBar.tsx');
+
+  assert.match(topBar, /appearance\?: 'legacy'/);
+  assert.match(topBar, /props\.appearance === 'design-system'/);
+  assert.match(topBar, /className="topbar-react"/);
+  assert.match(bottomBar, /appearance\?: 'legacy'/);
+  assert.match(bottomBar, /className="bottom-bar-react"/);
+});
+
+test('shell harness is isolated from application routes and simulates no permissions', () => {
+  const html = source('shell-design-system.html');
+  const entry = source('src/dev/shell-design-system-main.tsx');
+  const page = source('src/dev/ShellDesignSystemPage.tsx');
+
+  assert.match(html, /src="\/src\/dev\/shell-design-system-main\.tsx"/);
+  assert.match(html, /noindex,nofollow/);
+  assert.match(entry, /<MemoryRouter/);
+  assert.match(page, /moduleRegistry/);
+  assert.doesNotMatch(page, /moduleRoles\s*:/);
+  assert.doesNotMatch(
+    source('src/App.tsx'),
+    /shell-design-system|design-system-shell/
+  );
+});
+
+test('drawer preserves modal accessibility and focus behavior', () => {
+  const drawer = source('src/layout/NavigationDrawer.tsx');
+
+  assert.match(drawer, /aria-modal="true"/);
+  assert.match(drawer, /event\.key === 'Escape'/);
+  assert.match(drawer, /event\.key !== 'Tab'/);
+  assert.match(drawer, /document\.body\.style\.overflow = 'hidden'/);
+  assert.match(drawer, /previousFocusRef\.current\?\.focus\(\)/);
+  assert.match(drawer, /createPortal\(/);
+});

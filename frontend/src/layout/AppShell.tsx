@@ -1,0 +1,94 @@
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+
+import { BottomBar } from './BottomBar';
+import { NavigationDrawer } from './NavigationDrawer';
+import type { NavigationModel } from './navigationModel';
+import { Sidebar, type NavigationProfile } from './Sidebar';
+import { TopBar, type TopBarBreadcrumb } from './TopBar';
+import './AppShell.css';
+
+export interface AppShellProps {
+  children: ReactNode;
+  navigation: NavigationModel;
+  title: string;
+  breadcrumb?: readonly TopBarBreadcrumb[];
+  search?: ReactNode;
+  notifications?: ReactNode;
+  profile?: NavigationProfile;
+  utilityActions?: ReactNode;
+  topBarActions?: ReactNode;
+  onLogout?: () => void | Promise<void>;
+  contentPadding?: 'default' | 'none';
+}
+
+export function AppShell({
+  children,
+  navigation,
+  title,
+  breadcrumb,
+  search,
+  notifications,
+  profile,
+  utilityActions,
+  topBarActions,
+  onLogout,
+  contentPadding = 'default'
+}: AppShellProps) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const handleDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) closeDrawer();
+    };
+    desktop.addEventListener('change', handleDesktop);
+    return () => desktop.removeEventListener('change', handleDesktop);
+  }, [closeDrawer]);
+
+  return (
+    <div className="fv-app-shell" data-testid="fv-app-shell">
+      <Sidebar
+        navigation={navigation}
+        profile={profile}
+        utilityActions={utilityActions}
+        onLogout={onLogout}
+        className="fv-app-shell__sidebar"
+      />
+
+      <div className="fv-app-shell__main">
+        <TopBar
+          appearance="design-system"
+          title={title}
+          breadcrumb={breadcrumb}
+          search={search}
+          notifications={notifications}
+          profile={profile}
+          actions={topBarActions}
+          onOpenMenu={() => setDrawerOpen(true)}
+        />
+
+        <div
+          className={`fv-app-shell__content fv-app-shell__content--${contentPadding}`}
+        >
+          <div className="fv-app-shell__content-inner">{children}</div>
+        </div>
+      </div>
+
+      <BottomBar
+        appearance="design-system"
+        navigation={navigation}
+        onOpenMenu={() => setDrawerOpen(true)}
+      />
+
+      <NavigationDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        navigation={navigation}
+        profile={profile}
+        utilityActions={utilityActions}
+        onLogout={onLogout}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,135 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+
+const frontendRoot = fileURLToPath(new URL('../', import.meta.url));
+const source = (path) => readFileSync(join(frontendRoot, path), 'utf8');
+
+test('listings barrel exposes every Phase 5 primitive through the DS public API', () => {
+  const designSystemBarrel = source('src/components/ui/ds/index.ts');
+  const exports = [
+    'DataTable',
+    'SearchInput',
+    'FilterBar',
+    'MobileList',
+    'Pagination'
+  ];
+
+  for (const component of exports) {
+    assert.match(designSystemBarrel, new RegExp(`\\b${component}\\b`));
+  }
+});
+
+test('DataTable keeps native table semantics, sortable headers and accessible selection', () => {
+  const dataTable = source('src/components/ui/ds/listings/DataTable.tsx');
+  const listingTypes = source('src/components/ui/ds/listings/types.ts');
+
+  assert.match(dataTable, /<table\b/);
+  assert.match(dataTable, /<thead\b/);
+  assert.match(dataTable, /<tbody\b/);
+  assert.match(dataTable, /scope=["']col["']/);
+  assert.match(dataTable, /scope=["']row["']/);
+  assert.match(dataTable, /aria-sort=/);
+  assert.match(dataTable, /type=["']checkbox["']/);
+  assert.match(dataTable, /aria-label=/);
+  assert.match(dataTable, /selecion/i);
+  assert.match(
+    listingTypes,
+    /accessor\?:\s*keyof T \| \(\(row: T\) => unknown\)/
+  );
+});
+
+test('SearchInput keeps controlled input immediate and debounce as an auxiliary callback', () => {
+  const searchInput = source('src/components/ui/ds/listings/SearchInput.tsx');
+
+  assert.match(searchInput, /value:\s*string/);
+  assert.match(searchInput, /onChange:\s*\(value:\s*string\)/);
+  assert.match(searchInput, /onDebouncedChange\?/);
+  assert.match(searchInput, /useDebouncedValue/);
+  assert.match(searchInput, /onCompositionStart/);
+  assert.match(searchInput, /role=["']searchbox["']/);
+  assert.match(searchInput, /clearLabel/);
+});
+
+test('FilterBar provides active filters and an accessible mobile sheet', () => {
+  const filterBar = source('src/components/ui/ds/listings/FilterBar.tsx');
+
+  assert.match(filterBar, /activeFilters/);
+  assert.match(filterBar, /activeCount/);
+  assert.match(filterBar, /<dialog\b/);
+  assert.match(filterBar, /showModal\(\)/);
+  assert.match(filterBar, /aria-haspopup=["']dialog["']/);
+  assert.match(filterBar, /onCancel=/);
+  assert.match(filterBar, /sheetOpen = open && !disabled/);
+  assert.match(filterBar, /document\.body\.style\.overflow = 'hidden'/);
+});
+
+test('Pagination is controlled, semantic and exposes all navigation boundaries', () => {
+  const pagination = source('src/components/ui/ds/listings/Pagination.tsx');
+
+  assert.match(pagination, /<nav\b/);
+  assert.match(pagination, /onPageChange/);
+  assert.match(pagination, /onPageSizeChange/);
+  assert.match(pagination, /aria-current=/);
+  assert.match(pagination, /role=["']group["']/);
+  assert.match(pagination, /firstPage/);
+  assert.match(pagination, /lastPage/);
+});
+
+test('MobileList renders description-list semantics from an explicit row/column mapping', () => {
+  const dataTable = source('src/components/ui/ds/listings/DataTable.tsx');
+  const mobileList = source('src/components/ui/ds/listings/MobileList.tsx');
+
+  assert.match(dataTable, /<MobileList\b/);
+  assert.match(mobileList, /<dl\b/);
+  assert.match(mobileList, /<dt\b/);
+  assert.match(mobileList, /<dd\b/);
+  assert.match(mobileList, /\.map\(/);
+  assert.match(dataTable, /\brenderItem\b/);
+  assert.match(mobileList, /\bmetadata\b/);
+  assert.match(mobileList, /hasContent\(content\.value\)/);
+  assert.match(mobileList, /inert=\{disabled \|\| undefined\}/);
+});
+
+test('listing CSS is DS-scoped, tokenized and uses only official breakpoints', () => {
+  const css = source('src/components/ui/ds/listings/listings.css');
+
+  assert.match(css, /:where\(\.fv-ds,\s*\[data-fv-ds\]\)/);
+  assert.doesNotMatch(css, /#[\da-f]{3,8}\b/i);
+  assert.doesNotMatch(css, /\brgba?\(/i);
+  assert.doesNotMatch(css, /!important/);
+
+  const officialBreakpointEdges = new Set([
+    '479.98',
+    '480',
+    '767.98',
+    '768',
+    '1023.98',
+    '1024',
+    '1279.98',
+    '1280',
+    '1535.98',
+    '1536'
+  ]);
+  const responsiveRules = css.matchAll(/@(media|container)\s*([^\{]+)/g);
+  for (const [, , condition] of responsiveRules) {
+    for (const match of condition.matchAll(/(\d+(?:\.\d+)?)px\b/g)) {
+      assert.ok(
+        officialBreakpointEdges.has(match[1]),
+        `Breakpoint não oficial em listings.css: ${match[0]}`
+      );
+    }
+  }
+});
+
+test('listings harness is an isolated Vite entry without application routing', () => {
+  const html = source('listings-design-system.html');
+  const entry = source('src/dev/listings-design-system-main.tsx');
+
+  assert.match(html, /src="\/src\/dev\/listings-design-system-main\.tsx"/);
+  assert.match(html, /noindex,nofollow/);
+  assert.match(entry, /<ListingsDesignSystemPage\s*\/>/);
+  assert.doesNotMatch(entry, /BrowserRouter|MemoryRouter|Routes|Route/);
+});

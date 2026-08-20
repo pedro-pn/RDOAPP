@@ -1,0 +1,81 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const source = (path) =>
+  readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+test('design system barrel exposes every Phase 2 primitive', () => {
+  const barrel = source('src/components/ui/ds/index.ts');
+  const exports = [
+    'Alert',
+    'Badge',
+    'StatusPill',
+    'Button',
+    'IconButton',
+    'Card',
+    'EmptyState',
+    'Field',
+    'Input',
+    'Select',
+    'Skeleton',
+    'Spinner',
+    'Textarea',
+    'statusToTone'
+  ];
+
+  for (const component of exports) {
+    assert.match(barrel, new RegExp(`\\b${component}\\b`));
+  }
+});
+
+test('primitive CSS stays scoped and consumes tokens instead of literal colors', () => {
+  const primitiveCss = source('src/components/ui/ds/styles.css');
+  const modalCss = source('src/components/ui/ds/modal.css');
+  const css = `${primitiveCss}\n${modalCss}`;
+
+  assert.match(css, /:where\(\.fv-ds, \[data-fv-ds\]\)/);
+  assert.doesNotMatch(css, /#[\da-f]{3,8}\b/i);
+  assert.doesNotMatch(css, /\brgba?\(/i);
+  assert.doesNotMatch(css, /!important/);
+  assert.doesNotMatch(css, /@(media|container)[^{]*(430|560|640|860)px/);
+});
+
+test('status map covers canonical Portuguese workflow states', () => {
+  const statusSource = source('src/components/ui/ds/status.ts');
+  const expectedStatuses = [
+    'aprovado',
+    'pendente',
+    'rejeitado',
+    'revisao',
+    'assinado',
+    'expirado',
+    'em andamento',
+    'cancelado'
+  ];
+
+  for (const status of expectedStatuses) {
+    assert.match(statusSource, new RegExp(`['"]?${status}['"]?\\s*:`));
+  }
+});
+
+test('Modal keeps legacy appearance by default while providing DS behavior', () => {
+  const modal = source('src/components/ui/Modal.tsx');
+
+  assert.match(modal, /appearance = 'legacy'/);
+  assert.match(modal, /appearance === 'design-system'/);
+  assert.match(modal, /createPortal\(/);
+  assert.match(modal, /aria-modal="true"/);
+  assert.match(modal, /lockBodyScroll\(\)/);
+  assert.match(modal, /previousFocus\.focus\(\)/);
+});
+
+test('visual catalog is a separate Vite entry and does not add an app route', () => {
+  const html = source('design-system.html');
+  const entry = source('src/dev/design-system-main.tsx');
+
+  assert.match(html, /src="\/src\/dev\/design-system-main\.tsx"/);
+  assert.match(html, /noindex,nofollow/);
+  assert.match(entry, /<DesignSystemPage \/>/);
+  assert.doesNotMatch(entry, /BrowserRouter|Routes|Route/);
+});

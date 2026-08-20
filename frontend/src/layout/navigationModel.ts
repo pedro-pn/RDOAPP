@@ -1,0 +1,83 @@
+import type { LucideIcon } from 'lucide-react';
+
+import { moduleIdFromPath } from '../auth/moduleNavigation';
+import type { HubModuleEntry } from '../pages/hubModules';
+import {
+  MODULE_NAVIGATION_ICONS,
+  NAVIGATION_CHROME_ICONS
+} from './navigationIcons';
+
+export type NavigationBadge = string | number;
+
+export interface NavigationItem {
+  id: string;
+  label: string;
+  description?: string;
+  href?: string;
+  group: string;
+  icon: LucideIcon;
+  badge?: NavigationBadge;
+  active: boolean;
+  disabled?: boolean;
+}
+
+export interface NavigationGroup {
+  id: string;
+  label: string;
+  items: NavigationItem[];
+}
+
+export interface NavigationModel {
+  groups: NavigationGroup[];
+}
+
+export interface CreateNavigationModelOptions {
+  modules: readonly HubModuleEntry[];
+  pathname: string;
+}
+
+export function createNavigationModel({
+  modules,
+  pathname
+}: CreateNavigationModelOptions): NavigationModel {
+  const activeModuleId = moduleIdFromPath(pathname);
+
+  return {
+    groups: [
+      {
+        id: 'principal',
+        label: 'Principal',
+        items: [
+          {
+            id: 'hub',
+            label: 'Visão geral',
+            description: 'Módulos disponíveis',
+            href: '/modulos',
+            group: 'principal',
+            icon: NAVIGATION_CHROME_ICONS.home,
+            active: pathname === '/modulos'
+          }
+        ]
+      },
+      {
+        id: 'modules',
+        label: 'Módulos',
+        items: modules.map((module) => ({
+          id: module.id,
+          label: module.title,
+          description: module.copy,
+          href: module.path,
+          group: 'modules',
+          icon: MODULE_NAVIGATION_ICONS[module.id],
+          badge: module.badge,
+          active: activeModuleId === module.id,
+          disabled: module.disabled || !module.path
+        }))
+      }
+    ]
+  };
+}
+
+export function navigationItems(model: NavigationModel) {
+  return model.groups.flatMap((group) => group.items);
+}
