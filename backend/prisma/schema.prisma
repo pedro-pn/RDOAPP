@@ -1145,7 +1145,6 @@ model StockItem {
   filterMicron     String?
   unNumber         String?
   casNumber        String?
-  fispqToken       String?
   checklistEnabled Boolean         @default(false)
   checklistItems   Json?
   isActive         Boolean         @default(true)
@@ -1154,8 +1153,22 @@ model StockItem {
   category         StockCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   batches          StockBatch[]
   movements        StockMovement[]
+  documents        StockItemDocument[]
 
   @@index([categoryId])
+}
+
+model StockItemDocument {
+  id          String    @id @default(cuid())
+  itemId      String
+  fileName    String
+  mimeType    String    @default("application/pdf")
+  storagePath String?
+  publicToken String    @unique
+  createdAt   DateTime  @default(now())
+  item        StockItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
 }
 
 model StockCategory {

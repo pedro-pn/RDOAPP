@@ -62,15 +62,6 @@ function optionalDecimalNumber(z, options) {
     });
 }
 
-function pdfDataUrlSchema(z) {
-  return z.object({
-    fileName: requiredText(z, 255),
-    dataUrl: z.string().trim().startsWith('data:application/pdf;base64,', {
-      message: 'Envie um PDF válido.'
-    })
-  });
-}
-
 function checklistItemsSchema(z) {
   return z.array(z.string().trim().min(1).max(MAX_CHECKLIST_ITEM_LENGTH)).max(MAX_CHECKLIST_ITEMS).optional().nullable();
 }
@@ -109,7 +100,6 @@ function stockItemCreateSchema(z) {
     unitLabel: optionalText(z, 20),
     unNumber: optionalText(z, 80),
     casNumber: optionalText(z, 80),
-    fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
     checklistEnabled: z.boolean().optional(),
     checklistItems: checklistItemsSchema(z)
   });
@@ -120,7 +110,6 @@ function stockItemCreateSchema(z) {
     unitLabel: z.enum(CHEMICAL_UNITS),
     unNumber: optionalText(z, 80),
     casNumber: optionalText(z, 80),
-    fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
     filterModel: optionalText(z, 180),
     filterKind: optionalText(z, 120),
     filterMicron: optionalText(z, 60),
@@ -131,7 +120,7 @@ function stockItemCreateSchema(z) {
   return z.discriminatedUnion('type', [filter, chemical])
     .superRefine((data, ctx) => {
       if (data.type === 'FILTRO') {
-        forbidFields(data, ['unitLabel', 'unNumber', 'casNumber', 'fispq'], ctx);
+        forbidFields(data, ['unitLabel', 'unNumber', 'casNumber'], ctx);
       } else {
         forbidFields(data, ['filterModel', 'filterKind', 'filterMicron'], ctx);
       }
@@ -143,7 +132,6 @@ function stockItemCreateSchema(z) {
           unitLabel: 'un',
           unNumber: null,
           casNumber: null,
-          fispq: null,
           checklistEnabled: Boolean(data.checklistEnabled),
           checklistItems: data.checklistItems === undefined ? null : data.checklistItems
         };
@@ -154,7 +142,6 @@ function stockItemCreateSchema(z) {
         filterKind: null,
         filterMicron: null,
         casNumber: data.casNumber,
-        fispq: data.fispq ?? null,
         checklistEnabled: Boolean(data.checklistEnabled),
         checklistItems: data.checklistItems === undefined ? null : data.checklistItems
       };
@@ -173,17 +160,15 @@ function stockItemUpdateSchema(z, type) {
       unitLabel: optionalText(z, 20),
       unNumber: optionalText(z, 80),
       casNumber: optionalText(z, 80),
-      fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
       checklistEnabled: z.boolean().optional(),
       checklistItems: checklistItemsSchema(z)
     }).superRefine((data, ctx) => {
-      forbidFields(data, ['unitLabel', 'unNumber', 'casNumber', 'fispq'], ctx);
+      forbidFields(data, ['unitLabel', 'unNumber', 'casNumber'], ctx);
     }).transform(data => ({
       ...data,
       unitLabel: 'un',
       unNumber: null,
       casNumber: null,
-      fispq: null,
       checklistEnabled: Boolean(data.checklistEnabled),
       checklistItems: data.checklistItems === undefined ? null : data.checklistItems
     }));
@@ -195,7 +180,6 @@ function stockItemUpdateSchema(z, type) {
       unitLabel: z.enum(CHEMICAL_UNITS),
       unNumber: optionalText(z, 80),
       casNumber: optionalText(z, 80),
-      fispq: z.union([pdfDataUrlSchema(z), z.null()]).optional(),
       filterModel: optionalText(z, 180),
       filterKind: optionalText(z, 120),
       filterMicron: optionalText(z, 60),
@@ -209,7 +193,6 @@ function stockItemUpdateSchema(z, type) {
       filterKind: null,
       filterMicron: null,
       casNumber: data.casNumber,
-      fispq: data.fispq ?? undefined,
       checklistEnabled: Boolean(data.checklistEnabled),
       checklistItems: data.checklistItems === undefined ? null : data.checklistItems
     }));

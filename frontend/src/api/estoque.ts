@@ -16,6 +16,14 @@ export interface PdfUpload {
   dataUrl: string;
 }
 
+export interface StockItemDocument {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  publicUrl: string;
+  createdAt: string;
+}
+
 export interface StockCategory {
   id: string;
   type: StockItemType;
@@ -54,7 +62,7 @@ export interface StockItem {
   filterMicron: string | null;
   unNumber: string | null;
   casNumber: string | null;
-  fispqUrl: string | null;
+  documents: StockItemDocument[];
   checklistEnabled: boolean;
   checklistItems: string[] | null;
   isActive: boolean;
@@ -78,7 +86,6 @@ export interface StockItemPayload {
   filterMicron?: string | null;
   unNumber?: string | null;
   casNumber?: string | null;
-  fispq?: PdfUpload | null;
   checklistEnabled?: boolean;
   checklistItems?: string[] | null;
 }
@@ -198,6 +205,18 @@ export async function setStockItemActive(id: string, isActive: boolean) {
 
 export async function removeStockItem(id: string) {
   await apiClient.delete(estoqueApiPath(`/itens/${id}`));
+}
+
+export async function createStockItemDocument(itemId: string, upload: PdfUpload) {
+  const response = await apiClient.post<StockItemDocument>(
+    estoqueApiPath(`/itens/${itemId}/documentos`),
+    upload
+  );
+  return response.data;
+}
+
+export async function removeStockItemDocument(itemId: string, documentId: string) {
+  await apiClient.delete(estoqueApiPath(`/itens/${itemId}/documentos/${documentId}`));
 }
 
 export async function getStockSummary() {
