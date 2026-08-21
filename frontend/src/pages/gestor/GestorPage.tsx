@@ -45,8 +45,10 @@ import {
   Button,
   Card,
   EmptyState,
+  Field,
   FilterBar,
   IconButton,
+  Input,
   SearchInput,
   Skeleton
 } from '../../components/ui/ds';
@@ -1198,6 +1200,7 @@ export function GestorPage() {
   const [returnReport, setReturnReport] = useState<ReportSummary | null>(null);
   const [sequenceEditReport, setSequenceEditReport] = useState<ReportSummary | null>(null);
   const [sequenceEditValue, setSequenceEditValue] = useState('');
+  const sequenceEditInputRef = useRef<HTMLInputElement>(null);
   const [manualReportForm, setManualReportForm] = useState<ManualReportFormState>(emptyManualReportForm);
   const [manualReportTarget, setManualReportTarget] = useState<ReportSummary | null>(null);
   const [manualReportModalOpen, setManualReportModalOpen] = useState(false);
@@ -3223,41 +3226,77 @@ export function GestorPage() {
       <Modal
         open={!!sequenceEditReport}
         onClose={closeReportSequenceEdit}
+        appearance="design-system"
+        size="sm"
+        title="Alterar numeração"
         ariaLabelledBy="report-sequence-edit-title"
-      >
-        <form className="admin-form" onSubmit={handleReportSequenceEditSubmit}>
-          <div className="section-title" id="report-sequence-edit-title">Alterar numeração</div>
-          <p className="placeholder-copy">
-            {sequenceEditReport
-              ? `Informe o novo número para ${sequenceEditReport.reportType}${sequenceEditReport.sequenceNumber ? ` ${sequenceEditReport.sequenceNumber}` : ''}.`
-              : 'Informe o novo número do relatório.'}
-          </p>
-          <div className="field-group">
-            <label htmlFor="report-sequence-edit-input">Novo número</label>
-            <input
-              id="report-sequence-edit-input"
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={sequenceEditValue}
-              onChange={event => setSequenceEditValue(event.target.value)}
-              required
-            />
-          </div>
-          <div className="admin-form-actions sequence-dialog-actions">
-            <button
-              className="secondary-button"
+        ariaDescribedBy="report-sequence-edit-description"
+        panelClassName="rdo-manager-sequence-dialog-modal"
+        initialFocusRef={sequenceEditInputRef}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="lg"
               type="button"
               disabled={reportMutations.updateSequence.isPending}
               onClick={closeReportSequenceEdit}
             >
               Cancelar
-            </button>
-            <button className="primary-button" type="submit" disabled={reportMutations.updateSequence.isPending}>
-              {reportMutations.updateSequence.isPending ? 'Salvando...' : 'Salvar número'}
-            </button>
-          </div>
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              type="submit"
+              form="report-sequence-edit-form"
+              disabled={reportMutations.updateSequence.isPending}
+            >
+              {reportMutations.updateSequence.isPending
+                ? 'Salvando...'
+                : 'Salvar número'}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="report-sequence-edit-form"
+          className="rdo-manager-sequence-dialog"
+          onSubmit={handleReportSequenceEditSubmit}
+        >
+          <p
+            className="rdo-manager-sequence-dialog__description"
+            id="report-sequence-edit-description"
+          >
+            {sequenceEditReport
+              ? `Informe o novo número para ${sequenceEditReport.reportType}${sequenceEditReport.sequenceNumber ? ` ${sequenceEditReport.sequenceNumber}` : ''}.`
+              : 'Informe o novo número do relatório.'}
+          </p>
+          <Field required>
+            <div className="fv-field__heading">
+              <label
+                className="fv-field__label"
+                htmlFor="report-sequence-edit-input"
+              >
+                Novo número
+                <span className="fv-field__required" aria-hidden="true">
+                  {' '}
+                  *
+                </span>
+              </label>
+            </div>
+            <Input
+              ref={sequenceEditInputRef}
+              id="report-sequence-edit-input"
+              type="number"
+              size="lg"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={sequenceEditValue}
+              onChange={(event) => setSequenceEditValue(event.target.value)}
+              required
+            />
+          </Field>
         </form>
       </Modal>
     );
