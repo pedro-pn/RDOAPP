@@ -188,6 +188,7 @@ test('B.6 DS branch uses existing responsive primitives and scoped semantic toke
 
   const stats = source('src/components/stats/StatsDashboard.tsx');
   const css = source('src/components/stats/StatsDashboard.ds.css');
+  const primitives = source('src/components/ui/ds/styles.css');
   const monthly = sectionBetween(
     stats,
     'function MonthlyAllocationDashboard',
@@ -224,4 +225,12 @@ test('B.6 DS branch uses existing responsive primitives and scoped semantic toke
   assert.doesNotMatch(css, /#[\da-f]{3,8}\b/i);
   assert.doesNotMatch(css, /\brgba?\(/i);
   assert.doesNotMatch(css, /!important/);
+  assert.match(
+    css,
+    /rdo-stats-allocation\s+:where\(\.fv-input, \.fv-select\):focus-visible\s*\{\s*outline: 0;/
+  );
+  assert.match(
+    primitives,
+    /\.fv-control-shell:focus-within\s*\{[\s\S]*?outline: var\(--focus-ring-width\) solid var\(--focus-ring\)/
+  );
 });

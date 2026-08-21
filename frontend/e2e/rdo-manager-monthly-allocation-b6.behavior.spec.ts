@@ -211,6 +211,15 @@ async function expectResponsiveRepresentation(
     'font-size',
     expectedAppearance === 'design-system' ? '16px' : '13px'
   );
+  if (expectedAppearance === 'design-system') {
+    await email.click();
+    await expect(email).toBeFocused();
+    await expect(email).toHaveCSS('outline-style', 'none');
+
+    const controlShell = email.locator('xpath=..');
+    await expect(controlShell).toHaveClass(/fv-control-shell/);
+    await expect(controlShell).toHaveCSS('outline-style', 'solid');
+  }
 
   await page.setViewportSize({ width: 768, height: 1024 });
   await expectNoDocumentOverflow(page);

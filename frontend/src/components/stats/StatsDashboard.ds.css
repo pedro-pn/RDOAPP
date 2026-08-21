@@ -884,6 +884,13 @@
   min-height: calc(var(--space-10) + var(--space-1));
 }
 
+/* The control shell owns the visible focus ring in this surface. */
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation
+  :where(.fv-input, .fv-select):focus-visible {
+  outline: 0;
+}
+
 :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__tabs {
   display: flex;
   min-width: 0;
