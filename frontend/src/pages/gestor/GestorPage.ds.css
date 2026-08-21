@@ -338,6 +338,30 @@
   min-block-size: calc(var(--space-10) + var(--space-1));
 }
 
+:where(.fv-ds, [data-fv-ds])
+  .reason-dialog--design-system
+  .reason-dialog__content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .reason-dialog--design-system
+  .reason-dialog__description {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .reason-dialog--design-system
+  .fv-modal__header
+  .fv-icon-button {
+  min-inline-size: calc(var(--space-10) + var(--space-1));
+  min-block-size: calc(var(--space-10) + var(--space-1));
+}
+
 @media (min-width: 768px) {
   :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stats-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -1198,6 +1198,8 @@ export function GestorPage() {
   const [userAdminGroup, setUserAdminGroup] = useState<'internal' | 'client'>('internal');
 
   const [returnReport, setReturnReport] = useState<ReportSummary | null>(null);
+  const returnReportTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const returnReportTriggerIdRef = useRef<string | null>(null);
   const [sequenceEditReport, setSequenceEditReport] = useState<ReportSummary | null>(null);
   const [sequenceEditValue, setSequenceEditValue] = useState('');
   const sequenceEditInputRef = useRef<HTMLInputElement>(null);
@@ -2091,6 +2093,33 @@ export function GestorPage() {
     setSequenceEditValue(report.sequenceNumber ? String(report.sequenceNumber) : '');
   }
 
+  function openReturnReportDialog(
+    report: ReportSummary,
+    trigger: HTMLButtonElement
+  ) {
+    returnReportTriggerRef.current = trigger;
+    returnReportTriggerIdRef.current = report.id;
+    setReturnReport(report);
+  }
+
+  function closeReturnReportDialog() {
+    setReturnReport(null);
+    window.requestAnimationFrame(() => {
+      const connectedTrigger = returnReportTriggerRef.current?.isConnected
+        ? returnReportTriggerRef.current
+        : Array.from(
+            document.querySelectorAll<HTMLButtonElement>(
+              '[data-rdo-return-report-id]'
+            )
+          ).find(
+            (trigger) =>
+              trigger.dataset.rdoReturnReportId ===
+              returnReportTriggerIdRef.current
+          );
+      connectedTrigger?.focus();
+    });
+  }
+
   function closeReportSequenceEdit() {
     setSequenceEditReport(null);
     setSequenceEditValue('');
@@ -2428,7 +2457,10 @@ export function GestorPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setReturnReport(report)}
+              data-rdo-return-report-id={report.id}
+              onClick={(event) =>
+                openReturnReportDialog(report, event.currentTarget)
+              }
             >
               Devolver
             </Button>
@@ -2490,7 +2522,14 @@ export function GestorPage() {
           </button>
         ) : null}
         {canReview && report.status !== 'RETURNED' ? (
-          <button className="mini-btn alt" type="button" onClick={() => setReturnReport(report)}>
+          <button
+            className="mini-btn alt"
+            type="button"
+            data-rdo-return-report-id={report.id}
+            onClick={(event) =>
+              openReturnReportDialog(report, event.currentTarget)
+            }
+          >
             Devolver
           </button>
         ) : null}
@@ -3210,13 +3249,14 @@ export function GestorPage() {
     const reasonDialog = (
       <ReasonDialog
         open={!!returnReport}
+        appearance="design-system"
         title="Devolver relatório"
         description="Informe o motivo da devolução do relatório."
         label="Motivo"
         confirmLabel="Devolver"
         requiredMessage="Informe um motivo para devolver o relatório."
         isSubmitting={reportMutations.updateStatus.isPending}
-        onCancel={() => setReturnReport(null)}
+        onCancel={closeReturnReportDialog}
         onConfirm={reason => {
           if (returnReport) void handleReportStatus(returnReport, 'RETURNED', reason);
         }}
