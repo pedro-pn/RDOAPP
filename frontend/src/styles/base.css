@@ -13320,3 +13320,73 @@ body.app-reorder-touching {
     width: 100%;
   }
 }
+.app-combobox {
+  position: relative;
+}
+
+.app-combobox-control {
+  align-items: stretch;
+  display: flex;
+  min-width: 0;
+  position: relative;
+}
+
+.app-combobox-control input {
+  min-width: 0;
+  padding-right: 42px;
+  width: 100%;
+}
+
+.app-combobox-control > button {
+  background: transparent;
+  border: 0;
+  color: var(--mu);
+  cursor: pointer;
+  font-size: 18px;
+  position: absolute;
+  right: 4px;
+  top: 2px;
+}
+
+.app-combobox-list {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  left: 0;
+  max-height: 240px;
+  overflow: auto;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+}
+
+.app-combobox-list button {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--br);
+  color: var(--tx);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.app-combobox-list button.active,
+.app-combobox-list button:hover {
+  background: var(--sf);
+}
+
+.app-combobox-list small,
+.app-combobox-empty {
+  color: var(--mu);
+}
+
+.app-combobox-empty {
+  padding: 12px;
+}

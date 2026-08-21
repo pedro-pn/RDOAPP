@@ -194,7 +194,10 @@ app.use((err, req, res, _next) => {
     });
   }
   res.status(status).json({
-    error: status >= 500 && isProduction ? 'Erro interno do servidor.' : (err.message || 'Erro interno do servidor.')
+    error: status >= 500 && isProduction ? 'Erro interno do servidor.' : (err.message || 'Erro interno do servidor.'),
+    ...(err.code ? { code: err.code } : {}),
+    ...(Array.isArray(err.conflicts) && err.conflicts.length ? { conflicts: err.conflicts } : {}),
+    ...(Array.isArray(err.issues) && err.issues.length ? { issues: err.issues } : {})
   });
 });
 

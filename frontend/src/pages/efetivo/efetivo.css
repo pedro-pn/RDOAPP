@@ -30,6 +30,10 @@
   gap: 12px;
 }
 
+[data-efetivo-overview] .efetivo-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .efetivo-kpi {
   background: var(--wh);
   border: 1px solid var(--br);
@@ -370,6 +374,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  [data-efetivo-overview] .efetivo-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .efetivo-filter-note {
     grid-column: 1 / -1;
   }
@@ -442,6 +450,10 @@
     grid-template-columns: 1fr;
   }
 
+  [data-efetivo-overview] .efetivo-kpis {
+    grid-template-columns: 1fr;
+  }
+
   .efetivo-reference-card,
   .efetivo-section-heading,
   .efetivo-pending-item {
@@ -467,5 +479,532 @@
   .efetivo-absence-form-body .field-group:first-child,
   .efetivo-absence-form-body .field-group:last-child {
     grid-column: auto;
+  }
+}
+
+/* Planejamento completo */
+.efetivo-context-toolbar,
+.efetivo-list-toolbar,
+.efetivo-calendar-toolbar,
+.efetivo-scenario-actions,
+.efetivo-setting-row {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.efetivo-context-toolbar .field-group,
+.efetivo-list-toolbar .field-group {
+  flex: 0 1 220px;
+}
+
+.efetivo-context-toolbar p,
+.efetivo-toolbar-copy,
+.efetivo-setting-row p {
+  color: var(--mu);
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.efetivo-kpi-danger {
+  border-color: var(--rd);
+}
+
+.efetivo-utilization-card {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(180px, .35fr) minmax(0, 1fr);
+}
+
+.efetivo-utilization-card > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.efetivo-utilization-card strong {
+  color: var(--g);
+  font-size: 26px;
+}
+
+.efetivo-utilization-card small,
+.efetivo-role-card small,
+.efetivo-mission-card p,
+.efetivo-kanban-card p,
+.efetivo-scenario-card small {
+  color: var(--mu);
+}
+
+.efetivo-operational-disclaimer { color: var(--mu); font-size: 12px; margin: 14px 0 0; }
+
+.efetivo-utilization-track {
+  align-self: center;
+  background: var(--bg);
+  border-radius: 999px;
+  height: 18px;
+  overflow: hidden;
+  position: relative;
+}
+
+.efetivo-utilization-track span {
+  background: var(--gl);
+  display: block;
+  height: 100%;
+}
+
+.efetivo-utilization-track i {
+  background: var(--tx);
+  bottom: 0;
+  position: absolute;
+  top: 0;
+  width: 2px;
+}
+
+.efetivo-role-grid,
+.efetivo-mission-grid,
+.efetivo-scenario-grid,
+.efetivo-user-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  margin-top: 14px;
+}
+
+.efetivo-role-card {
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  border-top: 4px solid var(--mu);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.efetivo-role-card header,
+.efetivo-mission-card header,
+.efetivo-mission-card footer,
+.efetivo-scenario-comparison > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.efetivo-role-card dl,
+.efetivo-mission-card dl,
+.efetivo-kanban-card dl {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.efetivo-role-card dl div,
+.efetivo-mission-card dl div,
+.efetivo-kanban-card dl div {
+  background: var(--sf);
+  border-radius: var(--rs);
+  padding: 8px;
+}
+
+.efetivo-role-card dt,
+.efetivo-mission-card dt,
+.efetivo-kanban-card dt {
+  color: var(--mu);
+  font-size: 11px;
+}
+
+.efetivo-role-card dd,
+.efetivo-mission-card dd,
+.efetivo-kanban-card dd {
+  color: var(--g);
+  font-weight: 700;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.efetivo-two-column,
+.efetivo-calendar-layout,
+.efetivo-comparison-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.efetivo-compact-list,
+.efetivo-activity-list,
+.efetivo-admin-role-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.efetivo-compact-list > a,
+.efetivo-compact-list > article {
+  align-items: center;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  color: var(--tx);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 11px 12px;
+  text-decoration: none;
+}
+
+.efetivo-compact-list > a > span,
+.efetivo-compact-list > article > div > span {
+  color: var(--mu);
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.efetivo-form-grid,
+.efetivo-demand-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.efetivo-form-wide,
+.efetivo-demand-fieldset {
+  grid-column: 1 / -1;
+}
+
+.efetivo-demand-fieldset {
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  padding: 14px;
+}
+
+.efetivo-demand-fieldset legend {
+  color: var(--g);
+  font-weight: 700;
+  padding: 0 5px;
+}
+
+.efetivo-list-toolbar .app-search {
+  flex: 1 1 300px;
+}
+
+.efetivo-status {
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.efetivo-status.status-confirmed,
+.efetivo-status.status-allocated,
+.efetivo-status.status-active,
+.efetivo-status.status-applied,
+.efetivo-status.status-free {
+  border-color: var(--gl);
+  color: var(--g);
+}
+
+.efetivo-status.status-unavailable,
+.efetivo-status.status-cancelled,
+.efetivo-status.status-superseded {
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.efetivo-action-row,
+.efetivo-demand-chips,
+.efetivo-calendar-legend,
+.efetivo-segmented {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.efetivo-mission-card {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.efetivo-mission-card h2,
+.efetivo-mission-card p,
+.efetivo-kanban-card h3,
+.efetivo-kanban-card p,
+.efetivo-kanban-intro h2,
+.efetivo-kanban-intro p,
+.efetivo-scenario-actions p,
+.efetivo-scenario-comparison h2,
+.efetivo-scenario-comparison p,
+.efetivo-setting-row h2,
+.efetivo-setting-row p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.efetivo-demand-chips span {
+  background: var(--sf);
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.efetivo-calendar-layout {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .35fr);
+}
+
+.efetivo-calendar-toolbar {
+  justify-content: space-between;
+}
+
+.efetivo-segmented {
+  background: var(--sf);
+  border-radius: var(--rs);
+  padding: 3px;
+}
+
+.efetivo-segmented button {
+  background: transparent;
+  border: 0;
+  border-radius: var(--rs);
+  cursor: pointer;
+  padding: 7px 10px;
+}
+
+.efetivo-segmented button.active {
+  background: var(--wh);
+  color: var(--g);
+  font-weight: 700;
+}
+
+.efetivo-calendar-legend {
+  color: var(--mu);
+  margin: 14px 0;
+}
+
+.efetivo-calendar-legend span {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+}
+
+.efetivo-calendar-legend i,
+.efetivo-event-dot {
+  background: var(--mu);
+  border-radius: 50%;
+  display: inline-block;
+  height: 9px;
+  width: 9px;
+}
+
+.efetivo-calendar-legend .type-mission,
+.efetivo-event-dot.type-mission { background: var(--g); }
+.efetivo-calendar-legend .type-ferias,
+.efetivo-event-dot.type-ferias { background: var(--bl); }
+.efetivo-calendar-legend .type-folga,
+.efetivo-event-dot.type-folga { background: var(--warning-text); }
+.efetivo-calendar-legend .type-afastamento,
+.efetivo-event-dot.type-afastamento { background: var(--rd); }
+
+.efetivo-calendar-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.efetivo-calendar-grid.view-month,
+.efetivo-calendar-grid.view-week { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.efetivo-calendar-grid.view-day { grid-template-columns: 1fr; }
+
+.efetivo-calendar-grid > button {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 108px;
+  min-width: 0;
+  padding: 8px;
+  text-align: left;
+}
+
+.efetivo-calendar-grid > button.selected { border-color: var(--g); box-shadow: inset 0 0 0 1px var(--g); }
+.efetivo-calendar-grid > button.outside { opacity: .55; }
+.efetivo-calendar-grid time { color: var(--g); font-weight: 700; }
+.efetivo-calendar-events { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.efetivo-calendar-events small { background: var(--sf); border-left: 3px solid var(--mu); overflow: hidden; padding: 3px 4px; text-overflow: ellipsis; white-space: nowrap; }
+.efetivo-calendar-events small.type-mission { border-color: var(--g); }
+.efetivo-calendar-events small.type-ferias { border-color: var(--bl); }
+.efetivo-calendar-events small.type-folga { border-color: var(--warning-text); }
+.efetivo-calendar-events small.type-afastamento { border-color: var(--rd); }
+
+.efetivo-demand-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  margin-bottom: 14px;
+}
+
+.efetivo-demand-summary button,
+.efetivo-scenario-card {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  color: var(--tx);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  text-align: left;
+}
+
+.efetivo-demand-summary button.active,
+.efetivo-scenario-card.selected { border-color: var(--g); box-shadow: inset 0 0 0 1px var(--g); }
+
+.efetivo-allocation-add,
+.efetivo-holiday-form,
+.efetivo-hire-form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  margin-bottom: 14px;
+}
+
+.efetivo-holiday-form { grid-template-columns: minmax(160px, .4fr) minmax(0, 1fr) auto auto; }
+.efetivo-hire-form { grid-template-columns: minmax(0, 1fr) minmax(120px, .25fr) minmax(170px, .35fr) auto; }
+
+.efetivo-kanban-intro {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.efetivo-kanban-mobile-select { display: none; }
+
+.efetivo-kanban {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.efetivo-kanban-column {
+  background: var(--sf);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  min-width: 0;
+  padding: 9px;
+}
+
+.efetivo-kanban-column > header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.efetivo-kanban-column > header span {
+  background: var(--wh);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.efetivo-kanban-list { display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
+.efetivo-kanban-card { background: var(--wh); border: 1px solid var(--br); border-radius: var(--rs); display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+.efetivo-kanban-card.selected,
+.efetivo-mission-card.selected { border-color: var(--g); box-shadow: inset 0 0 0 1px var(--g); }
+.efetivo-kanban-card.drag-placeholder { border: 2px dashed var(--g); opacity: .48; }
+.efetivo-kanban-card-head { align-items: center; display: flex; gap: 7px; }
+.efetivo-drag-handle { background: transparent; border: 0; cursor: grab; padding: 3px; touch-action: none; }
+.efetivo-kanban-ghost { box-shadow: var(--shadow); opacity: .86; transform-origin: top left; z-index: 1000; }
+
+.efetivo-scenario-card { width: 100%; }
+.efetivo-scenario-actions { justify-content: space-between; }
+.efetivo-scenario-comparison > header { margin-bottom: 14px; }
+.efetivo-comparison-grid article { background: var(--sf); border: 1px solid var(--br); border-radius: var(--r); display: flex; flex-direction: column; gap: 4px; padding: 14px; }
+.efetivo-comparison-grid strong { color: var(--g); font-size: 20px; }
+.efetivo-comparison-grid em { color: var(--mu); font-size: 11px; }
+
+.efetivo-admin-role {
+  align-items: end;
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(170px, 1fr) auto minmax(100px, .3fr) minmax(150px, .5fr) auto;
+  padding: 12px;
+}
+
+.efetivo-admin-role > div:first-child { align-items: center; display: flex; gap: 8px; }
+.efetivo-admin-tabs { display: flex; gap: 8px; padding: 8px; }
+.efetivo-admin-tabs button { background: transparent; border: 0; border-radius: var(--rs); color: var(--mu); cursor: pointer; font-weight: 700; padding: 9px 12px; }
+.efetivo-admin-tabs button.active { background: var(--gl); color: var(--g); }
+.efetivo-role-color { border: 1px solid var(--br); border-radius: 50%; height: 18px; width: 18px; }
+.efetivo-user-grid article { border: 1px solid var(--br); border-radius: var(--r); display: flex; flex-direction: column; gap: 4px; padding: 12px; }
+.efetivo-user-grid span { color: var(--mu); }
+.efetivo-activity-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.efetivo-activity-list article { display: flex; gap: 12px; }
+.efetivo-activity-list p { color: var(--mu); margin: 3px 0 0; overflow-wrap: anywhere; }
+.efetivo-activity-marker { background: var(--gl); border-radius: 50%; flex: 0 0 9px; height: 9px; margin-top: 5px; }
+
+@media (max-width: 1000px) {
+  .efetivo-kanban { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .efetivo-admin-role { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .efetivo-calendar-layout,
+  .efetivo-two-column,
+  .efetivo-utilization-card { grid-template-columns: 1fr; }
+  .efetivo-calendar-grid.view-month { display: flex; flex-direction: column; }
+  .efetivo-calendar-grid.view-month > button.outside { display: none; }
+  .efetivo-calendar-grid > button { min-height: auto; }
+  .efetivo-calendar-events small { white-space: normal; }
+  .efetivo-kanban-mobile-select { display: flex; }
+  .efetivo-kanban { display: block; }
+  .efetivo-kanban-column { display: none; }
+  .efetivo-kanban-column.mobile-active { display: block; }
+  .efetivo-allocation-add,
+  .efetivo-holiday-form,
+  .efetivo-hire-form { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 540px) {
+  .efetivo-context-toolbar,
+  .efetivo-list-toolbar,
+  .efetivo-calendar-toolbar,
+  .efetivo-scenario-actions,
+  .efetivo-setting-row,
+  .efetivo-kanban-intro,
+  .efetivo-mission-card header,
+  .efetivo-mission-card footer,
+  .efetivo-scenario-comparison > header,
+  .efetivo-admin-tabs,
+  .efetivo-compact-list > a,
+  .efetivo-compact-list > article { align-items: stretch; flex-direction: column; }
+  .efetivo-form-grid,
+  .efetivo-demand-grid,
+  .efetivo-comparison-grid,
+  .efetivo-admin-role { grid-template-columns: 1fr; }
+  .efetivo-form-wide,
+  .efetivo-demand-fieldset { grid-column: auto; }
+  .efetivo-calendar-grid.view-week { display: flex; flex-direction: column; }
+  .efetivo-calendar-toolbar > strong { order: -1; width: 100%; }
+  .efetivo-segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .efetivo-admin-tabs { display: grid; grid-template-columns: 1fr; }
+  .efetivo-context-toolbar .field-group,
+  .efetivo-list-toolbar .field-group,
+  .efetivo-context-toolbar p,
+  .efetivo-toolbar-copy,
+  .efetivo-setting-row p,
+  .efetivo-list-toolbar .app-search {
+    flex: 0 0 auto;
+    width: 100%;
   }
 }

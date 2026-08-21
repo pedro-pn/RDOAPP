@@ -10,6 +10,7 @@ import { Modal } from '../../../components/ui/Modal';
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe uma data válida.');
 const absenceFormSchema = z.object({
   collaboratorId: z.string().min(1, 'Selecione o colaborador.'),
+  type: z.enum(['FERIAS', 'FOLGA', 'AFASTAMENTO']),
   startDate: dateSchema,
   endDate: dateSchema,
   note: z.string().max(500, 'Use no máximo 500 caracteres.')
@@ -27,26 +28,28 @@ interface Props {
   saving: boolean;
   onClose: () => void;
   onSubmit: (payload: EfetivoAbsencePayload) => void;
+  initialCollaboratorId?: string;
 }
 
-function initialValues(absence: EfetivoAbsence | null): AbsenceFormValues {
+function initialValues(absence: EfetivoAbsence | null, initialCollaboratorId = ''): AbsenceFormValues {
   return {
-    collaboratorId: absence?.collaboratorId || '',
+    collaboratorId: absence?.collaboratorId || initialCollaboratorId,
+    type: absence?.type || 'FERIAS',
     startDate: absence?.startDate?.slice(0, 10) || '',
     endDate: absence?.endDate?.slice(0, 10) || '',
     note: absence?.note || ''
   };
 }
 
-export function AbsenceFormModal({ open, absence, collaborators, saving, onClose, onSubmit }: Props) {
+export function AbsenceFormModal({ open, absence, collaborators, saving, onClose, onSubmit, initialCollaboratorId = '' }: Props) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AbsenceFormValues>({
     resolver: zodResolver(absenceFormSchema),
-    defaultValues: initialValues(absence)
+    defaultValues: initialValues(absence, initialCollaboratorId)
   });
 
   useEffect(() => {
-    if (open) reset(initialValues(absence));
-  }, [absence, open, reset]);
+    if (open) reset(initialValues(absence, initialCollaboratorId));
+  }, [absence, initialCollaboratorId, open, reset]);
 
   return (
     <Modal open={open} onClose={onClose} ariaLabelledBy="efetivo-absence-title" panelClassName="modal-card efetivo-modal">
@@ -55,7 +58,7 @@ export function AbsenceFormModal({ open, absence, collaborators, saving, onClose
         noValidate
         onSubmit={handleSubmit(values => onSubmit({
           collaboratorId: values.collaboratorId,
-          type: 'FERIAS',
+          type: values.type,
           startDate: values.startDate,
           endDate: values.endDate,
           note: values.note.trim() || null
@@ -63,8 +66,8 @@ export function AbsenceFormModal({ open, absence, collaborators, saving, onClose
       >
         <header className="efetivo-modal-header">
           <div>
-            <h3 id="efetivo-absence-title">{absence ? 'Editar férias' : 'Cadastrar férias'}</h3>
-            <p>Apenas férias estão disponíveis nesta primeira entrega.</p>
+            <h3 id="efetivo-absence-title">{absence ? 'Editar indisponibilidade' : 'Programar indisponibilidade'}</h3>
+            <p>Férias, folga e afastamento bloqueiam a alocação no período inteiro.</p>
           </div>
           <button className="icon-button" type="button" aria-label="Fechar" onClick={onClose} disabled={saving}>×</button>
         </header>
@@ -89,6 +92,15 @@ export function AbsenceFormModal({ open, absence, collaborators, saving, onClose
             <input id="efetivo-absence-start" type="date" disabled={saving} aria-invalid={Boolean(errors.startDate)} {...register('startDate')} />
             {errors.startDate ? <span className="field-error" role="alert">{errors.startDate.message}</span> : null}
           </div>
+          <div className={errors.type ? 'field-group field-invalid' : 'field-group'}>
+            <label htmlFor="efetivo-absence-type">Tipo *</label>
+            <select id="efetivo-absence-type" disabled={saving} aria-invalid={Boolean(errors.type)} {...register('type')}>
+              <option value="FERIAS">Férias</option>
+              <option value="FOLGA">Folga</option>
+              <option value="AFASTAMENTO">Afastamento</option>
+            </select>
+            {errors.type ? <span className="field-error" role="alert">{errors.type.message}</span> : null}
+          </div>
           <div className={errors.endDate ? 'field-group field-invalid' : 'field-group'}>
             <label htmlFor="efetivo-absence-end">Fim *</label>
             <input id="efetivo-absence-end" type="date" disabled={saving} aria-invalid={Boolean(errors.endDate)} {...register('endDate')} />
@@ -102,7 +114,7 @@ export function AbsenceFormModal({ open, absence, collaborators, saving, onClose
         </div>
         <footer className="efetivo-modal-footer">
           <Button variant="secondary" type="button" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar férias'}</Button>
+          <Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar indisponibilidade'}</Button>
         </footer>
       </form>
     </Modal>

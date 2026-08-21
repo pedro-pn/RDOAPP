@@ -1,0 +1,243 @@
+import { Router } from 'express';
+import { z } from 'zod';
+
+import asyncHandler from '../lib/async-handler.js';
+import { requireEfetivoManager, requireEfetivoViewer } from '../lib/efetivo/access.js';
+import {
+  deleteHoliday,
+  getPlanningSettings,
+  listEfetivoRoleUsers,
+  listHolidays,
+  listPlanningActivity,
+  saveHoliday,
+  updateHoliday,
+  updatePlanningJobRole,
+  updatePlanningSettings
+} from '../lib/efetivo/planning/administration.js';
+import { addMissionAllocation, listEligibleCollaborators, removeMissionAllocation } from '../lib/efetivo/planning/allocations.js';
+import { autoAllocateMission } from '../lib/efetivo/planning/auto-allocation.js';
+import { getPlanningCalendar } from '../lib/efetivo/planning/calendar.js';
+import {
+  createPlanningAbsence,
+  createPlanningCollaborator,
+  deletePlanningAbsence,
+  listPlanningAbsences,
+  updatePlanningAbsence,
+  updatePlanningCollaborator
+} from '../lib/efetivo/planning/collaborators.js';
+import {
+  createMission,
+  deleteMission,
+  getMission,
+  listMissions,
+  moveMissionStage,
+  updateMission
+} from '../lib/efetivo/planning/mission-planning.js';
+import { requestEvidence } from '../lib/efetivo/planning/plan-context.js';
+import {
+  getPlanningOverview,
+  listPlanningCollaborators,
+  listPlanningJobRoles,
+  listPlanningProjects
+} from '../lib/efetivo/planning/read-model.js';
+import {
+  applyScenario,
+  compareScenario,
+  createScenario,
+  discardScenario,
+  listScenarios,
+  saveScenarioHire
+} from '../lib/efetivo/planning/scenarios.js';
+import {
+  absenceInputSchema,
+  absenceUpdateSchema,
+  allocationInputSchema,
+  collaboratorInputSchema,
+  dateOnlySchema,
+  datePositionQuerySchema,
+  holidayInputSchema,
+  idSchema,
+  intervalQuerySchema,
+  jobRolePlanningInputSchema,
+  missionInputSchema,
+  missionScheduleStatusSchema,
+  missionStageSchema,
+  plannedHireInputSchema,
+  planningSettingsInputSchema,
+  scenarioInputSchema,
+  stageInputSchema
+} from '../lib/efetivo/planning/schemas.js';
+
+const router = Router();
+const listQuerySchema = z.object({ search: z.string().trim().max(120).optional() });
+const missionListQuerySchema = z.object({
+  planId: idSchema.optional(),
+  status: missionScheduleStatusSchema.optional(),
+  stage: missionStageSchema.optional()
+});
+const collaboratorListQuerySchema = datePositionQuerySchema.extend({ search: z.string().trim().max(120).optional() });
+const absenceListQuerySchema = z.object({
+  collaboratorId: idSchema.optional(),
+  startDate: dateOnlySchema.optional(),
+  endDate: dateOnlySchema.optional()
+});
+const scenarioCompareSchema = datePositionQuerySchema;
+const holidayListSchema = z.object({ startDate: dateOnlySchema.optional(), endDate: dateOnlySchema.optional() });
+const activitySchema = z.object({ cursor: z.string().datetime().optional(), limit: z.coerce.number().int().min(1).max(100).optional() });
+
+function context(req) {
+  return { actorUserId: req.auth?.user?.id || null, evidence: requestEvidence(req) };
+}
+
+router.get('/projects', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await listPlanningProjects(listQuerySchema.parse(req.query)));
+}));
+
+router.get('/job-roles', requireEfetivoViewer, asyncHandler(async (_req, res) => {
+  res.json(await listPlanningJobRoles());
+}));
+
+router.get('/overview', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await getPlanningOverview(datePositionQuerySchema.parse(req.query)));
+}));
+
+router.get('/calendar', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await getPlanningCalendar(intervalQuerySchema.parse(req.query)));
+}));
+
+router.get('/collaborators', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await listPlanningCollaborators(collaboratorListQuerySchema.parse(req.query)));
+}));
+
+router.post('/collaborators', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await createPlanningCollaborator(collaboratorInputSchema.parse(req.body), context(req)));
+}));
+
+router.patch('/collaborators/:collaboratorId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updatePlanningCollaborator(idSchema.parse(req.params.collaboratorId), collaboratorInputSchema.parse(req.body), context(req)));
+}));
+
+router.get('/absences', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await listPlanningAbsences(absenceListQuerySchema.parse(req.query)));
+}));
+
+router.post('/absences', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await createPlanningAbsence(absenceInputSchema.parse(req.body), context(req)));
+}));
+
+router.patch('/absences/:absenceId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updatePlanningAbsence(idSchema.parse(req.params.absenceId), absenceUpdateSchema.parse(req.body), context(req)));
+}));
+
+router.delete('/absences/:absenceId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  await deletePlanningAbsence(idSchema.parse(req.params.absenceId), context(req));
+  res.status(204).end();
+}));
+
+router.get('/missions', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await listMissions(missionListQuerySchema.parse(req.query)));
+}));
+
+router.post('/missions', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await createMission(missionInputSchema.parse(req.body), context(req)));
+}));
+
+router.get('/missions/:missionId', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await getMission(idSchema.parse(req.params.missionId)));
+}));
+
+router.patch('/missions/:missionId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  const version = z.coerce.number().int().min(1).parse(req.get('If-Match-Version'));
+  res.json(await updateMission(idSchema.parse(req.params.missionId), missionInputSchema.parse(req.body), { ...context(req), version }));
+}));
+
+router.delete('/missions/:missionId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  await deleteMission(idSchema.parse(req.params.missionId), context(req));
+  res.status(204).end();
+}));
+
+router.get('/missions/:missionId/eligible-collaborators', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  const jobRoleId = idSchema.parse(req.query.jobRoleId);
+  res.json(await listEligibleCollaborators(idSchema.parse(req.params.missionId), jobRoleId));
+}));
+
+router.post('/missions/:missionId/allocations', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await addMissionAllocation(idSchema.parse(req.params.missionId), allocationInputSchema.parse(req.body), context(req)));
+}));
+
+router.delete('/missions/:missionId/allocations/:allocationId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  await removeMissionAllocation(idSchema.parse(req.params.missionId), idSchema.parse(req.params.allocationId), context(req));
+  res.status(204).end();
+}));
+
+router.post('/missions/:missionId/auto-allocate', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await autoAllocateMission(idSchema.parse(req.params.missionId), context(req)));
+}));
+
+router.patch('/missions/:missionId/stage', requireEfetivoManager, asyncHandler(async (req, res) => {
+  const version = z.coerce.number().int().min(1).parse(req.get('If-Match-Version'));
+  res.json(await moveMissionStage(idSchema.parse(req.params.missionId), stageInputSchema.parse(req.body), { ...context(req), version }));
+}));
+
+router.get('/scenarios', requireEfetivoViewer, asyncHandler(async (_req, res) => {
+  res.json(await listScenarios());
+}));
+
+router.post('/scenarios', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await createScenario(scenarioInputSchema.parse(req.body), context(req)));
+}));
+
+router.get('/scenarios/:scenarioId/compare', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await compareScenario(idSchema.parse(req.params.scenarioId), scenarioCompareSchema.parse(req.query)));
+}));
+
+router.post('/scenarios/:scenarioId/hires', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await saveScenarioHire(idSchema.parse(req.params.scenarioId), plannedHireInputSchema.parse(req.body), context(req)));
+}));
+
+router.post('/scenarios/:scenarioId/apply', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await applyScenario(idSchema.parse(req.params.scenarioId), context(req)));
+}));
+
+router.post('/scenarios/:scenarioId/discard', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await discardScenario(idSchema.parse(req.params.scenarioId), context(req)));
+}));
+
+router.patch('/admin/job-roles/:jobRoleId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updatePlanningJobRole(idSchema.parse(req.params.jobRoleId), jobRolePlanningInputSchema.parse(req.body), context(req)));
+}));
+
+router.get('/admin/holidays', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await listHolidays(holidayListSchema.parse(req.query)));
+}));
+
+router.post('/admin/holidays', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await saveHoliday(holidayInputSchema.parse(req.body), context(req)));
+}));
+
+router.patch('/admin/holidays/:holidayId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updateHoliday(idSchema.parse(req.params.holidayId), holidayInputSchema.parse(req.body), context(req)));
+}));
+
+router.delete('/admin/holidays/:holidayId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  await deleteHoliday(idSchema.parse(req.params.holidayId), context(req));
+  res.status(204).end();
+}));
+
+router.get('/admin/settings', requireEfetivoViewer, asyncHandler(async (_req, res) => {
+  res.json(await getPlanningSettings());
+}));
+
+router.patch('/admin/settings', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updatePlanningSettings(planningSettingsInputSchema.parse(req.body), context(req)));
+}));
+
+router.get('/admin/activity', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await listPlanningActivity(activitySchema.parse(req.query)));
+}));
+
+router.get('/admin/users', requireEfetivoViewer, asyncHandler(async (_req, res) => {
+  res.json(await listEfetivoRoleUsers());
+}));
+
+export default router;

@@ -77,7 +77,7 @@ export interface EfetivoAbsence {
   id: string;
   collaboratorId: string;
   collaborator: { id: string; name: string; role: string };
-  type: 'FERIAS';
+  type: 'FERIAS' | 'FOLGA' | 'AFASTAMENTO';
   startDate: string;
   endDate: string;
   note: string | null;
@@ -88,7 +88,7 @@ export interface EfetivoAbsence {
 
 export interface EfetivoAbsencePayload {
   collaboratorId: string;
-  type?: 'FERIAS';
+  type?: 'FERIAS' | 'FOLGA' | 'AFASTAMENTO';
   startDate: string;
   endDate: string;
   note?: string | null;

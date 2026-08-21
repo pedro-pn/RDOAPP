@@ -120,6 +120,39 @@ enum CollaboratorAbsenceType {
   TREINAMENTO
 }
 
+enum EfetivoPlanKind {
+  OFFICIAL
+  SCENARIO
+}
+
+enum EfetivoPlanStatus {
+  ACTIVE
+  DRAFT
+  APPLIED
+  DISCARDED
+  SUPERSEDED
+}
+
+enum EfetivoMissionScheduleStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum EfetivoMissionStage {
+  STANDBY
+  MOBILIZATION
+  EXECUTION
+  FINAL_MEASUREMENT
+  FINISHED
+}
+
+enum EfetivoAllocationSource {
+  MANUAL
+  AUTOMATIC
+  SCENARIO_COPY
+}
+
 enum StockItemType {
   FILTRO
   PRODUTO_QUIMICO
@@ -272,6 +305,8 @@ model Collaborator {
   code                      String                           @unique
   name                      String
   role                      String
+  jobRoleId                 String?
+  efetivoNote               String?
   epiRoleOverride           String?
   email                     String?
   cpf                       String?
@@ -295,6 +330,11 @@ model Collaborator {
   pontoExternalLinks        PontoExternalEmployeeLink[]
   pontoDayProjectOverrides  PontoDayProjectOverride[]
   absences                  CollaboratorAbsence[]
+  jobRole                   JobRole?                           @relation("CollaboratorJobRole", fields: [jobRoleId], references: [id], onDelete: SetNull)
+  efetivoMissionResponsibilities EfetivoMissionPlan[]           @relation("EfetivoMissionResponsible")
+  efetivoMissionAllocations EfetivoMissionAllocation[]
+
+  @@index([jobRoleId])
 }
 
 model CollaboratorSignatureNoticeLog {
@@ -380,6 +420,7 @@ model CollaboratorAbsence {
   collaborator    Collaborator            @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
 
   @@index([collaboratorId, startDate])
+  @@index([collaboratorId, deletedAt, startDate, endDate])
   @@index([type, startDate])
   @@index([deletedAt])
 }
@@ -571,11 +612,17 @@ model JobRole {
   order              Int                         @default(0)
   isActive           Boolean                     @default(true)
   isOperational      Boolean                     @default(true)
+  calendarColor      String                      @default("#64748B")
+  continuousWorkLimitDays Int?
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
   plannedNormalHours ProjectPlannedNormalHours[]
   plannedOvertime    ProjectPlannedOvertime[]
   costProfile        CostProfile?
+  collaborators      Collaborator[]              @relation("CollaboratorJobRole")
+  efetivoMissionDemands EfetivoMissionDemand[]
+  efetivoMissionAllocations EfetivoMissionAllocation[]
+  efetivoPlannedHires EfetivoPlannedHire[]
 
   @@index([isActive, order])
 }
@@ -654,10 +701,159 @@ model Project {
   qualityRecords             QualityRecord[]
   pontoProjectTagAliases     PontoProjectTagAlias[]
   pontoDayProjectOverrides   PontoDayProjectOverride[]
+  efetivoMissionPlans        EfetivoMissionPlan[]
 
   @@index([deletedAt])
   @@index([registrationPending])
   @@index([commercialProposalCode])
+}
+
+// === Efetivo Operacional — planejamento oficial e cenários ===
+
+model EfetivoPlan {
+  id                   String            @id @default(cuid())
+  kind                 EfetivoPlanKind
+  status               EfetivoPlanStatus
+  name                 String
+  objective            String?
+  revision             Int               @default(1)
+  basePlanId           String?
+  baseOfficialRevision Int?
+  appliedPlanId        String?
+  createdByUserId      String?
+  appliedByUserId      String?
+  appliedAt            DateTime?
+  discardedAt          DateTime?
+  supersededAt         DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  basePlan             EfetivoPlan?       @relation("EfetivoPlanBase", fields: [basePlanId], references: [id], onDelete: SetNull)
+  derivedPlans         EfetivoPlan[]       @relation("EfetivoPlanBase")
+  appliedPlan          EfetivoPlan?       @relation("EfetivoPlanApplication", fields: [appliedPlanId], references: [id], onDelete: SetNull)
+  appliedFromScenarios EfetivoPlan[]       @relation("EfetivoPlanApplication")
+  missions             EfetivoMissionPlan[]
+  plannedHires         EfetivoPlannedHire[]
+  auditEvents          EfetivoAuditEvent[]
+
+  @@index([kind, status])
+  @@index([basePlanId])
+  @@index([createdAt])
+}
+
+model EfetivoMissionPlan {
+  id                                    String                         @id @default(cuid())
+  planId                                String
+  projectId                             String
+  scheduleStatus                        EfetivoMissionScheduleStatus   @default(DRAFT)
+  stage                                 EfetivoMissionStage            @default(STANDBY)
+  headquartersResponsibleName          String
+  headquartersResponsibleRole          String
+  headquartersResponsibleCollaboratorId String?
+  mobilizationDate                      DateTime                       @db.Date
+  executionStartDate                    DateTime                       @db.Date
+  executionEndDate                      DateTime                       @db.Date
+  returnDate                            DateTime                       @db.Date
+  version                               Int                            @default(1)
+  kanbanOrder                           Int                            @default(0)
+  createdByUserId                       String?
+  updatedByUserId                       String?
+  deletedAt                             DateTime?
+  createdAt                             DateTime                       @default(now())
+  updatedAt                             DateTime                       @updatedAt
+  plan                                  EfetivoPlan                    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  project                               Project                        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  headquartersResponsibleCollaborator  Collaborator?                  @relation("EfetivoMissionResponsible", fields: [headquartersResponsibleCollaboratorId], references: [id], onDelete: SetNull)
+  demands                               EfetivoMissionDemand[]
+  allocations                           EfetivoMissionAllocation[]
+
+  @@unique([planId, projectId])
+  @@index([planId, scheduleStatus, mobilizationDate, returnDate])
+  @@index([planId, stage, kanbanOrder])
+  @@index([planId, deletedAt])
+  @@index([headquartersResponsibleCollaboratorId])
+}
+
+model EfetivoMissionDemand {
+  id            String              @id @default(cuid())
+  missionId     String
+  jobRoleId     String
+  requiredCount Int
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  mission       EfetivoMissionPlan  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  jobRole       JobRole             @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+
+  @@unique([missionId, jobRoleId])
+  @@index([jobRoleId])
+}
+
+model EfetivoMissionAllocation {
+  id                  String                   @id @default(cuid())
+  missionId           String
+  collaboratorId      String
+  jobRoleId           String
+  jobRoleNameSnapshot String
+  source              EfetivoAllocationSource @default(MANUAL)
+  createdByUserId     String?
+  deletedAt           DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  mission             EfetivoMissionPlan       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  collaborator        Collaborator             @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  jobRole             JobRole                  @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+
+  @@unique([missionId, collaboratorId])
+  @@index([collaboratorId, deletedAt])
+  @@index([missionId, jobRoleId, deletedAt])
+}
+
+model EfetivoPlannedHire {
+  id            String       @id @default(cuid())
+  planId        String
+  jobRoleId     String
+  quantity      Int
+  availableFrom DateTime     @db.Date
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  plan          EfetivoPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  jobRole       JobRole      @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+
+  @@unique([planId, jobRoleId, availableFrom])
+  @@index([jobRoleId, availableFrom])
+}
+
+model EfetivoHoliday {
+  id              String    @id @default(cuid())
+  holidayDate     DateTime  @unique @db.Date
+  name            String
+  createdByUserId String?
+  updatedByUserId String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([deletedAt, holidayDate])
+}
+
+model EfetivoAuditEvent {
+  id           String       @id @default(cuid())
+  planId       String?
+  actorUserId  String?
+  action       String
+  entityType   String
+  entityId     String
+  summary      String
+  beforeData   Json?
+  afterData    Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime     @default(now())
+  plan         EfetivoPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([planId, createdAt])
 }
 
 model ProjectManualProgressHistory {

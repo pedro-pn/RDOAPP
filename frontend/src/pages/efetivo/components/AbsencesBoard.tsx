@@ -46,12 +46,16 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['efetivo', 'ausencias'] }),
-      queryClient.invalidateQueries({ queryKey: ['efetivo', 'produtividade'] })
+      queryClient.invalidateQueries({ queryKey: ['efetivo', 'produtividade'] }),
+      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-collaborators'] }),
+      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-overview'] }),
+      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-calendar'] })
     ]);
   };
   const saveMutation = useMutation({
     mutationFn: (payload: EfetivoAbsencePayload) => editing
       ? updateEfetivoAbsence(editing.id, {
+        type: payload.type,
         startDate: payload.startDate,
         endDate: payload.endDate,
         note: payload.note
@@ -59,7 +63,7 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
       : createEfetivoAbsence(payload),
     onSuccess: async () => {
       await invalidate();
-      showToast(editing ? 'Período de férias atualizado.' : 'Período de férias cadastrado.', 'success');
+      showToast(editing ? 'Indisponibilidade atualizada.' : 'Indisponibilidade cadastrada.', 'success');
       setEditing(null);
       setFormOpen(false);
     },
@@ -69,7 +73,7 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
     mutationFn: (id: string) => removeEfetivoAbsence(id),
     onSuccess: async () => {
       await invalidate();
-      showToast('Período de férias removido.', 'success');
+      showToast('Indisponibilidade removida.', 'success');
       setDeleting(null);
     },
     onError: () => showToast('Não foi possível remover o período.', 'error')
@@ -107,13 +111,13 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
           <strong>Férias e ausências</strong>
           <p>Os meses são sinalizados na Produtividade, sem alterar a taxa oficial.</p>
         </div>
-        {canManage ? <Button onClick={openCreate}>Cadastrar férias</Button> : null}
+        {canManage ? <Button onClick={openCreate}>Programar indisponibilidade</Button> : null}
       </section>
 
       <section className="page-card">
-        {absencesQuery.isLoading ? <p className="placeholder-copy">Carregando férias…</p>
+        {absencesQuery.isLoading ? <p className="placeholder-copy">Carregando indisponibilidades…</p>
           : absencesQuery.isError ? <p className="placeholder-copy">Não foi possível carregar os períodos.</p>
-          : absences.length === 0 ? <p className="placeholder-copy">Nenhum período de férias cadastrado em {year}.</p>
+          : absences.length === 0 ? <p className="placeholder-copy">Nenhuma indisponibilidade cadastrada em {year}.</p>
           : (
             <div className="efetivo-absence-list">
               {absences.map(absence => (
@@ -123,7 +127,7 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
                     <span>{absence.collaborator.role}</span>
                   </div>
                   <div>
-                    <span>Férias</span>
+                    <span>{absence.type === 'FERIAS' ? 'Férias' : absence.type === 'FOLGA' ? 'Folga' : 'Afastamento'}</span>
                     <strong>{displayDate(absence.startDate)} a {displayDate(absence.endDate)}</strong>
                     {absence.note ? <small>{absence.note}</small> : null}
                   </div>
@@ -151,7 +155,7 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
       ) : null}
       <ConfirmDialog
         open={Boolean(deleting)}
-        title="Remover período de férias?"
+        title="Remover indisponibilidade?"
         description="O período deixa de aparecer na tela, mas a trilha é preservada."
         highlight={deleting ? `${deleting.collaborator.name} · ${displayDate(deleting.startDate)} a ${displayDate(deleting.endDate)}` : undefined}
         confirmLabel={deleteMutation.isPending ? 'Removendo…' : 'Remover'}

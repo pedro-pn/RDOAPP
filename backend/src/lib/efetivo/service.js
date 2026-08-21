@@ -234,7 +234,7 @@ export async function listEfetivoAbsences(filters, dependencies = {}) {
   return database.collaboratorAbsence.findMany({
     where: {
       deletedAt: null,
-      type: 'FERIAS',
+      type: { in: ['FERIAS', 'FOLGA', 'AFASTAMENTO'] },
       startDate: { lte: end },
       endDate: { gte: start },
       ...(filters.collaboratorId ? { collaboratorId: filters.collaboratorId } : {})
@@ -246,7 +246,7 @@ export async function listEfetivoAbsences(filters, dependencies = {}) {
 
 async function absenceConflicts(database, collaboratorId) {
   return database.collaboratorAbsence.findMany({
-    where: { collaboratorId, deletedAt: null, type: 'FERIAS' },
+    where: { collaboratorId, deletedAt: null, type: { in: ['FERIAS', 'FOLGA', 'AFASTAMENTO'] } },
     select: { id: true, startDate: true, endDate: true, deletedAt: true }
   });
 }
@@ -259,7 +259,7 @@ export async function createEfetivoAbsence(payload, createdByUserId, dependencie
   return database.collaboratorAbsence.create({
     data: {
       collaboratorId: payload.collaboratorId,
-      type: 'FERIAS',
+      type: payload.type || 'FERIAS',
       startDate: absenceDate(period.startDate),
       endDate: absenceDate(period.endDate),
       note: String(payload.note || '').trim() || null,
@@ -288,6 +288,7 @@ export async function updateEfetivoAbsence(id, payload, dependencies = {}) {
     data: {
       startDate: absenceDate(period.startDate),
       endDate: absenceDate(period.endDate),
+      ...(payload.type !== undefined ? { type: payload.type } : {}),
       ...(payload.note !== undefined ? { note: String(payload.note || '').trim() || null } : {})
     },
     include: { collaborator: { select: { id: true, name: true, role: true } } }

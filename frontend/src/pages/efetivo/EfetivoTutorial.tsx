@@ -4,111 +4,38 @@ import { driver } from 'driver.js';
 import type { DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
 
-const STORAGE_KEY_PREFIX = 'filtrovali:efetivo-tutorial-done:v1:';
-type Section = 'produtividade' | 'ausencias';
+import type { EfetivoPlanningSection } from '../../utils/planningNavigation';
 
-function storageKey(userKey: string) {
-  return `${STORAGE_KEY_PREFIX}${userKey}`;
-}
+const STORAGE_KEY_PREFIX = 'filtrovali:efetivo-tutorial-done:v2:';
+function storageKey(userKey: string) { return `${STORAGE_KEY_PREFIX}${userKey}`; }
+function hasDone(userKey: string) { try { return localStorage.getItem(storageKey(userKey)) === '1'; } catch { return false; } }
+function markDone(userKey: string) { try { localStorage.setItem(storageKey(userKey), '1'); } catch { /* sessão sem armazenamento */ } }
 
-function hasDone(userKey: string) {
-  try { return localStorage.getItem(storageKey(userKey)) === '1'; } catch { return false; }
-}
-
-function markDone(userKey: string) {
-  try { localStorage.setItem(storageKey(userKey), '1'); } catch { /* sessão sem armazenamento local */ }
-}
-
-interface Props {
+export function EfetivoTutorial({ userKey, ready, goToSection, triggerRef }: {
   userKey: string;
   ready: boolean;
-  goToSection: (section: Section) => void;
+  goToSection: (section: EfetivoPlanningSection) => void;
   triggerRef: MutableRefObject<(() => void) | null>;
-}
-
-export function EfetivoTutorial({ userKey, ready, goToSection, triggerRef }: Props) {
+}) {
   const startTutorial = useCallback(() => {
     if (!userKey || document.body.classList.contains('driver-active')) return;
     markDone(userKey);
-    goToSection('produtividade');
-
+    goToSection('visao-geral');
     window.setTimeout(() => {
+      const navigateNext = (section: EfetivoPlanningSection) => (_element: Element | undefined, _step: unknown, options: { driver: { moveNext: () => void } }) => { goToSection(section); window.setTimeout(() => options.driver.moveNext(), 300); };
       const steps: DriveStep[] = [
-        {
-          element: '[data-efetivo-nav]',
-          popover: {
-            title: 'Áreas do Efetivo',
-            description: 'Alterne entre o indicador de produtividade e o cadastro de férias e ausências.',
-            side: 'right',
-            align: 'start'
-          }
-        },
-        {
-          element: '[data-efetivo-filters]',
-          popover: {
-            title: 'Período analisado',
-            description: 'Escolha o ano e o mês de corte. O mês corrente nunca entra no resultado oficial.',
-            side: 'bottom',
-            align: 'start'
-          }
-        },
-        {
-          element: '[data-efetivo-kpis]',
-          popover: {
-            title: 'Indicadores oficiais',
-            description: 'Consulte HH produtivas, média mensal, improdutividade geral e pendências que ficaram fora da taxa.',
-            side: 'bottom',
-            align: 'start'
-          }
-        },
-        {
-          element: '[data-efetivo-results]',
-          popover: {
-            title: 'Resultado por pessoa',
-            description: 'Clique em um colaborador para conferir as HH normais e as horas extras excluídas em cada mês.',
-            side: 'top',
-            align: 'start',
-            onNextClick: (_element, _step, { driver: driverObj }) => {
-              goToSection('ausencias');
-              window.setTimeout(() => driverObj.moveNext(), 250);
-            }
-          }
-        },
-        {
-          element: '[data-efetivo-absences]',
-          popover: {
-            title: 'Férias e ausências',
-            description: 'Cadastre férias para sinalizar os meses afetados. A referência já é anualizada, por isso a taxa não desconta férias novamente.',
-            side: 'bottom',
-            align: 'start'
-          }
-        }
+        { element: '[data-efetivo-nav]', popover: { title: 'Oito áreas integradas', description: 'Visão geral, calendário, pessoas, missões, evolução, simulações, produtividade e administração compartilham a mesma base.', side: 'right', align: 'start' } },
+        { element: '[data-efetivo-planning-filters]', popover: { title: 'Posição do planejamento', description: 'A data e a função ficam na URL e sobrevivem ao refresh.', side: 'bottom', align: 'start' } },
+        { element: '[data-efetivo-planning-kpis]', popover: { title: 'Capacidade diária', description: 'Veja ativos, alocados, indisponíveis, livres, déficit e utilização futura.', side: 'bottom', align: 'start', onNextClick: navigateNext('calendario') } },
+        { element: '[data-efetivo-calendar]', popover: { title: 'Calendário integrado', description: 'Alterne entre dia, semana e mês e abra qualquer data para ver missões e ausências.', side: 'top', align: 'start', onNextClick: navigateNext('missoes') } },
+        { element: '[data-efetivo-missions]', popover: { title: 'Missões e equipes', description: 'Defina cronologia, demanda por função e aloque apenas pessoas elegíveis.', side: 'top', align: 'start', onNextClick: navigateNext('evolucao') } },
+        { element: '[data-efetivo-kanban]', popover: { title: 'Evolução acessível', description: 'Arraste pelo handle ou use o seletor de etapa. Cancelar restaura a ordem anterior.', side: 'top', align: 'start', onNextClick: navigateNext('simulacoes') } },
+        { element: '[data-efetivo-scenarios]', popover: { title: 'Simule antes de aplicar', description: 'Compare capacidade e déficit; o oficial só muda após validação transacional.', side: 'top', align: 'start' } }
       ];
-      driver({
-        showProgress: true,
-        progressText: '{{current}} de {{total}}',
-        nextBtnText: 'Próximo →',
-        prevBtnText: '← Anterior',
-        doneBtnText: 'Concluir',
-        allowClose: true,
-        animate: true,
-        smoothScroll: true,
-        overlayOpacity: 0.6,
-        steps
-      }).drive();
+      driver({ showProgress: true, progressText: '{{current}} de {{total}}', nextBtnText: 'Próximo →', prevBtnText: '← Anterior', doneBtnText: 'Concluir', allowClose: true, animate: true, smoothScroll: true, overlayOpacity: 0.6, steps }).drive();
     }, 350);
   }, [goToSection, userKey]);
-
-  useEffect(() => {
-    triggerRef.current = startTutorial;
-    return () => { if (triggerRef.current === startTutorial) triggerRef.current = null; };
-  }, [startTutorial, triggerRef]);
-
-  useEffect(() => {
-    if (!ready || !userKey || hasDone(userKey)) return;
-    const timer = window.setTimeout(startTutorial, 800);
-    return () => window.clearTimeout(timer);
-  }, [ready, startTutorial, userKey]);
-
+  useEffect(() => { triggerRef.current = startTutorial; return () => { if (triggerRef.current === startTutorial) triggerRef.current = null; }; }, [startTutorial, triggerRef]);
+  useEffect(() => { if (!ready || !userKey || hasDone(userKey)) return; const timer = window.setTimeout(startTutorial, 800); return () => window.clearTimeout(timer); }, [ready, startTutorial, userKey]);
   return null;
 }

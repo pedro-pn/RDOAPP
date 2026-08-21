@@ -5,21 +5,29 @@ import asyncHandler from '../../lib/async-handler.js';
 import { requireEfetivoManager, requireEfetivoViewer } from '../../lib/efetivo/access.js';
 import {
   efetivoStatus,
-  createEfetivoAbsence,
-  deleteEfetivoAbsence,
   getEfetivoCollaboratorProductivity,
   getEfetivoProductivity,
   listEfetivoCollaborators,
-  listEfetivoAbsences,
-  updateEfetivoAbsence
+  listEfetivoAbsences
 } from '../../lib/efetivo/service.js';
+import {
+  createPlanningAbsence,
+  deletePlanningAbsence,
+  updatePlanningAbsence
+} from '../../lib/efetivo/planning/collaborators.js';
+import { requestEvidence } from '../../lib/efetivo/planning/plan-context.js';
 import {
   getEfetivoReferenceSetting,
   setEfetivoReferenceSetting
 } from '../../lib/efetivo/settings.js';
 import { requireAuth } from '../../middleware/auth.js';
+import efetivoPlanningRouter from '../efetivo-planning.js';
 
 const router = Router();
+
+function planningContext(req) {
+  return { actorUserId: req.auth?.user?.id || null, evidence: requestEvidence(req) };
+}
 
 const currentYear = new Date().getUTCFullYear();
 const productivityQuerySchema = z.object({
@@ -42,18 +50,20 @@ const absenceQuerySchema = z.object({
 });
 const absenceCreateSchema = z.object({
   collaboratorId: collaboratorIdSchema,
-  type: z.literal('FERIAS').default('FERIAS'),
+  type: z.enum(['FERIAS', 'FOLGA', 'AFASTAMENTO']).default('FERIAS'),
   startDate: dateOnlySchema,
   endDate: dateOnlySchema,
   note: z.string().trim().max(500).nullable().optional()
 });
 const absenceUpdateSchema = z.object({
+  type: z.enum(['FERIAS', 'FOLGA', 'AFASTAMENTO']).optional(),
   startDate: dateOnlySchema.optional(),
   endDate: dateOnlySchema.optional(),
   note: z.string().trim().max(500).nullable().optional()
 }).refine(value => Object.keys(value).length > 0, 'Informe ao menos uma alteração.');
 
 router.use(requireAuth);
+router.use('/planning', efetivoPlanningRouter);
 
 router.get('/status', requireEfetivoViewer, (_req, res) => {
   res.json(efetivoStatus());
@@ -92,18 +102,18 @@ router.get('/ausencias', requireEfetivoViewer, asyncHandler(async (req, res) => 
 
 router.post('/ausencias', requireEfetivoManager, asyncHandler(async (req, res) => {
   const payload = absenceCreateSchema.parse(req.body);
-  res.status(201).json(await createEfetivoAbsence(payload, req.auth.user.id));
+  res.status(201).json(await createPlanningAbsence(payload, planningContext(req)));
 }));
 
 router.patch('/ausencias/:id', requireEfetivoManager, asyncHandler(async (req, res) => {
   const id = collaboratorIdSchema.parse(req.params.id);
   const payload = absenceUpdateSchema.parse(req.body);
-  res.json(await updateEfetivoAbsence(id, payload));
+  res.json(await updatePlanningAbsence(id, payload, planningContext(req)));
 }));
 
 router.delete('/ausencias/:id', requireEfetivoManager, asyncHandler(async (req, res) => {
   const id = collaboratorIdSchema.parse(req.params.id);
-  await deleteEfetivoAbsence(id);
+  await deletePlanningAbsence(id, planningContext(req));
   res.status(204).end();
 }));
 
