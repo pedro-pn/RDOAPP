@@ -135,6 +135,8 @@ saem da taxa geral, sem apagar dado nenhum.
    mudança passa a valer no indicador na próxima consulta.
 2. **Given** um cargo sem classificação explícita, **When** o indicador é calculado, **Then** vale
    o padrão definido na migration, sem quebrar o cálculo.
+3. **Given** um usuário que administra cargos mas não tem `efetivo:manager`, **When** abre a tela de
+   cargos, **Then** vê a marcação de função operacional em leitura e a API recusa a alteração.
 
 ---
 
@@ -228,10 +230,16 @@ bate com as HH acumuladas dele na tabela.
   individuais válidas — nunca ponderada por horas ou por pessoas-mês.
 - **FR-008**: A referência de 161 HH/mês DEVE ser exibida na tela junto da explicação de que as
   férias já estão embutidas (`176 HH × 11 meses ÷ 12`) e de que HE não entram.
-- **FR-009**: A referência de 161 DEVE ser um parâmetro configurável do módulo, com 161 como valor
-  vigente, e não um literal espalhado pelo código.
-- **FR-010**: O indicador DEVE considerar apenas colaboradores **ativos** de **funções
-  operacionais**, e o sistema DEVE permitir marcar quais `JobRole` são operacionais.
+- **FR-009**: A referência de 161 DEVE ser um parâmetro persistido do módulo (`EfetivoSetting`),
+  com 161 como valor vigente, e não um literal espalhado pelo código. O gestor DEVE poder alterar o
+  valor pela própria tela, sob o papel `efetivo:manager`, com autor e data registrados; a alteração
+  DEVE valer na consulta seguinte do indicador.
+- **FR-010**: O indicador DEVE considerar apenas colaboradores de **funções operacionais** que
+  estiveram **ativos dentro do período analisado** — os ativos hoje e os desligados cujos meses
+  ativos caem na janela (FR-023) —, e o sistema DEVE permitir marcar quais `JobRole` são
+  operacionais. A marcação vive na tela de cargos existente, mas alterá-la exige o papel
+  `efetivo:manager` — quem administra cargos sem esse papel continua gerenciando o cargo e vê a
+  marcação apenas em leitura.
 - **FR-011**: O sistema DEVE permitir filtrar por **ano** e por **mês de corte**, refletindo o
   filtro em query params.
 - **FR-012**: A tela DEVE exibir, no mínimo: HH produtivas acumuladas, média mensal da equipe,
@@ -267,8 +275,10 @@ bate com as HH acumuladas dele na tabela.
 
 ### Key Entities
 
-- **Colaborador operacional**: `Collaborator` ativo cujo `role` casa com um `JobRole` marcado como
-  operacional. Chave para HH: vínculo já existente com os registros do Ponto Mais.
+- **Colaborador operacional**: `Collaborator` cujo `role` casa com um `JobRole` marcado como
+  operacional e que esteve ativo em pelo menos um mês do período analisado — inclui desligados nos
+  meses em que estiveram ativos (FR-023). Chave para HH: vínculo já existente com os registros do
+  Ponto Mais.
 - **Função operacional**: `JobRole` com a nova marcação `isOperational`.
 - **Mês analisado**: chave `YYYY-MM` com HH produtivas do colaborador; define o denominador da
   média (regra exata em D-1/D-2).

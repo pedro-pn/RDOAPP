@@ -29,13 +29,13 @@ delas é implementada agora.
 
 **Project Type**: Módulo novo (backend + frontend + registry compartilhado)
 
-**Performance Goals**: consulta do indicador de um ano inteiro em uma requisição, com resposta
-adequada a ~20–60 colaboradores e ~12 meses; sem N+1 por colaborador
+**Performance Goals**: consulta do indicador de um ano inteiro em uma requisição, com p95 abaixo
+de 1,5 s para ~60 colaboradores × 12 meses; sem N+1 por colaborador
 
 **Constraints**: nenhum comando de servidor executado pelo agente; migration Prisma obrigatória
 para qualquer mudança de schema; UI pt-BR e mobile-first
 
-**Scale/Scope**: 1 módulo, 2 seções, ~7 endpoints, 1 migration
+**Scale/Scope**: 1 módulo, 2 seções, ~9 endpoints, 1 migration
 
 ## Constitution Check
 
@@ -47,7 +47,7 @@ para qualquer mudança de schema; UI pt-BR e mobile-first
 | II — UI pt-BR e mobile-first | ✅ Tabela por colaborador vira cards em telas estreitas; abas/filtros do módulo com quebra ou `select` no mobile; sem scroll horizontal de página |
 | III — Zod nas duas pontas | ✅ Query params do indicador, CRUD de férias (datas, sobreposição) e marcação de função operacional validados com Zod no backend; formulário com react-hook-form + resolver Zod |
 | IV — Banco só via Prisma | ✅ `JobRole.isOperational`, `Collaborator.terminationDate`, `CollaboratorAbsence` e o parâmetro de referência entram por migration versionada; nenhum backfill destrutivo |
-| V — Testes no backend | ✅ `backend/test/efetivo-operacional.test.js` cobre a fórmula (piso 0%, média simples, exclusão de HE, pró-rata de admissão/desligamento, exclusão do mês corrente) e a permissão; `efetivo-ausencias.test.js` cobre validação de período e sobreposição |
+| V — Testes no backend | ✅ `backend/test/efetivo-produtividade.test.js` cobre a fórmula (piso 0%, média simples, exclusão de HE, pró-rata de admissão/desligamento, exclusão do mês corrente); `efetivo-permissao.test.js` cobre a permissão do módulo; `efetivo-ausencias.test.js` cobre validação de período e sobreposição |
 | VI — Consistência visual | ✅ Kit `components/ui/`, tokens de `variables.css`, tela análoga = `AcompanhamentoPage` + `SedeCostsBoard`; navegação em `?section=`/`?colaborador=`; tutorial permanente de módulo novo + novidade de 10 dias. **A exceção de identidade portada NÃO se aplica** — o protótipo não é um app aprovado em porte, é referência funcional |
 
 **Sem violações a registrar em Complexity Tracking.** A única escolha que merece justificativa é
@@ -100,10 +100,18 @@ backend/src/lib/efetivo/
   access.js          → requireEfetivoManager / requireEfetivoViewer
   productivity.js    → funções puras do indicador (sem Prisma)
   absences.js        → regras de período de ausência (validação, sobreposição, meses afetados)
-  service.js         → orquestra Prisma + productivity.js + absences.js
-  settings.js        → parâmetro de referência (161 HH/mês) e defaults
+  service.js         → orquestra Prisma + productivity.js + absences.js. Lê `PontoPeriodSummary`
+                       em duas passadas: as linhas COM `collaboratorId` passam por
+                       `filterIgnoredPontoPeriods` + `mergePontoPeriods`; as linhas SEM
+                       `collaboratorId` — que `mergePontoPeriods` descarta em `labor-cost.js:338` —
+                       são retidas à parte para a pendência de vínculo (FR-013)
+  settings.js        → parâmetro de referência (161 HH/mês): leitura com fallback e escrita
+                       (`upsert` com `updatedByUserId`), no padrão de
+                       `lib/acompanhamento/settings.js`
 backend/src/routes/resources/efetivo.js
-backend/test/efetivo-operacional.test.js
+backend/test/efetivo-produtividade.test.js
+backend/test/efetivo-permissao.test.js
+backend/test/efetivo-ausencias.test.js
 ```
 
 `productivity.js` (puro, testável sem banco):
@@ -120,6 +128,8 @@ buildProductivityReport({ collaborators, jobRoles, periods, filters, reference }
 
 Regras fixadas em código (FR-005 a FR-007): HE fora do numerador; piso 0% na taxa individual; taxa
 geral = média simples. A referência vem de parâmetro, não de literal (FR-009).
+`buildMonthlyProductiveHours` normaliza os **dois formatos** de `monthly` que `mergePontoPeriods`
+devolve: v1 (mapa plano `{ "YYYY-MM": {...} }`) e v2 (`{ schemaVersion: 2, months: {...} }`).
 
 ### Frontend
 
@@ -129,6 +139,7 @@ frontend/src/pages/efetivo/EfetivoPage.tsx           → shell + navegação por
 frontend/src/pages/efetivo/components/
   ProductivityBoard.tsx                              → KPIs + evolução mensal + tabela/cards
   ProductivityCollaboratorDetail.tsx                 → detalhe por ?colaborador=
+  ReferenceSettingModal.tsx                          → edição da referência (só efetivo:manager)
   ProductivityPendingList.tsx                        → pendências (FR-013)
   AbsencesBoard.tsx                                  → seção ?section=ausencias: lista + formulário
   AbsenceFormModal.tsx                               → Modal do kit + react-hook-form + Zod
@@ -140,7 +151,7 @@ Reaproveitar: `components/ui/` (Modal, Button, SearchBar, Skeleton, Toast), toke
 `styles/variables.css`, o padrão de filtros de período de `frontend/src/utils/sedePeriods.ts`
 (feature 004) e a estrutura visual de `components/projects/SedeCostsBoard.tsx`. Tutorial permanente
 de módulo novo no padrão de `AcompanhamentoTutorial.tsx` e novidade de 10 dias no padrão de
-`PontoMaisSyncNovelty.tsx`.
+`AcompanhamentoHubNovelty.tsx` / `QualidadeHubNovelty.tsx`.
 
 ### Banco (migration única)
 
@@ -181,6 +192,13 @@ model CollaboratorAbsence {
   @@index([type, startDate])
   @@index([deletedAt])
 }
+
+model EfetivoSetting {
+  key             String   @id
+  numberValue     Float?
+  updatedByUserId String?
+  updatedAt       DateTime @default(now()) @updatedAt
+}
 ```
 
 O enum já nasce com os demais tipos para que folga, afastamento, ASO/ASU e NR entrem depois sem
@@ -188,10 +206,10 @@ migration estrutural — mas **apenas `FERIAS` é exposta na UI desta entrega**.
 períodos do mesmo colaborador é recusada na validação (não há constraint de exclusão no Postgres via
 Prisma). Soft delete preserva a trilha.
 
-Parâmetro de referência: reutilizar o padrão de `AcompanhamentoSetting` criando um
-`EfetivoSetting` (chave/valor com `updatedAt` e `updatedByUserId`) ou uma linha de configuração do
-módulo — decisão de implementação, não de negócio. Nenhum backfill de dado existente é necessário;
-a migration apenas adiciona coluna com default.
+Parâmetro de referência: **`EfetivoSetting`** (chave/valor no padrão de `AcompanhamentoSetting`),
+criado **na mesma migration** — a referência mensal vive na chave `efetivo.referenciaMensalHH`, com
+fallback 161 na leitura quando a chave ainda não existe. Nenhum backfill de dado existente é
+necessário; as demais mudanças apenas adicionam coluna com default.
 
 ### Contrato de API (rascunho)
 
@@ -207,14 +225,19 @@ GET  /api/efetivo/produtividade?ano=2026&ateMes=8
 GET  /api/efetivo/produtividade/:collaboratorId?ano=2026
      → detalhe mês a mês
 
-PATCH /api/job-roles/:id  { isOperational }    (rota existente, campo novo)
+GET  /api/efetivo/parametros
+     → { referenciaMensalHH, atualizadoEm, atualizadoPor }
+PUT  /api/efetivo/parametros  { referenciaMensalHH }   (requireEfetivoManager, FR-009)
+
+PATCH /api/job-roles/:id  { isOperational }    (rota existente, campo novo; alterar `isOperational`
+                                               exige `efetivo:manager` — ver FR-010)
 
 GET    /api/efetivo/ausencias?colaborador=&ano=
 POST   /api/efetivo/ausencias        { collaboratorId, type, startDate, endDate, note }
 PATCH  /api/efetivo/ausencias/:id    { startDate, endDate, note }
 DELETE /api/efetivo/ausencias/:id    (soft delete)
 
-PATCH  /api/collaborators/:id  { terminationDate }   (rota existente, campo novo)
+PUT    /api/collaborators/:id  { terminationDate }   (rota existente, campo novo)
 ```
 
 Validação Zod nos query params (`ano` inteiro plausível, `ateMes` 1–12) e no corpo do PATCH.
@@ -306,7 +329,8 @@ Ainda em aberto, sem bloquear a entrega:
 Efetivo Operacional
 ├── Produtividade            ← ENTREGA 1 (esta feature)
 ├── Férias e ausências       ← ENTREGA 1 (cadastro de férias; demais tipos preparados)
-├── Administração            ← Entrega 2: funções operacionais, parâmetros, trilha
+├── Administração            ← Entrega 2: trilha e demais parâmetros (referência mensal e marcação
+│                               de função operacional já saem na Entrega 1)
 ├── Colaboradores            ← Entrega 3: base + situação na data (usa o cadastro da entrega 1)
 ├── Calendário               ← Entrega 4: exige feriados + alocação planejada
 ├── Missões                  ← Entrega 5: exige necessidade por função em pessoas e retorno
