@@ -389,6 +389,7 @@ function createFakeDb({ running = false, automationState = null } = {}) {
     imports: [],
     periods: [],
     externalLinks: [],
+    nameAliases: [],
     tagAliases: [],
     externalEmployees: [],
     dayOverrides: [],
@@ -442,6 +443,18 @@ function createFakeDb({ running = false, automationState = null } = {}) {
         }
         const created = { id: `employee-link-${++sequence}`, ...create };
         state.externalLinks.push(created);
+        return created;
+      }
+    },
+    pontoNameAlias: {
+      async upsert({ where, create, update }) {
+        const existing = state.nameAliases.find(item => item.normalizedName === where.normalizedName);
+        if (existing) {
+          Object.assign(existing, update);
+          return existing;
+        }
+        const created = { id: `name-alias-${++sequence}`, ...create };
+        state.nameAliases.push(created);
         return created;
       }
     },
@@ -549,7 +562,11 @@ function createFakeDb({ running = false, automationState = null } = {}) {
       async updateMany({ where, data }) {
         let count = 0;
         for (const period of state.periods) {
-          if (period.externalEmployeeId === where.externalEmployeeId) {
+          const filters = where.OR || [where];
+          const matches = filters.some(filter => Object.entries(filter).every(
+            ([key, value]) => period[key] === value
+          ));
+          if (matches) {
             Object.assign(period, data);
             count += 1;
           }
@@ -770,6 +787,24 @@ test('vínculo externo é persistido e reaplica colaborador aos resumos históri
     now: () => new Date('2026-08-17T12:00:00.000Z')
   });
   await service.runSync({ startDate: '2026-08-01', endDate: '2026-08-02' });
+  state.runs[0].summary.pending.employees = [{
+    externalEmployeeId: '101',
+    registrationNumber: '42',
+    externalName: 'Pessoa Externa',
+    reason: 'NO_UNIQUE_MATCH'
+  }];
+  state.periods.push({
+    id: 'legacy-xlsx-period',
+    importId: 'legacy-xlsx-import',
+    externalEmployeeId: null,
+    collaboratorId: null,
+    registrationNumber: null,
+    rawName: 'Pessoa Externa',
+    normalizedName: 'pessoa externa',
+    monthly: null,
+    createdAt: new Date('2026-07-01T12:00:00.000Z')
+  });
+  assert.equal((await service.getPending()).employees.length, 1);
 
   const result = await service.linkExternalEmployee({
     externalEmployeeId: '101',
@@ -780,10 +815,13 @@ test('vínculo externo é persistido e reaplica colaborador aos resumos históri
   assert.deepEqual(result, {
     externalEmployeeId: '101',
     collaboratorId: 'collaborator-1',
-    relinked: 1
+    normalizedName: 'pessoa externa',
+    relinked: 2
   });
   assert.equal(state.externalLinks[0].createdByUserId, 'manager-1');
-  assert.equal(state.periods[0].collaboratorId, 'collaborator-1');
+  assert.equal(state.nameAliases[0].collaboratorId, 'collaborator-1');
+  assert.equal(state.periods.every(period => period.collaboratorId === 'collaborator-1'), true);
+  assert.equal((await service.getPending()).employees.length, 0);
 });
 
 test('diretório lista todos os encontrados e torna a preferência de ignorar reversível', async () => {

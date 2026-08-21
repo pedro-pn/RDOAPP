@@ -247,7 +247,12 @@ export async function getPontoMaisReconciliationProjects(): Promise<PontoMaisRec
 }
 
 export async function linkPontoMaisExternalEmployee(payload: { externalEmployeeId: string; collaboratorId: string }) {
-  const { data } = await apiClient.post<{ externalEmployeeId: string; collaboratorId: string; relinked: number }>(
+  const { data } = await apiClient.post<{
+    externalEmployeeId: string;
+    collaboratorId: string;
+    normalizedName: string | null;
+    relinked: number;
+  }>(
     '/acompanhamento/ponto/external-employees/link',
     payload
   );

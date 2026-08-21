@@ -19,7 +19,8 @@ import {
   setPontoMaisDayProjectOverride,
   setPontoMaisDayProjectOverridesBatch,
   setPontoMaisExternalEmployeeIgnored,
-  type PontoImportRow
+  type PontoImportRow,
+  type PontoMaisPending
 } from '../../api/acompanhamentoPonto';
 import { useAuth } from '../../auth/AuthContext';
 import { useUrlParamState } from '../../hooks/useUrlParamState';
@@ -136,6 +137,19 @@ export function PontoImportPanel() {
   const externalEmployeeLinkMutation = useMutation({
     mutationFn: linkPontoMaisExternalEmployee,
     onSuccess: result => {
+      queryClient.setQueryData<PontoMaisPending>(['ponto-pontomais-pending'], current => (
+        current
+          ? {
+              ...current,
+              employees: current.employees.filter(item => item.externalEmployeeId !== result.externalEmployeeId)
+            }
+          : current
+      ));
+      setExternalEmployeeLinks(previous => {
+        const next = { ...previous };
+        delete next[result.externalEmployeeId];
+        return next;
+      });
       showToast(`Colaborador vinculado em ${result.relinked} resumo(s) de jornada.`);
       invalidate();
     },

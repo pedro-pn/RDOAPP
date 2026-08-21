@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   createPontoMaisIntegrationRouter,
+  currentUnmatchedPontoNames,
   dayProjectOverrideSchema,
   externalEmployeeIgnoreSchema,
   externalEmployeeLinkSchema,
@@ -12,6 +13,18 @@ import {
   syncPeriodSchema
 } from '../src/routes/resources/acompanhamento-ponto.js';
 import { PontoSyncError } from '../src/lib/pontomais/sync.js';
+
+test('lista de nomes pendentes considera somente resumos ainda sem vínculo e remove duplicados', () => {
+  assert.deepEqual(currentUnmatchedPontoNames([
+    { rawName: ' Pessoa Externa ', normalizedName: 'pessoa externa' },
+    { rawName: 'Pessoa Externa Atualizada', normalizedName: 'pessoa externa' },
+    { rawName: 'Outro Nome', normalizedName: 'outro nome' },
+    { rawName: 'Inválido', normalizedName: '' }
+  ]), [
+    { rawName: 'Pessoa Externa Atualizada', normalizedName: 'pessoa externa' },
+    { rawName: 'Outro Nome', normalizedName: 'outro nome' }
+  ]);
+});
 
 function testAuthentication(req, res, next) {
   const role = req.headers['x-test-role'];

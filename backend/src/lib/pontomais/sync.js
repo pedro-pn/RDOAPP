@@ -4,6 +4,7 @@ import {
   buildMissionGroupProjectIndex,
   rdoDataByCollaboratorFromReports
 } from '../acompanhamento/labor-cost.js';
+import { normalizeName as normalizePontoName } from '../acompanhamento/ponto-import.js';
 import { createPontoMaisClient, PontoMaisError, pontomaisConfigured } from './client.js';
 import {
   buildProjectTagResolver,
@@ -886,8 +887,9 @@ export function createPontoMaisSyncService({
     const latestSummary = await db.pontoPeriodSummary.findFirst({
       where: { externalEmployeeId },
       orderBy: { createdAt: 'desc' },
-      select: { registrationNumber: true, rawName: true }
+      select: { registrationNumber: true, rawName: true, normalizedName: true }
     });
+    const normalizedName = normalizePontoName(latestSummary?.normalizedName || latestSummary?.rawName);
 
     return db.$transaction(async tx => {
       await tx.pontoExternalEmployeeLink.upsert({
@@ -908,11 +910,32 @@ export function createPontoMaisSyncService({
           createdByUserId
         }
       });
+      if (normalizedName) {
+        await tx.pontoNameAlias.upsert({
+          where: { normalizedName },
+          create: {
+            normalizedName,
+            rawName: latestSummary?.rawName || normalizedName,
+            collaboratorId,
+            createdByUserId
+          },
+          update: {
+            rawName: latestSummary?.rawName || normalizedName,
+            collaboratorId,
+            createdByUserId
+          }
+        });
+      }
       const result = await tx.pontoPeriodSummary.updateMany({
-        where: { externalEmployeeId },
+        where: {
+          OR: [
+            { externalEmployeeId },
+            ...(normalizedName ? [{ externalEmployeeId: null, normalizedName }] : [])
+          ]
+        },
         data: { collaboratorId }
       });
-      return { externalEmployeeId, collaboratorId, relinked: result.count };
+      return { externalEmployeeId, collaboratorId, normalizedName: normalizedName || null, relinked: result.count };
     });
   }
 
