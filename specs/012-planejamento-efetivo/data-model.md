@@ -117,6 +117,8 @@ Programação operacional de um projeto dentro de um plano.
 | `headquartersResponsibleName` | texto obrigatório |
 | `headquartersResponsibleRole` | texto obrigatório |
 | `headquartersResponsibleCollaboratorId` | FK opcional para `Collaborator` |
+
+O formulário seleciona o responsável entre contas ativas de coordenador. Nome e cargo são persistidos como snapshots; quando a conta possui `collaboratorId`, o vínculo e o cargo vêm desse colaborador. Sem vínculo na conta, o usuário pode selecionar um líder ou informar o cargo livremente.
 | `mobilizationDate` | data civil obrigatória |
 | `executionStartDate` | data civil obrigatória |
 | `executionEndDate` | data civil obrigatória |

@@ -48,5 +48,5 @@ export function moveCalendarPosition(date: string, view: 'day' | 'week' | 'month
 }
 
 export function displayDateOnly(value: string, options: Intl.DateTimeFormatOptions = {}) {
-  return parseDateOnly(value).toLocaleDateString('pt-BR', { timeZone: 'UTC', ...options });
+  return parseDateOnly(String(value || '').slice(0, 10)).toLocaleDateString('pt-BR', { timeZone: 'UTC', ...options });
 }

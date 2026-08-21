@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { addCalendarDays, eachDateInclusive, parseDateKey, periodsOverlap } from '../src/lib/efetivo/planning/date-only.js';
 import { conflictDescriptor, conflictError } from '../src/lib/efetivo/planning/errors.js';
+import { lockOfficialPlanningState } from '../src/lib/efetivo/planning/plan-context.js';
 import { absenceInputSchema, intervalQuerySchema, missionInputSchema } from '../src/lib/efetivo/planning/schemas.js';
 
 test('datas civis validam ano bissexto e rejeitam data impossível', () => {
@@ -36,4 +37,12 @@ test('schema de missão exige campos completos e erro preserva conflito navegáv
 test('calendário limita consultas extensas sem restringir o ano operacional', () => {
   assert.equal(intervalQuerySchema.safeParse({ startDate: '2026-01-01', endDate: '2027-01-06' }).success, true);
   assert.equal(intervalQuerySchema.safeParse({ startDate: '2026-01-01', endDate: '2027-01-07' }).success, false);
+});
+
+test('lock oficial usa executeRaw para não desserializar o retorno void do PostgreSQL', async () => {
+  const calls = [];
+  await lockOfficialPlanningState({ $executeRawUnsafe: async (...args) => calls.push(args) });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0][0], /pg_advisory_xact_lock/);
+  assert.equal(calls[0][1], 'efetivo-planning-official');
 });

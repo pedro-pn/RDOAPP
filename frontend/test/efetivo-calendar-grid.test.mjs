@@ -20,3 +20,8 @@ test('navegação de mês não sofre overflow de dia 31', async () => {
   const calendar = await load('/src/utils/calendarGrid.ts');
   assert.equal(calendar.moveCalendarPosition('2026-01-31', 'month', 1), '2026-02-01');
 });
+
+test('exibição tolera DateTime do Prisma sem deslocar a data civil', async () => {
+  const calendar = await load('/src/utils/calendarGrid.ts');
+  assert.equal(calendar.displayDateOnly('2025-07-04T15:00:00.000Z'), '04/07/2025');
+});

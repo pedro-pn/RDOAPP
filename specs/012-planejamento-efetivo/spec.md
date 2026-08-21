@@ -43,7 +43,7 @@ Como planejador, quero cadastrar a programação de uma missão, definir a deman
 
 **Acceptance Scenarios**:
 
-1. **Given** um projeto existente, **When** o gestor cria sua programação operacional, **Then** informa responsável da sede, etapa, situação, mobilização, execução, retorno e quantidade exigida por função.
+1. **Given** um projeto existente, **When** o gestor cria sua programação operacional, **Then** seleciona o responsável da sede entre contas ativas de coordenador e informa etapa, situação, mobilização, execução, retorno e quantidade exigida por função.
 2. **Given** vagas abertas, **When** o gestor consulta disponíveis, **Then** recebe apenas colaboradores ativos, da função correta e sem ausência ou outra missão conflitante.
 3. **Given** um colaborador já comprometido no período, **When** o gestor tenta alocá-lo, **Then** o sistema recusa e identifica o conflito.
 4. **Given** vagas e candidatos elegíveis, **When** o gestor usa "Alocar disponíveis", **Then** o sistema preenche até o limite possível e mantém visível qualquer déficit restante.
@@ -201,7 +201,7 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - **FR-013**: O sistema DEVE expor férias, folga e afastamento como tipos cadastráveis de indisponibilidade; ASO e treinamento permanecem reservados até definição futura.
 - **FR-014**: Períodos invertidos ou sobrepostos para a mesma pessoa DEVEM ser recusados, e conflito com missão DEVE ser apresentado antes de salvar.
 - **FR-015**: Cada missão operacional DEVE estar vinculada a um projeto existente, sem duplicar cliente, local ou identidade do contrato.
-- **FR-016**: A programação da missão DEVE registrar responsável da sede, cargo do responsável, vínculo opcional do responsável com colaborador, etapa, situação, mobilização, início/fim da execução e retorno.
+- **FR-016**: A programação da missão DEVE selecionar o responsável da sede entre contas ativas de coordenador, preencher o cargo pelo colaborador vinculado à conta quando houver, permitir cargo livre sem vínculo, identificar o vínculo como “Vincular líder” e registrar snapshots de nome/cargo, etapa, situação, mobilização, início/fim da execução e retorno.
 - **FR-017**: A ordem cronológica das datas da missão DEVE ser validada antes de confirmar.
 - **FR-018**: A demanda de missão DEVE ser expressa como quantidade inteira não negativa por função operacional.
 - **FR-019**: A equipe planejada DEVE vincular pessoas às vagas de função da missão e impedir quantidade alocada acima da demanda sem confirmação explícita de expansão da demanda.

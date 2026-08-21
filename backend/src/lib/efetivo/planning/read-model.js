@@ -47,6 +47,25 @@ export async function listPlanningJobRoles(dependencies = {}) {
   });
 }
 
+export async function listPlanningCoordinators(dependencies = {}) {
+  const database = await resolvePlanningDatabase(dependencies.database);
+  return database.user.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { role: 'COORDINATOR' },
+        { moduleRoles: { some: { role: 'RDO_COORDINATOR' } } }
+      ]
+    },
+    select: {
+      id: true,
+      name: true,
+      collaborator: { select: { id: true, name: true, role: true, isActive: true } }
+    },
+    orderBy: { name: 'asc' }
+  });
+}
+
 export async function loadPlanningProjection({ date, planId = null }, dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
   const startDate = parseDateKey(date);
@@ -202,8 +221,8 @@ export async function listPlanningCollaborators(filters, dependencies = {}) {
     name: collaborator.name,
     role: collaborator.role,
     jobRoleId: collaborator.jobRoleId,
-    admissionDate: collaborator.admissionDate,
-    terminationDate: collaborator.terminationDate,
+    admissionDate: collaborator.admissionDate ? parseDateKey(collaborator.admissionDate) : null,
+    terminationDate: collaborator.terminationDate ? parseDateKey(collaborator.terminationDate) : null,
     isActive: collaborator.isActive,
     status: statusById.get(collaborator.id) || 'OUTSIDE_EMPLOYMENT',
     plannedUtilization90d: availableByPerson.get(collaborator.id)

@@ -37,6 +37,7 @@ import { requestEvidence } from '../lib/efetivo/planning/plan-context.js';
 import {
   getPlanningOverview,
   listPlanningCollaborators,
+  listPlanningCoordinators,
   listPlanningJobRoles,
   listPlanningProjects
 } from '../lib/efetivo/planning/read-model.js';
@@ -95,6 +96,10 @@ router.get('/projects', requireEfetivoViewer, asyncHandler(async (req, res) => {
 
 router.get('/job-roles', requireEfetivoViewer, asyncHandler(async (_req, res) => {
   res.json(await listPlanningJobRoles());
+}));
+
+router.get('/coordinators', requireEfetivoViewer, asyncHandler(async (_req, res) => {
+  res.json(await listPlanningCoordinators());
 }));
 
 router.get('/overview', requireEfetivoViewer, asyncHandler(async (req, res) => {

@@ -17,8 +17,8 @@ export async function lockPlan(tx, planId) {
 }
 
 export async function lockOfficialPlanningState(tx) {
-  if (typeof tx?.$queryRawUnsafe === 'function') {
-    await tx.$queryRawUnsafe(
+  if (typeof tx?.$executeRawUnsafe === 'function') {
+    await tx.$executeRawUnsafe(
       'SELECT pg_advisory_xact_lock(hashtext($1))',
       'efetivo-planning-official'
     );

@@ -40,6 +40,18 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/JobRole' }
+  /planning/coordinators:
+    get:
+      tags: [Planning reads]
+      summary: Lista contas ativas de coordenadores e seu colaborador vinculado
+      responses:
+        '200':
+          description: Coordenadores elegíveis para responsável da sede
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CoordinatorOption' }
   /planning/overview:
     get:
       tags: [Planning reads]
@@ -650,6 +662,19 @@ components:
         isOperational: { type: boolean }
         calendarColor: { type: string }
         continuousWorkLimitDays: { type: [integer, 'null'] }
+    CoordinatorOption:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        collaborator:
+          type: [object, 'null']
+          properties:
+            id: { type: string }
+            name: { type: string }
+            role: { type: string }
+            isActive: { type: boolean }
     CollaboratorOption:
       type: object
       required: [id, name, jobRoleId]
@@ -700,12 +725,13 @@ components:
         requiredCount: { type: integer, minimum: 0 }
     MissionInput:
       type: object
-      required: [projectId, scheduleStatus, stage, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, demands]
+      required: [projectId, scheduleStatus, stage, headquartersResponsibleUserId, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, demands]
       properties:
         planId: { type: string }
         projectId: { type: string }
         scheduleStatus: { $ref: '#/components/schemas/MissionScheduleStatus' }
         stage: { $ref: '#/components/schemas/MissionStage' }
+        headquartersResponsibleUserId: { type: string }
         headquartersResponsibleName: { type: string, minLength: 1, maxLength: 160 }
         headquartersResponsibleRole: { type: string, minLength: 1, maxLength: 120 }
         headquartersResponsibleCollaboratorId: { type: [string, 'null'] }

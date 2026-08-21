@@ -55,20 +55,65 @@ export function normalizeMissionDemands(demands = [], scheduleStatus = 'DRAFT') 
   return [...result].map(([jobRoleId, requiredCount]) => ({ jobRoleId, requiredCount }));
 }
 
-function missionData(payload, actorUserId, demands) {
+function missionData(payload, actorUserId, demands, responsible) {
   return {
     projectId: payload.projectId,
     scheduleStatus: payload.scheduleStatus,
     stage: payload.stage,
-    headquartersResponsibleName: payload.headquartersResponsibleName.trim(),
-    headquartersResponsibleRole: payload.headquartersResponsibleRole.trim(),
-    headquartersResponsibleCollaboratorId: payload.headquartersResponsibleCollaboratorId || null,
+    headquartersResponsibleName: responsible.name,
+    headquartersResponsibleRole: responsible.role,
+    headquartersResponsibleCollaboratorId: responsible.collaboratorId,
     mobilizationDate: dateValue(payload.mobilizationDate),
     executionStartDate: dateValue(payload.executionStartDate),
     executionEndDate: dateValue(payload.executionEndDate),
     returnDate: dateValue(payload.returnDate),
     updatedByUserId: actorUserId || null,
     demands: { create: demands }
+  };
+}
+
+export async function resolveMissionResponsible(tx, payload) {
+  if (!payload.headquartersResponsibleUserId) {
+    return {
+      name: payload.headquartersResponsibleName.trim(),
+      role: payload.headquartersResponsibleRole.trim(),
+      collaboratorId: payload.headquartersResponsibleCollaboratorId || null
+    };
+  }
+  const coordinator = await tx.user.findFirst({
+    where: {
+      id: payload.headquartersResponsibleUserId,
+      isActive: true,
+      OR: [
+        { role: 'COORDINATOR' },
+        { moduleRoles: { some: { role: 'RDO_COORDINATOR' } } }
+      ]
+    },
+    select: {
+      id: true,
+      name: true,
+      collaborator: { select: { id: true, role: true } }
+    }
+  });
+  if (!coordinator) {
+    throw planningError('Selecione uma conta ativa de coordenador para o responsável da sede.', {
+      code: 'INVALID_MISSION_COORDINATOR'
+    });
+  }
+  const linkedCollaborator = coordinator.collaborator
+    || (payload.headquartersResponsibleCollaboratorId
+      ? await tx.collaborator.findUnique({
+        where: { id: payload.headquartersResponsibleCollaboratorId },
+        select: { id: true, role: true }
+      })
+      : null);
+  if (payload.headquartersResponsibleCollaboratorId && !linkedCollaborator) {
+    throw notFound('Líder vinculado ao responsável não encontrado.');
+  }
+  return {
+    name: coordinator.name,
+    role: linkedCollaborator?.role || payload.headquartersResponsibleRole.trim(),
+    collaboratorId: linkedCollaborator?.id || null
   };
 }
 
@@ -141,11 +186,12 @@ export async function createMission(payload, context = {}, dependencies = {}) {
     const plan = await requireEditablePlan(tx, payload.planId, { actorUserId: context.actorUserId });
     const project = await tx.project.findFirst({ where: { id: payload.projectId, isActive: true, deletedAt: null } });
     if (!project) throw notFound('Projeto não encontrado ou inativo.');
+    const responsible = await resolveMissionResponsible(tx, payload);
     await validateDemandRoles(tx, demands);
     const maxOrder = await tx.efetivoMissionPlan.aggregate({ where: { planId: plan.id, stage: payload.stage, deletedAt: null }, _max: { kanbanOrder: true } });
     const mission = await tx.efetivoMissionPlan.create({
       data: {
-        ...missionData(payload, context.actorUserId, demands),
+        ...missionData(payload, context.actorUserId, demands, responsible),
         planId: plan.id,
         createdByUserId: context.actorUserId || null,
         kanbanOrder: (maxOrder._max.kanbanOrder ?? -1) + 1
@@ -177,13 +223,14 @@ export async function updateMission(missionId, payload, context = {}, dependenci
     const plan = await requireEditablePlan(tx, existing.planId, { actorUserId: context.actorUserId });
     if (context.version && existing.version !== context.version) throw conflictError('A missão foi alterada por outra pessoa.', [], 'MISSION_VERSION_CONFLICT');
     if (payload.projectId !== existing.projectId) throw conflictError('O projeto da programação não pode ser substituído.', [], 'MISSION_PROJECT_IMMUTABLE');
+    const responsible = await resolveMissionResponsible(tx, payload);
     await validateDemandRoles(tx, demands);
     await validateExistingAllocations(tx, existing, payload, demands);
     await tx.efetivoMissionDemand.deleteMany({ where: { missionId } });
     const updated = await tx.efetivoMissionPlan.update({
       where: { id: missionId },
       data: {
-        ...missionData(payload, context.actorUserId, demands),
+        ...missionData(payload, context.actorUserId, demands, responsible),
         version: { increment: 1 }
       },
       include: missionInclude

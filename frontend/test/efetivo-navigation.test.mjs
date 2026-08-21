@@ -21,3 +21,13 @@ test('cliente de planejamento não expõe lançamento manual de HH', () => {
   const source = fs.readFileSync(new URL('../src/api/efetivoPlanning.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /lan[cç]ar.*hh|manual.*hours/i);
 });
+
+test('formulário de missão usa coordenadores e identifica o vínculo como líder', () => {
+  const client = fs.readFileSync(new URL('../src/api/efetivoPlanning.ts', import.meta.url), 'utf8');
+  const form = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionFormModal.tsx', import.meta.url), 'utf8');
+  assert.match(client, /\/coordinators/);
+  assert.match(form, /label="Responsável da sede"/);
+  assert.match(form, />Vincular líder</);
+  assert.doesNotMatch(form, /Vincular ao colaborador/);
+  assert.match(form, /coordinator\?\.collaborator\?\.role/);
+});

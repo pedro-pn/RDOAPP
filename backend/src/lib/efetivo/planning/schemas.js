@@ -79,6 +79,7 @@ export const missionInputSchema = z.object({
   projectId: idSchema,
   scheduleStatus: missionScheduleStatusSchema,
   stage: missionStageSchema,
+  headquartersResponsibleUserId: idSchema,
   headquartersResponsibleName: z.string().trim().min(1).max(160),
   headquartersResponsibleRole: z.string().trim().min(1).max(120),
   headquartersResponsibleCollaboratorId: optionalIdSchema,

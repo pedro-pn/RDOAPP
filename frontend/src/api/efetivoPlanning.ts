@@ -34,6 +34,12 @@ export interface PlanningJobRole {
   order?: number;
 }
 
+export interface PlanningCoordinator {
+  id: string;
+  name: string;
+  collaborator: { id: string; name: string; role: string; isActive: boolean } | null;
+}
+
 export interface RoleCapacity {
   jobRoleId: string;
   jobRoleName: string;
@@ -91,6 +97,7 @@ export interface MissionInput {
   projectId: string;
   scheduleStatus: MissionScheduleStatus;
   stage: MissionStage;
+  headquartersResponsibleUserId?: string;
   headquartersResponsibleName: string;
   headquartersResponsibleRole: string;
   headquartersResponsibleCollaboratorId?: string | null;
@@ -216,6 +223,9 @@ export async function listPlanningProjects(search = '') {
 }
 export async function listPlanningJobRoles() {
   return (await apiClient.get<PlanningJobRole[]>(`${base}/job-roles`)).data;
+}
+export async function listPlanningCoordinators() {
+  return (await apiClient.get<PlanningCoordinator[]>(`${base}/coordinators`)).data;
 }
 export async function getPlanningOverview(date: DateOnly, jobRoleId?: string) {
   return (await apiClient.get<PlanningOverview>(`${base}/overview`, { params: { date, jobRoleId } })).data;
