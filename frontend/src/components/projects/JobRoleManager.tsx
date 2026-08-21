@@ -1,11 +1,41 @@
-import { useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent
+} from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createJobRole, deactivateJobRole, listJobRoles, updateJobRole } from '../../api/jobRoles';
+import {
+  createJobRole,
+  deactivateJobRole,
+  listJobRoles,
+  updateJobRole,
+  type JobRole
+} from '../../api/jobRoles';
+import {
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  Skeleton,
+  StatusPill,
+  type DataTableColumn
+} from '../ui/ds';
 import { useToast } from '../ui/ToastContext';
+import './JobRoleManager.ds.css';
+
+export type JobRoleManagerAppearance = 'legacy' | 'design-system';
+
+export interface JobRoleManagerProps {
+  appearance?: JobRoleManagerAppearance;
+}
 
 // Administração da lista de cargos (JobRole). Permite adicionar, renomear e desativar/reativar.
-export function JobRoleManager() {
+export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const { data, isLoading } = useQuery({ queryKey: ['job-roles', 'all'], queryFn: () => listJobRoles(true) });
@@ -13,6 +43,10 @@ export function JobRoleManager() {
   const [newName, setNewName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const designSystemSurfaceRef = useRef<HTMLElement>(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
+  const renameLauncherIdRef = useRef<string | null>(null);
+  const editingInputRef = useRef<HTMLInputElement>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['job-roles'] });
 
@@ -35,12 +69,302 @@ export function JobRoleManager() {
   });
 
   const roles = data ?? [];
+  const editingId = editing?.id;
+
+  useEffect(() => {
+    if (appearance === 'design-system' && showCreateForm) {
+      createInputRef.current?.focus();
+    }
+  }, [appearance, showCreateForm]);
+
+  useEffect(() => {
+    if (appearance === 'design-system' && editingId) {
+      editingInputRef.current?.focus();
+    }
+  }, [appearance, editingId]);
 
   function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newName.trim();
     if (!name || createMutation.isPending) return;
     createMutation.mutate(name);
+  }
+
+  function restoreDesignSystemLauncherFocus(selector: string) {
+    window.requestAnimationFrame(() => {
+      designSystemSurfaceRef.current
+        ?.querySelector<HTMLButtonElement>(selector)
+        ?.focus();
+    });
+  }
+
+  function cancelDesignSystemCreate() {
+    setShowCreateForm(false);
+    setNewName('');
+    restoreDesignSystemLauncherFocus('[data-job-role-create]');
+  }
+
+  function openDesignSystemRename(role: JobRole) {
+    renameLauncherIdRef.current = role.id;
+    setEditing({ id: role.id, name: role.name });
+  }
+
+  function cancelDesignSystemRename() {
+    const launcherId = renameLauncherIdRef.current;
+    setEditing(null);
+    if (launcherId) {
+      restoreDesignSystemLauncherFocus(
+        `[data-job-role-rename="${launcherId}"]`
+      );
+    }
+  }
+
+  function handleDesignSystemEscape(
+    event: KeyboardEvent<HTMLElement>,
+    onCancel: () => void
+  ) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onCancel();
+  }
+
+  function renderDesignSystemRoleName(role: JobRole) {
+    if (editing?.id === role.id) {
+      return (
+        <Field
+          className="rdo-job-roles__rename-field"
+          label="Novo nome"
+          optionalText={null}
+        >
+          <Input
+            ref={editingInputRef}
+            size="lg"
+            value={editing.name}
+            aria-label={`Novo nome para ${role.name}`}
+            onChange={(event) =>
+              setEditing({ id: role.id, name: event.target.value })
+            }
+            onKeyDown={(event) =>
+              handleDesignSystemEscape(event, cancelDesignSystemRename)
+            }
+          />
+        </Field>
+      );
+    }
+
+    return (
+      <span className="rdo-job-roles__name" data-job-role-name={role.name}>
+        {role.name}
+      </span>
+    );
+  }
+
+  function renderDesignSystemRoleActions(role: JobRole) {
+    if (editing?.id === role.id) {
+      return (
+        <>
+          <Button
+            size="lg"
+            variant="primary"
+            disabled={updateMutation.isPending || !editing.name.trim()}
+            loading={updateMutation.isPending}
+            onClick={() =>
+              updateMutation.mutate({
+                id: role.id,
+                data: { name: editing.name.trim() }
+              })
+            }
+          >
+            Salvar
+          </Button>
+          <Button
+            size="lg"
+            variant="secondary"
+            onClick={cancelDesignSystemRename}
+          >
+            Cancelar
+          </Button>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Button
+          size="lg"
+          variant="secondary"
+          data-job-role-rename={role.id}
+          onClick={() => openDesignSystemRename(role)}
+        >
+          Renomear
+        </Button>
+        {role.isActive ? (
+          <Button
+            size="lg"
+            variant="danger"
+            disabled={deactivateMutation.isPending}
+            loading={deactivateMutation.isPending}
+            onClick={() => deactivateMutation.mutate(role.id)}
+          >
+            Desativar
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            variant="secondary"
+            disabled={updateMutation.isPending}
+            loading={updateMutation.isPending}
+            onClick={() =>
+              updateMutation.mutate({
+                id: role.id,
+                data: { isActive: true }
+              })
+            }
+          >
+            Reativar
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  if (appearance === 'design-system') {
+    const columns: readonly DataTableColumn<JobRole>[] = [
+      {
+        key: 'name',
+        header: 'Cargo',
+        rowHeader: true,
+        render: renderDesignSystemRoleName
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (role) => (
+          <StatusPill
+            status={role.isActive ? 'ACTIVE' : 'INACTIVE'}
+            label={role.isActive ? 'Ativo' : 'Inativo'}
+            tone={role.isActive ? 'success' : 'neutral'}
+          />
+        )
+      }
+    ];
+
+    return (
+      <section
+        ref={designSystemSurfaceRef}
+        className="fv-ds rdo-job-roles"
+        aria-labelledby="rdo-job-roles-title"
+      >
+        <Card
+          className="rdo-job-roles__card"
+          padding="md"
+          title={<h2 id="rdo-job-roles-title">Cargos</h2>}
+          actions={
+            !showCreateForm ? (
+              <Button
+                data-job-role-create
+                size="lg"
+                variant="primary"
+                onClick={() => setShowCreateForm(true)}
+              >
+                Novo cargo
+              </Button>
+            ) : null
+          }
+        >
+          <p className="rdo-job-roles__description">
+            Lista usada no cadastro de colaboradores. Cargos inativos não
+            aparecem na seleção.
+          </p>
+
+          {showCreateForm ? (
+            <form
+              className="rdo-job-roles__create-form"
+              onSubmit={handleCreateSubmit}
+              onKeyDown={(event) =>
+                handleDesignSystemEscape(event, cancelDesignSystemCreate)
+              }
+              autoComplete="off"
+            >
+              <Field label="Nome do cargo" required>
+                <Input
+                  ref={createInputRef}
+                  size="lg"
+                  value={newName}
+                  autoComplete="off"
+                  onChange={(event) => setNewName(event.target.value)}
+                  required
+                />
+              </Field>
+              <div className="rdo-job-roles__form-actions">
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  onClick={cancelDesignSystemCreate}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="lg"
+                  variant="primary"
+                  type="submit"
+                  disabled={createMutation.isPending || !newName.trim()}
+                  loading={createMutation.isPending}
+                >
+                  Salvar
+                </Button>
+              </div>
+            </form>
+          ) : null}
+
+          {isLoading ? (
+            <Skeleton
+              className="rdo-job-roles__loading"
+              variant="table-rows"
+              lines={6}
+              label="Carregando cargos…"
+            />
+          ) : (
+            <DataTable
+              className="rdo-job-roles__table"
+              rows={roles}
+              columns={columns}
+              getRowId={(role) => role.id}
+              getRowClassName={(role) =>
+                role.isActive
+                  ? 'rdo-job-roles__row'
+                  : 'rdo-job-roles__row rdo-job-roles__row--inactive'
+              }
+              ariaLabel="Cargos"
+              density="compact"
+              actionsLabel="Ações"
+              rowActions={renderDesignSystemRoleActions}
+              emptyState={
+                <EmptyState
+                  title="Nenhum cargo cadastrado."
+                  description="Cadastre um cargo para disponibilizá-lo na seleção de colaboradores."
+                />
+              }
+              mobile={{
+                ariaLabel: 'Cargos',
+                renderItem: (role) => ({
+                  title: renderDesignSystemRoleName(role),
+                  status: (
+                    <StatusPill
+                      status={role.isActive ? 'ACTIVE' : 'INACTIVE'}
+                      label={role.isActive ? 'Ativo' : 'Inativo'}
+                      tone={role.isActive ? 'success' : 'neutral'}
+                    />
+                  ),
+                  actions: renderDesignSystemRoleActions(role)
+                })
+              }}
+            />
+          )}
+        </Card>
+      </section>
+    );
   }
 
   return (

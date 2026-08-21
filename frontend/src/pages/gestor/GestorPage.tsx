@@ -3792,7 +3792,7 @@ export function GestorPage() {
             Temas de DDS
           </button>
         </div>
-        {equipeSubTab === 'cargos' ? <JobRoleManager /> : equipeSubTab === 'dds' ? <DdsThemeManager /> : renderColaboradoresSubTab()}
+        {equipeSubTab === 'cargos' ? <JobRoleManager appearance="design-system" /> : equipeSubTab === 'dds' ? <DdsThemeManager /> : renderColaboradoresSubTab()}
       </>
     );
   }
