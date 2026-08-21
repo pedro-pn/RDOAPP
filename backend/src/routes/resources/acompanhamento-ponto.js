@@ -39,6 +39,19 @@ const router = Router();
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB (o export real tem ~centenas de KB)
 
+export function currentUnmatchedPontoNames(periods = []) {
+  const byName = new Map();
+  for (const period of periods) {
+    const normalizedName = String(period?.normalizedName || '').trim();
+    if (!normalizedName) continue;
+    byName.set(normalizedName, {
+      rawName: String(period?.rawName || normalizedName).trim() || normalizedName,
+      normalizedName
+    });
+  }
+  return [...byName.values()];
+}
+
 function strictDateKey(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -414,21 +427,26 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const { pontoImport, pontoImports = [], periodStart, periodEnd, fileName, rates } = await computeCollaboratorRates();
-    const unmatchedByName = new Map();
-    for (const item of pontoImports) {
-      const unmatched = item.summary?.unmatched ?? [];
-      for (const row of unmatched) {
-        if (!row?.normalizedName) continue;
-        unmatchedByName.set(row.normalizedName, row);
-      }
-    }
+    const xlsxImportIds = pontoImports
+      .filter(item => item.source !== 'PONTOMAIS_API')
+      .map(item => item.id);
+    const unmatchedPeriods = xlsxImportIds.length
+      ? await prisma.pontoPeriodSummary.findMany({
+        where: {
+          importId: { in: xlsxImportIds },
+          collaboratorId: null
+        },
+        select: { rawName: true, normalizedName: true },
+        orderBy: { createdAt: 'asc' }
+      })
+      : [];
     res.json({
       importId: pontoImport?.id ?? null,
       periodStart: periodStart ?? null,
       periodEnd: periodEnd ?? null,
       fileName: fileName ?? pontoImport?.fileName ?? null,
       rates,
-      unmatched: [...unmatchedByName.values()]
+      unmatched: currentUnmatchedPontoNames(unmatchedPeriods)
     });
   })
 );
