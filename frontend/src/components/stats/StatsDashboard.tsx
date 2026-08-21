@@ -932,9 +932,13 @@ function RdoServiceSummary({
         const items = service.items || [];
         return (
           <div key={type} className="rdo-stats-dashboard__daily-service">
-            <strong>{SERVICE_LABELS[type] || type}</strong>
+            <strong className="rdo-stats-dashboard__daily-service-title">
+              {SERVICE_LABELS[type] || type}
+            </strong>
             {items.length === 0 ? (
-              <span>—</span>
+              <span className="rdo-stats-dashboard__daily-service-description">
+                —
+              </span>
             ) : (
               items.map((item, index) => {
                 const label =
@@ -949,20 +953,36 @@ function RdoServiceSummary({
                   item.volumeOleoLiters > 0;
 
                 return (
-                  <span key={`${type}-${index}`}>
-                    {label}
-                    {hasVolume
-                      ? ` · ${fmtNum(item.volumeOleoLiters!, 0)} L`
-                      : ''}
-                    {tubes.length > 0
-                      ? ` · ${fmtNum(tubeTotal, 1)} m (${tubes
-                          .map(
-                            ([diameter, meters]) =>
-                              `${diameter}: ${fmtNum(meters, 1)} m`
-                          )
-                          .join(', ')})`
-                      : ''}
-                  </span>
+                  <div
+                    key={`${type}-${index}`}
+                    className="rdo-stats-dashboard__daily-service-item"
+                  >
+                    <span className="rdo-stats-dashboard__daily-service-description">
+                      {label}
+                    </span>
+                    {hasVolume || tubes.length > 0 ? (
+                      <span className="rdo-stats-dashboard__daily-service-quantity">
+                        {hasVolume ? (
+                          <span className="stats-tube-entry">
+                            {fmtNum(item.volumeOleoLiters!, 0)} L
+                          </span>
+                        ) : null}
+                        {tubes.length > 0 ? (
+                          <>
+                            <span className="stats-tube-entry">
+                              <strong>Total</strong> → {fmtNum(tubeTotal, 1)} m
+                            </span>
+                            {tubes.map(([diameter, meters]) => (
+                              <span key={diameter} className="stats-tube-entry">
+                                <strong>{diameter}</strong> →{' '}
+                                {fmtNum(meters, 1)} m
+                              </span>
+                            ))}
+                          </>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </div>
                 );
               })
             )}
