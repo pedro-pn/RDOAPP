@@ -783,3 +783,420 @@
     white-space: nowrap;
   }
 }
+
+/* RDO Gestor monthly allocation. Coordinator stays on the legacy branch. */
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal > .fv-modal__header {
+  padding-block: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal > .fv-modal__body {
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal__title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal__logo {
+  width: auto;
+  max-width: calc(var(--space-16) + var(--space-8));
+  height: var(--space-6);
+  flex: 0 0 auto;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: var(--space-4);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__section {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__section > .fv-card__header {
+  align-items: flex-end;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation__section
+  > .fv-card__header
+  > :where(.fv-card__heading, .fv-card__actions) {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__heading {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-md);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__heading > span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__filters {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation__filters
+  :where(.fv-field, .fv-control-shell) {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation
+  :where(.fv-button, .fv-control-shell) {
+  min-height: calc(var(--space-10) + var(--space-1));
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__tabs {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-end: var(--space-4);
+  padding-block-start: var(--space-4);
+  border-block-start: var(--border-width) solid var(--line);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__tabpanel {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__loading {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__kpis {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation .stats-ov-count-card {
+  min-width: 0;
+  height: 100%;
+  min-height: calc(var(--space-16) + var(--space-6));
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation
+  .stats-ov-count-card
+  .fv-card__body {
+  display: grid;
+  height: 100%;
+  grid-template-rows: minmax(var(--space-8), auto) minmax(var(--space-5), auto);
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation .stats-ov-count-value {
+  align-self: end;
+  color: var(--brand-text);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  line-height: var(--leading-2xl);
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation .stats-ov-count-label {
+  align-self: start;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__table {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation__table
+  .fv-data-table__table {
+  table-layout: fixed;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation__table
+  :where(th, td):nth-child(1) {
+  width: 20%;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation__table
+  :where(th, td):nth-child(2) {
+  width: 18%;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation .stats-alloc-person {
+  min-width: 0;
+  color: var(--brand-text);
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__day-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__day-item {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding-block-end: var(--space-2);
+  border-block-end: var(--border-width) solid var(--line);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__day-item:last-child {
+  padding-block-end: 0;
+  border-block-end: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :where(
+    .rdo-stats-allocation__date,
+    .rdo-stats-allocation__shift,
+    .rdo-stats-allocation__client,
+    .rdo-stats-allocation__cnpj
+  ) {
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__project {
+  min-width: 0;
+  color: var(--ink);
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__mobile-day-label {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__mobile-day-value {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__mobile-day-value strong {
+  color: var(--ink);
+  font-weight: var(--font-semibold);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__mobile-day-value span {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-form {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient[data-inactive] {
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-allocation__recipient
+  > .fv-card__header {
+  align-items: center;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-copy strong {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-copy span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 767.98px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal > .fv-modal__body {
+    padding: var(--space-4);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-allocation__section
+    > .fv-card__header,
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-allocation__recipient
+    > .fv-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-allocation__section
+    > .fv-card__header
+    > .fv-card__actions,
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-allocation__recipient
+    > .fv-card__header
+    > .fv-card__actions {
+    width: 100%;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__filters > .fv-button,
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-allocation__recipient-actions
+    > .fv-button {
+    width: 100%;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__tab {
+    width: 100%;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-actions {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation-modal > .fv-modal__body {
+    padding: var(--space-5);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__filters {
+    grid-template-columns:
+      minmax(calc(var(--space-16) + var(--space-8)), 1fr)
+      minmax(calc(var(--space-16) * 2), 1fr)
+      auto;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__recipient-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__day-item {
+    grid-template-columns: auto auto minmax(calc(var(--space-16) * 2), 1fr);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__client,
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__cnpj {
+    grid-column: 3;
+  }
+}
+
+@media (min-width: 1280px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__day-item {
+    grid-template-columns:
+      auto
+      auto
+      minmax(calc(var(--space-16) * 2), 1fr)
+      minmax(calc(var(--space-16) + var(--space-12)), 1fr)
+      auto;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__client,
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-allocation__cnpj {
+    grid-column: auto;
+  }
+}

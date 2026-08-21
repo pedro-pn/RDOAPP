@@ -103,11 +103,16 @@ test('B.3 is an explicit StatsDashboardOverlay opt-in restricted to Gestor', () 
 
   assert.match(monthlyOverlay, /className="survey-dash-overlay"/);
   assert.match(monthlyOverlay, /<MonthlyAllocationDashboard\s*\/>/);
-  assert.doesNotMatch(monthlyOverlay, /appearance=/);
-  assert.doesNotMatch(
+  assert.match(monthlyOverlay, /appearance = 'legacy'/);
+  assert.match(
     manager,
-    /<MonthlyAllocationDashboardOverlay\b[^>]*appearance=/,
-    'Alocação mensal permanece fora da B.3'
+    /<MonthlyAllocationDashboardOverlay\s+appearance="design-system"/,
+    'a evolução B.6 deve continuar explícita no Gestor'
+  );
+  assert.doesNotMatch(
+    coordinator,
+    /<MonthlyAllocationDashboardOverlay\b[^>]*appearance=/s,
+    'o Coordenador deve continuar no default legacy após a B.6'
   );
 });
 

@@ -18,6 +18,7 @@ import {
   statsExportFileName,
   type AllocationReportCollaborator,
   type AllocationReportDay,
+  type AllocationReportRecipient,
   type StatsExportSection,
   type StatsDailyReport,
   type StatsOverviewProject,
@@ -2649,7 +2650,158 @@ function AllocationTable({ collaborators }: { collaborators: AllocationReportCol
   );
 }
 
-function MonthlyAllocationDashboard() {
+function DesignSystemAllocationDayList({
+  days
+}: {
+  days: AllocationReportDay[];
+}) {
+  if (days.length === 0) {
+    return <span className="stats-alloc-empty-cell">Sem alocação</span>;
+  }
+
+  return (
+    <div className="rdo-stats-allocation__day-list">
+      {days.map((day, index) => (
+        <div
+          key={`${day.date}-${day.projectId}-${day.shift}-${index}`}
+          className="rdo-stats-allocation__day-item"
+        >
+          <span className="rdo-stats-allocation__date">
+            {formatAllocationDate(day.date)}
+          </span>
+          <span className="rdo-stats-allocation__shift">{day.shift}</span>
+          <strong className="rdo-stats-allocation__project">
+            {day.projectName}
+          </strong>
+          <span className="rdo-stats-allocation__client">
+            {day.clientName || '-'}
+          </span>
+          <span className="rdo-stats-allocation__cnpj">
+            {day.clientCnpj || '-'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DesignSystemAllocationTable({
+  collaborators
+}: {
+  collaborators: AllocationReportCollaborator[];
+}) {
+  const columns: DataTableColumn<AllocationReportCollaborator>[] = [
+    {
+      key: 'collaborator',
+      header: 'Colaborador',
+      rowHeader: true,
+      render: (collaborator) => (
+        <span className="stats-alloc-person">
+          {collaborator.collaboratorName}
+        </span>
+      )
+    },
+    {
+      key: 'role',
+      header: 'Cargo',
+      render: (collaborator) => collaborator.collaboratorRole || '-'
+    },
+    {
+      key: 'allocations',
+      header: 'Alocações do mês',
+      render: (collaborator) => (
+        <DesignSystemAllocationDayList days={collaborator.days} />
+      )
+    }
+  ];
+
+  return (
+    <DataTable
+      className="rdo-stats-allocation__table"
+      rows={collaborators}
+      columns={columns}
+      getRowId={(collaborator) =>
+        collaborator.collaboratorId || collaborator.collaboratorName
+      }
+      ariaLabel="Alocação mensal por colaborador"
+      density="compact"
+      emptyState={
+        <EmptyState title="Nenhuma alocação encontrada para o mês selecionado." />
+      }
+      mobile={{
+        ariaLabel: 'Alocação mensal por colaborador',
+        renderItem: (collaborator) => ({
+          title: (
+            <span className="stats-alloc-person">
+              {collaborator.collaboratorName}
+            </span>
+          ),
+          subtitle: collaborator.collaboratorRole || '-',
+          metadata: collaborator.days.length
+            ? collaborator.days.map((day) => ({
+                label: (
+                  <span className="rdo-stats-allocation__mobile-day-label">
+                    {formatAllocationDate(day.date)} · {day.shift}
+                  </span>
+                ),
+                value: (
+                  <span className="rdo-stats-allocation__mobile-day-value">
+                    <strong>{day.projectName}</strong>
+                    <span>{day.clientName || '-'}</span>
+                    <span>{day.clientCnpj || '-'}</span>
+                  </span>
+                )
+              }))
+            : [{ label: 'Alocações', value: 'Sem alocação' }]
+        })
+      }}
+    />
+  );
+}
+
+function DesignSystemRecipientCard({
+  recipient,
+  onToggle,
+  onRemove
+}: {
+  recipient: AllocationReportRecipient;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Card
+      className="rdo-stats-allocation__recipient"
+      padding="sm"
+      data-inactive={!recipient.isActive || undefined}
+      title={
+        <span className="rdo-stats-allocation__recipient-copy">
+          <strong>{recipient.name || recipient.email}</strong>
+          {recipient.name ? <span>{recipient.email}</span> : null}
+        </span>
+      }
+      actions={
+        <div className="rdo-stats-allocation__recipient-actions">
+          <Button variant="secondary" size="lg" onClick={onToggle}>
+            {recipient.isActive ? 'Desativar' : 'Ativar'}
+          </Button>
+          <Button variant="danger" size="lg" onClick={onRemove}>
+            Remover
+          </Button>
+        </div>
+      }
+    >
+      <span className="fv-sr-only">
+        {recipient.isActive ? 'Destinatário ativo' : 'Destinatário inativo'}
+      </span>
+    </Card>
+  );
+}
+
+function MonthlyAllocationDashboard({
+  appearance = 'legacy'
+}: {
+  appearance?: StatsDashboardAppearance;
+} = {}) {
   const [selectedYear, setSelectedYear] = useState(currentYearValue());
   const [selectedMonth, setSelectedMonth] = useState(currentMonthNumber());
   const [activeTab, setActiveTab] = useState<'summary' | 'recipients'>('summary');
@@ -2743,6 +2895,244 @@ function MonthlyAllocationDashboard() {
   const data = allocationQuery.data;
   const recipients = recipientsQuery.data || [];
   const activeRecipients = recipients.filter(item => item.isActive).length;
+
+  if (appearance === 'design-system') {
+    return (
+      <div className="rdo-stats-allocation">
+        <Card
+          className="rdo-stats-allocation__section"
+          padding="md"
+          title={
+            <span className="rdo-stats-allocation__heading">
+              <h2>Alocação mensal de colaboradores</h2>
+              <span>Resumo dia a dia por projeto e CNPJ.</span>
+            </span>
+          }
+          actions={
+            <div className="rdo-stats-allocation__filters">
+              <Field label="Ano" id="rdo-allocation-year" required>
+                <Select
+                  className="stats-alloc-year"
+                  size="lg"
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(event.target.value)}
+                  options={yearOptions.map((year) => ({
+                    value: year,
+                    label: year
+                  }))}
+                />
+              </Field>
+              <Field label="Mês" id="rdo-allocation-month" required>
+                <Select
+                  className="stats-alloc-month"
+                  size="lg"
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  options={MONTH_OPTIONS.map(([value, label]) => ({
+                    value,
+                    label
+                  }))}
+                />
+              </Field>
+              <Button
+                variant="secondary"
+                size="lg"
+                iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading || allocationQuery.isLoading}
+              >
+                {pdfLoading ? 'Gerando...' : 'Baixar PDF'}
+              </Button>
+            </div>
+          }
+        >
+          <div
+            className="rdo-stats-allocation__tabs"
+            role="tablist"
+            aria-label="Seções da alocação mensal"
+          >
+            <Button
+              id="rdo-allocation-summary-tab"
+              className="rdo-stats-allocation__tab"
+              variant={activeTab === 'summary' ? 'primary' : 'secondary'}
+              size="lg"
+              role="tab"
+              aria-selected={activeTab === 'summary'}
+              aria-controls="rdo-allocation-summary-panel"
+              onClick={() => setActiveTab('summary')}
+            >
+              Resumo
+            </Button>
+            <Button
+              id="rdo-allocation-recipients-tab"
+              className="rdo-stats-allocation__tab"
+              variant={activeTab === 'recipients' ? 'primary' : 'secondary'}
+              size="lg"
+              role="tab"
+              aria-selected={activeTab === 'recipients'}
+              aria-controls="rdo-allocation-recipients-panel"
+              onClick={() => setActiveTab('recipients')}
+            >
+              Destinatários
+            </Button>
+          </div>
+
+          {activeTab === 'summary' ? (
+            <div
+              id="rdo-allocation-summary-panel"
+              className="rdo-stats-allocation__tabpanel"
+              role="tabpanel"
+              aria-labelledby="rdo-allocation-summary-tab"
+            >
+              {allocationQuery.isLoading ? (
+                <div
+                  className="rdo-stats-allocation__loading"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span>Carregando alocações...</span>
+                  <Skeleton variant="table-rows" lines={4} decorative />
+                </div>
+              ) : null}
+              {allocationQuery.isError ? (
+                <Alert
+                  tone="danger"
+                  title="Erro ao carregar alocações do mês."
+                />
+              ) : null}
+              {data ? (
+                <>
+                  <div className="rdo-stats-allocation__kpis">
+                    <DesignSystemOverviewCountCard
+                      label="RDOs"
+                      value={data.summary.reportCount}
+                    />
+                    <DesignSystemOverviewCountCard
+                      label="Colaboradores"
+                      value={data.summary.collaboratorCount}
+                    />
+                    <DesignSystemOverviewCountCard
+                      label="Alocações"
+                      value={data.summary.allocationCount}
+                    />
+                    <DesignSystemOverviewCountCard
+                      label="Projetos"
+                      value={data.summary.projectCount}
+                    />
+                  </div>
+                  <DesignSystemAllocationTable
+                    collaborators={data.collaborators}
+                  />
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+
+        {activeTab === 'recipients' ? (
+          <Card
+            id="rdo-allocation-recipients-panel"
+            className="rdo-stats-allocation__section"
+            padding="md"
+            role="tabpanel"
+            aria-labelledby="rdo-allocation-recipients-tab"
+            title={
+              <span className="rdo-stats-allocation__heading">
+                <h2>Destinatários do envio mensal</h2>
+                <span>
+                  O envio automático ocorre no dia 1 para o mês anterior.
+                  Ativos: {activeRecipients}
+                </span>
+              </span>
+            }
+            actions={
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleSendNow}
+                disabled={
+                  recipientMutations.sendNow.isPending ||
+                  recipientsQuery.isLoading ||
+                  activeRecipients === 0
+                }
+              >
+                {recipientMutations.sendNow.isPending
+                  ? 'Enviando...'
+                  : 'Enviar agora'}
+              </Button>
+            }
+          >
+            <form
+              className="rdo-stats-allocation__recipient-form"
+              onSubmit={handleAddRecipient}
+            >
+              <Field label="Nome" id="rdo-allocation-recipient-name">
+                <Input
+                  size="lg"
+                  type="text"
+                  value={recipientName}
+                  onChange={(event) => setRecipientName(event.target.value)}
+                  placeholder="Nome opcional"
+                />
+              </Field>
+              <Field
+                label="E-mail"
+                id="rdo-allocation-recipient-email"
+                required
+              >
+                <Input
+                  size="lg"
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(event) => setRecipientEmail(event.target.value)}
+                  placeholder="email@empresa.com"
+                />
+              </Field>
+              <Button
+                variant="primary"
+                size="lg"
+                type="submit"
+                disabled={recipientMutations.saveRecipient.isPending}
+              >
+                Salvar e-mail
+              </Button>
+            </form>
+
+            {message ? <Alert tone="info" title={message} /> : null}
+            {recipientsQuery.isLoading ? (
+              <div
+                className="rdo-stats-allocation__loading"
+                role="status"
+                aria-live="polite"
+              >
+                <span>Carregando destinatários...</span>
+                <Skeleton variant="table-rows" lines={3} decorative />
+              </div>
+            ) : null}
+            {recipientsQuery.isError ? (
+              <Alert tone="danger" title="Erro ao carregar destinatários." />
+            ) : null}
+            {recipients.length > 0 ? (
+              <div className="rdo-stats-allocation__recipient-list">
+                {recipients.map((recipient) => (
+                  <DesignSystemRecipientCard
+                    key={recipient.id}
+                    recipient={recipient}
+                    onToggle={() =>
+                      handleToggleRecipient(recipient.id, recipient.isActive)
+                    }
+                    onRemove={() => handleRemoveRecipient(recipient.id)}
+                  />
+                ))}
+              </div>
+            ) : !recipientsQuery.isLoading ? (
+              <EmptyState title="Nenhum destinatário cadastrado." />
+            ) : null}
+          </Card>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="stats-alloc-dashboard">
@@ -2864,12 +3254,59 @@ function MonthlyAllocationDashboard() {
   );
 }
 
-export function MonthlyAllocationDashboardOverlay({ onClose }: StatsOverlayCloseProps) {
+interface MonthlyAllocationDashboardOverlayProps extends StatsOverlayCloseProps {
+  appearance?: StatsDashboardAppearance;
+}
+
+export function MonthlyAllocationDashboardOverlay({
+  onClose,
+  appearance = 'legacy'
+}: MonthlyAllocationDashboardOverlayProps) {
   useEffect(() => {
-    const handle = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    if (appearance === 'design-system') return undefined;
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handle);
     return () => document.removeEventListener('keydown', handle);
-  }, [onClose]);
+  }, [appearance, onClose]);
+
+  if (appearance === 'design-system') {
+    return (
+      <Modal
+        open
+        appearance="design-system"
+        size="full"
+        panelClassName="rdo-stats-allocation-modal"
+        title={
+          <span className="rdo-stats-allocation-modal__title">
+            <BrandLogo
+              className="rdo-stats-allocation-modal__logo"
+              variant="adaptive"
+              decorative
+            />
+            <span aria-hidden="true">Alocação Mensal</span>
+            <span className="sr-only">Alocação mensal de colaboradores</span>
+          </span>
+        }
+        headerActions={
+          <Button
+            variant="secondary"
+            size="lg"
+            iconLeft={<AppIcon icon={DS_ICONS.previous} size="sm" />}
+            onClick={onClose}
+          >
+            Voltar
+          </Button>
+        }
+        showCloseButton={false}
+        ariaLabel="Alocação mensal de colaboradores"
+        onClose={onClose}
+      >
+        <MonthlyAllocationDashboard appearance="design-system" />
+      </Modal>
+    );
+  }
 
   return (
     <div className="survey-dash-overlay" role="dialog" aria-modal="true" aria-label="Alocação mensal de colaboradores">

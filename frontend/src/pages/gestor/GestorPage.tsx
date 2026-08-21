@@ -4718,6 +4718,7 @@ export function GestorPage() {
       ) : null}
       {statisticsTab && allocationDashboardOpen ? (
         <MonthlyAllocationDashboardOverlay
+          appearance="design-system"
           onClose={() => setAllocationDashboardOpen(false)}
         />
       ) : null}

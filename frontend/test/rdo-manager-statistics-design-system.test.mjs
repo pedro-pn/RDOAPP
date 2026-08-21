@@ -180,9 +180,10 @@ test('the DS overview composes responsive listings and explicit loading, error a
   );
 });
 
-test('detailed overlay is DS only by Gestor opt-in while Coordinator and monthly stay legacy', () => {
+test('statistics overlays are DS only by Gestor opt-in while Coordinator stays legacy', () => {
   const stats = source('src/components/stats/StatsDashboard.tsx');
   const manager = source('src/pages/gestor/GestorPage.tsx');
+  const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
   const detailedOverlay = sectionBetween(
     stats,
     'export function StatsDashboardOverlay',
@@ -212,7 +213,7 @@ test('detailed overlay is DS only by Gestor opt-in while Coordinator and monthly
   assert.match(detailedOverlay, /<StatsDashboard\s*\/>/);
   assert.match(monthlyOverlay, /className="survey-dash-overlay"/);
   assert.match(monthlyOverlay, /<MonthlyAllocationDashboard\s*\/>/);
-  assert.doesNotMatch(monthlyOverlay, /appearance=/);
+  assert.match(monthlyOverlay, /appearance = 'legacy'/);
 
   assert.match(stats, /filtrovali-stats-project-filter-highlight-v1/);
   assert.match(stats, /localStorage\.getItem\(statsProjectFilterHighlightKey/);
@@ -239,9 +240,13 @@ test('detailed overlay is DS only by Gestor opt-in while Coordinator and monthly
     manager,
     /statisticsTab && allocationDashboardOpen \? \(\s*<MonthlyAllocationDashboardOverlay/
   );
-  assert.doesNotMatch(
+  assert.match(
     manager,
-    /MonthlyAllocationDashboardOverlay[^>]*appearance=/
+    /<MonthlyAllocationDashboardOverlay\s+appearance="design-system"/
+  );
+  assert.doesNotMatch(
+    coordinator,
+    /<MonthlyAllocationDashboardOverlay\b[^>]*appearance=/s
   );
 });
 
