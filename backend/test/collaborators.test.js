@@ -38,6 +38,13 @@ test('collaborator schema rejects invalid email values', () => {
   }));
 });
 
+test('collaborator schema normalizes termination date for Prisma and accepts clearing it', () => {
+  const parsed = collaboratorSchema.partial().parse({ terminationDate: '2026-08-21' });
+  assert.equal(parsed.terminationDate.toISOString(), '2026-08-21T00:00:00.000Z');
+  assert.equal(collaboratorSchema.partial().parse({ terminationDate: '' }).terminationDate, null);
+  assert.throws(() => collaboratorSchema.partial().parse({ terminationDate: '21/08/2026' }));
+});
+
 test('collaborator signature notice is required for new signature images', () => {
   assert.throws(
     () => buildCollaboratorSignatureNoticeData({ signatureImage: 'data:image/png;base64,abc' }),

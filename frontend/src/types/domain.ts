@@ -13,6 +13,7 @@ export interface Collaborator {
   cpf?: string | null;
   registrationNumber?: string | null;
   admissionDate?: string | null;
+  terminationDate?: string | null;
   signatureImage: string | null;
   signatureNoticeAcceptedAt?: string | null;
   signatureNoticeVersion?: string | null;

@@ -1,0 +1,149 @@
+import { apiClient } from './client';
+
+export interface EfetivoPeriod {
+  ano: number;
+  ateMes: number;
+}
+
+export interface EfetivoSyncState {
+  ultimaSincronizacao: string | null;
+  inicioHistorico: string | null;
+  fimHistorico: string | null;
+}
+
+export interface EfetivoMonthlyEvolution {
+  mes: string;
+  mediaHH: number | null;
+  referencia: number;
+  instavel: boolean;
+  temFerias: boolean;
+}
+
+export interface EfetivoCollaboratorSummary {
+  id: string;
+  nome: string;
+  cargo: string;
+  hhAcumuladas: number;
+  mediaMensal: number;
+  heExcluidas: number;
+  mesesAnalisados: number;
+  improdutividade: number;
+  mesesComFerias: string[];
+}
+
+export interface EfetivoPendingItem {
+  tipo: 'PONTO_SEM_VINCULO' | 'SEM_DADOS_PERIODO' | 'CARGO_NAO_CADASTRADO';
+  descricao: string;
+  referencia: string | null;
+}
+
+export interface EfetivoProductivityResponse {
+  referenciaMensalHH: number;
+  periodo: EfetivoPeriod;
+  sincronizacao: EfetivoSyncState;
+  resumo: {
+    hhAcumuladas: number;
+    mediaMensalEquipe: number | null;
+    taxaGeral: number | null;
+    pendencias: number;
+  };
+  evolucaoMensal: EfetivoMonthlyEvolution[];
+  colaboradores: EfetivoCollaboratorSummary[];
+  pendentes: EfetivoPendingItem[];
+}
+
+export interface EfetivoProductivityMonth {
+  mes: string;
+  hhNormais: number;
+  heExcluidas: number;
+  mesesEquivalentes: number;
+  distanciaReferencia: number;
+  ferias: boolean;
+  instavel: boolean;
+}
+
+export interface EfetivoCollaboratorDetail {
+  colaborador: EfetivoCollaboratorSummary;
+  meses: EfetivoProductivityMonth[];
+}
+
+export interface EfetivoReferenceSetting {
+  referenciaMensalHH: number;
+  atualizadoEm: string | null;
+  atualizadoPor: string | null;
+}
+
+export interface EfetivoAbsence {
+  id: string;
+  collaboratorId: string;
+  collaborator: { id: string; name: string; role: string };
+  type: 'FERIAS';
+  startDate: string;
+  endDate: string;
+  note: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EfetivoAbsencePayload {
+  collaboratorId: string;
+  type?: 'FERIAS';
+  startDate: string;
+  endDate: string;
+  note?: string | null;
+}
+
+export interface EfetivoCollaboratorOption {
+  id: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+}
+
+export async function getEfetivoProductivity(period: EfetivoPeriod) {
+  const { data } = await apiClient.get<EfetivoProductivityResponse>('/efetivo/produtividade', { params: period });
+  return data;
+}
+
+export async function getEfetivoCollaboratorDetail(collaboratorId: string, period: EfetivoPeriod) {
+  const { data } = await apiClient.get<EfetivoCollaboratorDetail>(
+    `/efetivo/produtividade/${encodeURIComponent(collaboratorId)}`,
+    { params: period }
+  );
+  return data;
+}
+
+export async function getEfetivoReferenceSetting() {
+  const { data } = await apiClient.get<EfetivoReferenceSetting>('/efetivo/parametros');
+  return data;
+}
+
+export async function saveEfetivoReferenceSetting(referenciaMensalHH: number) {
+  const { data } = await apiClient.put<EfetivoReferenceSetting>('/efetivo/parametros', { referenciaMensalHH });
+  return data;
+}
+
+export async function listEfetivoAbsences(filters: { ano: number; collaboratorId?: string }) {
+  const { data } = await apiClient.get<EfetivoAbsence[]>('/efetivo/ausencias', { params: filters });
+  return data;
+}
+
+export async function listEfetivoCollaborators() {
+  const { data } = await apiClient.get<EfetivoCollaboratorOption[]>('/efetivo/colaboradores');
+  return data;
+}
+
+export async function createEfetivoAbsence(payload: EfetivoAbsencePayload) {
+  const { data } = await apiClient.post<EfetivoAbsence>('/efetivo/ausencias', payload);
+  return data;
+}
+
+export async function updateEfetivoAbsence(id: string, payload: Partial<Omit<EfetivoAbsencePayload, 'collaboratorId'>>) {
+  const { data } = await apiClient.patch<EfetivoAbsence>(`/efetivo/ausencias/${encodeURIComponent(id)}`, payload);
+  return data;
+}
+
+export async function removeEfetivoAbsence(id: string) {
+  await apiClient.delete(`/efetivo/ausencias/${encodeURIComponent(id)}`);
+}

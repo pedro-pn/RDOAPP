@@ -2,12 +2,17 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { createJobRole, deactivateJobRole, listJobRoles, updateJobRole } from '../../api/jobRoles';
+import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../ui/ToastContext';
+import { EfetivoControlNovelty } from '../EfetivoControlNovelty';
 
 // Administração da lista de cargos (JobRole). Permite adicionar, renomear e desativar/reativar.
 export function JobRoleManager() {
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const { user } = useAuth();
+  const canManageOperational = user?.accountType === 'ADMIN'
+    || Boolean(user?.moduleRoles?.includes('efetivo:manager'));
   const { data, isLoading } = useQuery({ queryKey: ['job-roles', 'all'], queryFn: () => listJobRoles(true) });
 
   const [newName, setNewName] = useState('');
@@ -23,7 +28,7 @@ export function JobRoleManager() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { id: string; data: { name?: string; isActive?: boolean } }) => updateJobRole(payload.id, payload.data),
+    mutationFn: (payload: { id: string; data: { name?: string; isActive?: boolean; isOperational?: boolean } }) => updateJobRole(payload.id, payload.data),
     onSuccess: () => { showToast('Cargo atualizado.'); setEditing(null); invalidate(); },
     onError: () => showToast('Não foi possível atualizar o cargo.')
   });
@@ -54,7 +59,7 @@ export function JobRoleManager() {
         ) : null}
       </div>
       <p className="placeholder-copy" style={{ margin: '4px 0 10px' }}>
-        Lista usada no cadastro de colaboradores. Cargos inativos não aparecem na seleção.
+        Lista usada no cadastro de colaboradores. Cargos inativos não aparecem na seleção. A marcação operacional define quem entra no indicador do Efetivo.
       </p>
       {showCreateForm ? (
         <form className="admin-inline-form" onSubmit={handleCreateSubmit} autoComplete="off">
@@ -111,18 +116,35 @@ export function JobRoleManager() {
                   <span style={{ flex: 1, opacity: role.isActive ? 1 : 0.5 }}>
                     {role.name}{role.isActive ? '' : ' (inativo)'}
                   </span>
+                  <label className="job-role-operational-control" data-efetivo-operational-control>
+                    <input
+                      type="checkbox"
+                      checked={role.isOperational !== false}
+                      disabled={!canManageOperational || updateMutation.isPending}
+                      onChange={event => updateMutation.mutate({
+                        id: role.id,
+                        data: { isOperational: event.target.checked }
+                      })}
+                    />
+                    <span>Função operacional</span>
+                  </label>
                   <button className="mini-btn" type="button" onClick={() => setEditing({ id: role.id, name: role.name })}>Renomear</button>
                   {role.isActive ? (
                     <button className="mini-btn danger" type="button" disabled={deactivateMutation.isPending} onClick={() => deactivateMutation.mutate(role.id)}>Desativar</button>
                   ) : (
                     <button className="mini-btn" type="button" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ id: role.id, data: { isActive: true } })}>Reativar</button>
                   )}
+                  {!canManageOperational ? <span className="placeholder-copy">Somente leitura</span> : null}
                 </>
               )}
             </li>
           ))}
         </ul>
       )}
+      {!canManageOperational ? (
+        <p className="placeholder-copy">A função operacional só pode ser alterada por um gestor do módulo Efetivo Operacional.</p>
+      ) : null}
+      <EfetivoControlNovelty user={user} control="operational-role" selector="[data-efetivo-operational-control]" />
     </div>
   );
 }

@@ -2305,6 +2305,24 @@ a {
 .acp-kpi-value { font-size: 22px; font-weight: 700; color: #1f3a2a; line-height: 1.2; }
 .acp-kpi-foot { font-size: 11px; color: #9aa3a0; }
 
+.job-role-operational-control {
+  align-items: center;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  display: inline-flex;
+  gap: 6px;
+  padding: 5px 8px;
+}
+
+.job-role-operational-control:focus-within {
+  border-color: var(--g);
+}
+
+.job-role-operational-control:has(input:disabled) {
+  color: var(--mu);
+  cursor: not-allowed;
+}
+
 .acp-bars { display: flex; flex-direction: column; gap: 8px; }
 .acp-bar-row { display: grid; grid-template-columns: 92px 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
 .acp-bars-cat .acp-bar-row { grid-template-columns: 200px 1fr auto; }

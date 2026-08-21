@@ -6,6 +6,8 @@ const LAST_MODULE_KEY_PREFIX = 'filtrovali:last-module:';
 const HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX = 'filtrovali:hub-first-login-tutorial:';
 const ACOMPANHAMENTO_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-novelty:';
 const QUALIDADE_NOVELTY_KEY_PREFIX = 'filtrovali:qualidade-novelty:v1:';
+const EFETIVO_HUB_NOVELTY_KEY_PREFIX = 'filtrovali:efetivo-hub-novelty:v1:';
+const EFETIVO_CONTROL_NOVELTY_KEY_PREFIX = 'filtrovali:efetivo-control-novelty:v1:';
 const ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-grouping-novelty:v1:';
 const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-group-rename-novelty:v1:';
 const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
@@ -38,6 +40,34 @@ function acompanhamentoNoveltyStorageKey(user: Pick<AuthUser, 'id'>) {
 
 function qualidadeNoveltyStorageKey(user: Pick<AuthUser, 'id'>) {
   return `${QUALIDADE_NOVELTY_KEY_PREFIX}${user.id}`;
+}
+
+// Campanhas do Efetivo implantadas em 21/08/2026 e válidas por 10 dias corridos.
+export const EFETIVO_NOVELTY_IMPLEMENTED_AT = '2026-08-21';
+const EFETIVO_NOVELTY_EXPIRES_AT = new Date('2026-08-31T23:59:59-03:00');
+
+export type EfetivoControlNoveltyId = 'operational-role' | 'termination-date';
+
+export function userHasEfetivoModule(user: AuthUser | null | undefined) {
+  return availableHubModulesForUser(user).some(module => module.id === 'efetivo');
+}
+
+export function shouldShowEfetivoHubNovelty(user: AuthUser | null | undefined) {
+  if (!user || !userHasEfetivoModule(user) || Date.now() > EFETIVO_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${EFETIVO_HUB_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markEfetivoHubNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (user) safeLocalStorageSet(`${EFETIVO_HUB_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+export function shouldShowEfetivoControlNovelty(user: Pick<AuthUser, 'id'> | null | undefined, control: EfetivoControlNoveltyId) {
+  if (!user || Date.now() > EFETIVO_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${EFETIVO_CONTROL_NOVELTY_KEY_PREFIX}${control}:${user.id}`) !== '1';
+}
+
+export function markEfetivoControlNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined, control: EfetivoControlNoveltyId) {
+  if (user) safeLocalStorageSet(`${EFETIVO_CONTROL_NOVELTY_KEY_PREFIX}${control}:${user.id}`, '1');
 }
 
 function safeLocalStorageGet(key: string) {
@@ -373,6 +403,7 @@ export function preferredEntryPath(user: AuthUser | null | undefined) {
   if (!user) return '/login';
   if (isClientAccount(user)) return '/rdo/cliente';
   if (shouldShowQualidadeNovelty(user)) return '/modulos';
+  if (shouldShowEfetivoHubNovelty(user)) return '/modulos';
   if (shouldOpenHubOnFirstLogin(user)) return '/modulos';
   const remembered = rememberedModulePath(user);
   if (remembered) return remembered;

@@ -9,6 +9,7 @@ export interface CollaboratorPayload {
   signatureImage?: string | null;
   signatureNoticeAccepted?: true;
   signatureNoticeVersion?: string;
+  terminationDate?: string | null;
   isActive?: boolean;
 }
 

@@ -17,6 +17,9 @@ const optionalNullableEmail = z.union([z.string().trim().email(), z.literal(''),
 const optionalNullableString = z.union([z.string(), z.null()])
   .optional()
   .transform(value => value || null);
+const optionalNullableDate = z.union([z.string().date(), z.literal(''), z.null()])
+  .optional()
+  .transform(value => value ? new Date(`${value}T00:00:00.000Z`) : null);
 
 export const collaboratorSchema = z.object({
   code: z.string().trim().min(1).optional(),
@@ -26,6 +29,7 @@ export const collaboratorSchema = z.object({
   signatureImage: optionalNullableString,
   signatureNoticeAccepted: z.literal(true).optional(),
   signatureNoticeVersion: z.string().trim().min(1).max(80).optional(),
+  terminationDate: optionalNullableDate,
   isActive: z.boolean().default(true)
 });
 

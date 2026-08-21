@@ -1,0 +1,471 @@
+.efetivo-page,
+.efetivo-page * {
+  min-width: 0;
+}
+
+.efetivo-board {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.efetivo-filter-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(min(100%, 180px), 220px)) minmax(min(100%, 280px), 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.efetivo-filter-note,
+.efetivo-section-heading p,
+.efetivo-reference-card p,
+.efetivo-data-note p {
+  color: var(--mu);
+  margin: 4px 0 0;
+}
+
+.efetivo-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(min(100%, 180px), 1fr));
+  gap: 12px;
+}
+
+.efetivo-kpi {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+}
+
+.efetivo-kpi-accent {
+  border-color: var(--gl);
+}
+
+.efetivo-kpi span,
+.efetivo-eyebrow {
+  color: var(--mu);
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.efetivo-kpi strong,
+.efetivo-reference-card strong {
+  color: var(--g);
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+
+.efetivo-kpi small {
+  color: var(--mu);
+}
+
+.efetivo-reference-card,
+.efetivo-section-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.efetivo-reference-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.efetivo-section-heading h2 {
+  color: var(--g);
+  font-size: 18px;
+  margin: 0;
+}
+
+.efetivo-reference-badge,
+.efetivo-badge {
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  color: var(--g);
+  display: inline-flex;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.efetivo-badge.warning {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.efetivo-evolution {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.efetivo-month {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 44px minmax(100px, 1fr) 74px minmax(80px, auto);
+}
+
+.efetivo-month-label {
+  color: var(--g);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.efetivo-month-track {
+  background: var(--bg);
+  border-radius: 999px;
+  height: 14px;
+  overflow: hidden;
+  position: relative;
+}
+
+.efetivo-month-bar {
+  background: var(--gl);
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+}
+
+.efetivo-month-reference {
+  background: var(--tx);
+  height: 100%;
+  position: absolute;
+  top: 0;
+  width: 2px;
+}
+
+.efetivo-month-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.efetivo-month-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.efetivo-table-wrap {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.efetivo-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.efetivo-table th,
+.efetivo-table td {
+  border-bottom: 1px solid var(--br);
+  padding: 9px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.efetivo-table th {
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.efetivo-table tbody tr {
+  cursor: pointer;
+}
+
+.efetivo-table tbody tr:hover {
+  background: var(--bg);
+}
+
+.efetivo-row-link {
+  background: transparent;
+  border: 0;
+  color: var(--g);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+
+.efetivo-vacation-note {
+  color: var(--mu);
+  display: block;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.efetivo-data-note strong {
+  color: var(--g);
+}
+
+.efetivo-pending-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.efetivo-pending-item {
+  align-items: center;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.efetivo-pending-item strong {
+  color: var(--g);
+}
+
+.efetivo-pending-item p {
+  color: var(--mu);
+  margin: 3px 0 0;
+}
+
+.efetivo-pending-link {
+  color: var(--bl);
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.efetivo-absence-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(min(100%, 180px), 220px) minmax(0, 1fr) auto;
+}
+
+.efetivo-absence-toolbar p {
+  color: var(--mu);
+  margin: 4px 0 0;
+}
+
+.efetivo-absence-list {
+  display: grid;
+  gap: 10px;
+}
+
+.efetivo-absence-card {
+  align-items: center;
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(min(100%, 180px), 1fr) minmax(min(100%, 260px), 1.5fr) auto;
+  padding: 14px;
+}
+
+.efetivo-absence-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.efetivo-absence-card span,
+.efetivo-absence-card small {
+  color: var(--mu);
+}
+
+.efetivo-absence-actions {
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.efetivo-absence-form-body {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.efetivo-absence-form-body .field-group:first-child,
+.efetivo-absence-form-body .field-group:last-child {
+  grid-column: 1 / -1;
+}
+
+.modal-card.efetivo-modal {
+  max-width: 520px;
+  overflow: hidden;
+  padding: 0;
+  width: min(94vw, 520px);
+}
+
+.modal-card.efetivo-detail-modal {
+  max-width: 820px;
+  width: min(96vw, 820px);
+}
+
+.efetivo-detail-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.efetivo-detail-summary span {
+  background: var(--sf);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+}
+
+.efetivo-detail-summary small {
+  color: var(--mu);
+}
+
+.efetivo-modal-layout {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.efetivo-modal-header,
+.efetivo-modal-footer {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 16px 18px;
+}
+
+.efetivo-modal-header h3,
+.efetivo-modal-header p {
+  margin: 0;
+}
+
+.efetivo-modal-header p {
+  color: var(--mu);
+  margin-top: 4px;
+}
+
+.efetivo-modal-body {
+  overflow-y: auto;
+  padding: 4px 18px 18px;
+}
+
+.efetivo-modal-footer {
+  align-items: center;
+  background: var(--wh);
+  border-top: 1px solid var(--br);
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .efetivo-filter-card,
+  .efetivo-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .efetivo-filter-note {
+    grid-column: 1 / -1;
+  }
+
+  .efetivo-absence-toolbar,
+  .efetivo-absence-card {
+    grid-template-columns: 1fr;
+  }
+
+  .efetivo-absence-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .efetivo-table,
+  .efetivo-table tbody,
+  .efetivo-table tr,
+  .efetivo-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .efetivo-table thead {
+    display: none;
+  }
+
+  .efetivo-table tr {
+    border: 1px solid var(--br);
+    border-radius: var(--r);
+    margin-bottom: 10px;
+    padding: 10px 12px;
+  }
+
+  .efetivo-table td {
+    align-items: flex-start;
+    border: 0;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 4px 0;
+    text-align: right;
+  }
+
+  .efetivo-table td::before {
+    color: var(--mu);
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .efetivo-table td:first-child {
+    border-bottom: 1px solid var(--br);
+    display: block;
+    margin-bottom: 5px;
+    padding-bottom: 7px;
+    text-align: left;
+  }
+
+  .efetivo-table td:first-child::before {
+    content: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .efetivo-filter-card,
+  .efetivo-kpis,
+  .efetivo-detail-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .efetivo-reference-card,
+  .efetivo-section-heading,
+  .efetivo-pending-item {
+    flex-direction: column;
+  }
+
+  .efetivo-pending-item {
+    align-items: flex-start;
+  }
+
+  .efetivo-month {
+    grid-template-columns: 40px minmax(0, 1fr) 70px;
+  }
+
+  .efetivo-month-flags {
+    grid-column: 2 / -1;
+  }
+
+  .efetivo-absence-form-body {
+    grid-template-columns: 1fr;
+  }
+
+  .efetivo-absence-form-body .field-group:first-child,
+  .efetivo-absence-form-body .field-group:last-child {
+    grid-column: auto;
+  }
+}

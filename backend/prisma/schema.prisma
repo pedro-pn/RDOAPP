@@ -87,6 +87,7 @@ enum AppModule {
   ESTOQUE
   ACOMPANHAMENTO
   QUALIDADE
+  EFETIVO
 }
 
 enum ModuleRoleCode {
@@ -107,6 +108,16 @@ enum ModuleRoleCode {
   ACOMPANHAMENTO_VIEWER
   QUALIDADE_MANAGER
   QUALIDADE_VIEWER
+  EFETIVO_MANAGER
+  EFETIVO_VIEWER
+}
+
+enum CollaboratorAbsenceType {
+  FERIAS
+  FOLGA
+  AFASTAMENTO
+  ASO
+  TREINAMENTO
 }
 
 enum StockItemType {
@@ -266,6 +277,7 @@ model Collaborator {
   cpf                       String?
   registrationNumber        String?
   admissionDate             DateTime?
+  terminationDate           DateTime?
   signatureImage            String?
   signatureNoticeAcceptedAt DateTime?
   signatureNoticeVersion    String?
@@ -282,6 +294,7 @@ model Collaborator {
   pontoNameAliases          PontoNameAlias[]
   pontoExternalLinks        PontoExternalEmployeeLink[]
   pontoDayProjectOverrides  PontoDayProjectOverride[]
+  absences                  CollaboratorAbsence[]
 }
 
 model CollaboratorSignatureNoticeLog {
@@ -346,6 +359,31 @@ model AcompanhamentoSetting {
   updatedAt       DateTime @default(now()) @updatedAt
 }
 
+model EfetivoSetting {
+  key             String   @id
+  numberValue     Float?
+  updatedByUserId String?
+  updatedAt       DateTime @default(now()) @updatedAt
+}
+
+model CollaboratorAbsence {
+  id              String                  @id @default(cuid())
+  collaboratorId  String
+  type            CollaboratorAbsenceType @default(FERIAS)
+  startDate       DateTime                @db.Date
+  endDate         DateTime                @db.Date
+  note            String?
+  createdByUserId String?
+  deletedAt       DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  collaborator    Collaborator            @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+
+  @@index([collaboratorId, startDate])
+  @@index([type, startDate])
+  @@index([deletedAt])
+}
+
 // === Ponto (jornada) do VR Ponto Mais — base do custo de mão de obra (HH) ===
 // A API é a origem principal quando configurada; XLSX históricos e de contingência permanecem
 // compatíveis. Cada snapshot guarda auditoria + um resumo por colaborador no período.
@@ -374,25 +412,25 @@ model PontoImport {
 // Resumo por colaborador × snapshot: horas normais, HE70/HE100 explícitas quando disponíveis,
 // dias trabalhados e etiquetas diárias para conciliação com os RDOs.
 model PontoPeriodSummary {
-  id             String        @id @default(cuid())
-  importId       String
-  collaboratorId String? // null até o nome ser vinculado a um Collaborator
-  sourceKey      String?
+  id                 String        @id @default(cuid())
+  importId           String
+  collaboratorId     String? // null até o nome ser vinculado a um Collaborator
+  sourceKey          String?
   externalEmployeeId String?
   registrationNumber String?
-  rawName        String
-  normalizedName String
-  periodStart    DateTime      @db.Date
-  periodEnd      DateTime      @db.Date
-  workedMinutes  Int           @default(0)
-  he70Minutes    Int           @default(0)
-  he100Minutes   Int           @default(0)
-  nightMinutes   Int           @default(0)
-  workedDates    String[]      @default([]) // ["YYYY-MM-DD", ...] dias com horas normais > 0
-  monthly        Json? // { "YYYY-MM": { normalMinutes, extrasMinutes, nightMinutes, workedDates[] } }
-  createdAt      DateTime      @default(now())
-  import         PontoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
-  collaborator   Collaborator? @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
+  rawName            String
+  normalizedName     String
+  periodStart        DateTime      @db.Date
+  periodEnd          DateTime      @db.Date
+  workedMinutes      Int           @default(0)
+  he70Minutes        Int           @default(0)
+  he100Minutes       Int           @default(0)
+  nightMinutes       Int           @default(0)
+  workedDates        String[]      @default([]) // ["YYYY-MM-DD", ...] dias com horas normais > 0
+  monthly            Json? // { "YYYY-MM": { normalMinutes, extrasMinutes, nightMinutes, workedDates[] } }
+  createdAt          DateTime      @default(now())
+  import             PontoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
+  collaborator       Collaborator? @relation(fields: [collaboratorId], references: [id], onDelete: SetNull)
 
   @@unique([importId, sourceKey])
   @@index([collaboratorId])
@@ -415,24 +453,24 @@ model PontoNameAlias {
 
 // Auditoria separada das tentativas de sincronização. Falhas não entram no escopo financeiro.
 model PontoSyncRun {
-  id                     String       @id @default(cuid())
-  periodStart            DateTime     @db.Date
-  periodEnd              DateTime     @db.Date
-  status                 String       @default("RUNNING")
-  trigger                String       @default("MANUAL")
-  requestedByUserId      String?
-  importId               String?
-  employeesRead          Int          @default(0)
-  workDaysRead           Int          @default(0)
-  timeCardsRead          Int          @default(0)
-  collaboratorsMatched   Int          @default(0)
-  pendingCount           Int          @default(0)
-  summary                Json?
-  errorCode              String?
-  errorMessage           String?
-  startedAt              DateTime     @default(now())
-  completedAt            DateTime?
-  import                 PontoImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+  id                   String       @id @default(cuid())
+  periodStart          DateTime     @db.Date
+  periodEnd            DateTime     @db.Date
+  status               String       @default("RUNNING")
+  trigger              String       @default("MANUAL")
+  requestedByUserId    String?
+  importId             String?
+  employeesRead        Int          @default(0)
+  workDaysRead         Int          @default(0)
+  timeCardsRead        Int          @default(0)
+  collaboratorsMatched Int          @default(0)
+  pendingCount         Int          @default(0)
+  summary              Json?
+  errorCode            String?
+  errorMessage         String?
+  startedAt            DateTime     @default(now())
+  completedAt          DateTime?
+  import               PontoImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
 
   @@index([status, startedAt])
   @@index([importId])
@@ -441,36 +479,36 @@ model PontoSyncRun {
 // Cursor persistente da carga histórica e da atualização diária do Ponto Mais.
 // A aplicação usa uma única linha com id="pontomais".
 model PontoSyncState {
-  id                    String    @id
-  bootstrapStatus       String    @default("PENDING")
-  dataRevision          Int       @default(1)
-  targetDataRevision    Int?
-  historyStart          DateTime? @db.Date
-  historyThrough        DateTime? @db.Date
-  nextPeriodStart       DateTime? @db.Date
-  lastDailySyncDate     DateTime? @db.Date
-  lastAttemptAt         DateTime?
-  lastSuccessfulAt      DateTime?
-  lastErrorCode         String?
-  lastErrorMessage      String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                 String    @id
+  bootstrapStatus    String    @default("PENDING")
+  dataRevision       Int       @default(1)
+  targetDataRevision Int?
+  historyStart       DateTime? @db.Date
+  historyThrough     DateTime? @db.Date
+  nextPeriodStart    DateTime? @db.Date
+  lastDailySyncDate  DateTime? @db.Date
+  lastAttemptAt      DateTime?
+  lastSuccessfulAt   DateTime?
+  lastErrorCode      String?
+  lastErrorMessage   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([bootstrapStatus, updatedAt])
 }
 
 // Vínculo persistente pelo identificador estável do colaborador no Ponto Mais.
 model PontoExternalEmployeeLink {
-  id                     String       @id @default(cuid())
-  externalEmployeeId     String       @unique
-  registrationNumber     String?
-  externalName           String
-  collaboratorId         String
-  matchSource            String       @default("MANUAL")
-  createdByUserId        String?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  collaborator           Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  id                 String       @id @default(cuid())
+  externalEmployeeId String       @unique
+  registrationNumber String?
+  externalName       String
+  collaboratorId     String
+  matchSource        String       @default("MANUAL")
+  createdByUserId    String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  collaborator       Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
 
   @@index([collaboratorId])
 }
@@ -481,27 +519,27 @@ model PontoExternalEmployee {
   externalEmployeeId String    @id
   registrationNumber String?
   externalName       String
-  isActive            Boolean?
-  ignoredAt           DateTime?
-  ignoredByUserId     String?
-  firstSeenAt         DateTime  @default(now())
-  lastSeenAt          DateTime  @default(now())
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  isActive           Boolean?
+  ignoredAt          DateTime?
+  ignoredByUserId    String?
+  firstSeenAt        DateTime  @default(now())
+  lastSeenAt         DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([ignoredAt, externalName])
 }
 
 // Alias de etiqueta livre do Ponto Mais para projeto interno.
 model PontoProjectTagAlias {
-  id                     String   @id @default(cuid())
-  normalizedTag          String   @unique
-  rawTag                 String
-  projectId              String
-  createdByUserId        String?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  project                Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  id              String   @id @default(cuid())
+  normalizedTag   String   @unique
+  rawTag          String
+  projectId       String
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
   @@index([projectId])
 }
@@ -509,16 +547,16 @@ model PontoProjectTagAlias {
 // Seleção gerencial para um conflito de projeto em um colaborador/data específico.
 // A escolha não altera o snapshot original e apenas substitui a regra automática no cálculo.
 model PontoDayProjectOverride {
-  id                     String       @id @default(cuid())
-  collaboratorId         String
-  workDate               DateTime     @db.Date
-  projectId              String
-  externalEmployeeId     String?
-  createdByUserId        String?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  collaborator           Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
-  project                Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  id                 String       @id @default(cuid())
+  collaboratorId     String
+  workDate           DateTime     @db.Date
+  projectId          String
+  externalEmployeeId String?
+  createdByUserId    String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  collaborator       Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  project            Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
   @@unique([collaboratorId, workDate, projectId])
   @@index([collaboratorId, workDate])
@@ -532,6 +570,7 @@ model JobRole {
   name               String                      @unique
   order              Int                         @default(0)
   isActive           Boolean                     @default(true)
+  isOperational      Boolean                     @default(true)
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
   plannedNormalHours ProjectPlannedNormalHours[]
@@ -1130,27 +1169,27 @@ model EquipmentAttachment {
 // === Modulo Estoque ===
 
 model StockItem {
-  id               String          @id @default(cuid())
+  id               String              @id @default(cuid())
   type             StockItemType
   categoryId       String?
-  code             String          @unique
+  code             String              @unique
   name             String
   manufacturer     String?
   description      String?
   unitLabel        String
-  minQuantity      Decimal?        @db.Decimal(12, 3)
+  minQuantity      Decimal?            @db.Decimal(12, 3)
   location         String?
   filterModel      String?
   filterKind       String?
   filterMicron     String?
   unNumber         String?
   casNumber        String?
-  checklistEnabled Boolean         @default(false)
+  checklistEnabled Boolean             @default(false)
   checklistItems   Json?
-  isActive         Boolean         @default(true)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  category         StockCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  category         StockCategory?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   batches          StockBatch[]
   movements        StockMovement[]
   documents        StockItemDocument[]
@@ -1310,8 +1349,8 @@ model QualityNature {
 }
 
 model QualityRecord {
-  id                 String             @id @default(cuid())
-  number             String             @unique
+  id                 String              @id @default(cuid())
+  number             String              @unique
   type               QualityRecordType
   seq                Int
   year               Int
@@ -1334,13 +1373,13 @@ model QualityRecord {
   updatedById        String?
   deletedById        String?
   deletedAt          DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  project            Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  nature             QualityNature?     @relation(fields: [natureId], references: [id], onDelete: Restrict)
-  createdBy          User?              @relation("QualityRecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy          User?              @relation("QualityRecordUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
-  deletedBy          User?              @relation("QualityRecordDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  project            Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  nature             QualityNature?      @relation(fields: [natureId], references: [id], onDelete: Restrict)
+  createdBy          User?               @relation("QualityRecordCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy          User?               @relation("QualityRecordUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  deletedBy          User?               @relation("QualityRecordDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   evidences          QualityEvidence[]
 
   @@unique([type, year, seq])
