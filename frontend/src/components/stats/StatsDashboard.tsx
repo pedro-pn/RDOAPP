@@ -57,6 +57,7 @@ import {
 } from '../ui/ds';
 import { DS_ICONS } from '../ui/ds/icons';
 import { Modal } from '../ui/Modal';
+import '../../styles/rdo-ds-actions.css';
 import './StatsDashboard.ds.css';
 
 const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
@@ -2781,10 +2782,10 @@ function DesignSystemRecipientCard({
       }
       actions={
         <div className="rdo-stats-allocation__recipient-actions">
-          <Button variant="secondary" size="lg" onClick={onToggle}>
+          <Button variant="secondary" size="md" onClick={onToggle}>
             {recipient.isActive ? 'Desativar' : 'Ativar'}
           </Button>
-          <Button variant="danger" size="lg" onClick={onRemove}>
+          <Button variant="danger" size="md" onClick={onRemove}>
             Remover
           </Button>
         </div>
@@ -3032,7 +3033,7 @@ function MonthlyAllocationDashboard({
         {activeTab === 'recipients' ? (
           <Card
             id="rdo-allocation-recipients-panel"
-            className="rdo-stats-allocation__section"
+            className="rdo-stats-allocation__section rdo-ds-actions"
             padding="md"
             role="tabpanel"
             aria-labelledby="rdo-allocation-recipients-tab"
@@ -3048,7 +3049,7 @@ function MonthlyAllocationDashboard({
             actions={
               <Button
                 variant="primary"
-                size="lg"
+                size="md"
                 onClick={handleSendNow}
                 disabled={
                   recipientMutations.sendNow.isPending ||
@@ -3090,7 +3091,7 @@ function MonthlyAllocationDashboard({
               </Field>
               <Button
                 variant="primary"
-                size="lg"
+                size="md"
                 type="submit"
                 disabled={recipientMutations.saveRecipient.isPending}
               >

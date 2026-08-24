@@ -1,0 +1,35 @@
+/* Escala visual compartilhada dos botões de ação das superfícies do RDO já
+   migradas para o Design System.
+ *
+ * Por que existe: Cargos, Temas de DDS e a lista de destinatários da alocação
+ * mensal repetem o mesmo padrão — um lançador primário no cabeçalho do cartão,
+ * ações por linha e ações de formulário inline. Sem uma regra comum, cada
+ * superfície acabava escolhendo a própria escala e as telas divergiam.
+ *
+ * Escopo: aplica-se apenas onde `.rdo-ds-actions` é declarado explicitamente,
+ * dentro da fronteira `.fv-ds`. Nenhum primitivo compartilhado do DS é alterado
+ * e nenhuma variante global é criada — só o respiro horizontal do Button muda,
+ * via a custom property que o próprio primitivo expõe.
+ *
+ * Acessibilidade: o alvo continua com no mínimo 44px de altura; a redução é de
+ * padding e de escala tipográfica (variante `md` do Button), nunca da área
+ * interativa. */
+
+/* `.rdo-ds-actions` pode estar na própria fronteira `.fv-ds` (Cargos, Temas de
+   DDS) ou em um cartão dentro dela (destinatários da alocação mensal), por isso
+   as duas formas do seletor. */
+:where(.fv-ds, [data-fv-ds]).rdo-ds-actions .fv-button,
+:where(.fv-ds, [data-fv-ds]) .rdo-ds-actions .fv-button {
+  --fv-button-padding: var(--space-3);
+
+  flex: 0 0 auto;
+  min-block-size: calc(var(--space-10) + var(--space-1));
+}
+
+/* As ações acompanham a largura do próprio texto e ficam agrupadas junto ao
+   conteúdo da linha, em vez de esticarem pela tabela. */
+:where(.fv-ds, [data-fv-ds]).rdo-ds-actions .fv-data-table__actions,
+:where(.fv-ds, [data-fv-ds]) .rdo-ds-actions .fv-data-table__actions {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}

@@ -20,6 +20,7 @@ import {
   type DataTableColumn
 } from '../ui/ds';
 import { useToast } from '../ui/ToastContext';
+import '../../styles/rdo-ds-actions.css';
 import './DdsThemeManager.ds.css';
 
 export type DdsThemeManagerAppearance = 'legacy' | 'design-system';
@@ -247,7 +248,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
     return (
       <section
         ref={designSystemSurfaceRef}
-        className="fv-ds rdo-dds-themes"
+        className="fv-ds rdo-dds-themes rdo-ds-actions"
         aria-labelledby="rdo-dds-themes-title"
       >
         <Card

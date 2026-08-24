@@ -236,3 +236,109 @@ test('B.8 DS branch uses existing responsive primitives and scoped tokens', () =
     );
   }
 });
+
+test('a escala dos botões de ação do RDO DS é compartilhada e escopada', () => {
+  const shared = source('src/styles/rdo-ds-actions.css');
+
+  // A escala vive em um único lugar e mantém o alvo de 44px.
+  assert.match(shared, /--fv-button-padding: var\(--space-3\)/);
+  assert.match(
+    shared,
+    /min-block-size: calc\(var\(--space-10\) \+ var\(--space-1\)\)/
+  );
+  assert.match(shared, /var\(--/);
+  assert.doesNotMatch(shared, /#[\da-f]{3,8}\b/i);
+  assert.doesNotMatch(shared, /\brgba?\(/i);
+  assert.doesNotMatch(shared, /!important/);
+
+  // Nenhuma regra vale fora de `.rdo-ds-actions`, declarado explicitamente.
+  // A divisão precisa ignorar vírgulas dentro de `:where(...)`.
+  const splitSelectorList = (text) => {
+    const parts = [];
+    let depth = 0;
+    let current = '';
+    for (const character of text) {
+      if (character === '(') depth += 1;
+      else if (character === ')') depth -= 1;
+      if (character === ',' && depth === 0) {
+        parts.push(current);
+        current = '';
+        continue;
+      }
+      current += character;
+    }
+    parts.push(current);
+    return parts;
+  };
+
+  const selectors = shared
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('}')
+    .map((block) => block.slice(0, block.indexOf('{')))
+    .flatMap(splitSelectorList)
+    .filter((text) => !text.trim().startsWith('@'))
+    .map((selector) => selector.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  assert.ok(selectors.length > 0);
+  for (const selector of selectors) {
+    assert.match(
+      selector,
+      /\.rdo-ds-actions\b/,
+      `seletor fora do escopo .rdo-ds-actions: ${selector}`
+    );
+  }
+
+  // Cada superfície RDO DS que usa esse padrão opta por ele explicitamente.
+  const optIns = [
+    ['src/components/projects/JobRoleManager.tsx', 'rdo-job-roles'],
+    ['src/components/reports/DdsThemeManager.tsx', 'rdo-dds-themes'],
+    ['src/components/stats/StatsDashboard.tsx', 'rdo-stats-allocation__section']
+  ];
+  for (const [path, marker] of optIns) {
+    const code = source(path);
+    assert.match(
+      code,
+      /styles\/rdo-ds-actions\.css/,
+      `${path} não importa a escala`
+    );
+    assert.match(
+      code,
+      new RegExp(`${marker} rdo-ds-actions`),
+      `${path} não declara rdo-ds-actions em ${marker}`
+    );
+  }
+
+  // Cargos e Temas de DDS são inteiramente desse padrão: nenhum Button `lg`.
+  for (const path of [
+    'src/components/projects/JobRoleManager.tsx',
+    'src/components/reports/DdsThemeManager.tsx'
+  ]) {
+    assert.doesNotMatch(
+      source(path),
+      /<Button\b[^>]*size="lg"/s,
+      `${path} ainda tem Button size="lg" fora da escala compartilhada`
+    );
+  }
+
+  // Na alocação mensal só a lista de destinatários entra na escala compacta.
+  // As abas e o "Voltar" do modal são outra categoria visual e seguem em `lg`.
+  const stats = source('src/components/stats/StatsDashboard.tsx');
+  assert.match(
+    stats,
+    /<Button variant="secondary" size="md" onClick=\{onToggle\}>/
+  );
+  assert.match(
+    stats,
+    /<Button variant="danger" size="md" onClick=\{onRemove\}>/
+  );
+  assert.match(
+    stats,
+    /className="rdo-stats-allocation__tab"[\s\S]{0,200}?size="lg"/
+  );
+
+  // O primitivo Button compartilhado continua intacto: nenhuma variante nova.
+  const button = source('src/components/ui/ds/Button.tsx');
+  assert.match(button, /size = 'md'/);
+  assert.doesNotMatch(button, /rdo-/);
+});
