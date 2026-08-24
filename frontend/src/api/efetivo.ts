@@ -28,6 +28,8 @@ export interface EfetivoCollaboratorSummary {
   heExcluidas: number;
   mesesAnalisados: number;
   improdutividade: number;
+  situacao: 'CONSOLIDADO' | 'PODE_MUDAR' | 'SEM_BASE';
+  mesesInstaveis: string[];
   mesesComFerias: string[];
 }
 

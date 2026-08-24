@@ -114,6 +114,13 @@ export function computeIndividualRate({ totalHours, analyzedMonths, reference })
   return Math.max(0, (monthlyReference - average) / monthlyReference);
 }
 
+// Situação da competência do colaborador. Não existe fechamento manual aqui: a taxa é
+// consolidada quando todos os meses analisados já saíram da janela de reprocessamento do ponto.
+export function collaboratorProductivityStatus({ rate, analyzedMonths, months = [] }) {
+  if (rate === null || finiteNumber(analyzedMonths) <= 0) return 'SEM_BASE';
+  return months.some(item => item.instavel) ? 'PODE_MUDAR' : 'CONSOLIDADO';
+}
+
 export function computeGeneralRate(individualRates = []) {
   const valid = individualRates.filter(value => typeof value === 'number' && Number.isFinite(value));
   if (!valid.length) return null;
@@ -199,6 +206,8 @@ export function buildProductivityReport({
       heExcluidas: overtime,
       mesesAnalisados: analyzedMonths,
       improdutividade: rate,
+      situacao: collaboratorProductivityStatus({ rate, analyzedMonths, months: details }),
+      mesesInstaveis: details.filter(item => item.instavel).map(item => item.mes),
       mesesComFerias: details.filter(item => item.ferias).map(item => item.mes),
       meses: details
     });

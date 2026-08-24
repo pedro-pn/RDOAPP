@@ -37,6 +37,8 @@ function dateTime(value: string | null | undefined) {
   });
 }
 
+const statusLabel = { CONSOLIDADO: 'Consolidado', PODE_MUDAR: 'Pode mudar', SEM_BASE: 'Sem base' } as const;
+
 function monthLabel(month: string) {
   const [year, monthNumber] = month.split('-').map(Number);
   return new Date(year, monthNumber - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
@@ -171,7 +173,7 @@ export function ProductivityBoard({ canManage }: Props) {
         <div className="efetivo-section-heading">
           <div>
             <h2>Resultado por colaborador</h2>
-            <p>Selecione uma pessoa para consultar o detalhe mensal.</p>
+            <p>A taxa oficial usa todas as taxas válidas; quem está como “Pode mudar” ainda tem mês na janela de reprocessamento. Selecione uma pessoa para consultar o detalhe mensal.</p>
           </div>
         </div>
         {data.colaboradores.length ? (
@@ -186,6 +188,7 @@ export function ProductivityBoard({ canManage }: Props) {
                   <th>HE excluídas</th>
                   <th>Meses analisados</th>
                   <th>Improdutividade</th>
+                  <th>Situação</th>
                 </tr>
               </thead>
               <tbody>
@@ -200,6 +203,9 @@ export function ProductivityBoard({ canManage }: Props) {
                     <td data-label="Improdutividade">
                       <strong>{percent(collaborator.improdutividade)}</strong>
                       {collaborator.mesesComFerias.length ? <span className="efetivo-vacation-note">Férias: {collaborator.mesesComFerias.map(monthLabel).join(', ')}</span> : null}
+                    </td>
+                    <td data-label="Situação">
+                      <span className={`efetivo-badge ${collaborator.situacao === 'CONSOLIDADO' ? '' : 'warning'}`} title={collaborator.situacao === 'PODE_MUDAR' ? `Meses ainda na janela de reprocessamento: ${collaborator.mesesInstaveis.map(monthLabel).join(', ')}` : collaborator.situacao === 'SEM_BASE' ? 'Sem meses analisáveis no período; não entra na taxa oficial.' : 'Todos os meses analisados já saíram da janela de reprocessamento.'}>{statusLabel[collaborator.situacao]}</span>
                     </td>
                   </tr>
                 ))}

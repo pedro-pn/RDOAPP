@@ -36,6 +36,7 @@ import {
 import { requestEvidence } from '../lib/efetivo/planning/plan-context.js';
 import {
   getPlanningOverview,
+  listPendingMissionProjects,
   listPlanningCollaborators,
   listPlanningCoordinators,
   listPlanningJobRoles,
@@ -76,6 +77,7 @@ const missionListQuerySchema = z.object({
   status: missionScheduleStatusSchema.optional(),
   stage: missionStageSchema.optional()
 });
+const missionPendingQuerySchema = z.object({ planId: idSchema.optional() });
 const collaboratorListQuerySchema = datePositionQuerySchema.extend({ search: z.string().trim().max(120).optional() });
 const absenceListQuerySchema = z.object({
   collaboratorId: idSchema.optional(),
@@ -145,6 +147,10 @@ router.get('/missions', requireEfetivoViewer, asyncHandler(async (req, res) => {
 
 router.post('/missions', requireEfetivoManager, asyncHandler(async (req, res) => {
   res.status(201).json(await createMission(missionInputSchema.parse(req.body), context(req)));
+}));
+
+router.get('/missions/pending', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await listPendingMissionProjects(missionPendingQuerySchema.parse(req.query)));
 }));
 
 router.get('/missions/:missionId', requireEfetivoViewer, asyncHandler(async (req, res) => {

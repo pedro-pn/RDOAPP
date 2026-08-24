@@ -642,7 +642,8 @@
 }
 
 .efetivo-compact-list > a,
-.efetivo-compact-list > article {
+.efetivo-compact-list > article,
+.efetivo-compact-list > button {
   align-items: center;
   border: 1px solid var(--br);
   border-radius: var(--rs);
@@ -655,6 +656,8 @@
 }
 
 .efetivo-compact-list > a > span,
+.efetivo-compact-list > button > span,
+.efetivo-compact-list > button > small,
 .efetivo-compact-list > article > div > span {
   color: var(--mu);
   display: block;
@@ -893,6 +896,13 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+/* Cor só na bolinha da etapa; colunas e cards seguem a cor única do módulo. */
+[data-kanban-stage='STANDBY'] { --stage: #5b6b7c; }
+[data-kanban-stage='MOBILIZATION'] { --stage: #b45309; }
+[data-kanban-stage='EXECUTION'] { --stage: #11437e; }
+[data-kanban-stage='FINAL_MEASUREMENT'] { --stage: #6d5b9b; }
+[data-kanban-stage='FINISHED'] { --stage: #30503a; }
+
 .efetivo-kanban-column {
   background: var(--sf);
   border: 1px solid var(--br);
@@ -909,6 +919,20 @@
   margin-bottom: 9px;
 }
 
+.efetivo-kanban-column > header strong {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.efetivo-stage-dot {
+  background: var(--stage, var(--mu));
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+}
+
 .efetivo-kanban-column > header span {
   background: var(--wh);
   border-radius: 999px;
@@ -916,13 +940,88 @@
 }
 
 .efetivo-kanban-list { display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
-.efetivo-kanban-card { background: var(--wh); border: 1px solid var(--br); border-radius: var(--rs); display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+
+.efetivo-kanban-card {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  transition: box-shadow .15s;
+}
+
+.efetivo-kanban-card.draggable { cursor: grab; }
+.efetivo-kanban-card.draggable:hover { box-shadow: 0 6px 16px rgba(20, 20, 20, .1); }
 .efetivo-kanban-card.selected,
-.efetivo-mission-card.selected { border-color: var(--g); box-shadow: inset 0 0 0 1px var(--g); }
-.efetivo-kanban-card.drag-placeholder { border: 2px dashed var(--g); opacity: .48; }
+.efetivo-mission-card.selected { border-color: var(--gl); box-shadow: 0 0 0 2px var(--gl); }
+
+/* Coluna sob o cartão arrastado. */
+.efetivo-kanban-column.drop-target {
+  border-color: var(--gl);
+  box-shadow: inset 0 0 0 1px var(--gl);
+}
+
+/* Origem do arraste: fica esmaecida só enquanto o ponteiro está pressionado. */
+.efetivo-kanban-card.drag-source {
+  border-style: dashed;
+  box-shadow: none;
+  opacity: .45;
+}
+
+.efetivo-kanban.is-dragging .efetivo-kanban-card { cursor: grabbing; user-select: none; }
+.efetivo-kanban-card select,
+.efetivo-kanban-card label { cursor: auto; }
 .efetivo-kanban-card-head { align-items: center; display: flex; gap: 7px; }
-.efetivo-drag-handle { background: transparent; border: 0; cursor: grab; padding: 3px; touch-action: none; }
-.efetivo-kanban-ghost { box-shadow: var(--shadow); opacity: .86; transform-origin: top left; z-index: 1000; }
+.efetivo-drag-grip { color: var(--mu); font-size: 12px; letter-spacing: -3px; line-height: 1; }
+.efetivo-kanban-ghost { box-shadow: var(--shadow); opacity: .92; transform-origin: top left; z-index: 1000; }
+
+/* Missões pendentes: projeto sem programação ou programação incompleta. */
+.efetivo-pending-banner {
+  background: var(--warning-bg);
+  border-left: 4px solid var(--warning-border);
+}
+
+.efetivo-pending-banner strong { color: var(--warning-text); display: block; }
+.efetivo-pending-banner p { color: var(--warning-text); margin: 4px 0 0; }
+
+.efetivo-mission-card.efetivo-mission-pending {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  border-left: 4px solid var(--warning-border);
+  cursor: pointer;
+}
+
+.efetivo-status.status-pending {
+  background: var(--wh);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+  font-weight: 700;
+}
+
+.efetivo-pending-note { color: var(--warning-text); font-size: 12.5px; margin: 0; }
+
+.efetivo-pending-list {
+  color: var(--warning-text);
+  display: flex;
+  flex-direction: column;
+  font-size: 12.5px;
+  gap: 3px;
+  list-style: disc;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.efetivo-mission-identity {
+  background: var(--bg);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  gap: 2px;
+  padding: 10px 12px;
+}
+
+.efetivo-mission-identity strong { font-size: 14px; }
 
 .efetivo-scenario-card { width: 100%; }
 .efetivo-scenario-actions { justify-content: space-between; }
@@ -1008,3 +1107,201 @@
     width: 100%;
   }
 }
+
+.equip-nav-count.efetivo-nav-pending {
+  background: var(--warning-border);
+  color: #4a2c05;
+}
+
+.equip-nav-item.active .equip-nav-count.efetivo-nav-pending {
+  background: var(--warning-border);
+  color: #4a2c05;
+}
+
+/* Tiras de resumo (missões e kanban), no padrão do exemplo de referência. */
+.efetivo-summary-strip {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding: 12px 16px;
+}
+
+.efetivo-summary-strip span { color: var(--mu); font-size: 12.5px; }
+.efetivo-summary-strip strong { color: var(--tx); font-size: 17px; margin-right: 5px; }
+.efetivo-summary-strip span.danger strong { color: var(--rd); }
+
+/* Títulos de seção dentro dos formulários. */
+.efetivo-form-section-title {
+  border-top: 1px solid var(--br);
+  color: var(--mu);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  margin: 6px 0 0;
+  padding-top: 12px;
+  text-transform: uppercase;
+}
+
+.efetivo-role-dot,
+.efetivo-demand-chips i {
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 8px;
+  margin-right: 6px;
+  width: 8px;
+}
+
+.efetivo-demand-chips span { align-items: center; display: inline-flex; }
+.efetivo-demand-chips span.missing { border-color: var(--warning-border); color: var(--warning-text); }
+.efetivo-demand-chips strong { margin-left: 4px; }
+
+.efetivo-team-status { font-size: 12.5px; margin: 0; }
+.efetivo-team-status.danger { color: var(--rd); }
+.efetivo-team-status.success { color: var(--g); }
+
+/* Kanban: descrição da etapa, responsável e equipe expansível. */
+.efetivo-kanban-column > header { align-items: flex-start; flex-direction: column; gap: 2px; }
+.efetivo-kanban-column > header > div { align-items: center; display: flex; gap: 8px; justify-content: space-between; width: 100%; }
+.efetivo-kanban-column > header small { color: var(--mu); font-size: 11px; }
+.efetivo-kanban-empty { color: var(--mu); font-size: 12px; margin: 0; padding: 10px 4px; }
+
+.efetivo-mission-owner { align-items: center; display: flex; gap: 8px; }
+
+.efetivo-mission-owner > i,
+.efetivo-kanban-details > div > i {
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--br);
+  border-radius: 50%;
+  color: var(--mu);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.efetivo-mission-owner span { display: flex; flex-direction: column; min-width: 0; }
+.efetivo-mission-owner small { color: var(--mu); font-size: 9.5px; letter-spacing: .06em; }
+.efetivo-mission-owner strong { font-size: 12.5px; }
+.efetivo-mission-owner b { color: var(--mu); font-size: 11px; font-weight: 500; }
+
+.efetivo-kanban-details {
+  background: var(--bg);
+  border-radius: var(--rs);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px;
+}
+
+.efetivo-kanban-details > span { color: var(--mu); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.efetivo-kanban-details > div { align-items: center; display: flex; gap: 7px; }
+.efetivo-kanban-details strong { font-size: 12.5px; }
+.efetivo-kanban-details em { color: var(--g); font-size: 10.5px; margin-left: 6px; }
+.efetivo-kanban-details small { color: var(--mu); font-size: 11px; margin-left: auto; }
+.efetivo-kanban-details p { color: var(--mu); font-size: 12px; margin: 0; }
+
+.efetivo-team-toggle {
+  background: transparent;
+  border: 0;
+  color: var(--g);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 0;
+  text-align: left;
+}
+
+/* Cabeçalho de dias da semana no calendário mensal. */
+.efetivo-calendar-weekdays {
+  color: var(--mu);
+  display: grid;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+/* Detalhe do dia: eventos com pessoas, vagas em aberto e conflitos da data. */
+.efetivo-day-list,
+.efetivo-day-conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.efetivo-day-list > a,
+.efetivo-day-conflicts > a {
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  color: var(--tx);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 12px;
+  text-decoration: none;
+}
+
+.efetivo-day-list > a > span,
+.efetivo-day-conflicts > a > span { color: var(--mu); overflow-wrap: anywhere; }
+.efetivo-day-people { color: var(--mu); overflow-wrap: anywhere; }
+.efetivo-day-open { color: var(--warning-text); font-weight: 600; }
+
+.efetivo-day-conflicts { background: var(--error-bg); border-radius: var(--r); padding: 10px; }
+.efetivo-day-conflicts > strong { color: var(--rd); }
+.efetivo-day-conflicts > a { background: var(--wh); border-color: var(--rd); }
+
+.efetivo-day-conflict-flag {
+  background: var(--rd);
+  border-radius: 50%;
+  color: var(--wh);
+  display: inline-flex;
+  font-size: 9px;
+  height: 13px;
+  justify-content: center;
+  margin-left: 5px;
+  width: 13px;
+}
+
+.efetivo-calendar-grid button.has-conflict { border-color: var(--rd); }
+.efetivo-planning-table tbody tr { cursor: pointer; }
+.efetivo-planning-table tbody tr.selected { background: rgba(48, 80, 58, .07); box-shadow: inset 3px 0 0 var(--gl); }
+.efetivo-absence-card.selected { border-color: var(--gl); box-shadow: 0 0 0 2px var(--gl); }
+
+/* Itens acionáveis das listas compactas e atalhos entre painéis. */
+.efetivo-compact-list > button {
+  align-items: flex-start;
+  background: var(--wh);
+  cursor: pointer;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  width: 100%;
+}
+
+.efetivo-compact-list > button:hover { border-color: var(--gl); }
+
+.efetivo-panel-link {
+  background: transparent;
+  border: 0;
+  color: var(--g);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 2px 0;
+  white-space: nowrap;
+}
+
+.efetivo-panel-link:hover { text-decoration: underline; }
+.efetivo-utilization-card .efetivo-panel-link { align-self: flex-start; }

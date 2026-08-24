@@ -82,7 +82,7 @@
 - [X] T030 [P] [US2] Escrever testes de cronologia, demanda e confirmação de missão em `backend/test/efetivo-mission-validation.test.js`
 - [X] T031 [P] [US2] Escrever testes de elegibilidade, ausência, dupla alocação, vínculo e função em `backend/test/efetivo-allocation-conflicts.test.js`
 - [X] T032 [P] [US2] Escrever testes de autoalocação determinística, déficit parcial e idempotência em `backend/test/efetivo-auto-allocation.test.js`
-- [ ] T033 [P] [US2] Escrever teste concorrente em banco confirmando que apenas uma alocação conflitante vence em `backend/test/efetivo-allocation-concurrency.test.js`
+- [X] T033 [P] [US2] Escrever teste concorrente em banco confirmando que apenas uma alocação conflitante vence em `backend/test/efetivo-allocation-concurrency.test.js` — escrito e ignorado por padrão; a execução exige banco descartável migrado (`EFETIVO_DB_TESTS=1`, ver quickstart)
 - [X] T034 [P] [US2] Escrever testes dos contratos CRUD/equipe de missão em `backend/test/efetivo-missions-routes.test.js`
 
 ### Implementation for User Story 2
@@ -295,6 +295,44 @@
 - [X] T119 Rodar testes completos, lint, build e validação de arquitetura conforme `specs/012-planejamento-efetivo/quickstart.md`
 - [X] T120 Registrar evidência de critérios, comandos/resultados e pendências operacionais em `specs/012-planejamento-efetivo/quickstart.md`
 - [X] T121 Marcar somente tarefas realmente concluídas e conferir formato/contagem em `specs/012-planejamento-efetivo/tasks.md`
+
+---
+
+## Phase 13: Ajuste pós-uso — missões vindas dos projetos e kanban legível
+
+**Purpose**: eliminar o cadastro manual de missão, expor pendências vindas dos projetos cadastrados (FR-046..FR-049) e corrigir a leitura/arraste do kanban (FR-050).
+
+- [X] T122 [P] [US2] Escrever testes de pendência, ordem de rota e contrato em `backend/test/efetivo-missions-pending.test.js`
+- [X] T123 [P] [US2] Escrever testes do utilitário de pendências e das regras de UI em `frontend/test/efetivo-missions-pending.test.mjs`
+- [X] T124 [US2] Implementar `listPendingMissionProjects` (projetos ativos sem programação, sem criar plano na leitura) em `backend/src/lib/efetivo/planning/read-model.js`
+- [X] T125 [US2] Expor `GET /missions/pending` antes da rota por id em `backend/src/routes/efetivo-planning.js` e documentar em `specs/012-planejamento-efetivo/contracts/efetivo-planning.openapi.yaml`
+- [X] T126 [P] [US2] Adicionar `PendingMissionProject`/`listPendingMissionProjects` em `frontend/src/api/efetivoPlanning.ts` e `frontend/src/utils/missionPendencies.ts`
+- [X] T127 [US2] Substituir "Nova missão" por cards pendentes em amarelo com o que falta e aviso de pendências em `frontend/src/pages/efetivo/components/MissionsBoard.tsx`
+- [X] T128 [US2] Travar o projeto no formulário e sugerir datas do projeto em `frontend/src/pages/efetivo/components/MissionFormModal.tsx`
+- [X] T129 [US2] Notificar a contagem de pendências na navegação do módulo em `frontend/src/pages/efetivo/EfetivoPage.tsx`
+- [X] T130 [US5] Arrastar o card inteiro, encerrar o estado de arraste sem recarregar e manter alternativa acessível em `frontend/src/pages/efetivo/components/MissionKanban.tsx`
+- [X] T131 [US5] Marcar a etapa com bolinha colorida ao lado do nome, manter colunas/cards na cor única, remover bordas escuras e estilizar pendências em `frontend/src/pages/efetivo/efetivo.css`
+
+---
+
+## Phase 14: Paridade campo a campo com o exemplo de referência
+
+**Purpose**: fechar as lacunas de campo levantadas na conferência contra o protótipo (FR-051..FR-054) e registrar as divergências deliberadas.
+
+- [X] T132 [P] [US6] Escrever teste de criação de cenário com contratação hipotética inicial em `backend/test/efetivo-scenario-initial-hire.test.js`
+- [X] T133 [US6] Aceitar `initialHire` em `scenarioInputSchema` e gravá-lo na mesma transação em `backend/src/lib/efetivo/planning/schemas.js` e `backend/src/lib/efetivo/planning/scenarios.js`, documentando em `specs/012-planejamento-efetivo/contracts/efetivo-planning.openapi.yaml`
+- [X] T134 [US6] Reconstruir o diálogo com nome, objetivo e bloco "Contratação hipotética" em `frontend/src/pages/efetivo/components/ScenarioFormModal.tsx` e `frontend/src/pages/efetivo/components/ScenariosBoard.tsx`
+- [X] T135 [US2] Adicionar resumo de posições, cor da função na demanda, situação da equipe e "Alocar disponíveis" em `frontend/src/pages/efetivo/components/MissionsBoard.tsx` e `frontend/src/pages/efetivo/components/MissionFormModal.tsx`
+- [X] T136 [US5] Adicionar resumo do fluxo, descrição de etapa, estado vazio e detalhe de responsável/equipe em `frontend/src/pages/efetivo/components/MissionKanban.tsx` e `frontend/src/utils/missionKanban.ts`
+- [X] T137 [US1] [US3] Exibir dias da semana no calendário mensal e detalhar déficit/permanência na visão geral em `frontend/src/pages/efetivo/components/OperationalCalendar.tsx` e `frontend/src/pages/efetivo/components/OverviewBoard.tsx`
+- [X] T138 [P] Registrar divergências deliberadas do protótipo em `specs/012-planejamento-efetivo/spec.md`
+- [X] T140 [P] [US3] Escrever testes de conflito do calendário (ausência sobre missão e dupla alocação) em `backend/test/efetivo-calendar.test.js`
+- [X] T141 [US3] Calcular os conflitos do recorte em `backend/src/lib/efetivo/planning/calendar.js` e exibir pessoas, vagas em aberto e conflitos do dia em `frontend/src/pages/efetivo/components/CalendarDayDetail.tsx` e `frontend/src/pages/efetivo/components/OperationalCalendar.tsx` (FR-010, FR-055)
+- [X] T142 [US4] Honrar `colaborador`, `ausencia` e `ano` na seção Colaboradores em `frontend/src/utils/planningNavigation.ts`, `frontend/src/pages/efetivo/EfetivoPage.tsx`, `CollaboratorsBoard.tsx` e `AbsencesBoard.tsx` (FR-039, FR-056)
+- [X] T143 [US8] Identificar as missões que geraram o alerta de permanência em `backend/src/lib/efetivo/planning/read-model.js` e `frontend/src/pages/efetivo/components/OverviewBoard.tsx` (FR-034)
+- [X] T144 [US9] Expor a situação da competência por colaborador em `backend/src/lib/efetivo/productivity.js`, `frontend/src/api/efetivo.ts` e `frontend/src/pages/efetivo/components/ProductivityBoard.tsx` (FR-057)
+- [X] T145 [US1] Adicionar atalhos de navegação entre os painéis da visão geral em `frontend/src/pages/efetivo/EfetivoPage.tsx` e `frontend/src/pages/efetivo/components/OverviewBoard.tsx` (FR-058)
+- [X] T139 [US5] Corrigir o cartão esmaecido após soltar em outra etapa: prévia ao vivo só dentro da coluna, destaque `drop-target` entre colunas e encerramento do arraste no próprio `drop`, com `resolveKanbanDrop`/`missionStage` cobertos em `frontend/test/mission-kanban.test.mjs`
 
 ---
 

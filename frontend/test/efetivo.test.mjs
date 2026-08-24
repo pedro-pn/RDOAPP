@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import { createServer } from 'vite';
 
@@ -90,4 +91,15 @@ test('campanhas do Efetivo são individuais, independentes e expiram dez dias ap
     Date.now = originalNow;
     delete globalThis.window;
   }
+});
+
+test('produtividade mostra a situação da competência e a visão geral navega sem recarregar', () => {
+  const board = fs.readFileSync(new URL('../src/pages/efetivo/components/ProductivityBoard.tsx', import.meta.url), 'utf8');
+  assert.match(board, /<th>Situação<\/th>/);
+  assert.match(board, /CONSOLIDADO: 'Consolidado', PODE_MUDAR: 'Pode mudar', SEM_BASE: 'Sem base'/);
+  const overview = fs.readFileSync(new URL('../src/pages/efetivo/components/OverviewBoard.tsx', import.meta.url), 'utf8');
+  for (const label of ['Ver calendário →', 'Ver missões →', 'Ver colaboradores →', 'Abrir produtividade →']) {
+    assert.ok(overview.includes(label), `atalho ausente na visão geral: ${label}`);
+  }
+  assert.doesNotMatch(overview, /href=\{`\?section=/);
 });

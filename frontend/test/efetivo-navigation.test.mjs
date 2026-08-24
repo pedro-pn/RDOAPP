@@ -31,3 +31,32 @@ test('formulário de missão usa coordenadores e identifica o vínculo como líd
   assert.doesNotMatch(form, /Vincular ao colaborador/);
   assert.match(form, /coordinator\?\.collaborator\?\.role/);
 });
+
+test('seção de colaboradores preserva colaborador, ausência e ano ao voltar', async () => {
+  const navigation = await load('/src/utils/planningNavigation.ts');
+  const next = navigation.setPlanningSectionParams(new URLSearchParams('section=calendario&colaborador=c1&ausencia=a1&ano=2026&missao=m1'), 'colaboradores');
+  assert.equal(next.get('colaborador'), 'c1');
+  assert.equal(next.get('ausencia'), 'a1');
+  assert.equal(next.get('ano'), '2026');
+  assert.equal(next.has('missao'), false);
+});
+
+test('colaborador e ausência selecionados pela URL são destacados na tela', () => {
+  const board = fs.readFileSync(new URL('../src/pages/efetivo/components/CollaboratorsBoard.tsx', import.meta.url), 'utf8');
+  const absences = fs.readFileSync(new URL('../src/pages/efetivo/components/AbsencesBoard.tsx', import.meta.url), 'utf8');
+  const page = fs.readFileSync(new URL('../src/pages/efetivo/EfetivoPage.tsx', import.meta.url), 'utf8');
+  assert.match(board, /data-collaborator-id=\{row\.id\}/);
+  assert.match(board, /scrollIntoView/);
+  assert.match(absences, /data-absence-id=\{absence\.id\}/);
+  assert.match(page, /selectedCollaboratorId=\{selectedCollaboratorId\}/);
+  assert.match(page, /selectedAbsenceId=\{selectedAbsenceId\}/);
+});
+
+test('detalhe do dia mostra pessoas, vagas em aberto e conflitos', () => {
+  const detail = fs.readFileSync(new URL('../src/pages/efetivo/components/CalendarDayDetail.tsx', import.meta.url), 'utf8');
+  const calendar = fs.readFileSync(new URL('../src/pages/efetivo/components/OperationalCalendar.tsx', import.meta.url), 'utf8');
+  assert.match(detail, /event\.people/);
+  assert.match(detail, /vagas em aberto/);
+  assert.match(detail, /dayConflicts/);
+  assert.match(calendar, /conflicts=\{conflicts\}/);
+});

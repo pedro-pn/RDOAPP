@@ -25,6 +25,12 @@ export interface ProjectOption {
   location: string | null;
 }
 
+export interface PendingMissionProject extends ProjectOption {
+  mobilizationDate: string | null;
+  startDate: string | null;
+  registrationPending: boolean;
+}
+
 export interface PlanningJobRole {
   id: string;
   name: string;
@@ -113,6 +119,7 @@ export interface ContinuousStayAlert {
   collaboratorName: string;
   jobRoleName: string;
   missionIds: string[];
+  missions?: Array<{ id: string; code: string; name: string }>;
   projectedDays: number;
   limitDays: number;
   restDueDate: DateOnly;
@@ -257,6 +264,9 @@ export async function deletePlanningAbsence(id: string) {
 export async function listPlanningMissions(params: { planId?: string; status?: MissionScheduleStatus; stage?: MissionStage } = {}) {
   return (await apiClient.get<PlanningMission[]>(`${base}/missions`, { params })).data;
 }
+export async function listPendingMissionProjects(params: { planId?: string } = {}) {
+  return (await apiClient.get<PendingMissionProject[]>(`${base}/missions/pending`, { params })).data;
+}
 export async function createPlanningMission(payload: MissionInput) {
   return (await apiClient.post<PlanningMission>(`${base}/missions`, payload)).data;
 }
@@ -284,7 +294,12 @@ export async function movePlanningMission(id: string, version: number, stage: Mi
 export async function listPlanningScenarios() {
   return (await apiClient.get<PlanningScenario[]>(`${base}/scenarios`)).data;
 }
-export async function createPlanningScenario(payload: { name: string; objective?: string | null }) {
+export interface ScenarioInput {
+  name: string;
+  objective?: string | null;
+  initialHire?: { jobRoleId: string; quantity: number; availableFrom: string } | null;
+}
+export async function createPlanningScenario(payload: ScenarioInput) {
   return (await apiClient.post<PlanningScenario>(`${base}/scenarios`, payload)).data;
 }
 export async function comparePlanningScenario(id: string, date: string, jobRoleId?: string) {

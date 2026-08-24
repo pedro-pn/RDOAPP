@@ -169,8 +169,10 @@ export function ScenariosBoard({
               <strong>{scenario.name}</strong>
               <small>
                 {scenario.objective || 'Sem objetivo informado'} ·{' '}
-                {scenario._count?.missions || 0} missões
+                {scenario._count?.missions || 0} missões ·{' '}
+                {scenario._count?.plannedHires || 0} contratações hipotéticas
               </small>
+              <em>Criado em {displayDateOnly(scenario.createdAt.slice(0, 10))}</em>
             </button>
           ))}
         </div>
@@ -276,6 +278,8 @@ export function ScenariosBoard({
       <ScenarioFormModal
         open={createOpen}
         saving={create.isPending}
+        roles={roles.data || []}
+        defaultAvailableFrom={date}
         onClose={() => setCreateOpen(false)}
         onSubmit={(payload) => create.mutate(payload)}
       />

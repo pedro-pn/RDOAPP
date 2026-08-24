@@ -204,6 +204,21 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Mission' }
         '409': { $ref: '#/components/responses/ConflictResponse' }
+  /planning/missions/pending:
+    get:
+      tags: [Missions]
+      summary: Lista projetos ativos ainda sem programação operacional no plano
+      description: Origem dos cards pendentes da aba Missões; não existe cadastro manual de missão fora de um projeto.
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '200':
+          description: Projetos aguardando programação
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PendingMissionProject' }
   /planning/missions/{missionId}:
     get:
       tags: [Missions]
@@ -360,6 +375,14 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 objective: { type: string, maxLength: 1000 }
+                initialHire:
+                  description: Contratação hipotética informada já na criação; quantidade 0 é ignorada.
+                  type: [object, 'null']
+                  required: [jobRoleId, quantity, availableFrom]
+                  properties:
+                    jobRoleId: { type: string }
+                    quantity: { type: integer, minimum: 0, maximum: 1000 }
+                    availableFrom: { type: string, format: date }
       responses:
         '201':
           description: Cenário em rascunho
@@ -653,6 +676,18 @@ components:
         name: { type: string }
         clientName: { type: [string, 'null'] }
         location: { type: [string, 'null'] }
+    PendingMissionProject:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        clientName: { type: [string, 'null'] }
+        location: { type: [string, 'null'] }
+        mobilizationDate: { type: [string, 'null'], format: date-time }
+        startDate: { type: [string, 'null'], format: date-time }
+        registrationPending: { type: boolean }
     JobRole:
       type: object
       required: [id, name, isOperational, calendarColor]

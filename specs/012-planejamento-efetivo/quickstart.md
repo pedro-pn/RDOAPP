@@ -105,9 +105,9 @@ Medição sintética da projeção diária + utilização de 90 dias, com 500 co
 - depois do índice em memória de ausências/missões e agregação única de demanda: `138,96 ms`;
 - ganho observado na mesma execução: aproximadamente `30,8×`.
 
-Pendências exclusivamente operacionais:
+Pendências exclusivamente operacionais (revisadas em 2026-08-24):
 
 - a migração versionada não foi aplicada em nenhum banco;
-- o teste de concorrência com duas transações PostgreSQL reais deve ser executado depois da migração em um banco descartável;
+- o teste de concorrência com duas transações PostgreSQL reais está escrito e é ignorado por padrão; depois da migração, rode-o em um banco descartável com `EFETIVO_DB_TESTS=1 DATABASE_URL=<banco descartável> node --test test/efetivo-allocation-concurrency.test.js` a partir de `backend/` (ele cria e remove os próprios dados em um plano de cenário, sem tocar no planejamento oficial);
 - Docker e serviços existentes não foram reiniciados;
 - o processo já existente em `localhost:5173` não foi alterado; a auditoria visual usou uma porta isolada e esse processo foi encerrado ao final.

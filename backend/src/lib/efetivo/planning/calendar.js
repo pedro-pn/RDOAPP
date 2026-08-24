@@ -1,4 +1,5 @@
-import { parseDateKey } from './date-only.js';
+import { parseDateKey, periodsOverlap } from './date-only.js';
+import { conflictDescriptor } from './errors.js';
 import { resolvePlanningDatabase, getActiveOfficialPlan } from './plan-context.js';
 
 function utcDate(value) {
@@ -60,5 +61,60 @@ export async function getPlanningCalendar(filters, dependencies = {}) {
     entityPath: `/efetivo?section=colaboradores&colaborador=${absence.collaborator.id}&ausencia=${absence.id}`,
     collaborator: absence.collaborator
   }));
-  return { events: [...missionEvents, ...absenceEvents].sort((left, right) => left.startDate.localeCompare(right.startDate)), conflicts: [] };
+  return {
+    events: [...missionEvents, ...absenceEvents].sort((left, right) => left.startDate.localeCompare(right.startDate)),
+    conflicts: collectCalendarConflicts(missions, absences)
+  };
+}
+
+function overlapWindow(left, right) {
+  const startDate = left.startDate > right.startDate ? left.startDate : right.startDate;
+  const endDate = left.endDate < right.endDate ? left.endDate : right.endDate;
+  return { startDate, endDate };
+}
+
+// Conflitos remanescentes na base: alocação sobreposta a ausência ou a outra missão confirmada.
+// A criação valida tudo isso, mas uma ausência lançada depois pelo módulo antigo pode sobrepor
+// uma missão já montada — o calendário precisa mostrar essa inconsistência (FR-010).
+export function collectCalendarConflicts(missions = [], absences = []) {
+  const assignments = [];
+  for (const mission of missions) {
+    const period = { startDate: parseDateKey(mission.mobilizationDate), endDate: parseDateKey(mission.returnDate) };
+    for (const allocation of mission.allocations || []) {
+      if (allocation.deletedAt || !allocation.collaborator) continue;
+      assignments.push({ mission, period, collaborator: allocation.collaborator });
+    }
+  }
+  const conflicts = [];
+  for (const absence of absences) {
+    const absencePeriod = { startDate: parseDateKey(absence.startDate), endDate: parseDateKey(absence.endDate) };
+    for (const assignment of assignments) {
+      if (assignment.collaborator.id !== absence.collaborator.id || !periodsOverlap(assignment.period, absencePeriod)) continue;
+      conflicts.push(conflictDescriptor({
+        collaborator: assignment.collaborator,
+        ...overlapWindow(assignment.period, absencePeriod),
+        sourceType: 'ABSENCE',
+        sourceId: absence.id,
+        entityPath: `/efetivo?section=missoes&missao=${assignment.mission.id}`,
+        code: `ABSENCE_${absence.type}`
+      }));
+    }
+  }
+  for (let index = 0; index < assignments.length; index += 1) {
+    for (let other = index + 1; other < assignments.length; other += 1) {
+      const left = assignments[index];
+      const right = assignments[other];
+      if (left.collaborator.id !== right.collaborator.id || left.mission.id === right.mission.id) continue;
+      if (!periodsOverlap(left.period, right.period)) continue;
+      conflicts.push(conflictDescriptor({
+        collaborator: left.collaborator,
+        ...overlapWindow(left.period, right.period),
+        sourceType: 'MISSION',
+        sourceId: right.mission.id,
+        entityPath: `/efetivo?section=missoes&missao=${right.mission.id}`,
+        code: 'DOUBLE_BOOKING'
+      }));
+    }
+  }
+  return conflicts.sort((left, right) => left.startDate.localeCompare(right.startDate));
 }

@@ -94,8 +94,32 @@ export async function createScenario(payload, context = {}, dependencies = {}) {
       planId: scenario.id, actorUserId: context.actorUserId, action: 'SCENARIO_CREATE', entityType: 'SCENARIO', entityId: scenario.id,
       summary: `Cenário ${scenario.name} criado.`, afterData: scenario, evidence: context.evidence
     });
+    if (payload.initialHire && payload.initialHire.quantity > 0) {
+      await createScenarioHire(tx, scenario, payload.initialHire, context);
+    }
     return scenario;
   }, { required: true });
+}
+
+async function createScenarioHire(tx, scenario, payload, context) {
+  const role = await tx.jobRole.findFirst({ where: { id: payload.jobRoleId, isActive: true, isOperational: true } });
+  if (!role) throw notFound('Função operacional não encontrada.');
+  const hire = await tx.efetivoPlannedHire.upsert({
+    where: { planId_jobRoleId_availableFrom: { planId: scenario.id, jobRoleId: payload.jobRoleId, availableFrom: utcDate(payload.availableFrom) } },
+    create: { planId: scenario.id, jobRoleId: payload.jobRoleId, quantity: payload.quantity, availableFrom: utcDate(payload.availableFrom) },
+    update: { quantity: payload.quantity }
+  });
+  await recordEfetivoAudit(tx, {
+    planId: scenario.id,
+    actorUserId: context.actorUserId,
+    action: 'SCENARIO_HIRE_UPDATE',
+    entityType: 'PLANNED_HIRE',
+    entityId: hire.id,
+    summary: `Contratação hipotética de ${role.name} atualizada.`,
+    afterData: hire,
+    evidence: context.evidence
+  });
+  return hire;
 }
 
 export async function saveScenarioHire(scenarioId, payload, context = {}, dependencies = {}) {
@@ -105,15 +129,8 @@ export async function saveScenarioHire(scenarioId, payload, context = {}, depend
     if (!scenario || scenario.kind !== 'SCENARIO') throw notFound('Cenário não encontrado.');
     await lockPlan(tx, scenario.id);
     if (scenario.status !== 'DRAFT') throw conflictError('O cenário está em estado somente leitura.', [], 'SCENARIO_READ_ONLY');
-    const role = await tx.jobRole.findFirst({ where: { id: payload.jobRoleId, isActive: true, isOperational: true } });
-    if (!role) throw notFound('Função operacional não encontrada.');
-    const hire = await tx.efetivoPlannedHire.upsert({
-      where: { planId_jobRoleId_availableFrom: { planId: scenario.id, jobRoleId: payload.jobRoleId, availableFrom: utcDate(payload.availableFrom) } },
-      create: { planId: scenario.id, jobRoleId: payload.jobRoleId, quantity: payload.quantity, availableFrom: utcDate(payload.availableFrom) },
-      update: { quantity: payload.quantity }
-    });
+    const hire = await createScenarioHire(tx, scenario, payload, context);
     await tx.efetivoPlan.update({ where: { id: scenario.id }, data: { revision: { increment: 1 } } });
-    await recordEfetivoAudit(tx, { planId: scenario.id, actorUserId: context.actorUserId, action: 'SCENARIO_HIRE_UPDATE', entityType: 'PLANNED_HIRE', entityId: hire.id, summary: `Contratação hipotética de ${role.name} atualizada.`, afterData: hire, evidence: context.evidence });
     return hire;
   }, { required: true });
 }

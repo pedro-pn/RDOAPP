@@ -184,9 +184,20 @@ export async function getPlanningOverview(filters, dependencies = {}) {
     })(),
     utilization,
     target: projection.targetSetting?.numberValue ?? 80,
-    continuousStayAlerts: buildContinuousStayAlerts({ ...projection, date }),
+    continuousStayAlerts: withAlertMissions(buildContinuousStayAlerts({ ...projection, date }), projection.missions),
     plannedHires: projection.plannedHires
   };
+}
+
+// O alerta de permanência precisa identificar as missões que geraram a sequência contínua (FR-034).
+function withAlertMissions(alerts, missions = []) {
+  return alerts.map(alert => ({
+    ...alert,
+    missions: (alert.missionIds || [])
+      .map(missionId => missions.find(mission => mission.id === missionId))
+      .filter(Boolean)
+      .map(mission => ({ id: mission.id, code: mission.project?.code || '', name: mission.project?.name || '' }))
+  }));
 }
 
 export async function listPlanningCollaborators(filters, dependencies = {}) {
@@ -229,4 +240,32 @@ export async function listPlanningCollaborators(filters, dependencies = {}) {
       ? committedByPerson.get(collaborator.id) / availableByPerson.get(collaborator.id) * 100 : null,
     vacationAlert: buildVacationAlert(collaborator, absencesByPerson.get(collaborator.id) || [], date)
   })).sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+}
+
+// Projetos ativos que ainda não têm programação operacional no plano: viram cards
+// pendentes na aba Missões para o gestor completar datas, responsável e equipe.
+export async function listPendingMissionProjects(filters = {}, dependencies = {}) {
+  const database = await resolvePlanningDatabase(dependencies.database);
+  const plan = filters.planId
+    ? await database.efetivoPlan.findUnique({ where: { id: filters.planId } })
+    : await getActiveOfficialPlan(database, { create: false });
+  return database.project.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      ...(plan ? { efetivoMissionPlans: { none: { planId: plan.id, deletedAt: null } } } : {})
+    },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      clientName: true,
+      location: true,
+      mobilizationDate: true,
+      startDate: true,
+      registrationPending: true
+    },
+    orderBy: [{ mobilizationDate: 'asc' }, { code: 'asc' }],
+    take: 200
+  });
 }

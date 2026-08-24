@@ -290,3 +290,11 @@ test('soma das HH mensais do detalhe bate com o acumulado da lista', () => {
   const detail = report.detalhesPorColaborador.get('detail');
   assert.equal(detail.reduce((total, month) => total + month.hhNormais, 0), summary.hhAcumuladas);
 });
+
+test('situação do colaborador separa consolidado, instável e sem base', async () => {
+  const { collaboratorProductivityStatus } = await import('../src/lib/efetivo/productivity.js');
+  assert.equal(collaboratorProductivityStatus({ rate: 0.04, analyzedMonths: 3, months: [{ instavel: false }, { instavel: false }] }), 'CONSOLIDADO');
+  assert.equal(collaboratorProductivityStatus({ rate: 0.04, analyzedMonths: 3, months: [{ instavel: false }, { instavel: true }] }), 'PODE_MUDAR');
+  assert.equal(collaboratorProductivityStatus({ rate: null, analyzedMonths: 0, months: [] }), 'SEM_BASE');
+  assert.equal(collaboratorProductivityStatus({ rate: 0.1, analyzedMonths: 0, months: [] }), 'SEM_BASE');
+});

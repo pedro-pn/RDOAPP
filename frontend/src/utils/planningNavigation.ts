@@ -8,7 +8,7 @@ export function parsePlanningSection(value: string | null): EfetivoPlanningSecti
 const PARAMS_BY_SECTION: Record<EfetivoPlanningSection, string[]> = {
   'visao-geral': ['date', 'funcao'],
   calendario: ['date', 'view', 'funcao', 'dia'],
-  colaboradores: ['date', 'funcao', 'search', 'colaborador', 'ausencia'],
+  colaboradores: ['date', 'funcao', 'search', 'colaborador', 'ausencia', 'ano'],
   missoes: ['status', 'etapa', 'missao'],
   evolucao: ['etapa', 'missao'],
   simulacoes: ['date', 'funcao', 'cenario', 'missao'],

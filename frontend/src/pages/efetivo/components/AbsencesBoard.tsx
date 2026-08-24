@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import {
@@ -22,7 +22,7 @@ function displayDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 }
 
-export function AbsencesBoard({ canManage }: { canManage: boolean }) {
+export function AbsencesBoard({ canManage, selectedAbsenceId }: { canManage: boolean; selectedAbsenceId?: string }) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -98,6 +98,11 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
   }
 
   const absences = absencesQuery.data || [];
+  // Conflitos e eventos do calendário apontam para ?ausencia=… (FR-039/FR-040).
+  useEffect(() => {
+    if (!selectedAbsenceId || !absences.length) return;
+    document.querySelector(`[data-absence-id="${CSS.escape(selectedAbsenceId)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [absences.length, selectedAbsenceId]);
   return (
     <div className="efetivo-board" data-efetivo-absences>
       <section className="page-card efetivo-absence-toolbar">
@@ -121,7 +126,7 @@ export function AbsencesBoard({ canManage }: { canManage: boolean }) {
           : (
             <div className="efetivo-absence-list">
               {absences.map(absence => (
-                <article className="efetivo-absence-card" key={absence.id}>
+                <article className={`efetivo-absence-card ${selectedAbsenceId === absence.id ? 'selected' : ''}`} data-absence-id={absence.id} aria-current={selectedAbsenceId === absence.id ? 'true' : undefined} key={absence.id}>
                   <div>
                     <strong>{absence.collaborator.name}</strong>
                     <span>{absence.collaborator.role}</span>

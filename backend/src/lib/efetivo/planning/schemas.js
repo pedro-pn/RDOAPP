@@ -100,9 +100,17 @@ export const stageInputSchema = z.object({
   order: z.coerce.number().int().min(0)
 });
 
+// Contratação hipotética informada já na criação do cenário; quantidade 0 significa "sem contratação".
+export const initialHireSchema = z.object({
+  jobRoleId: idSchema,
+  quantity: z.coerce.number().int().min(0).max(1000),
+  availableFrom: dateOnlySchema
+});
+
 export const scenarioInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  objective: z.string().trim().max(1000).nullable().optional()
+  objective: z.string().trim().max(1000).nullable().optional(),
+  initialHire: initialHireSchema.nullable().optional()
 });
 
 export const plannedHireInputSchema = z.object({
@@ -110,6 +118,7 @@ export const plannedHireInputSchema = z.object({
   quantity: z.coerce.number().int().min(1).max(1000),
   availableFrom: dateOnlySchema
 });
+
 
 export const holidayInputSchema = z.object({
   holidayDate: dateOnlySchema,

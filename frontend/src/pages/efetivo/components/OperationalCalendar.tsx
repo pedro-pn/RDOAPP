@@ -7,6 +7,8 @@ import { CalendarDayDetail } from './CalendarDayDetail';
 
 type CalendarView = 'day' | 'week' | 'month';
 
+const WEEKDAY_LABELS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
+
 export function OperationalCalendar({
   date,
   view,
@@ -30,6 +32,7 @@ export function OperationalCalendar({
     queryFn: () => getPlanningCalendar(interval.startDate, interval.endDate, jobRoleId)
   });
   const events = query.data?.events || [];
+  const conflicts = query.data?.conflicts || [];
   const days = view === 'month'
     ? monthCalendarGrid(date)
     : Array.from({ length: view === 'week' ? 7 : 1 }, () => view === 'day' ? date : calendarInterval(date, 'week').startDate).map((value, index) => {
@@ -45,15 +48,19 @@ export function OperationalCalendar({
         </div>
         <div className="efetivo-calendar-legend"><span><i className="type-mission" />Missões</span><span><i className="type-ferias" />Férias</span><span><i className="type-folga" />Folgas</span><span><i className="type-afastamento" />Afastamentos</span></div>
         {query.isLoading ? <p className="placeholder-copy">Carregando agenda…</p> : query.isError ? <p className="placeholder-copy">Não foi possível carregar o calendário.</p> : (
+          <>
+          {view === 'month' ? <div className="efetivo-calendar-weekdays" aria-hidden="true">{WEEKDAY_LABELS.map(label => <span key={label}>{label}</span>)}</div> : null}
           <div className={`efetivo-calendar-grid view-${view}`}>
             {days.map(day => {
               const dayEvents = events.filter(event => event.startDate <= day && event.endDate >= day);
-              return <button type="button" className={`${day === selectedDay ? 'selected' : ''} ${day.slice(0, 7) !== date.slice(0, 7) ? 'outside' : ''}`} key={day} onClick={() => onDaySelect(day)}><time dateTime={day}>{displayDateOnly(day, { weekday: view === 'month' ? undefined : 'short', day: '2-digit' })}</time><span className="efetivo-calendar-events">{dayEvents.slice(0, 3).map(event => <small className={`type-${event.type.toLocaleLowerCase('pt-BR')}`} key={`${event.type}-${event.id}`}>{event.title}</small>)}{dayEvents.length > 3 ? <small>+{dayEvents.length - 3} eventos</small> : null}</span></button>;
+              const dayConflicts = conflicts.filter(conflict => conflict.startDate <= day && conflict.endDate >= day).length;
+              return <button type="button" className={`${day === selectedDay ? 'selected' : ''} ${day.slice(0, 7) !== date.slice(0, 7) ? 'outside' : ''} ${dayConflicts ? 'has-conflict' : ''}`} key={day} onClick={() => onDaySelect(day)}><time dateTime={day}>{displayDateOnly(day, { weekday: view === 'month' ? undefined : 'short', day: '2-digit' })}{dayConflicts ? <b className="efetivo-day-conflict-flag" title={`${dayConflicts} conflito(s) nesta data`}>!</b> : null}</time><span className="efetivo-calendar-events">{dayEvents.slice(0, 3).map(event => <small className={`type-${event.type.toLocaleLowerCase('pt-BR')}`} key={`${event.type}-${event.id}`}>{event.title}</small>)}{dayEvents.length > 3 ? <small>+{dayEvents.length - 3} eventos</small> : null}</span></button>;
             })}
           </div>
+          </>
         )}
       </section>
-      <CalendarDayDetail date={selectedDay} events={events} />
+      <CalendarDayDetail date={selectedDay} events={events} conflicts={conflicts} />
     </div>
   );
 }

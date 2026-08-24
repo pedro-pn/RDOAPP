@@ -6,6 +6,8 @@
 
 **Status**: Draft
 
+**Última revisão**: 2026-08-21 — missões derivadas dos projetos cadastrados (sem cadastro manual) e ajustes visuais do kanban.
+
 **Input**: User description: "Completar o módulo Efetivo Operacional conforme o exemplo funcional fornecido em https://efetivo-operacional.erikesimas.chatgpt.site/, incluindo Visão geral, Calendário, Colaboradores, Missões, Evolução das missões, Simulações e Administração, integrado à Produtividade já entregue."
 
 ## Contexto e limite desta expansão
@@ -43,11 +45,12 @@ Como planejador, quero cadastrar a programação de uma missão, definir a deman
 
 **Acceptance Scenarios**:
 
-1. **Given** um projeto existente, **When** o gestor cria sua programação operacional, **Then** seleciona o responsável da sede entre contas ativas de coordenador e informa etapa, situação, mobilização, execução, retorno e quantidade exigida por função.
-2. **Given** vagas abertas, **When** o gestor consulta disponíveis, **Then** recebe apenas colaboradores ativos, da função correta e sem ausência ou outra missão conflitante.
-3. **Given** um colaborador já comprometido no período, **When** o gestor tenta alocá-lo, **Then** o sistema recusa e identifica o conflito.
-4. **Given** vagas e candidatos elegíveis, **When** o gestor usa "Alocar disponíveis", **Then** o sistema preenche até o limite possível e mantém visível qualquer déficit restante.
-5. **Given** uma missão alterada, **When** datas ou demanda mudam, **Then** todas as alocações afetadas são revalidadas antes da confirmação.
+1. **Given** um projeto ativo recém-cadastrado, **When** o gestor abre a aba Missões, **Then** encontra a missão criada automaticamente em amarelo, com a lista do que falta preencher e sem qualquer opção de cadastro manual de missão.
+2. **Given** um cartão de missão pendente, **When** o gestor clica nele, **Then** informa o responsável da sede entre contas ativas de coordenador, etapa, situação, mobilização, execução, retorno e quantidade exigida por função, com as datas do projeto já sugeridas.
+3. **Given** vagas abertas, **When** o gestor consulta disponíveis, **Then** recebe apenas colaboradores ativos, da função correta e sem ausência ou outra missão conflitante.
+4. **Given** um colaborador já comprometido no período, **When** o gestor tenta alocá-lo, **Then** o sistema recusa e identifica o conflito.
+5. **Given** vagas e candidatos elegíveis, **When** o gestor usa "Alocar disponíveis", **Then** o sistema preenche até o limite possível e mantém visível qualquer déficit restante.
+6. **Given** uma missão alterada, **When** datas ou demanda mudam, **Then** todas as alocações afetadas são revalidadas antes da confirmação.
 
 ---
 
@@ -96,8 +99,8 @@ Como gestor, quero mover cada missão entre Stand by, Mobilização, Execução,
 
 **Acceptance Scenarios**:
 
-1. **Given** missões em etapas diferentes, **When** o kanban é aberto, **Then** cada coluna exibe contagem, descrição e cartões correspondentes.
-2. **Given** um cartão, **When** o gestor o arrasta ou usa alternativa acessível para outra etapa, **Then** a mudança só persiste ao concluir a ação e fica auditada.
+1. **Given** missões em etapas diferentes, **When** o kanban é aberto, **Then** cada coluna exibe contagem, descrição, um marcador colorido da etapa ao lado do nome e os cartões correspondentes.
+2. **Given** um cartão, **When** o gestor o arrasta por qualquer área dele ou usa alternativa acessível para outra etapa, **Then** a mudança só persiste ao concluir a ação, o cartão volta ao aspecto normal na nova coluna e a alteração fica auditada.
 3. **Given** uma mudança cancelada, **When** o usuário abandona o arraste, **Then** o cartão retorna à posição e etapa iniciais.
 4. **Given** uma missão finalizada, **When** ela é consultada, **Then** equipe, responsável e programação histórica continuam visíveis em leitura.
 
@@ -231,6 +234,19 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - **FR-043**: Dados de projetos, colaboradores, funções e papéis DEVEM reutilizar os cadastros existentes do APP, sem bases paralelas.
 - **FR-044**: Exclusões de programação que tenham histórico DEVEM ser lógicas e permanecer na trilha de auditoria.
 - **FR-045**: Todas as consultas DEVEM produzir estados vazios e indisponíveis explícitos quando faltarem dados, sem converter ausência de base em zero enganoso.
+- **FR-046**: A aba Missões DEVE listar automaticamente todo projeto ativo ainda sem programação operacional como missão pendente, sem qualquer cadastro manual de missão fora dos projetos cadastrados.
+- **FR-047**: Missões pendentes e programações incompletas DEVEM ser destacadas em amarelo, indicar exatamente quais informações faltam (datas, responsável, demanda, equipe, confirmação) e abrir o preenchimento ao clique no cartão.
+- **FR-048**: A navegação do módulo DEVE notificar o gestor com a contagem de missões pendentes enquanto houver informação faltante.
+- **FR-049**: Uma missão pendente NÃO DEVE consumir capacidade, calendário ou alertas antes de ser programada; ao remover uma programação, o projeto DEVE voltar à lista de pendentes.
+- **FR-050**: Cada etapa do kanban DEVE ser identificada por um marcador colorido ao lado do nome da coluna, mantendo colunas e cartões na cor única do módulo; o cartão DEVE ser arrastável por qualquer área e o destaque de arraste DEVE desaparecer assim que a movimentação terminar, sem recarregar a tela.
+- **FR-051**: O diálogo de novo cenário DEVE permitir informar uma contratação hipotética inicial (função, quantidade e data de disponibilidade), gravada junto com o cenário; quantidade zero cria o cenário sem contratação.
+- **FR-052**: O kanban DEVE exibir resumo do fluxo, descrição de cada etapa, estado vazio por coluna e, no cartão, responsável da sede com cargo e equipe alocada em detalhe expansível.
+- **FR-053**: A aba Missões DEVE exibir resumo de confirmadas, posições planejadas e posições pendentes, a cor da função em cada demanda, a situação da equipe e a ação "Alocar disponíveis" quando houver vaga aberta.
+- **FR-054**: O calendário mensal DEVE identificar os dias da semana no cabeçalho da grade.
+- **FR-055**: O detalhe do dia DEVE listar as pessoas alocadas em cada missão, as vagas em aberto e os conflitos daquela data, com caminho para o registro de origem.
+- **FR-056**: Estados compartilháveis de colaborador e de indisponibilidade DEVEM destacar o registro correspondente ao serem abertos por link ou refresh.
+- **FR-057**: A lista de produtividade DEVE indicar a situação da competência de cada pessoa — consolidada, ainda dentro da janela de reprocessamento do ponto, ou sem base analisável — sem introduzir fechamento manual de competência.
+- **FR-058**: Os painéis da visão geral DEVEM oferecer atalhos para calendário, missões, colaboradores e produtividade, navegando dentro do app sem recarregar a página.
 
 ### Visual/UI Contract *(mandatory if feature touches frontend)*
 
@@ -285,3 +301,15 @@ O site fornecido é referência funcional, não identidade visual. Todas as supe
 - Produtividade continua automática pelo Ponto Mais e não oferece lançamento manual de HH, mesmo que o site de referência demonstre esse botão.
 - Papéis `efetivo:manager` e `efetivo:viewer` permanecem; os rótulos de perfil do protótipo não criam um segundo modelo de acesso.
 - ASO e treinamento continuam reservados até existirem regras de bloqueio e origem de dados confirmadas.
+
+### Divergências deliberadas em relação ao exemplo de referência
+
+Conferência campo a campo feita em 2026-08-21 contra `https://efetivo-operacional.erikesimas.chatgpt.site/`. Os pontos abaixo não serão replicados:
+
+- **Lançar HH / Fechar competência**: o exemplo tem diálogo de lançamento manual de horas; aqui as horas vêm do Ponto Mais (FR-042).
+- **Missão com nome, cliente e local digitados**: aqui a missão é sempre a programação de um projeto cadastrado, e cliente/local vêm do projeto (FR-015, FR-046).
+- **Responsável da sede como texto livre e cargo Coordenador/Engenheiro**: aqui o responsável é uma conta ativa de coordenador e o cargo vem do colaborador vinculado (FR-016).
+- **"Nova função" e "Convidar gestor"**: funções e usuários continuam sob os cadastros existentes do APP; a Administração do Efetivo só ajusta cor, limite de permanência e classificação operacional (FR-002, FR-043).
+- **Perfis Planejador/Leitor/Administrador**: o APP mantém `efetivo:manager` e `efetivo:viewer`.
+- **Calendário diário/semanal em timeline por colaborador**: aqui as três visões usam a mesma grade de dias com o detalhe do dia ao lado.
+- **Edição da data de mobilização direto no cartão do kanban**: a alteração de datas continua no formulário da programação, que revalida alocações.
