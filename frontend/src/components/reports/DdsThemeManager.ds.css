@@ -46,7 +46,25 @@
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Ações compactas: a variante `md` do Button já é mais leve que a `lg`; aqui
+   apenas reduzimos o respiro horizontal e garantimos o alvo de 44px sem tocar
+   no primitivo compartilhado. A largura acompanha o conteúdo. */
+.fv-ds.rdo-dds-themes .fv-button {
+  --fv-button-padding: var(--space-3);
+
+  flex: 0 0 auto;
+  min-block-size: calc(var(--space-10) + var(--space-1));
+}
+
+/* A coluna de ações ocupa apenas o necessário, para que o nome do tema
+   continue sendo o conteúdo dominante da linha. */
+.fv-ds.rdo-dds-themes .fv-data-table__actions {
+  flex-wrap: nowrap;
   gap: var(--space-2);
 }
 
