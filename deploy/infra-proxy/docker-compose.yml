@@ -8,6 +8,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      # HTTP/3 e QUIC, sobre UDP. Sem esta linha o Caddy anuncia h3 no Alt-Svc
+      # mas o listener fica inalcancavel: o navegador tenta, falha e cai para h2.
+      - "443:443/udp"
     # Ponte para o daemon rootless (app do outro setor), que nao pode
     # participar de redes deste daemon.
     extra_hosts:

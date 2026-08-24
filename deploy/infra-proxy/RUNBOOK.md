@@ -140,6 +140,26 @@ essa montagem depois de algumas semanas de operação estável no Caddy.
 
 ## Depois da migração
 
+### Buffer UDP para o HTTP/3
+
+O Caddy escuta HTTP/3 na UDP/443 (publicada no compose). O kernel entrega por padrão
+um buffer de recepção pequeno demais e o Caddy avisa no log:
+
+```
+failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB)
+```
+
+Não quebra nada — o HTTP/3 funciona com throughput menor. Para resolver:
+
+```bash
+sysctl -w net.core.rmem_max=7500000
+echo 'net.core.rmem_max=7500000' > /etc/sysctl.d/99-caddy-quic.conf
+docker restart infra-proxy-caddy   # o aviso deve sumir do log
+```
+
+### Checklist
+
+- [ ] `net.core.rmem_max` ajustado (acima)
 - [ ] Certbot desativado (cron/timer) e documentado no `deploy/PRODUCTION.md`
 - [ ] `deploy/PRODUCTION.md` atualizado: nginx não é mais o serviço exposto
 - [ ] Backup do volume `infra_proxy_data` (guarda chaves e certificados do Caddy)
