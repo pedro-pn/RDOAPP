@@ -48,6 +48,11 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
+}
+
+/* O espaçamento das listas é definido por `styles/rdo-ds-actions.css`, que
+   precisa garantir que os alvos de 44px não colidam ao quebrar em duas linhas. */
+.fv-ds.rdo-dds-themes .rdo-dds-themes__form-actions {
   gap: var(--space-2);
 }
 

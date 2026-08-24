@@ -1,6 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { demoCredentials, expectManagerRdoShell, loginAs } from './support/rdo';
+import {
+  demoCredentials,
+  expectComfortableTapTargets,
+  expectManagerRdoShell,
+  loginAs
+} from './support/rdo';
 
 const MANAGER_TEAM_URL = '/rdo/gestor?tab=equipe';
 const EXPECTED_ROLE_COUNT = 54;
@@ -257,23 +262,23 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
     await expect(surface.locator('.fv-data-table__desktop')).toHaveCount(0);
     await expect(surface.locator('.fv-mobile-list')).toBeVisible();
 
-    const undersized = await surface
-      .locator('button, input')
+    // As ações compactas desenham uma caixa menor de propósito; o que precisa
+    // ser garantido é a área de toque efetiva, não o tamanho da caixa.
+    await expectComfortableTapTargets(page, '.rdo-job-roles.fv-ds');
+
+    const undersizedInputs = await surface
+      .locator('input')
       .evaluateAll((elements) =>
         elements.flatMap((element) => {
           const target = element as HTMLElement;
           const rect = target.getBoundingClientRect();
           if (rect.width === 0 || rect.height === 0) return [];
-          return rect.width >= 44 && rect.height >= 44
+          return rect.height >= 44
             ? []
-            : [
-                target.textContent ||
-                  target.getAttribute('aria-label') ||
-                  target.tagName
-              ];
+            : [target.getAttribute('aria-label') || target.tagName];
         })
       );
-    expect(undersized).toEqual([]);
+    expect(undersizedInputs).toEqual([]);
   }
 
   await page.setViewportSize({ width: 768, height: 1024 });

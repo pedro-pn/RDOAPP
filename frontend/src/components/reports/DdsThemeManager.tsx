@@ -174,7 +174,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
             Salvar
           </Button>
           <Button
-            size="md"
+            size="sm"
             variant="secondary"
             onClick={cancelDesignSystemRename}
           >
@@ -187,7 +187,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
     return (
       <>
         <Button
-          size="md"
+          size="sm"
           variant="secondary"
           data-dds-theme-rename={theme.id}
           onClick={() => openDesignSystemRename(theme)}
@@ -196,7 +196,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
         </Button>
         {theme.isActive ? (
           <Button
-            size="md"
+            size="sm"
             variant="danger"
             disabled={deactivateMutation.isPending}
             loading={deactivateMutation.isPending}
@@ -206,7 +206,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
           </Button>
         ) : (
           <Button
-            size="md"
+            size="sm"
             variant="secondary"
             disabled={updateMutation.isPending}
             loading={updateMutation.isPending}
@@ -259,7 +259,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
             !showCreateForm ? (
               <Button
                 data-dds-theme-create
-                size="md"
+                size="sm"
                 variant="primary"
                 onClick={() => setShowCreateForm(true)}
               >
@@ -294,7 +294,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
               </Field>
               <div className="rdo-dds-themes__form-actions">
                 <Button
-                  size="md"
+                  size="sm"
                   variant="secondary"
                   onClick={cancelDesignSystemCreate}
                 >

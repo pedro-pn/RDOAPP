@@ -242,10 +242,28 @@ test('a escala dos botões de ação do RDO DS é compartilhada e escopada', () 
 
   // A escala vive em um único lugar e mantém o alvo de 44px.
   assert.match(shared, /--fv-button-padding: var\(--space-3\)/);
+
+  // Ação principal: o alvo vem da própria caixa.
   assert.match(
     shared,
-    /min-block-size: calc\(var\(--space-10\) \+ var\(--space-1\)\)/
+    /:not\(\.fv-button--sm\)[\s\S]{0,200}?min-block-size: calc\(var\(--space-10\) \+ var\(--space-1\)\)/
   );
+
+  // Ação compacta: a caixa é menor, e o alvo de 44x44px é reposto pelo
+  // pseudo-elemento — nunca por redução da área interativa.
+  assert.match(shared, /\.fv-button--sm::after/);
+  assert.match(
+    shared,
+    /min-width: calc\(var\(--space-10\) \+ var\(--space-1\)\)/
+  );
+  assert.match(
+    shared,
+    /min-height: calc\(var\(--space-10\) \+ var\(--space-1\)\)/
+  );
+
+  // O intervalo entre ações precisa superar a extensão do alvo (6px de cada
+  // lado), senão dois alvos de 44px se sobrepõem ao quebrar em duas linhas.
+  assert.match(shared, /gap: var\(--space-4\)/);
   assert.match(shared, /var\(--/);
   assert.doesNotMatch(shared, /#[\da-f]{3,8}\b/i);
   assert.doesNotMatch(shared, /\brgba?\(/i);
@@ -319,6 +337,33 @@ test('a escala dos botões de ação do RDO DS é compartilhada e escopada', () 
       /<Button\b[^>]*size="lg"/s,
       `${path} ainda tem Button size="lg" fora da escala compartilhada`
     );
+  }
+
+  // Hierarquia: a ação principal do formulário (Salvar) continua em `md`,
+  // enquanto as ações curtas ficam em `sm`. Sem isto, a distinção some.
+  for (const [path, launcher] of [
+    ['src/components/projects/JobRoleManager.tsx', 'data-job-role-create'],
+    ['src/components/reports/DdsThemeManager.tsx', 'data-dds-theme-create']
+  ]) {
+    const code = source(path);
+    const primary = code.match(/size="md"/g) ?? [];
+    assert.equal(
+      primary.length,
+      2,
+      `${path} deve manter exatamente os dois Salvar em md`
+    );
+    assert.match(
+      code,
+      new RegExp(`${launcher}\\s*\\n\\s*size="sm"`),
+      `${path}: o lançador deve usar a escala compacta`
+    );
+    for (const compact of ['Renomear', 'Desativar', 'Reativar', 'Cancelar']) {
+      assert.match(
+        code,
+        new RegExp(`size="sm"[\\s\\S]{0,320}?>\\s*${compact}`),
+        `${path}: ${compact} deve usar a escala compacta`
+      );
+    }
   }
 
   // Na alocação mensal só a lista de destinatários entra na escala compacta.

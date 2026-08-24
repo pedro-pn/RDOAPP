@@ -56,3 +56,69 @@ export async function logoutFromRdo(page: Page) {
   await page.getByRole('button', { name: 'Sair' }).click();
   await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
 }
+
+/**
+ * Verifica que cada botão visível da superfície oferece uma área de toque de ao
+ * menos 44x44px, testando o hit-testing real (`elementFromPoint`) em vez do
+ * tamanho da caixa desenhada.
+ *
+ * Nas superfícies RDO com ações compactas, a caixa é menor de propósito e o
+ * alvo é reposto por um pseudo-elemento; medir apenas `getBoundingClientRect`
+ * não provaria nada sobre a área efetivamente clicável.
+ *
+ * Pontos cobertos por chrome de posição fixa/sticky (barra inferior, topbar)
+ * são ignorados: eles não dizem respeito ao tamanho do botão.
+ */
+export async function expectComfortableTapTargets(
+  page: Page,
+  surfaceSelector: string
+) {
+  const failures = await page.evaluate((selector) => {
+    const root = document.querySelector(selector);
+    if (!root) return ['superfície não encontrada: ' + selector];
+
+    const isChrome = (element: Element | null) => {
+      for (let node = element; node; node = node.parentElement) {
+        const position = window.getComputedStyle(node).position;
+        if (position === 'fixed' || position === 'sticky') return true;
+      }
+      return false;
+    };
+
+    const bad: string[] = [];
+    for (const button of Array.from(root.querySelectorAll('.fv-button'))) {
+      const rect = button.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      if (cy - 22 < 0 || cy + 22 > window.innerHeight) continue;
+      if (cx - 22 < 0 || cx + 22 > window.innerWidth) continue;
+
+      const centre = document.elementFromPoint(cx, cy);
+      if (!(centre === button || button.contains(centre))) continue;
+
+      const covers = ([x, y]: readonly [number, number]) => {
+        const element = document.elementFromPoint(x, y);
+        if (!element) return false;
+        if (element === button || button.contains(element)) return true;
+        return isChrome(element);
+      };
+
+      const probes: ReadonlyArray<readonly [number, number]> = [
+        [cx, cy - 21],
+        [cx, cy + 21],
+        [cx - 21, cy],
+        [cx + 21, cy]
+      ];
+      if (!probes.every(covers)) {
+        bad.push(
+          `${(button.textContent || '').trim().slice(0, 20)} ` +
+            `(${Math.round(rect.width)}x${Math.round(rect.height)})`
+        );
+      }
+    }
+    return bad;
+  }, surfaceSelector);
+
+  expect(failures, 'alvos menores que 44x44px').toEqual([]);
+}

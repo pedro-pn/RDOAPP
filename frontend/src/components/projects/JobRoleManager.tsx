@@ -180,7 +180,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
             Salvar
           </Button>
           <Button
-            size="md"
+            size="sm"
             variant="secondary"
             onClick={cancelDesignSystemRename}
           >
@@ -193,7 +193,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
     return (
       <>
         <Button
-          size="md"
+          size="sm"
           variant="secondary"
           data-job-role-rename={role.id}
           onClick={() => openDesignSystemRename(role)}
@@ -202,7 +202,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
         </Button>
         {role.isActive ? (
           <Button
-            size="md"
+            size="sm"
             variant="danger"
             disabled={deactivateMutation.isPending}
             loading={deactivateMutation.isPending}
@@ -212,7 +212,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
           </Button>
         ) : (
           <Button
-            size="md"
+            size="sm"
             variant="secondary"
             disabled={updateMutation.isPending}
             loading={updateMutation.isPending}
@@ -265,7 +265,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
             !showCreateForm ? (
               <Button
                 data-job-role-create
-                size="md"
+                size="sm"
                 variant="primary"
                 onClick={() => setShowCreateForm(true)}
               >
@@ -300,7 +300,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
               </Field>
               <div className="rdo-job-roles__form-actions">
                 <Button
-                  size="md"
+                  size="sm"
                   variant="secondary"
                   onClick={cancelDesignSystemCreate}
                 >
