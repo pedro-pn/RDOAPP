@@ -1,5 +1,5 @@
 # Proxy reverso único da VPS. Termina TLS para todos os apps e roteia por domínio.
-# Não pertence a nenhum app: o filtroAPP e o app do outro setor são upstreams.
+# Não pertence a nenhum app: filtroAPP e filtroboard são upstreams.
 {
 	email relatorios.filtrovali@gmail.com
 }
@@ -15,10 +15,9 @@ relatorios.filtrovali.com.br {
 	redir https://app.filtrovali.com.br{uri} 301
 }
 
-# --- App do outro setor (docker rootless do usuario victor) ----------------
+# --- filtroboard (docker rootless do usuario victor) -----------------------
 # O daemon rootless nao compartilha redes com o daemon root, entao a ponte
 # e o host: o app publica em 172.17.0.1:8081 e o Caddy alcanca via host-gateway.
-# TROCAR o dominio abaixo pelo real antes de subir.
-# setorx.filtrovali.com.br {
-# 	reverse_proxy host.docker.internal:8081
-# }
+filtroboard.filtrovali.com.br {
+	reverse_proxy host.docker.internal:8081
+}

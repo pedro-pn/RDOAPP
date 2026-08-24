@@ -39,10 +39,12 @@ O Caddy assume a emissão; deixar os dois ativos causa falha de renovação.
 
 ### 3. Faça só o filtroAPP nesta janela
 
-No `Caddyfile`, mantenha o bloco `setorx.filtrovali.com.br` **comentado** até o app do
-outro setor existir e o DNS dele estar publicado. Um domínio sem DNS faz o Caddy
-tentar emitir certificado e falhar repetidamente — não derruba os outros sites, mas
-polui o log e consome tentativas no Let's Encrypt.
+*(Etapa concluída em 2026-08-24.)* Na migração original o bloco
+`filtroboard.filtrovali.com.br` ficou comentado de propósito, para a janela ter uma
+variável só. Vale a mesma regra ao acrescentar qualquer domínio novo: **publique o DNS
+antes**. Um domínio sem DNS faz o Caddy tentar emitir certificado e falhar
+repetidamente — não derruba os outros sites, mas polui o log e queima tentativas de
+validação no Let's Encrypt (5 falhas por hostname por hora).
 
 ---
 
@@ -167,18 +169,18 @@ docker restart infra-proxy-caddy   # o aviso deve sumir do log
 
 ---
 
-## Apêndice — o app do outro setor (Docker rootless)
+## Apêndice — filtroboard (Docker rootless)
 
 Roda sob o usuário `victor`, em daemon próprio. Ele **não** tem acesso ao daemon root
 nem aos containers do filtroAPP. Banco próprio, volume próprio, backup próprio.
 
 ```yaml
-# compose do app do setor — rodado como victor, NAO como root
-name: setorx
+# compose do filtroboard — rodado como victor, NAO como root
+name: filtroboard
 
 services:
   app:
-    image: registry.exemplo/setorx:1.4.2   # tag imutavel, nunca :latest
+    image: registry.exemplo/filtroboard:1.4.2   # tag imutavel, nunca :latest
     restart: unless-stopped
     depends_on: [postgres]
     ports:
@@ -186,26 +188,26 @@ services:
       # inalcancavel de fora da VPS. Confirme com: ip -4 addr show docker0
       - "172.17.0.1:8081:3000"
     mem_limit: 1g          # protecao contra OOM afetar o filtroAPP
-    networks: [setorx-net]
+    networks: [filtroboard-net]
 
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: setorx
-      POSTGRES_USER: setorx
+      POSTGRES_DB: filtroboard
+      POSTGRES_USER: filtroboard
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - setorx_pgdata:/var/lib/postgresql/data
+      - filtroboard_pgdata:/var/lib/postgresql/data
     mem_limit: 1g
-    networks: [setorx-net]
+    networks: [filtroboard-net]
     # sem `ports`: so a rede interna deste stack alcanca o banco
 
 volumes:
-  setorx_pgdata:
+  filtroboard_pgdata:
 
 networks:
-  setorx-net:
+  filtroboard-net:
 ```
 
 Para subir, o `DOCKER_HOST` precisa apontar para o socket do rootless:
@@ -222,7 +224,7 @@ O `deploy/backup-prod.sh` do filtroAPP **não** cobre este banco e não deve cob
 Como o linger está ativo, um timer `--user` resolve:
 
 ```bash
-# como victor: systemctl --user edit --force --full setorx-backup.timer
+# como victor: systemctl --user edit --force --full filtroboard-backup.timer
 ```
 
 ### Cuidados específicos do rootless
