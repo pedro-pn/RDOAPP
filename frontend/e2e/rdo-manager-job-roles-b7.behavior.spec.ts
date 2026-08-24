@@ -190,6 +190,19 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
   ).toBeDisabled();
   if (expectedAppearance === 'design-system') {
     await expect(createInput).toBeFocused();
+
+    // O anel de foco é desenhado apenas pelo control shell (conflito da B.6).
+    const focusRings = await createInput.evaluate((element) => {
+      const shell = element.closest('.fv-control-shell');
+      const styles = window.getComputedStyle(element);
+      const shellStyles = shell ? window.getComputedStyle(shell) : null;
+      return {
+        input: styles.outlineStyle,
+        shell: shellStyles ? shellStyles.outlineStyle : null
+      };
+    });
+    expect(focusRings.input).toBe('none');
+    expect(focusRings.shell).toBe('solid');
   } else {
     await expect
       .poll(() => page.evaluate(() => document.activeElement === document.body))

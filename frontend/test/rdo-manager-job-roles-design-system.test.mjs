@@ -165,4 +165,11 @@ test('B.7 DS branch uses existing responsive primitives and scoped tokens', () =
   assert.doesNotMatch(css, /#[\da-f]{3,8}\b/i);
   assert.doesNotMatch(css, /\brgba?\(/i);
   assert.doesNotMatch(css, /!important/);
+
+  // O anel de foco pertence ao control shell; o outline do input é
+  // neutralizado apenas dentro desta superfície (nunca em foundation.css).
+  assert.match(
+    css,
+    /\.fv-ds\.rdo-job-roles \.fv-input:focus-visible \{\s*outline: 0;/
+  );
 });

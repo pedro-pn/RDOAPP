@@ -64,6 +64,13 @@
   font-weight: var(--font-semibold);
 }
 
+/* O control shell é o dono do anel de foco visível nesta superfície: sem isto,
+   o outline retangular do input desenhado por foundation.css corta o anel
+   arredondado do shell. Correção escopada, como na B.6 e na B.8. */
+.fv-ds.rdo-job-roles .fv-input:focus-visible {
+  outline: 0;
+}
+
 .fv-ds.rdo-job-roles .rdo-job-roles__rename-field {
   min-width: min(var(--content-sm), 100%);
 }
