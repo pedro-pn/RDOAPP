@@ -36,6 +36,7 @@ import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { autosaveDraftTargetId } from '../../utils/draftAutosave';
 import { defaultRomaneioUnit, romaneioMeasureLabel, romaneioUsesVariableQuantity } from '../../utils/romaneioMeasure';
+import { mergeRomaneioReturnSelection, romaneioReturnKey } from '../../utils/romaneioReturnItems';
 import { RomaneioChecklistModal } from './RomaneioChecklistModal';
 
 interface SelectedItem {
@@ -77,23 +78,6 @@ function projectLabel(project: { code: string; name?: string | null }) {
 
 function numericProjectCode(value: string) {
   return value.replace(/\D/g, '');
-}
-
-function returnKeyPart(value: string | null | undefined) {
-  return String(value || '').trim().toLowerCase();
-}
-
-function selectedItemReturnKey(item: Pick<SelectedItem, 'catalogItemId' | 'itemCode' | 'itemName' | 'categoryName' | 'kind' | 'measureType' | 'unitLabel'>) {
-  if (item.catalogItemId) return `catalog:${item.catalogItemId}`;
-  return [
-    'snapshot',
-    returnKeyPart(item.itemCode),
-    returnKeyPart(item.itemName),
-    returnKeyPart(item.categoryName),
-    item.kind || 'EQUIPMENT',
-    item.measureType || 'UNIT',
-    returnKeyPart(item.unitLabel)
-  ].join('|');
 }
 
 function romaneioItemsToSelectedItems(romaneio: Romaneio): SelectedItem[] {
@@ -227,6 +211,7 @@ export function NewRomaneioPage() {
   const [extraCategoryFilter, setExtraCategoryFilter] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => new Set());
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [draftHydrationSeq, setDraftHydrationSeq] = useState(0);
   const [checklistStatuses, setChecklistStatuses] = useState<ChecklistStatusesByCatalogItem>({});
   const [activeChecklistItem, setActiveChecklistItem] = useState<SelectedItem | null>(null);
   const [checklistSignatureImage, setChecklistSignatureImage] = useState('');
@@ -622,6 +607,7 @@ export function NewRomaneioPage() {
     ));
     const nextProjectKey = nextProjectId || (nextProjectCode.trim() ? `code:${nextProjectCode.trim().toUpperCase()}` : '');
     hydratedDraftKeyRef.current = nextProjectKey && nextDate ? `${nextType}|${nextProjectKey}|${nextDate.slice(0, 10)}` : '';
+    setDraftHydrationSeq(current => current + 1);
   }, []);
 
   useEffect(() => {
@@ -658,6 +644,9 @@ export function NewRomaneioPage() {
       projectId || '',
       typedProjectCode || '',
       editId || '',
+      // O rascunho hidrata a lista inteira; a sequência força a lista de retorno
+      // a ser reaplicada depois dele para nenhum item da saída ficar de fora.
+      String(draftHydrationSeq),
       returnItems.map(item => `${item.key}:${item.maxQuantity}`).join(',')
     ].join('|');
     if (!returnItemsQuery.data || hydratedReturnItemsKeyRef.current === hydrationKey) return;
@@ -667,18 +656,14 @@ export function NewRomaneioPage() {
       const maxByKey = new Map(returnItems.map(item => [item.key, Number(item.maxQuantity)]));
       setSelectedItems(current => current.map(item => {
         if (item.isExtra) return item;
-        const maxQuantity = maxByKey.get(selectedItemReturnKey(item));
+        const maxQuantity = maxByKey.get(romaneioReturnKey(item));
         return maxQuantity == null ? item : { ...item, returnMaxQuantity: maxQuantity };
       }));
       return;
     }
 
-    setSelectedItems(current => [
-      ...returnItemsToSelectedItems(returnItems),
-      ...current.filter(item => item.isExtra)
-    ]);
-    setQuantities({});
-  }, [romaneioType, returnItemsQuery.data, projectId, typedProjectCode, editId, isEditing]);
+    setSelectedItems(current => mergeRomaneioReturnSelection(returnItemsToSelectedItems(returnItems), current));
+  }, [romaneioType, returnItemsQuery.data, projectId, typedProjectCode, editId, isEditing, draftHydrationSeq]);
 
   useEffect(() => {
     if (isEditing || draftParam || draftId) return;
