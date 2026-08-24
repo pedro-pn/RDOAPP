@@ -1,11 +1,35 @@
-import { useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent
+} from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createDdsTheme, deactivateDdsTheme, listDdsThemes, updateDdsTheme } from '../../api/ddsThemes';
+import { createDdsTheme, deactivateDdsTheme, listDdsThemes, updateDdsTheme, type DdsTheme } from '../../api/ddsThemes';
+import {
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  Skeleton,
+  StatusPill,
+  type DataTableColumn
+} from '../ui/ds';
 import { useToast } from '../ui/ToastContext';
+import './DdsThemeManager.ds.css';
+
+export type DdsThemeManagerAppearance = 'legacy' | 'design-system';
+
+export interface DdsThemeManagerProps {
+  appearance?: DdsThemeManagerAppearance;
+}
 
 // Administração da lista de temas de DDS. Permite adicionar, renomear e desativar/reativar.
-export function DdsThemeManager() {
+export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const { data, isLoading } = useQuery({ queryKey: ['dds-themes', 'all'], queryFn: () => listDdsThemes(true) });
@@ -13,6 +37,10 @@ export function DdsThemeManager() {
   const [newName, setNewName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const designSystemSurfaceRef = useRef<HTMLElement>(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
+  const renameLauncherIdRef = useRef<string | null>(null);
+  const editingInputRef = useRef<HTMLInputElement>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['dds-themes'] });
 
@@ -35,12 +63,302 @@ export function DdsThemeManager() {
   });
 
   const themes = data ?? [];
+  const editingId = editing?.id;
+
+  useEffect(() => {
+    if (appearance === 'design-system' && showCreateForm) {
+      createInputRef.current?.focus();
+    }
+  }, [appearance, showCreateForm]);
+
+  useEffect(() => {
+    if (appearance === 'design-system' && editingId) {
+      editingInputRef.current?.focus();
+    }
+  }, [appearance, editingId]);
 
   function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newName.trim();
     if (!name || createMutation.isPending) return;
     createMutation.mutate(name);
+  }
+
+  function restoreDesignSystemLauncherFocus(selector: string) {
+    window.requestAnimationFrame(() => {
+      designSystemSurfaceRef.current
+        ?.querySelector<HTMLButtonElement>(selector)
+        ?.focus();
+    });
+  }
+
+  function cancelDesignSystemCreate() {
+    setShowCreateForm(false);
+    setNewName('');
+    restoreDesignSystemLauncherFocus('[data-dds-theme-create]');
+  }
+
+  function openDesignSystemRename(theme: DdsTheme) {
+    renameLauncherIdRef.current = theme.id;
+    setEditing({ id: theme.id, name: theme.name });
+  }
+
+  function cancelDesignSystemRename() {
+    const launcherId = renameLauncherIdRef.current;
+    setEditing(null);
+    if (launcherId) {
+      restoreDesignSystemLauncherFocus(
+        `[data-dds-theme-rename="${launcherId}"]`
+      );
+    }
+  }
+
+  function handleDesignSystemEscape(
+    event: KeyboardEvent<HTMLElement>,
+    onCancel: () => void
+  ) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onCancel();
+  }
+
+  function renderDesignSystemThemeName(theme: DdsTheme) {
+    if (editing?.id === theme.id) {
+      return (
+        <Field
+          className="rdo-dds-themes__rename-field"
+          label="Novo nome"
+          optionalText={null}
+        >
+          <Input
+            ref={editingInputRef}
+            size="lg"
+            value={editing.name}
+            aria-label={`Novo nome para ${theme.name}`}
+            onChange={(event) =>
+              setEditing({ id: theme.id, name: event.target.value })
+            }
+            onKeyDown={(event) =>
+              handleDesignSystemEscape(event, cancelDesignSystemRename)
+            }
+          />
+        </Field>
+      );
+    }
+
+    return (
+      <span className="rdo-dds-themes__name" data-dds-theme-name={theme.name}>
+        {theme.name}
+      </span>
+    );
+  }
+
+  function renderDesignSystemThemeActions(theme: DdsTheme) {
+    if (editing?.id === theme.id) {
+      return (
+        <>
+          <Button
+            size="lg"
+            variant="primary"
+            disabled={updateMutation.isPending || !editing.name.trim()}
+            loading={updateMutation.isPending}
+            onClick={() =>
+              updateMutation.mutate({
+                id: theme.id,
+                data: { name: editing.name.trim() }
+              })
+            }
+          >
+            Salvar
+          </Button>
+          <Button
+            size="lg"
+            variant="secondary"
+            onClick={cancelDesignSystemRename}
+          >
+            Cancelar
+          </Button>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Button
+          size="lg"
+          variant="secondary"
+          data-dds-theme-rename={theme.id}
+          onClick={() => openDesignSystemRename(theme)}
+        >
+          Renomear
+        </Button>
+        {theme.isActive ? (
+          <Button
+            size="lg"
+            variant="danger"
+            disabled={deactivateMutation.isPending}
+            loading={deactivateMutation.isPending}
+            onClick={() => deactivateMutation.mutate(theme.id)}
+          >
+            Desativar
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            variant="secondary"
+            disabled={updateMutation.isPending}
+            loading={updateMutation.isPending}
+            onClick={() =>
+              updateMutation.mutate({
+                id: theme.id,
+                data: { isActive: true }
+              })
+            }
+          >
+            Reativar
+          </Button>
+        )}
+      </>
+    );
+  }
+
+  if (appearance === 'design-system') {
+    const columns: readonly DataTableColumn<DdsTheme>[] = [
+      {
+        key: 'name',
+        header: 'Tema',
+        rowHeader: true,
+        render: renderDesignSystemThemeName
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (theme) => (
+          <StatusPill
+            status={theme.isActive ? 'ACTIVE' : 'INACTIVE'}
+            label={theme.isActive ? 'Ativo' : 'Inativo'}
+            tone={theme.isActive ? 'success' : 'neutral'}
+          />
+        )
+      }
+    ];
+
+    return (
+      <section
+        ref={designSystemSurfaceRef}
+        className="fv-ds rdo-dds-themes"
+        aria-labelledby="rdo-dds-themes-title"
+      >
+        <Card
+          className="rdo-dds-themes__card"
+          padding="md"
+          title={<h2 id="rdo-dds-themes-title">Temas de DDS</h2>}
+          actions={
+            !showCreateForm ? (
+              <Button
+                data-dds-theme-create
+                size="lg"
+                variant="primary"
+                onClick={() => setShowCreateForm(true)}
+              >
+                Novo tema
+              </Button>
+            ) : null
+          }
+        >
+          <p className="rdo-dds-themes__description">
+            Lista usada no registro de DDS dos RDOs. Temas inativos não aparecem
+            na seleção.
+          </p>
+
+          {showCreateForm ? (
+            <form
+              className="rdo-dds-themes__create-form"
+              onSubmit={handleCreateSubmit}
+              onKeyDown={(event) =>
+                handleDesignSystemEscape(event, cancelDesignSystemCreate)
+              }
+              autoComplete="off"
+            >
+              <Field label="Nome do tema" required>
+                <Input
+                  ref={createInputRef}
+                  size="lg"
+                  value={newName}
+                  autoComplete="off"
+                  onChange={(event) => setNewName(event.target.value)}
+                  required
+                />
+              </Field>
+              <div className="rdo-dds-themes__form-actions">
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  onClick={cancelDesignSystemCreate}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="lg"
+                  variant="primary"
+                  type="submit"
+                  disabled={createMutation.isPending || !newName.trim()}
+                  loading={createMutation.isPending}
+                >
+                  Salvar
+                </Button>
+              </div>
+            </form>
+          ) : null}
+
+          {isLoading ? (
+            <Skeleton
+              className="rdo-dds-themes__loading"
+              variant="table-rows"
+              lines={6}
+              label="Carregando temas…"
+            />
+          ) : (
+            <DataTable
+              className="rdo-dds-themes__table"
+              rows={themes}
+              columns={columns}
+              getRowId={(theme) => theme.id}
+              getRowClassName={(theme) =>
+                theme.isActive
+                  ? 'rdo-dds-themes__row'
+                  : 'rdo-dds-themes__row rdo-dds-themes__row--inactive'
+              }
+              ariaLabel="Temas de DDS"
+              density="compact"
+              actionsLabel="Ações"
+              rowActions={renderDesignSystemThemeActions}
+              emptyState={
+                <EmptyState
+                  title="Nenhum tema de DDS cadastrado."
+                  description="Cadastre um tema para disponibilizá-lo no registro de DDS dos RDOs."
+                />
+              }
+              mobile={{
+                ariaLabel: 'Temas de DDS',
+                renderItem: (theme) => ({
+                  title: renderDesignSystemThemeName(theme),
+                  status: (
+                    <StatusPill
+                      status={theme.isActive ? 'ACTIVE' : 'INACTIVE'}
+                      label={theme.isActive ? 'Ativo' : 'Inativo'}
+                      tone={theme.isActive ? 'success' : 'neutral'}
+                    />
+                  ),
+                  actions: renderDesignSystemThemeActions(theme)
+                })
+              }}
+            />
+          )}
+        </Card>
+      </section>
+    );
   }
 
   return (
