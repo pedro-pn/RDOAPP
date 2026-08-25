@@ -12,6 +12,12 @@ export const OFFSHORE_EXAMS_TRAINING_ANNUAL_COST_KEY = 'offshoreExamsTrainingAnn
 export const EXAMS_TRAINING_ANNUAL_COST_DEFAULT = 0;
 export const OFFSHORE_EXAMS_TRAINING_ANNUAL_COST_DEFAULT = 0;
 
+// Corte do histórico das pendências de alocação do ponto. Guardado como número AAAAMMDD porque
+// AcompanhamentoSetting só tem numberValue; o formato é ordenável e não tem ambiguidade de fuso.
+// Padrão 01/01/2025: antes disso não há projeto cadastrado no app, então não há o que alocar.
+export const PONTO_PENDENCY_CUTOFF_KEY = 'pontoPendencyCutoffDate';
+export const PONTO_PENDENCY_CUTOFF_DEFAULT = 20250101;
+
 async function getNumberSetting(key, fallback) {
   const row = await prisma.acompanhamentoSetting.findUnique({ where: { key } });
   const value = row?.numberValue;
@@ -31,6 +37,24 @@ async function setNumberSetting(key, value, updatedByUserId = null) {
     update: { numberValue: value, updatedByUserId }
   });
   return value;
+}
+
+function cutoffNumberToDateKey(value) {
+  const text = String(Math.trunc(Number(value) || 0)).padStart(8, '0');
+  return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+}
+
+// Devolve o corte como 'AAAA-MM-DD' — as datas da trilha são comparadas como texto.
+export async function getPontoPendencyCutoffDateKey() {
+  const value = await getNumberSetting(PONTO_PENDENCY_CUTOFF_KEY, PONTO_PENDENCY_CUTOFF_DEFAULT);
+  const dateKey = cutoffNumberToDateKey(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : cutoffNumberToDateKey(PONTO_PENDENCY_CUTOFF_DEFAULT);
+}
+
+export async function setPontoPendencyCutoffDateKey(dateKey, updatedByUserId = null) {
+  const match = String(dateKey || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error('Data de corte inválida.');
+  return setNumberSetting(PONTO_PENDENCY_CUTOFF_KEY, Number(`${match[1]}${match[2]}${match[3]}`), updatedByUserId);
 }
 
 export async function getEpiAnnualCost() {

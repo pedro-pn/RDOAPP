@@ -898,22 +898,53 @@ export function classifyProjectHours(
 ) {
   const byProject = new Map();
   const unresolvedDays = [];
+  const dayTrail = [];
   const dayProjects = rdo?.dayProjects || new Map();
 
   for (const row of dayRows) {
     const rdoProjects = dayProjects.get(row.date) || new Map();
     const mobilizationProjectIds = rdo?.mobilizationProjectsByDate?.get(row.date) || null;
+    const manualProjectIds = manualProjectByDate.get(row.date) || null;
     const decision = buildDailyProjectWeights({
       tags: row.tags,
       rdoProjects,
       resolveTag,
-      manualProjectIds: manualProjectByDate.get(row.date) || null,
+      manualProjectIds,
       mobilizationProjectIds,
       missionGroupProjectsByProjectId,
       allocationAxis
     });
+    const dayNormalHours = Math.max(0, Number(row.normalHours) || 0);
+    const dayHe70Hours = Math.max(0, Number(row.he70Horas) || 0);
+    const dayHe100Hours = Math.max(0, Number(row.he100Horas) || 0);
+    const dayTotalHours = dayNormalHours + dayHe70Hours + dayHe100Hours;
+    // Trilha da decisão de cada dia: base única do painel de auditoria e das pendências.
+    dayTrail.push({
+      date: row.date,
+      normalHours: dayNormalHours,
+      he70Hours: dayHe70Hours,
+      he100Hours: dayHe100Hours,
+      tags: uniqueStrings(row.tags),
+      tagProjectIds: [...new Set((row.tags || []).map(resolveTag).filter(Boolean))].sort(),
+      rdoProjects: [...rdoProjects.values()].map(item => ({
+        projectId: item.projectId,
+        hours: Math.max(0, Number(item.hours) || 0)
+      })),
+      manualProjectIds: manualProjectIds ? [...manualProjectIds] : [],
+      allocations: decision.allocations.map(item => ({ projectId: item.projectId, weight: item.weight })),
+      reason: decision.reason
+    });
     if (decision.allocations.length === 0) {
-      if (decision.reason !== 'NO_PROJECT_EVIDENCE') unresolvedDays.push({ date: row.date, reason: decision.reason });
+      // Dia sem hora nenhuma é folga, não pendência — nunca vira item para o gestor resolver.
+      if (dayTotalHours > 0) {
+        unresolvedDays.push({
+          date: row.date,
+          reason: decision.reason,
+          normalHours: dayNormalHours,
+          he70Hours: dayHe70Hours,
+          he100Hours: dayHe100Hours
+        });
+      }
       continue;
     }
 
@@ -941,16 +972,16 @@ export function classifyProjectHours(
       project.he70Hours += Math.max(0, Number(row.he70Horas) || 0) * allocation.weight;
       project.he100Hours += Math.max(0, Number(row.he100Horas) || 0) * allocation.weight;
       project.rdoWorkedHours += Math.max(0, Number(allocation.rdo?.hours) || 0);
-      const normalHours = Math.max(0, Number(row.normalHours) || 0) * allocation.weight;
+      const allocatedNormalHours = dayNormalHours * allocation.weight;
       const travelContext = (row.tags || []).some(isPontoTravelTag);
-      if (project.offshore) project.offshoreHours += normalHours;
-      else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += normalHours;
-      else project.homeHours += normalHours;
-      if (travelContext) project.travelHours += normalHours;
+      if (project.offshore) project.offshoreHours += allocatedNormalHours;
+      else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += allocatedNormalHours;
+      else project.homeHours += allocatedNormalHours;
+      if (travelContext) project.travelHours += allocatedNormalHours;
     }
   }
 
-  return { byProject, unresolvedDays };
+  return { byProject, unresolvedDays, dayTrail };
 }
 
 // Fração do mês coberta pelo arquivo (para proporcionalizar o fixo no mês parcial).
@@ -1406,6 +1437,8 @@ export async function computeCollaboratorRates(importId = null) {
       idle: { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } },
       byProject: {},
       analyticalByProject: {},
+      allocationTrail: [], // decisão de alocação de cada dia (auditoria)
+      unresolvedDays: [], // dias com horas que não chegaram a projeto nenhum (pendência)
       months: [] // detalhe por mês (para o filtro da aba Custo/hora)
     };
 
@@ -1552,6 +1585,25 @@ export async function computeCollaboratorRates(importId = null) {
         entry.idle = idle;
       }
     }
+
+    // Trilha de alocação diária. Fica fora do bloco de custo de propósito: quem não tem perfil de
+    // cargo configurado também precisa aparecer na auditoria e nas pendências. A decisão de projeto
+    // não depende de parâmetro de custo — só o teto de HE70 depende, e aí o padrão de 30h resolve.
+    const trailDays = monthsOf(period).flatMap(mrec => splitOvertimeDays(
+      mrec.days || [],
+      Number(roleParams.paramsFor(role, `${mrec.monthKey}-01`)?.he70LimiteHoras) || 30
+    ));
+    trailDays.sort((left, right) => left.date.localeCompare(right.date));
+    const trail = classifyProjectHours(
+      trailDays,
+      rdo,
+      projectAllocationContext.resolveTag,
+      projectMetaById,
+      manualProjects.get(period.collaboratorId) || new Map(),
+      projectAllocationContext.missionGroupProjectsByProjectId
+    );
+    entry.allocationTrail = trail.dayTrail;
+    entry.unresolvedDays = trail.unresolvedDays;
 
     rates.push(entry);
     byCollaboratorId.set(period.collaboratorId, entry);

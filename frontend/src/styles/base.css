@@ -13302,3 +13302,118 @@ body.app-reorder-touching {
     width: 100%;
   }
 }
+
+/* === Auditoria da alocação diária do ponto === */
+
+.ponto-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ponto-inline-link {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: var(--bl);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.ponto-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.ponto-day-list li {
+  align-items: center;
+  color: var(--mu);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ponto-audit-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 900px;
+  width: 100%;
+}
+
+.ponto-audit-scroll {
+  overflow-x: auto;
+}
+
+.ponto-audit-table th,
+.ponto-audit-table td {
+  border-bottom: 1px solid var(--br);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.ponto-audit-table th {
+  color: var(--mu);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ponto-audit-table td.ponto-audit-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ponto-audit-row-unallocated {
+  background: var(--warning-bg);
+}
+
+.ponto-audit-row-target td:first-child {
+  border-left: 3px solid var(--g);
+}
+
+.ponto-audit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.ponto-audit-summary span {
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.field-check {
+  align-items: center;
+  color: var(--tx);
+  display: flex;
+  font-size: 13px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.field-check input {
+  margin: 0;
+}
+
+.equip-nav-badge {
+  background: var(--rd);
+  border-radius: 999px;
+  color: var(--wh);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: auto;
+  padding: 3px 7px;
+}

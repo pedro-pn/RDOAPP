@@ -920,3 +920,83 @@ test('RDO não-offshore usa hospedagem manual: fora = transferência, casa = gra
   assert.notEqual(home.folha, away.folha);
   assert.notEqual(home.variavelMensal, away.variavelMensal);
 });
+
+test('dia com horas e sem evidência nenhuma vira pendência em vez de sumir', () => {
+  const result = classifyProjectHours([{
+    date: '2026-08-17',
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.equal(result.byProject.size, 0);
+  assert.deepEqual(result.unresolvedDays.map(item => [item.date, item.reason]), [['2026-08-17', 'NO_PROJECT_EVIDENCE']]);
+  assert.ok(near(result.unresolvedDays[0].normalHours, 8.8));
+});
+
+test('dia zerado é folga: entra na trilha para auditoria mas nunca vira pendência', () => {
+  const result = classifyProjectHours([{
+    date: '2026-08-16',
+    normalHours: 0,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: []
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.deepEqual(result.unresolvedDays, []);
+  assert.equal(result.dayTrail.length, 1);
+  assert.equal(result.dayTrail[0].reason, 'NO_PROJECT_EVIDENCE');
+  assert.deepEqual(result.dayTrail[0].allocations, []);
+});
+
+test('dia só com hora extra é pendência mesmo com a jornada normal zerada', () => {
+  const result = classifyProjectHours([{
+    date: '2026-06-19',
+    normalHours: 0,
+    he70Horas: 0,
+    he100Horas: 10.97,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.equal(result.unresolvedDays.length, 1);
+  assert.ok(near(result.unresolvedDays[0].he100Hours, 10.97));
+});
+
+test('trilha registra etiquetas, RDO, motivo e pesos de cada dia', () => {
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-07-20', dailyRdo([['A', 9.5]])]])
+  };
+  const result = classifyProjectHours([{
+    date: '2026-07-20',
+    normalHours: 6.15,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], rdo, resolveTestTag, new Map());
+
+  const [day] = result.dayTrail;
+  assert.equal(day.reason, 'SINGLE_RDO_FALLBACK');
+  assert.deepEqual(day.tags, ['EM VIAGEM - 07.264.184/0001-46']);
+  assert.deepEqual(day.tagProjectIds, []);
+  assert.deepEqual(day.rdoProjects, [{ projectId: 'A', hours: 9.5 }]);
+  assert.deepEqual(day.allocations, [{ projectId: 'A', weight: 1 }]);
+  assert.deepEqual(result.unresolvedDays, []);
+});
+
+test('trilha e pendência convivem no mesmo lote sem contaminar as horas por projeto', () => {
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-07-20', dailyRdo([['A', 9.5]])]])
+  };
+  const rows = [
+    { date: '2026-07-20', normalHours: 8, he70Horas: 0, he100Horas: 0, tags: [] },
+    { date: '2026-07-21', normalHours: 8, he70Horas: 0, he100Horas: 0, tags: [] }
+  ];
+  const result = classifyProjectHours(rows, rdo, resolveTestTag, new Map());
+
+  assert.equal(result.dayTrail.length, 2);
+  assert.ok(near(result.byProject.get('A').normalHours, 8));
+  assert.deepEqual(result.unresolvedDays.map(item => item.date), ['2026-07-21']);
+});

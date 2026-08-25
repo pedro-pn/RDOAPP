@@ -11,6 +11,7 @@ import {
   getPontoMaisPending,
   getPontoMaisReconciliationProjects,
   getPontoMaisSyncRuns,
+  getPontoPendencyCounts,
   linkPontoMaisExternalEmployee,
   linkPontoMaisProjectTag,
   linkPontoName,
@@ -29,6 +30,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/ToastContext';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import { PontoMaisSyncNovelty } from './PontoMaisSyncNovelty';
+import { UnallocatedDaysPanel } from './UnallocatedDaysPanel';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -53,10 +55,11 @@ function importSourceLabel(item: PontoImportRow) {
   return item.source === 'PONTOMAIS_API' ? 'API Ponto Mais' : 'Planilha XLSX';
 }
 
-type PontoDetailTab = 'sync' | 'missing-projects' | 'employees';
+type PontoDetailTab = 'sync' | 'unallocated' | 'missing-projects' | 'employees';
 
 function parsePontoDetailTab(value: string | null): PontoDetailTab {
   if (value === 'missing-projects') return 'missing-projects';
+  if (value === 'unallocated') return 'unallocated';
   return value === 'employees' ? 'employees' : 'sync';
 }
 
@@ -111,6 +114,12 @@ export function PontoImportPanel() {
     queryKey: ['ponto-projects-link'],
     queryFn: getPontoMaisReconciliationProjects,
     enabled: isManager && integrationStatus?.configured === true
+  });
+  const { data: pendencyCounts } = useQuery({
+    queryKey: ['ponto-pendencias-contagem'],
+    queryFn: getPontoPendencyCounts,
+    enabled: isManager && integrationStatus?.configured === true,
+    ...acompanhamentoRefreshQueryOptions
   });
   const { data: externalEmployees } = useQuery({
     queryKey: ['ponto-external-employees'],
@@ -225,6 +234,17 @@ export function PontoImportPanel() {
             >
               Sincronização e pendências
               <span className="acp-seg-count">{actionablePendingCount}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={detailTab === 'unallocated'}
+              className={`acp-seg-btn${detailTab === 'unallocated' ? ' active' : ''}`}
+              onClick={() => setDetailTab('unallocated')}
+              data-pontomais-unallocated-tab
+            >
+              Dias sem alocação
+              <span className="acp-seg-count">{pendencyCounts?.unallocatedDays ?? 0}</span>
             </button>
             <button
               type="button"
@@ -534,6 +554,10 @@ export function PontoImportPanel() {
           </div>
         ) : <p className="placeholder-copy">Nenhuma atualização ainda.</p>}
           </>
+        ) : null}
+
+        {detailTab === 'unallocated' && integrationConfigured && isManager ? (
+          <UnallocatedDaysPanel projects={projects ?? []} enabled={isManager && integrationConfigured} />
         ) : null}
 
         {detailTab === 'missing-projects' && integrationConfigured && isManager && pending ? (

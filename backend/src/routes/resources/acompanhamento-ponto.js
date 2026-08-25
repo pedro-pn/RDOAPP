@@ -33,6 +33,12 @@ import {
   setPontoMaisExternalEmployeeIgnored
 } from '../../lib/pontomais/sync.js';
 import prisma from '../../lib/prisma.js';
+import {
+  AllocationAuditError,
+  getAllocationAudit,
+  getUnallocatedDays,
+  resolveUnallocatedDays
+} from '../../lib/acompanhamento/allocation-audit.js';
 import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
@@ -486,6 +492,127 @@ router.post(
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
+  })
+);
+
+
+// === Auditoria da alocação diária do ponto ===
+// Leitura e resolução restritas ao gestor do módulo: a trilha expõe onde cada hora de cada
+// colaborador foi parar, que é a mesma sensibilidade do custo de mão de obra.
+
+const dateKeySchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.');
+
+const allocationAuditQuerySchema = z.object({
+  collaboratorId: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).optional(),
+  de: dateKeySchema.optional(),
+  ate: dateKeySchema.optional(),
+  somenteNaoAlocados: z.enum(['true', 'false']).optional()
+});
+
+const unallocatedQuerySchema = z.object({
+  de: dateKeySchema.optional(),
+  ate: dateKeySchema.optional()
+});
+
+const resolveUnallocatedSchema = z.object({
+  items: z.array(z.object({
+    collaboratorId: z.string().trim().min(1),
+    date: dateKeySchema,
+    projectIds: z.array(z.string().trim().min(1)).min(1)
+  })).min(1).max(200)
+});
+
+router.get(
+  '/auditoria-alocacao',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const parsed = allocationAuditQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Filtro inválido.',
+        code: 'INVALID_AUDIT_FILTER'
+      });
+    }
+    const { collaboratorId, projectId, de, ate, somenteNaoAlocados } = parsed.data;
+    return res.json(await getAllocationAudit({
+      collaboratorId: collaboratorId ?? null,
+      projectId: projectId ?? null,
+      from: de ?? null,
+      to: ate ?? null,
+      onlyUnallocated: somenteNaoAlocados === 'true'
+    }));
+  })
+);
+
+router.get(
+  '/dias-sem-alocacao',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const parsed = unallocatedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Filtro inválido.',
+        code: 'INVALID_AUDIT_FILTER'
+      });
+    }
+    return res.json(await getUnallocatedDays({
+      from: parsed.data.de ?? null,
+      to: parsed.data.ate ?? null
+    }));
+  })
+);
+
+router.post(
+  '/dias-sem-alocacao/resolver',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const parsed = resolveUnallocatedSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Seleção inválida.',
+        code: 'INVALID_DAY_ALLOCATION'
+      });
+    }
+    try {
+      return res.json(await resolveUnallocatedDays({
+        items: parsed.data.items,
+        createdByUserId: req.auth?.user?.id ?? null
+      }));
+    } catch (error) {
+      if (error instanceof AllocationAuditError) {
+        const status = error.code === 'PROJECT_NOT_FOUND' ? 404 : 400;
+        return res.status(status).json({ error: error.message, code: error.code });
+      }
+      throw error;
+    }
+  })
+);
+
+// Contagem para o aviso na navegação do módulo. O balde de projeto não cadastrado fica de fora de
+// propósito: aquilo é fila de cadastro de missão, não pendência a resolver.
+router.get(
+  '/pendencias/contagem',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (_req, res) => {
+    const [unallocated, integrationPending] = await Promise.all([
+      getUnallocatedDays(),
+      getPontoMaisPending()
+    ]);
+    const unlinkedEmployees = integrationPending.employees.length;
+    const ambiguousDays = integrationPending.ambiguousDays.length;
+    res.json({
+      unallocatedDays: unallocated.counts.actionableDays,
+      unallocatedBlocks: unallocated.actionable.length,
+      unallocatedHours: unallocated.counts.actionableHours,
+      unlinkedEmployees,
+      ambiguousDays,
+      total: unallocated.counts.actionableDays + unlinkedEmployees + ambiguousDays
+    });
   })
 );
 

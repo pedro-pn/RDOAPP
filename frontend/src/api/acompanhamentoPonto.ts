@@ -329,3 +329,118 @@ export async function linkPontoName(payload: { normalizedName?: string; rawName?
   const { data } = await apiClient.post('/acompanhamento/ponto/vincular', payload);
   return data as { normalizedName: string; collaboratorId: string; relinked: number };
 }
+
+// === Auditoria da alocação diária do ponto ===
+
+export interface AllocationProjectRef {
+  projectId: string;
+  code: string | null;
+  name: string | null;
+}
+
+export interface AllocationDay {
+  date: string;
+  normalHours: number;
+  he70Hours: number;
+  he100Hours: number;
+  totalHours: number;
+  tags: string[];
+  tagProjects: AllocationProjectRef[];
+  rdoProjects: Array<AllocationProjectRef & { hours: number }>;
+  manualProjects: AllocationProjectRef[];
+  allocations: Array<AllocationProjectRef & { weight: number }>;
+  reason: string;
+  allocated: boolean;
+  bucket: 'ACTIONABLE' | 'MISSING_PROJECT' | null;
+}
+
+export interface AllocationAuditCollaborator {
+  collaboratorId: string;
+  name: string;
+  role: string | null;
+  days: AllocationDay[];
+  totals: {
+    hours: number;
+    unallocatedHours: number;
+    byProject: Array<AllocationProjectRef & {
+      normalHours: number;
+      he70Hours: number;
+      he100Hours: number;
+      days: number;
+    }>;
+  };
+}
+
+export interface UnallocatedBlock {
+  collaboratorId: string;
+  name: string;
+  role: string | null;
+  bucket: 'ACTIONABLE' | 'MISSING_PROJECT';
+  reason: string;
+  days: AllocationDay[];
+  hours: number;
+}
+
+export interface UnallocatedDays {
+  cutoffDateKey: string;
+  actionable: UnallocatedBlock[];
+  missingProjects: UnallocatedBlock[];
+  counts: {
+    actionableDays: number;
+    actionableHours: number;
+    missingProjectDays: number;
+  };
+}
+
+export interface PontoPendencyCounts {
+  unallocatedDays: number;
+  unallocatedBlocks: number;
+  unallocatedHours: number;
+  unlinkedEmployees: number;
+  ambiguousDays: number;
+  total: number;
+}
+
+export async function getAllocationAudit(params: {
+  collaboratorId?: string;
+  projectId?: string;
+  de?: string;
+  ate?: string;
+  somenteNaoAlocados?: boolean;
+}): Promise<{ collaborators: AllocationAuditCollaborator[] }> {
+  const { data } = await apiClient.get<{ collaborators: AllocationAuditCollaborator[] }>(
+    '/acompanhamento/ponto/auditoria-alocacao',
+    {
+      params: {
+        collaboratorId: params.collaboratorId || undefined,
+        projectId: params.projectId || undefined,
+        de: params.de || undefined,
+        ate: params.ate || undefined,
+        somenteNaoAlocados: params.somenteNaoAlocados ? 'true' : undefined
+      }
+    }
+  );
+  return data;
+}
+
+export async function getUnallocatedDays(params: { de?: string; ate?: string } = {}): Promise<UnallocatedDays> {
+  const { data } = await apiClient.get<UnallocatedDays>('/acompanhamento/ponto/dias-sem-alocacao', {
+    params: { de: params.de || undefined, ate: params.ate || undefined }
+  });
+  return data;
+}
+
+export async function resolveUnallocatedDays(payload: {
+  items: Array<{ collaboratorId: string; date: string; projectIds: string[] }>;
+}) {
+  const { data } = await apiClient.post<{ updated: number }>(
+    '/acompanhamento/ponto/dias-sem-alocacao/resolver',
+    payload
+  );
+  return data;
+}
+
+export async function getPontoPendencyCounts(): Promise<PontoPendencyCounts> {
+  const { data } = await apiClient.get<PontoPendencyCounts>('/acompanhamento/ponto/pendencias/contagem');
+  return data;
+}
