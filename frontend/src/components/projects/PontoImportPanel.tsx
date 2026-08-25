@@ -5,21 +5,25 @@ import {
   deletePontoImport,
   getPontoColaboradores,
   getPontoImports,
+  getPontoMaisIgnoredProjectTags,
   getPontoLinkCollaborators,
   getPontoMaisExternalEmployees,
   getPontoMaisIntegrationStatus,
   getPontoMaisPending,
   getPontoMaisReconciliationProjects,
   getPontoMaisSyncRuns,
+  getPontoPendencyCounts,
   linkPontoMaisExternalEmployee,
   linkPontoMaisProjectTag,
   linkPontoName,
   pontoMaisBootstrapStatusLabel,
   pontoMaisSyncTriggerLabel,
-  setPontoMaisDayProjectOverride,
-  setPontoMaisDayProjectOverridesBatch,
   setPontoMaisExternalEmployeeIgnored,
+  setPontoMaisProjectTagIgnored,
+  syncPontoMaisRange,
+  pontoMaisSyncWindows,
   type PontoImportRow,
+  type PontoImportSourceFilter,
   type PontoMaisPending
 } from '../../api/acompanhamentoPonto';
 import { useAuth } from '../../auth/AuthContext';
@@ -29,6 +33,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useToast } from '../ui/ToastContext';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import { PontoMaisSyncNovelty } from './PontoMaisSyncNovelty';
+import { UnallocatedDaysPanel } from './UnallocatedDaysPanel';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -44,6 +49,16 @@ function fmtDateTime(iso: string | null): string {
     : parsed.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+// Mesmo critério do backend (normalizeName): sem acento, minúsculo, espaços colapsados.
+function normalizeForMatch(value: string): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function collaboratorOptionLabel(collaborator: { name: string; role: string | null; isActive?: boolean }) {
   const label = `${collaborator.name}${collaborator.role ? ` — ${collaborator.role}` : ''}`;
   return collaborator.isActive === false ? `${label} (inativo)` : label;
@@ -53,10 +68,11 @@ function importSourceLabel(item: PontoImportRow) {
   return item.source === 'PONTOMAIS_API' ? 'API Ponto Mais' : 'Planilha XLSX';
 }
 
-type PontoDetailTab = 'sync' | 'missing-projects' | 'employees';
+type PontoDetailTab = 'sync' | 'unallocated' | 'missing-projects' | 'employees';
 
 function parsePontoDetailTab(value: string | null): PontoDetailTab {
   if (value === 'missing-projects') return 'missing-projects';
+  if (value === 'unallocated') return 'unallocated';
   return value === 'employees' ? 'employees' : 'sync';
 }
 
@@ -73,12 +89,15 @@ export function PontoImportPanel() {
   const [links, setLinks] = useState<Record<string, string>>({});
   const [externalEmployeeLinks, setExternalEmployeeLinks] = useState<Record<string, string>>({});
   const [projectTagLinks, setProjectTagLinks] = useState<Record<string, string>>({});
-  const [dayProjectOverrides, setDayProjectOverrides] = useState<Record<string, string[]>>({});
   const [deleteTarget, setDeleteTarget] = useState<PontoImportRow | null>(null);
+  const [importSource, setImportSource] = useState<PontoImportSourceFilter>('ALL');
+  const [syncStart, setSyncStart] = useState('');
+  const [syncEnd, setSyncEnd] = useState('');
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null);
 
   const { data: imports } = useQuery({
-    queryKey: ['ponto-imports'],
-    queryFn: getPontoImports,
+    queryKey: ['ponto-imports', importSource],
+    queryFn: () => getPontoImports(importSource),
     ...acompanhamentoRefreshQueryOptions
   });
   const { data: integrationStatus } = useQuery({
@@ -99,24 +118,73 @@ export function PontoImportPanel() {
   const { data: pending } = useQuery({
     queryKey: ['ponto-pontomais-pending'],
     queryFn: getPontoMaisPending,
-    enabled: isManager && integrationStatus?.configured === true
+    enabled: isManager
   });
   const { data: syncRuns } = useQuery({
     queryKey: ['ponto-pontomais-sync-runs'],
     queryFn: () => getPontoMaisSyncRuns(20),
-    enabled: isManager && integrationStatus?.configured === true,
+    enabled: isManager,
     ...acompanhamentoRefreshQueryOptions
   });
   const { data: projects } = useQuery({
     queryKey: ['ponto-projects-link'],
     queryFn: getPontoMaisReconciliationProjects,
-    enabled: isManager && integrationStatus?.configured === true
+    enabled: isManager
+  });
+  const { data: ignoredProjectTags } = useQuery({
+    queryKey: ['ponto-ignored-project-tags'],
+    queryFn: getPontoMaisIgnoredProjectTags,
+    enabled: isManager
+  });
+  const { data: pendencyCounts } = useQuery({
+    queryKey: ['ponto-pendencias-contagem'],
+    queryFn: getPontoPendencyCounts,
+    enabled: isManager,
+    ...acompanhamentoRefreshQueryOptions
   });
   const { data: externalEmployees } = useQuery({
     queryKey: ['ponto-external-employees'],
     queryFn: getPontoMaisExternalEmployees,
-    enabled: isManager && integrationStatus?.configured === true,
+    enabled: isManager,
     ...acompanhamentoRefreshQueryOptions
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: (range: { startDate: string; endDate: string }) => syncPontoMaisRange(
+      range.startDate,
+      range.endDate,
+      (done, total) => setSyncProgress({ done, total })
+    ),
+    onSuccess: result => {
+      showToast(
+        result.created === 0
+          ? `Período já estava atualizado — nada foi substituído (${result.windows} janela(s)).`
+          : `${result.created} janela(s) sincronizada(s), ${result.skipped} já estavam atualizadas.`,
+        'success'
+      );
+      setSyncProgress(null);
+      invalidate();
+    },
+    onError: (error: { response?: { data?: { error?: string } } }) => {
+      // Cada janela concluída já ficou gravada: dá para retomar a partir de onde parou.
+      const at = syncProgress ? ` Parou na janela ${syncProgress.done + 1} de ${syncProgress.total}.` : '';
+      showToast((error?.response?.data?.error || 'Não foi possível sincronizar o período.') + at, 'error');
+      setSyncProgress(null);
+    }
+  });
+
+  const projectTagIgnoreMutation = useMutation({
+    mutationFn: setPontoMaisProjectTagIgnored,
+    onSuccess: (_data, variables) => {
+      showToast(variables.ignored ? 'Etiqueta ignorada.' : 'Etiqueta reativada.', 'success');
+      queryClient.invalidateQueries({ queryKey: ['ponto-ignored-project-tags'] });
+      queryClient.invalidateQueries({ queryKey: ['ponto-pontomais-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['ponto-pendencias-contagem'] });
+      queryClient.invalidateQueries({ queryKey: ['ponto-dias-sem-alocacao'] });
+    },
+    onError: (error: { response?: { data?: { error?: string } } }) => {
+      showToast(error?.response?.data?.error || 'Não foi possível atualizar a etiqueta.', 'error');
+    }
   });
 
   const invalidate = () => {
@@ -163,22 +231,6 @@ export function PontoImportPanel() {
     },
     onError: () => showToast('Não foi possível vincular a etiqueta ao projeto.')
   });
-  const dayProjectOverrideMutation = useMutation({
-    mutationFn: setPontoMaisDayProjectOverride,
-    onSuccess: () => {
-      showToast('Projeto do dia confirmado. O custo foi recalculado.');
-      invalidate();
-    },
-    onError: () => showToast('Não foi possível confirmar o projeto deste dia.')
-  });
-  const dayProjectOverridesBatchMutation = useMutation({
-    mutationFn: setPontoMaisDayProjectOverridesBatch,
-    onSuccess: result => {
-      showToast(`Projetos confirmados em ${result.updated} pendência(s). O custo foi recalculado.`);
-      invalidate();
-    },
-    onError: () => showToast('Não foi possível aplicar a seleção às pendências equivalentes.')
-  });
   const ignoreExternalEmployeeMutation = useMutation({
     mutationFn: setPontoMaisExternalEmployeeIgnored,
     onSuccess: employee => {
@@ -197,9 +249,16 @@ export function PontoImportPanel() {
 
   const unmatched = colaboradores?.unmatched ?? [];
   const integrationConfigured = integrationStatus?.configured === true;
-  const actionablePendingCount = pending
-    ? pending.employees.length + pending.ambiguousDays.length
-    : 0;
+  /*
+   * As duas listas de "sem vínculo" mostravam a mesma gente por caminhos diferentes: a da API
+   * (por id externo) e a das planilhas (por nome, porque o XLSX não traz o id). Ficou uma seção só;
+   * o nome de planilha só aparece quando a lista da API ainda não cobre aquela pessoa.
+   */
+  const apiUnlinkedNames = new Set((pending?.employees ?? []).map(item => normalizeForMatch(item.externalName)));
+  const xlsxOnlyUnmatched = unmatched.filter(item => !apiUnlinkedNames.has(normalizeForMatch(item.rawName)));
+  const unlinkedTotal = (pending?.employees.length ?? 0) + xlsxOnlyUnmatched.length;
+  // Conflitos saíram desta aba (vivem em "Dias sem alocação"), então não entram mais na contagem.
+  const actionablePendingCount = unlinkedTotal;
   const missingProjectsCount = pending
     ? pending.missingProjects.projectTags.length + pending.missingProjects.ambiguousDays.length
     : 0;
@@ -214,7 +273,18 @@ export function PontoImportPanel() {
             : 'A integração automática com o VR Ponto Mais ainda não está configurada neste ambiente. Configure PONTOMAIS_API_TOKEN no backend para iniciar a carga histórica; não é necessário enviar planilhas.'}
         </p>
 
-        {integrationConfigured && isManager ? (
+        {isManager && pendencyCounts ? (
+          <p className="placeholder-copy ponto-section-copy">
+            Pendências abertas: <strong>{pendencyCounts.unallocatedDays}</strong> dia(s) sem alocação
+            {' · '}<strong>{pendencyCounts.ambiguousDays}</strong> conflito(s) de projeto
+            {' · '}<strong>{pendencyCounts.unlinkedEmployees}</strong> colaborador(es) do Ponto Mais sem vínculo.
+            {pendencyCounts.unlinkedEmployees > 0 && pendencyCounts.ambiguousDays === 0 && pendencyCounts.unallocatedDays === 0
+              ? ' Só há colaboradores sem vínculo: vincule ou marque como ignorado na aba "Colaboradores encontrados".'
+              : ''}
+          </p>
+        ) : null}
+
+        {isManager ? (
           <div className="acp-seg ponto-detail-tabs" role="tablist" aria-label="Detalhes da integração do Ponto Mais">
             <button
               type="button"
@@ -225,6 +295,17 @@ export function PontoImportPanel() {
             >
               Sincronização e pendências
               <span className="acp-seg-count">{actionablePendingCount}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={detailTab === 'unallocated'}
+              className={`acp-seg-btn${detailTab === 'unallocated' ? ' active' : ''}`}
+              onClick={() => setDetailTab('unallocated')}
+              data-pontomais-unallocated-tab
+            >
+              Dias sem alocação
+              <span className="acp-seg-count">{pendencyCounts?.unallocatedDays ?? 0}</span>
             </button>
             <button
               type="button"
@@ -251,7 +332,7 @@ export function PontoImportPanel() {
           </div>
         ) : null}
 
-        {!integrationConfigured || !isManager || detailTab === 'sync' ? (
+        {!isManager || detailTab === 'sync' ? (
           <>
 
         {integrationConfigured && integrationStatus?.automation ? (
@@ -285,6 +366,63 @@ export function PontoImportPanel() {
           </div>
         ) : null}
 
+        {isManager ? (
+          <div className="det-section">
+            <div className="sec ponto-subtitle">Sincronizar um período</div>
+            <p className="placeholder-copy ponto-section-copy">
+              Busca o período de novo no Ponto Mais. Use para cobrir faixas antigas que a carga
+              histórica não alcançou. Períodos longos são fatiados em janelas de 31 dias
+              automaticamente — o limite é do relatório do Ponto Mais, não seu. Se nada mudou no Ponto Mais, o snapshot é reconhecido pelo
+              conteúdo e <strong>nada é substituído</strong>. Conflitos que você já resolveu à mão
+              são preservados em qualquer caso — a seleção é por colaborador e data, não pertence ao
+              snapshot.
+            </p>
+            {!integrationConfigured ? (
+              <p className="field-error">
+                Indisponível: o backend está sem PONTOMAIS_API_TOKEN. Defina a variável e reinicie o
+                container do backend — ela é lida na inicialização do processo.
+              </p>
+            ) : null}
+            <div className="ponto-filter-row">
+              <div className="field-group">
+                <label htmlFor="ponto-sync-start">De</label>
+                <input
+                  id="ponto-sync-start"
+                  type="date"
+                  value={syncStart}
+                  onChange={event => setSyncStart(event.target.value)}
+                />
+              </div>
+              <div className="field-group">
+                <label htmlFor="ponto-sync-end">Até</label>
+                <input
+                  id="ponto-sync-end"
+                  type="date"
+                  value={syncEnd}
+                  min={syncStart || undefined}
+                  onChange={event => setSyncEnd(event.target.value)}
+                />
+              </div>
+              <Button
+                variant="mini"
+                disabled={
+                  !integrationConfigured || !syncStart || !syncEnd || syncStart > syncEnd || syncMutation.isPending
+                }
+                onClick={() => syncMutation.mutate({ startDate: syncStart, endDate: syncEnd })}
+              >
+                {syncMutation.isPending ? 'Sincronizando…' : 'Sincronizar período'}
+              </Button>
+              {syncStart && syncEnd && syncStart <= syncEnd ? (
+                <span className="placeholder-copy">
+                  {syncMutation.isPending && syncProgress
+                    ? `Janela ${Math.min(syncProgress.done + 1, syncProgress.total)} de ${syncProgress.total}…`
+                    : `${pontoMaisSyncWindows(syncStart, syncEnd).length} janela(s) de até 31 dias.`}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         {integrationStatus?.lastSuccessfulRun ? (
           <p className="placeholder-copy ponto-section-copy">
             Última sincronização: {fmtDate(integrationStatus.lastSuccessfulRun.completedAt)} · período {fmtDate(integrationStatus.lastSuccessfulRun.periodStart)} a {fmtDate(integrationStatus.lastSuccessfulRun.periodEnd)}
@@ -292,11 +430,24 @@ export function PontoImportPanel() {
           </p>
         ) : null}
 
-        {integrationConfigured && isManager && pending ? (
+        {isManager && pending ? (
           <div className="det-section ponto-pending-section">
             <div className="sec ponto-subtitle">
-              Pendências da integração ({actionablePendingCount})
+              Colaboradores do ponto sem vínculo ({actionablePendingCount})
             </div>
+            {actionablePendingCount > 0 ? (
+              <p className="placeholder-copy ponto-section-copy">
+                Enquanto ficarem aqui, as horas dessas pessoas não entram no custo de projeto nenhum.
+                Vincule ao colaborador correspondente ou use “Ignorar” para tirar da fila quem não é
+                da operação — dá para reverter na aba “Colaboradores encontrados”.
+              </p>
+            ) : null}
+            {actionablePendingCount === 0 ? (
+              <p className="placeholder-copy">
+                Nenhum colaborador do ponto sem vínculo. Os dias de ponto que não chegaram a projeto
+                nenhum ficam na aba “Dias sem alocação”.
+              </p>
+            ) : null}
             <div
               className="ponto-local-scroll"
               role="region"
@@ -328,148 +479,79 @@ export function PontoImportPanel() {
                       ))}
                     </select>
                   </div>
-                  <Button
-                    variant="mini"
-                    disabled={!externalEmployeeLinks[item.externalEmployeeId] || externalEmployeeLinkMutation.isPending}
-                    onClick={() => externalEmployeeLinkMutation.mutate({
-                      externalEmployeeId: item.externalEmployeeId,
-                      collaboratorId: externalEmployeeLinks[item.externalEmployeeId]
-                    })}
-                  >
-                    Vincular
-                  </Button>
-                </div>
-              );
-            })}
-
-            {pending.ambiguousDays.map(item => {
-              const pendingKey = `${item.externalEmployeeId}:${item.date}`;
-              const fieldId = `pontomais-day-${encodeURIComponent(pendingKey)}`;
-              const candidateProjects = (projects ?? []).filter(project => item.projectCodes.includes(project.code));
-              const selectedProjectIds = dayProjectOverrides[pendingKey] ?? [];
-              const candidateSignature = [...item.projectCodes].sort().join('|');
-              const equivalentItems = pending.ambiguousDays.filter(candidate => (
-                [...candidate.projectCodes].sort().join('|') === candidateSignature
-              ));
-              const conflictCopy = item.reason === 'TAG_RDO_CONFLICT'
-                ? `Ponto Mais: ${item.tagProjectCodes.join(', ') || 'sem projeto'} · RDO: ${item.rdoProjectCodes.join(', ') || 'sem projeto'}`
-                : `Projetos candidatos: ${item.projectCodes.join(', ') || 'não identificados'}`;
-              return (
-                <div key={pendingKey} className="field-row ponto-link-row ponto-day-allocation-row">
-                  <div className="ponto-link-copy">
-                    <strong>{item.externalName} · {fmtDate(item.date)}</strong>
-                    <span>{conflictCopy}. As horas permanecem em sede até a confirmação.</span>
-                  </div>
-                  <div className="field-group ponto-link-field" id={fieldId}>
-                    <span className="field-label">Projetos trabalhados neste dia</span>
-                    <div className="ponto-project-checks" role="group" aria-labelledby={`${fieldId}-label`}>
-                      <span id={`${fieldId}-label`} className="sr-only">Selecione um ou mais projetos trabalhados</span>
-                      {candidateProjects.map(project => {
-                        const checked = selectedProjectIds.includes(project.id);
-                        return (
-                          <label key={project.id} className="ponto-project-check">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => setDayProjectOverrides(previous => ({
-                                ...previous,
-                                [pendingKey]: checked
-                                  ? selectedProjectIds.filter(id => id !== project.id)
-                                  : [...selectedProjectIds, project.id]
-                              }))}
-                            />
-                            <span>
-                              {project.code} — {project.name}
-                              {project.historical ? ' (histórico)' : project.isActive ? '' : ' (inativo)'}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
                   <div className="ponto-pending-actions">
                     <Button
                       variant="mini"
-                      disabled={!selectedProjectIds.length || dayProjectOverrideMutation.isPending || dayProjectOverridesBatchMutation.isPending}
-                      onClick={() => dayProjectOverrideMutation.mutate({
+                      disabled={!externalEmployeeLinks[item.externalEmployeeId] || externalEmployeeLinkMutation.isPending}
+                      onClick={() => externalEmployeeLinkMutation.mutate({
                         externalEmployeeId: item.externalEmployeeId,
-                        date: item.date,
-                        projectIds: selectedProjectIds
+                        collaboratorId: externalEmployeeLinks[item.externalEmployeeId]
                       })}
                     >
-                      Confirmar neste dia
+                      Vincular
                     </Button>
-                    {equivalentItems.length > 1 ? (
-                      <Button
-                        variant="mini"
-                        disabled={!selectedProjectIds.length || dayProjectOverrideMutation.isPending || dayProjectOverridesBatchMutation.isPending}
-                        onClick={() => dayProjectOverridesBatchMutation.mutate({
-                          items: equivalentItems.map(candidate => ({
-                            externalEmployeeId: candidate.externalEmployeeId,
-                            date: candidate.date,
-                            projectIds: selectedProjectIds
-                          }))
-                        })}
-                      >
-                        Aplicar aos {equivalentItems.length} casos iguais
-                      </Button>
-                    ) : null}
+                    {/* Mesmo efeito do botão da aba "Colaboradores encontrados": evita ter de sair
+                        daqui e caçar a pessoa lá para tirá-la da fila. */}
+                    <Button
+                      variant="mini"
+                      disabled={ignoreExternalEmployeeMutation.isPending}
+                      onClick={() => ignoreExternalEmployeeMutation.mutate({
+                        externalEmployeeId: item.externalEmployeeId,
+                        ignored: true
+                      })}
+                    >
+                      Ignorar
+                    </Button>
                   </div>
                 </div>
               );
             })}
 
-            {!pending.employees.length && !pending.ambiguousDays.length ? (
-              <p className="placeholder-copy ponto-section-copy">Nenhuma pendência na última sincronização.</p>
+            {/* Os conflitos de projeto (etiqueta contra RDO, vários RDOs, janelas sobrepostas)
+                 vivem na aba "Dias sem alocação": lá eles aparecem junto dos demais dias sem
+                 projeto, com os mesmos candidatos e resolução em bloco. Listá-los aqui também
+                 duplicava a fila e fazia o contador somar o mesmo dia duas vezes. */}
+
+            {xlsxOnlyUnmatched.map(item => (
+              <div key={item.normalizedName} className="field-row ponto-link-row">
+                <div className="ponto-link-copy">
+                  <strong>{item.rawName}</strong>
+                  <span>Só aparece em planilha importada — vincule pelo nome.</span>
+                </div>
+                <div className="field-group ponto-link-field">
+                  <label htmlFor={`ponto-link-${item.normalizedName}`}>Vincular ao colaborador</label>
+                  <select
+                    id={`ponto-link-${item.normalizedName}`}
+                    value={links[item.normalizedName] ?? ''}
+                    onChange={event => setLinks(previous => ({ ...previous, [item.normalizedName]: event.target.value }))}
+                  >
+                    <option value="">Selecione o colaborador…</option>
+                    {(linkCollaborators ?? []).map(collaborator => (
+                      <option key={collaborator.id} value={collaborator.id}>{collaboratorOptionLabel(collaborator)}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  variant="mini"
+                  disabled={!links[item.normalizedName] || linkMutation.isPending}
+                  onClick={() => linkMutation.mutate({
+                    normalizedName: item.normalizedName,
+                    collaboratorId: links[item.normalizedName]
+                  })}
+                >
+                  Vincular
+                </Button>
+              </div>
+            ))}
+
+            {!unlinkedTotal ? (
+              <p className="placeholder-copy ponto-section-copy">Nenhum colaborador do ponto sem vínculo.</p>
             ) : null}
             </div>
           </div>
         ) : null}
 
-        {unmatched.length ? (
-          <div className="det-section ponto-pending-section">
-            <div className="sec ponto-subtitle">Nomes não vinculados ({unmatched.length})</div>
-            <p className="placeholder-copy ponto-section-copy">
-              Estes nomes do ponto não casaram com nenhum colaborador. Vincule para que o custo entre no cálculo.
-            </p>
-            <div
-              className="ponto-local-scroll"
-              role="region"
-              aria-label="Lista de nomes não vinculados"
-              tabIndex={0}
-            >
-            {unmatched.map(item => (
-              <div key={item.normalizedName} className="field-row ponto-link-row">
-                <span>{item.rawName}</span>
-                {isManager ? (
-                  <>
-                    <label className="sr-only" htmlFor={`ponto-link-${item.normalizedName}`}>Colaborador para {item.rawName}</label>
-                    <select
-                      id={`ponto-link-${item.normalizedName}`}
-                      value={links[item.normalizedName] ?? ''}
-                      onChange={event => setLinks(previous => ({ ...previous, [item.normalizedName]: event.target.value }))}
-                    >
-                      <option value="">Selecione o colaborador…</option>
-                      {(linkCollaborators ?? []).map(collaborator => (
-                        <option key={collaborator.id} value={collaborator.id}>{collaboratorOptionLabel(collaborator)}</option>
-                      ))}
-                    </select>
-                    <Button
-                      variant="mini"
-                      disabled={!links[item.normalizedName] || linkMutation.isPending}
-                      onClick={() => linkMutation.mutate({ normalizedName: item.normalizedName, collaboratorId: links[item.normalizedName] })}
-                    >
-                      Vincular
-                    </Button>
-                  </>
-                ) : <span className="placeholder-copy">(gestor pode vincular)</span>}
-              </div>
-            ))}
-            </div>
-          </div>
-        ) : null}
-
-        {integrationConfigured && isManager && syncRuns?.length ? (
+        {isManager && syncRuns?.length ? (
           <>
             <div id="ponto-sync-history-title" className="sec ponto-history-title">Histórico de sincronizações</div>
             <div
@@ -500,6 +582,26 @@ export function PontoImportPanel() {
         ) : null}
 
         <div id="ponto-current-data-history-title" className="sec ponto-history-title">Histórico de dados vigentes</div>
+        <div className="ponto-filter-row">
+          <div className="field-group">
+            <label htmlFor="ponto-import-source">Origem</label>
+            <select
+              id="ponto-import-source"
+              value={importSource}
+              onChange={event => setImportSource(event.target.value as PontoImportSourceFilter)}
+            >
+              <option value="ALL">Todas (mais recentes)</option>
+              <option value="XLSX">Somente planilhas</option>
+              <option value="PONTOMAIS_API">Somente API</option>
+            </select>
+          </div>
+          {importSource === 'ALL' ? (
+            <span className="placeholder-copy">
+              A lista mostra os mais recentes. Para achar planilhas antigas — e poder excluí-las —
+              troque para “Somente planilhas”.
+            </span>
+          ) : null}
+        </div>
         {imports?.length ? (
           <div
             className="acp-table-wrap ponto-history-table"
@@ -536,7 +638,11 @@ export function PontoImportPanel() {
           </>
         ) : null}
 
-        {detailTab === 'missing-projects' && integrationConfigured && isManager && pending ? (
+        {detailTab === 'unallocated' && isManager ? (
+          <UnallocatedDaysPanel projects={projects ?? []} enabled={isManager} />
+        ) : null}
+
+        {detailTab === 'missing-projects' && isManager && pending ? (
           <section className="det-section ponto-employee-section" aria-labelledby="ponto-missing-projects-title">
             <div id="ponto-missing-projects-title" className="sec ponto-subtitle">
               Projetos não encontrados ({missingProjectsCount})
@@ -577,19 +683,47 @@ export function PontoImportPanel() {
                         ))}
                       </select>
                     </div>
-                    <Button
-                      variant="mini"
-                      disabled={!projectTagLinks[item.normalizedTag] || projectTagLinkMutation.isPending}
-                      onClick={() => projectTagLinkMutation.mutate({
-                        rawTag: item.rawTag,
-                        projectId: projectTagLinks[item.normalizedTag]
-                      })}
-                    >
-                      Vincular
-                    </Button>
+                    <div className="ponto-pending-actions">
+                      <Button
+                        variant="mini"
+                        disabled={!projectTagLinks[item.normalizedTag] || projectTagLinkMutation.isPending}
+                        onClick={() => projectTagLinkMutation.mutate({
+                          rawTag: item.rawTag,
+                          projectId: projectTagLinks[item.normalizedTag]
+                        })}
+                      >
+                        Vincular
+                      </Button>
+                      <Button
+                        variant="mini"
+                        disabled={projectTagIgnoreMutation.isPending}
+                        onClick={() => projectTagIgnoreMutation.mutate({ rawTag: item.rawTag, ignored: true })}
+                      >
+                        Ignorar
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
+
+              {ignoredProjectTags?.length ? (
+                <div className="ponto-ignored-tags">
+                  <strong>Etiquetas ignoradas ({ignoredProjectTags.length})</strong>
+                  <span>Não entram nas pendências nem na contagem. Reative se a missão for cadastrada.</span>
+                  {ignoredProjectTags.map(item => (
+                    <div key={item.normalizedTag} className="ponto-ignored-tag-row">
+                      <span>{item.rawTag}</span>
+                      <Button
+                        variant="mini"
+                        disabled={projectTagIgnoreMutation.isPending}
+                        onClick={() => projectTagIgnoreMutation.mutate({ rawTag: item.rawTag, ignored: false })}
+                      >
+                        Reativar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
               {pending.missingProjects.ambiguousDays.map(item => {
                 const pendingKey = `${item.externalEmployeeId}:${item.date}`;
@@ -612,7 +746,7 @@ export function PontoImportPanel() {
           </section>
         ) : null}
 
-        {detailTab === 'employees' && integrationConfigured && isManager ? (
+        {detailTab === 'employees' && isManager ? (
           <section className="det-section ponto-employee-section" aria-labelledby="ponto-employees-title">
             <div id="ponto-employees-title" className="sec ponto-subtitle">
               Colaboradores encontrados ({externalEmployees?.length ?? 0})

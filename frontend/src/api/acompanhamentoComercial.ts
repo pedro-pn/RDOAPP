@@ -58,6 +58,7 @@ export interface ProjectRevisions {
   mobilizationLeadDays?: number | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  demobilizationDate?: string | null;
   manualProgressPct?: string | number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
@@ -81,6 +82,7 @@ export interface ProjectSchedulePayload {
   approvedAt?: string | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  demobilizationDate?: string | null;
   manualProgressPct?: number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;

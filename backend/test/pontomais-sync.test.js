@@ -1048,3 +1048,102 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
   assert.equal(corrected.missingProjects.projectTags.length, 1);
   assert.deepEqual(corrected.missingProjects.ambiguousDays, []);
 });
+
+test('janela do cronograma resolve pendência de viagem e ela some da lista do gestor', () => {
+  const ambiguousDay = {
+    externalEmployeeId: '101',
+    date: '2026-07-15',
+    projectCodes: ['5804', '5820'],
+    tagProjectCodes: [],
+    rdoProjectCodes: [],
+    reason: 'MOBILIZATION_RDO_AMBIGUOUS',
+    travelContext: true
+  };
+  const periodLinks = [{ externalEmployeeId: '101', collaboratorId: 'collaborator-1' }];
+
+  // Sem desmobilização preenchida a obra está em andamento: a regra segue conservadora e o dia
+  // continua pendente para alguém resolver à mão.
+  const emAndamento = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{
+      id: 'project-5804',
+      code: '5804',
+      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+      demobilizationDate: null,
+      laborCollaboratorIds: ['collaborator-1']
+    }],
+    rdoReports: []
+  });
+  assert.deepEqual(emAndamento, [ambiguousDay]);
+
+  // Com a desmobilização preenchida a janela fecha e o dia é alocado automaticamente.
+  const comJanela = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{
+      id: 'project-5804',
+      code: '5804',
+      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+      demobilizationDate: new Date('2026-08-31T00:00:00.000Z'),
+      laborCollaboratorIds: ['collaborator-1']
+    }],
+    rdoReports: []
+  });
+  assert.deepEqual(comJanela, []);
+
+  // Colaborador fora da equipe cadastrada não é varrido pela janela.
+  const foraDaEquipe = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{
+      id: 'project-5804',
+      code: '5804',
+      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+      demobilizationDate: new Date('2026-08-31T00:00:00.000Z'),
+      laborCollaboratorIds: []
+    }],
+    rdoReports: []
+  });
+  assert.deepEqual(foraDaEquipe, [ambiguousDay]);
+});
+
+test('ignorar etiqueta guarda a forma normalizada e recusa etiqueta já vinculada', async () => {
+  const ignored = new Map();
+  const aliases = new Map([['missao 5745', { normalizedTag: 'missao 5745', projectId: 'project-1' }]]);
+  const db = {
+    pontoIgnoredProjectTag: {
+      upsert: async ({ where, create }) => { ignored.set(where.normalizedTag, create); },
+      deleteMany: async ({ where }) => { ignored.delete(where.normalizedTag); },
+      findMany: async () => [...ignored.values()]
+    },
+    pontoProjectTagAlias: {
+      findUnique: async ({ where }) => aliases.get(where.normalizedTag) || null
+    }
+  };
+  const service = createPontoMaisSyncService({ db, configured: () => true });
+
+  // Acento e caixa não criam entradas diferentes.
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: '  Missão 9999  ' }),
+    { normalizedTag: 'missao 9999', ignored: true }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), [{ normalizedTag: 'missao 9999', rawTag: 'Missão 9999' }]);
+
+  // Etiqueta já vinculada a projeto não pode virar ignorada: são decisões excludentes.
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: 'MISSAO 5745' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: '   ' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: 'Missão 9999', ignored: false }),
+    { normalizedTag: 'missao 9999', ignored: false }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), []);
+});
