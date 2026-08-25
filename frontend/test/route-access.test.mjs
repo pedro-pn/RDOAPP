@@ -428,6 +428,36 @@ test('acompanhamento tracking campaigns last 10 days and finalized missions stay
   }
 });
 
+test('acompanhamento standby history novelty is local once-per-user and expires globally', async () => {
+  const stored = new Map();
+  const originalNow = Date.now;
+  globalThis.window = {
+    localStorage: {
+      getItem: key => stored.get(key) || null,
+      setItem: (key, value) => stored.set(key, value)
+    }
+  };
+
+  try {
+    Date.now = () => new Date('2026-08-25T12:00:00-03:00').getTime();
+    const {
+      markAcompanhamentoStandbyHistoryNoveltySeen,
+      shouldShowAcompanhamentoStandbyHistoryNovelty
+    } = await loadModuleNavigation();
+
+    assert.equal(shouldShowAcompanhamentoStandbyHistoryNovelty({ id: 'viewer-1' }), true);
+    markAcompanhamentoStandbyHistoryNoveltySeen({ id: 'viewer-1' });
+    assert.equal(shouldShowAcompanhamentoStandbyHistoryNovelty({ id: 'viewer-1' }), false);
+    assert.equal(shouldShowAcompanhamentoStandbyHistoryNovelty({ id: 'viewer-2' }), true);
+
+    Date.now = () => new Date('2026-09-05T00:00:00-03:00').getTime();
+    assert.equal(shouldShowAcompanhamentoStandbyHistoryNovelty({ id: 'viewer-3' }), false);
+  } finally {
+    Date.now = originalNow;
+    delete globalThis.window;
+  }
+});
+
 test('acompanhamento progress history novelty is local once-per-user and expires globally', async () => {
   const stored = new Map();
   const originalNow = Date.now;

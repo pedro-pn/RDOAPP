@@ -30,6 +30,7 @@ import { getPlannedScope, setPlannedScope } from '../../lib/acompanhamento/plann
 import { computeProjectProgress } from '../../lib/acompanhamento/avanco.js';
 import { buildOmieCostCategoryWhere } from '../../lib/acompanhamento/cost-categories.js';
 import { listProjectCards } from '../../lib/acompanhamento/project-cards.js';
+import { getProjectStandbyHistory } from '../../lib/acompanhamento/standby-history.js';
 import { groupProjectCards } from '../../lib/acompanhamento/project-card-groups.js';
 import { groupDashboardRows } from '../../lib/acompanhamento/dashboard-groups.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
@@ -117,6 +118,10 @@ const projectTrackingStateSchema = z.object({
   reviewed: z.boolean().optional()
 }).refine(value => Number(value.archived !== undefined) + Number(value.reviewed !== undefined) === 1, {
   message: 'Informe apenas archived ou reviewed.'
+});
+
+const projectIdParamSchema = z.object({
+  projectId: z.string().trim().min(1).max(200)
 });
 
 function missionGroupErrorResponse(error, res) {
@@ -217,6 +222,18 @@ router.get(
       loadActiveMissionGroups()
     ]);
     res.json(groupProjectCards(cards, groups));
+  })
+);
+
+router.get(
+  '/projetos/:projectId/standby-historico',
+  requireAuth,
+  requireAcompanhamentoAccess,
+  asyncHandler(async (req, res) => {
+    const { projectId } = projectIdParamSchema.parse(req.params);
+    const history = await getProjectStandbyHistory(projectId);
+    if (!history) return res.status(404).json({ error: 'Projeto não encontrado.' });
+    return res.json(history);
   })
 );
 
