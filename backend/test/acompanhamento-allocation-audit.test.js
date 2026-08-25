@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AllocationAuditError,
   buildAllocationAudit,
-  groupUnallocatedDays
+  groupUnallocatedDays,
+  validateUnallocatedSelection
 } from '../src/lib/acompanhamento/allocation-audit.js';
 
 const PROJECTS = new Map([
@@ -245,4 +247,39 @@ test('conflito é subconjunto dos dias sem alocação, nunca uma fila paralela',
   assert.equal(result.counts.actionableDays, 3);
   assert.equal(result.counts.conflictDays, 2);
   assert.ok(result.counts.conflictDays < result.counts.actionableDays);
+});
+
+// === Validação da resolução manual de dias sem alocação ===
+
+const SELECTION_CONTEXT = {
+  unallocatedKeys: new Set(['c-1:2026-08-17']),
+  knownProjectIds: new Set(['p-5804', 'p-5820'])
+};
+
+test('seleção válida normaliza os projetos, removendo espaços, vazios e repetidos', () => {
+  assert.deepEqual(
+    validateUnallocatedSelection(
+      { collaboratorId: 'c-1', date: '2026-08-17', projectIds: [' p-5804 ', 'p-5804', '', 'p-5820'] },
+      SELECTION_CONTEXT
+    ),
+    ['p-5804', 'p-5820']
+  );
+});
+
+test('resolução recusa seleção vazia, projeto inexistente e dia que já não está pendente', () => {
+  const cases = [
+    [{ collaboratorId: 'c-1', date: '2026-08-17', projectIds: [] }, 'INVALID_PROJECT_SELECTION'],
+    [{ collaboratorId: 'c-1', date: '2026-08-17', projectIds: ['  '] }, 'INVALID_PROJECT_SELECTION'],
+    [{ collaboratorId: 'c-1', date: '2026-08-17', projectIds: ['p-inexistente'] }, 'PROJECT_NOT_FOUND'],
+    // A trava que impede esta porta de sobrescrever em silêncio um dia já resolvido.
+    [{ collaboratorId: 'c-1', date: '2026-08-18', projectIds: ['p-5804'] }, 'DAY_NOT_UNALLOCATED'],
+    [{ collaboratorId: 'c-outro', date: '2026-08-17', projectIds: ['p-5804'] }, 'DAY_NOT_UNALLOCATED']
+  ];
+  for (const [item, code] of cases) {
+    assert.throws(
+      () => validateUnallocatedSelection(item, SELECTION_CONTEXT),
+      error => error instanceof AllocationAuditError && error.code === code,
+      `esperava ${code} para ${JSON.stringify(item)}`
+    );
+  }
 });

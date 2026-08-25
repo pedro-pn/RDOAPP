@@ -3,13 +3,16 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
 import {
+  allocationAuditQuerySchema,
   createPontoMaisIntegrationRouter,
   defaultPontoMaisIntegration,
   currentUnmatchedPontoNames,
   dayProjectOverrideSchema,
   externalEmployeeIgnoreSchema,
   externalEmployeeLinkSchema,
+  projectTagIgnoreSchema,
   projectTagLinkSchema,
+  resolveUnallocatedSchema,
   syncRunsQuerySchema,
   mapPontoSyncHttpError,
   syncPeriodSchema
@@ -299,4 +302,47 @@ test('a fiação padrão do router cobre toda função de integração que as ro
       `rota chama integration.${name}() mas a fiação padrão não tem essa função`
     );
   }
+});
+
+// === Schemas das rotas de auditoria e de ignorar etiqueta ===
+
+test('ignorar etiqueta aceita texto livre e assume ignorado quando o campo não vem', () => {
+  assert.deepEqual(projectTagIgnoreSchema.parse({ rawTag: '  Missão 9999  ' }), {
+    rawTag: 'Missão 9999',
+    ignored: true
+  });
+  assert.deepEqual(projectTagIgnoreSchema.parse({ rawTag: 'Missão 9999', ignored: false }), {
+    rawTag: 'Missão 9999',
+    ignored: false
+  });
+  assert.throws(() => projectTagIgnoreSchema.parse({ rawTag: '   ' }));
+  assert.throws(() => projectTagIgnoreSchema.parse({}));
+});
+
+test('filtro da auditoria recusa data malformada e só aceita o marcador textual do checkbox', () => {
+  assert.deepEqual(allocationAuditQuerySchema.parse({ collaboratorId: 'c-1', de: '2026-06-01' }), {
+    collaboratorId: 'c-1',
+    de: '2026-06-01'
+  });
+  assert.deepEqual(
+    allocationAuditQuerySchema.parse({ projectId: 'p-1', somenteNaoAlocados: 'true' }).somenteNaoAlocados,
+    'true'
+  );
+  assert.throws(() => allocationAuditQuerySchema.parse({ de: '01/06/2026' }));
+  assert.throws(() => allocationAuditQuerySchema.parse({ ate: '2026-6-1' }));
+  assert.throws(() => allocationAuditQuerySchema.parse({ somenteNaoAlocados: 'sim' }));
+  // Sem filtro nenhum é válido: a rota devolve todo mundo dentro do corte.
+  assert.deepEqual(allocationAuditQuerySchema.parse({}), {});
+});
+
+test('resolução em lote exige ao menos um dia e respeita o teto de 200 por requisição', () => {
+  const item = { collaboratorId: 'c-1', date: '2026-08-17', projectIds: ['p-1'] };
+  assert.equal(resolveUnallocatedSchema.parse({ items: [item] }).items.length, 1);
+  assert.equal(resolveUnallocatedSchema.parse({ items: Array(200).fill(item) }).items.length, 200);
+
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [] }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: Array(201).fill(item) }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [{ ...item, projectIds: [] }] }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [{ ...item, date: '17/08/2026' }] }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [{ ...item, collaboratorId: '' }] }));
 });

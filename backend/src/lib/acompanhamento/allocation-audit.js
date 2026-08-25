@@ -297,6 +297,30 @@ function dateFromKey(dateKey) {
  * Dia sem evidência nenhuma não tem candidato — é justamente a definição dele —, então aqui a
  * escolha do gestor é livre, e a trava é outra: o dia precisa estar hoje sem alocação.
  */
+/*
+ * Valida um item da resolução e devolve os projetos normalizados.
+ *
+ * A trava aqui é diferente da do override da integração: como o dia sem evidência não tem projeto
+ * candidato, a escolha do gestor é livre — o que se exige é que o dia esteja hoje sem alocação, para
+ * que esta porta não vire um jeito de sobrescrever silenciosamente um dia já resolvido.
+ */
+export function validateUnallocatedSelection(item, { unallocatedKeys, knownProjectIds } = {}) {
+  const projectIds = [...new Set((item?.projectIds || []).map(value => String(value || '').trim()).filter(Boolean))];
+  if (projectIds.length === 0) {
+    throw new AllocationAuditError('INVALID_PROJECT_SELECTION', 'Selecione ao menos um projeto.');
+  }
+  if (projectIds.some(projectId => !knownProjectIds.has(projectId))) {
+    throw new AllocationAuditError('PROJECT_NOT_FOUND', 'Projeto não encontrado.');
+  }
+  if (!unallocatedKeys.has(`${item.collaboratorId}:${item.date}`)) {
+    throw new AllocationAuditError(
+      'DAY_NOT_UNALLOCATED',
+      `O dia ${item.date} não está pendente de alocação. Recarregue a lista.`
+    );
+  }
+  return projectIds;
+}
+
 export async function resolveUnallocatedDays({ items = [], createdByUserId = null } = {}) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new AllocationAuditError('EMPTY_SELECTION', 'Nenhum dia selecionado.');
@@ -316,19 +340,7 @@ export async function resolveUnallocatedDays({ items = [], createdByUserId = nul
 
   const results = [];
   for (const item of items) {
-    const projectIds = [...new Set((item.projectIds || []).map(value => String(value || '').trim()).filter(Boolean))];
-    if (projectIds.length === 0) {
-      throw new AllocationAuditError('INVALID_PROJECT_SELECTION', 'Selecione ao menos um projeto.');
-    }
-    if (projectIds.some(projectId => !knownProjectIds.has(projectId))) {
-      throw new AllocationAuditError('PROJECT_NOT_FOUND', 'Projeto não encontrado.');
-    }
-    if (!unallocatedKeys.has(`${item.collaboratorId}:${item.date}`)) {
-      throw new AllocationAuditError(
-        'DAY_NOT_UNALLOCATED',
-        `O dia ${item.date} não está pendente de alocação. Recarregue a lista.`
-      );
-    }
+    const projectIds = validateUnallocatedSelection(item, { unallocatedKeys, knownProjectIds });
 
     const period = await prisma.pontoPeriodSummary.findFirst({
       where: {

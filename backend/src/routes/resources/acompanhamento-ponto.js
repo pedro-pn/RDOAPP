@@ -570,7 +570,7 @@ router.post(
 
 const dateKeySchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.');
 
-const allocationAuditQuerySchema = z.object({
+export const allocationAuditQuerySchema = z.object({
   collaboratorId: z.string().trim().min(1).optional(),
   projectId: z.string().trim().min(1).optional(),
   de: dateKeySchema.optional(),
@@ -578,12 +578,12 @@ const allocationAuditQuerySchema = z.object({
   somenteNaoAlocados: z.enum(['true', 'false']).optional()
 });
 
-const unallocatedQuerySchema = z.object({
+export const unallocatedQuerySchema = z.object({
   de: dateKeySchema.optional(),
   ate: dateKeySchema.optional()
 });
 
-const resolveUnallocatedSchema = z.object({
+export const resolveUnallocatedSchema = z.object({
   items: z.array(z.object({
     collaboratorId: z.string().trim().min(1),
     date: dateKeySchema,

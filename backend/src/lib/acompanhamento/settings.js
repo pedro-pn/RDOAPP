@@ -39,9 +39,16 @@ async function setNumberSetting(key, value, updatedByUserId = null) {
   return value;
 }
 
-function cutoffNumberToDateKey(value) {
+export function cutoffNumberToDateKey(value) {
   const text = String(Math.trunc(Number(value) || 0)).padStart(8, '0');
   return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+}
+
+// Converte 'AAAA-MM-DD' no número AAAAMMDD; lança para data malformada.
+export function cutoffDateKeyToNumber(dateKey) {
+  const match = String(dateKey || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error('Data de corte inválida.');
+  return Number(`${match[1]}${match[2]}${match[3]}`);
 }
 
 // Devolve o corte como 'AAAA-MM-DD' — as datas da trilha são comparadas como texto.
@@ -52,9 +59,7 @@ export async function getPontoPendencyCutoffDateKey() {
 }
 
 export async function setPontoPendencyCutoffDateKey(dateKey, updatedByUserId = null) {
-  const match = String(dateKey || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) throw new Error('Data de corte inválida.');
-  return setNumberSetting(PONTO_PENDENCY_CUTOFF_KEY, Number(`${match[1]}${match[2]}${match[3]}`), updatedByUserId);
+  return setNumberSetting(PONTO_PENDENCY_CUTOFF_KEY, cutoffDateKeyToNumber(dateKey), updatedByUserId);
 }
 
 export async function getEpiAnnualCost() {

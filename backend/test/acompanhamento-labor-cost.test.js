@@ -1197,3 +1197,19 @@ test('dia já resolvido à mão não volta a ser pendência quando o snapshot é
   assert.deepEqual(resolvido.dayTrail[0].allocations, [{ projectId: 'B', weight: 1 }]);
   assert.ok(near(resolvido.byProject.get('B').normalHours, 8.8));
 });
+
+test('equipe do cronograma tolera lixo no JSON sem derrubar a janela', () => {
+  // laborCollaboratorIds é Json livre: já chegou a guardar entradas vazias e não-string.
+  const janelas = buildScheduleWindows([{
+    ...JANELA_5804,
+    operatorId: 'c-operador',
+    laborCollaboratorIds: ['  c-1  ', '', null, 42, 'c-1', 'c-2']
+  }]);
+
+  assert.deepEqual([...janelas[0].manualCollaboratorIds].sort(), ['42', 'c-1', 'c-2', 'c-operador']);
+
+  const semLista = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: null }]);
+  assert.deepEqual([...semLista[0].manualCollaboratorIds], []);
+  const naoArray = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: { a: 1 } }]);
+  assert.deepEqual([...naoArray[0].manualCollaboratorIds], []);
+});
