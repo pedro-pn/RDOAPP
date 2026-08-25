@@ -50,7 +50,9 @@ import {
   IconButton,
   Input,
   SearchInput,
-  Skeleton
+  Skeleton,
+  StatusPill,
+  type SemanticTone
 } from '../../components/ui/ds';
 import { DS_ICONS } from '../../components/ui/ds/icons';
 import { Modal } from '../../components/ui/Modal';
@@ -120,12 +122,22 @@ import { commercialPendenciaAlertText, commercialPendenciaMapByProject, pendingC
 import { PendingProjectReviewForm } from './PendingProjectReviewForm';
 import { ProjectIntakeWebhookNovelty } from './ProjectIntakeWebhookNovelty';
 import { hubModulesForUser } from '../hubModules';
+import '../../styles/rdo-ds-actions.css';
 import './GestorPage.ds.css';
 import { ProjectTabPendingBadges } from './ProjectTabPendingBadges';
 import {
   automaticProjectReviewMessage, formatProjectSequences, partitionProjectsByRegistration, pendingProjectRegistrationMessage,
   projectRegistrationPending, projectSearchParts, projectTitle, projectVisibilityLabel
 } from './projectPendingReview';
+
+// Traduz a classe de status legada devolvida por `surveyStatusLabel` para o tom
+// semântico do StatusPill. O mapeamento é 1:1 com o legacy — nada de novo é
+// classificado aqui, e `gestorSurveyHelpers` permanece intocado.
+function npsStatusTone(className: string): SemanticTone {
+  if (className === 'status-approved') return 'success';
+  if (className === 'status-returned') return 'danger';
+  return 'warning';
+}
 
 type GestorTab =
   | 'pendentes'
@@ -4432,110 +4444,137 @@ export function GestorPage() {
           : titleB.localeCompare(titleA, 'pt-BR', { numeric: true, sensitivity: 'base' });
       });
 
-    if (surveysQuery.isLoading) {
-      return <div className="page-card placeholder-copy">Carregando pesquisas...</div>;
-    }
-
     return (
-      <>
-      {npsDashboardOpen && <SurveyDashboardOverlay onClose={() => setNpsDashboardOpen(false)} />}
-      <div className="nps-tab-toolbar">
-        <div className="nps-tab-toolbar-left">
-          <button className="mini-btn alt" type="button" onClick={openSurveyQuestionEditor}>
-            Editar pesquisa
-          </button>
-        </div>
-        <div className="nps-tab-toolbar-right">
-          <button className="mini-btn" type="button" onClick={() => setNpsDashboardOpen(true)}>
-            Dashboard NPS
-          </button>
-        </div>
-      </div>
-      <section className="nps-tab-content">
-        <div className="nps-tab-heading">
-          <div>
-            <div className="section-title">NPS</div>
-            <div className="admin-card-subtitle">Pesquisas pendentes, respondidas e expiradas.</div>
+      <section className="fv-ds rdo-nps rdo-ds-actions" aria-labelledby="rdo-nps-title">
+        {npsDashboardOpen && <SurveyDashboardOverlay onClose={() => setNpsDashboardOpen(false)} />}
+        <Card
+          className="rdo-nps__card"
+          padding="md"
+          title={<h2 id="rdo-nps-title">NPS</h2>}
+          actions={
+            <div className="rdo-nps__toolbar">
+              <Button size="sm" variant="secondary" onClick={openSurveyQuestionEditor}>
+                Editar pesquisa
+              </Button>
+              <Button size="sm" variant="primary" onClick={() => setNpsDashboardOpen(true)}>
+                Dashboard NPS
+              </Button>
+            </div>
+          }
+        >
+          <div className="rdo-nps__heading">
+            <p className="rdo-nps__description">
+              Pesquisas pendentes, respondidas e expiradas.
+            </p>
+            <ProjectSortButton
+              direction={npsSortDir}
+              onToggle={() => setNpsSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
+            />
           </div>
-          <ProjectSortButton
-            direction={npsSortDir}
-            onToggle={() => setNpsSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
-          />
-        </div>
-        {surveyGroups.length ? (
-          <div className="admin-stack">
-            {surveyGroups.map(group => {
-              return (
-                <article className="card admin-card" key={group.key}>
-                  <div className="admin-card-title">{group.title}</div>
-                  <div className="admin-card-meta">
-                    <span>{group.clientName}</span>
-                    <span>{group.surveys.length} pesquisa{group.surveys.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="admin-stack" style={{ marginTop: 12 }}>
-                    {group.surveys.map((survey, index) => {
-                      const status = surveyStatusLabel(survey);
-                      const open = openSurveyId === survey.id;
-                      const canResendSurvey = !survey.respondedAt && survey.project?.isActive === false;
-                      return (
-                        <div className="report-type-group" key={survey.id}>
-                          <button
-                            className="client-account-group-toggle"
-                            type="button"
-                            onClick={() => setOpenSurveyId(current => current === survey.id ? null : survey.id)}
-                          >
-                            <span className="rtype-chevron">{open ? '▾' : '▸'}</span>
-                            <span>Pesquisa #{group.surveys.length - index}</span>
-                          </button>
-                          <div className="admin-card-meta">
-                            <span>Enviada: {formatDate(survey.sentAt)}</span>
-                            <span>Respondida: {survey.respondedAt ? formatDate(survey.respondedAt) : '-'}</span>
-                            <span>Expira: {formatDate(survey.expiresAt)}</span>
-                            <span className={`status-pill ${status.className}`}>{status.label}</span>
-                            {canResendSurvey ? (
-                              <button
-                                className="mini-btn alt"
-                                type="button"
-                                disabled={surveyMutations.resendSurvey.isPending}
-                                onClick={() => void handleResendSurvey(survey)}
-                              >
-                                Reenviar pesquisa
-                              </button>
-                            ) : null}
+
+          {surveysQuery.isLoading ? (
+            <Skeleton
+              className="rdo-nps__loading"
+              variant="table-rows"
+              lines={6}
+              label="Carregando pesquisas..."
+            />
+          ) : surveyGroups.length ? (
+            <div className="rdo-nps__groups">
+              {surveyGroups.map(group => {
+                return (
+                  <Card
+                    key={group.key}
+                    className="rdo-nps__group"
+                    data-nps-group={group.key}
+                    variant="flat"
+                    padding="md"
+                  >
+                    <h3 className="rdo-nps__group-title">{group.title}</h3>
+                    <p className="rdo-nps__group-meta">
+                      <span>{group.clientName}</span>
+                      <span>{group.surveys.length} pesquisa{group.surveys.length !== 1 ? 's' : ''}</span>
+                    </p>
+                    <div className="rdo-nps__surveys">
+                      {group.surveys.map((survey, index) => {
+                        const status = surveyStatusLabel(survey);
+                        const open = openSurveyId === survey.id;
+                        const canResendSurvey = !survey.respondedAt && survey.project?.isActive === false;
+                        const surveyLabel = `Pesquisa #${group.surveys.length - index}`;
+                        const panelId = `rdo-nps-panel-${survey.id}`;
+                        return (
+                          <div className="rdo-nps__survey" data-nps-survey={survey.id} key={survey.id}>
+                            <button
+                              className="rdo-nps__toggle"
+                              type="button"
+                              aria-expanded={open}
+                              aria-controls={panelId}
+                              aria-label={`${surveyLabel} — ${group.title}`}
+                              onClick={() => setOpenSurveyId(current => current === survey.id ? null : survey.id)}
+                            >
+                              <AppIcon
+                                className="rdo-nps__chevron"
+                                icon={open ? DS_ICONS.chevronDown : DS_ICONS.next}
+                                size="sm"
+                              />
+                              <span>{surveyLabel}</span>
+                            </button>
+                            <div className="rdo-nps__survey-meta">
+                              <span>Enviada: {formatDate(survey.sentAt)}</span>
+                              <span>Respondida: {survey.respondedAt ? formatDate(survey.respondedAt) : '-'}</span>
+                              <span>Expira: {formatDate(survey.expiresAt)}</span>
+                              <StatusPill
+                                status={status.label}
+                                label={status.label}
+                                tone={npsStatusTone(status.className)}
+                              />
+                              {canResendSurvey ? (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  disabled={surveyMutations.resendSurvey.isPending}
+                                  loading={surveyMutations.resendSurvey.isPending}
+                                  onClick={() => void handleResendSurvey(survey)}
+                                >
+                                  Reenviar pesquisa
+                                </Button>
+                              ) : null}
+                            </div>
+                            <div id={panelId} hidden={!open}>
+                              {open ? (
+                                survey.respondedAt ? (
+                                  <dl className="rdo-nps__responses">
+                                    {npsResponseRows(survey.responses, survey.questions || []).map(([question, answer]) => (
+                                      <div className="rdo-nps__response" key={question}>
+                                        <dt>{question}</dt>
+                                        <dd>{answer}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                ) : (
+                                  <p className="rdo-nps__empty-response">
+                                    {surveyIsExpired(survey)
+                                      ? 'Pesquisa expirada sem resposta do cliente.'
+                                      : 'Pesquisa enviada, aguardando resposta do cliente.'}
+                                  </p>
+                                )
+                              ) : null}
+                            </div>
                           </div>
-                          {open ? (
-                            survey.respondedAt ? (
-                              <div className="det-section" style={{ marginTop: 12 }}>
-                                {npsResponseRows(survey.responses, survey.questions || []).map(([question, answer]) => (
-                                  <div className="det-row" key={question}>
-                                    <span className="det-label">{question}</span>
-                                    <span className="det-val">{answer}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="placeholder-copy" style={{ marginTop: 12 }}>
-                                {surveyIsExpired(survey)
-                                  ? 'Pesquisa expirada sem resposta do cliente.'
-                                  : 'Pesquisa enviada, aguardando resposta do cliente.'}
-                              </p>
-                            )
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="placeholder-copy">
-            {gestorSearch.trim() ? 'Nenhuma pesquisa encontrada.' : 'Nenhuma pesquisa NPS disponível.'}
-          </p>
-        )}
+                        );
+                      })}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              title={gestorSearch.trim() ? 'Nenhuma pesquisa encontrada.' : 'Nenhuma pesquisa NPS disponível.'}
+            />
+          )}
+        </Card>
       </section>
-      </>
     );
   }
 
