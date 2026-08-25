@@ -265,7 +265,6 @@ export async function listPendingMissionProjects(filters = {}, dependencies = {}
       startDate: true,
       registrationPending: true
     },
-    orderBy: [{ mobilizationDate: 'asc' }, { code: 'asc' }],
-    take: 200
+    orderBy: [{ mobilizationDate: 'asc' }, { code: 'asc' }]
   });
 }

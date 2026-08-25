@@ -4,6 +4,7 @@ import { driver } from 'driver.js';
 import type { DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
 
+import { releaseEfetivoGuide, reserveEfetivoGuide } from '../../utils/efetivoGuideCoordinator';
 import type { EfetivoPlanningSection } from '../../utils/planningNavigation';
 
 const STORAGE_KEY_PREFIX = 'filtrovali:efetivo-tutorial-done:v2:';
@@ -18,7 +19,7 @@ export function EfetivoTutorial({ userKey, ready, goToSection, triggerRef }: {
   triggerRef: MutableRefObject<(() => void) | null>;
 }) {
   const startTutorial = useCallback(() => {
-    if (!userKey || document.body.classList.contains('driver-active')) return;
+    if (!userKey || !reserveEfetivoGuide()) return;
     markDone(userKey);
     goToSection('visao-geral');
     window.setTimeout(() => {
@@ -32,7 +33,12 @@ export function EfetivoTutorial({ userKey, ready, goToSection, triggerRef }: {
         { element: '[data-efetivo-kanban]', popover: { title: 'Evolução acessível', description: 'Cada etapa tem sua cor. Arraste o card por qualquer área — no celular, segure para pegar — ou use o seletor de etapa; cancelar restaura a ordem anterior.', side: 'top', align: 'start', onNextClick: navigateNext('simulacoes') } },
         { element: '[data-efetivo-scenarios]', popover: { title: 'Simule antes de aplicar', description: 'Compare capacidade e déficit; o oficial só muda após validação transacional.', side: 'top', align: 'start' } }
       ];
-      driver({ showProgress: true, progressText: '{{current}} de {{total}}', nextBtnText: 'Próximo →', prevBtnText: '← Anterior', doneBtnText: 'Concluir', allowClose: true, animate: true, smoothScroll: true, overlayOpacity: 0.6, steps }).drive();
+      try {
+        driver({ showProgress: true, progressText: '{{current}} de {{total}}', nextBtnText: 'Próximo →', prevBtnText: '← Anterior', doneBtnText: 'Concluir', allowClose: true, animate: true, smoothScroll: true, overlayOpacity: 0.6, onDestroyed: () => releaseEfetivoGuide(), steps }).drive();
+      } catch (error) {
+        releaseEfetivoGuide();
+        throw error;
+      }
     }, 350);
   }, [goToSection, userKey]);
   useEffect(() => { triggerRef.current = startTutorial; return () => { if (triggerRef.current === startTutorial) triggerRef.current = null; }; }, [startTutorial, triggerRef]);

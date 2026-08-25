@@ -429,3 +429,16 @@ US6:
 - Rotas compartilham um arquivo e devem ser integradas serialmente.
 - Nenhuma tarefa autoriza deploy, restart, Docker ou migração em produção.
 - Alterações em `package-lock.json` só entram se uma dependência for deliberadamente adicionada; esta feature não prevê nova dependência.
+
+## Phase 15: Convergence
+
+**Purpose**: Fechar lacunas encontradas na verificação cruzada entre especificação, plano, tarefas, implementação e evidências de validação.
+
+- [X] T146 [US2] Ajustar `backend/src/lib/efetivo/planning/mission-planning.js` para restaurar ou reutilizar com segurança a programação excluída do mesmo projeto, preservando histórico/auditoria e a restrição de unicidade, e adicionar regressão do fluxo excluir → pendente → reprogramar conforme FR-049.
+- [X] T147 [US6] Invalidar e recarregar a comparação e os metadados do cenário em `frontend/src/pages/efetivo/components/MissionsBoard.tsx` e `frontend/src/pages/efetivo/components/ScenariosBoard.tsx` após mutações de missão/alocação no plano de cenário, com teste de cache/integração para FR-028 e US6/AC2.
+- [ ] T148 [P] Executar `backend/test/efetivo-allocation-concurrency.test.js` contra PostgreSQL explicitamente descartável e migrado, registrar a evidência de concorrência real e confirmar SC-004/T033 sem acessar banco de produção.
+- [X] T149 [P] Coordenar a abertura do onboarding em `frontend/src/pages/efetivo/EfetivoTutorial.tsx` e `frontend/src/pages/efetivo/EfetivoPlanningNovelty.tsx` para impedir drivers simultâneos no primeiro acesso, com teste de componente ou navegador conforme o Princípio VI.
+- [X] T150 [P] Remover o limite silencioso de 200 projetos pendentes em `backend/src/lib/efetivo/planning/read-model.js`, adotando paginação completa ou agregação equivalente para a lista e o contador de navegação, com teste cobrindo mais de 200 projetos conforme FR-046.
+- [X] T151 Tornar a resolução normalizada de função em `backend/src/lib/efetivo/planning/capacity.js` consciente de ambiguidades, mantendo colaboradores sem `jobRoleId` canônico como pendentes, e adicionar regressão de totais/listagem conforme o modelo de dados e SC-002.
+- [X] T152 [P] Tornar `headquartersResponsibleUserId` obrigatório em `MissionInput` de `frontend/src/api/efetivoPlanning.ts` e adicionar verificação de compatibilidade entre tipo TypeScript, OpenAPI e schema Zod conforme FR-016.
+- [X] T153 [P] Corrigir os comandos de lint/build e atualizar as contagens de testes/evidências em `specs/012-planejamento-efetivo/quickstart.md` para refletir a execução a partir da raiz ou de `frontend/`.

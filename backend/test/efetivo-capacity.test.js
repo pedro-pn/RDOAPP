@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { calculateDailyCapacity } from '../src/lib/efetivo/planning/capacity.js';
+import { calculateDailyCapacity, calculateUtilization90Days } from '../src/lib/efetivo/planning/capacity.js';
 import { businessDatesInclusive, holidayDateSet, isBusinessDay } from '../src/lib/efetivo/planning/business-days.js';
 
 test('dia útil exclui fim de semana e feriado administrável', () => {
@@ -21,4 +21,33 @@ test('capacidade aplica precedência indisponível sobre alocado e não duplica 
   });
   assert.deepEqual(result.totals, { jobRoleId: 'all', jobRoleName: 'Total', active: 2, allocated: 1, unavailable: 1, free: 0, demand: 2, deficit: 1 });
   assert.equal(result.statuses.filter(item => item.collaborator.id === 'c1')[0].status, 'UNAVAILABLE');
+});
+
+test('função normalizada ambígua permanece pendente sem contaminar capacidade ou utilização', () => {
+  const input = {
+    date: '2026-08-21',
+    jobRoles: [
+      { id: 'r1', name: 'Operador', isActive: true, isOperational: true },
+      { id: 'r2', name: ' operador ', isActive: true, isOperational: true }
+    ],
+    collaborators: [{
+      id: 'c1',
+      name: 'Ana',
+      role: 'OPERADOR',
+      jobRoleId: null,
+      admissionDate: '2026-01-01',
+      isActive: true
+    }],
+    missions: [],
+    absences: [],
+    holidays: []
+  };
+
+  const daily = calculateDailyCapacity(input);
+  const utilization = calculateUtilization90Days(input);
+
+  assert.equal(daily.statuses.length, 0);
+  assert.equal(daily.totals.active, 0);
+  assert.equal(utilization.availablePersonDays, 0);
+  assert.deepEqual(utilization.byRole.map(item => item.availablePersonDays), [0, 0]);
 });

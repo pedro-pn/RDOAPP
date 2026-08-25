@@ -189,23 +189,55 @@ export async function createMission(payload, context = {}, dependencies = {}) {
     const responsible = await resolveMissionResponsible(tx, payload);
     await validateDemandRoles(tx, demands);
     const maxOrder = await tx.efetivoMissionPlan.aggregate({ where: { planId: plan.id, stage: payload.stage, deletedAt: null }, _max: { kanbanOrder: true } });
-    const mission = await tx.efetivoMissionPlan.create({
-      data: {
-        ...missionData(payload, context.actorUserId, demands, responsible),
-        planId: plan.id,
-        createdByUserId: context.actorUserId || null,
-        kanbanOrder: (maxOrder._max.kanbanOrder ?? -1) + 1
-      },
-      include: missionInclude
+    const existing = await tx.efetivoMissionPlan.findUnique({
+      where: { planId_projectId: { planId: plan.id, projectId: payload.projectId } }
     });
+    if (existing && !existing.deletedAt) {
+      throw conflictError('Este projeto já possui programação neste plano.', [], 'MISSION_PROJECT_ALREADY_PLANNED');
+    }
+    const kanbanOrder = (maxOrder._max.kanbanOrder ?? -1) + 1;
+    let mission;
+    if (existing) {
+      const removedAt = new Date();
+      await Promise.all([
+        tx.efetivoMissionDemand.deleteMany({ where: { missionId: existing.id } }),
+        tx.efetivoMissionAllocation.updateMany({
+          where: { missionId: existing.id, deletedAt: null },
+          data: { deletedAt: removedAt }
+        })
+      ]);
+      mission = await tx.efetivoMissionPlan.update({
+        where: { id: existing.id },
+        data: {
+          ...missionData(payload, context.actorUserId, demands, responsible),
+          deletedAt: null,
+          version: { increment: 1 },
+          kanbanOrder
+        },
+        include: missionInclude
+      });
+    } else {
+      mission = await tx.efetivoMissionPlan.create({
+        data: {
+          ...missionData(payload, context.actorUserId, demands, responsible),
+          planId: plan.id,
+          createdByUserId: context.actorUserId || null,
+          kanbanOrder
+        },
+        include: missionInclude
+      });
+    }
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id,
       actorUserId: context.actorUserId,
-      action: 'MISSION_CREATE',
+      action: existing ? 'MISSION_RESTORE' : 'MISSION_CREATE',
       entityType: 'MISSION',
       entityId: mission.id,
-      summary: `Programação criada para ${project.name}.`,
+      summary: existing
+        ? `Programação restaurada para ${project.name}.`
+        : `Programação criada para ${project.name}.`,
+      beforeData: existing,
       afterData: mission,
       evidence: context.evidence
     });

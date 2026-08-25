@@ -21,6 +21,7 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { SearchBar } from '../../../components/ui/SearchBar';
 import { useToast } from '../../../components/ui/ToastContext';
 import { displayDateOnly, todayDateOnly } from '../../../utils/calendarGrid';
+import { refreshMissionPlanningQueries } from '../../../utils/efetivoPlanningQueries';
 import { missionPendencies, PENDING_PROJECT_PENDENCIES } from '../../../utils/missionPendencies';
 import { MissionAllocationModal } from './MissionAllocationModal';
 import { MissionFormModal } from './MissionFormModal';
@@ -34,7 +35,7 @@ function matchesSearch(search: string, ...values: Array<string | null | undefine
   return values.filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'));
 }
 
-export function MissionsBoard({ canManage, planId, status, search, selectedMissionId, onSearchChange, onStatusChange, onMissionSelect }: {
+export function MissionsBoard({ canManage, planId, status, search, selectedMissionId, onSearchChange, onStatusChange, onMissionSelect, onPlanningMutated }: {
   canManage: boolean;
   planId?: string;
   status?: MissionScheduleStatus;
@@ -43,6 +44,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
   onSearchChange: (value: string) => void;
   onStatusChange: (value: MissionScheduleStatus | undefined) => void;
   onMissionSelect?: (missionId: string) => void;
+  onPlanningMutated?: () => void | Promise<void>;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -60,12 +62,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
     if (refreshed && refreshed !== allocating) setAllocating(refreshed);
   }, [allocating, missions.data]);
   const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-missions'] }),
-      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-missions-pending'] }),
-      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-overview'] }),
-      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-calendar'] })
-    ]);
+    await refreshMissionPlanningQueries(queryClient, onPlanningMutated);
   };
   const save = useMutation({
     mutationFn: (payload: MissionInput) => formTarget?.mission
@@ -187,7 +184,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
             </div>
           ) : <section className="page-card placeholder-copy">Nenhuma missão neste recorte.</section>}
       {canManage ? <MissionFormModal open={Boolean(formTarget)} mission={formTarget?.mission || null} project={formTarget?.project || null} planId={planId} roles={roles.data || []} coordinators={coordinators.data || []} coordinatorsLoading={coordinators.isLoading} collaborators={collaborators.data || []} saving={save.isPending} onClose={() => setFormTarget(null)} onSubmit={payload => save.mutate(payload)} /> : null}
-      <MissionAllocationModal mission={allocating} open={Boolean(allocating)} onClose={() => setAllocating(null)} />
+      <MissionAllocationModal mission={allocating} open={Boolean(allocating)} onClose={() => setAllocating(null)} onPlanningMutated={onPlanningMutated} />
       <ConfirmDialog open={Boolean(deleting)} title="Remover programação?" description="A exclusão é lógica e a trilha permanece na auditoria; o projeto volta a aparecer como missão pendente." highlight={deleting ? `${deleting.project.code} · ${deleting.project.name}` : undefined} confirmLabel={remove.isPending ? 'Removendo…' : 'Remover'} onConfirm={() => { if (deleting) remove.mutate(deleting.id); }} onCancel={() => setDeleting(null)} />
     </div>
   );

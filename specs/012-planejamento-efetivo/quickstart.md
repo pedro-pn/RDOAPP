@@ -14,13 +14,15 @@ Na raiz do repositório:
 
 ```bash
 npm ci
-npm run prisma:generate
+npm --prefix backend ci
+npm --prefix frontend ci
+npm --prefix backend run prisma:generate
 ```
 
 Para um banco descartável de desenvolvimento, aplique a migração versionada pelo comando já previsto no projeto:
 
 ```bash
-npm run prisma:migrate
+npm --prefix backend run prisma:migrate
 ```
 
 Esse comando é somente para ambiente local controlado. Migração em produção e reinício de serviços são responsabilidade do operador e não fazem parte da execução automática desta feature.
@@ -31,11 +33,14 @@ Use os scripts existentes do backend e frontend em terminais separados. Se o Vit
 
 ## Validação automatizada
 
-Executar da raiz, conforme os scripts disponíveis no `package.json`:
+Executar da raiz, direcionando cada comando ao pacote que declara o script:
 
 ```bash
-npm run lint
-npm run build
+npm --prefix frontend run lint
+npm --prefix frontend run build
+npm --prefix backend test
+npm --prefix frontend test
+npm run architecture:check
 ```
 
 No backend, executar os testes de unidade e comportamento do Efetivo, incluindo:
@@ -86,18 +91,18 @@ Validar no mínimo 1440×900, 768×1024 e 390×844:
 - Não incluir cookies, tokens, nomes reais ou outros dados sensíveis em screenshots/logs.
 - Entregar a migração para o operador executar no ambiente de destino conforme o procedimento vigente.
 
-## Evidência registrada em 2026-08-21
+## Evidência registrada em 2026-08-25
 
 Validações executadas nesta branch:
 
-- backend: `132/132` testes aprovados com `NODE_ENV=test` e uma `DATABASE_URL` sintática, sem conexão nem escrita no banco de desenvolvimento;
-- frontend: `18/18` testes aprovados;
+- backend: `135/135` arquivos de teste aprovados com `NODE_ENV=test` e uma `DATABASE_URL` sintática, sem conexão nem escrita no banco de desenvolvimento;
+- frontend: `20/20` arquivos de teste aprovados;
 - lint frontend: zero erros e dois avisos preexistentes fora do módulo (`OmieCostCategoriesPanel.tsx` e `ProjectTrackingNovelties.tsx`);
 - build frontend: TypeScript e Vite aprovados; permanece apenas o aviso conhecido de chunk principal acima de 500 kB;
 - Prisma: `generate` e `validate` aprovados para o schema novo;
 - arquitetura: verificação do repositório aprovada;
 - contrato OpenAPI: YAML válido, com 25 caminhos reconhecidos;
-- visual: as oito seções foram percorridas em 1440, 768 e 390 px com APIs simuladas, sem overflow horizontal e sem erro/aviso no console do navegador.
+- visual: a matriz completa anterior permanece registrada; nesta revisão, o primeiro acesso foi repetido com APIs simuladas e exibiu exatamente um Driver.js, liberando a reserva ao fechar sem sobrepor tutorial e novidade.
 
 Medição sintética da projeção diária + utilização de 90 dias, com 500 colaboradores, 100 missões confirmadas e 500 alocações:
 
@@ -105,9 +110,10 @@ Medição sintética da projeção diária + utilização de 90 dias, com 500 co
 - depois do índice em memória de ausências/missões e agregação única de demanda: `138,96 ms`;
 - ganho observado na mesma execução: aproximadamente `30,8×`.
 
-Pendências exclusivamente operacionais (revisadas em 2026-08-24):
+Pendências exclusivamente operacionais (revisadas em 2026-08-25):
 
 - a migração versionada não foi aplicada em nenhum banco;
 - o teste de concorrência com duas transações PostgreSQL reais está escrito e é ignorado por padrão; depois da migração, rode-o em um banco descartável com `EFETIVO_DB_TESTS=1 DATABASE_URL=<banco descartável> node --test test/efetivo-allocation-concurrency.test.js` a partir de `backend/` (ele cria e remove os próprios dados em um plano de cenário, sem tocar no planejamento oficial);
+- nesta revisão não havia `DATABASE_URL` nem binários locais do PostgreSQL; a porta 5432 existente não foi usada porque o serviço não pôde ser comprovado como descartável;
 - Docker e serviços existentes não foram reiniciados;
 - o processo já existente em `localhost:5173` não foi alterado; a auditoria visual usou uma porta isolada e esse processo foi encerrado ao final.

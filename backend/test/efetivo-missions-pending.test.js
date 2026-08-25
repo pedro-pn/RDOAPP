@@ -39,6 +39,27 @@ test('leitura de pendências não cria plano oficial e lista tudo quando não h�
   assert.equal('efetivoMissionPlans' in received.where, false);
 });
 
+test('lista todos os projetos pendentes sem truncar após duzentos registros', async () => {
+  const projects = Array.from({ length: 201 }, (_, index) => ({
+    id: `p${index + 1}`,
+    code: String(index + 1).padStart(4, '0'),
+    name: `Projeto ${index + 1}`
+  }));
+  let received = null;
+  const database = fakeDatabase({
+    plan: { id: 'plan-1', kind: 'OFFICIAL', status: 'ACTIVE' },
+    onFindMany: args => {
+      received = args;
+      return projects.slice(0, args.take ?? projects.length);
+    }
+  });
+
+  const rows = await listPendingMissionProjects({}, { database });
+
+  assert.equal(rows.length, 201);
+  assert.equal(received.take, undefined);
+});
+
 test('rota de pendentes precede a rota por id da missão', () => {
   const routes = fs.readFileSync(new URL('../src/routes/efetivo-planning.js', import.meta.url), 'utf8');
   assert.ok(routes.indexOf("'/missions/pending'") < routes.indexOf("'/missions/:missionId'"));

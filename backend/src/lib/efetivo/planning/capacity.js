@@ -5,6 +5,16 @@ function roleKey(value) {
   return String(value || '').trim().toLocaleLowerCase('pt-BR');
 }
 
+function uniqueRolesByName(roles) {
+  const index = new Map();
+  for (const role of roles) {
+    const key = roleKey(role.name);
+    if (!key) continue;
+    index.set(key, index.has(key) ? null : role);
+  }
+  return index;
+}
+
 function collaboratorRoleId(collaborator, rolesByName) {
   return collaborator.jobRoleId || rolesByName.get(roleKey(collaborator.role))?.id || null;
 }
@@ -79,7 +89,7 @@ export function calculateDailyCapacity({
 }) {
   const dateKey = parseDateKey(date);
   const roles = jobRoles.filter(role => role.isActive !== false && role.isOperational !== false);
-  const rolesByName = new Map(roles.map(role => [roleKey(role.name), role]));
+  const rolesByName = uniqueRolesByName(roles);
   const absenceIndex = indexAbsencesByCollaborator(absences);
   const missionIndex = indexMissionsByCollaborator(missions);
   const demandTotals = demandByRoleOn(missions, dateKey);
@@ -145,7 +155,7 @@ export function calculateUtilization90Days({
   const endDate = addCalendarDays(startDate, 89);
   const holidaySet = holidayDateSet(holidays);
   const roles = jobRoles.filter(role => role.isActive !== false && role.isOperational !== false);
-  const rolesByName = new Map(roles.map(role => [roleKey(role.name), role]));
+  const rolesByName = uniqueRolesByName(roles);
   const absenceIndex = indexAbsencesByCollaborator(absences);
   const missionIndex = indexMissionsByCollaborator(missions);
   const businessDates = businessDatesInclusive(startDate, endDate, holidaySet);

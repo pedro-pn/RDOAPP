@@ -103,7 +103,7 @@ export interface MissionInput {
   projectId: string;
   scheduleStatus: MissionScheduleStatus;
   stage: MissionStage;
-  headquartersResponsibleUserId?: string;
+  headquartersResponsibleUserId: string;
   headquartersResponsibleName: string;
   headquartersResponsibleRole: string;
   headquartersResponsibleCollaboratorId?: string | null;

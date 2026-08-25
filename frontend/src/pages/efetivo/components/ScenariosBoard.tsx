@@ -267,6 +267,7 @@ export function ScenariosBoard({
               search={missionSearch}
               onSearchChange={setMissionSearch}
               onStatusChange={setMissionStatus}
+              onPlanningMutated={refresh}
             />
           ) : null}
         </>

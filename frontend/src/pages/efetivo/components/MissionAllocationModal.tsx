@@ -7,15 +7,21 @@ import { Modal } from '../../../components/ui/Modal';
 import { SearchCombobox } from '../../../components/ui/SearchCombobox';
 import { useToast } from '../../../components/ui/ToastContext';
 import { displayDateOnly } from '../../../utils/calendarGrid';
+import { refreshMissionPlanningQueries } from '../../../utils/efetivoPlanningQueries';
 
-export function MissionAllocationModal({ mission, open, onClose }: { mission: PlanningMission | null; open: boolean; onClose: () => void }) {
+export function MissionAllocationModal({ mission, open, onClose, onPlanningMutated }: {
+  mission: PlanningMission | null;
+  open: boolean;
+  onClose: () => void;
+  onPlanningMutated?: () => void | Promise<void>;
+}) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [roleId, setRoleId] = useState('');
   const [collaboratorId, setCollaboratorId] = useState('');
   const selectedRoleId = roleId || mission?.demands[0]?.jobRoleId || '';
   const eligible = useQuery({ queryKey: ['efetivo-eligible', mission?.id, selectedRoleId], queryFn: () => listEligibleCollaborators(mission!.id, selectedRoleId), enabled: open && Boolean(mission && selectedRoleId) });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['efetivo-planning-missions'] });
+  const invalidate = () => refreshMissionPlanningQueries(queryClient, onPlanningMutated);
   const add = useMutation({ mutationFn: () => addMissionAllocation(mission!.id, { collaboratorId, jobRoleId: selectedRoleId }), onSuccess: async () => { await invalidate(); setCollaboratorId(''); toast('Pessoa alocada.', 'success'); }, onError: (error: Error) => { const conflict = planningErrorConflicts(error)?.[0]; toast(conflict ? `${error.message} ${conflict.collaboratorName}: ${displayDateOnly(conflict.startDate)} a ${displayDateOnly(conflict.endDate)}.` : error.message, 'error'); } });
   const remove = useMutation({ mutationFn: (allocationId: string) => removeMissionAllocation(mission!.id, allocationId), onSuccess: async () => { await invalidate(); toast('Alocação removida.', 'success'); }, onError: (error: Error) => toast(error.message, 'error') });
   const auto = useMutation({ mutationFn: () => autoAllocateMission(mission!.id), onSuccess: async result => { await invalidate(); toast(result.remainingDeficits.length ? 'Equipe preenchida parcialmente; ainda há déficit.' : 'Vagas preenchidas com pessoas disponíveis.', result.remainingDeficits.length ? 'error' : 'success'); }, onError: (error: Error) => toast(error.message, 'error') });
