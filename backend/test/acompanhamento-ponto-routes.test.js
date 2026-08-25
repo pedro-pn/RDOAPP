@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import {
   createPontoMaisIntegrationRouter,
+  defaultPontoMaisIntegration,
   currentUnmatchedPontoNames,
   dayProjectOverrideSchema,
   externalEmployeeIgnoreSchema,
@@ -281,4 +283,20 @@ test('gestor executa contratos HTTP e recebe catálogo seguro com projetos hist�
   assert.ok(calls.some(([name, input]) => name === 'day-override'
     && input.createdByUserId === 'manager-1'
     && input.date === '2026-08-01'));
+});
+
+test('a fiação padrão do router cobre toda função de integração que as rotas chamam', () => {
+  // Os demais testes injetam um services próprio, então o mapa real nunca era exercitado: dava para
+  // adicionar uma função ao serviço, esquecer a entrada aqui e só descobrir com 500 em produção.
+  const source = readFileSync(new URL('../src/routes/resources/acompanhamento-ponto.js', import.meta.url), 'utf8');
+  const used = [...source.matchAll(/integration\.([A-Za-z0-9_]+)\(/g)].map(match => match[1]);
+
+  assert.ok(used.length > 0, 'nenhuma chamada a integration.* encontrada');
+  for (const name of new Set(used)) {
+    assert.equal(
+      typeof defaultPontoMaisIntegration[name],
+      'function',
+      `rota chama integration.${name}() mas a fiação padrão não tem essa função`
+    );
+  }
 });

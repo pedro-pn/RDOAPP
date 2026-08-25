@@ -24,13 +24,15 @@ import {
   getPontoMaisIntegrationStatus,
   linkPontoMaisExternalEmployee,
   linkPontoMaisProjectTag,
+  listPontoMaisIgnoredProjectTags,
   listPontoMaisExternalEmployees,
   listPontoMaisSyncRuns,
   PontoSyncError,
   runPontoMaisSync,
   setPontoMaisDayProjectOverride,
   setPontoMaisDayProjectOverridesBatch,
-  setPontoMaisExternalEmployeeIgnored
+  setPontoMaisExternalEmployeeIgnored,
+  setPontoMaisProjectTagIgnored
 } from '../../lib/pontomais/sync.js';
 import { normalizeName } from '../../lib/pontomais/normalize.js';
 import prisma from '../../lib/prisma.js';
@@ -137,6 +139,26 @@ export function mapPontoSyncHttpError(error) {
   };
 }
 
+/*
+ * Fiação padrão do router. Fica exportada porque os testes injetam services próprios e, com o mapa
+ * escondido aqui dentro, uma função nova no serviço podia ficar sem entrada aqui e só quebrar em
+ * runtime — foi exatamente o que aconteceu com o "ignorar etiqueta".
+ */
+export const defaultPontoMaisIntegration = {
+  runSync: runPontoMaisSync,
+  getIntegrationStatus: getPontoMaisIntegrationStatus,
+  listSyncRuns: listPontoMaisSyncRuns,
+  getPending: getPontoMaisPending,
+  listExternalEmployees: listPontoMaisExternalEmployees,
+  setExternalEmployeeIgnored: setPontoMaisExternalEmployeeIgnored,
+  linkExternalEmployee: linkPontoMaisExternalEmployee,
+  linkProjectTag: linkPontoMaisProjectTag,
+  setProjectTagIgnored: setPontoMaisProjectTagIgnored,
+  listIgnoredProjectTags: listPontoMaisIgnoredProjectTags,
+  setDayProjectOverride: setPontoMaisDayProjectOverride,
+  setDayProjectOverridesBatch: setPontoMaisDayProjectOverridesBatch
+};
+
 export function createPontoMaisIntegrationRouter({
   authenticate = requireAuth,
   authorizeAccess = requireAcompanhamentoAccess,
@@ -145,19 +167,7 @@ export function createPontoMaisIntegrationRouter({
   db = prisma
 } = {}) {
   const routes = Router();
-  const integration = {
-    runSync: runPontoMaisSync,
-    getIntegrationStatus: getPontoMaisIntegrationStatus,
-    listSyncRuns: listPontoMaisSyncRuns,
-    getPending: getPontoMaisPending,
-    listExternalEmployees: listPontoMaisExternalEmployees,
-    setExternalEmployeeIgnored: setPontoMaisExternalEmployeeIgnored,
-    linkExternalEmployee: linkPontoMaisExternalEmployee,
-    linkProjectTag: linkPontoMaisProjectTag,
-    setDayProjectOverride: setPontoMaisDayProjectOverride,
-    setDayProjectOverridesBatch: setPontoMaisDayProjectOverridesBatch,
-    ...services
-  };
+  const integration = { ...defaultPontoMaisIntegration, ...services };
 
   routes.post(
     '/sync',

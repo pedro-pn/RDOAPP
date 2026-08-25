@@ -232,6 +232,59 @@ export async function syncPontoMais(payload: { startDate: string; endDate: strin
   return data;
 }
 
+/*
+ * O endpoint aceita no máximo 31 dias por chamada — a mesma janela que a carga histórica usa, e que
+ * reflete o limite prático dos relatórios do Ponto Mais. Para o gestor poder pedir "o ano inteiro"
+ * sem esbarrar nisso, o recorte é feito aqui: uma chamada por janela, em sequência.
+ *
+ * Fatiar no cliente em vez de no servidor evita que uma requisição só fique minutos aberta e morra
+ * no timeout do proxy, e permite mostrar progresso. Cada janela concluída já fica persistida, então
+ * uma interrupção no meio não desfaz o que já entrou.
+ */
+export const PONTOMAIS_SYNC_WINDOW_DAYS = 31;
+
+function addDaysKey(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function pontoMaisSyncWindows(startDate: string, endDate: string): Array<{ startDate: string; endDate: string }> {
+  const windows: Array<{ startDate: string; endDate: string }> = [];
+  let cursor = startDate;
+  while (cursor <= endDate) {
+    const last = addDaysKey(cursor, PONTOMAIS_SYNC_WINDOW_DAYS - 1);
+    const windowEnd = last > endDate ? endDate : last;
+    windows.push({ startDate: cursor, endDate: windowEnd });
+    cursor = addDaysKey(windowEnd, 1);
+  }
+  return windows;
+}
+
+export interface PontoMaisRangeSyncResult {
+  windows: number;
+  created: number;
+  skipped: number;
+}
+
+export async function syncPontoMaisRange(
+  startDate: string,
+  endDate: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<PontoMaisRangeSyncResult> {
+  const windows = pontoMaisSyncWindows(startDate, endDate);
+  let created = 0;
+  let skipped = 0;
+  for (const [index, window] of windows.entries()) {
+    onProgress?.(index, windows.length);
+    const result = await syncPontoMais(window);
+    if (result.skippedDuplicate) skipped += 1;
+    else created += 1;
+  }
+  onProgress?.(windows.length, windows.length);
+  return { windows: windows.length, created, skipped };
+}
+
 export async function getPontoMaisSyncRuns(limit = 50): Promise<PontoMaisSyncRun[]> {
   const { data } = await apiClient.get<PontoMaisSyncRun[]>('/acompanhamento/ponto/sync-runs', { params: { limit } });
   return data;

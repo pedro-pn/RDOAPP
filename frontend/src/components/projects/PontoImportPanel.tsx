@@ -20,7 +20,8 @@ import {
   pontoMaisSyncTriggerLabel,
   setPontoMaisExternalEmployeeIgnored,
   setPontoMaisProjectTagIgnored,
-  syncPontoMais,
+  syncPontoMaisRange,
+  pontoMaisSyncWindows,
   type PontoImportRow,
   type PontoImportSourceFilter,
   type PontoMaisPending
@@ -92,6 +93,7 @@ export function PontoImportPanel() {
   const [importSource, setImportSource] = useState<PontoImportSourceFilter>('ALL');
   const [syncStart, setSyncStart] = useState('');
   const [syncEnd, setSyncEnd] = useState('');
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null);
 
   const { data: imports } = useQuery({
     queryKey: ['ponto-imports', importSource],
@@ -148,18 +150,26 @@ export function PontoImportPanel() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: syncPontoMais,
+    mutationFn: (range: { startDate: string; endDate: string }) => syncPontoMaisRange(
+      range.startDate,
+      range.endDate,
+      (done, total) => setSyncProgress({ done, total })
+    ),
     onSuccess: result => {
       showToast(
-        result.skippedDuplicate
-          ? 'Período já estava atualizado — nada foi substituído.'
-          : 'Período sincronizado.',
+        result.created === 0
+          ? `Período já estava atualizado — nada foi substituído (${result.windows} janela(s)).`
+          : `${result.created} janela(s) sincronizada(s), ${result.skipped} já estavam atualizadas.`,
         'success'
       );
+      setSyncProgress(null);
       invalidate();
     },
     onError: (error: { response?: { data?: { error?: string } } }) => {
-      showToast(error?.response?.data?.error || 'Não foi possível sincronizar o período.', 'error');
+      // Cada janela concluída já ficou gravada: dá para retomar a partir de onde parou.
+      const at = syncProgress ? ` Parou na janela ${syncProgress.done + 1} de ${syncProgress.total}.` : '';
+      showToast((error?.response?.data?.error || 'Não foi possível sincronizar o período.') + at, 'error');
+      setSyncProgress(null);
     }
   });
 
@@ -361,7 +371,8 @@ export function PontoImportPanel() {
             <div className="sec ponto-subtitle">Sincronizar um período</div>
             <p className="placeholder-copy ponto-section-copy">
               Busca o período de novo no Ponto Mais. Use para cobrir faixas antigas que a carga
-              histórica não alcançou. Se nada mudou no Ponto Mais, o snapshot é reconhecido pelo
+              histórica não alcançou. Períodos longos são fatiados em janelas de 31 dias
+              automaticamente — o limite é do relatório do Ponto Mais, não seu. Se nada mudou no Ponto Mais, o snapshot é reconhecido pelo
               conteúdo e <strong>nada é substituído</strong>. Conflitos que você já resolveu à mão
               são preservados em qualquer caso — a seleção é por colaborador e data, não pertence ao
               snapshot.
@@ -401,6 +412,13 @@ export function PontoImportPanel() {
               >
                 {syncMutation.isPending ? 'Sincronizando…' : 'Sincronizar período'}
               </Button>
+              {syncStart && syncEnd && syncStart <= syncEnd ? (
+                <span className="placeholder-copy">
+                  {syncMutation.isPending && syncProgress
+                    ? `Janela ${Math.min(syncProgress.done + 1, syncProgress.total)} de ${syncProgress.total}…`
+                    : `${pontoMaisSyncWindows(syncStart, syncEnd).length} janela(s) de até 31 dias.`}
+                </span>
+              ) : null}
             </div>
           </div>
         ) : null}
