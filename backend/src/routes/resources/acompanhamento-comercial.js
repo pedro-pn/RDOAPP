@@ -463,6 +463,7 @@ const scheduleSchema = z.object({
   approvedAt: z.string().datetime().nullable().optional(),
   startDate: z.string().datetime().nullable().optional(),
   mobilizationDate: z.string().datetime().nullable().optional(),
+  demobilizationDate: z.string().datetime().nullable().optional(),
   manualProgressPct: z.number().min(0).max(100).nullable().optional(),
   offshore: z.boolean().optional(),
   laborSleepModeByCollaborator: z.record(z.enum(['HOME', 'AWAY'])).optional(),

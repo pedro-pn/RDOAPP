@@ -19,6 +19,8 @@ const ALLOCATION_REASON_LABELS: Record<string, string> = {
   UNCONFIRMED_MULTIPLE_TAGS: 'Várias etiquetas sem confirmação de RDO',
   AMBIGUOUS_WITHOUT_TAGS: 'Vários RDOs e nenhuma etiqueta',
   MOBILIZATION_RDO_AMBIGUOUS: 'Mobilização com vários candidatos',
+  SCHEDULE_WINDOW: 'Janela do cronograma',
+  SCHEDULE_WINDOW_AMBIGUOUS: 'Janelas de cronograma sobrepostas',
   NO_PROJECT_EVIDENCE: 'Sem etiqueta e sem RDO'
 };
 

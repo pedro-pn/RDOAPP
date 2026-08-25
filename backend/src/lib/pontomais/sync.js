@@ -1,6 +1,9 @@
 import prisma from '../prisma.js';
 import {
   buildDailyProjectWeights,
+  buildScheduleWindowEligibility,
+  buildScheduleWindows,
+  scheduleWindowsForDay,
   buildMissionGroupProjectIndex,
   rdoDataByCollaboratorFromReports
 } from '../acompanhamento/labor-cost.js';
@@ -156,6 +159,10 @@ export function buildAmbiguousDayPendencies({
   const rdoByCollaborator = rdoDataByCollaboratorFromReports(rdoReports);
   const resolveTag = buildProjectTagResolver({ projects, tagAliases });
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
+  // A janela do cronograma também vale aqui: sem ela, um dia que a regra já resolve continuaria
+  // listado como pendência para o gestor.
+  const scheduleWindows = buildScheduleWindows(projects);
+  const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
   const codeByProjectId = new Map(projects.map(project => [project.id, String(project.code || '')]).filter(([, code]) => code));
   const overriddenDays = new Set(manualDayOverrides.map(item => (
     `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`
@@ -172,6 +179,12 @@ export function buildAmbiguousDayPendencies({
       rdoProjects,
       resolveTag,
       mobilizationProjectIds,
+      scheduleWindowProjectIds: scheduleWindowsForDay({
+        scheduleWindows,
+        eligibleByProject: scheduleEligibility,
+        collaboratorId: period.collaboratorId,
+        dateKey: day.date
+      }),
       missionGroupProjectsByProjectId
     });
     if (![
@@ -227,6 +240,8 @@ export function filterCurrentlyResolvedAmbiguousDays({
     .map(project => [String(project.code).trim(), project.id]));
   const rdoByCollaborator = rdoDataByCollaboratorFromReports(rdoReports);
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
+  const scheduleWindows = buildScheduleWindows(projects);
+  const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
   const overriddenDays = new Set(manualDayOverrides.map(item => (
     `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`
   )));
@@ -245,6 +260,12 @@ export function filterCurrentlyResolvedAmbiguousDays({
       rdoProjects,
       resolveTag: code => projectIdByCode.get(String(code).trim()) || null,
       mobilizationProjectIds,
+      scheduleWindowProjectIds: scheduleWindowsForDay({
+        scheduleWindows,
+        eligibleByProject: scheduleEligibility,
+        collaboratorId,
+        dateKey: item.date
+      }),
       missionGroupProjectsByProjectId
     });
     return decision.allocations.length === 0;
@@ -431,7 +452,10 @@ export function createPontoMaisSyncService({
           select: { externalEmployeeId: true, collaboratorId: true }
         }),
         db.project.findMany({
-          select: { id: true, code: true, name: true, isActive: true, deletedAt: true, mobilizationDate: true }
+          select: {
+            id: true, code: true, name: true, isActive: true, deletedAt: true,
+            mobilizationDate: true, demobilizationDate: true, operatorId: true, laborCollaboratorIds: true
+          }
         }),
         db.pontoProjectTagAlias.findMany({
           select: { normalizedTag: true, projectId: true }
@@ -715,7 +739,10 @@ export function createPontoMaisSyncService({
         }
       }),
       db.project.findMany({
-        select: { id: true, code: true, mobilizationDate: true }
+        select: {
+          id: true, code: true,
+          mobilizationDate: true, demobilizationDate: true, operatorId: true, laborCollaboratorIds: true
+        }
       }),
       db.acompanhamentoMissionGroup?.findMany
         ? db.acompanhamentoMissionGroup.findMany({

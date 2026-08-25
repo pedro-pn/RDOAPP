@@ -588,6 +588,10 @@ async function getProjectAllocationContext() {
         code: true,
         offshore: true,
         laborSleepModeByCollaborator: true,
+        laborCollaboratorIds: true,
+        operatorId: true,
+        mobilizationDate: true,
+        demobilizationDate: true,
         deletedAt: true
       }
     }),
@@ -607,8 +611,91 @@ async function getProjectAllocationContext() {
   return {
     projects,
     resolveTag: buildProjectTagResolver({ projects, tagAliases }),
-    missionGroupProjectsByProjectId: buildMissionGroupProjectIndex(missionGroups)
+    missionGroupProjectsByProjectId: buildMissionGroupProjectIndex(missionGroups),
+    scheduleWindows: buildScheduleWindows(projects)
   };
+}
+
+/*
+ * Janelas de cronograma: só entram projetos com mobilização E desmobilização preenchidas.
+ *
+ * A desmobilização é preenchida depois do fato, então é dado verdadeiro — diferente de uma
+ * previsão, que quase nunca é obedecida. Enquanto ela estiver vazia, a obra está em andamento e a
+ * regra segue conservadora: o dia sem etiqueta e sem RDO vai para a fila de pendências em vez de
+ * ser chutado para algum projeto.
+ */
+export function buildScheduleWindows(projects = []) {
+  return projects
+    .filter(project => project?.id && project.mobilizationDate && project.demobilizationDate)
+    .map(project => {
+      const startKey = dateKeyUTC(project.mobilizationDate);
+      const endKey = dateKeyUTC(project.demobilizationDate);
+      return startKey && endKey && startKey <= endKey
+        ? {
+          projectId: project.id,
+          startKey,
+          endKey,
+          manualCollaboratorIds: new Set([
+            ...(project.operatorId ? [project.operatorId] : []),
+            ...normalizeCollaboratorIdList(project.laborCollaboratorIds)
+          ])
+        }
+        : null;
+    })
+    .filter(Boolean);
+}
+
+function normalizeCollaboratorIdList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map(item => String(item || '').trim()).filter(Boolean);
+}
+
+/*
+ * Elegíveis da janela, por projeto: operador + cadastro manual do cronograma + quem tem ao menos um
+ * RDO daquele projeto dentro da própria janela.
+ *
+ * O recorte por janela é o que impede o vazamento histórico: quem fez um RDO do projeto em março
+ * não vira elegível para a janela de julho. Quem entrou só por RDO fora da janela já está coberto
+ * pela evidência do próprio RDO.
+ */
+export function buildScheduleWindowEligibility(scheduleWindows = [], rdoDataByCollaborator = new Map()) {
+  const eligibleByProject = new Map(scheduleWindows.map(window => [
+    window.projectId,
+    new Set(window.manualCollaboratorIds)
+  ]));
+
+  for (const [collaboratorId, rdo] of rdoDataByCollaborator) {
+    for (const [dateKey, projectsForDay] of rdo.dayProjects || new Map()) {
+      for (const projectId of projectsForDay.keys()) {
+        const window = scheduleWindows.find(item => item.projectId === projectId);
+        if (!window || dateKey < window.startKey || dateKey > window.endKey) continue;
+        eligibleByProject.get(projectId)?.add(collaboratorId);
+      }
+    }
+  }
+  return eligibleByProject;
+}
+
+/*
+ * Janelas que cobrem um dia e para as quais o colaborador é elegível. Duas ou mais são devolvidas
+ * na íntegra de propósito: a decisão é do chamador, que transforma o empate em pendência em vez de
+ * chutar um projeto.
+ */
+export function scheduleWindowsForDay({
+  scheduleWindows = [],
+  eligibleByProject = new Map(),
+  collaboratorId = null,
+  dateKey = null
+} = {}) {
+  if (!collaboratorId || !dateKey) return [];
+  return scheduleWindows
+    .filter(window => (
+      dateKey >= window.startKey
+      && dateKey <= window.endKey
+      && eligibleByProject.get(window.projectId)?.has(collaboratorId)
+    ))
+    .map(window => window.projectId)
+    .sort();
 }
 
 function projectMetaForCollaborator(projects, collaboratorId) {
@@ -769,6 +856,7 @@ export function buildDailyProjectWeights({
   manualProjectId = null,
   manualProjectIds = null,
   mobilizationProjectIds = null,
+  scheduleWindowProjectIds = [],
   missionGroupProjectsByProjectId = new Map(),
   allocationAxis = 'ACCOUNTING'
 } = {}) {
@@ -871,16 +959,41 @@ export function buildDailyProjectWeights({
       reason: 'SINGLE_RDO_FALLBACK'
     };
   }
+  let mobilizationDecision = null;
   if (rdoByProject.size === 0 && (tags || []).some(isPontoTravelTag)) {
-    const mobilizationDecision = mobilizationTravelDecision({
+    mobilizationDecision = mobilizationTravelDecision({
       projectIds: mobilizationProjectIds instanceof Set
         ? [...mobilizationProjectIds]
         : mobilizationProjectIds,
       missionGroupProjectsByProjectId,
       allocationAxis
     });
-    if (mobilizationDecision) return mobilizationDecision;
+    if (mobilizationDecision?.allocations.length) return mobilizationDecision;
   }
+
+  /*
+   * Janela do cronograma — último recurso, depois de etiqueta, RDO e mobilização. Só chega aqui o
+   * dia sem etiqueta reconhecida e sem RDO nenhum: quando existe qualquer uma das duas evidências,
+   * a decisão já foi tomada acima e a janela não sobrepõe.
+   *
+   * Duas janelas cobrindo o mesmo dia viram pendência em vez de rateio: sem etiqueta e sem RDO não
+   * há como saber em qual das obras a pessoa estava, e chutar alocaria no projeto errado.
+   */
+  if (rdoByProject.size === 0 && scheduleWindowProjectIds.length > 0) {
+    if (scheduleWindowProjectIds.length === 1) {
+      return {
+        allocations: [{ projectId: scheduleWindowProjectIds[0], weight: 1, rdo: null }],
+        reason: 'SCHEDULE_WINDOW'
+      };
+    }
+    return {
+      allocations: [],
+      candidateProjectIds: [...scheduleWindowProjectIds],
+      reason: 'SCHEDULE_WINDOW_AMBIGUOUS'
+    };
+  }
+
+  if (mobilizationDecision) return mobilizationDecision;
   return {
     allocations: [],
     reason: rdoByProject.size > 1 ? 'AMBIGUOUS_WITHOUT_TAGS' : 'NO_PROJECT_EVIDENCE'
@@ -894,7 +1007,8 @@ export function classifyProjectHours(
   projectMetaById = new Map(),
   manualProjectByDate = new Map(),
   missionGroupProjectsByProjectId = new Map(),
-  allocationAxis = 'ACCOUNTING'
+  allocationAxis = 'ACCOUNTING',
+  scheduleWindowContext = null
 ) {
   const byProject = new Map();
   const unresolvedDays = [];
@@ -911,6 +1025,12 @@ export function classifyProjectHours(
       resolveTag,
       manualProjectIds,
       mobilizationProjectIds,
+      scheduleWindowProjectIds: scheduleWindowsForDay({
+        scheduleWindows: scheduleWindowContext?.windows,
+        eligibleByProject: scheduleWindowContext?.eligibleByProject,
+        collaboratorId: scheduleWindowContext?.collaboratorId,
+        dateKey: row.date
+      }),
       missionGroupProjectsByProjectId,
       allocationAxis
     });
@@ -932,6 +1052,7 @@ export function classifyProjectHours(
       })),
       manualProjectIds: manualProjectIds ? [...manualProjectIds] : [],
       allocations: decision.allocations.map(item => ({ projectId: item.projectId, weight: item.weight })),
+      candidateProjectIds: decision.candidateProjectIds ? [...decision.candidateProjectIds] : [],
       reason: decision.reason
     });
     if (decision.allocations.length === 0) {
@@ -1398,6 +1519,10 @@ export async function computeCollaboratorRates(importId = null) {
     ignoredEmployees.map(item => item.externalEmployeeId)
   ));
   const manualProjects = manualProjectsByCollaborator(manualDayOverrides);
+  const scheduleWindowEligibility = buildScheduleWindowEligibility(
+    projectAllocationContext.scheduleWindows,
+    rdoData
+  );
   const epiMensal = annualCosts.epiAnnualCost / 12;
 
   const rates = [];
@@ -1410,6 +1535,11 @@ export async function computeCollaboratorRates(importId = null) {
       mobilizationProjectsByDate: new Map()
     };
     const projectMetaById = projectMetaForCollaborator(projectAllocationContext.projects, period.collaboratorId);
+    const scheduleWindowContext = {
+      windows: projectAllocationContext.scheduleWindows,
+      eligibleByProject: scheduleWindowEligibility,
+      collaboratorId: period.collaboratorId
+    };
 
     const he70Horas = period.he70Minutes / 60;
     const he100Horas = period.he100Minutes / 60;
@@ -1481,7 +1611,9 @@ export async function computeCollaboratorRates(importId = null) {
             projectAllocationContext.resolveTag,
             projectMetaById,
             manualProjects.get(period.collaboratorId) || new Map(),
-            projectAllocationContext.missionGroupProjectsByProjectId
+            projectAllocationContext.missionGroupProjectsByProjectId,
+            'ACCOUNTING',
+            scheduleWindowContext
           );
           const analyticalClassified = classifyProjectHours(
             segmentDays,
@@ -1490,7 +1622,8 @@ export async function computeCollaboratorRates(importId = null) {
             projectMetaById,
             manualProjects.get(period.collaboratorId) || new Map(),
             projectAllocationContext.missionGroupProjectsByProjectId,
-            'ANALYTICAL'
+            'ANALYTICAL',
+            scheduleWindowContext
           );
           const projects = costProjectsFromClassification(classified);
           const analyticalProjects = costProjectsFromClassification(analyticalClassified);
@@ -1600,7 +1733,9 @@ export async function computeCollaboratorRates(importId = null) {
       projectAllocationContext.resolveTag,
       projectMetaById,
       manualProjects.get(period.collaboratorId) || new Map(),
-      projectAllocationContext.missionGroupProjectsByProjectId
+      projectAllocationContext.missionGroupProjectsByProjectId,
+      'ACCOUNTING',
+      scheduleWindowContext
     );
     entry.allocationTrail = trail.dayTrail;
     entry.unresolvedDays = trail.unresolvedDays;
@@ -1687,7 +1822,13 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     projectAllocationContext.resolveTag,
     projectMetaForCollaborator(projectAllocationContext.projects, period.collaboratorId),
     manualProjectsByCollaborator(manualDayOverrides).get(period.collaboratorId) || new Map(),
-    projectAllocationContext.missionGroupProjectsByProjectId
+    projectAllocationContext.missionGroupProjectsByProjectId,
+    'ACCOUNTING',
+    {
+      windows: projectAllocationContext.scheduleWindows,
+      eligibleByProject: buildScheduleWindowEligibility(projectAllocationContext.scheduleWindows, rdoData),
+      collaboratorId: period.collaboratorId
+    }
   );
   let projectDaysHours = 0;
   let awayDaysHours = 0;

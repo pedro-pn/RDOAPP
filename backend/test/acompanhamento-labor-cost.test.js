@@ -4,6 +4,9 @@ import test from 'node:test';
 import {
   buildDailyProjectWeights,
   buildMissionGroupProjectIndex,
+  buildScheduleWindowEligibility,
+  buildScheduleWindows,
+  scheduleWindowsForDay,
   buildRoleParamsResolver,
   classifyProjectHours,
   computeAnalyticalProjectCosts,
@@ -999,4 +1002,166 @@ test('trilha e pendência convivem no mesmo lote sem contaminar as horas por pro
   assert.equal(result.dayTrail.length, 2);
   assert.ok(near(result.byProject.get('A').normalHours, 8));
   assert.deepEqual(result.unresolvedDays.map(item => item.date), ['2026-07-21']);
+});
+
+// === Janela do cronograma (mobilização ↔ desmobilização) ===
+
+const JANELA_5804 = {
+  id: 'p-5804',
+  code: '5804',
+  operatorId: null,
+  laborCollaboratorIds: [],
+  mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+  demobilizationDate: new Date('2026-08-31T00:00:00.000Z')
+};
+
+test('janela só existe com mobilização E desmobilização preenchidas', () => {
+  const janelas = buildScheduleWindows([
+    JANELA_5804,
+    { id: 'p-emAndamento', code: '5820', mobilizationDate: new Date('2026-08-01T00:00:00.000Z'), demobilizationDate: null },
+    { id: 'p-semNada', code: '5900', mobilizationDate: null, demobilizationDate: null },
+    { id: 'p-invertida', code: '5901', mobilizationDate: new Date('2026-08-10T00:00:00.000Z'), demobilizationDate: new Date('2026-08-01T00:00:00.000Z') }
+  ]);
+
+  assert.deepEqual(janelas.map(item => item.projectId), ['p-5804']);
+  assert.equal(janelas[0].startKey, '2026-07-14');
+  assert.equal(janelas[0].endKey, '2026-08-31');
+});
+
+test('elegibilidade inclui cadastro manual e RDO dentro da janela, e ignora RDO fora dela', () => {
+  const janelas = buildScheduleWindows([{ ...JANELA_5804, operatorId: 'c-operador', laborCollaboratorIds: ['c-manual'] }]);
+  const rdoData = new Map([
+    ['c-rdoDentro', { dayProjects: new Map([['2026-07-20', dailyRdo([['p-5804', 9.5]])]]) }],
+    ['c-rdoFora', { dayProjects: new Map([['2026-03-10', dailyRdo([['p-5804', 9.5]])]]) }]
+  ]);
+
+  const elegiveis = buildScheduleWindowEligibility(janelas, rdoData);
+  const doProjeto = elegiveis.get('p-5804');
+
+  assert.ok(doProjeto.has('c-operador'));
+  assert.ok(doProjeto.has('c-manual'));
+  assert.ok(doProjeto.has('c-rdoDentro'));
+  // Vazamento histórico: quem fez RDO fora da janela não entra por ela.
+  assert.ok(!doProjeto.has('c-rdoFora'));
+});
+
+test('janela aloca o dia sem etiqueta e sem RDO', () => {
+  const janelas = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: ['c-1'] }]);
+  const elegiveis = buildScheduleWindowEligibility(janelas, new Map());
+  const projetosDoDia = scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-08-17'
+  });
+
+  const decisao = buildDailyProjectWeights({
+    tags: ['EM VIAGEM - 07.264.184/0001-46'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: projetosDoDia
+  });
+
+  assert.equal(decisao.reason, 'SCHEDULE_WINDOW');
+  assert.deepEqual(decisao.allocations, [{ projectId: 'p-5804', weight: 1, rdo: null }]);
+});
+
+test('janela nunca sobrepõe RDO nem etiqueta reconhecida', () => {
+  const comRdo = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: dailyRdo([['B', 9]]),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comRdo.reason, 'SINGLE_RDO_FALLBACK');
+  assert.equal(comRdo.allocations[0].projectId, 'B');
+
+  const comEtiqueta = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comEtiqueta.reason, 'SINGLE_TAG');
+  assert.equal(comEtiqueta.allocations[0].projectId, 'A');
+
+  const comOverride = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    manualProjectIds: ['C'],
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comOverride.reason, 'MANUAL_OVERRIDE');
+  assert.equal(comOverride.allocations[0].projectId, 'C');
+});
+
+test('duas janelas no mesmo dia viram pendência em vez de rateio', () => {
+  const decisao = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804', 'p-5820']
+  });
+
+  assert.equal(decisao.reason, 'SCHEDULE_WINDOW_AMBIGUOUS');
+  assert.deepEqual(decisao.allocations, []);
+  assert.deepEqual(decisao.candidateProjectIds, ['p-5804', 'p-5820']);
+});
+
+test('vários RDOs sem etiqueta continuam ambíguos: a janela não desempata evidência de RDO', () => {
+  const decisao = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: dailyRdo([['A', 8], ['B', 8]]),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+
+  assert.equal(decisao.reason, 'AMBIGUOUS_WITHOUT_TAGS');
+  assert.deepEqual(decisao.allocations, []);
+});
+
+test('janela resolve a mobilização que ficaria ambígua entre projetos candidatos', () => {
+  const semJanela = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    mobilizationProjectIds: ['A', 'B']
+  });
+  assert.equal(semJanela.reason, 'MOBILIZATION_RDO_AMBIGUOUS');
+
+  const comJanela = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    mobilizationProjectIds: ['A', 'B'],
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comJanela.reason, 'SCHEDULE_WINDOW');
+  assert.equal(comJanela.allocations[0].projectId, 'p-5804');
+});
+
+test('dia fora da janela não é alocado por ela', () => {
+  const janelas = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: ['c-1'] }]);
+  const elegiveis = buildScheduleWindowEligibility(janelas, new Map());
+
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-07-13'
+  }), []);
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-09-01'
+  }), []);
+  // Colaborador que não é elegível não entra mesmo dentro da janela.
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-outro',
+    dateKey: '2026-08-17'
+  }), []);
 });

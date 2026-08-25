@@ -501,6 +501,7 @@ export async function listProjectRevisions(projectId) {
       code: true,
       startDate: true,
       mobilizationDate: true,
+      demobilizationDate: true,
       manualProgressPct: true,
       offshore: true,
       laborSleepModeByCollaborator: true,
@@ -519,6 +520,7 @@ export async function listProjectRevisions(projectId) {
       resolved: false,
       startDate: project.startDate ?? null,
       mobilizationDate: project.mobilizationDate ?? null,
+      demobilizationDate: project.demobilizationDate ?? null,
       manualProgressPct: project.manualProgressPct ?? null,
       offshore: project.offshore ?? false,
       laborSleepModeByCollaborator,
@@ -572,6 +574,7 @@ export async function listProjectRevisions(projectId) {
     mobilizationLeadDays: budget?.mobilizationLeadDays ?? null,
     startDate: project.startDate ?? null,
     mobilizationDate: project.mobilizationDate ?? null,
+    demobilizationDate: project.demobilizationDate ?? null,
     manualProgressPct: project.manualProgressPct ?? null,
     offshore: project.offshore ?? false,
     laborSleepModeByCollaborator,
@@ -589,6 +592,7 @@ export async function setProjectSchedule(projectId, {
   approvedAt,
   startDate,
   mobilizationDate,
+  demobilizationDate,
   manualProgressPct,
   offshore,
   laborSleepModeByCollaborator,
@@ -617,10 +621,33 @@ export async function setProjectSchedule(projectId, {
         data: { approvedAt: approvedAt ? new Date(approvedAt) : null }
       });
     }
+    // A desmobilização fecha a janela que aloca ponto sem etiqueta e sem RDO, então precisa ser
+    // coerente: sem mobilização não há janela, e uma data anterior à mobilização inverteria o
+    // intervalo. Como cada campo é opcional na requisição, a mobilização vigente vem do banco
+    // quando não veio no corpo.
+    if (demobilizationDate) {
+      const currentDates = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { mobilizationDate: true }
+      });
+      const effectiveMobilization = mobilizationDate !== undefined
+        ? (mobilizationDate ? new Date(mobilizationDate) : null)
+        : currentDates?.mobilizationDate ?? null;
+      if (!effectiveMobilization) {
+        throw new Error('Informe a data de mobilização antes da desmobilização.');
+      }
+      if (new Date(demobilizationDate) < effectiveMobilization) {
+        throw new Error('A desmobilização não pode ser anterior à mobilização.');
+      }
+    }
+
     const projectData = {};
     const nextManualProgressPct = manualProgressPct == null ? null : Number(manualProgressPct);
     if (startDate !== undefined) projectData.startDate = startDate ? new Date(startDate) : null;
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
+    if (demobilizationDate !== undefined) {
+      projectData.demobilizationDate = demobilizationDate ? new Date(demobilizationDate) : null;
+    }
     if (manualProgressPct !== undefined) projectData.manualProgressPct = nextManualProgressPct;
     if (offshore !== undefined) projectData.offshore = Boolean(offshore);
     if (laborSleepModeByCollaborator !== undefined) {
