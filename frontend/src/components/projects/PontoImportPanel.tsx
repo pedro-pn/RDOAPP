@@ -20,6 +20,7 @@ import {
   pontoMaisSyncTriggerLabel,
   setPontoMaisExternalEmployeeIgnored,
   setPontoMaisProjectTagIgnored,
+  syncPontoMais,
   type PontoImportRow,
   type PontoImportSourceFilter,
   type PontoMaisPending
@@ -45,6 +46,16 @@ function fmtDateTime(iso: string | null): string {
   return Number.isNaN(parsed.getTime())
     ? fmtDate(iso)
     : parsed.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+// Mesmo critério do backend (normalizeName): sem acento, minúsculo, espaços colapsados.
+function normalizeForMatch(value: string): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function collaboratorOptionLabel(collaborator: { name: string; role: string | null; isActive?: boolean }) {
@@ -79,6 +90,8 @@ export function PontoImportPanel() {
   const [projectTagLinks, setProjectTagLinks] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<PontoImportRow | null>(null);
   const [importSource, setImportSource] = useState<PontoImportSourceFilter>('ALL');
+  const [syncStart, setSyncStart] = useState('');
+  const [syncEnd, setSyncEnd] = useState('');
 
   const { data: imports } = useQuery({
     queryKey: ['ponto-imports', importSource],
@@ -132,6 +145,22 @@ export function PontoImportPanel() {
     queryFn: getPontoMaisExternalEmployees,
     enabled: isManager,
     ...acompanhamentoRefreshQueryOptions
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: syncPontoMais,
+    onSuccess: result => {
+      showToast(
+        result.skippedDuplicate
+          ? 'Período já estava atualizado — nada foi substituído.'
+          : 'Período sincronizado.',
+        'success'
+      );
+      invalidate();
+    },
+    onError: (error: { response?: { data?: { error?: string } } }) => {
+      showToast(error?.response?.data?.error || 'Não foi possível sincronizar o período.', 'error');
+    }
   });
 
   const projectTagIgnoreMutation = useMutation({
@@ -210,8 +239,16 @@ export function PontoImportPanel() {
 
   const unmatched = colaboradores?.unmatched ?? [];
   const integrationConfigured = integrationStatus?.configured === true;
+  /*
+   * As duas listas de "sem vínculo" mostravam a mesma gente por caminhos diferentes: a da API
+   * (por id externo) e a das planilhas (por nome, porque o XLSX não traz o id). Ficou uma seção só;
+   * o nome de planilha só aparece quando a lista da API ainda não cobre aquela pessoa.
+   */
+  const apiUnlinkedNames = new Set((pending?.employees ?? []).map(item => normalizeForMatch(item.externalName)));
+  const xlsxOnlyUnmatched = unmatched.filter(item => !apiUnlinkedNames.has(normalizeForMatch(item.rawName)));
+  const unlinkedTotal = (pending?.employees.length ?? 0) + xlsxOnlyUnmatched.length;
   // Conflitos saíram desta aba (vivem em "Dias sem alocação"), então não entram mais na contagem.
-  const actionablePendingCount = pending ? pending.employees.length : 0;
+  const actionablePendingCount = unlinkedTotal;
   const missingProjectsCount = pending
     ? pending.missingProjects.projectTags.length + pending.missingProjects.ambiguousDays.length
     : 0;
@@ -319,6 +356,47 @@ export function PontoImportPanel() {
           </div>
         ) : null}
 
+        {integrationConfigured && isManager ? (
+          <div className="det-section">
+            <div className="sec ponto-subtitle">Sincronizar um período</div>
+            <p className="placeholder-copy ponto-section-copy">
+              Busca o período de novo no Ponto Mais. Use para cobrir faixas antigas que a carga
+              histórica não alcançou. Se nada mudou no Ponto Mais, o snapshot é reconhecido pelo
+              conteúdo e <strong>nada é substituído</strong>. Conflitos que você já resolveu à mão
+              são preservados em qualquer caso — a seleção é por colaborador e data, não pertence ao
+              snapshot.
+            </p>
+            <div className="ponto-filter-row">
+              <div className="field-group">
+                <label htmlFor="ponto-sync-start">De</label>
+                <input
+                  id="ponto-sync-start"
+                  type="date"
+                  value={syncStart}
+                  onChange={event => setSyncStart(event.target.value)}
+                />
+              </div>
+              <div className="field-group">
+                <label htmlFor="ponto-sync-end">Até</label>
+                <input
+                  id="ponto-sync-end"
+                  type="date"
+                  value={syncEnd}
+                  min={syncStart || undefined}
+                  onChange={event => setSyncEnd(event.target.value)}
+                />
+              </div>
+              <Button
+                variant="mini"
+                disabled={!syncStart || !syncEnd || syncStart > syncEnd || syncMutation.isPending}
+                onClick={() => syncMutation.mutate({ startDate: syncStart, endDate: syncEnd })}
+              >
+                {syncMutation.isPending ? 'Sincronizando…' : 'Sincronizar período'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {integrationStatus?.lastSuccessfulRun ? (
           <p className="placeholder-copy ponto-section-copy">
             Última sincronização: {fmtDate(integrationStatus.lastSuccessfulRun.completedAt)} · período {fmtDate(integrationStatus.lastSuccessfulRun.periodStart)} a {fmtDate(integrationStatus.lastSuccessfulRun.periodEnd)}
@@ -329,7 +407,7 @@ export function PontoImportPanel() {
         {isManager && pending ? (
           <div className="det-section ponto-pending-section">
             <div className="sec ponto-subtitle">
-              Pendências da integração ({actionablePendingCount})
+              Colaboradores do ponto sem vínculo ({actionablePendingCount})
             </div>
             {actionablePendingCount === 0 ? (
               <p className="placeholder-copy">
@@ -387,52 +465,41 @@ export function PontoImportPanel() {
                  projeto, com os mesmos candidatos e resolução em bloco. Listá-los aqui também
                  duplicava a fila e fazia o contador somar o mesmo dia duas vezes. */}
 
-            {!pending.employees.length ? (
-              <p className="placeholder-copy ponto-section-copy">Nenhum colaborador do Ponto Mais sem vínculo.</p>
-            ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {unmatched.length ? (
-          <div className="det-section ponto-pending-section">
-            <div className="sec ponto-subtitle">Nomes não vinculados ({unmatched.length})</div>
-            <p className="placeholder-copy ponto-section-copy">
-              Estes nomes do ponto não casaram com nenhum colaborador. Vincule para que o custo entre no cálculo.
-            </p>
-            <div
-              className="ponto-local-scroll"
-              role="region"
-              aria-label="Lista de nomes não vinculados"
-              tabIndex={0}
-            >
-            {unmatched.map(item => (
+            {xlsxOnlyUnmatched.map(item => (
               <div key={item.normalizedName} className="field-row ponto-link-row">
-                <span>{item.rawName}</span>
-                {isManager ? (
-                  <>
-                    <label className="sr-only" htmlFor={`ponto-link-${item.normalizedName}`}>Colaborador para {item.rawName}</label>
-                    <select
-                      id={`ponto-link-${item.normalizedName}`}
-                      value={links[item.normalizedName] ?? ''}
-                      onChange={event => setLinks(previous => ({ ...previous, [item.normalizedName]: event.target.value }))}
-                    >
-                      <option value="">Selecione o colaborador…</option>
-                      {(linkCollaborators ?? []).map(collaborator => (
-                        <option key={collaborator.id} value={collaborator.id}>{collaboratorOptionLabel(collaborator)}</option>
-                      ))}
-                    </select>
-                    <Button
-                      variant="mini"
-                      disabled={!links[item.normalizedName] || linkMutation.isPending}
-                      onClick={() => linkMutation.mutate({ normalizedName: item.normalizedName, collaboratorId: links[item.normalizedName] })}
-                    >
-                      Vincular
-                    </Button>
-                  </>
-                ) : <span className="placeholder-copy">(gestor pode vincular)</span>}
+                <div className="ponto-link-copy">
+                  <strong>{item.rawName}</strong>
+                  <span>Só aparece em planilha importada — vincule pelo nome.</span>
+                </div>
+                <div className="field-group ponto-link-field">
+                  <label htmlFor={`ponto-link-${item.normalizedName}`}>Vincular ao colaborador</label>
+                  <select
+                    id={`ponto-link-${item.normalizedName}`}
+                    value={links[item.normalizedName] ?? ''}
+                    onChange={event => setLinks(previous => ({ ...previous, [item.normalizedName]: event.target.value }))}
+                  >
+                    <option value="">Selecione o colaborador…</option>
+                    {(linkCollaborators ?? []).map(collaborator => (
+                      <option key={collaborator.id} value={collaborator.id}>{collaboratorOptionLabel(collaborator)}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  variant="mini"
+                  disabled={!links[item.normalizedName] || linkMutation.isPending}
+                  onClick={() => linkMutation.mutate({
+                    normalizedName: item.normalizedName,
+                    collaboratorId: links[item.normalizedName]
+                  })}
+                >
+                  Vincular
+                </Button>
               </div>
             ))}
+
+            {!unlinkedTotal ? (
+              <p className="placeholder-copy ponto-section-copy">Nenhum colaborador do ponto sem vínculo.</p>
+            ) : null}
             </div>
           </div>
         ) : null}

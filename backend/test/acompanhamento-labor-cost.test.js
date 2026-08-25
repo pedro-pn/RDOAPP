@@ -1165,3 +1165,35 @@ test('dia fora da janela não é alocado por ela', () => {
     dateKey: '2026-08-17'
   }), []);
 });
+
+test('dia já resolvido à mão não volta a ser pendência quando o snapshot é re-sincronizado', () => {
+  // Conflito clássico: etiqueta aponta um projeto, o RDO do dia aponta outros dois.
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-08-17', dailyRdo([['B', 8], ['C', 8]])]])
+  };
+  const rows = [{
+    date: '2026-08-17',
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['Missão A']
+  }];
+
+  const semResolucao = classifyProjectHours(rows, rdo, resolveTestTag, new Map());
+  assert.deepEqual(semResolucao.unresolvedDays.map(item => item.reason), ['TAG_RDO_CONFLICT']);
+
+  // A seleção manual é por colaborador+data e não pertence ao snapshot, então sobrevive a qualquer
+  // reimportação do período: o dia continua alocado e fora da fila de pendências.
+  const resolvido = classifyProjectHours(
+    rows,
+    rdo,
+    resolveTestTag,
+    new Map(),
+    new Map([['2026-08-17', ['B']]])
+  );
+  assert.deepEqual(resolvido.unresolvedDays, []);
+  assert.equal(resolvido.dayTrail[0].reason, 'MANUAL_OVERRIDE');
+  assert.deepEqual(resolvido.dayTrail[0].allocations, [{ projectId: 'B', weight: 1 }]);
+  assert.ok(near(resolvido.byProject.get('B').normalHours, 8.8));
+});
