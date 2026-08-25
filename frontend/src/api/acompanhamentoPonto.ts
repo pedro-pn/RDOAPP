@@ -198,8 +198,27 @@ export interface PontoImportResult {
   periodEnd?: string;
 }
 
-export async function getPontoImports(): Promise<PontoImportRow[]> {
-  const { data } = await apiClient.get<PontoImportRow[]>('/acompanhamento/ponto/imports');
+export type PontoImportSourceFilter = 'ALL' | 'XLSX' | 'PONTOMAIS_API';
+
+export async function getPontoImports(source: PontoImportSourceFilter = 'ALL'): Promise<PontoImportRow[]> {
+  const { data } = await apiClient.get<PontoImportRow[]>('/acompanhamento/ponto/imports', {
+    params: source === 'ALL' ? undefined : { source, limit: 200 }
+  });
+  return data;
+}
+
+export async function setPontoMaisProjectTagIgnored(payload: { rawTag: string; ignored: boolean }) {
+  const { data } = await apiClient.post<{ normalizedTag: string; ignored: boolean }>(
+    '/acompanhamento/ponto/project-tags/ignore',
+    payload
+  );
+  return data;
+}
+
+export async function getPontoMaisIgnoredProjectTags(): Promise<Array<{ normalizedTag: string; rawTag: string }>> {
+  const { data } = await apiClient.get<Array<{ normalizedTag: string; rawTag: string }>>(
+    '/acompanhamento/ponto/project-tags/ignored'
+  );
   return data;
 }
 

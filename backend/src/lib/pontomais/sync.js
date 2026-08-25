@@ -13,6 +13,7 @@ import {
   buildProjectTagResolver,
   isPontoTravelTag,
   normalizePontoMaisSnapshot,
+  extractMissionCode,
   normalizeProjectTag,
   normalizeRegistrationNumber
 } from './normalize.js';
@@ -712,7 +713,7 @@ export function createPontoMaisSyncService({
         || left.externalEmployeeId.localeCompare(right.externalEmployeeId)
       ))
     };
-    const [employeeLinks, tagAliases, ignoredEmployees, storedPeriods, projects, missionGroups] = await Promise.all([
+    const [employeeLinks, tagAliases, ignoredEmployees, ignoredTags, storedPeriods, projects, missionGroups] = await Promise.all([
       db.pontoExternalEmployeeLink.findMany({
         where: { externalEmployeeId: { in: pending.employees.map(item => item.externalEmployeeId) } },
         select: { externalEmployeeId: true }
@@ -724,6 +725,9 @@ export function createPontoMaisSyncService({
         where: { ignoredAt: { not: null } },
         select: { externalEmployeeId: true }
       }),
+      db.pontoIgnoredProjectTag?.findMany
+        ? db.pontoIgnoredProjectTag.findMany({ select: { normalizedTag: true } })
+        : Promise.resolve([]),
       db.pontoPeriodSummary.findMany({
         where: {
           externalEmployeeId: { not: null },
@@ -759,6 +763,7 @@ export function createPontoMaisSyncService({
     const linkedEmployees = new Set(employeeLinks.map(item => String(item.externalEmployeeId)));
     const linkedTags = new Set(tagAliases.map(item => normalizeProjectTag(item.normalizedTag)));
     const ignoredExternalIds = new Set(ignoredEmployees.map(item => String(item.externalEmployeeId)));
+    const ignoredTagSet = new Set(ignoredTags.map(item => normalizeProjectTag(item.normalizedTag)));
     const allDateKeys = [...new Set([
       ...pending.ambiguousDays.map(item => item.date),
       ...latestPeriodDays(storedPeriods).map(item => item.day.date)
@@ -856,7 +861,9 @@ export function createPontoMaisSyncService({
       })
       : [];
     const externalNameById = new Map(externalDirectory.map(item => [String(item.externalEmployeeId), String(item.externalName || '')]));
-    const visibleProjectTags = pending.projectTags.filter(item => !linkedTags.has(item.normalizedTag));
+    const visibleProjectTags = pending.projectTags.filter(item => (
+      !linkedTags.has(item.normalizedTag) && !ignoredTagSet.has(normalizeProjectTag(item.normalizedTag))
+    ));
     const namedAmbiguousDays = ambiguousDays.map(item => ({
       ...item,
       externalName: externalNameById.get(item.externalEmployeeId) || `ID externo ${item.externalEmployeeId}`
@@ -865,6 +872,13 @@ export function createPontoMaisSyncService({
       ambiguousDays: namedAmbiguousDays,
       projects
     });
+    // Etiqueta ignorada leva junto os dias que citavam só aquela missão: senão o gestor tiraria a
+    // etiqueta da fila e os dias dela continuariam cobrando cadastro.
+    const ignoredMissionCodes = new Set([...ignoredTagSet].map(extractMissionCode).filter(Boolean));
+    const visibleMissingDays = missingDays.filter(item => (
+      !(item.projectCodes || []).length
+      || !(item.projectCodes || []).every(code => ignoredMissionCodes.has(String(code)))
+    ));
     return {
       employees: pending.employees.filter(item => (
         !linkedEmployees.has(item.externalEmployeeId) && !ignoredExternalIds.has(item.externalEmployeeId)
@@ -872,7 +886,7 @@ export function createPontoMaisSyncService({
       ambiguousDays: actionableDays,
       missingProjects: {
         projectTags: visibleProjectTags,
-        ambiguousDays: missingDays
+        ambiguousDays: visibleMissingDays
       }
     };
   }
@@ -1074,6 +1088,30 @@ export function createPontoMaisSyncService({
       : { externalEmployeeId, date, projectId: selectedProjectIds[0] };
   }
 
+  async function setProjectTagIgnored({ rawTag, ignored = true, ignoredByUserId = null }) {
+    const normalizedTag = normalizeProjectTag(rawTag);
+    if (!normalizedTag) throw new PontoSyncError('Etiqueta inválida.', { code: 'INVALID_TAG' });
+    if (!ignored) {
+      await db.pontoIgnoredProjectTag.deleteMany({ where: { normalizedTag } });
+      return { normalizedTag, ignored: false };
+    }
+    const alias = await db.pontoProjectTagAlias.findUnique({ where: { normalizedTag } });
+    if (alias) {
+      throw new PontoSyncError('Esta etiqueta já está vinculada a um projeto.', { code: 'INVALID_TAG' });
+    }
+    await db.pontoIgnoredProjectTag.upsert({
+      where: { normalizedTag },
+      create: { normalizedTag, rawTag: String(rawTag).trim(), ignoredByUserId },
+      update: { rawTag: String(rawTag).trim(), ignoredByUserId }
+    });
+    return { normalizedTag, ignored: true };
+  }
+
+  async function listIgnoredProjectTags() {
+    const rows = await db.pontoIgnoredProjectTag.findMany({ orderBy: { rawTag: 'asc' } });
+    return rows.map(item => ({ normalizedTag: item.normalizedTag, rawTag: item.rawTag }));
+  }
+
   async function setDayProjectOverridesBatch({ items = [], createdByUserId = null }) {
     const results = [];
     for (const item of items) {
@@ -1091,6 +1129,8 @@ export function createPontoMaisSyncService({
     setExternalEmployeeIgnored,
     linkExternalEmployee,
     linkProjectTag,
+    setProjectTagIgnored,
+    listIgnoredProjectTags,
     setDayProjectOverride,
     setDayProjectOverridesBatch
   };
@@ -1106,5 +1146,7 @@ export const listPontoMaisExternalEmployees = () => defaultService.listExternalE
 export const setPontoMaisExternalEmployeeIgnored = input => defaultService.setExternalEmployeeIgnored(input);
 export const linkPontoMaisExternalEmployee = input => defaultService.linkExternalEmployee(input);
 export const linkPontoMaisProjectTag = input => defaultService.linkProjectTag(input);
+export const setPontoMaisProjectTagIgnored = input => defaultService.setProjectTagIgnored(input);
+export const listPontoMaisIgnoredProjectTags = () => defaultService.listIgnoredProjectTags();
 export const setPontoMaisDayProjectOverride = input => defaultService.setDayProjectOverride(input);
 export const setPontoMaisDayProjectOverridesBatch = input => defaultService.setDayProjectOverridesBatch(input);

@@ -36,6 +36,48 @@ function allocationList(day: AllocationDay): string {
     .join(' + ');
 }
 
+type SortKey = 'date' | 'normalHours' | 'he70Hours' | 'he100Hours' | 'tags' | 'rdo' | 'manual' | 'allocated' | 'reason';
+
+const SORT_COLUMNS: Array<{ key: SortKey; label: string; numeric?: boolean }> = [
+  { key: 'date', label: 'Data' },
+  { key: 'normalHours', label: 'Normais', numeric: true },
+  { key: 'he70Hours', label: 'HE70', numeric: true },
+  { key: 'he100Hours', label: 'HE100', numeric: true },
+  { key: 'tags', label: 'Etiquetas do Ponto Mais' },
+  { key: 'rdo', label: 'RDO do dia' },
+  { key: 'manual', label: 'Manual' },
+  { key: 'allocated', label: 'Alocado' },
+  { key: 'reason', label: 'Motivo' }
+];
+
+// Valor comparável de cada coluna: número para as de hora, texto para o resto.
+function sortValue(day: AllocationDay, key: SortKey): string | number {
+  switch (key) {
+    case 'date': return day.date;
+    case 'normalHours': return day.normalHours;
+    case 'he70Hours': return day.he70Hours;
+    case 'he100Hours': return day.he100Hours;
+    case 'tags': return day.tags.join(' | ');
+    case 'rdo': return day.rdoProjects.map(item => item.code ?? item.projectId).join(', ');
+    case 'manual': return projectList(day.manualProjects);
+    case 'allocated': return allocationList(day);
+    default: return allocationReasonLabel(day.reason);
+  }
+}
+
+function sortDays(days: AllocationDay[], key: SortKey, direction: 'asc' | 'desc'): AllocationDay[] {
+  const factor = direction === 'asc' ? 1 : -1;
+  return [...days].sort((left, right) => {
+    const a = sortValue(left, key);
+    const b = sortValue(right, key);
+    const compared = typeof a === 'number' && typeof b === 'number'
+      ? a - b
+      : String(a).localeCompare(String(b), 'pt-BR');
+    // A data desempata para a ordem não embaralhar entre renders.
+    return compared !== 0 ? compared * factor : left.date.localeCompare(right.date);
+  });
+}
+
 function toCsv(collaborators: AllocationAuditCollaborator[]): string {
   const header = [
     'Colaborador', 'Cargo', 'Data', 'Normais', 'HE70', 'HE100',
@@ -82,6 +124,15 @@ export function AllocationAuditPanel() {
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
   const [onlyUnallocated, setOnlyUnallocated] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'asc' });
+
+  function toggleSort(key: SortKey) {
+    setSort(previous => (
+      previous.key === key
+        ? { key, direction: previous.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: key === 'date' ? 'asc' : 'desc' }
+    ));
+  }
 
   const { data: collaborators } = useQuery({
     queryKey: ['ponto-collaborators-link'],
@@ -238,19 +289,29 @@ export function AllocationAuditPanel() {
             <table className="acp-table">
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Normais</th>
-                  <th>HE70</th>
-                  <th>HE100</th>
-                  <th>Etiquetas do Ponto Mais</th>
-                  <th>RDO do dia</th>
-                  <th>Manual</th>
-                  <th>Alocado</th>
-                  <th>Motivo</th>
+                  {SORT_COLUMNS.map(column => {
+                    const active = sort.key === column.key;
+                    return (
+                      <th
+                        key={column.key}
+                        aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className={column.numeric ? 'ponto-audit-num' : undefined}
+                      >
+                        <button
+                          type="button"
+                          className={`ponto-audit-sort${active ? ' active' : ''}`}
+                          onClick={() => toggleSort(column.key)}
+                        >
+                          {column.label}
+                          <span aria-hidden="true">{active ? (sort.direction === 'asc' ? '▲' : '▼') : '↕'}</span>
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {collaborator.days.map(day => {
+                {sortDays(collaborator.days, sort.key, sort.direction).map(day => {
                   const isTarget = byProject && day.allocations.some(item => item.projectId === projectId);
                   const classes = [
                     !day.allocated ? 'ponto-audit-row-unallocated' : '',

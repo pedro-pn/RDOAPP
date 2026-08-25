@@ -1107,3 +1107,43 @@ test('janela do cronograma resolve pendência de viagem e ela some da lista do g
   });
   assert.deepEqual(foraDaEquipe, [ambiguousDay]);
 });
+
+test('ignorar etiqueta guarda a forma normalizada e recusa etiqueta já vinculada', async () => {
+  const ignored = new Map();
+  const aliases = new Map([['missao 5745', { normalizedTag: 'missao 5745', projectId: 'project-1' }]]);
+  const db = {
+    pontoIgnoredProjectTag: {
+      upsert: async ({ where, create }) => { ignored.set(where.normalizedTag, create); },
+      deleteMany: async ({ where }) => { ignored.delete(where.normalizedTag); },
+      findMany: async () => [...ignored.values()]
+    },
+    pontoProjectTagAlias: {
+      findUnique: async ({ where }) => aliases.get(where.normalizedTag) || null
+    }
+  };
+  const service = createPontoMaisSyncService({ db, configured: () => true });
+
+  // Acento e caixa não criam entradas diferentes.
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: '  Missão 9999  ' }),
+    { normalizedTag: 'missao 9999', ignored: true }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), [{ normalizedTag: 'missao 9999', rawTag: 'Missão 9999' }]);
+
+  // Etiqueta já vinculada a projeto não pode virar ignorada: são decisões excludentes.
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: 'MISSAO 5745' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: '   ' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: 'Missão 9999', ignored: false }),
+    { normalizedTag: 'missao 9999', ignored: false }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), []);
+});

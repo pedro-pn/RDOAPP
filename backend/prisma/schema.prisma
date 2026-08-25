@@ -506,6 +506,18 @@ model PontoProjectTagAlias {
   @@index([projectId])
 }
 
+// Etiqueta do Ponto Mais que o gestor decidiu não cadastrar como projeto. Sai das pendências e da
+// contagem sem apagar a trilha: basta remover a linha para voltar a cobrar o cadastro.
+model PontoIgnoredProjectTag {
+  normalizedTag   String   @id
+  rawTag          String
+  ignoredByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
 // Seleção gerencial para um conflito de projeto em um colaborador/data específico.
 // A escolha não altera o snapshot original e apenas substitui a regra automática no cálculo.
 model PontoDayProjectOverride {

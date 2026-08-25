@@ -10,7 +10,7 @@
 import prisma from '../prisma.js';
 import { computeCollaboratorRates } from './labor-cost.js';
 import { getPontoPendencyCutoffDateKey } from './settings.js';
-import { extractMissionCode } from '../pontomais/normalize.js';
+import { extractMissionCode, normalizeProjectTag } from '../pontomais/normalize.js';
 
 // O cálculo completo é caro (mescla todos os imports + relatórios do período). O painel usa
 // polling, então memorizamos por impressão digital dos dados de entrada: 5 agregações baratas
@@ -18,13 +18,14 @@ import { extractMissionCode } from '../pontomais/normalize.js';
 let cache = { fingerprint: null, value: null };
 
 async function currentFingerprint() {
-  const [imports, reports, reportCollaborators, overrides, aliases, projects] = await Promise.all([
+  const [imports, reports, reportCollaborators, overrides, aliases, projects, ignoredTags] = await Promise.all([
     prisma.pontoImport.aggregate({ _count: { _all: true }, _max: { createdAt: true } }),
     prisma.report.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
     prisma.reportCollaborator.count(),
     prisma.pontoDayProjectOverride.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
     prisma.pontoProjectTagAlias.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
-    prisma.project.aggregate({ _count: { _all: true }, _max: { updatedAt: true } })
+    prisma.project.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
+    prisma.pontoIgnoredProjectTag.aggregate({ _count: { _all: true }, _max: { updatedAt: true } })
   ]);
   return JSON.stringify([
     imports._count._all, imports._max.createdAt,
@@ -32,7 +33,8 @@ async function currentFingerprint() {
     reportCollaborators,
     overrides._count._all, overrides._max.updatedAt,
     aliases._count._all, aliases._max.updatedAt,
-    projects._count._all, projects._max.updatedAt
+    projects._count._all, projects._max.updatedAt,
+    ignoredTags._count._all, ignoredTags._max.updatedAt
   ]);
 }
 
@@ -44,14 +46,21 @@ async function loadTrails() {
   const fingerprint = await currentFingerprint();
   if (cache.fingerprint === fingerprint && cache.value) return cache.value;
 
-  const [{ rates }, projects, cutoffDateKey] = await Promise.all([
+  const [{ rates }, projects, ignoredTags, cutoffDateKey] = await Promise.all([
     computeCollaboratorRates(),
     prisma.project.findMany({ select: { id: true, code: true, name: true } }),
+    prisma.pontoIgnoredProjectTag.findMany({ select: { normalizedTag: true } }),
     getPontoPendencyCutoffDateKey()
   ]);
   const projectsById = new Map(projects.map(project => [project.id, project]));
   const knownMissionCodes = new Set(projects.map(project => String(project.code || '').trim()).filter(Boolean));
-  const value = { rates, projectsById, knownMissionCodes, cutoffDateKey };
+  const value = {
+    rates,
+    projectsById,
+    knownMissionCodes,
+    ignoredTagSet: new Set(ignoredTags.map(item => normalizeProjectTag(item.normalizedTag))),
+    cutoffDateKey
+  };
   cache = { fingerprint, value };
   return value;
 }
@@ -67,13 +76,16 @@ function projectRef(projectsById, projectId) {
 
 // Dia não alocado cuja etiqueta cita uma missão que não existe no app já está representado na aba
 // "Projetos não encontrados". Marcamos o balde para a UI separar e para o contador não somar.
-function unallocatedBucket(day, knownMissionCodes) {
-  const citedCodes = (day.tags || []).map(extractMissionCode).filter(Boolean);
+function unallocatedBucket(day, knownMissionCodes, ignoredTagSet = new Set()) {
+  const tags = day.tags || [];
+  // Etiqueta que o gestor mandou ignorar tira o dia das duas listas e da contagem.
+  if (tags.length > 0 && tags.every(tag => ignoredTagSet.has(normalizeProjectTag(tag)))) return 'IGNORED';
+  const citedCodes = tags.map(extractMissionCode).filter(Boolean);
   const hasUnknownMission = citedCodes.length > 0 && citedCodes.every(code => !knownMissionCodes.has(code));
   return hasUnknownMission ? 'MISSING_PROJECT' : 'ACTIONABLE';
 }
 
-function decorateDay(day, projectsById, knownMissionCodes) {
+function decorateDay(day, projectsById, knownMissionCodes, ignoredTagSet = new Set()) {
   const allocated = day.allocations.length > 0;
   return {
     date: day.date,
@@ -88,9 +100,18 @@ function decorateDay(day, projectsById, knownMissionCodes) {
     allocations: day.allocations.map(item => ({ ...projectRef(projectsById, item.projectId), weight: item.weight })),
     reason: day.reason,
     allocated,
-    bucket: allocated ? null : unallocatedBucket(day, knownMissionCodes)
+    bucket: allocated ? null : unallocatedBucket(day, knownMissionCodes, ignoredTagSet)
   };
 }
+
+// Dias que ficaram sem projeto por excesso de evidência conflitante, e não por falta dela.
+const CONFLICT_REASONS = new Set([
+  'TAG_RDO_CONFLICT',
+  'UNCONFIRMED_MULTIPLE_TAGS',
+  'AMBIGUOUS_WITHOUT_TAGS',
+  'MOBILIZATION_RDO_AMBIGUOUS',
+  'SCHEDULE_WINDOW_AMBIGUOUS'
+]);
 
 function inRange(dateKey, from, to) {
   if (from && dateKey < from) return false;
@@ -104,14 +125,15 @@ function inRange(dateKey, from, to) {
  * que é justamente o que se quer olhar ao auditar um projeto específico.
  */
 export async function getAllocationAudit(filters = {}) {
-  const { rates, projectsById, knownMissionCodes } = await loadTrails();
-  return buildAllocationAudit({ rates, projectsById, knownMissionCodes, ...filters });
+  const { rates, projectsById, knownMissionCodes, ignoredTagSet } = await loadTrails();
+  return buildAllocationAudit({ rates, projectsById, knownMissionCodes, ignoredTagSet, ...filters });
 }
 
 export function buildAllocationAudit({
   rates = [],
   projectsById = new Map(),
   knownMissionCodes = new Set(),
+  ignoredTagSet = new Set(),
   collaboratorId = null,
   projectId = null,
   from = null,
@@ -132,7 +154,7 @@ export function buildAllocationAudit({
           || day.rdoProjects.some(item => item.projectId === projectId);
         if (!mentions) continue;
       }
-      days.push(decorateDay(day, projectsById, knownMissionCodes));
+      days.push(decorateDay(day, projectsById, knownMissionCodes, ignoredTagSet));
     }
     if (!days.length) continue;
 
@@ -174,14 +196,15 @@ export function buildAllocationAudit({
  * aparecem na prática e evita uma lista de centenas de itens equivalentes.
  */
 export async function getUnallocatedDays({ from = null, to = null } = {}) {
-  const { rates, projectsById, knownMissionCodes, cutoffDateKey } = await loadTrails();
-  return groupUnallocatedDays({ rates, projectsById, knownMissionCodes, cutoffDateKey, from, to });
+  const { rates, projectsById, knownMissionCodes, ignoredTagSet, cutoffDateKey } = await loadTrails();
+  return groupUnallocatedDays({ rates, projectsById, knownMissionCodes, ignoredTagSet, cutoffDateKey, from, to });
 }
 
 export function groupUnallocatedDays({
   rates = [],
   projectsById = new Map(),
   knownMissionCodes = new Set(),
+  ignoredTagSet = new Set(),
   cutoffDateKey = '0000-00-00',
   from = null,
   to = null
@@ -203,7 +226,7 @@ export function groupUnallocatedDays({
     for (const date of days) {
       const trailDay = trailByDate.get(date);
       if (!trailDay) continue;
-      const decorated = decorateDay(trailDay, projectsById, knownMissionCodes);
+      const decorated = decorateDay(trailDay, projectsById, knownMissionCodes, ignoredTagSet);
       const previous = block?.days[block.days.length - 1]?.date;
       const contiguous = previous
         && new Date(`${date}T00:00:00.000Z`) - new Date(`${previous}T00:00:00.000Z`) === 86400000
@@ -240,9 +263,14 @@ export function groupUnallocatedDays({
     missingProjects,
     counts: {
       // O contador da navegação ignora de propósito o balde de projeto não cadastrado: aquilo é
-      // fila de cadastro, não de resolução.
+      // fila de cadastro, não de resolução. O balde IGNORED nem chega aqui.
       actionableDays: actionable.reduce((sum, item) => sum + item.days.length, 0),
       actionableHours: actionable.reduce((sum, item) => sum + item.hours, 0),
+      // Conflito é um subconjunto dos dias sem alocação, não uma fila paralela: o dia tem evidência
+      // demais (etiqueta contra RDO, vários RDOs, janelas sobrepostas) em vez de nenhuma.
+      conflictDays: actionable
+        .filter(item => CONFLICT_REASONS.has(item.reason))
+        .reduce((sum, item) => sum + item.days.length, 0),
       missingProjectDays: missingProjects.reduce((sum, item) => sum + item.days.length, 0)
     }
   };

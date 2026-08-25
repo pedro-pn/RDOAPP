@@ -32,6 +32,7 @@ import {
   setPontoMaisDayProjectOverridesBatch,
   setPontoMaisExternalEmployeeIgnored
 } from '../../lib/pontomais/sync.js';
+import { normalizeName } from '../../lib/pontomais/normalize.js';
 import prisma from '../../lib/prisma.js';
 import {
   AllocationAuditError,
@@ -97,6 +98,11 @@ export const projectTagLinkSchema = z.object({
   rawTag: z.string().trim().min(1).max(500),
   projectId: z.string().trim().min(1).max(200)
 }).strict();
+
+export const projectTagIgnoreSchema = z.object({
+  rawTag: z.string().trim().min(1),
+  ignored: z.boolean().default(true)
+});
 
 export const dayProjectOverrideSchema = z.object({
   externalEmployeeId: z.string().trim().min(1).max(200),
@@ -301,6 +307,36 @@ export function createPontoMaisIntegrationRouter({
     })
   );
 
+  routes.get(
+    '/project-tags/ignored',
+    authenticate,
+    authorizeManager,
+    asyncHandler(async (_req, res) => {
+      res.json(await integration.listIgnoredProjectTags());
+    })
+  );
+
+  routes.post(
+    '/project-tags/ignore',
+    authenticate,
+    authorizeManager,
+    asyncHandler(async (req, res) => {
+      const parsed = projectTagIgnoreSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: 'Etiqueta inválida.', code: 'INVALID_TAG' });
+      try {
+        return res.json(await integration.setProjectTagIgnored({
+          ...parsed.data,
+          ignoredByUserId: req.auth?.user?.id ?? null
+        }));
+      } catch (error) {
+        if (error instanceof PontoSyncError && error.code === 'INVALID_TAG') {
+          return res.status(400).json({ error: error.message, code: error.code });
+        }
+        throw error;
+      }
+    })
+  );
+
   routes.post(
     '/day-project-overrides',
     authenticate,
@@ -401,8 +437,20 @@ router.get(
   requireAuth,
   requireAcompanhamentoManager,
   asyncHandler(async (req, res) => {
-    const take = Math.min(Number(req.query.limit) || 50, 200);
-    const imports = await prisma.pontoImport.findMany({ orderBy: { createdAt: 'desc' }, take });
+    const take = Math.min(Number(req.query.limit) || 50, 500);
+    // Sem recorte por origem, as centenas de snapshots da API empurram as planilhas para fora da
+    // janela e elas ficam inalcançáveis na tela — inclusive para exclusão.
+    const source = String(req.query.source || '').trim().toUpperCase();
+    const where = source === 'PONTOMAIS_API'
+      ? { source: 'PONTOMAIS_API' }
+      : source === 'XLSX'
+        ? { NOT: { source: 'PONTOMAIS_API' } }
+        : undefined;
+    const imports = await prisma.pontoImport.findMany({
+      ...(where ? { where } : {}),
+      orderBy: { createdAt: 'desc' },
+      take
+    });
     res.json(imports);
   })
 );
@@ -436,23 +484,33 @@ router.get(
     const xlsxImportIds = pontoImports
       .filter(item => item.source !== 'PONTOMAIS_API')
       .map(item => item.id);
-    const unmatchedPeriods = xlsxImportIds.length
-      ? await prisma.pontoPeriodSummary.findMany({
-        where: {
-          importId: { in: xlsxImportIds },
-          collaboratorId: null
-        },
-        select: { rawName: true, normalizedName: true },
-        orderBy: { createdAt: 'asc' }
-      })
-      : [];
+    const [unmatchedPeriods, ignoredExternalEmployees] = xlsxImportIds.length
+      ? await Promise.all([
+        prisma.pontoPeriodSummary.findMany({
+          where: {
+            importId: { in: xlsxImportIds },
+            collaboratorId: null
+          },
+          select: { rawName: true, normalizedName: true },
+          orderBy: { createdAt: 'asc' }
+        }),
+        prisma.pontoExternalEmployee.findMany({
+          where: { ignoredAt: { not: null } },
+          select: { externalName: true }
+        })
+      ])
+      : [[], []];
+    // Quem foi marcado como ignorado na aba de colaboradores não volta como pendência aqui. A lista
+    // do XLSX é por nome (a planilha não traz o id externo), então o cruzamento é pelo nome
+    // normalizado — o mesmo critério que o vínculo automático já usa.
+    const ignoredNames = new Set(ignoredExternalEmployees.map(item => normalizeName(item.externalName)));
     res.json({
       importId: pontoImport?.id ?? null,
       periodStart: periodStart ?? null,
       periodEnd: periodEnd ?? null,
       fileName: fileName ?? pontoImport?.fileName ?? null,
       rates,
-      unmatched: currentUnmatchedPontoNames(unmatchedPeriods)
+      unmatched: currentUnmatchedPontoNames(unmatchedPeriods).filter(item => !ignoredNames.has(item.normalizedName))
     });
   })
 );
@@ -604,14 +662,15 @@ router.get(
       getPontoMaisPending()
     ]);
     const unlinkedEmployees = integrationPending.employees.length;
-    const ambiguousDays = integrationPending.ambiguousDays.length;
     res.json({
       unallocatedDays: unallocated.counts.actionableDays,
       unallocatedBlocks: unallocated.actionable.length,
       unallocatedHours: unallocated.counts.actionableHours,
+      // Conflito é um recorte dos dias sem alocação, não uma fila separada: somá-lo ao total
+      // contaria o mesmo dia duas vezes.
+      conflictDays: unallocated.counts.conflictDays,
       unlinkedEmployees,
-      ambiguousDays,
-      total: unallocated.counts.actionableDays + unlinkedEmployees + ambiguousDays
+      total: unallocated.counts.actionableDays + unlinkedEmployees
     });
   })
 );

@@ -31,6 +31,32 @@ function blockPeriod(block: UnallocatedBlock): string {
   return first === last ? fmtDayDate(first) : `${fmtDayDate(first)} a ${fmtDayDate(last)}`;
 }
 
+/*
+ * Candidatos do bloco: projetos que a etiqueta do Ponto Mais ou o RDO citaram naquele dia sem que a
+ * regra conseguisse decidir. É o contexto que o painel antigo de conflitos dava e que aqui evita o
+ * gestor ter de adivinhar entre todas as missões.
+ */
+function blockCandidates(block: UnallocatedBlock): Array<{ projectId: string; label: string; origin: string }> {
+  const byProject = new Map<string, { projectId: string; label: string; origins: Set<string> }>();
+  for (const day of block.days) {
+    for (const ref of day.tagProjects) {
+      const entry = byProject.get(ref.projectId)
+        ?? { projectId: ref.projectId, label: ref.code ?? ref.projectId, origins: new Set<string>() };
+      entry.origins.add('etiqueta');
+      byProject.set(ref.projectId, entry);
+    }
+    for (const ref of day.rdoProjects) {
+      const entry = byProject.get(ref.projectId)
+        ?? { projectId: ref.projectId, label: ref.code ?? ref.projectId, origins: new Set<string>() };
+      entry.origins.add('RDO');
+      byProject.set(ref.projectId, entry);
+    }
+  }
+  return [...byProject.values()]
+    .map(entry => ({ projectId: entry.projectId, label: entry.label, origin: [...entry.origins].join(' + ') }))
+    .sort((left, right) => left.label.localeCompare(right.label, 'pt-BR'));
+}
+
 function projectOptionLabel(project: ProjectOption): string {
   const suffix = project.historical ? ' (histórico)' : project.isActive ? '' : ' (inativo)';
   return `${project.code} — ${project.name}${suffix}`;
@@ -131,6 +157,7 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
         const key = blockKey(block);
         const selected = selection[key] ?? '';
         const isOpen = Boolean(expanded[key]);
+        const candidates = blockCandidates(block);
         const busy = resolveMutation.isPending;
         return (
           <div key={key} className="field-row ponto-link-row ponto-day-allocation-row">
@@ -139,6 +166,21 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
               <span>
                 {block.days.length} dia(s) · {fmtHours(block.hours)} · {allocationReasonLabel(block.reason)}
               </span>
+              {candidates.length ? (
+                <span className="ponto-candidates">
+                  Candidatos:
+                  {candidates.map(candidate => (
+                    <button
+                      key={candidate.projectId}
+                      type="button"
+                      className={`ponto-candidate${selected === candidate.projectId ? ' active' : ''}`}
+                      onClick={() => setSelection(previous => ({ ...previous, [key]: candidate.projectId }))}
+                    >
+                      {candidate.label} <em>({candidate.origin})</em>
+                    </button>
+                  ))}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="ponto-inline-link"

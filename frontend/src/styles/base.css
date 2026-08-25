@@ -13425,3 +13425,95 @@ body.app-reorder-touching {
   margin-left: auto;
   padding: 3px 7px;
 }
+
+.ponto-ignored-tags {
+  border-top: 1px solid var(--br);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.ponto-ignored-tags > span {
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.ponto-ignored-tag-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.ponto-ignored-tag-row > span {
+  overflow-wrap: anywhere;
+}
+
+.ponto-audit-sort {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: 4px;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.ponto-audit-sort:hover {
+  color: var(--tx);
+}
+
+.ponto-audit-sort.active {
+  color: var(--g);
+}
+
+.ponto-audit-sort span {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.ponto-audit-scroll .acp-table th.ponto-audit-num {
+  text-align: right;
+}
+
+.ponto-audit-scroll .acp-table th.ponto-audit-num .ponto-audit-sort {
+  flex-direction: row-reverse;
+}
+
+.ponto-candidates {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ponto-candidate {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  color: var(--tx);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.ponto-candidate em {
+  color: var(--mu);
+  font-style: normal;
+}
+
+.ponto-candidate.active {
+  background: var(--g);
+  border-color: var(--g);
+  color: var(--wh);
+}
+
+.ponto-candidate.active em {
+  color: var(--wh);
+}

@@ -188,3 +188,61 @@ test('filtro de não alocados esconde os dias já resolvidos', () => {
 
   assert.deepEqual(result.collaborators[0].days.map(item => item.date), ['2026-07-21']);
 });
+
+test('etiqueta ignorada tira o dia das duas listas e da contagem', () => {
+  const days = [
+    day('2026-08-17', { tags: ['Missão 9999 - cliente antigo'] }),
+    day('2026-08-19', { tags: ['EM VIAGEM - 07.264.184/0001-46'] })
+  ];
+  const semIgnorar = groupUnallocatedDays({
+    rates: [rate(days)],
+    projectsById: PROJECTS,
+    knownMissionCodes: KNOWN_CODES,
+    cutoffDateKey: '2025-01-01'
+  });
+  assert.equal(semIgnorar.counts.missingProjectDays, 1);
+  assert.equal(semIgnorar.counts.actionableDays, 1);
+
+  const ignorando = groupUnallocatedDays({
+    rates: [rate(days)],
+    projectsById: PROJECTS,
+    knownMissionCodes: KNOWN_CODES,
+    ignoredTagSet: new Set(['missao 9999 - cliente antigo']),
+    cutoffDateKey: '2025-01-01'
+  });
+  assert.equal(ignorando.counts.missingProjectDays, 0);
+  assert.equal(ignorando.missingProjects.length, 0);
+  // O dia de viagem, que não foi ignorado, continua na fila.
+  assert.equal(ignorando.counts.actionableDays, 1);
+});
+
+test('dia com etiqueta ignorada e outra ainda pendente não some da fila', () => {
+  const days = [day('2026-08-17', { tags: ['Missão 9999', 'EM VIAGEM - 07.264.184/0001-46'] })];
+  const result = groupUnallocatedDays({
+    rates: [rate(days)],
+    projectsById: PROJECTS,
+    knownMissionCodes: KNOWN_CODES,
+    ignoredTagSet: new Set(['missao 9999']),
+    cutoffDateKey: '2025-01-01'
+  });
+
+  assert.equal(result.counts.missingProjectDays + result.counts.actionableDays, 1);
+});
+
+test('conflito é subconjunto dos dias sem alocação, nunca uma fila paralela', () => {
+  const days = [
+    day('2026-08-17', { reason: 'TAG_RDO_CONFLICT' }),
+    day('2026-08-18', { reason: 'AMBIGUOUS_WITHOUT_TAGS' }),
+    day('2026-08-19', { reason: 'NO_PROJECT_EVIDENCE' })
+  ];
+  const result = groupUnallocatedDays({
+    rates: [rate(days)],
+    projectsById: PROJECTS,
+    knownMissionCodes: KNOWN_CODES,
+    cutoffDateKey: '2025-01-01'
+  });
+
+  assert.equal(result.counts.actionableDays, 3);
+  assert.equal(result.counts.conflictDays, 2);
+  assert.ok(result.counts.conflictDays < result.counts.actionableDays);
+});
