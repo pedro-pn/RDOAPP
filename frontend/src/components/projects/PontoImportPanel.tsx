@@ -162,15 +162,16 @@ export function PontoImportPanel() {
           : `${result.created} janela(s) sincronizada(s), ${result.skipped} já estavam atualizadas.`,
         'success'
       );
-      setSyncProgress(null);
       invalidate();
     },
     onError: (error: { response?: { data?: { error?: string } } }) => {
       // Cada janela concluída já ficou gravada: dá para retomar a partir de onde parou.
       const at = syncProgress ? ` Parou na janela ${syncProgress.done + 1} de ${syncProgress.total}.` : '';
       showToast((error?.response?.data?.error || 'Não foi possível sincronizar o período.') + at, 'error');
-      setSyncProgress(null);
-    }
+    },
+    // Limpa o progresso em qualquer desfecho: se ficasse só no onSuccess/onError, um caminho novo
+    // deixaria o contador preso mostrando a última janela.
+    onSettled: () => setSyncProgress(null)
   });
 
   const projectTagIgnoreMutation = useMutation({
@@ -410,7 +411,9 @@ export function PontoImportPanel() {
                 }
                 onClick={() => syncMutation.mutate({ startDate: syncStart, endDate: syncEnd })}
               >
-                {syncMutation.isPending ? 'Sincronizando…' : 'Sincronizar período'}
+                {syncMutation.isPending
+                  ? `Sincronizando${syncProgress ? ` ${Math.min(syncProgress.done + 1, syncProgress.total)}/${syncProgress.total}` : ''}…`
+                  : 'Sincronizar período'}
               </Button>
               {syncStart && syncEnd && syncStart <= syncEnd ? (
                 <span className="placeholder-copy">

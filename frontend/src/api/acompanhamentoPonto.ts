@@ -227,8 +227,19 @@ export async function getPontoMaisIntegrationStatus(): Promise<PontoMaisIntegrat
   return data;
 }
 
+/*
+ * O apiClient não define timeout, então uma requisição que fica pendurada nunca rejeita — e o laço
+ * de janelas ficaria travado para sempre, sem sucesso nem erro. Uma janela de 31 dias é pesada mas
+ * finita, então vale um teto generoso: melhor falhar dizendo em qual janela parou do que congelar.
+ */
+export const PONTOMAIS_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+
 export async function syncPontoMais(payload: { startDate: string; endDate: string }): Promise<PontoMaisSyncResult> {
-  const { data } = await apiClient.post<PontoMaisSyncResult>('/acompanhamento/ponto/sync', payload);
+  const { data } = await apiClient.post<PontoMaisSyncResult>(
+    '/acompanhamento/ponto/sync',
+    payload,
+    { timeout: PONTOMAIS_SYNC_TIMEOUT_MS }
+  );
   return data;
 }
 
