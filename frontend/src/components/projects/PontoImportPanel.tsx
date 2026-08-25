@@ -435,10 +435,17 @@ export function PontoImportPanel() {
             <div className="sec ponto-subtitle">
               Colaboradores do ponto sem vínculo ({actionablePendingCount})
             </div>
+            {actionablePendingCount > 0 ? (
+              <p className="placeholder-copy ponto-section-copy">
+                Enquanto ficarem aqui, as horas dessas pessoas não entram no custo de projeto nenhum.
+                Vincule ao colaborador correspondente ou use “Ignorar” para tirar da fila quem não é
+                da operação — dá para reverter na aba “Colaboradores encontrados”.
+              </p>
+            ) : null}
             {actionablePendingCount === 0 ? (
               <p className="placeholder-copy">
-                Nenhum conflito de projeto nem colaborador sem vínculo. Os dias de ponto que não
-                chegaram a projeto nenhum ficam na aba “Dias sem alocação”.
+                Nenhum colaborador do ponto sem vínculo. Os dias de ponto que não chegaram a projeto
+                nenhum ficam na aba “Dias sem alocação”.
               </p>
             ) : null}
             <div
@@ -472,16 +479,30 @@ export function PontoImportPanel() {
                       ))}
                     </select>
                   </div>
-                  <Button
-                    variant="mini"
-                    disabled={!externalEmployeeLinks[item.externalEmployeeId] || externalEmployeeLinkMutation.isPending}
-                    onClick={() => externalEmployeeLinkMutation.mutate({
-                      externalEmployeeId: item.externalEmployeeId,
-                      collaboratorId: externalEmployeeLinks[item.externalEmployeeId]
-                    })}
-                  >
-                    Vincular
-                  </Button>
+                  <div className="ponto-pending-actions">
+                    <Button
+                      variant="mini"
+                      disabled={!externalEmployeeLinks[item.externalEmployeeId] || externalEmployeeLinkMutation.isPending}
+                      onClick={() => externalEmployeeLinkMutation.mutate({
+                        externalEmployeeId: item.externalEmployeeId,
+                        collaboratorId: externalEmployeeLinks[item.externalEmployeeId]
+                      })}
+                    >
+                      Vincular
+                    </Button>
+                    {/* Mesmo efeito do botão da aba "Colaboradores encontrados": evita ter de sair
+                        daqui e caçar a pessoa lá para tirá-la da fila. */}
+                    <Button
+                      variant="mini"
+                      disabled={ignoreExternalEmployeeMutation.isPending}
+                      onClick={() => ignoreExternalEmployeeMutation.mutate({
+                        externalEmployeeId: item.externalEmployeeId,
+                        ignored: true
+                      })}
+                    >
+                      Ignorar
+                    </Button>
+                  </div>
                 </div>
               );
             })}
