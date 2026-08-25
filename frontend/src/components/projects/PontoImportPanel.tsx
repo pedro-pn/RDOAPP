@@ -356,7 +356,7 @@ export function PontoImportPanel() {
           </div>
         ) : null}
 
-        {integrationConfigured && isManager ? (
+        {isManager ? (
           <div className="det-section">
             <div className="sec ponto-subtitle">Sincronizar um período</div>
             <p className="placeholder-copy ponto-section-copy">
@@ -366,6 +366,12 @@ export function PontoImportPanel() {
               são preservados em qualquer caso — a seleção é por colaborador e data, não pertence ao
               snapshot.
             </p>
+            {!integrationConfigured ? (
+              <p className="field-error">
+                Indisponível: o backend está sem PONTOMAIS_API_TOKEN. Defina a variável e reinicie o
+                container do backend — ela é lida na inicialização do processo.
+              </p>
+            ) : null}
             <div className="ponto-filter-row">
               <div className="field-group">
                 <label htmlFor="ponto-sync-start">De</label>
@@ -388,7 +394,9 @@ export function PontoImportPanel() {
               </div>
               <Button
                 variant="mini"
-                disabled={!syncStart || !syncEnd || syncStart > syncEnd || syncMutation.isPending}
+                disabled={
+                  !integrationConfigured || !syncStart || !syncEnd || syncStart > syncEnd || syncMutation.isPending
+                }
                 onClick={() => syncMutation.mutate({ startDate: syncStart, endDate: syncEnd })}
               >
                 {syncMutation.isPending ? 'Sincronizando…' : 'Sincronizar período'}
