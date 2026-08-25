@@ -28,6 +28,8 @@ import { ProjectAdditionalProposalsNovelty } from './ProjectAdditionalProposalsN
 import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
 import { ProjectQualityDeviationsNovelty } from './ProjectQualityDeviationsNovelty';
 import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
+import { ProjectStandbyHistoryDialog } from './ProjectStandbyHistoryDialog';
+import { ProjectStandbyHistoryNovelty } from './ProjectStandbyHistoryNovelty';
 import { ProjectWeeklyTargetNovelty } from './ProjectWeeklyTargetNovelty';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import type { AuthUser } from '../../types/auth';
@@ -554,6 +556,8 @@ export function ProjectDetailDashboard({
   const [manualCostNoveltyActive, setManualCostNoveltyActive] = useState(true);
   const [qualityDeviationsNoveltyActive, setQualityDeviationsNoveltyActive] = useState(true);
   const [additionalProposalsNoveltyActive, setAdditionalProposalsNoveltyActive] = useState(true);
+  const [standbyHistoryNoveltyActive, setStandbyHistoryNoveltyActive] = useState(true);
+  const [standbyHistoryOpen, setStandbyHistoryOpen] = useState(false);
   const [expandedQualityDeviationIds, setExpandedQualityDeviationIds] = useState<Set<string>>(() => new Set());
   const [manualCostFormOpen, setManualCostFormOpen] = useState(false);
   const [manualCostError, setManualCostError] = useState<string | null>(null);
@@ -1017,7 +1021,22 @@ export function ProjectDetailDashboard({
             <ProgressHistoryChart points={data.progressHistory} />
 
             <div className="acp-det-two">
-              <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos relatórios de execução.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
+              <div className="acp-det-standby-kpi">
+                <span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos relatórios de execução.">Standby</HelpTip></span>
+                <strong>{data.standby.count}</strong>
+                <span className="acp-det-kpi-sub">dia(s)</span>
+                {!isGroup ? (
+                  <button
+                    type="button"
+                    className="mini-btn alt acp-standby-history-trigger"
+                    aria-haspopup="dialog"
+                    data-acp-standby-history-trigger
+                    onClick={() => setStandbyHistoryOpen(true)}
+                  >
+                    Ver histórico
+                  </button>
+                ) : null}
+              </div>
               <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas-homem de stand-by de todos os relatórios de execução do projeto, multiplicando o tempo pela equipe do turno.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
             </div>
 
@@ -1266,6 +1285,13 @@ export function ProjectDetailDashboard({
         <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade de avanço acumulada até a data de referência dos dias corridos.">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
 
+      <ProjectStandbyHistoryDialog
+        project={standbyHistoryOpen && !isGroup && projectId
+          ? { projectId, code: h.code }
+          : null}
+        onClose={() => setStandbyHistoryOpen(false)}
+      />
+
       <Modal open={scheduleProject !== null} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
         <div className="acp-manage">
           <div className="acp-manage-head">
@@ -1313,6 +1339,11 @@ export function ProjectDetailDashboard({
         user={progressHistoryNoveltyUser}
         enabled={additionalProposalsNoveltyActive && hasAdditionalProposalContribution}
         onSeen={() => setAdditionalProposalsNoveltyActive(false)}
+      />
+      <ProjectStandbyHistoryNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={standbyHistoryNoveltyActive && !isGroup && Boolean(projectId)}
+        onSeen={() => setStandbyHistoryNoveltyActive(false)}
       />
     </div>
   );

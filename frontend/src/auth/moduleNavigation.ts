@@ -13,6 +13,7 @@ const ACOMPANHAMENTO_WEEKLY_TARGET_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamen
 const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
 const ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-project-deviations-novelty:v1:';
 const ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-additional-proposals-novelty:v1:';
+const ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-standby-history-novelty:v1:';
 // v2: a v1 podia ser marcada como vista antes de o driver realmente abrir.
 const ACOMPANHAMENTO_TRACKING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-tracking-novelty:v2:';
 const ACOMPANHAMENTO_FINALIZED_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-finalized-novelty:v2:';
@@ -237,6 +238,21 @@ export function shouldShowAcompanhamentoAdditionalProposalsNovelty(user: Pick<Au
 export function markAcompanhamentoAdditionalProposalsNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
   if (!user) return;
   safeLocalStorageSet(`${ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+// Novidade do histórico de standby nos cards de projeto.
+// Validade global de 10 dias corridos após a implantação (25/08/2026 a 04/09/2026).
+const ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_EXPIRES_AT = new Date('2026-09-04T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoStandbyHistoryNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoStandbyHistoryNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 // Campanhas das novas ações de arquivamento/conferência e do aviso de missão finalizada.
