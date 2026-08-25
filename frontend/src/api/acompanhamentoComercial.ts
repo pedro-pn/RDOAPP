@@ -58,6 +58,7 @@ export interface ProjectRevisions {
   mobilizationLeadDays?: number | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  demobilizationDate?: string | null;
   manualProgressPct?: string | number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
@@ -81,6 +82,7 @@ export interface ProjectSchedulePayload {
   approvedAt?: string | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  demobilizationDate?: string | null;
   manualProgressPct?: number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
@@ -600,8 +602,31 @@ export interface MissionGroupCard extends Omit<ProjectCard, 'kind' | 'projectId'
 
 export type ProjectCardItem = ProjectCard | MissionGroupCard;
 
+export interface ProjectStandbyHistoryEntry {
+  date: string;
+  standbyMinutes: number;
+  collaboratorCount: number | null;
+  reason: string | null;
+}
+
+export interface ProjectStandbyHistory {
+  project: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  entries: ProjectStandbyHistoryEntry[];
+}
+
 export async function getProjectCards(): Promise<ProjectCardItem[]> {
   const { data } = await apiClient.get<ProjectCardItem[]>('/acompanhamento/comercial/projetos-cards');
+  return data;
+}
+
+export async function getProjectStandbyHistory(projectId: string): Promise<ProjectStandbyHistory> {
+  const { data } = await apiClient.get<ProjectStandbyHistory>(
+    `/acompanhamento/comercial/projetos/${encodeURIComponent(projectId)}/standby-historico`
+  );
   return data;
 }
 

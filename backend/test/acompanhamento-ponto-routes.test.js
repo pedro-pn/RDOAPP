@@ -1,17 +1,35 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import {
+  allocationAuditQuerySchema,
   createPontoMaisIntegrationRouter,
+  defaultPontoMaisIntegration,
+  currentUnmatchedPontoNames,
   dayProjectOverrideSchema,
   externalEmployeeIgnoreSchema,
   externalEmployeeLinkSchema,
+  projectTagIgnoreSchema,
   projectTagLinkSchema,
+  resolveUnallocatedSchema,
   syncRunsQuerySchema,
   mapPontoSyncHttpError,
   syncPeriodSchema
 } from '../src/routes/resources/acompanhamento-ponto.js';
 import { PontoSyncError } from '../src/lib/pontomais/sync.js';
+
+test('lista de nomes pendentes considera somente resumos ainda sem vínculo e remove duplicados', () => {
+  assert.deepEqual(currentUnmatchedPontoNames([
+    { rawName: ' Pessoa Externa ', normalizedName: 'pessoa externa' },
+    { rawName: 'Pessoa Externa Atualizada', normalizedName: 'pessoa externa' },
+    { rawName: 'Outro Nome', normalizedName: 'outro nome' },
+    { rawName: 'Inválido', normalizedName: '' }
+  ]), [
+    { rawName: 'Pessoa Externa Atualizada', normalizedName: 'pessoa externa' },
+    { rawName: 'Outro Nome', normalizedName: 'outro nome' }
+  ]);
+});
 
 function testAuthentication(req, res, next) {
   const role = req.headers['x-test-role'];
@@ -268,4 +286,63 @@ test('gestor executa contratos HTTP e recebe catálogo seguro com projetos hist�
   assert.ok(calls.some(([name, input]) => name === 'day-override'
     && input.createdByUserId === 'manager-1'
     && input.date === '2026-08-01'));
+});
+
+test('a fiação padrão do router cobre toda função de integração que as rotas chamam', () => {
+  // Os demais testes injetam um services próprio, então o mapa real nunca era exercitado: dava para
+  // adicionar uma função ao serviço, esquecer a entrada aqui e só descobrir com 500 em produção.
+  const source = readFileSync(new URL('../src/routes/resources/acompanhamento-ponto.js', import.meta.url), 'utf8');
+  const used = [...source.matchAll(/integration\.([A-Za-z0-9_]+)\(/g)].map(match => match[1]);
+
+  assert.ok(used.length > 0, 'nenhuma chamada a integration.* encontrada');
+  for (const name of new Set(used)) {
+    assert.equal(
+      typeof defaultPontoMaisIntegration[name],
+      'function',
+      `rota chama integration.${name}() mas a fiação padrão não tem essa função`
+    );
+  }
+});
+
+// === Schemas das rotas de auditoria e de ignorar etiqueta ===
+
+test('ignorar etiqueta aceita texto livre e assume ignorado quando o campo não vem', () => {
+  assert.deepEqual(projectTagIgnoreSchema.parse({ rawTag: '  Missão 9999  ' }), {
+    rawTag: 'Missão 9999',
+    ignored: true
+  });
+  assert.deepEqual(projectTagIgnoreSchema.parse({ rawTag: 'Missão 9999', ignored: false }), {
+    rawTag: 'Missão 9999',
+    ignored: false
+  });
+  assert.throws(() => projectTagIgnoreSchema.parse({ rawTag: '   ' }));
+  assert.throws(() => projectTagIgnoreSchema.parse({}));
+});
+
+test('filtro da auditoria recusa data malformada e só aceita o marcador textual do checkbox', () => {
+  assert.deepEqual(allocationAuditQuerySchema.parse({ collaboratorId: 'c-1', de: '2026-06-01' }), {
+    collaboratorId: 'c-1',
+    de: '2026-06-01'
+  });
+  assert.deepEqual(
+    allocationAuditQuerySchema.parse({ projectId: 'p-1', somenteNaoAlocados: 'true' }).somenteNaoAlocados,
+    'true'
+  );
+  assert.throws(() => allocationAuditQuerySchema.parse({ de: '01/06/2026' }));
+  assert.throws(() => allocationAuditQuerySchema.parse({ ate: '2026-6-1' }));
+  assert.throws(() => allocationAuditQuerySchema.parse({ somenteNaoAlocados: 'sim' }));
+  // Sem filtro nenhum é válido: a rota devolve todo mundo dentro do corte.
+  assert.deepEqual(allocationAuditQuerySchema.parse({}), {});
+});
+
+test('resolução em lote exige ao menos um dia e respeita o teto de 200 por requisição', () => {
+  const item = { collaboratorId: 'c-1', date: '2026-08-17', projectIds: ['p-1'] };
+  assert.equal(resolveUnallocatedSchema.parse({ items: [item] }).items.length, 1);
+  assert.equal(resolveUnallocatedSchema.parse({ items: Array(200).fill(item) }).items.length, 200);
+
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [] }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: Array(201).fill(item) }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [{ ...item, projectIds: [] }] }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [{ ...item, date: '17/08/2026' }] }));
+  assert.throws(() => resolveUnallocatedSchema.parse({ items: [{ ...item, collaboratorId: '' }] }));
 });

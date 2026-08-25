@@ -9,6 +9,14 @@ coverage/
 frontend/.vite/
 frontend/vite.config.js
 frontend/vite.config.d.ts
+
+# Artefatos do Playwright podem conter imagens e dados sensíveis da interface
+output/playwright/
+**/.playwright-cli/
+playwright-report/
+test-results/
+blob-report/
+
 backend/node_modules/
 backend/.env
 backend/.env.*

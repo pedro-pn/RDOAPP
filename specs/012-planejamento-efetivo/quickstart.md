@@ -95,9 +95,9 @@ Validar no mínimo 1440×900, 768×1024 e 390×844:
 
 Validações executadas nesta branch:
 
-- backend: `135/135` arquivos de teste aprovados com `NODE_ENV=test` e uma `DATABASE_URL` sintática, sem conexão nem escrita no banco de desenvolvimento;
-- frontend: `20/20` arquivos de teste aprovados;
-- lint frontend: zero erros e dois avisos preexistentes fora do módulo (`OmieCostCategoriesPanel.tsx` e `ProjectTrackingNovelties.tsx`);
+- backend: `138/138` arquivos de teste aprovados com `NODE_ENV=test` e uma `DATABASE_URL` sintática, sem conexão nem escrita no banco de desenvolvimento;
+- frontend: `22/22` arquivos de teste aprovados;
+- lint frontend: zero erros e um aviso preexistente fora do módulo (`OmieCostCategoriesPanel.tsx`);
 - build frontend: TypeScript e Vite aprovados; permanece apenas o aviso conhecido de chunk principal acima de 500 kB;
 - Prisma: `generate` e `validate` aprovados para o schema novo;
 - arquitetura: verificação do repositório aprovada;

@@ -389,6 +389,7 @@ function createFakeDb({ running = false, automationState = null } = {}) {
     imports: [],
     periods: [],
     externalLinks: [],
+    nameAliases: [],
     tagAliases: [],
     externalEmployees: [],
     dayOverrides: [],
@@ -442,6 +443,18 @@ function createFakeDb({ running = false, automationState = null } = {}) {
         }
         const created = { id: `employee-link-${++sequence}`, ...create };
         state.externalLinks.push(created);
+        return created;
+      }
+    },
+    pontoNameAlias: {
+      async upsert({ where, create, update }) {
+        const existing = state.nameAliases.find(item => item.normalizedName === where.normalizedName);
+        if (existing) {
+          Object.assign(existing, update);
+          return existing;
+        }
+        const created = { id: `name-alias-${++sequence}`, ...create };
+        state.nameAliases.push(created);
         return created;
       }
     },
@@ -549,7 +562,11 @@ function createFakeDb({ running = false, automationState = null } = {}) {
       async updateMany({ where, data }) {
         let count = 0;
         for (const period of state.periods) {
-          if (period.externalEmployeeId === where.externalEmployeeId) {
+          const filters = where.OR || [where];
+          const matches = filters.some(filter => Object.entries(filter).every(
+            ([key, value]) => period[key] === value
+          ));
+          if (matches) {
             Object.assign(period, data);
             count += 1;
           }
@@ -770,6 +787,24 @@ test('vínculo externo é persistido e reaplica colaborador aos resumos históri
     now: () => new Date('2026-08-17T12:00:00.000Z')
   });
   await service.runSync({ startDate: '2026-08-01', endDate: '2026-08-02' });
+  state.runs[0].summary.pending.employees = [{
+    externalEmployeeId: '101',
+    registrationNumber: '42',
+    externalName: 'Pessoa Externa',
+    reason: 'NO_UNIQUE_MATCH'
+  }];
+  state.periods.push({
+    id: 'legacy-xlsx-period',
+    importId: 'legacy-xlsx-import',
+    externalEmployeeId: null,
+    collaboratorId: null,
+    registrationNumber: null,
+    rawName: 'Pessoa Externa',
+    normalizedName: 'pessoa externa',
+    monthly: null,
+    createdAt: new Date('2026-07-01T12:00:00.000Z')
+  });
+  assert.equal((await service.getPending()).employees.length, 1);
 
   const result = await service.linkExternalEmployee({
     externalEmployeeId: '101',
@@ -780,10 +815,13 @@ test('vínculo externo é persistido e reaplica colaborador aos resumos históri
   assert.deepEqual(result, {
     externalEmployeeId: '101',
     collaboratorId: 'collaborator-1',
-    relinked: 1
+    normalizedName: 'pessoa externa',
+    relinked: 2
   });
   assert.equal(state.externalLinks[0].createdByUserId, 'manager-1');
-  assert.equal(state.periods[0].collaboratorId, 'collaborator-1');
+  assert.equal(state.nameAliases[0].collaboratorId, 'collaborator-1');
+  assert.equal(state.periods.every(period => period.collaboratorId === 'collaborator-1'), true);
+  assert.equal((await service.getPending()).employees.length, 0);
 });
 
 test('diretório lista todos os encontrados e torna a preferência de ignorar reversível', async () => {
@@ -1009,4 +1047,103 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
   assert.equal(corrected.employees.length, 1);
   assert.equal(corrected.missingProjects.projectTags.length, 1);
   assert.deepEqual(corrected.missingProjects.ambiguousDays, []);
+});
+
+test('janela do cronograma resolve pendência de viagem e ela some da lista do gestor', () => {
+  const ambiguousDay = {
+    externalEmployeeId: '101',
+    date: '2026-07-15',
+    projectCodes: ['5804', '5820'],
+    tagProjectCodes: [],
+    rdoProjectCodes: [],
+    reason: 'MOBILIZATION_RDO_AMBIGUOUS',
+    travelContext: true
+  };
+  const periodLinks = [{ externalEmployeeId: '101', collaboratorId: 'collaborator-1' }];
+
+  // Sem desmobilização preenchida a obra está em andamento: a regra segue conservadora e o dia
+  // continua pendente para alguém resolver à mão.
+  const emAndamento = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{
+      id: 'project-5804',
+      code: '5804',
+      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+      demobilizationDate: null,
+      laborCollaboratorIds: ['collaborator-1']
+    }],
+    rdoReports: []
+  });
+  assert.deepEqual(emAndamento, [ambiguousDay]);
+
+  // Com a desmobilização preenchida a janela fecha e o dia é alocado automaticamente.
+  const comJanela = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{
+      id: 'project-5804',
+      code: '5804',
+      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+      demobilizationDate: new Date('2026-08-31T00:00:00.000Z'),
+      laborCollaboratorIds: ['collaborator-1']
+    }],
+    rdoReports: []
+  });
+  assert.deepEqual(comJanela, []);
+
+  // Colaborador fora da equipe cadastrada não é varrido pela janela.
+  const foraDaEquipe = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{
+      id: 'project-5804',
+      code: '5804',
+      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+      demobilizationDate: new Date('2026-08-31T00:00:00.000Z'),
+      laborCollaboratorIds: []
+    }],
+    rdoReports: []
+  });
+  assert.deepEqual(foraDaEquipe, [ambiguousDay]);
+});
+
+test('ignorar etiqueta guarda a forma normalizada e recusa etiqueta já vinculada', async () => {
+  const ignored = new Map();
+  const aliases = new Map([['missao 5745', { normalizedTag: 'missao 5745', projectId: 'project-1' }]]);
+  const db = {
+    pontoIgnoredProjectTag: {
+      upsert: async ({ where, create }) => { ignored.set(where.normalizedTag, create); },
+      deleteMany: async ({ where }) => { ignored.delete(where.normalizedTag); },
+      findMany: async () => [...ignored.values()]
+    },
+    pontoProjectTagAlias: {
+      findUnique: async ({ where }) => aliases.get(where.normalizedTag) || null
+    }
+  };
+  const service = createPontoMaisSyncService({ db, configured: () => true });
+
+  // Acento e caixa não criam entradas diferentes.
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: '  Missão 9999  ' }),
+    { normalizedTag: 'missao 9999', ignored: true }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), [{ normalizedTag: 'missao 9999', rawTag: 'Missão 9999' }]);
+
+  // Etiqueta já vinculada a projeto não pode virar ignorada: são decisões excludentes.
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: 'MISSAO 5745' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: '   ' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: 'Missão 9999', ignored: false }),
+    { normalizedTag: 'missao 9999', ignored: false }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), []);
 });

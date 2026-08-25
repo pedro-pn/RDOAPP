@@ -1,14 +1,19 @@
 import prisma from '../prisma.js';
 import {
   buildDailyProjectWeights,
+  buildScheduleWindowEligibility,
+  buildScheduleWindows,
+  scheduleWindowsForDay,
   buildMissionGroupProjectIndex,
   rdoDataByCollaboratorFromReports
 } from '../acompanhamento/labor-cost.js';
+import { normalizeName as normalizePontoName } from '../acompanhamento/ponto-import.js';
 import { createPontoMaisClient, PontoMaisError, pontomaisConfigured } from './client.js';
 import {
   buildProjectTagResolver,
   isPontoTravelTag,
   normalizePontoMaisSnapshot,
+  extractMissionCode,
   normalizeProjectTag,
   normalizeRegistrationNumber
 } from './normalize.js';
@@ -155,6 +160,10 @@ export function buildAmbiguousDayPendencies({
   const rdoByCollaborator = rdoDataByCollaboratorFromReports(rdoReports);
   const resolveTag = buildProjectTagResolver({ projects, tagAliases });
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
+  // A janela do cronograma também vale aqui: sem ela, um dia que a regra já resolve continuaria
+  // listado como pendência para o gestor.
+  const scheduleWindows = buildScheduleWindows(projects);
+  const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
   const codeByProjectId = new Map(projects.map(project => [project.id, String(project.code || '')]).filter(([, code]) => code));
   const overriddenDays = new Set(manualDayOverrides.map(item => (
     `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`
@@ -171,6 +180,12 @@ export function buildAmbiguousDayPendencies({
       rdoProjects,
       resolveTag,
       mobilizationProjectIds,
+      scheduleWindowProjectIds: scheduleWindowsForDay({
+        scheduleWindows,
+        eligibleByProject: scheduleEligibility,
+        collaboratorId: period.collaboratorId,
+        dateKey: day.date
+      }),
       missionGroupProjectsByProjectId
     });
     if (![
@@ -226,6 +241,8 @@ export function filterCurrentlyResolvedAmbiguousDays({
     .map(project => [String(project.code).trim(), project.id]));
   const rdoByCollaborator = rdoDataByCollaboratorFromReports(rdoReports);
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
+  const scheduleWindows = buildScheduleWindows(projects);
+  const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
   const overriddenDays = new Set(manualDayOverrides.map(item => (
     `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`
   )));
@@ -244,6 +261,12 @@ export function filterCurrentlyResolvedAmbiguousDays({
       rdoProjects,
       resolveTag: code => projectIdByCode.get(String(code).trim()) || null,
       mobilizationProjectIds,
+      scheduleWindowProjectIds: scheduleWindowsForDay({
+        scheduleWindows,
+        eligibleByProject: scheduleEligibility,
+        collaboratorId,
+        dateKey: item.date
+      }),
       missionGroupProjectsByProjectId
     });
     return decision.allocations.length === 0;
@@ -430,7 +453,10 @@ export function createPontoMaisSyncService({
           select: { externalEmployeeId: true, collaboratorId: true }
         }),
         db.project.findMany({
-          select: { id: true, code: true, name: true, isActive: true, deletedAt: true, mobilizationDate: true }
+          select: {
+            id: true, code: true, name: true, isActive: true, deletedAt: true,
+            mobilizationDate: true, demobilizationDate: true, operatorId: true, laborCollaboratorIds: true
+          }
         }),
         db.pontoProjectTagAlias.findMany({
           select: { normalizedTag: true, projectId: true }
@@ -687,7 +713,7 @@ export function createPontoMaisSyncService({
         || left.externalEmployeeId.localeCompare(right.externalEmployeeId)
       ))
     };
-    const [employeeLinks, tagAliases, ignoredEmployees, storedPeriods, projects, missionGroups] = await Promise.all([
+    const [employeeLinks, tagAliases, ignoredEmployees, ignoredTags, storedPeriods, projects, missionGroups] = await Promise.all([
       db.pontoExternalEmployeeLink.findMany({
         where: { externalEmployeeId: { in: pending.employees.map(item => item.externalEmployeeId) } },
         select: { externalEmployeeId: true }
@@ -699,6 +725,9 @@ export function createPontoMaisSyncService({
         where: { ignoredAt: { not: null } },
         select: { externalEmployeeId: true }
       }),
+      db.pontoIgnoredProjectTag?.findMany
+        ? db.pontoIgnoredProjectTag.findMany({ select: { normalizedTag: true } })
+        : Promise.resolve([]),
       db.pontoPeriodSummary.findMany({
         where: {
           externalEmployeeId: { not: null },
@@ -714,7 +743,10 @@ export function createPontoMaisSyncService({
         }
       }),
       db.project.findMany({
-        select: { id: true, code: true, mobilizationDate: true }
+        select: {
+          id: true, code: true,
+          mobilizationDate: true, demobilizationDate: true, operatorId: true, laborCollaboratorIds: true
+        }
       }),
       db.acompanhamentoMissionGroup?.findMany
         ? db.acompanhamentoMissionGroup.findMany({
@@ -731,6 +763,7 @@ export function createPontoMaisSyncService({
     const linkedEmployees = new Set(employeeLinks.map(item => String(item.externalEmployeeId)));
     const linkedTags = new Set(tagAliases.map(item => normalizeProjectTag(item.normalizedTag)));
     const ignoredExternalIds = new Set(ignoredEmployees.map(item => String(item.externalEmployeeId)));
+    const ignoredTagSet = new Set(ignoredTags.map(item => normalizeProjectTag(item.normalizedTag)));
     const allDateKeys = [...new Set([
       ...pending.ambiguousDays.map(item => item.date),
       ...latestPeriodDays(storedPeriods).map(item => item.day.date)
@@ -828,7 +861,9 @@ export function createPontoMaisSyncService({
       })
       : [];
     const externalNameById = new Map(externalDirectory.map(item => [String(item.externalEmployeeId), String(item.externalName || '')]));
-    const visibleProjectTags = pending.projectTags.filter(item => !linkedTags.has(item.normalizedTag));
+    const visibleProjectTags = pending.projectTags.filter(item => (
+      !linkedTags.has(item.normalizedTag) && !ignoredTagSet.has(normalizeProjectTag(item.normalizedTag))
+    ));
     const namedAmbiguousDays = ambiguousDays.map(item => ({
       ...item,
       externalName: externalNameById.get(item.externalEmployeeId) || `ID externo ${item.externalEmployeeId}`
@@ -837,6 +872,13 @@ export function createPontoMaisSyncService({
       ambiguousDays: namedAmbiguousDays,
       projects
     });
+    // Etiqueta ignorada leva junto os dias que citavam só aquela missão: senão o gestor tiraria a
+    // etiqueta da fila e os dias dela continuariam cobrando cadastro.
+    const ignoredMissionCodes = new Set([...ignoredTagSet].map(extractMissionCode).filter(Boolean));
+    const visibleMissingDays = missingDays.filter(item => (
+      !(item.projectCodes || []).length
+      || !(item.projectCodes || []).every(code => ignoredMissionCodes.has(String(code)))
+    ));
     return {
       employees: pending.employees.filter(item => (
         !linkedEmployees.has(item.externalEmployeeId) && !ignoredExternalIds.has(item.externalEmployeeId)
@@ -844,7 +886,7 @@ export function createPontoMaisSyncService({
       ambiguousDays: actionableDays,
       missingProjects: {
         projectTags: visibleProjectTags,
-        ambiguousDays: missingDays
+        ambiguousDays: visibleMissingDays
       }
     };
   }
@@ -886,8 +928,9 @@ export function createPontoMaisSyncService({
     const latestSummary = await db.pontoPeriodSummary.findFirst({
       where: { externalEmployeeId },
       orderBy: { createdAt: 'desc' },
-      select: { registrationNumber: true, rawName: true }
+      select: { registrationNumber: true, rawName: true, normalizedName: true }
     });
+    const normalizedName = normalizePontoName(latestSummary?.normalizedName || latestSummary?.rawName);
 
     return db.$transaction(async tx => {
       await tx.pontoExternalEmployeeLink.upsert({
@@ -908,11 +951,32 @@ export function createPontoMaisSyncService({
           createdByUserId
         }
       });
+      if (normalizedName) {
+        await tx.pontoNameAlias.upsert({
+          where: { normalizedName },
+          create: {
+            normalizedName,
+            rawName: latestSummary?.rawName || normalizedName,
+            collaboratorId,
+            createdByUserId
+          },
+          update: {
+            rawName: latestSummary?.rawName || normalizedName,
+            collaboratorId,
+            createdByUserId
+          }
+        });
+      }
       const result = await tx.pontoPeriodSummary.updateMany({
-        where: { externalEmployeeId },
+        where: {
+          OR: [
+            { externalEmployeeId },
+            ...(normalizedName ? [{ externalEmployeeId: null, normalizedName }] : [])
+          ]
+        },
         data: { collaboratorId }
       });
-      return { externalEmployeeId, collaboratorId, relinked: result.count };
+      return { externalEmployeeId, collaboratorId, normalizedName: normalizedName || null, relinked: result.count };
     });
   }
 
@@ -1024,6 +1088,30 @@ export function createPontoMaisSyncService({
       : { externalEmployeeId, date, projectId: selectedProjectIds[0] };
   }
 
+  async function setProjectTagIgnored({ rawTag, ignored = true, ignoredByUserId = null }) {
+    const normalizedTag = normalizeProjectTag(rawTag);
+    if (!normalizedTag) throw new PontoSyncError('Etiqueta inválida.', { code: 'INVALID_TAG' });
+    if (!ignored) {
+      await db.pontoIgnoredProjectTag.deleteMany({ where: { normalizedTag } });
+      return { normalizedTag, ignored: false };
+    }
+    const alias = await db.pontoProjectTagAlias.findUnique({ where: { normalizedTag } });
+    if (alias) {
+      throw new PontoSyncError('Esta etiqueta já está vinculada a um projeto.', { code: 'INVALID_TAG' });
+    }
+    await db.pontoIgnoredProjectTag.upsert({
+      where: { normalizedTag },
+      create: { normalizedTag, rawTag: String(rawTag).trim(), ignoredByUserId },
+      update: { rawTag: String(rawTag).trim(), ignoredByUserId }
+    });
+    return { normalizedTag, ignored: true };
+  }
+
+  async function listIgnoredProjectTags() {
+    const rows = await db.pontoIgnoredProjectTag.findMany({ orderBy: { rawTag: 'asc' } });
+    return rows.map(item => ({ normalizedTag: item.normalizedTag, rawTag: item.rawTag }));
+  }
+
   async function setDayProjectOverridesBatch({ items = [], createdByUserId = null }) {
     const results = [];
     for (const item of items) {
@@ -1041,6 +1129,8 @@ export function createPontoMaisSyncService({
     setExternalEmployeeIgnored,
     linkExternalEmployee,
     linkProjectTag,
+    setProjectTagIgnored,
+    listIgnoredProjectTags,
     setDayProjectOverride,
     setDayProjectOverridesBatch
   };
@@ -1056,5 +1146,7 @@ export const listPontoMaisExternalEmployees = () => defaultService.listExternalE
 export const setPontoMaisExternalEmployeeIgnored = input => defaultService.setExternalEmployeeIgnored(input);
 export const linkPontoMaisExternalEmployee = input => defaultService.linkExternalEmployee(input);
 export const linkPontoMaisProjectTag = input => defaultService.linkProjectTag(input);
+export const setPontoMaisProjectTagIgnored = input => defaultService.setProjectTagIgnored(input);
+export const listPontoMaisIgnoredProjectTags = () => defaultService.listIgnoredProjectTags();
 export const setPontoMaisDayProjectOverride = input => defaultService.setDayProjectOverride(input);
 export const setPontoMaisDayProjectOverridesBatch = input => defaultService.setDayProjectOverridesBatch(input);

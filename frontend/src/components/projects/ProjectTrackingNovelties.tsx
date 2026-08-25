@@ -85,7 +85,6 @@ export function ProjectTrackingNovelties({
           }
         });
       }
-
       started.current = true;
       if (tracking) markAcompanhamentoTrackingNoveltySeen(user);
       if (finalized) markAcompanhamentoFinalizedNoveltySeen(user);
@@ -109,7 +108,7 @@ export function ProjectTrackingNovelties({
       window.clearTimeout(timer);
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
-  }, [canManage, hasFinalizedNotice, hasReviewAction, user?.id]);
+  }, [canManage, hasFinalizedNotice, hasReviewAction, user]);
 
   return null;
 }

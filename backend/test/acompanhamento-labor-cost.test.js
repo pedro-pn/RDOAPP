@@ -4,6 +4,9 @@ import test from 'node:test';
 import {
   buildDailyProjectWeights,
   buildMissionGroupProjectIndex,
+  buildScheduleWindowEligibility,
+  buildScheduleWindows,
+  scheduleWindowsForDay,
   buildRoleParamsResolver,
   classifyProjectHours,
   computeAnalyticalProjectCosts,
@@ -919,4 +922,294 @@ test('RDO não-offshore usa hospedagem manual: fora = transferência, casa = gra
   });
   assert.notEqual(home.folha, away.folha);
   assert.notEqual(home.variavelMensal, away.variavelMensal);
+});
+
+test('dia com horas e sem evidência nenhuma vira pendência em vez de sumir', () => {
+  const result = classifyProjectHours([{
+    date: '2026-08-17',
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.equal(result.byProject.size, 0);
+  assert.deepEqual(result.unresolvedDays.map(item => [item.date, item.reason]), [['2026-08-17', 'NO_PROJECT_EVIDENCE']]);
+  assert.ok(near(result.unresolvedDays[0].normalHours, 8.8));
+});
+
+test('dia zerado é folga: entra na trilha para auditoria mas nunca vira pendência', () => {
+  const result = classifyProjectHours([{
+    date: '2026-08-16',
+    normalHours: 0,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: []
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.deepEqual(result.unresolvedDays, []);
+  assert.equal(result.dayTrail.length, 1);
+  assert.equal(result.dayTrail[0].reason, 'NO_PROJECT_EVIDENCE');
+  assert.deepEqual(result.dayTrail[0].allocations, []);
+});
+
+test('dia só com hora extra é pendência mesmo com a jornada normal zerada', () => {
+  const result = classifyProjectHours([{
+    date: '2026-06-19',
+    normalHours: 0,
+    he70Horas: 0,
+    he100Horas: 10.97,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.equal(result.unresolvedDays.length, 1);
+  assert.ok(near(result.unresolvedDays[0].he100Hours, 10.97));
+});
+
+test('trilha registra etiquetas, RDO, motivo e pesos de cada dia', () => {
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-07-20', dailyRdo([['A', 9.5]])]])
+  };
+  const result = classifyProjectHours([{
+    date: '2026-07-20',
+    normalHours: 6.15,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], rdo, resolveTestTag, new Map());
+
+  const [day] = result.dayTrail;
+  assert.equal(day.reason, 'SINGLE_RDO_FALLBACK');
+  assert.deepEqual(day.tags, ['EM VIAGEM - 07.264.184/0001-46']);
+  assert.deepEqual(day.tagProjectIds, []);
+  assert.deepEqual(day.rdoProjects, [{ projectId: 'A', hours: 9.5 }]);
+  assert.deepEqual(day.allocations, [{ projectId: 'A', weight: 1 }]);
+  assert.deepEqual(result.unresolvedDays, []);
+});
+
+test('trilha e pendência convivem no mesmo lote sem contaminar as horas por projeto', () => {
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-07-20', dailyRdo([['A', 9.5]])]])
+  };
+  const rows = [
+    { date: '2026-07-20', normalHours: 8, he70Horas: 0, he100Horas: 0, tags: [] },
+    { date: '2026-07-21', normalHours: 8, he70Horas: 0, he100Horas: 0, tags: [] }
+  ];
+  const result = classifyProjectHours(rows, rdo, resolveTestTag, new Map());
+
+  assert.equal(result.dayTrail.length, 2);
+  assert.ok(near(result.byProject.get('A').normalHours, 8));
+  assert.deepEqual(result.unresolvedDays.map(item => item.date), ['2026-07-21']);
+});
+
+// === Janela do cronograma (mobilização ↔ desmobilização) ===
+
+const JANELA_5804 = {
+  id: 'p-5804',
+  code: '5804',
+  operatorId: null,
+  laborCollaboratorIds: [],
+  mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+  demobilizationDate: new Date('2026-08-31T00:00:00.000Z')
+};
+
+test('janela só existe com mobilização E desmobilização preenchidas', () => {
+  const janelas = buildScheduleWindows([
+    JANELA_5804,
+    { id: 'p-emAndamento', code: '5820', mobilizationDate: new Date('2026-08-01T00:00:00.000Z'), demobilizationDate: null },
+    { id: 'p-semNada', code: '5900', mobilizationDate: null, demobilizationDate: null },
+    { id: 'p-invertida', code: '5901', mobilizationDate: new Date('2026-08-10T00:00:00.000Z'), demobilizationDate: new Date('2026-08-01T00:00:00.000Z') }
+  ]);
+
+  assert.deepEqual(janelas.map(item => item.projectId), ['p-5804']);
+  assert.equal(janelas[0].startKey, '2026-07-14');
+  assert.equal(janelas[0].endKey, '2026-08-31');
+});
+
+test('elegibilidade inclui cadastro manual e RDO dentro da janela, e ignora RDO fora dela', () => {
+  const janelas = buildScheduleWindows([{ ...JANELA_5804, operatorId: 'c-operador', laborCollaboratorIds: ['c-manual'] }]);
+  const rdoData = new Map([
+    ['c-rdoDentro', { dayProjects: new Map([['2026-07-20', dailyRdo([['p-5804', 9.5]])]]) }],
+    ['c-rdoFora', { dayProjects: new Map([['2026-03-10', dailyRdo([['p-5804', 9.5]])]]) }]
+  ]);
+
+  const elegiveis = buildScheduleWindowEligibility(janelas, rdoData);
+  const doProjeto = elegiveis.get('p-5804');
+
+  assert.ok(doProjeto.has('c-operador'));
+  assert.ok(doProjeto.has('c-manual'));
+  assert.ok(doProjeto.has('c-rdoDentro'));
+  // Vazamento histórico: quem fez RDO fora da janela não entra por ela.
+  assert.ok(!doProjeto.has('c-rdoFora'));
+});
+
+test('janela aloca o dia sem etiqueta e sem RDO', () => {
+  const janelas = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: ['c-1'] }]);
+  const elegiveis = buildScheduleWindowEligibility(janelas, new Map());
+  const projetosDoDia = scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-08-17'
+  });
+
+  const decisao = buildDailyProjectWeights({
+    tags: ['EM VIAGEM - 07.264.184/0001-46'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: projetosDoDia
+  });
+
+  assert.equal(decisao.reason, 'SCHEDULE_WINDOW');
+  assert.deepEqual(decisao.allocations, [{ projectId: 'p-5804', weight: 1, rdo: null }]);
+});
+
+test('janela nunca sobrepõe RDO nem etiqueta reconhecida', () => {
+  const comRdo = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: dailyRdo([['B', 9]]),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comRdo.reason, 'SINGLE_RDO_FALLBACK');
+  assert.equal(comRdo.allocations[0].projectId, 'B');
+
+  const comEtiqueta = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comEtiqueta.reason, 'SINGLE_TAG');
+  assert.equal(comEtiqueta.allocations[0].projectId, 'A');
+
+  const comOverride = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    manualProjectIds: ['C'],
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comOverride.reason, 'MANUAL_OVERRIDE');
+  assert.equal(comOverride.allocations[0].projectId, 'C');
+});
+
+test('duas janelas no mesmo dia viram pendência em vez de rateio', () => {
+  const decisao = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804', 'p-5820']
+  });
+
+  assert.equal(decisao.reason, 'SCHEDULE_WINDOW_AMBIGUOUS');
+  assert.deepEqual(decisao.allocations, []);
+  assert.deepEqual(decisao.candidateProjectIds, ['p-5804', 'p-5820']);
+});
+
+test('vários RDOs sem etiqueta continuam ambíguos: a janela não desempata evidência de RDO', () => {
+  const decisao = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: dailyRdo([['A', 8], ['B', 8]]),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+
+  assert.equal(decisao.reason, 'AMBIGUOUS_WITHOUT_TAGS');
+  assert.deepEqual(decisao.allocations, []);
+});
+
+test('janela resolve a mobilização que ficaria ambígua entre projetos candidatos', () => {
+  const semJanela = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    mobilizationProjectIds: ['A', 'B']
+  });
+  assert.equal(semJanela.reason, 'MOBILIZATION_RDO_AMBIGUOUS');
+
+  const comJanela = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    mobilizationProjectIds: ['A', 'B'],
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comJanela.reason, 'SCHEDULE_WINDOW');
+  assert.equal(comJanela.allocations[0].projectId, 'p-5804');
+});
+
+test('dia fora da janela não é alocado por ela', () => {
+  const janelas = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: ['c-1'] }]);
+  const elegiveis = buildScheduleWindowEligibility(janelas, new Map());
+
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-07-13'
+  }), []);
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-09-01'
+  }), []);
+  // Colaborador que não é elegível não entra mesmo dentro da janela.
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-outro',
+    dateKey: '2026-08-17'
+  }), []);
+});
+
+test('dia já resolvido à mão não volta a ser pendência quando o snapshot é re-sincronizado', () => {
+  // Conflito clássico: etiqueta aponta um projeto, o RDO do dia aponta outros dois.
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-08-17', dailyRdo([['B', 8], ['C', 8]])]])
+  };
+  const rows = [{
+    date: '2026-08-17',
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['Missão A']
+  }];
+
+  const semResolucao = classifyProjectHours(rows, rdo, resolveTestTag, new Map());
+  assert.deepEqual(semResolucao.unresolvedDays.map(item => item.reason), ['TAG_RDO_CONFLICT']);
+
+  // A seleção manual é por colaborador+data e não pertence ao snapshot, então sobrevive a qualquer
+  // reimportação do período: o dia continua alocado e fora da fila de pendências.
+  const resolvido = classifyProjectHours(
+    rows,
+    rdo,
+    resolveTestTag,
+    new Map(),
+    new Map([['2026-08-17', ['B']]])
+  );
+  assert.deepEqual(resolvido.unresolvedDays, []);
+  assert.equal(resolvido.dayTrail[0].reason, 'MANUAL_OVERRIDE');
+  assert.deepEqual(resolvido.dayTrail[0].allocations, [{ projectId: 'B', weight: 1 }]);
+  assert.ok(near(resolvido.byProject.get('B').normalHours, 8.8));
+});
+
+test('equipe do cronograma tolera lixo no JSON sem derrubar a janela', () => {
+  // laborCollaboratorIds é Json livre: já chegou a guardar entradas vazias e não-string.
+  const janelas = buildScheduleWindows([{
+    ...JANELA_5804,
+    operatorId: 'c-operador',
+    laborCollaboratorIds: ['  c-1  ', '', null, 42, 'c-1', 'c-2']
+  }]);
+
+  assert.deepEqual([...janelas[0].manualCollaboratorIds].sort(), ['42', 'c-1', 'c-2', 'c-operador']);
+
+  const semLista = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: null }]);
+  assert.deepEqual([...semLista[0].manualCollaboratorIds], []);
+  const naoArray = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: { a: 1 } }]);
+  assert.deepEqual([...naoArray[0].manualCollaboratorIds], []);
 });

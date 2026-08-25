@@ -2803,6 +2803,85 @@ a {
 .acp-pcard-row > span:first-child { color: var(--mu); }
 .acp-pcard-row > span:last-child { text-align: right; overflow-wrap: anywhere; }
 .acp-pcard-strong { font-weight: 700; }
+.acp-standby-history-trigger {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+.modal-card.acp-standby-history-modal { width: min(94vw, 900px); max-width: 900px; }
+.acp-standby-history-project,
+.acp-standby-history-description { color: var(--mu); overflow-wrap: anywhere; }
+.acp-standby-history-project { margin-top: 3px; font-size: 13px; }
+.acp-standby-history-description { margin: 0; font-size: 13px; }
+.acp-standby-history-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--rd);
+  border-radius: var(--rs);
+  background: var(--error-bg);
+  color: var(--rd);
+}
+.acp-standby-table-wrap { width: 100%; min-width: 0; }
+.acp-standby-table { width: 100%; max-width: 100%; border-collapse: collapse; font-size: 13px; }
+.acp-standby-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px;
+  border-bottom: 2px solid var(--br);
+  background: var(--wh);
+  color: var(--mu);
+  text-align: left;
+  white-space: nowrap;
+}
+.acp-standby-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--br);
+  color: var(--tx);
+  vertical-align: top;
+}
+.acp-standby-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.acp-standby-reason { min-width: 220px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+
+@media (max-width: 640px) {
+  .acp-standby-history-modal { width: calc(100vw - 16px); }
+  .acp-standby-table,
+  .acp-standby-table tbody { display: block; width: 100%; min-width: 0; }
+  .acp-standby-table thead { display: none; }
+  .acp-standby-table tr {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 10px;
+    padding: 9px 11px;
+    border: 1px solid var(--br);
+    border-radius: var(--r);
+    background: var(--wh);
+  }
+  .acp-standby-table td {
+    display: grid;
+    grid-template-columns: minmax(112px, auto) minmax(0, 1fr);
+    gap: 10px;
+    min-width: 0;
+    padding: 5px 0;
+    border: 0;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .acp-standby-table td::before {
+    content: attr(data-label);
+    color: var(--mu);
+    font-weight: 600;
+    text-align: left;
+  }
+  .acp-standby-reason { min-width: 0; }
+}
 .acp-pcard-equip { display: flex; flex-direction: column; gap: 3px; }
 .acp-pcard-equip-item { font-size: 12px; padding-left: 8px; }
 .acp-pcard-equip-item > span:last-child { white-space: nowrap; }
@@ -3159,6 +3238,7 @@ a {
 
 .acp-det-two { display: flex; gap: 16px; flex-wrap: wrap; }
 .acp-det-two > div { display: flex; flex-direction: column; gap: 1px; }
+.acp-det-standby-kpi .acp-standby-history-trigger { align-self: flex-start; margin-top: 5px; }
 .acp-det-kpi-label { font-size: 11px; color: var(--mu); }
 .acp-det-two strong { font-size: 18px; }
 .acp-det-kpi-sub { font-size: 11px; color: var(--mu); }
@@ -13389,4 +13469,219 @@ body.app-reorder-touching {
 
 .app-combobox-empty {
   padding: 12px;
+}
+
+/* === Auditoria da alocação diária do ponto === */
+
+.ponto-filter-row {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ponto-filter-row > .field-group {
+  flex: 0 1 180px;
+  min-width: 150px;
+}
+
+.ponto-filter-row > .field-group.ponto-filter-grow {
+  flex: 1 1 280px;
+}
+
+.ponto-inline-link {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: var(--bl);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.ponto-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.ponto-day-list li {
+  align-items: center;
+  color: var(--mu);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* Rolagem própria da planilha: a página não rola junto e o cabeçalho fica visível. */
+.ponto-audit-scroll {
+  margin-top: 8px;
+  max-width: 100%;
+  max-height: min(60vh, 36rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+}
+
+.ponto-audit-scroll:focus-visible {
+  outline: 2px solid var(--g);
+  outline-offset: 2px;
+}
+
+.ponto-audit-scroll .acp-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--wh);
+  box-shadow: inset 0 -2px 0 #e5e7eb;
+}
+
+.ponto-audit-scroll .acp-table td.ponto-audit-num {
+  text-align: right;
+}
+
+.ponto-audit-scroll .acp-table .ponto-audit-row-unallocated td {
+  background: var(--warning-bg);
+}
+
+.ponto-audit-scroll .acp-table .ponto-audit-row-target td:first-child {
+  box-shadow: inset 3px 0 0 var(--g);
+}
+
+.ponto-audit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.ponto-audit-summary span {
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.field-check {
+  align-items: center;
+  color: var(--tx);
+  display: flex;
+  font-size: 13px;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.field-check input {
+  margin: 0;
+}
+
+.equip-nav-badge {
+  background: var(--rd);
+  border-radius: 999px;
+  color: var(--wh);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: auto;
+  padding: 3px 7px;
+}
+
+.ponto-ignored-tags {
+  border-top: 1px solid var(--br);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.ponto-ignored-tags > span {
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.ponto-ignored-tag-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.ponto-ignored-tag-row > span {
+  overflow-wrap: anywhere;
+}
+
+.ponto-audit-sort {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: 4px;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.ponto-audit-sort:hover {
+  color: var(--tx);
+}
+
+.ponto-audit-sort.active {
+  color: var(--g);
+}
+
+.ponto-audit-sort span {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.ponto-audit-scroll .acp-table th.ponto-audit-num {
+  text-align: right;
+}
+
+.ponto-audit-scroll .acp-table th.ponto-audit-num .ponto-audit-sort {
+  flex-direction: row-reverse;
+}
+
+.ponto-candidates {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ponto-candidate {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  color: var(--tx);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.ponto-candidate em {
+  color: var(--mu);
+  font-style: normal;
+}
+
+.ponto-candidate.active {
+  background: var(--g);
+  border-color: var(--g);
+  color: var(--wh);
+}
+
+.ponto-candidate.active em {
+  color: var(--wh);
 }
