@@ -13306,11 +13306,20 @@ body.app-reorder-touching {
 /* === Auditoria da alocação diária do ponto === */
 
 .ponto-filter-row {
+  align-items: flex-end;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.ponto-filter-row > .field-group {
+  flex: 0 1 180px;
+  min-width: 150px;
+}
+
+.ponto-filter-row > .field-group.ponto-filter-grow {
+  flex: 1 1 280px;
 }
 
 .ponto-inline-link {
@@ -13344,42 +13353,41 @@ body.app-reorder-touching {
   overflow-wrap: anywhere;
 }
 
-.ponto-audit-table {
-  border-collapse: collapse;
-  font-size: 12px;
-  min-width: 900px;
-  width: 100%;
-}
-
+/* Rolagem própria da planilha: a página não rola junto e o cabeçalho fica visível. */
 .ponto-audit-scroll {
-  overflow-x: auto;
+  margin-top: 8px;
+  max-width: 100%;
+  max-height: min(60vh, 36rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
 }
 
-.ponto-audit-table th,
-.ponto-audit-table td {
-  border-bottom: 1px solid var(--br);
-  padding: 6px 8px;
-  text-align: left;
-  vertical-align: top;
+.ponto-audit-scroll:focus-visible {
+  outline: 2px solid var(--g);
+  outline-offset: 2px;
 }
 
-.ponto-audit-table th {
-  color: var(--mu);
-  font-weight: 600;
-  white-space: nowrap;
+.ponto-audit-scroll .acp-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--wh);
+  box-shadow: inset 0 -2px 0 #e5e7eb;
 }
 
-.ponto-audit-table td.ponto-audit-num {
+.ponto-audit-scroll .acp-table td.ponto-audit-num {
   text-align: right;
-  white-space: nowrap;
 }
 
-.ponto-audit-row-unallocated {
+.ponto-audit-scroll .acp-table .ponto-audit-row-unallocated td {
   background: var(--warning-bg);
 }
 
-.ponto-audit-row-target td:first-child {
-  border-left: 3px solid var(--g);
+.ponto-audit-scroll .acp-table .ponto-audit-row-target td:first-child {
+  box-shadow: inset 3px 0 0 var(--g);
 }
 
 .ponto-audit-summary {

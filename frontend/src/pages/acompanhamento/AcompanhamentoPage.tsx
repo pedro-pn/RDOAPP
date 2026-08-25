@@ -106,7 +106,14 @@ export function AcompanhamentoPage() {
                 <span className="equip-nav-ico" aria-hidden="true">$</span>
                 <span className="equip-nav-label">Custo</span>
                 {pendencyTotal > 0 ? (
-                  <span className="equip-nav-badge" title={`${pendencyTotal} pendência(s) de ponto a resolver`}>
+                  <span
+                    className="equip-nav-badge"
+                    title={[
+                      `${pendencyCounts?.unallocatedDays ?? 0} dia(s) de ponto sem alocação`,
+                      `${pendencyCounts?.ambiguousDays ?? 0} conflito(s) de projeto`,
+                      `${pendencyCounts?.unlinkedEmployees ?? 0} colaborador(es) do Ponto Mais sem vínculo`
+                    ].join(' · ')}
+                  >
                     {pendencyTotal > 99 ? '99+' : pendencyTotal}
                   </span>
                 ) : null}

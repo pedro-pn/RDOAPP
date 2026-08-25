@@ -144,9 +144,9 @@ export function AllocationAuditPanel() {
         </button>
       </div>
 
-      <div className="field-row ponto-filter-row">
+      <div className="ponto-filter-row">
         {byProject ? (
-          <div className="field">
+          <div className="field-group ponto-filter-grow">
             <label htmlFor="audit-project">Missão</label>
             <select id="audit-project" value={projectId} onChange={event => setProjectId(event.target.value)}>
               <option value="">Selecione a missão…</option>
@@ -156,7 +156,7 @@ export function AllocationAuditPanel() {
             </select>
           </div>
         ) : (
-          <div className="field">
+          <div className="field-group ponto-filter-grow">
             <label htmlFor="audit-collaborator">Colaborador</label>
             <select
               id="audit-collaborator"
@@ -172,11 +172,11 @@ export function AllocationAuditPanel() {
             </select>
           </div>
         )}
-        <div className="field">
+        <div className="field-group">
           <label htmlFor="audit-de">De</label>
           <input id="audit-de" type="date" value={de} onChange={event => setDe(event.target.value)} />
         </div>
-        <div className="field">
+        <div className="field-group">
           <label htmlFor="audit-ate">Até</label>
           <input id="audit-ate" type="date" value={ate} onChange={event => setAte(event.target.value)} />
         </div>
@@ -234,8 +234,8 @@ export function AllocationAuditPanel() {
               <span>Sem alocação: <strong>{fmtHours(collaborator.totals.unallocatedHours)}</strong></span>
             ) : null}
           </div>
-          <div className="ponto-audit-scroll">
-            <table className="ponto-audit-table">
+          <div className="ponto-audit-scroll" tabIndex={0} role="region" aria-label={`Dias de ${collaborator.name}`}>
+            <table className="acp-table">
               <thead>
                 <tr>
                   <th>Data</th>

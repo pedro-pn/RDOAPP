@@ -95,12 +95,12 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
         {data?.cutoffDateKey ? ` Histórico considerado a partir de ${fmtDayDate(data.cutoffDateKey)}/${data.cutoffDateKey.slice(0, 4)}.` : ''}
       </p>
 
-      <div className="field-row ponto-filter-row">
-        <div className="field">
+      <div className="ponto-filter-row">
+        <div className="field-group">
           <label htmlFor="ponto-unalloc-de">De</label>
           <input id="ponto-unalloc-de" type="date" value={de} onChange={event => setDe(event.target.value)} />
         </div>
-        <div className="field">
+        <div className="field-group">
           <label htmlFor="ponto-unalloc-ate">Até</label>
           <input id="ponto-unalloc-ate" type="date" value={ate} onChange={event => setAte(event.target.value)} />
         </div>
@@ -157,7 +157,7 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
                 </ul>
               ) : null}
             </div>
-            <div className="field">
+            <div className="field-group">
               <label htmlFor={`ponto-unalloc-${encodeURIComponent(key)}`}>Alocar em</label>
               <select
                 id={`ponto-unalloc-${encodeURIComponent(key)}`}

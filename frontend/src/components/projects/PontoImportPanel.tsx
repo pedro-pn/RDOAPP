@@ -223,6 +223,17 @@ export function PontoImportPanel() {
             : 'A integração automática com o VR Ponto Mais ainda não está configurada neste ambiente. Configure PONTOMAIS_API_TOKEN no backend para iniciar a carga histórica; não é necessário enviar planilhas.'}
         </p>
 
+        {integrationConfigured && isManager && pendencyCounts ? (
+          <p className="placeholder-copy ponto-section-copy">
+            Pendências abertas: <strong>{pendencyCounts.unallocatedDays}</strong> dia(s) sem alocação
+            {' · '}<strong>{pendencyCounts.ambiguousDays}</strong> conflito(s) de projeto
+            {' · '}<strong>{pendencyCounts.unlinkedEmployees}</strong> colaborador(es) do Ponto Mais sem vínculo.
+            {pendencyCounts.unlinkedEmployees > 0 && pendencyCounts.ambiguousDays === 0 && pendencyCounts.unallocatedDays === 0
+              ? ' Só há colaboradores sem vínculo: vincule ou marque como ignorado na aba "Colaboradores encontrados".'
+              : ''}
+          </p>
+        ) : null}
+
         {integrationConfigured && isManager ? (
           <div className="acp-seg ponto-detail-tabs" role="tablist" aria-label="Detalhes da integração do Ponto Mais">
             <button
@@ -317,6 +328,12 @@ export function PontoImportPanel() {
             <div className="sec ponto-subtitle">
               Pendências da integração ({actionablePendingCount})
             </div>
+            {actionablePendingCount === 0 ? (
+              <p className="placeholder-copy">
+                Nenhum conflito de projeto nem colaborador sem vínculo. Os dias de ponto que não
+                chegaram a projeto nenhum ficam na aba “Dias sem alocação”.
+              </p>
+            ) : null}
             <div
               className="ponto-local-scroll"
               role="region"
