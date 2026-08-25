@@ -8,7 +8,7 @@ import {
 } from './support/rdo';
 
 const MANAGER_TEAM_URL = '/rdo/gestor?tab=equipe';
-const EXPECTED_THEME_COUNT = 25;
+const EXPECTED_THEME_COUNT = 26;
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 type DdsThemesAppearance = 'legacy' | 'design-system';
@@ -135,7 +135,7 @@ test('B.8 caracteriza Temas de DDS reais sem criar, renomear ou alterar status',
   const themes = await themesPayload;
   expect(
     themes,
-    'O backend real deve fornecer exatamente 25 temas de DDS'
+    'O backend real deve fornecer exatamente 26 temas de DDS'
   ).toHaveLength(EXPECTED_THEME_COUNT);
 
   const loading = page.getByText('Carregando temas…', { exact: true });
