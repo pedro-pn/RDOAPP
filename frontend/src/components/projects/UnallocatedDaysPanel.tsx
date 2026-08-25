@@ -18,6 +18,8 @@ interface ProjectOption {
   historical?: boolean;
 }
 
+const MAX_VISIBLE_BLOCKS = 150;
+
 function blockKey(block: UnallocatedBlock): string {
   return `${block.collaboratorId}:${block.days[0]?.date ?? ''}`;
 }
@@ -82,6 +84,10 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
   const blocks = data?.actionable ?? [];
   const totalDays = data?.counts.actionableDays ?? 0;
   const totalHours = data?.counts.actionableHours ?? 0;
+  // O histórico inteiro chega a milhares de dias. Renderizar tudo de uma vez trava o navegador
+  // sem ajudar ninguém: quem vai resolver trabalha por período.
+  const visibleBlocks = blocks.slice(0, MAX_VISIBLE_BLOCKS);
+  const hiddenBlocks = blocks.length - visibleBlocks.length;
 
   return (
     <div className="det-section ponto-pending-section">
@@ -114,7 +120,14 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
         <p className="placeholder-copy">Nenhum dia pendente de alocação no período.</p>
       ) : null}
 
-      {blocks.map(block => {
+      {hiddenBlocks > 0 ? (
+        <p className="placeholder-copy">
+          Mostrando os {MAX_VISIBLE_BLOCKS} blocos mais antigos de {blocks.length}. Use o filtro de
+          período para trabalhar por partes.
+        </p>
+      ) : null}
+
+      {visibleBlocks.map(block => {
         const key = blockKey(block);
         const selected = selection[key] ?? '';
         const isOpen = Boolean(expanded[key]);

@@ -102,29 +102,29 @@ export function PontoImportPanel() {
   const { data: pending } = useQuery({
     queryKey: ['ponto-pontomais-pending'],
     queryFn: getPontoMaisPending,
-    enabled: isManager && integrationStatus?.configured === true
+    enabled: isManager
   });
   const { data: syncRuns } = useQuery({
     queryKey: ['ponto-pontomais-sync-runs'],
     queryFn: () => getPontoMaisSyncRuns(20),
-    enabled: isManager && integrationStatus?.configured === true,
+    enabled: isManager,
     ...acompanhamentoRefreshQueryOptions
   });
   const { data: projects } = useQuery({
     queryKey: ['ponto-projects-link'],
     queryFn: getPontoMaisReconciliationProjects,
-    enabled: isManager && integrationStatus?.configured === true
+    enabled: isManager
   });
   const { data: pendencyCounts } = useQuery({
     queryKey: ['ponto-pendencias-contagem'],
     queryFn: getPontoPendencyCounts,
-    enabled: isManager && integrationStatus?.configured === true,
+    enabled: isManager,
     ...acompanhamentoRefreshQueryOptions
   });
   const { data: externalEmployees } = useQuery({
     queryKey: ['ponto-external-employees'],
     queryFn: getPontoMaisExternalEmployees,
-    enabled: isManager && integrationStatus?.configured === true,
+    enabled: isManager,
     ...acompanhamentoRefreshQueryOptions
   });
 
@@ -223,7 +223,7 @@ export function PontoImportPanel() {
             : 'A integração automática com o VR Ponto Mais ainda não está configurada neste ambiente. Configure PONTOMAIS_API_TOKEN no backend para iniciar a carga histórica; não é necessário enviar planilhas.'}
         </p>
 
-        {integrationConfigured && isManager && pendencyCounts ? (
+        {isManager && pendencyCounts ? (
           <p className="placeholder-copy ponto-section-copy">
             Pendências abertas: <strong>{pendencyCounts.unallocatedDays}</strong> dia(s) sem alocação
             {' · '}<strong>{pendencyCounts.ambiguousDays}</strong> conflito(s) de projeto
@@ -234,7 +234,7 @@ export function PontoImportPanel() {
           </p>
         ) : null}
 
-        {integrationConfigured && isManager ? (
+        {isManager ? (
           <div className="acp-seg ponto-detail-tabs" role="tablist" aria-label="Detalhes da integração do Ponto Mais">
             <button
               type="button"
@@ -282,7 +282,7 @@ export function PontoImportPanel() {
           </div>
         ) : null}
 
-        {!integrationConfigured || !isManager || detailTab === 'sync' ? (
+        {!isManager || detailTab === 'sync' ? (
           <>
 
         {integrationConfigured && integrationStatus?.automation ? (
@@ -323,7 +323,7 @@ export function PontoImportPanel() {
           </p>
         ) : null}
 
-        {integrationConfigured && isManager && pending ? (
+        {isManager && pending ? (
           <div className="det-section ponto-pending-section">
             <div className="sec ponto-subtitle">
               Pendências da integração ({actionablePendingCount})
@@ -506,7 +506,7 @@ export function PontoImportPanel() {
           </div>
         ) : null}
 
-        {integrationConfigured && isManager && syncRuns?.length ? (
+        {isManager && syncRuns?.length ? (
           <>
             <div id="ponto-sync-history-title" className="sec ponto-history-title">Histórico de sincronizações</div>
             <div
@@ -573,11 +573,11 @@ export function PontoImportPanel() {
           </>
         ) : null}
 
-        {detailTab === 'unallocated' && integrationConfigured && isManager ? (
-          <UnallocatedDaysPanel projects={projects ?? []} enabled={isManager && integrationConfigured} />
+        {detailTab === 'unallocated' && isManager ? (
+          <UnallocatedDaysPanel projects={projects ?? []} enabled={isManager} />
         ) : null}
 
-        {detailTab === 'missing-projects' && integrationConfigured && isManager && pending ? (
+        {detailTab === 'missing-projects' && isManager && pending ? (
           <section className="det-section ponto-employee-section" aria-labelledby="ponto-missing-projects-title">
             <div id="ponto-missing-projects-title" className="sec ponto-subtitle">
               Projetos não encontrados ({missingProjectsCount})
@@ -653,7 +653,7 @@ export function PontoImportPanel() {
           </section>
         ) : null}
 
-        {detailTab === 'employees' && integrationConfigured && isManager ? (
+        {detailTab === 'employees' && isManager ? (
           <section className="det-section ponto-employee-section" aria-labelledby="ponto-employees-title">
             <div id="ponto-employees-title" className="sec ponto-subtitle">
               Colaboradores encontrados ({externalEmployees?.length ?? 0})
