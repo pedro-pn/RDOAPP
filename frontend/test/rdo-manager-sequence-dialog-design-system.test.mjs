@@ -128,7 +128,7 @@ test('diálogo de numeração preserva conteúdo, constraints e estados pending'
   );
 });
 
-test('somente o diálogo de numeração opta pelo Modal DS e o default compartilhado segue legacy', () => {
+test('diálogo de numeração mantém opt-in DS e só a B.10 amplia os Modals autorizados', () => {
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const modal = source('src/components/ui/Modal.tsx');
   const reasonDialog = source('src/components/ui/ReasonDialog.tsx');
@@ -139,6 +139,11 @@ test('somente o diálogo de numeração opta pelo Modal DS e o default compartil
     manager,
     'const sequenceDialog = (',
     'return (\n      <>'
+  );
+  const archiveProjectDialog = sectionBetween(
+    manager,
+    '<Modal\n        open={Boolean(archiveSurveyProject)}',
+    '<Modal\n        open={showSurveyQuestionEditor}'
   );
   const detailSequenceDialog = sectionBetween(
     reportDetail,
@@ -155,9 +160,11 @@ test('somente o diálogo de numeração opta pelo Modal DS e o default compartil
     '<Modal open={open}',
     '</Modal>'
   );
-  const managerWithoutSequenceDialog = manager.replace(sequenceDialog, '');
+  const managerWithoutAuthorizedDialogs = manager
+    .replace(sequenceDialog, '')
+    .replace(archiveProjectDialog, '');
   const otherManagerModals = [
-    ...managerWithoutSequenceDialog.matchAll(/<Modal\b[\s\S]*?<\/Modal>/g)
+    ...managerWithoutAuthorizedDialogs.matchAll(/<Modal\b[\s\S]*?<\/Modal>/g)
   ].map((match) => match[0]);
 
   assert.match(
@@ -168,11 +175,15 @@ test('somente o diálogo de numeração opta pelo Modal DS e o default compartil
   assert.match(modal, /appearance = 'legacy'/);
 
   assert.match(sequenceDialog, /<Modal\b[\s\S]*?appearance="design-system"/);
+  assert.match(
+    archiveProjectDialog,
+    /<Modal\b[\s\S]*?appearance="design-system"/
+  );
   for (const otherModal of otherManagerModals) {
     assert.doesNotMatch(
       otherModal,
       /appearance="design-system"/,
-      'outro Modal do Gestor não pode receber opt-in DS na B.4'
+      'nenhum Modal além das instâncias B.4 e B.10 pode receber opt-in DS'
     );
   }
   assert.doesNotMatch(

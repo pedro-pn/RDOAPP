@@ -1182,6 +1182,7 @@ export function GestorPage() {
   const [showSegmentForm, setShowSegmentForm] = useState(false);
   const [segmentLabel, setSegmentLabel] = useState('');
   const [archiveSurveyProject, setArchiveSurveyProject] = useState<Project | null>(null);
+  const archiveSurveyCancelRef = useRef<HTMLButtonElement>(null);
   const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
   const [npsDashboardOpen, setNpsDashboardOpen] = useState(false);
   const [statsDashboardOpen, setStatsDashboardOpen] = useState(false);
@@ -4829,39 +4830,66 @@ export function GestorPage() {
       <Modal
         open={Boolean(archiveSurveyProject)}
         onClose={() => setArchiveSurveyProject(null)}
+        appearance="design-system"
+        size="sm"
+        panelClassName="rdo-manager-archive-project-dialog rdo-ds-actions"
         ariaLabelledBy="archive-survey-title"
         ariaDescribedBy="archive-survey-description"
+        initialFocusRef={archiveSurveyCancelRef}
+        title={
+          <h2 className="rdo-manager-archive-project-dialog__title">
+            Arquivar projeto
+          </h2>
+        }
+        footer={
+          <>
+            <Button
+              ref={archiveSurveyCancelRef}
+              variant="secondary"
+              size="sm"
+              type="button"
+              disabled={
+                projectMutations.updateProject.isPending ||
+                surveyMutations.sendProjectSurvey.isPending
+              }
+              onClick={() => setArchiveSurveyProject(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              type="button"
+              disabled={
+                projectMutations.updateProject.isPending ||
+                surveyMutations.sendProjectSurvey.isPending
+              }
+              onClick={() => void handleArchiveSurveyChoice(false)}
+            >
+              Arquivar sem enviar
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              type="button"
+              disabled={
+                projectMutations.updateProject.isPending ||
+                surveyMutations.sendProjectSurvey.isPending
+              }
+              onClick={() => void handleArchiveSurveyChoice(true)}
+            >
+              Enviar pesquisa
+            </Button>
+          </>
+        }
       >
-        <div className="section-title" id="archive-survey-title">Arquivar projeto</div>
-        <p className="placeholder-copy" id="archive-survey-description">
-          Deseja arquivar o projeto e enviar a pesquisa de satisfação ao cliente?
+        <p
+          className="rdo-manager-archive-project-dialog__description"
+          id="archive-survey-description"
+        >
+          Deseja arquivar o projeto e enviar a pesquisa de satisfação ao
+          cliente?
         </p>
-        <div className="admin-form-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={projectMutations.updateProject.isPending || surveyMutations.sendProjectSurvey.isPending}
-            onClick={() => setArchiveSurveyProject(null)}
-          >
-            Cancelar
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={projectMutations.updateProject.isPending || surveyMutations.sendProjectSurvey.isPending}
-            onClick={() => void handleArchiveSurveyChoice(false)}
-          >
-            Arquivar sem enviar
-          </button>
-          <button
-            className="primary-button"
-            type="button"
-            disabled={projectMutations.updateProject.isPending || surveyMutations.sendProjectSurvey.isPending}
-            onClick={() => void handleArchiveSurveyChoice(true)}
-          >
-            Enviar pesquisa
-          </button>
-        </div>
       </Modal>
 
       <Modal

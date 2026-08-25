@@ -626,3 +626,47 @@
   content: '';
   transform: translate(-50%, -50%);
 }
+
+/* ── RDO B.10 — diálogo Arquivar projeto ────────────────────────────────────
+   A fronteira pertence somente à instância opt-in do Gestor. O Modal fornece
+   superfície, scrim, foco e dark mode; estas regras organizam conteúdo e ações
+   sem alcançar os demais diálogos ou consumidores legacy. */
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-archive-project-dialog
+  .rdo-manager-archive-project-dialog__title {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-archive-project-dialog
+  .rdo-manager-archive-project-dialog__description {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-archive-project-dialog
+  .fv-modal__footer {
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+@media (max-width: 480px) {
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-archive-project-dialog
+    .fv-modal__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-archive-project-dialog
+    .fv-modal__footer
+    .fv-button {
+    width: 100%;
+  }
+}

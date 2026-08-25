@@ -190,8 +190,11 @@ test('B.9 mantém o CSS escopado e tokenizado', () => {
   if (expectedAppearance === 'legacy') return;
   const css = source('src/pages/gestor/GestorPage.ds.css');
   const start = css.indexOf('RDO B.9');
+  const nextBlock = css.indexOf('RDO B.10', start);
+  const end = css.lastIndexOf('/*', nextBlock);
   assert.ok(start > 0, 'bloco da B.9 não encontrado no CSS');
-  const block = css.slice(start);
+  assert.ok(end > start, 'fim do bloco da B.9 não encontrado no CSS');
+  const block = css.slice(start, end);
 
   assert.match(block, /:where\(\.fv-ds, \[data-fv-ds\]\)\.rdo-nps/);
   assert.match(block, /var\(--/);
