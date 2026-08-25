@@ -8,8 +8,8 @@ import {
 } from './support/rdo';
 
 const MANAGER_NPS_URL = '/rdo/gestor?tab=nps';
-const EXPECTED_SURVEY_COUNT = 19;
-const EXPECTED_GROUP_COUNT = 19;
+const EXPECTED_SURVEY_COUNT = 30;
+const EXPECTED_GROUP_COUNT = 26;
 const MUTATING_METHODS = new Set(['PUT', 'PATCH', 'DELETE']);
 // O bootstrap do Gestor usa um POST de leitura; só ele pode passar.
 const READ_ONLY_POSTS = [/\/reports\/counts$/];
