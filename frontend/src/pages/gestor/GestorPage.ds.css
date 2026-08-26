@@ -984,6 +984,15 @@
   gap: var(--space-5);
 }
 
+/* O shell arredondado é o único responsável pelo anel de foco. A regra global
+   de acessibilidade também alcança o input interno e desenharia um segundo
+   outline retangular sobre o controle. */
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-segment-dialog
+  .fv-input:focus-visible {
+  outline: 0;
+}
+
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-segment-dialog .fv-modal__footer {
   flex-wrap: wrap;
   gap: var(--space-4);

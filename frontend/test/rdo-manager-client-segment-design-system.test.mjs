@@ -153,6 +153,10 @@ test('B.11 mantém query keys, invalidações e fronteira visual local', () => {
   assert.ok(cssStart >= 0, 'bloco CSS B.11 ausente');
   const block = css.slice(cssStart);
   assert.match(block, /\.rdo-manager-segment-dialog/);
+  assert.match(
+    block,
+    /\.rdo-manager-segment-dialog\s+\.fv-input:focus-visible\s*\{\s*outline: 0;/
+  );
   assert.match(block, /:where\(\.fv-ds, \[data-fv-ds\]\)/);
   assert.match(block, /var\(--/);
   assert.doesNotMatch(block, /#[\da-f]{3,8}\b/i);
