@@ -146,13 +146,14 @@ test('Arquivados preserva busca, agrupamentos, seleção e ações sem mutar dad
     batchToolbar.getByRole('button', { name: 'Baixar DOCX', exact: true })
   ).toBeVisible();
 
-  const sortButton = surface.getByRole('button', {
+  const filters = page.locator('.rdo-archived-projects__filters');
+  const sortButton = filters.getByRole('button', {
     name: 'Ordenar projetos de Z a A',
     exact: true
   });
   await sortButton.click();
   await expect(
-    surface.getByRole('button', {
+    filters.getByRole('button', {
       name: 'Ordenar projetos de A a Z',
       exact: true
     })
@@ -216,7 +217,6 @@ test('Arquivados valida desktop/mobile em light/dark sem overflow', async ({
       surface.locator(
         ':scope > .rdo-archived-projects__list > .admin-card, ' +
           '.rdo-archived-project-card > .fv-card__footer .mini-btn, ' +
-          '.rdo-archived-projects__toolbar .secondary-button, ' +
           '.rdo-archived-report-type > .report-type-header, ' +
           '.rdo-archived-report-type .rtype-badge'
       )

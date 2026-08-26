@@ -172,13 +172,14 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
     .click();
   await expect(newProjectForm).toHaveCount(0);
 
-  const sortButton = surface.getByRole('button', {
+  const filters = page.locator('.rdo-manager-projects__filters');
+  const sortButton = filters.getByRole('button', {
     name: 'Ordenar projetos de Z a A',
     exact: true
   });
   await sortButton.click();
   await expect(
-    surface.getByRole('button', {
+    filters.getByRole('button', {
       name: 'Ordenar projetos de A a Z',
       exact: true
     })
@@ -244,9 +245,7 @@ test('Projetos valida desktop/mobile em light/dark e formulário sem overflow', 
     await expect(surface).not.toHaveClass(/(?:^|\s)page-card(?:\s|$)/);
     await expect(
       surface.locator(
-        ':scope > .rdo-manager-projects__list > .admin-card, ' +
-          '.mini-btn, ' +
-          '.rdo-manager-projects__toolbar .secondary-button'
+        ':scope > .rdo-manager-projects__list > .admin-card, ' + '.mini-btn'
       )
     ).toHaveCount(0);
   }

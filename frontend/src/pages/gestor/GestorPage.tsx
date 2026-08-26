@@ -1027,6 +1027,16 @@ function renderProjectCard(
       : activeProject
         ? 'Projeto ativo'
         : 'Projeto arquivado';
+    const segmentLabel = project.clientSegment
+      ? (options.segments || []).find(segment => segment.slug === project.clientSegment)?.label ||
+        project.clientSegment
+      : 'Não informado';
+    const overviewRows: Array<[string, ReactNode]> = [
+      ['Cliente', project.clientName || 'Não informado'],
+      ['Segmento', segmentLabel],
+      ['Responsável', project.operator?.name || 'Não informado'],
+      ['Atualização', formatDate(project.updatedAt || project.createdAt)]
+    ];
     const detailRows: Array<[string, ReactNode]> = [
       ['Cliente', project.clientName || '-'],
       ['CNPJ', formatCnpj(project.clientCnpj) || '-'],
@@ -1168,6 +1178,17 @@ function renderProjectCard(
           </div>
         }
       >
+        <dl
+          className="rdo-project-card__overview"
+          aria-label={`Resumo de ${title}`}
+        >
+          {overviewRows.map(([label, value]) => (
+            <div className="rdo-project-card__overview-item" key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
         {pendingRegistration ? (
           <Alert tone="warning" title="Cadastro pendente">
             {automaticProjectReviewMessage(project)}
@@ -3818,32 +3839,6 @@ export function GestorPage() {
         className="rdo-manager-projects rdo-ds-actions"
         aria-label="Lista de projetos ativos"
       >
-        <div className="rdo-manager-projects__toolbar">
-          <div className="rdo-manager-projects__summary">
-            <Badge tone="success">
-              {readyProjects.length} ativo{readyProjects.length === 1 ? '' : 's'}
-            </Badge>
-            {pendingRegistrationProjects.length ? (
-              <Badge tone="warning">
-                {pendingRegistrationProjects.length} aguardando revisão
-              </Badge>
-            ) : null}
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            iconLeft={(
-              <AppIcon
-                icon={projectSortDir === 'asc' ? DS_ICONS.sortAscending : DS_ICONS.sortDescending}
-                size="sm"
-              />
-            )}
-            aria-label={`Ordenar projetos ${projectSortDir === 'asc' ? 'de Z a A' : 'de A a Z'}`}
-            onClick={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
-          >
-            {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
-          </Button>
-        </div>
         {showProjectForm && !projectEditingId ? (
           <Card
             className="rdo-manager-projects__legacy-form"
@@ -4025,6 +4020,24 @@ export function GestorPage() {
       );
     }
 
+    if (reportListQuery.isError) {
+      return (
+        <Card padding="lg">
+          <EmptyState
+            variant="error"
+            title="Não foi possível carregar os projetos arquivados."
+            description="Tente novamente para consultar os projetos e relatórios arquivados."
+            action={{
+              label: 'Tentar novamente',
+              onClick: () => {
+                void reportListQuery.refetch();
+              }
+            }}
+          />
+        </Card>
+      );
+    }
+
     const archivedProjectCards = sortProjects(archivedProjects, projectSortDir)
       .map(project => {
         const projectReports = archivedReports.filter(report => report.projectId === project.id);
@@ -4046,25 +4059,6 @@ export function GestorPage() {
         className="rdo-archived-projects rdo-ds-actions"
         aria-label="Lista de projetos arquivados"
       >
-        <div className="rdo-archived-projects__toolbar">
-          <Badge tone="neutral">
-            {archivedProjectCards.length} projeto{archivedProjectCards.length === 1 ? '' : 's'}
-          </Badge>
-          <Button
-            variant="secondary"
-            size="sm"
-            iconLeft={(
-              <AppIcon
-                icon={projectSortDir === 'asc' ? DS_ICONS.sortAscending : DS_ICONS.sortDescending}
-                size="sm"
-              />
-            )}
-            aria-label={`Ordenar projetos ${projectSortDir === 'asc' ? 'de Z a A' : 'de A a Z'}`}
-            onClick={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
-          >
-            {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
-          </Button>
-        </div>
         {archivedProjectCards.length ? (
           <div className="rdo-archived-projects__list">
             {archivedProjectCards.map(({ project, projectReports }) => {
@@ -4960,7 +4954,7 @@ export function GestorPage() {
             />
           }
           actions={
-            reportListingTab ? (
+            reportListingTab || projectsTab || archivedProjectsTab ? (
               <Button
                 className="project-sort-button"
                 variant="secondary"
@@ -5034,7 +5028,7 @@ export function GestorPage() {
 
     return (
       <section
-        className="rdo-manager-listing__metrics"
+        className="rdo-manager-metrics"
         aria-label={`Resumo de ${tab === 'pendentes' ? 'relatórios pendentes' : 'relatórios aprovados'}`}
       >
         {tab === 'pendentes' ? (
@@ -5072,6 +5066,77 @@ export function GestorPage() {
         ) : null}
       </section>
     );
+  }
+
+  function renderProjectMetrics() {
+    if (projectsTab) {
+      if (activeProjectsQuery.isLoading || activeProjectsQuery.isError) {
+        return null;
+      }
+      const activeProjects = (activeProjectsQuery.data || []).filter(
+        project => project.isActive !== false
+      );
+      const projectGroups = partitionProjectsByRegistration(activeProjects);
+
+      return (
+        <section
+          className="rdo-manager-metrics"
+          aria-label="Resumo dos projetos ativos"
+        >
+          <MetricCard
+            label="Projetos ativos"
+            value={projectGroups.ready.length}
+            description="Disponíveis para gestão"
+            tone="success"
+            icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+          />
+          <MetricCard
+            label="Aguardando revisão"
+            value={projectGroups.pending.length}
+            description="Cadastros a verificar"
+            tone="warning"
+            icon={<AppIcon icon={DS_ICONS.alertWarning} size="md" />}
+          />
+        </section>
+      );
+    }
+
+    if (archivedProjectsTab) {
+      if (
+        archivedProjectsQuery.isLoading ||
+        reportListQuery.isLoadingInitial ||
+        reportListQuery.isError
+      ) {
+        return null;
+      }
+      const archivedProjectCount = (archivedProjectsQuery.data || []).filter(
+        project => project.isActive === false
+      ).length;
+
+      return (
+        <section
+          className="rdo-manager-metrics"
+          aria-label="Resumo dos projetos arquivados"
+        >
+          <MetricCard
+            label="Projetos arquivados"
+            value={archivedProjectCount}
+            description="Fora da operação ativa"
+            tone="neutral"
+            icon={<AppIcon icon={DS_ICONS.emptyDefault} size="md" />}
+          />
+          <MetricCard
+            label="Relatórios carregados"
+            value={archivedReports.length}
+            description="Disponíveis nesta consulta"
+            tone="info"
+            icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+          />
+        </section>
+      );
+    }
+
+    return null;
   }
 
   return (
@@ -5172,12 +5237,14 @@ export function GestorPage() {
         ) : null}
         {archivedProjectsTab ? (
           <PageHeader
+            className="rdo-projects-page__header"
             title="Projetos arquivados"
             description="Consulte projetos encerrados, seus relatórios e ações disponíveis."
           />
         ) : null}
         {projectsTab ? (
           <PageHeader
+            className="rdo-projects-page__header"
             title="Projetos"
             description="Gerencie os projetos ativos, acompanhe cadastros pendentes e revise suas informações."
             actions={
@@ -5198,6 +5265,7 @@ export function GestorPage() {
           />
         ) : null}
         {renderReportSummary()}
+        {renderProjectMetrics()}
         {renderGestorSearch()}
         {renderTabContent()}
       </main>

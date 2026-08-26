@@ -35,6 +35,9 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
     /title="Projetos"[\s\S]*?description="Gerencie os projetos ativos, acompanhe cadastros pendentes e revise suas informações\."/
   );
   assert.match(page, />\s*Novo projeto\s*<\/Button>/);
+  assert.match(page, /function renderProjectMetrics\(\)/);
+  assert.match(page, /label="Projetos ativos"/);
+  assert.match(page, /label="Aguardando revisão"/);
 
   assert.match(projectsTab, /id="rdo-manager-project-results"/);
   assert.match(projectsTab, /className="rdo-manager-projects rdo-ds-actions"/);
@@ -57,6 +60,10 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
   assert.match(search, /'rdo-manager-project-results'/);
   assert.match(search, /'Busca dos projetos ativos'/);
   assert.match(search, /<FilterBar[\s\S]*?<SearchInput/);
+  assert.match(
+    search,
+    /reportListingTab \|\| projectsTab \|\| archivedProjectsTab/
+  );
 });
 
 test('Projetos preserva bootstrap, busca, ordenação e contratos CRUD', () => {
@@ -148,6 +155,11 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   assert.match(projectCard, /Projeto ativo/);
   assert.match(projectCard, /Projeto arquivado/);
   assert.match(projectCard, /label=\{stateLabel\}/);
+  assert.match(projectCard, /className="rdo-project-card__overview"/);
+  assert.match(projectCard, /\['Cliente', project\.clientName/);
+  assert.match(projectCard, /\['Segmento', segmentLabel\]/);
+  assert.match(projectCard, /\['Responsável', project\.operator\?\.name/);
+  assert.match(projectCard, /\['Atualização', formatDate\(/);
   assert.match(projectCard, /\{activeProject \? 'Arquivar' : 'Desarquivar'\}/);
   assert.match(projectCard, /<dl>[\s\S]*?<dt>[\s\S]*?<dd>/);
 
@@ -218,7 +230,7 @@ test('Projetos compartilha o layout de Arquivados com CSS escopado e responsivo'
     /\.rdo-manager-projects-page,\s*:where\(\.fv-ds, \[data-fv-ds\]\)\.rdo-manager-archived-page/
   );
   assert.match(block, /\.rdo-manager-projects__filters/);
-  assert.match(block, /\.rdo-manager-projects__toolbar/);
+  assert.match(block, /\.rdo-project-card__overview/);
   assert.match(block, /\.rdo-manager-projects__pending/);
   assert.match(block, /\.rdo-active-project-card__identity/);
   assert.match(block, /\.rdo-manager-projects__legacy-form/);

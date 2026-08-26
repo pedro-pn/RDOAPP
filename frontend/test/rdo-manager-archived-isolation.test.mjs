@@ -52,7 +52,6 @@ test('Arquivados faz opt-in explícito no DS sem alterar o default legacy compar
     archivedTab,
     /renderReportTypeSections\(projectReports, project\.id, 'design-system'\)/
   );
-  assert.match(archivedTab, /<Button\b/);
   assert.doesNotMatch(archivedTab, /page-card|admin-stack|placeholder-copy/);
   assert.doesNotMatch(archivedTab, /mini-btn|primary-button|secondary-button/);
 });
@@ -178,6 +177,7 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
 
   assert.match(archivedTab, /<Skeleton\b/);
   assert.match(archivedTab, /<EmptyState\b/);
+  assert.match(archivedTab, /if \(reportListQuery\.isError\)/);
   assert.match(
     search,
     /reportListingTab \|\| tab === 'projetos' \|\| tab === 'arquivados'/
@@ -185,6 +185,8 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
   assert.match(search, /<FilterBar[\s\S]*?<SearchInput/);
   assert.match(page, /const archivedProjectsTab = tab === 'arquivados'/);
   assert.match(page, /title="Projetos arquivados"/);
+  assert.match(page, /label="Projetos arquivados"/);
+  assert.match(page, /label="Relatórios carregados"/);
 
   assert.ok(cssStart >= 0, 'bloco CSS de Arquivados ausente');
   assert.ok(cssEnd > cssStart, 'limite do bloco CSS de Arquivados ausente');
