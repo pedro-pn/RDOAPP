@@ -7,6 +7,9 @@ import {
 import prisma from '../prisma.js';
 import { statisticsProjectsCache } from '../resource-list-cache.js';
 
+const MISSING_REVISION_SENTINEL = -1;
+const INITIAL_COMMERCIAL_REVISION = 0;
+
 const requiredText = (label, max) => z.string()
   .trim()
   .min(1, `${label} é obrigatório.`)
@@ -27,7 +30,7 @@ const rawProjectIntakeSchema = z.object({
   proposalCode: requiredText('Proposta', 160),
   revision: z.number({ invalid_type_error: 'Revisão deve ser um número inteiro.' })
     .int('Revisão deve ser um número inteiro.')
-    .min(0, 'Revisão deve ser maior ou igual a zero.')
+    .min(MISSING_REVISION_SENTINEL, 'Revisão deve ser -1 ou maior.')
     .max(2_147_483_647, 'Revisão excede o limite permitido.'),
   location: requiredText('Local', 240)
 }).strict('O payload contém campos não reconhecidos.');
@@ -49,7 +52,12 @@ export const projectIntakeSchema = rawProjectIntakeSchema
     delete normalized.proposalCode;
     return {
       ...normalized,
-      contractCode: `${proposalCode} Rev. ${data.revision}`
+      revision: data.revision === MISSING_REVISION_SENTINEL
+        ? INITIAL_COMMERCIAL_REVISION
+        : data.revision,
+      contractCode: data.revision === MISSING_REVISION_SENTINEL
+        ? String(proposalCode)
+        : `${proposalCode} Rev. ${data.revision}`
     };
   });
 
