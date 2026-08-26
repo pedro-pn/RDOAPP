@@ -80,8 +80,8 @@ O sistema remetente recebe respostas claras quando faltam dados, o CNPJ é invá
 - **FR-001**: O sistema MUST disponibilizar um canal de recebimento sistema-a-sistema para um único projeto por solicitação.
 - **FR-002**: O sistema MUST exigir uma credencial de serviço exclusiva da integração e MUST rejeitar solicitações sem credencial ou com credencial inválida.
 - **FR-003**: O sistema MUST recusar o recebimento quando a credencial da integração não estiver configurada no ambiente.
-- **FR-004**: Cada envio MUST conter número do projeto, nome do projeto, cliente, CNPJ, proposta e local como textos não vazios, além da revisão como número inteiro não negativo.
-- **FR-005**: O sistema MUST normalizar espaços e CNPJ antes de validar, comparar e armazenar os dados, e MUST armazenar a proposta no formato “{proposta} Rev. {revisão}”.
+- **FR-004**: Cada envio MUST conter número do projeto, nome do projeto, cliente, CNPJ, proposta e local como textos não vazios, além da revisão como `-1` quando ausente na origem ou como número inteiro não negativo.
+- **FR-005**: O sistema MUST normalizar espaços e CNPJ antes de validar, comparar e armazenar os dados, e MUST armazenar a proposta no formato “{proposta} Rev. {revisão}”, exceto quando a revisão recebida for `-1`, caso em que MUST armazenar somente “{proposta}”.
 - **FR-006**: O sistema MUST aceitar CNPJ com ou sem pontuação e MUST exigir exatamente 14 dígitos após normalização.
 - **FR-007**: Um envio válido para um número inexistente MUST criar um projeto ativo com os dados recebidos, defaults operacionais seguros e estado de revisão manual pendente.
 - **FR-008**: Enquanto estiver pendente, o projeto MUST NOT provisionar contas de cliente nem ficar disponível para criação de relatórios.
@@ -97,7 +97,7 @@ O sistema remetente recebe respostas claras quando faltam dados, o CNPJ é invá
 - **FR-018**: Excluir um projeto pendente MUST remover sua notificação e impedir seu uso operacional.
 - **FR-019**: A criação, a repetição idempotente e a resolução da pendência MUST invalidar as listagens afetadas para que o estado exibido seja atualizado sem inconsistência persistente.
 - **FR-020**: A nova função visível MUST exibir, para gestores, um aviso de novidade com tutorial inicial durante a campanha global de 10 dias iniciada em 2026-08-13 e encerrada em 2026-08-23, registrando a visualização por usuário e navegador.
-- **FR-021**: Quando o banco comercial contiver uma proposta principal com o número e a revisão informados, e o projeto ainda não possuir revisão vigente, o sistema MUST selecioná-la automaticamente usando a mesma regra de orçamento da seleção manual.
+- **FR-021**: Quando o banco comercial contiver uma proposta principal com o número e a revisão informados, e o projeto ainda não possuir revisão vigente, o sistema MUST selecioná-la automaticamente usando a mesma regra de orçamento da seleção manual; `revision: -1` MUST procurar e selecionar a revisão comercial `0`.
 - **FR-022**: A seleção automática MUST NOT escolher uma proposta adicional como revisão principal.
 - **FR-023**: Se a revisão comercial não existir, o recebimento do projeto MUST continuar com sucesso e MUST informar no resultado que a revisão não foi encontrada.
 - **FR-024**: Se o projeto já possuir revisão vigente, o webhook MUST preserve essa seleção, mesmo quando ela for diferente da revisão informada, mantendo disponível a troca manual existente.
@@ -141,6 +141,6 @@ O sistema remetente recebe respostas claras quando faltam dados, o CNPJ é invá
 - O cadastro recebido começa ativo, sem operador, usuários autorizados, segmento, e-mails de cliente ou sequências de relatório; esses dados permanecem para revisão/configuração posterior.
 - A confirmação manual ocorre quando um gestor salva o cadastro pendente com todos os campos obrigatórios válidos; não é necessária uma segunda aprovação por outro usuário.
 - O identificador comercial do payload se chama exclusivamente `proposalCode`; `contractCode` não é aceito porque a integração ainda não entrou em produção.
-- O campo `revision` aceita zero e inteiros positivos e compõe o texto persistido da proposta.
+- O campo `revision` aceita `-1`, zero e inteiros positivos. `-1` representa ausência na origem, persiste somente o número da proposta e usa a revisão comercial `0` para a seleção automática.
 - A ausência temporária da revisão no banco comercial não invalida o projeto; o remetente recebe o estado da tentativa e pode reenviar a mesma carga depois da importação comercial.
 - A seleção automática vale apenas para a proposta principal informada. Propostas adicionais continuam no fluxo manual existente.

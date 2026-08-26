@@ -33,6 +33,10 @@ O projeto exibe a proposta como `3088 Rev. 2`. O primeiro envio retorna HTTP 201
 `status: "already_exists"`. O mesmo número com algum dado diferente retorna HTTP 409 e
 não altera o projeto.
 
+Quando a origem não possuir número de revisão, envie `"revision": -1`. O projeto exibirá
+somente a proposta, como `3088`, e a seleção automática procurará a revisão comercial `0`.
+O resultado de `commercialRevision` informará `revision: 0`.
+
 `contractCode` não é aceito pelo webhook e resulta em HTTP 400 por ser um campo
 desconhecido. A integração deve enviar exclusivamente `proposalCode`.
 
