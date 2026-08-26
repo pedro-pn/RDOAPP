@@ -168,6 +168,7 @@ function parseGestorTab(value: string | null): GestorTab {
 
 type GestorUiPrefs = {
   projectSortDir: 'asc' | 'desc';
+  archivedDefaultExpansionApplied: boolean;
   closedArchivedProjectIds: string[];
   closedArchivedTypeKeys: string[];
   archivedTypeSortDirections: Record<string, 'asc' | 'desc'>;
@@ -177,6 +178,7 @@ type GestorUiPrefs = {
 function readGestorUiPrefs(storageKey: string): GestorUiPrefs {
   const fallback: GestorUiPrefs = {
     projectSortDir: 'asc',
+    archivedDefaultExpansionApplied: false,
     closedArchivedProjectIds: [],
     closedArchivedTypeKeys: [],
     archivedTypeSortDirections: {},
@@ -186,6 +188,7 @@ function readGestorUiPrefs(storageKey: string): GestorUiPrefs {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || '{}') as Partial<GestorUiPrefs>;
     return {
       projectSortDir: parsed.projectSortDir === 'desc' ? 'desc' : 'asc',
+      archivedDefaultExpansionApplied: parsed.archivedDefaultExpansionApplied === true,
       closedArchivedProjectIds: Array.isArray(parsed.closedArchivedProjectIds) ? parsed.closedArchivedProjectIds.filter((id): id is string => typeof id === 'string') : [],
       closedArchivedTypeKeys: Array.isArray(parsed.closedArchivedTypeKeys) ? parsed.closedArchivedTypeKeys.filter((id): id is string => typeof id === 'string') : [],
       archivedTypeSortDirections: parsed.archivedTypeSortDirections && typeof parsed.archivedTypeSortDirections === 'object'
@@ -991,6 +994,12 @@ function renderProjectCard(
     onToggleDetails: (project: Project) => void;
     reportSectionExpanded?: boolean;
     reportCount?: number;
+    reportSelection?: {
+      checked: boolean;
+      indeterminate: boolean;
+      disabled: boolean;
+      onChange: (checked: boolean) => void;
+    };
     onToggleReports?: (project: Project) => void;
     onSendSurvey?: (project: Project) => void;
     onResendSurvey?: (survey: SatisfactionSurveySummary) => void;
@@ -1340,30 +1349,65 @@ function renderProjectCard(
 
     return (
       <Card
-        className={`rdo-project-card rdo-archived-project-card rdo-ds-actions ${activeProject ? 'rdo-active-project-card' : 'rdo-project-card--archived'} ${pendingRegistration ? 'rdo-active-project-card--pending' : ''}`}
+        className={`rdo-project-card rdo-archived-project-card rdo-ds-actions ${activeProject ? 'rdo-active-project-card' : 'rdo-project-card--archived'} ${!activeProject && !options.reportSectionExpanded ? 'rdo-project-card--archived-collapsed' : ''} ${pendingRegistration ? 'rdo-active-project-card--pending' : ''}`}
         data-active-project-id={activeProject ? project.id : undefined}
         data-archived-project-id={!activeProject ? project.id : undefined}
         key={project.id}
         padding="md"
         title={options.onToggleReports ? (
-          <button
-            className="rdo-archived-project-card__toggle"
-            type="button"
-            aria-expanded={options.reportSectionExpanded}
-            aria-controls={reportsRegionId}
-            onClick={() => options.onToggleReports?.(project)}
-          >
-            <span className="rdo-archived-project-card__kicker">{projectKicker}</span>
-            <span className="rdo-archived-project-card__title">{title}</span>
-            <span className="rdo-archived-project-card__count">
-              {options.reportCount || 0} relatório{options.reportCount === 1 ? '' : 's'}
+          <div className="rdo-archived-project-card__heading">
+            <button
+              className="rdo-archived-project-card__toggle"
+              type="button"
+              aria-label={`${options.reportSectionExpanded ? 'Recolher' : 'Expandir'} relatórios de ${title}`}
+              aria-expanded={options.reportSectionExpanded}
+              aria-controls={reportsRegionId}
+              onClick={() => options.onToggleReports?.(project)}
+            >
+              <AppIcon
+                className="rdo-archived-project-card__chevron"
+                icon={DS_ICONS.chevronDown}
+                size="sm"
+              />
+            </button>
+            {options.reportSelection ? (
+              <label
+                className="fv-listing-checkbox rdo-archived-project-card__selection"
+                title={`Selecionar relatórios de ${title}`}
+              >
+                <input
+                  ref={input => {
+                    if (input) input.indeterminate = options.reportSelection?.indeterminate ?? false;
+                  }}
+                  type="checkbox"
+                  checked={options.reportSelection.checked}
+                  disabled={options.reportSelection.disabled}
+                  aria-label={`Selecionar relatórios de ${title}`}
+                  onChange={event => options.reportSelection?.onChange(event.target.checked)}
+                />
+              </label>
+            ) : null}
+            <span className="rdo-archived-project-card__icon" aria-hidden="true">
+              <AppIcon icon={DS_ICONS.archive} size="md" />
             </span>
-            <AppIcon
-              className="rdo-archived-project-card__chevron"
-              icon={DS_ICONS.chevronDown}
-              size="sm"
-            />
-          </button>
+            <span className="rdo-archived-project-card__identity">
+              <span className="rdo-archived-project-card__title-row">
+                <span className="rdo-archived-project-card__title">{title}</span>
+                <Badge tone={project.includesSaturday || project.includesSunday ? 'warning' : 'neutral'}>
+                  {scheduleLabel}
+                </Badge>
+              </span>
+              <span className="rdo-archived-project-card__meta">
+                <span>Atualizado em {formatDate(project.updatedAt || project.createdAt)}</span>
+                <span aria-hidden="true">•</span>
+                <span>
+                  {options.reportCount || 0} relatório{options.reportCount === 1 ? '' : 's'}
+                </span>
+                <span aria-hidden="true">•</span>
+                <Badge tone="brand">RDO</Badge>
+              </span>
+            </span>
+          </div>
         ) : (
           <div className="rdo-active-project-card__identity">
             <span className="rdo-archived-project-card__kicker">{projectKicker}</span>
@@ -1372,17 +1416,41 @@ function renderProjectCard(
         )}
         actions={
           <div className="rdo-archived-project-card__badges">
-            <Badge tone={project.includesSaturday || project.includesSunday ? 'success' : 'neutral'}>
-              {scheduleLabel}
-            </Badge>
             <StatusPill
-              status={pendingRegistration ? 'pending' : activeProject ? 'active' : 'archived'}
-              label={stateLabel}
-              tone={stateTone}
+              status={pendingRegistration ? 'pending' : activeProject ? 'active' : 'ready'}
+              label={pendingRegistration ? stateLabel : activeProject ? stateLabel : 'Apto para restaurar'}
+              tone={pendingRegistration || activeProject ? stateTone : 'success'}
             />
+            {!activeProject ? (
+              <>
+                <IconButton
+                  icon={DS_ICONS.restore}
+                  label={`Restaurar projeto: ${title}`}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => options.onToggleArchive(project)}
+                />
+                <IconButton
+                  icon={DS_ICONS.edit}
+                  label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar'}: ${title}`}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => options.onEdit(project)}
+                />
+                {options.onRemove ? (
+                  <IconButton
+                    icon={DS_ICONS.trash}
+                    label={`Excluir permanentemente: ${title}`}
+                    variant="danger"
+                    size="sm"
+                    onClick={() => options.onRemove?.(project)}
+                  />
+                ) : null}
+              </>
+            ) : null}
           </div>
         }
-        footer={
+        footer={activeProject || options.reportSectionExpanded ? (
           <div className="rdo-archived-project-card__actions">
             <Button
               variant="secondary"
@@ -1394,33 +1462,26 @@ function renderProjectCard(
             >
               {options.detailsExpanded ? 'Ocultar detalhes' : 'Mostrar detalhes'}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              type="button"
-              onClick={() => options.onToggleArchive(project)}
-            >
-              {activeProject ? 'Arquivar' : 'Desarquivar'}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              type="button"
-              aria-label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar'}: ${title}`}
-              onClick={() => options.onEdit(project)}
-            >
-              {pendingRegistration ? 'Revisar cadastro' : 'Editar'}
-            </Button>
-            {options.onRemove ? (
-              <Button
-                variant="danger"
-                size="sm"
-                type="button"
-                iconLeft={<AppIcon icon={DS_ICONS.trash} size="sm" />}
-                onClick={() => options.onRemove?.(project)}
-              >
-                Excluir
-              </Button>
+            {activeProject ? (
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  onClick={() => options.onToggleArchive(project)}
+                >
+                  Arquivar
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  aria-label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar'}: ${title}`}
+                  onClick={() => options.onEdit(project)}
+                >
+                  {pendingRegistration ? 'Revisar cadastro' : 'Editar'}
+                </Button>
+              </>
             ) : null}
             {surveyInfos.map((surveyInfo, index) => (
               <Badge
@@ -1457,19 +1518,21 @@ function renderProjectCard(
               </Button>
             ) : null}
           </div>
-        }
+        ) : undefined}
       >
-        <dl
-          className="rdo-project-card__overview"
-          aria-label={`Resumo de ${title}`}
-        >
-          {overviewRows.map(([label, value]) => (
-            <div className="rdo-project-card__overview-item" key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
+        {activeProject ? (
+          <dl
+            className="rdo-project-card__overview"
+            aria-label={`Resumo de ${title}`}
+          >
+            {overviewRows.map(([label, value]) => (
+              <div className="rdo-project-card__overview-item" key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
         {pendingRegistration ? (
           <Alert tone="warning" title="Cadastro pendente">
             {automaticProjectReviewMessage(project)}
@@ -1708,6 +1771,7 @@ export function GestorPage() {
   const [manualReportSubmitting, setManualReportSubmitting] = useState(false);
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
   const [projectSortDir, setProjectSortDir] = useState<'asc' | 'desc'>(initialUiPrefs.projectSortDir);
+  const [archivedDefaultExpansionApplied, setArchivedDefaultExpansionApplied] = useState(initialUiPrefs.archivedDefaultExpansionApplied);
   const [closedArchivedProjectIds, setClosedArchivedProjectIds] = useState<string[]>(initialUiPrefs.closedArchivedProjectIds);
   const [closedArchivedTypeKeys, setClosedArchivedTypeKeys] = useState<string[]>(initialUiPrefs.closedArchivedTypeKeys);
   const [archivedVisibleByType, setArchivedVisibleByType] = useState<Record<string, number>>({});
@@ -1865,6 +1929,31 @@ export function GestorPage() {
 
   useEffect(() => {
     if (tab !== 'arquivados') return;
+    if (archivedDefaultExpansionApplied) return;
+    const archivedProjects = sortProjects(
+      (archivedProjectsQuery.data || []).filter(project => project.isActive === false),
+      projectSortDir
+    );
+    if (!archivedProjects.length || reportListQuery.isLoadingInitial) return;
+    const initiallyExpandedProject = archivedProjects.find(
+      project => reportListQuery.projectTypeTotals(project.id).length > 0
+    ) || archivedProjects[0];
+    setClosedArchivedProjectIds(
+      archivedProjects
+        .filter(project => project.id !== initiallyExpandedProject.id)
+        .map(project => project.id)
+    );
+    setArchivedDefaultExpansionApplied(true);
+  }, [
+    archivedDefaultExpansionApplied,
+    archivedProjectsQuery.data,
+    projectSortDir,
+    reportListQuery,
+    tab
+  ]);
+
+  useEffect(() => {
+    if (tab !== 'arquivados' || !archivedDefaultExpansionApplied) return;
     const archivedProjects = (archivedProjectsQuery.data || []).filter(project => project.isActive === false);
     archivedProjects.forEach(project => {
       if (closedArchivedProjectIds.includes(project.id)) return;
@@ -1880,6 +1969,7 @@ export function GestorPage() {
       });
     });
   }, [
+    archivedDefaultExpansionApplied,
     archivedProjectsQuery.data,
     archivedTypeSortDirections,
     closedArchivedProjectIds,
@@ -1907,6 +1997,7 @@ export function GestorPage() {
   useEffect(() => {
     const prefs = readGestorUiPrefs(gestorUiPrefsStorageKey);
     setProjectSortDir(prefs.projectSortDir);
+    setArchivedDefaultExpansionApplied(prefs.archivedDefaultExpansionApplied);
     setClosedArchivedProjectIds(prefs.closedArchivedProjectIds);
     setClosedArchivedTypeKeys(prefs.closedArchivedTypeKeys);
     setArchivedTypeSortDirections(prefs.archivedTypeSortDirections);
@@ -1916,6 +2007,7 @@ export function GestorPage() {
   useEffect(() => {
     writeGestorUiPrefs(gestorUiPrefsStorageKey, {
       projectSortDir,
+      archivedDefaultExpansionApplied,
       closedArchivedProjectIds,
       closedArchivedTypeKeys,
       archivedTypeSortDirections,
@@ -1924,6 +2016,7 @@ export function GestorPage() {
   }, [
     gestorUiPrefsStorageKey,
     projectSortDir,
+    archivedDefaultExpansionApplied,
     closedArchivedProjectIds,
     closedArchivedTypeKeys,
     archivedTypeSortDirections,
@@ -3230,6 +3323,66 @@ export function GestorPage() {
     );
   }
 
+  function renderArchivedBatchActions(reports: ReportSummary[]) {
+    const visibleIds = reports.map(report => report.id);
+    const selectedVisibleIds = selectedReportIds.filter(id => visibleIds.includes(id));
+    const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+    const someVisibleSelected = selectedVisibleIds.length > 0 && !allVisibleSelected;
+
+    return (
+      <div className="rdo-archived-projects__batch-toolbar" aria-label="Ações dos relatórios arquivados">
+        <div className="rdo-archived-projects__selection-summary">
+          <label className="fv-listing-checkbox" title="Selecionar todos os relatórios arquivados visíveis">
+            <input
+              ref={input => {
+                if (input) input.indeterminate = someVisibleSelected;
+              }}
+              type="checkbox"
+              checked={allVisibleSelected}
+              disabled={!visibleIds.length}
+              aria-label="Selecionar todos os relatórios arquivados visíveis"
+              onChange={event => {
+                setSelectedReportIds(current => event.target.checked
+                  ? Array.from(new Set([...current, ...visibleIds]))
+                  : current.filter(id => !visibleIds.includes(id)));
+              }}
+            />
+          </label>
+          <span role="status" aria-live="polite">
+            {selectedVisibleIds.length} selecionado(s)
+          </span>
+        </div>
+        <div className="rdo-archived-projects__batch-actions">
+          {selectedVisibleIds.length ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedReportIds(current => current.filter(id => !visibleIds.includes(id)))}
+            >
+              Limpar seleção
+            </Button>
+          ) : null}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!selectedVisibleIds.length}
+            onClick={() => void handleBatchReportDownload('pdf', reports)}
+          >
+            Baixar PDF
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!selectedVisibleIds.length}
+            onClick={() => void handleBatchReportDownload('docx', reports)}
+          >
+            Baixar DOCX
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   function renderProjectReportGroups(reports: ReportSummary[]) {
     return (
       <div className="rdo-manager-listing" id="rdo-manager-report-results">
@@ -3408,7 +3561,6 @@ export function GestorPage() {
             )}
             {!typeClosed ? (
               <div className={designSystem ? 'rdo-archived-report-type__content' : undefined} id={typeContentId}>
-                {visibleReports.length ? renderBatchReportActions(visibleReports, designSystem) : null}
                 {visibleReports.length ? (
                   designSystem ? (
                     <ManagerReportListing
@@ -4415,13 +4567,18 @@ export function GestorPage() {
         const filteredProjectReports = projectMatches
           ? projectReports
           : projectReports.filter(report => matchesSearch(reportSearchParts(report), gestorSearch));
+        const groupedReportTotal = reportListQuery
+          .projectTypeTotals(project.id)
+          .reduce((total, group) => total + group.total, 0);
         return {
           project,
           projectReports: filteredProjectReports,
+          reportTotal: groupedReportTotal || filteredProjectReports.length,
           visible: filteredProjectReports.length > 0 || (!gestorSearch.trim() && projectMatches)
         };
       })
       .filter(item => item.visible);
+    const visibleArchivedReports = archivedProjectCards.flatMap(item => item.projectReports);
 
     return (
       <section
@@ -4430,39 +4587,57 @@ export function GestorPage() {
         aria-label="Lista de projetos arquivados"
       >
         {archivedProjectCards.length ? (
-          <div className="rdo-archived-projects__list">
-            {archivedProjectCards.map(({ project, projectReports }) => {
-              const projectClosed = closedArchivedProjectIds.includes(project.id);
-              return renderProjectCard(project, {
-                appearance: 'design-system',
-                commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
-                children: !projectClosed ? (
-                  projectReports.length ? (
-                      <div className="rdo-archived-project-card__reports">
-                        {renderReportTypeSections(projectReports, project.id, 'design-system')}
-                      </div>
-                  ) : (
-                    <EmptyState
-                      title="Nenhum relatório aprovado neste projeto arquivado."
-                      icon={null}
-                    />
-                  )
-                ) : null,
-                onEdit: toggleProjectEdit,
-                onToggleArchive: handleProjectToggleArchive,
-                onRemove: handleProjectRemove,
-                detailsExpanded: projectDetailsExpanded(project.id),
-                onToggleDetails: toggleProjectDetails,
-                reportSectionExpanded: !projectClosed,
-                reportCount: projectReports.length,
-                onToggleReports: item => toggleArchivedProject(item.id),
-                onSendSurvey: handleSendSurvey,
-                onResendSurvey: handleResendSurvey,
-                surveyPending: surveyMutations.sendProjectSurvey.isPending || surveyMutations.resendSurvey.isPending,
-                segments: projectSegmentsQuery.data
-              });
-            })}
-          </div>
+          <>
+            {renderArchivedBatchActions(visibleArchivedReports)}
+            <p className="rdo-archived-projects__result-count">
+              {archivedProjectCards.length} projeto{archivedProjectCards.length === 1 ? '' : 's'} encontrado{archivedProjectCards.length === 1 ? '' : 's'}
+            </p>
+            <div className="rdo-archived-projects__list">
+              {archivedProjectCards.map(({ project, projectReports, reportTotal }) => {
+                const projectClosed = closedArchivedProjectIds.includes(project.id);
+                const projectReportIds = projectReports.map(report => report.id);
+                const selectedProjectReportCount = selectedReportIds.filter(id => projectReportIds.includes(id)).length;
+                return renderProjectCard(project, {
+                  appearance: 'design-system',
+                  commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
+                  children: !projectClosed ? (
+                    reportTotal ? (
+                        <div className="rdo-archived-project-card__reports">
+                          {renderReportTypeSections(projectReports, project.id, 'design-system')}
+                        </div>
+                    ) : (
+                      <EmptyState
+                        title="Nenhum relatório aprovado neste projeto arquivado."
+                        icon={null}
+                      />
+                    )
+                  ) : null,
+                  onEdit: toggleProjectEdit,
+                  onToggleArchive: handleProjectToggleArchive,
+                  onRemove: handleProjectRemove,
+                  detailsExpanded: projectDetailsExpanded(project.id),
+                  onToggleDetails: toggleProjectDetails,
+                  reportSectionExpanded: !projectClosed,
+                  reportCount: reportTotal,
+                  reportSelection: {
+                    checked: projectReportIds.length > 0 && selectedProjectReportCount === projectReportIds.length,
+                    indeterminate: selectedProjectReportCount > 0 && selectedProjectReportCount < projectReportIds.length,
+                    disabled: !projectReportIds.length,
+                    onChange: checked => {
+                      setSelectedReportIds(current => checked
+                        ? Array.from(new Set([...current, ...projectReportIds]))
+                        : current.filter(id => !projectReportIds.includes(id)));
+                    }
+                  },
+                  onToggleReports: item => toggleArchivedProject(item.id),
+                  onSendSurvey: handleSendSurvey,
+                  onResendSurvey: handleResendSurvey,
+                  surveyPending: surveyMutations.sendProjectSurvey.isPending || surveyMutations.resendSurvey.isPending,
+                  segments: projectSegmentsQuery.data
+                });
+              })}
+            </div>
+          </>
         ) : (
           <EmptyState
             variant={gestorSearch.trim() ? 'search' : 'default'}
@@ -5422,6 +5597,10 @@ export function GestorPage() {
       usuarios: 'Buscar em usuários',
       nps: 'Buscar em pesquisas NPS'
     };
+    const placeholders: Partial<Record<GestorTab, string>> = {
+      projetos: 'Buscar por código ou nome do projeto...',
+      arquivados: 'Buscar em projetos e relatórios arquivados...'
+    };
     const label = labels[tab];
     if (!label) return null;
     if (npsTab) return null;
@@ -5480,7 +5659,7 @@ export function GestorPage() {
               value={gestorSearch}
               onChange={setGestorSearch}
               label={label}
-              placeholder={label}
+              placeholder={placeholders[tab] || label}
               autoComplete="off"
             />
           }
@@ -5660,8 +5839,14 @@ export function GestorPage() {
       ) {
         return null;
       }
-      const archivedProjectCount = (archivedProjectsQuery.data || []).filter(
+      const archivedProjects = (archivedProjectsQuery.data || []).filter(
         project => project.isActive === false
+      );
+      const archivedProjectCount = archivedProjects.length;
+      const archivedReportCount = reportListQuery.pagination?.total ?? archivedReports.length;
+      const projectsWithResponsible = archivedProjects.filter(project => Boolean(project.operator)).length;
+      const extendedScheduleProjects = archivedProjects.filter(
+        project => project.includesSaturday || project.includesSunday
       ).length;
 
       return (
@@ -5674,14 +5859,28 @@ export function GestorPage() {
             value={archivedProjectCount}
             description="Fora da operação ativa"
             tone="neutral"
-            icon={<AppIcon icon={DS_ICONS.emptyDefault} size="md" />}
+            icon={<AppIcon icon={DS_ICONS.archive} size="md" />}
           />
           <MetricCard
-            label="Relatórios carregados"
-            value={archivedReports.length}
-            description="Disponíveis nesta consulta"
+            label="Relatórios arquivados"
+            value={archivedReportCount}
+            description="Vinculados aos projetos arquivados"
             tone="info"
             icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+          />
+          <MetricCard
+            label="Com responsável"
+            value={projectsWithResponsible}
+            description="Responsável mantido no cadastro"
+            tone="success"
+            icon={<AppIcon icon={DS_ICONS.user} size="md" />}
+          />
+          <MetricCard
+            label="Escala estendida"
+            value={extendedScheduleProjects}
+            description="Incluem trabalho em fim de semana"
+            tone="brand"
+            icon={<AppIcon icon={DS_ICONS.calendar} size="md" />}
           />
         </section>
       );
@@ -5914,9 +6113,8 @@ export function GestorPage() {
         {archivedProjectsTab ? (
           <PageHeader
             className="rdo-projects-page__header"
-            title="Projetos arquivados"
-            description="Consulte projetos encerrados, seus relatórios e ações disponíveis."
-            actions={renderGestorSearch()}
+            title="Arquivados"
+            description="Projetos e relatórios arquivados para organização e histórico. Restaure itens quando necessário."
           />
         ) : null}
         {projectsTab ? (
@@ -5944,6 +6142,7 @@ export function GestorPage() {
             }
           />
         ) : null}
+        {archivedProjectsTab ? renderGestorSearch() : null}
         {renderReportSummary()}
         {renderProjectMetrics()}
         {renderAdminMetrics()}

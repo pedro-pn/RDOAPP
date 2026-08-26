@@ -187,7 +187,8 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   assert.match(projectCard, /\['Segmento', segmentLabel\]/);
   assert.match(projectCard, /\['Responsável', project\.operator\?\.name/);
   assert.match(projectCard, /\['Atualização', formatDate\(/);
-  assert.match(projectCard, /\{activeProject \? 'Arquivar' : 'Desarquivar'\}/);
+  assert.match(projectCard, /label="Arquivar"/);
+  assert.match(projectCard, /label=\{`Restaurar projeto: \$\{title\}`\}/);
   assert.match(projectCard, /<dl>[\s\S]*?<dt>[\s\S]*?<dd>/);
 
   assert.match(projectsTab, /<PendingProjectReviewForm\b/);

@@ -1,5 +1,6 @@
 import {
   Archive,
+  ArchiveRestore,
   AlertCircle,
   AlertTriangle,
   ArrowDown,
@@ -33,6 +34,7 @@ import {
 
 export const DS_ICONS = {
   archive: Archive,
+  restore: ArchiveRestore,
   alertDanger: CircleX,
   alertInfo: Info,
   alertSuccess: CheckCircle2,

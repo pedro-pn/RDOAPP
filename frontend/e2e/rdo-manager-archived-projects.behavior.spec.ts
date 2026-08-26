@@ -47,7 +47,7 @@ async function expectNoHorizontalOverflow(page: Page, surface: Locator) {
 async function openArchivedPage(page: Page) {
   await page.goto(MANAGER_ARCHIVED_URL);
   await expect(
-    page.getByRole('heading', { name: 'Projetos arquivados', level: 1 })
+    page.getByRole('heading', { name: 'Arquivados', level: 1 })
   ).toBeVisible();
   const surface = page.locator('.rdo-archived-projects');
   await expect(surface).toBeVisible();
@@ -88,6 +88,9 @@ test('Arquivados preserva busca, agrupamentos, seleção e ações sem mutar dad
   await expect(surface.locator('.rdo-archived-project-card')).not.toHaveCount(
     0
   );
+  await expect(
+    surface.locator('.rdo-archived-project-card__toggle[aria-expanded="false"]')
+  ).not.toHaveCount(0);
   const project = await projectWithReports(surface);
   const projectToggle = project.locator('.rdo-archived-project-card__toggle');
   const reportRegionId = await projectToggle.getAttribute('aria-controls');
@@ -134,9 +137,7 @@ test('Arquivados preserva busca, agrupamentos, seleção e ações sem mutar dad
     .getByRole('checkbox', { name: /^Selecionar (?!todos)/ })
     .first();
   await reportCheckbox.check();
-  const batchToolbar = project
-    .locator('.rdo-manager-listing__batch-toolbar')
-    .first();
+  const batchToolbar = surface.locator('.rdo-archived-projects__batch-toolbar');
   await expect(batchToolbar).toBeVisible();
   await expect(batchToolbar.getByText(/selecionado\(s\)/)).toBeVisible();
   await expect(

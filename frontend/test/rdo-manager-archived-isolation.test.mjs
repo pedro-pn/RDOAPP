@@ -116,10 +116,16 @@ test('Arquivados preserva queries, busca, agrupamento, paginação e handlers de
   assert.match(archivedTypeSections, /revealMoreArchivedType\(/);
   assert.match(archivedTypeSections, /handleLoadMoreArchivedType\(/);
   assert.match(archivedTypeSections, /<InfiniteScrollSentinel/);
-  assert.match(
+  assert.match(archivedTypeSections, /<ManagerReportListing/);
+  assert.doesNotMatch(
     archivedTypeSections,
     /renderBatchReportActions\(visibleReports, designSystem\)/
   );
+  assert.match(
+    archivedTab,
+    /renderArchivedBatchActions\(visibleArchivedReports\)/
+  );
+  assert.match(archivedTab, /reportSelection:\s*\{/);
   assert.match(
     archivedTypeSections,
     /renderManagerReportActions\(report, true\)/
@@ -184,9 +190,9 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
   );
   assert.match(search, /<FilterBar[\s\S]*?<SearchInput/);
   assert.match(page, /const archivedProjectsTab = tab === 'arquivados'/);
-  assert.match(page, /title="Projetos arquivados"/);
+  assert.match(page, /title="Arquivados"/);
   assert.match(page, /label="Projetos arquivados"/);
-  assert.match(page, /label="Relatórios carregados"/);
+  assert.match(page, /label="Relatórios arquivados"/);
 
   assert.ok(cssStart >= 0, 'bloco CSS de Arquivados ausente');
   assert.ok(cssEnd > cssStart, 'limite do bloco CSS de Arquivados ausente');
