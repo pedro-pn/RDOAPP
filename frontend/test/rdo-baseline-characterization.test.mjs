@@ -330,6 +330,9 @@ test('new report keeps the existing server-backed autosave contract', () => {
 test('coordinator, manager and client tabs keep their current query filters and paging sizes', () => {
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
   const manager = source('src/pages/gestor/GestorPage.tsx');
+  const managerSections = source(
+    'src/pages/gestor/rdoSectionNavigationModel.ts'
+  );
   const client = source('src/pages/client/ClientPage.tsx');
 
   assert.match(
@@ -361,7 +364,7 @@ test('coordinator, manager and client tabs keep their current query filters and 
     'nps',
     'estatisticas'
   ]) {
-    assert.match(manager, new RegExp(`'${tab}'`));
+    assert.match(managerSections, new RegExp(`'${tab}'`));
   }
   assert.match(manager, /const REPORT_PAGE_SIZE = 50/);
   assert.match(manager, /const REPORT_TYPE_PAGE_SIZE = 10/);

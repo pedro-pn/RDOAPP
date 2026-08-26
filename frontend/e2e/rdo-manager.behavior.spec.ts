@@ -18,8 +18,8 @@ async function openManagerRdo(page: Page) {
   await expect(page).toHaveURL(/\/rdo\/gestor(?:\?.*)?$/);
   await expectManagerRdoShell(page);
   await expect(
-    page.getByRole('tablist', { name: 'Seções do gestor' })
-  ).toBeVisible();
+    page.locator('.fv-sidebar .fv-navigation-subitem[aria-current="page"]')
+  ).toHaveText(/Pendentes/);
 }
 
 async function waitForReportCards(page: Page) {
@@ -33,11 +33,17 @@ async function waitForReportCards(page: Page) {
 }
 
 async function openApprovedReports(page: Page) {
-  await page.getByRole('tab', { name: 'Aprovados', exact: true }).click();
+  await page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Aprovados', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=aprovados$/);
   await expect(
-    page.getByRole('tab', { name: 'Aprovados', exact: true })
-  ).toHaveAttribute('aria-selected', 'true');
+    page.locator('.fv-sidebar').getByRole('link', {
+      name: 'Aprovados',
+      exact: true
+    })
+  ).toHaveAttribute('aria-current', 'page');
   await waitForReportCards(page);
 }
 
@@ -103,8 +109,8 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
 
     await test.step('login real e AppShell do piloto Gestor', async () => {
       await expect(
-        page.getByRole('tab', { name: /^Pendentes/ })
-      ).toHaveAttribute('aria-selected', 'true');
+        page.locator('.fv-sidebar').getByRole('link', { name: /^Pendentes/ })
+      ).toHaveAttribute('aria-current', 'page');
     });
 
     await test.step('contrato mínimo read-only dos dados E2E', async () => {
@@ -157,9 +163,9 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       });
     });
 
-    await test.step('navegação pelas oito abas e URL', async () => {
-      const tablist = page.getByRole('tablist', { name: 'Seções do gestor' });
-      await expect(tablist.getByRole('tab')).toHaveCount(8);
+    await test.step('navegação pelas oito áreas e URL', async () => {
+      const navigation = page.locator('.fv-sidebar .fv-navigation-submenu');
+      await expect(navigation.getByRole('link')).toHaveCount(8);
 
       const cases = [
         ['Aprovados', 'aprovados'],
@@ -172,17 +178,17 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       ] as const;
 
       for (const [label, queryValue] of cases) {
-        const tab = tablist.getByRole('tab', { name: label, exact: true });
-        await tab.click();
-        await expect(tab).toHaveAttribute('aria-selected', 'true');
+        const link = navigation.getByRole('link', { name: label, exact: true });
+        await link.click();
+        await expect(link).toHaveAttribute('aria-current', 'page');
         await expect
           .poll(() => new URL(page.url()).searchParams.get('tab'))
           .toBe(queryValue);
       }
 
-      const pendingTab = tablist.getByRole('tab', { name: /^Pendentes/ });
-      await pendingTab.click();
-      await expect(pendingTab).toHaveAttribute('aria-selected', 'true');
+      const pendingLink = navigation.getByRole('link', { name: /^Pendentes/ });
+      await pendingLink.click();
+      await expect(pendingLink).toHaveAttribute('aria-current', 'page');
       await expect
         .poll(() => new URL(page.url()).searchParams.get('tab'))
         .toBeNull();
@@ -227,8 +233,11 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       await page.reload();
       await expectManagerRdoShell(page);
       await expect(
-        page.getByRole('tab', { name: 'Aprovados', exact: true })
-      ).toHaveAttribute('aria-selected', 'true');
+        page.locator('.fv-sidebar').getByRole('link', {
+          name: 'Aprovados',
+          exact: true
+        })
+      ).toHaveAttribute('aria-current', 'page');
       await expect(search).toHaveValue(absentTerm);
       await expect(
         page.getByText('Nenhum relatório aprovado.', { exact: true })
@@ -581,8 +590,11 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       await page.getByRole('button', { name: 'Voltar', exact: true }).click();
       await expect(page).toHaveURL(/\/rdo\/gestor\?tab=aprovados$/);
       await expect(
-        page.getByRole('tab', { name: 'Aprovados', exact: true })
-      ).toHaveAttribute('aria-selected', 'true');
+        page.locator('.fv-sidebar').getByRole('link', {
+          name: 'Aprovados',
+          exact: true
+        })
+      ).toHaveAttribute('aria-current', 'page');
       await expect(search).toHaveValue(projectName);
       await expect(
         page.locator('.rel-item').filter({ hasText: openedReportLabel })
@@ -593,8 +605,11 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       await page.reload();
       await expectManagerRdoShell(page);
       await expect(
-        page.getByRole('tab', { name: 'Aprovados', exact: true })
-      ).toHaveAttribute('aria-selected', 'true');
+        page.locator('.fv-sidebar').getByRole('link', {
+          name: 'Aprovados',
+          exact: true
+        })
+      ).toHaveAttribute('aria-current', 'page');
       await expect(search).toHaveValue(projectName);
       await expect(
         page.locator('.rel-item').filter({ hasText: openedReportLabel })
@@ -611,7 +626,8 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
           response.ok()
       );
       await page
-        .getByRole('tab', { name: 'Estatísticas', exact: true })
+        .locator('.fv-sidebar')
+        .getByRole('link', { name: 'Estatísticas', exact: true })
         .click();
       await overviewResponse;
       await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
@@ -703,8 +719,11 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       await dashboard.getByRole('button', { name: /Voltar/ }).click();
       await expect(dashboard).toHaveCount(0);
       await expect(
-        page.getByRole('tab', { name: 'Estatísticas', exact: true })
-      ).toHaveAttribute('aria-selected', 'true');
+        page.locator('.fv-sidebar').getByRole('link', {
+          name: 'Estatísticas',
+          exact: true
+        })
+      ).toHaveAttribute('aria-current', 'page');
     });
 
     await test.step('logout real', async () => {

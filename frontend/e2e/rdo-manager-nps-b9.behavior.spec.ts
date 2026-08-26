@@ -98,8 +98,10 @@ test('B.9 caracteriza a aba NPS real sem reenviar pesquisas', async ({
   await expectManagerRdoShell(page);
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=nps$/);
 
-  const managerTab = page.getByRole('tab', { name: 'NPS', exact: true });
-  await expect(managerTab).toHaveAttribute('aria-selected', 'true');
+  const managerTab = page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'NPS', exact: true });
+  await expect(managerTab).toHaveAttribute('aria-current', 'page');
 
   const surface = page.locator(SURFACE);
   await expect(surface).toBeVisible();

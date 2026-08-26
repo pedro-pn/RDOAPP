@@ -48,20 +48,18 @@ function expectedSequenceValue(reportLabel: string) {
 }
 
 async function activeManagerTab(page: Page) {
-  const selected = page
-    .getByRole('tablist', { name: 'Seções do gestor' })
-    .locator('[role="tab"][aria-selected="true"]');
+  const selected = page.locator(
+    '.fv-sidebar .fv-navigation-subitem[aria-current="page"]'
+  );
   await expect(selected).toHaveCount(1);
   return selected;
 }
 
 async function activeManagerTabIndex(page: Page) {
-  const tabs = page
-    .getByRole('tablist', { name: 'Seções do gestor' })
-    .getByRole('tab');
+  const tabs = page.locator('.fv-sidebar .fv-navigation-subitem');
   const selectedIndexes = await tabs.evaluateAll((elements) =>
     elements.flatMap((element, index) =>
-      element.getAttribute('aria-selected') === 'true' ? [index] : []
+      element.getAttribute('aria-current') === 'page' ? [index] : []
     )
   );
   expect(selectedIndexes).toHaveLength(1);
@@ -127,11 +125,8 @@ test('B.4 caracteriza o diálogo de numeração sem executar mutações', async 
     await expect(page).toHaveURL(initialUrl);
     await activeManagerTab(page);
     await expect(
-      page
-        .getByRole('tablist', { name: 'Seções do gestor' })
-        .getByRole('tab')
-        .nth(initialTabIndex)
-    ).toHaveAttribute('aria-selected', 'true');
+      page.locator('.fv-sidebar .fv-navigation-subitem').nth(initialTabIndex)
+    ).toHaveAttribute('aria-current', 'page');
     expect(mutationAttempts).toEqual([]);
   }
 

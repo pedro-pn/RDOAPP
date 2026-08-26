@@ -67,7 +67,10 @@ async function openManagerStatistics(page: Page) {
       response.url().includes('/statistics/overview') &&
       response.ok()
   );
-  await page.getByRole('tab', { name: 'Estatísticas', exact: true }).click();
+  await page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Estatísticas', exact: true })
+    .click();
   await overviewResponse;
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
 }
@@ -109,10 +112,9 @@ test('B.3 preserves the real detailed dashboard behavior without mutations or do
   await page.setViewportSize({ width: 1280, height: 900 });
   await openManagerStatistics(page);
 
-  const statisticsTab = page.getByRole('tab', {
-    name: 'Estatísticas',
-    exact: true
-  });
+  const statisticsTab = page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Estatísticas', exact: true });
   const launcher = page.getByRole('button', {
     name: 'Dashboard detalhado',
     exact: true
@@ -130,7 +132,7 @@ test('B.3 preserves the real detailed dashboard behavior without mutations or do
   await expect(dashboard).toBeVisible();
   await expect(dashboard.locator('.rdo-stats-dashboard')).toBeVisible();
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
-  await expect(statisticsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(statisticsTab).toHaveAttribute('aria-current', 'page');
 
   await dismissProjectFilterHighlightIfVisible(page);
 
@@ -253,7 +255,7 @@ test('B.3 preserves the real detailed dashboard behavior without mutations or do
   await page.keyboard.press('Escape');
   await expect(dashboard).toHaveCount(0);
   await expect(launcher).toBeFocused();
-  await expect(statisticsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(statisticsTab).toHaveAttribute('aria-current', 'page');
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
 
   await launcher.click();
@@ -271,7 +273,7 @@ test('B.3 preserves the real detailed dashboard behavior without mutations or do
   await dashboard.getByRole('button', { name: /Voltar/ }).click();
   await expect(dashboard).toHaveCount(0);
   await expect(launcher).toBeFocused();
-  await expect(statisticsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(statisticsTab).toHaveAttribute('aria-current', 'page');
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
 
   expect(nonGetStatisticsRequests).toEqual([]);

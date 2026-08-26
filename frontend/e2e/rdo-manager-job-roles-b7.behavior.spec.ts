@@ -78,11 +78,13 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
   await expectManagerRdoShell(page);
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=equipe$/);
 
-  const managerTab = page.getByRole('tab', { name: 'Equipe', exact: true });
+  const managerTab = page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Equipe', exact: true });
   const teamTabs = page.getByRole('tablist', { name: 'Seções da equipe' });
   const rolesTab = teamTabs.getByRole('tab', { name: 'Cargos', exact: true });
   const search = page.getByRole('searchbox', { name: 'Buscar na equipe' });
-  await expect(managerTab).toHaveAttribute('aria-selected', 'true');
+  await expect(managerTab).toHaveAttribute('aria-current', 'page');
   await expect(search).toBeVisible();
 
   const mutatingAttempts: string[] = [];

@@ -120,13 +120,19 @@ import {
   scalePreviewValues,
   type SurveyQuestionDraft
 } from './gestorSurveyHelpers';
-import { commercialPendenciaAlertText, commercialPendenciaMapByProject, pendingCommercialProposalCountForProjects } from './commercialPendencias';
+import { commercialPendenciaAlertText, commercialPendenciaMapByProject } from './commercialPendencias';
 import { PendingProjectReviewForm } from './PendingProjectReviewForm';
 import { ProjectIntakeWebhookNovelty } from './ProjectIntakeWebhookNovelty';
 import { hubModulesForUser } from '../hubModules';
 import '../../styles/rdo-ds-actions.css';
 import './GestorPage.ds.css';
-import { ProjectTabPendingBadges } from './ProjectTabPendingBadges';
+import { RdoSectionNavigation } from './RdoSectionNavigation';
+import {
+  RDO_MANAGER_SECTIONS,
+  rdoManagerSectionHref,
+  rdoManagerSectionLabel,
+  type RdoManagerSection
+} from './rdoSectionNavigationModel';
 import {
   automaticProjectReviewMessage, formatProjectSequences, partitionProjectsByRegistration, pendingProjectRegistrationMessage,
   projectRegistrationPending, projectSearchParts, projectTitle, projectVisibilityLabel
@@ -141,15 +147,7 @@ function npsStatusTone(className: string): SemanticTone {
   return 'warning';
 }
 
-type GestorTab =
-  | 'pendentes'
-  | 'aprovados'
-  | 'arquivados'
-  | 'projetos'
-  | 'equipe'
-  | 'usuarios'
-  | 'nps'
-  | 'estatisticas';
+type GestorTab = RdoManagerSection;
 
 const REPORT_PAGE_SIZE = 50;
 const REPORT_TYPE_PAGE_SIZE = 10;
@@ -163,19 +161,8 @@ const suggestedSurveyQuestions: Array<Omit<SurveyQuestionDraft, 'id'>> = [
   { label: 'O projeto foi concluído dentro do prazo?', type: 'SELECT', required: false, optionsText: 'Sim\nNão\nParcialmente' }
 ];
 
-const gestorTabs: GestorTab[] = [
-  'pendentes',
-  'aprovados',
-  'arquivados',
-  'projetos',
-  'equipe',
-  'usuarios',
-  'nps',
-  'estatisticas'
-];
-
 function parseGestorTab(value: string | null): GestorTab {
-  return gestorTabs.includes(value as GestorTab) ? value as GestorTab : 'pendentes';
+  return RDO_MANAGER_SECTIONS.some(section => section.id === value) ? value as GestorTab : 'pendentes';
 }
 
 type GestorUiPrefs = {
@@ -1339,14 +1326,6 @@ export function GestorPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const managerModules = useMemo(() => hubModulesForUser(user), [user]);
-  const managerNavigation = useMemo(
-    () =>
-      createNavigationModel({
-        modules: managerModules,
-        pathname: location.pathname
-      }),
-    [location.pathname, managerModules]
-  );
   const managerInitials = user?.name
     ? user.name
         .split(' ')
@@ -1556,12 +1535,24 @@ export function GestorPage() {
     .filter(project => project.isActive !== false)
     .filter(projectRegistrationPending)
     .length;
-  const activeProjectIdsForCommercialPendencias = new Set(
-    (activeProjectsQuery.data || [])
-      .filter(project => project.isActive !== false)
-      .map(project => project.id)
+  const managerNavigation = useMemo(
+    () =>
+      createNavigationModel({
+        modules: managerModules,
+        pathname: location.pathname,
+        subNavigation: {
+          parentId: 'rdo',
+          items: RDO_MANAGER_SECTIONS.map(section => ({
+            id: section.id,
+            label: section.label,
+            href: rdoManagerSectionHref(section.id, searchParams.toString()),
+            badge: section.id === 'pendentes' && pendingCount > 0 ? pendingCount : undefined,
+            active: section.id === tab
+          }))
+        }
+      }),
+    [location.pathname, managerModules, pendingCount, searchParams, tab]
   );
-  const pendingCommercialProposalCount = pendingCommercialProposalCountForProjects(commercialPendenciasQuery.data || [], activeProjectIdsForCommercialPendencias);
 
   useEffect(() => {
     if (tab !== 'arquivados') return;
@@ -5068,7 +5059,11 @@ export function GestorPage() {
     <AppShell
       navigation={managerNavigation}
       title="RDO"
-      breadcrumb={[{ label: 'Filtrovali', href: '/modulos' }, { label: 'RDO' }]}
+      breadcrumb={[
+        { label: 'Filtrovali', href: '/modulos' },
+        { label: 'RDO', href: '/rdo/gestor' },
+        { label: rdoManagerSectionLabel(tab) }
+      ]}
       profile={
         user
           ? {
@@ -5084,36 +5079,15 @@ export function GestorPage() {
       }
       onLogout={handleLogout}
     >
-      <div className="fv-ds nav-tabs-wrap rdo-manager-tabs-wrap">
-        <div className="nav-tabs" role="tablist" aria-label="Seções do gestor" onKeyDown={handleHorizontalTabListKeyDown}>
-          <button className={`nav-tab ${tab === 'pendentes' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'pendentes'} onClick={() => setTab('pendentes')}>
-            Pendentes
-            <span className="nav-tab-count">{pendingCount}</span>
-          </button>
-          <button className={`nav-tab ${tab === 'aprovados' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'aprovados'} onClick={() => setTab('aprovados')}>
-            Aprovados
-          </button>
-          <button className={`nav-tab ${tab === 'projetos' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'projetos'} onClick={() => setTab('projetos')}>
-            Projetos
-            <ProjectTabPendingBadges pendingProjectRegistrationCount={pendingProjectRegistrationCount} pendingCommercialProposalCount={pendingCommercialProposalCount} />
-          </button>
-          <button className={`nav-tab ${tab === 'arquivados' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'arquivados'} onClick={() => setTab('arquivados')}>
-            Arquivados
-          </button>
-          <button className={`nav-tab ${tab === 'equipe' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'equipe'} onClick={() => setTab('equipe')}>
-            Equipe
-          </button>
-          <button className={`nav-tab ${tab === 'usuarios' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'usuarios'} onClick={() => setTab('usuarios')}>
-            Usuários
-          </button>
-          <button className={`nav-tab ${tab === 'nps' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'nps'} onClick={() => setTab('nps')}>
-            NPS
-          </button>
-          <button className={`nav-tab ${tab === 'estatisticas' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'estatisticas'} onClick={() => setTab('estatisticas')}>
-            Estatísticas
-          </button>
-        </div>
-      </div>
+      <RdoSectionNavigation
+        current={tab}
+        pendingCount={pendingCount}
+        onNavigate={section =>
+          navigate(rdoManagerSectionHref(section, searchParams.toString()), {
+            state: location.state
+          })
+        }
+      />
 
       {statisticsTab && statsDashboardOpen ? (
         <StatsDashboardOverlay

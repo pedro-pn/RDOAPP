@@ -61,7 +61,10 @@ test('B.2 preserva os dados reais e alterna exclusivamente DataTable/MobileList'
 
   await openManagerRdo(page);
 
-  await page.getByRole('tab', { name: 'Estatísticas', exact: true }).click();
+  await page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Estatísticas', exact: true })
+    .click();
   await overviewReady;
 
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);

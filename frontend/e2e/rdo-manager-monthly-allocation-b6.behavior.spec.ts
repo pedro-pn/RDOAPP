@@ -258,14 +258,16 @@ test('B.6 caracteriza a Alocação mensal real sem mutations ou downloads', asyn
       response.url().includes('/statistics/overview') &&
       response.ok()
   );
-  await page.getByRole('tab', { name: 'Estatísticas', exact: true }).click();
+  await page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Estatísticas', exact: true })
+    .click();
   await overviewResponse;
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
 
-  const statisticsTab = page.getByRole('tab', {
-    name: 'Estatísticas',
-    exact: true
-  });
+  const statisticsTab = page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Estatísticas', exact: true });
   const launcher = page.getByRole('button', {
     name: 'Alocação mensal',
     exact: true
@@ -356,7 +358,7 @@ test('B.6 caracteriza a Alocação mensal real sem mutations ou downloads', asyn
   await expectKpis(dialog, data);
   await expectFirstCollaborator(dialog, data);
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
-  await expect(statisticsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(statisticsTab).toHaveAttribute('aria-current', 'page');
 
   const currentYear = String(new Date().getFullYear());
   const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
@@ -478,7 +480,7 @@ test('B.6 caracteriza a Alocação mensal real sem mutations ou downloads', asyn
       .toBe(true);
   }
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=estatisticas$/);
-  await expect(statisticsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(statisticsTab).toHaveAttribute('aria-current', 'page');
 
   await launcher.click();
   await expect(dialog).toBeVisible();

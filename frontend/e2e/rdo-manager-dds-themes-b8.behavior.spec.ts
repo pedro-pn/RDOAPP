@@ -80,14 +80,16 @@ test('B.8 caracteriza Temas de DDS reais sem criar, renomear ou alterar status',
   await expectManagerRdoShell(page);
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=equipe$/);
 
-  const managerTab = page.getByRole('tab', { name: 'Equipe', exact: true });
+  const managerTab = page
+    .locator('.fv-sidebar')
+    .getByRole('link', { name: 'Equipe', exact: true });
   const teamTabs = page.getByRole('tablist', { name: 'Seções da equipe' });
   const themesTab = teamTabs.getByRole('tab', {
     name: 'Temas de DDS',
     exact: true
   });
   const search = page.getByRole('searchbox', { name: 'Buscar na equipe' });
-  await expect(managerTab).toHaveAttribute('aria-selected', 'true');
+  await expect(managerTab).toHaveAttribute('aria-current', 'page');
   await expect(search).toBeVisible();
 
   const mutatingAttempts: string[] = [];

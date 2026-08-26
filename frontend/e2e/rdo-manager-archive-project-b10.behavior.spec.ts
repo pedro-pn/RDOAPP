@@ -154,8 +154,11 @@ test('B.10 caracteriza o diálogo de arquivamento sem alterar projetos', async (
   await expectManagerRdoShell(page);
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=projetos$/);
   await expect(
-    page.getByRole('tab', { name: 'Projetos', exact: true })
-  ).toHaveAttribute('aria-selected', 'true');
+    page.locator('.fv-sidebar').getByRole('link', {
+      name: 'Projetos',
+      exact: true
+    })
+  ).toHaveAttribute('aria-current', 'page');
   await dismissProjectNoveltyIfVisible(page);
 
   const title = projectTitle(eligibleProject);
@@ -379,8 +382,11 @@ test('B.10 caracteriza o diálogo de arquivamento sem alterar projetos', async (
 
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=projetos$/);
   await expect(
-    page.getByRole('tab', { name: 'Projetos', exact: true })
-  ).toHaveAttribute('aria-selected', 'true');
+    page.locator('.fv-sidebar').getByRole('link', {
+      name: 'Projetos',
+      exact: true
+    })
+  ).toHaveAttribute('aria-current', 'page');
   expect(mutatingAttempts).toEqual([]);
   expect(downloads).toEqual([]);
   expect(consoleErrors).toEqual([]);

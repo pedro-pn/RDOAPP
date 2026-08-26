@@ -61,10 +61,9 @@ async function currentListingState(page: Page): Promise<ListingState> {
 
 async function expectListingState(page: Page, expected: ListingState) {
   await expect(page).toHaveURL(expected.url);
-  await expect(page.getByRole('tab', { name: /^Pendentes/ })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  );
+  await expect(
+    page.locator('.fv-sidebar').getByRole('link', { name: /^Pendentes/ })
+  ).toHaveAttribute('aria-current', 'page');
   await expect.poll(() => currentListingState(page)).toEqual(expected);
 }
 
@@ -122,10 +121,9 @@ test('B.5 caracteriza o diálogo de devolução sem executar mutações', async 
   await page.goto(MANAGER_HOME);
   await expect(page).toHaveURL(/\/rdo\/gestor(?:\?.*)?$/);
   await expectManagerRdoShell(page);
-  await expect(page.getByRole('tab', { name: /^Pendentes/ })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  );
+  await expect(
+    page.locator('.fv-sidebar').getByRole('link', { name: /^Pendentes/ })
+  ).toHaveAttribute('aria-current', 'page');
 
   const launcher = await visibleReturnLauncher(page);
   const listingState = await currentListingState(page);

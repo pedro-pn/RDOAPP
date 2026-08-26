@@ -9,6 +9,14 @@ import {
 
 export type NavigationBadge = string | number;
 
+export interface NavigationSubItem {
+  id: string;
+  label: string;
+  href: string;
+  badge?: NavigationBadge;
+  active: boolean;
+}
+
 export interface NavigationItem {
   id: string;
   label: string;
@@ -19,6 +27,8 @@ export interface NavigationItem {
   badge?: NavigationBadge;
   active: boolean;
   disabled?: boolean;
+  expanded?: boolean;
+  children?: NavigationSubItem[];
 }
 
 export interface NavigationGroup {
@@ -34,11 +44,16 @@ export interface NavigationModel {
 export interface CreateNavigationModelOptions {
   modules: readonly HubModuleEntry[];
   pathname: string;
+  subNavigation?: {
+    parentId: string;
+    items: NavigationSubItem[];
+  };
 }
 
 export function createNavigationModel({
   modules,
-  pathname
+  pathname,
+  subNavigation
 }: CreateNavigationModelOptions): NavigationModel {
   const activeModuleId = moduleIdFromPath(pathname);
 
@@ -62,17 +77,25 @@ export function createNavigationModel({
       {
         id: 'modules',
         label: 'Módulos',
-        items: modules.map((module) => ({
-          id: module.id,
-          label: module.title,
-          description: module.copy,
-          href: module.path,
-          group: 'modules',
-          icon: MODULE_NAVIGATION_ICONS[module.id],
-          badge: module.badge,
-          active: activeModuleId === module.id,
-          disabled: module.disabled || !module.path
-        }))
+        items: modules.map((module) => {
+          const children =
+            subNavigation?.parentId === module.id
+              ? subNavigation.items
+              : undefined;
+          return {
+            id: module.id,
+            label: module.title,
+            description: module.copy,
+            href: module.path,
+            group: 'modules',
+            icon: MODULE_NAVIGATION_ICONS[module.id],
+            badge: module.badge,
+            active: activeModuleId === module.id,
+            disabled: module.disabled || !module.path,
+            expanded: Boolean(children?.length),
+            children
+          };
+        })
       }
     ]
   };

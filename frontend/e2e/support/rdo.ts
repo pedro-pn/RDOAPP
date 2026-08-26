@@ -49,7 +49,29 @@ export async function expectManagerRdoShell(page: Page) {
   await expect(page.locator('.fv-sidebar')).toBeVisible();
   await expect(page.locator('.fv-topbar')).toBeVisible();
   await expect(page.locator('.fv-theme-toggle')).toBeVisible();
-  await expect(page.locator('.rdo-manager-tabs-wrap')).toBeVisible();
+  await expect(page.locator('.rdo-manager-tabs-wrap')).toHaveCount(0);
+  await expect(
+    page.locator('.fv-sidebar').getByRole('link', {
+      name: /^Relatórios e Projetos/
+    })
+  ).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.fv-sidebar .fv-navigation-subitem')).toHaveCount(
+    8
+  );
+  await expect(page.locator('.rdo-section-navigation')).toBeHidden();
+}
+
+export async function expectManagerRdoMobileNavigation(page: Page) {
+  await expect(page.locator('[data-testid="fv-app-shell"]')).toBeVisible();
+  await expect(page.locator('.fv-sidebar')).toBeHidden();
+  await expect(page.locator('.fv-topbar')).toBeVisible();
+  await expect(page.locator('.fv-theme-toggle')).toBeVisible();
+  await expect(page.locator('.rdo-manager-tabs-wrap')).toHaveCount(0);
+  await expect(
+    page.getByRole('combobox', {
+      name: 'Navegar nas áreas de Relatórios e Projetos'
+    })
+  ).toBeVisible();
 }
 
 export async function logoutFromRdo(page: Page) {

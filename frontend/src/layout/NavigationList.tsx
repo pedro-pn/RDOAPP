@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { AppIcon } from '../components/icons/AppIcon';
 import { Badge } from '../components/ui/ds';
+import { NAVIGATION_CHROME_ICONS } from './navigationIcons';
 import type { NavigationModel } from './navigationModel';
 
 export interface NavigationListProps {
@@ -52,7 +53,18 @@ export function NavigationList({
                   <Link
                     className={`fv-navigation-item${item.active ? ' is-active' : ''}`}
                     to={item.href}
-                    aria-current={item.active ? 'page' : undefined}
+                    aria-current={
+                      item.active &&
+                      !item.children?.some((child) => child.active)
+                        ? 'page'
+                        : undefined
+                    }
+                    aria-expanded={item.children ? item.expanded : undefined}
+                    aria-controls={
+                      item.children
+                        ? `${groupIdPrefix}-${item.id}-submenu`
+                        : undefined
+                    }
                     title={compact ? item.label : undefined}
                     onClick={onNavigate}
                   >
@@ -65,8 +77,46 @@ export function NavigationList({
                         {item.badge}
                       </Badge>
                     ) : null}
+                    {item.expanded ? (
+                      <AppIcon
+                        className="fv-navigation-item__expansion"
+                        icon={NAVIGATION_CHROME_ICONS.collapse}
+                        size="sm"
+                      />
+                    ) : null}
                   </Link>
                 )}
+                {item.expanded && item.children?.length ? (
+                  <ul
+                    className="fv-navigation-submenu"
+                    id={`${groupIdPrefix}-${item.id}-submenu`}
+                    aria-label={`Áreas de ${item.label}`}
+                  >
+                    {item.children.map((child) => (
+                      <li key={child.id}>
+                        <Link
+                          className={`fv-navigation-subitem${child.active ? ' is-active' : ''}`}
+                          to={child.href}
+                          aria-current={child.active ? 'page' : undefined}
+                          onClick={onNavigate}
+                        >
+                          <span
+                            className="fv-navigation-subitem__marker"
+                            aria-hidden="true"
+                          />
+                          <span className="fv-navigation-item__label">
+                            {child.label}
+                          </span>
+                          {child.badge !== undefined ? (
+                            <Badge tone={child.active ? 'brand' : 'neutral'}>
+                              {child.badge}
+                            </Badge>
+                          ) : null}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>

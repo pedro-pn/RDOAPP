@@ -107,6 +107,56 @@
   min-width: 0;
 }
 
+.fv-navigation-submenu {
+  display: grid;
+  min-width: 0;
+  margin: var(--space-1) 0 var(--space-2);
+  padding: var(--space-1) 0 var(--space-1) var(--space-8);
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.fv-navigation-subitem {
+  display: flex;
+  min-width: 0;
+  min-height: var(--space-9);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  line-height: var(--leading-sm);
+  text-decoration: none;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+.fv-navigation-subitem:hover {
+  background: var(--brand-softer);
+  color: var(--brand-text);
+}
+
+.fv-navigation-subitem.is-active {
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-weight: var(--font-semibold);
+}
+
+.fv-navigation-subitem__marker {
+  width: var(--space-1);
+  height: var(--space-1);
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: currentcolor;
+}
+
+.fv-navigation-item__expansion {
+  flex: 0 0 auto;
+}
+
 .fv-navigation-item {
   position: relative;
   display: flex;
@@ -591,15 +641,23 @@
   .fv-app-shell {
     display: grid;
     grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    align-items: start;
   }
 
   .fv-app-shell__sidebar {
-    position: sticky;
+    position: fixed;
     inset-block-start: 0;
+    inset-inline-start: 0;
     z-index: var(--z-sidebar);
     display: flex;
     width: var(--sidebar-w);
     height: 100dvh;
+    max-height: 100dvh;
+    align-self: start;
+  }
+
+  .fv-app-shell__main {
+    grid-column: 2;
   }
 
   .fv-topbar__menu {

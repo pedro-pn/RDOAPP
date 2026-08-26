@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   Boxes,
+  ChevronUp,
   CircleSlash2,
   ClipboardList,
   HardHat,
@@ -40,6 +41,7 @@ export const MODULE_NAVIGATION_ICONS = {
 export const NAVIGATION_CHROME_ICONS = {
   account: UserRound,
   close: X,
+  collapse: ChevronUp,
   help: HelpCircle,
   home: LayoutDashboard,
   logout: LogOut,

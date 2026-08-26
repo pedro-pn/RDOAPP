@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   demoCredentials,
   expectComfortableTapTargets,
+  expectManagerRdoMobileNavigation,
   expectManagerRdoShell,
   loginAs
 } from './support/rdo';
@@ -267,11 +268,7 @@ test('B.11 valida desktop/mobile em light/dark sem overflow', async ({
     if (scenario.width >= 1024) {
       await expectManagerRdoShell(page);
     } else {
-      await expect(page.locator('[data-testid="fv-app-shell"]')).toBeVisible();
-      await expect(page.locator('.fv-sidebar')).toBeHidden();
-      await expect(page.locator('.fv-topbar')).toBeVisible();
-      await expect(page.locator('.fv-theme-toggle')).toBeVisible();
-      await expect(page.locator('.rdo-manager-tabs-wrap')).toBeVisible();
+      await expectManagerRdoMobileNavigation(page);
     }
     await setTheme(page, scenario.theme);
     const { dialog, launcher } = await openSegmentDialog(page, projectForm);

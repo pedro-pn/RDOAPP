@@ -51,6 +51,48 @@ test('navigation model receives only modules already resolved by existing access
   );
 });
 
+test('navigation model expands the active RDO module with its real secondary routes', async () => {
+  const { createNavigationModel } = await loadModule(
+    '/src/layout/navigationModel.ts'
+  );
+  const model = createNavigationModel({
+    modules: [
+      {
+        id: 'rdo',
+        title: 'Relatórios e Projetos',
+        copy: 'Gestão de relatórios',
+        path: '/rdo/gestor'
+      }
+    ],
+    pathname: '/rdo/gestor',
+    subNavigation: {
+      parentId: 'rdo',
+      items: [
+        {
+          id: 'pendentes',
+          label: 'Pendentes',
+          href: '/rdo/gestor',
+          active: false
+        },
+        {
+          id: 'projetos',
+          label: 'Projetos',
+          href: '/rdo/gestor?tab=projetos',
+          active: true
+        }
+      ]
+    }
+  });
+  const rdo = model.groups
+    .find((group) => group.id === 'modules')
+    .items.find((item) => item.id === 'rdo');
+
+  assert.equal(rdo.active, true);
+  assert.equal(rdo.expanded, true);
+  assert.equal(rdo.children.length, 2);
+  assert.equal(rdo.children.find((item) => item.active).id, 'projetos');
+});
+
 test('all navigation surfaces consume the shared NavigationModel', () => {
   for (const file of [
     'src/layout/Sidebar.tsx',
@@ -66,6 +108,26 @@ test('all navigation surfaces consume the shared NavigationModel', () => {
     source('src/layout/BottomBar.tsx'),
     /navigationItems\(navigation\)/
   );
+
+  const navigationList = source('src/layout/NavigationList.tsx');
+  assert.match(navigationList, /aria-expanded=/);
+  assert.match(navigationList, /fv-navigation-submenu/);
+  assert.match(navigationList, /aria-current=\{child\.active \? 'page'/);
+});
+
+test('desktop sidebar stays in the viewport and owns its vertical scroll', () => {
+  const css = source('src/layout/AppShell.css');
+
+  assert.match(
+    css,
+    /\.fv-app-shell__sidebar\s*\{[\s\S]*position:\s*(?:sticky|fixed)/
+  );
+  assert.match(
+    css,
+    /\.fv-app-shell__sidebar\s*\{[\s\S]*inset-block-start:\s*0/
+  );
+  assert.match(css, /\.fv-app-shell__sidebar\s*\{[\s\S]*height:\s*100dvh/);
+  assert.match(css, /\.fv-sidebar__navigation\s*\{[\s\S]*overflow-y:\s*auto/);
 });
 
 test('new shell styles use semantic tokens and only official breakpoints', () => {

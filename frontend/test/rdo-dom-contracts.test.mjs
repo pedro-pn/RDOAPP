@@ -139,7 +139,7 @@ test('editor de RDO mantém âncoras de campos, etapas e validação focável', 
   );
 });
 
-test('abas principais do RDO preservam nomes acessíveis, estado e teclado', () => {
+test('abas legadas do RDO preservam nomes acessíveis, estado e teclado', () => {
   const contracts = [
     {
       file: 'src/pages/collaborator/MyReportsPage.tsx',
@@ -154,13 +154,6 @@ test('abas principais do RDO preservam nomes acessíveis, estado e teclado', () 
       selected: 'aria-selected={tab ===',
       keyboard: 'handleHorizontalTabListKeyDown',
       values: ["param: 'tab'", "defaultValue: 'pending'"]
-    },
-    {
-      file: 'src/pages/gestor/GestorPage.tsx',
-      label: 'aria-label="Seções do gestor"',
-      selected: 'aria-selected={tab ===',
-      keyboard: 'handleHorizontalTabListKeyDown',
-      values: ["searchParams.get('tab')", ": 'pendentes'"]
     },
     {
       file: 'src/pages/client/ClientPage.tsx',
@@ -186,6 +179,34 @@ test('abas principais do RDO preservam nomes acessíveis, estado e teclado', () 
     assert.ok(page.includes('role="tablist"'), contract.file);
     assert.ok(page.includes('role="tab"'), contract.file);
   }
+});
+
+test('gestor usa navegação secundária responsiva sem a barra horizontal global', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+  const navigation = source('src/pages/gestor/RdoSectionNavigation.tsx');
+
+  assertIncludesAll(
+    page,
+    [
+      "searchParams.get('tab')",
+      ": 'pendentes'",
+      '<RdoSectionNavigation',
+      'subNavigation:',
+      "parentId: 'rdo'"
+    ],
+    'GestorPage'
+  );
+  assertIncludesAll(
+    navigation,
+    [
+      'aria-label="Navegar nas áreas de Relatórios e Projetos"',
+      '<Select',
+      'onChange={handleChange}'
+    ],
+    'RdoSectionNavigation'
+  );
+  assert.doesNotMatch(page, /aria-label="Seções do gestor"/);
+  assert.doesNotMatch(page, /rdo-manager-tabs-wrap/);
 });
 
 test('busca legada do RDO mantém nome acessível, limpeza e contagem', () => {
