@@ -68,6 +68,7 @@ import { JobRoleManager } from '../../components/projects/JobRoleManager';
 import { CollaboratorListToolbarActions, CollaboratorStatusPill } from '../../components/projects/CollaboratorListControls';
 import { DdsThemeManager } from '../../components/reports/DdsThemeManager';
 import { getCommercialPendencias, type CommercialPendencia } from '../../api/acompanhamentoComercial';
+import { listDdsThemes } from '../../api/ddsThemes';
 import { listJobRoles } from '../../api/jobRoles';
 import { useGestorBootstrap } from '../../hooks/useBootstrap';
 import { useCollaboratorMutations } from '../../hooks/useCollaborators';
@@ -1712,6 +1713,10 @@ export function GestorPage() {
   const npsTab = tab === 'nps';
   const statisticsTab = tab === 'estatisticas';
   const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
+  const [jobRoleCreateOpen, setJobRoleCreateOpen] = useState(false);
+  const [ddsThemeCreateOpen, setDdsThemeCreateOpen] = useState(false);
+  const jobRoleCreateButtonRef = useRef<HTMLButtonElement>(null);
+  const ddsThemeCreateButtonRef = useRef<HTMLButtonElement>(null);
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
   const [gestorSearch, setGestorSearch] = usePersistentSearch(`gestor-search:${user?.id || 'anonymous'}:${tab}`);
   // Só o valor enviado às queries é adiado; a filtragem client-side segue instantânea.
@@ -1846,8 +1851,16 @@ export function GestorPage() {
   );
   const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
   const commercialPendenciaByProject = useMemo(() => commercialPendenciaMapByProject(commercialPendenciasQuery.data || []), [commercialPendenciasQuery.data]);
-  const jobRolesQuery = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
-  const jobRoleNames = useMemo(() => (jobRolesQuery.data || []).map(role => role.name), [jobRolesQuery.data]);
+  const jobRolesQuery = useQuery({ queryKey: ['job-roles', 'all'], queryFn: () => listJobRoles(true) });
+  const ddsThemesQuery = useQuery({
+    queryKey: ['dds-themes', 'all'],
+    queryFn: () => listDdsThemes(true),
+    enabled: teamTab
+  });
+  const jobRoleNames = useMemo(
+    () => (jobRolesQuery.data || []).filter(role => role.isActive).map(role => role.name),
+    [jobRolesQuery.data]
+  );
   const renderRoleOptions = (value: string) => {
     const showCurrent = Boolean(value) && !jobRoleNames.includes(value);
     return (
@@ -4652,55 +4665,93 @@ export function GestorPage() {
 
   function renderEquipeTab() {
     return (
-      <section className="rdo-admin-section rdo-team" aria-label="Gestão da equipe">
-        <div
-          className="rdo-admin-tabs"
-          role="tablist"
-          aria-label="Seções da equipe"
-          onKeyDown={handleHorizontalTabListKeyDown}
-        >
-          <button
-            id="rdo-team-tab-collaborators"
-            className={`rdo-admin-tab ${equipeSubTab === 'colaboradores' ? 'is-active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={equipeSubTab === 'colaboradores'}
-            aria-controls="rdo-team-panel"
-            onClick={() => setEquipeSubTab('colaboradores')}
+      <section
+        className="rdo-admin-section rdo-team"
+        id="rdo-manager-team-results"
+        aria-label="Gestão da equipe"
+      >
+        <Card className="rdo-team-workspace" padding="md" elevation="sm">
+          <div
+            className="rdo-admin-tabs"
+            role="tablist"
+            aria-label="Seções da equipe"
+            onKeyDown={handleHorizontalTabListKeyDown}
           >
-            Colaboradores
-          </button>
-          <button
-            id="rdo-team-tab-roles"
-            className={`rdo-admin-tab ${equipeSubTab === 'cargos' ? 'is-active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={equipeSubTab === 'cargos'}
-            aria-controls="rdo-team-panel"
-            onClick={() => setEquipeSubTab('cargos')}
+            <button
+              id="rdo-team-tab-collaborators"
+              className={`rdo-admin-tab ${equipeSubTab === 'colaboradores' ? 'is-active' : ''}`}
+              type="button"
+              role="tab"
+              aria-selected={equipeSubTab === 'colaboradores'}
+              aria-controls="rdo-team-panel"
+              onClick={() => {
+                setEquipeSubTab('colaboradores');
+                setJobRoleCreateOpen(false);
+                setDdsThemeCreateOpen(false);
+              }}
+            >
+              Colaboradores
+            </button>
+            <button
+              id="rdo-team-tab-roles"
+              className={`rdo-admin-tab ${equipeSubTab === 'cargos' ? 'is-active' : ''}`}
+              type="button"
+              role="tab"
+              aria-selected={equipeSubTab === 'cargos'}
+              aria-controls="rdo-team-panel"
+              onClick={() => {
+                setEquipeSubTab('cargos');
+                setDdsThemeCreateOpen(false);
+              }}
+            >
+              Cargos
+            </button>
+            <button
+              id="rdo-team-tab-dds"
+              className={`rdo-admin-tab ${equipeSubTab === 'dds' ? 'is-active' : ''}`}
+              type="button"
+              role="tab"
+              aria-selected={equipeSubTab === 'dds'}
+              aria-controls="rdo-team-panel"
+              onClick={() => {
+                setEquipeSubTab('dds');
+                setJobRoleCreateOpen(false);
+              }}
+            >
+              Temas de DDS
+            </button>
+          </div>
+          <div
+            className="rdo-admin-section__content"
+            id="rdo-team-panel"
+            role="tabpanel"
+            aria-labelledby={`rdo-team-tab-${equipeSubTab === 'colaboradores' ? 'collaborators' : equipeSubTab === 'cargos' ? 'roles' : 'dds'}`}
           >
-            Cargos
-          </button>
-          <button
-            id="rdo-team-tab-dds"
-            className={`rdo-admin-tab ${equipeSubTab === 'dds' ? 'is-active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={equipeSubTab === 'dds'}
-            aria-controls="rdo-team-panel"
-            onClick={() => setEquipeSubTab('dds')}
-          >
-            Temas de DDS
-          </button>
-        </div>
-        <div
-          className="rdo-admin-section__content"
-          id="rdo-team-panel"
-          role="tabpanel"
-          aria-labelledby={`rdo-team-tab-${equipeSubTab === 'colaboradores' ? 'collaborators' : equipeSubTab === 'cargos' ? 'roles' : 'dds'}`}
-        >
-          {equipeSubTab === 'cargos' ? <JobRoleManager appearance="design-system" /> : equipeSubTab === 'dds' ? <DdsThemeManager appearance="design-system" /> : renderColaboradoresSubTab()}
-        </div>
+            {equipeSubTab === 'cargos' ? (
+              <JobRoleManager
+                appearance="design-system"
+                createOpen={jobRoleCreateOpen}
+                onCreateOpenChange={open => {
+                  setJobRoleCreateOpen(open);
+                  if (!open) window.requestAnimationFrame(() => jobRoleCreateButtonRef.current?.focus());
+                }}
+                searchValue={gestorSearch}
+                showCreateAction={false}
+              />
+            ) : equipeSubTab === 'dds' ? (
+              <DdsThemeManager
+                appearance="design-system"
+                createOpen={ddsThemeCreateOpen}
+                onCreateOpenChange={open => {
+                  setDdsThemeCreateOpen(open);
+                  if (!open) window.requestAnimationFrame(() => ddsThemeCreateButtonRef.current?.focus());
+                }}
+                searchValue={gestorSearch}
+                showCreateAction={false}
+              />
+            ) : renderColaboradoresSubTab()}
+          </div>
+        </Card>
       </section>
     );
   }
@@ -4725,7 +4776,16 @@ export function GestorPage() {
       : 'Nenhum colaborador ativo.';
 
     return (
-      <div className="rdo-admin-listing" id="rdo-manager-team-results">
+      <div className="rdo-admin-listing">
+          <div className="rdo-team-surface-heading">
+            <span className="rdo-team-surface-heading__icon" aria-hidden="true">
+              <AppIcon icon={DS_ICONS.users} size="md" />
+            </span>
+            <div>
+              <h2>Colaboradores</h2>
+              <p>Gerencie os profissionais disponíveis para composição das equipes de projeto.</p>
+            </div>
+          </div>
           {showCollaboratorForm && !collaboratorEditingId ? (
 	          <form className="admin-inline-form rdo-admin-form" onSubmit={handleCollaboratorSubmit} autoComplete="off">
 	            <div className="rdo-admin-form__header">
@@ -5604,7 +5664,6 @@ export function GestorPage() {
     const label = labels[tab];
     if (!label) return null;
     if (npsTab) return null;
-    if (teamTab && equipeSubTab !== 'colaboradores') return null;
 
     if (reportListingTab || projectsTab || archivedProjectsTab || adminTab) {
       const reportResultsId =
@@ -5646,7 +5705,7 @@ export function GestorPage() {
               : archivedProjectsTab
                 ? 'Busca dos projetos arquivados'
                 : teamTab
-                  ? 'Busca dos colaboradores'
+                  ? 'Busca na equipe'
                   : usersTab
                     ? 'Busca dos usuários'
                 : tab === 'pendentes'
@@ -5891,12 +5950,18 @@ export function GestorPage() {
 
   function renderAdminMetrics() {
     if (teamTab) {
-      if (collaboratorsQuery.isLoading) return null;
+      if (collaboratorsQuery.isLoading || jobRolesQuery.isLoading || ddsThemesQuery.isLoading) return null;
       const collaborators = collaboratorsQuery.data || [];
       const activeCount = collaborators.filter(
         collaborator => collaborator.isActive !== false
       ).length;
-      const inactiveCount = collaborators.length - activeCount;
+      const inactiveCollaboratorCount = collaborators.length - activeCount;
+      const jobRoles = jobRolesQuery.data || [];
+      const inactiveJobRoleCount = jobRoles.filter(role => !role.isActive).length;
+      const ddsThemes = ddsThemesQuery.data || [];
+      const inactiveDdsThemeCount = ddsThemes.filter(theme => !theme.isActive).length;
+      const inactiveRegistrationCount =
+        inactiveCollaboratorCount + inactiveJobRoleCount + inactiveDdsThemeCount;
 
       return (
         <section className="rdo-manager-metrics" aria-label="Resumo da equipe">
@@ -5905,14 +5970,28 @@ export function GestorPage() {
             value={activeCount}
             description="Disponíveis para alocação"
             tone="success"
-            icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />}
+            icon={<AppIcon icon={DS_ICONS.users} size="md" />}
           />
           <MetricCard
-            label="Colaboradores inativos"
-            value={inactiveCount}
-            description="Fora da equipe ativa"
-            tone="neutral"
-            icon={<AppIcon icon={DS_ICONS.emptyDefault} size="md" />}
+            label="Cargos cadastrados"
+            value={jobRoles.length}
+            description={`${jobRoles.length - inactiveJobRoleCount} ativos`}
+            tone="brand"
+            icon={<AppIcon icon={DS_ICONS.settings} size="md" />}
+          />
+          <MetricCard
+            label="Temas de DDS"
+            value={ddsThemes.length}
+            description={`${ddsThemes.length - inactiveDdsThemeCount} ativos`}
+            tone="info"
+            icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+          />
+          <MetricCard
+            label="Cadastros inativos"
+            value={inactiveRegistrationCount}
+            description={`${inactiveCollaboratorCount} colaboradores · ${inactiveJobRoleCount} cargos · ${inactiveDdsThemeCount} temas`}
+            tone={inactiveRegistrationCount ? 'warning' : 'neutral'}
+            icon={<AppIcon icon={DS_ICONS.alertWarning} size="md" />}
           />
         </section>
       );
@@ -6029,13 +6108,14 @@ export function GestorPage() {
       >
         {teamTab ? (
           <PageHeader
-            className="rdo-admin-page__header"
+            className="rdo-admin-page__header rdo-team-page__header"
             title="Equipe"
-            description="Gerencie colaboradores, cargos e temas de DDS em uma única área."
+            description="Gerencie colaboradores, cargos e temas de DDS do seu time."
             actions={
-              equipeSubTab === 'colaboradores' ? (
-                <>
-                  {!showCollaboratorForm && !collaboratorEditingId ? (
+              <>
+                {renderGestorSearch()}
+                {equipeSubTab === 'colaboradores' ? (
+                  !showCollaboratorForm && !collaboratorEditingId ? (
                     <CollaboratorListToolbarActions
                       showInactive={showInactiveCollaborators}
                       inactiveCount={(collaboratorsQuery.data || []).filter(
@@ -6047,10 +6127,29 @@ export function GestorPage() {
                         setShowInactiveCollaborators(current => !current);
                       }}
                     />
-                  ) : null}
-                  {renderGestorSearch()}
-                </>
-              ) : undefined
+                  ) : null
+                ) : equipeSubTab === 'cargos' ? (
+                  !jobRoleCreateOpen ? (
+                    <Button
+                      ref={jobRoleCreateButtonRef}
+                      variant="primary"
+                      iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                      onClick={() => setJobRoleCreateOpen(true)}
+                    >
+                      Novo cargo
+                    </Button>
+                  ) : null
+                ) : !ddsThemeCreateOpen ? (
+                  <Button
+                    ref={ddsThemeCreateButtonRef}
+                    variant="primary"
+                    iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                    onClick={() => setDdsThemeCreateOpen(true)}
+                  >
+                    Novo tema
+                  </Button>
+                ) : null}
+              </>
             }
           />
         ) : null}

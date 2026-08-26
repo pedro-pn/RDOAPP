@@ -68,7 +68,7 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   await expect(
     page.getByRole('heading', { name: 'Equipe', level: 1 })
   ).toBeVisible();
-  await expect(page.locator('.fv-metric-card')).toHaveCount(2);
+  await expect(page.locator('.fv-metric-card')).toHaveCount(4);
   const teamTabs = page.getByRole('tablist', { name: 'Seções da equipe' });
   await expect(teamTabs.getByRole('tab')).toHaveCount(3);
   await expect(
@@ -87,13 +87,33 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
     'aria-selected',
     'true'
   );
+  await expect(teamSearch).toBeVisible();
+  await teamSearch.fill('cargo-inexistente-rdo');
   await expect(
-    page.getByRole('searchbox', { name: 'Buscar na equipe' })
-  ).toHaveCount(0);
+    page.getByText('Nenhum cargo encontrado.', { exact: true })
+  ).toBeVisible();
+  await teamSearch.fill('');
+  await page.getByRole('button', { name: 'Novo cargo', exact: true }).click();
+  await expect(page.getByLabel('Nome do cargo')).toBeFocused();
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Novo cargo', exact: true })
+  ).toBeFocused();
   await teamTabs.getByRole('tab', { name: 'Temas de DDS' }).click();
   await expect(
     teamTabs.getByRole('tab', { name: 'Temas de DDS' })
   ).toHaveAttribute('aria-selected', 'true');
+  await teamSearch.fill('tema-inexistente-rdo');
+  await expect(
+    page.getByText('Nenhum tema de DDS encontrado.', { exact: true })
+  ).toBeVisible();
+  await teamSearch.fill('');
+  await page.getByRole('button', { name: 'Novo tema', exact: true }).click();
+  await expect(page.getByLabel('Nome do tema')).toBeFocused();
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Novo tema', exact: true })
+  ).toBeFocused();
   await teamTabs.getByRole('tab', { name: 'Colaboradores' }).click();
 
   await page.getByRole('button', { name: /Novo colaborador$/ }).click();

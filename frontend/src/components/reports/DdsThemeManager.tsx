@@ -7,7 +7,13 @@ import {
 } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createDdsTheme, deactivateDdsTheme, listDdsThemes, updateDdsTheme, type DdsTheme } from '../../api/ddsThemes';
+import {
+  createDdsTheme,
+  deactivateDdsTheme,
+  listDdsThemes,
+  updateDdsTheme,
+  type DdsTheme
+} from '../../api/ddsThemes';
 import {
   Button,
   Card,
@@ -19,6 +25,8 @@ import {
   StatusPill,
   type DataTableColumn
 } from '../ui/ds';
+import { AppIcon } from '../icons/AppIcon';
+import { DS_ICONS } from '../ui/ds/icons';
 import { useToast } from '../ui/ToastContext';
 import '../../styles/rdo-ds-actions.css';
 import './DdsThemeManager.ds.css';
@@ -27,44 +35,87 @@ export type DdsThemeManagerAppearance = 'legacy' | 'design-system';
 
 export interface DdsThemeManagerProps {
   appearance?: DdsThemeManagerAppearance;
+  createOpen?: boolean;
+  onCreateOpenChange?: (open: boolean) => void;
+  searchValue?: string;
+  showCreateAction?: boolean;
 }
 
 // Administração da lista de temas de DDS. Permite adicionar, renomear e desativar/reativar.
-export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps) {
+export function DdsThemeManager({
+  appearance = 'legacy',
+  createOpen,
+  onCreateOpenChange,
+  searchValue = '',
+  showCreateAction = true
+}: DdsThemeManagerProps) {
   const queryClient = useQueryClient();
   const showToast = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ['dds-themes', 'all'], queryFn: () => listDdsThemes(true) });
+  const { data, isLoading } = useQuery({
+    queryKey: ['dds-themes', 'all'],
+    queryFn: () => listDdsThemes(true)
+  });
 
   const [newName, setNewName] = useState('');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [internalCreateOpen, setInternalCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(
+    null
+  );
   const designSystemSurfaceRef = useRef<HTMLElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
   const renameLauncherIdRef = useRef<string | null>(null);
   const editingInputRef = useRef<HTMLInputElement>(null);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['dds-themes'] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['dds-themes'] });
 
   const createMutation = useMutation({
     mutationFn: (name: string) => createDdsTheme(name),
-    onSuccess: () => { showToast('Tema adicionado.'); setNewName(''); setShowCreateForm(false); invalidate(); },
+    onSuccess: () => {
+      showToast('Tema adicionado.');
+      setNewName('');
+      setShowCreateForm(false);
+      invalidate();
+    },
     onError: () => showToast('Não foi possível adicionar (nome já existe?).')
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { id: string; data: { name?: string; isActive?: boolean } }) => updateDdsTheme(payload.id, payload.data),
-    onSuccess: () => { showToast('Tema atualizado.'); setEditing(null); invalidate(); },
+    mutationFn: (payload: {
+      id: string;
+      data: { name?: string; isActive?: boolean };
+    }) => updateDdsTheme(payload.id, payload.data),
+    onSuccess: () => {
+      showToast('Tema atualizado.');
+      setEditing(null);
+      invalidate();
+    },
     onError: () => showToast('Não foi possível atualizar o tema.')
   });
 
   const deactivateMutation = useMutation({
     mutationFn: (id: string) => deactivateDdsTheme(id),
-    onSuccess: () => { showToast('Tema desativado.'); invalidate(); },
+    onSuccess: () => {
+      showToast('Tema desativado.');
+      invalidate();
+    },
     onError: () => showToast('Não foi possível desativar o tema.')
   });
 
   const themes = data ?? [];
+  const showCreateForm = createOpen ?? internalCreateOpen;
+  const normalizedSearch = searchValue.trim().toLocaleLowerCase('pt-BR');
+  const visibleThemes = normalizedSearch
+    ? themes.filter((theme) =>
+        theme.name.toLocaleLowerCase('pt-BR').includes(normalizedSearch)
+      )
+    : themes;
   const editingId = editing?.id;
+
+  function setShowCreateForm(open: boolean) {
+    if (createOpen === undefined) setInternalCreateOpen(open);
+    onCreateOpenChange?.(open);
+  }
 
   useEffect(() => {
     if (appearance === 'design-system' && showCreateForm) {
@@ -160,7 +211,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
       return (
         <>
           <Button
-            size="md"
+            size="sm"
             variant="primary"
             disabled={updateMutation.isPending || !editing.name.trim()}
             loading={updateMutation.isPending}
@@ -254,9 +305,16 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
         <Card
           className="rdo-dds-themes__card"
           padding="md"
-          title={<h2 id="rdo-dds-themes-title">Temas de DDS</h2>}
+          title={
+            <div className="rdo-dds-themes__title">
+              <span className="rdo-dds-themes__title-icon" aria-hidden="true">
+                <AppIcon icon={DS_ICONS.fileText} size="md" />
+              </span>
+              <h2 id="rdo-dds-themes-title">Temas de DDS</h2>
+            </div>
+          }
           actions={
-            !showCreateForm ? (
+            showCreateAction && !showCreateForm ? (
               <Button
                 data-dds-theme-create
                 size="sm"
@@ -294,7 +352,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
               </Field>
               <div className="rdo-dds-themes__form-actions">
                 <Button
-                  size="sm"
+                  size="md"
                   variant="secondary"
                   onClick={cancelDesignSystemCreate}
                 >
@@ -323,7 +381,7 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
           ) : (
             <DataTable
               className="rdo-dds-themes__table"
-              rows={themes}
+              rows={visibleThemes}
               columns={columns}
               getRowId={(theme) => theme.id}
               getRowClassName={(theme) =>
@@ -337,8 +395,17 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
               rowActions={renderDesignSystemThemeActions}
               emptyState={
                 <EmptyState
-                  title="Nenhum tema de DDS cadastrado."
-                  description="Cadastre um tema para disponibilizá-lo no registro de DDS dos RDOs."
+                  variant={normalizedSearch ? 'search' : 'default'}
+                  title={
+                    normalizedSearch
+                      ? 'Nenhum tema de DDS encontrado.'
+                      : 'Nenhum tema de DDS cadastrado.'
+                  }
+                  description={
+                    normalizedSearch
+                      ? 'Revise a busca para localizar outro tema.'
+                      : 'Cadastre um tema para disponibilizá-lo no registro de DDS dos RDOs.'
+                  }
                 />
               }
               mobile={{
@@ -367,19 +434,35 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
       <div className="admin-toolbar">
         <div className="sec">Temas de DDS</div>
         {!showCreateForm ? (
-          <button className="mini-btn" type="button" onClick={() => setShowCreateForm(true)}>
+          <button
+            className="mini-btn"
+            type="button"
+            onClick={() => setShowCreateForm(true)}
+          >
             + Novo tema
           </button>
         ) : null}
       </div>
       <p className="placeholder-copy" style={{ margin: '4px 0 10px' }}>
-        Lista usada no registro de DDS dos RDOs. Temas inativos não aparecem na seleção.
+        Lista usada no registro de DDS dos RDOs. Temas inativos não aparecem na
+        seleção.
       </p>
       {showCreateForm ? (
-        <form className="admin-inline-form" onSubmit={handleCreateSubmit} autoComplete="off">
+        <form
+          className="admin-inline-form"
+          onSubmit={handleCreateSubmit}
+          autoComplete="off"
+        >
           <div className="admin-toolbar full">
             <div className="sec">Novo tema de DDS</div>
-            <button className="mini-btn alt" type="button" onClick={() => { setShowCreateForm(false); setNewName(''); }}>
+            <button
+              className="mini-btn alt"
+              type="button"
+              onClick={() => {
+                setShowCreateForm(false);
+                setNewName('');
+              }}
+            >
               Cancelar
             </button>
           </div>
@@ -390,12 +473,16 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
                 id="dds-theme-name"
                 value={newName}
                 autoComplete="off"
-                onChange={event => setNewName(event.target.value)}
+                onChange={(event) => setNewName(event.target.value)}
                 required
               />
             </div>
             <div className="admin-form-actions">
-              <button className="mini-btn" type="submit" disabled={createMutation.isPending || !newName.trim()}>
+              <button
+                className="mini-btn"
+                type="submit"
+                disabled={createMutation.isPending || !newName.trim()}
+              >
                 Salvar
               </button>
             </div>
@@ -405,36 +492,84 @@ export function DdsThemeManager({ appearance = 'legacy' }: DdsThemeManagerProps)
       {isLoading ? (
         <div className="placeholder-copy">Carregando temas…</div>
       ) : (
-        <ul className="admin-stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {themes.map(theme => (
-            <li key={theme.id} className="det-row" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <ul
+          className="admin-stack"
+          style={{ listStyle: 'none', padding: 0, margin: 0 }}
+        >
+          {themes.map((theme) => (
+            <li
+              key={theme.id}
+              className="det-row"
+              style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+            >
               {editing?.id === theme.id ? (
                 <>
                   <input
                     style={{ flex: 1 }}
                     value={editing.name}
-                    onChange={event => setEditing({ id: theme.id, name: event.target.value })}
+                    onChange={(event) =>
+                      setEditing({ id: theme.id, name: event.target.value })
+                    }
                   />
                   <button
                     className="mini-btn"
                     type="button"
                     disabled={updateMutation.isPending || !editing.name.trim()}
-                    onClick={() => updateMutation.mutate({ id: theme.id, data: { name: editing.name.trim() } })}
+                    onClick={() =>
+                      updateMutation.mutate({
+                        id: theme.id,
+                        data: { name: editing.name.trim() }
+                      })
+                    }
                   >
                     Salvar
                   </button>
-                  <button className="mini-btn alt" type="button" onClick={() => setEditing(null)}>Cancelar</button>
+                  <button
+                    className="mini-btn alt"
+                    type="button"
+                    onClick={() => setEditing(null)}
+                  >
+                    Cancelar
+                  </button>
                 </>
               ) : (
                 <>
                   <span style={{ flex: 1, opacity: theme.isActive ? 1 : 0.5 }}>
-                    {theme.name}{theme.isActive ? '' : ' (inativo)'}
+                    {theme.name}
+                    {theme.isActive ? '' : ' (inativo)'}
                   </span>
-                  <button className="mini-btn" type="button" onClick={() => setEditing({ id: theme.id, name: theme.name })}>Renomear</button>
+                  <button
+                    className="mini-btn"
+                    type="button"
+                    onClick={() =>
+                      setEditing({ id: theme.id, name: theme.name })
+                    }
+                  >
+                    Renomear
+                  </button>
                   {theme.isActive ? (
-                    <button className="mini-btn danger" type="button" disabled={deactivateMutation.isPending} onClick={() => deactivateMutation.mutate(theme.id)}>Desativar</button>
+                    <button
+                      className="mini-btn danger"
+                      type="button"
+                      disabled={deactivateMutation.isPending}
+                      onClick={() => deactivateMutation.mutate(theme.id)}
+                    >
+                      Desativar
+                    </button>
                   ) : (
-                    <button className="mini-btn" type="button" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ id: theme.id, data: { isActive: true } })}>Reativar</button>
+                    <button
+                      className="mini-btn"
+                      type="button"
+                      disabled={updateMutation.isPending}
+                      onClick={() =>
+                        updateMutation.mutate({
+                          id: theme.id,
+                          data: { isActive: true }
+                        })
+                      }
+                    >
+                      Reativar
+                    </button>
                   )}
                 </>
               )}

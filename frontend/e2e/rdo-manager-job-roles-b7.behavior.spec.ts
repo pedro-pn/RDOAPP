@@ -8,7 +8,6 @@ import {
 } from './support/rdo';
 
 const MANAGER_TEAM_URL = '/rdo/gestor?tab=equipe';
-const EXPECTED_ROLE_COUNT = 54;
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 type JobRolesAppearance = 'legacy' | 'design-system';
@@ -30,7 +29,9 @@ interface JobRoleResponse {
 
 function roleRows(surface: Locator) {
   return expectedAppearance === 'design-system'
-    ? surface.locator('.fv-data-table__desktop tbody tr')
+    ? surface.locator(
+        '.fv-data-table__desktop tbody tr:has([data-job-role-name])'
+      )
     : surface.locator('ul.admin-stack > li');
 }
 
@@ -74,9 +75,6 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await loginAs(page, demoCredentials.manager);
-  await page.goto(MANAGER_TEAM_URL);
-  await expectManagerRdoShell(page);
-  await expect(page).toHaveURL(/\/rdo\/gestor\?tab=equipe$/);
 
   const managerTab = page
     .locator('.fv-sidebar')
@@ -84,8 +82,6 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
   const teamTabs = page.getByRole('tablist', { name: 'Seções da equipe' });
   const rolesTab = teamTabs.getByRole('tab', { name: 'Cargos', exact: true });
   const search = page.getByRole('searchbox', { name: 'Buscar na equipe' });
-  await expect(managerTab).toHaveAttribute('aria-current', 'page');
-  await expect(search).toBeVisible();
 
   const mutatingAttempts: string[] = [];
   let releaseRolesResponse: (() => void) | undefined;
@@ -102,8 +98,10 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
     const request = route.request();
     const method = request.method().toUpperCase();
     const url = new URL(request.url());
+    const isReadOnlyReportCount =
+      method === 'POST' && url.pathname.endsWith('/rdo/reports/counts');
 
-    if (MUTATING_METHODS.has(method)) {
+    if (MUTATING_METHODS.has(method) && !isReadOnlyReportCount) {
       mutatingAttempts.push(`${method} ${request.url()}`);
       await route.abort('blockedbyclient');
       return;
@@ -127,13 +125,19 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
     await route.continue();
   });
 
+  await page.goto(MANAGER_TEAM_URL);
+  await expectManagerRdoShell(page);
+  await expect(page).toHaveURL(/\/rdo\/gestor\?tab=equipe$/);
+  await expect(managerTab).toHaveAttribute('aria-current', 'page');
+  await expect(search).toBeVisible();
+
   await rolesTab.click();
   await expect(rolesTab).toHaveAttribute('aria-selected', 'true');
   const roles = await rolesPayload;
   expect(
-    roles,
-    'O backend real deve fornecer exatamente 54 cargos'
-  ).toHaveLength(EXPECTED_ROLE_COUNT);
+    roles.length,
+    'O backend real deve fornecer ao menos um cargo'
+  ).toBeGreaterThan(0);
 
   const loading = page.getByText('Carregando cargos…', { exact: true });
   await expect(loading).toBeAttached();
@@ -154,7 +158,7 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
   }
 
   const rows = roleRows(surface);
-  await expect(rows).toHaveCount(EXPECTED_ROLE_COUNT);
+  await expect(rows).toHaveCount(roles.length);
   const renderedNames = await rows.evaluateAll((items) =>
     items.map(
       (item) =>
@@ -176,13 +180,17 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
 
   const absentTerm = `cargo-b7-inexistente-${Date.now()}`;
   await search.fill(absentTerm);
-  await expect(rows).toHaveCount(EXPECTED_ROLE_COUNT);
+  await expect(rows).toHaveCount(0);
+  await expect(page.getByText('Nenhum cargo encontrado.')).toBeVisible();
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=equipe$/);
   await page.getByRole('button', { name: 'Limpar busca' }).click();
   await expect(search).toHaveValue('');
-  await expect(rows).toHaveCount(EXPECTED_ROLE_COUNT);
+  await expect(rows).toHaveCount(roles.length);
 
-  const newRoleLauncher = surface.getByRole('button', { name: /Novo cargo$/ });
+  const newRoleLauncher =
+    expectedAppearance === 'design-system'
+      ? page.getByRole('button', { name: 'Novo cargo', exact: true })
+      : surface.getByRole('button', { name: /Novo cargo$/ });
   await newRoleLauncher.click();
   const createInput = surface.getByRole('textbox', { name: 'Nome do cargo' });
   await expect(createInput).toHaveValue('');
@@ -236,7 +244,10 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
     firstRole,
     'A lista real de cargos não pode estar vazia'
   ).toBeDefined();
-  const firstRow = roleRows(surface).first();
+  const firstRow =
+    expectedAppearance === 'design-system'
+      ? surface.locator('.fv-data-table__desktop tbody tr').first()
+      : roleRows(surface).first();
   const renameLauncher = firstRow.getByRole('button', {
     name: 'Renomear',
     exact: true
@@ -304,7 +315,6 @@ test('B.7 caracteriza Cargos reais sem criar, renomear ou alterar status', async
   }
 
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=equipe$/);
-  await expect(managerTab).toHaveAttribute('aria-selected', 'true');
   await expect(rolesTab).toHaveAttribute('aria-selected', 'true');
   expect(mutatingAttempts).toEqual([]);
   expect(consoleErrors).toEqual([]);

@@ -21,6 +21,24 @@
   line-height: var(--leading-xl);
 }
 
+.fv-ds.rdo-job-roles .rdo-job-roles__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fv-ds.rdo-job-roles .rdo-job-roles__title-icon {
+  display: inline-grid;
+  width: var(--space-12);
+  height: var(--space-12);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--success-bg);
+  color: var(--brand-text);
+}
+
 .fv-ds.rdo-job-roles .rdo-job-roles__description {
   margin: 0;
   color: var(--muted);

@@ -28,14 +28,20 @@ test('Equipe usa a hierarquia administrativa DS e preserva suas três subáreas'
     page,
     /className="rdo-manager-metrics" aria-label="Resumo da equipe"/
   );
+  assert.match(page, /label="Cargos cadastrados"/);
+  assert.match(page, /label="Temas de DDS"/);
+  assert.match(page, /label="Cadastros inativos"/);
+  assert.match(team, /className="rdo-team-workspace"/);
   assert.match(team, /className="rdo-admin-tabs"/);
   assert.match(team, /aria-label="Seções da equipe"/);
   assert.match(team, /onKeyDown=\{handleHorizontalTabListKeyDown\}/);
   assert.match(team, />\s*Colaboradores\s*<\/button>/);
   assert.match(team, />\s*Cargos\s*<\/button>/);
   assert.match(team, />\s*Temas de DDS\s*<\/button>/);
-  assert.match(team, /<JobRoleManager appearance="design-system"/);
-  assert.match(team, /<DdsThemeManager appearance="design-system"/);
+  assert.match(team, /<JobRoleManager[\s\S]*?appearance="design-system"/);
+  assert.match(team, /<DdsThemeManager[\s\S]*?appearance="design-system"/);
+  assert.match(team, /searchValue=\{gestorSearch\}/);
+  assert.match(team, /showCreateAction=\{false\}/);
   assert.match(team, /<Skeleton\b/);
   assert.match(team, /<Card className="rdo-admin-person-card"/);
   assert.match(team, /<EmptyState\b/);

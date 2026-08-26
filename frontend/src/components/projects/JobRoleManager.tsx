@@ -25,6 +25,8 @@ import {
   StatusPill,
   type DataTableColumn
 } from '../ui/ds';
+import { AppIcon } from '../icons/AppIcon';
+import { DS_ICONS } from '../ui/ds/icons';
 import { useToast } from '../ui/ToastContext';
 import '../../styles/rdo-ds-actions.css';
 import './JobRoleManager.ds.css';
@@ -33,44 +35,87 @@ export type JobRoleManagerAppearance = 'legacy' | 'design-system';
 
 export interface JobRoleManagerProps {
   appearance?: JobRoleManagerAppearance;
+  createOpen?: boolean;
+  onCreateOpenChange?: (open: boolean) => void;
+  searchValue?: string;
+  showCreateAction?: boolean;
 }
 
 // Administração da lista de cargos (JobRole). Permite adicionar, renomear e desativar/reativar.
-export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
+export function JobRoleManager({
+  appearance = 'legacy',
+  createOpen,
+  onCreateOpenChange,
+  searchValue = '',
+  showCreateAction = true
+}: JobRoleManagerProps) {
   const queryClient = useQueryClient();
   const showToast = useToast();
-  const { data, isLoading } = useQuery({ queryKey: ['job-roles', 'all'], queryFn: () => listJobRoles(true) });
+  const { data, isLoading } = useQuery({
+    queryKey: ['job-roles', 'all'],
+    queryFn: () => listJobRoles(true)
+  });
 
   const [newName, setNewName] = useState('');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [internalCreateOpen, setInternalCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(
+    null
+  );
   const designSystemSurfaceRef = useRef<HTMLElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
   const renameLauncherIdRef = useRef<string | null>(null);
   const editingInputRef = useRef<HTMLInputElement>(null);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['job-roles'] });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['job-roles'] });
 
   const createMutation = useMutation({
     mutationFn: (name: string) => createJobRole(name),
-    onSuccess: () => { showToast('Cargo adicionado.'); setNewName(''); setShowCreateForm(false); invalidate(); },
+    onSuccess: () => {
+      showToast('Cargo adicionado.');
+      setNewName('');
+      setShowCreateForm(false);
+      invalidate();
+    },
     onError: () => showToast('Não foi possível adicionar (nome já existe?).')
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { id: string; data: { name?: string; isActive?: boolean } }) => updateJobRole(payload.id, payload.data),
-    onSuccess: () => { showToast('Cargo atualizado.'); setEditing(null); invalidate(); },
+    mutationFn: (payload: {
+      id: string;
+      data: { name?: string; isActive?: boolean };
+    }) => updateJobRole(payload.id, payload.data),
+    onSuccess: () => {
+      showToast('Cargo atualizado.');
+      setEditing(null);
+      invalidate();
+    },
     onError: () => showToast('Não foi possível atualizar o cargo.')
   });
 
   const deactivateMutation = useMutation({
     mutationFn: (id: string) => deactivateJobRole(id),
-    onSuccess: () => { showToast('Cargo desativado.'); invalidate(); },
+    onSuccess: () => {
+      showToast('Cargo desativado.');
+      invalidate();
+    },
     onError: () => showToast('Não foi possível desativar o cargo.')
   });
 
   const roles = data ?? [];
+  const showCreateForm = createOpen ?? internalCreateOpen;
+  const normalizedSearch = searchValue.trim().toLocaleLowerCase('pt-BR');
+  const visibleRoles = normalizedSearch
+    ? roles.filter((role) =>
+        role.name.toLocaleLowerCase('pt-BR').includes(normalizedSearch)
+      )
+    : roles;
   const editingId = editing?.id;
+
+  function setShowCreateForm(open: boolean) {
+    if (createOpen === undefined) setInternalCreateOpen(open);
+    onCreateOpenChange?.(open);
+  }
 
   useEffect(() => {
     if (appearance === 'design-system' && showCreateForm) {
@@ -166,7 +211,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
       return (
         <>
           <Button
-            size="md"
+            size="sm"
             variant="primary"
             disabled={updateMutation.isPending || !editing.name.trim()}
             loading={updateMutation.isPending}
@@ -260,9 +305,16 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
         <Card
           className="rdo-job-roles__card"
           padding="md"
-          title={<h2 id="rdo-job-roles-title">Cargos</h2>}
+          title={
+            <div className="rdo-job-roles__title">
+              <span className="rdo-job-roles__title-icon" aria-hidden="true">
+                <AppIcon icon={DS_ICONS.settings} size="md" />
+              </span>
+              <h2 id="rdo-job-roles-title">Cargos</h2>
+            </div>
+          }
           actions={
-            !showCreateForm ? (
+            showCreateAction && !showCreateForm ? (
               <Button
                 data-job-role-create
                 size="sm"
@@ -300,7 +352,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
               </Field>
               <div className="rdo-job-roles__form-actions">
                 <Button
-                  size="sm"
+                  size="md"
                   variant="secondary"
                   onClick={cancelDesignSystemCreate}
                 >
@@ -329,7 +381,7 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
           ) : (
             <DataTable
               className="rdo-job-roles__table"
-              rows={roles}
+              rows={visibleRoles}
               columns={columns}
               getRowId={(role) => role.id}
               getRowClassName={(role) =>
@@ -343,8 +395,17 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
               rowActions={renderDesignSystemRoleActions}
               emptyState={
                 <EmptyState
-                  title="Nenhum cargo cadastrado."
-                  description="Cadastre um cargo para disponibilizá-lo na seleção de colaboradores."
+                  variant={normalizedSearch ? 'search' : 'default'}
+                  title={
+                    normalizedSearch
+                      ? 'Nenhum cargo encontrado.'
+                      : 'Nenhum cargo cadastrado.'
+                  }
+                  description={
+                    normalizedSearch
+                      ? 'Revise a busca para localizar outro cargo.'
+                      : 'Cadastre um cargo para disponibilizá-lo na seleção de colaboradores.'
+                  }
                 />
               }
               mobile={{
@@ -373,19 +434,35 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
       <div className="admin-toolbar">
         <div className="sec">Cargos</div>
         {!showCreateForm ? (
-          <button className="mini-btn" type="button" onClick={() => setShowCreateForm(true)}>
+          <button
+            className="mini-btn"
+            type="button"
+            onClick={() => setShowCreateForm(true)}
+          >
             + Novo cargo
           </button>
         ) : null}
       </div>
       <p className="placeholder-copy" style={{ margin: '4px 0 10px' }}>
-        Lista usada no cadastro de colaboradores. Cargos inativos não aparecem na seleção.
+        Lista usada no cadastro de colaboradores. Cargos inativos não aparecem
+        na seleção.
       </p>
       {showCreateForm ? (
-        <form className="admin-inline-form" onSubmit={handleCreateSubmit} autoComplete="off">
+        <form
+          className="admin-inline-form"
+          onSubmit={handleCreateSubmit}
+          autoComplete="off"
+        >
           <div className="admin-toolbar full">
             <div className="sec">Novo cargo</div>
-            <button className="mini-btn alt" type="button" onClick={() => { setShowCreateForm(false); setNewName(''); }}>
+            <button
+              className="mini-btn alt"
+              type="button"
+              onClick={() => {
+                setShowCreateForm(false);
+                setNewName('');
+              }}
+            >
               Cancelar
             </button>
           </div>
@@ -396,12 +473,16 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
                 id="job-role-name"
                 value={newName}
                 autoComplete="off"
-                onChange={event => setNewName(event.target.value)}
+                onChange={(event) => setNewName(event.target.value)}
                 required
               />
             </div>
             <div className="admin-form-actions">
-              <button className="mini-btn" type="submit" disabled={createMutation.isPending || !newName.trim()}>
+              <button
+                className="mini-btn"
+                type="submit"
+                disabled={createMutation.isPending || !newName.trim()}
+              >
                 Salvar
               </button>
             </div>
@@ -411,36 +492,82 @@ export function JobRoleManager({ appearance = 'legacy' }: JobRoleManagerProps) {
       {isLoading ? (
         <div className="placeholder-copy">Carregando cargos…</div>
       ) : (
-        <ul className="admin-stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {roles.map(role => (
-            <li key={role.id} className="det-row" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <ul
+          className="admin-stack"
+          style={{ listStyle: 'none', padding: 0, margin: 0 }}
+        >
+          {roles.map((role) => (
+            <li
+              key={role.id}
+              className="det-row"
+              style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+            >
               {editing?.id === role.id ? (
                 <>
                   <input
                     style={{ flex: 1 }}
                     value={editing.name}
-                    onChange={event => setEditing({ id: role.id, name: event.target.value })}
+                    onChange={(event) =>
+                      setEditing({ id: role.id, name: event.target.value })
+                    }
                   />
                   <button
                     className="mini-btn"
                     type="button"
                     disabled={updateMutation.isPending || !editing.name.trim()}
-                    onClick={() => updateMutation.mutate({ id: role.id, data: { name: editing.name.trim() } })}
+                    onClick={() =>
+                      updateMutation.mutate({
+                        id: role.id,
+                        data: { name: editing.name.trim() }
+                      })
+                    }
                   >
                     Salvar
                   </button>
-                  <button className="mini-btn alt" type="button" onClick={() => setEditing(null)}>Cancelar</button>
+                  <button
+                    className="mini-btn alt"
+                    type="button"
+                    onClick={() => setEditing(null)}
+                  >
+                    Cancelar
+                  </button>
                 </>
               ) : (
                 <>
                   <span style={{ flex: 1, opacity: role.isActive ? 1 : 0.5 }}>
-                    {role.name}{role.isActive ? '' : ' (inativo)'}
+                    {role.name}
+                    {role.isActive ? '' : ' (inativo)'}
                   </span>
-                  <button className="mini-btn" type="button" onClick={() => setEditing({ id: role.id, name: role.name })}>Renomear</button>
+                  <button
+                    className="mini-btn"
+                    type="button"
+                    onClick={() => setEditing({ id: role.id, name: role.name })}
+                  >
+                    Renomear
+                  </button>
                   {role.isActive ? (
-                    <button className="mini-btn danger" type="button" disabled={deactivateMutation.isPending} onClick={() => deactivateMutation.mutate(role.id)}>Desativar</button>
+                    <button
+                      className="mini-btn danger"
+                      type="button"
+                      disabled={deactivateMutation.isPending}
+                      onClick={() => deactivateMutation.mutate(role.id)}
+                    >
+                      Desativar
+                    </button>
                   ) : (
-                    <button className="mini-btn" type="button" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ id: role.id, data: { isActive: true } })}>Reativar</button>
+                    <button
+                      className="mini-btn"
+                      type="button"
+                      disabled={updateMutation.isPending}
+                      onClick={() =>
+                        updateMutation.mutate({
+                          id: role.id,
+                          data: { isActive: true }
+                        })
+                      }
+                    >
+                      Reativar
+                    </button>
                   )}
                 </>
               )}

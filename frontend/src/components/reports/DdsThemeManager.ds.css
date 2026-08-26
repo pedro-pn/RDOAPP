@@ -21,6 +21,24 @@
   line-height: var(--leading-xl);
 }
 
+.fv-ds.rdo-dds-themes .rdo-dds-themes__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fv-ds.rdo-dds-themes .rdo-dds-themes__title-icon {
+  display: inline-grid;
+  width: var(--space-12);
+  height: var(--space-12);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--info-bg);
+  color: var(--info);
+}
+
 .fv-ds.rdo-dds-themes .rdo-dds-themes__description {
   margin: 0;
   color: var(--muted);

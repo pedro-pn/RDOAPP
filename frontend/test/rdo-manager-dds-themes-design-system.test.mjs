@@ -32,10 +32,11 @@ test('B.8 preserves the dds-theme query, original order and mutation contracts',
 
   assert.match(
     manager,
-    /queryKey: \['dds-themes', 'all'\], queryFn: \(\) => listDdsThemes\(true\)/
+    /queryKey:\s*\['dds-themes', 'all'\],[\s\S]{0,100}?queryFn: \(\) => listDdsThemes\(true\)/
   );
   assert.match(manager, /const themes = data \?\? \[\]/);
-  assert.doesNotMatch(manager, /themes\.(?:sort|toSorted|filter)\(/);
+  assert.doesNotMatch(manager, /themes\.(?:sort|toSorted)\(/);
+  assert.match(manager, /const visibleThemes = normalizedSearch/);
   assert.match(
     manager,
     /invalidateQueries\(\{ queryKey: \['dds-themes'\] \}\)/
@@ -54,9 +55,12 @@ test('B.8 preserves the dds-theme query, original order and mutation contracts',
   assert.match(manager, /updateDdsTheme\(payload\.id, payload\.data\)/);
   assert.match(
     manager,
-    /\{ id: theme\.id, data: \{ name: editing\.name\.trim\(\) \} \}/
+    /id: theme\.id,[\s\S]{0,80}?data: \{ name: editing\.name\.trim\(\) \}/
   );
-  assert.match(manager, /\{ id: theme\.id, data: \{ isActive: true \} \}/);
+  assert.match(
+    manager,
+    /id: theme\.id,[\s\S]{0,80}?data: \{ isActive: true \}/
+  );
   assert.match(manager, /Tema atualizado\./);
   assert.match(manager, /Não foi possível atualizar o tema\./);
 
@@ -99,7 +103,10 @@ test('B.8 preserves pending, disabled, reset and legacy rendering contracts', ()
     /disabled=\{updateMutation\.isPending \|\| !editing\.name\.trim\(\)\}/
   );
   assert.match(manager, /disabled=\{deactivateMutation\.isPending\}/);
-  assert.match(manager, /setShowCreateForm\(false\); setNewName\(''\)/);
+  assert.match(
+    manager,
+    /setShowCreateForm\(false\);[\s\S]{0,50}?setNewName\(''\)/
+  );
   assert.match(manager, /setEditing\(null\)/);
 
   // O caminho legacy continua existindo byte a byte para o Coordenador.
@@ -133,7 +140,10 @@ test('B.8 keeps legacy as default and opts in only the Gestor dds-theme surface'
   assert.match(manager, /appearance\?: DdsThemeManagerAppearance/);
   assert.match(manager, /appearance = 'legacy'/);
   assert.match(manager, /appearance === 'design-system'/);
-  assert.match(gestor, /<DdsThemeManager appearance="design-system"\s*\/>/);
+  assert.match(
+    gestor,
+    /<DdsThemeManager[\s\S]*?appearance="design-system"[\s\S]*?\/>/
+  );
 
   // Existe exatamente um opt-in em todo o `src`, e ele pertence ao Gestor.
   const optIns = sourceFilesUnder('src').filter((path) =>
@@ -346,7 +356,7 @@ test('a escala dos botões de ação do RDO DS é compartilhada e escopada', () 
     ['src/components/reports/DdsThemeManager.tsx', 'data-dds-theme-create']
   ]) {
     const code = source(path);
-    const primary = code.match(/size="md"/g) ?? [];
+    const primary = code.match(/<Button\b[\s\S]{0,180}?size="md"/g) ?? [];
     assert.equal(
       primary.length,
       2,

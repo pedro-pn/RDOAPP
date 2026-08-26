@@ -32,10 +32,11 @@ test('B.7 preserves the job-role query, original order and mutation contracts', 
 
   assert.match(
     manager,
-    /queryKey: \['job-roles', 'all'\], queryFn: \(\) => listJobRoles\(true\)/
+    /queryKey:\s*\['job-roles', 'all'\],[\s\S]{0,100}?queryFn: \(\) => listJobRoles\(true\)/
   );
   assert.match(manager, /const roles = data \?\? \[\]/);
-  assert.doesNotMatch(manager, /roles\.(?:sort|toSorted|filter)\(/);
+  assert.doesNotMatch(manager, /roles\.(?:sort|toSorted)\(/);
+  assert.match(manager, /const visibleRoles = normalizedSearch/);
   assert.match(manager, /invalidateQueries\(\{ queryKey: \['job-roles'\] \}\)/);
 
   assert.match(
@@ -51,9 +52,9 @@ test('B.7 preserves the job-role query, original order and mutation contracts', 
   assert.match(manager, /updateJobRole\(payload\.id, payload\.data\)/);
   assert.match(
     manager,
-    /\{ id: role\.id, data: \{ name: editing\.name\.trim\(\) \} \}/
+    /id: role\.id,[\s\S]{0,80}?data: \{ name: editing\.name\.trim\(\) \}/
   );
-  assert.match(manager, /\{ id: role\.id, data: \{ isActive: true \} \}/);
+  assert.match(manager, /id: role\.id,[\s\S]{0,80}?data: \{ isActive: true \}/);
   assert.match(manager, /Cargo atualizado\./);
   assert.match(manager, /Não foi possível atualizar o cargo\./);
 
@@ -95,7 +96,10 @@ test('B.7 preserves pending, disabled, reset and legacy rendering contracts', ()
     /disabled=\{updateMutation\.isPending \|\| !editing\.name\.trim\(\)\}/
   );
   assert.match(manager, /disabled=\{deactivateMutation\.isPending\}/);
-  assert.match(manager, /setShowCreateForm\(false\); setNewName\(''\)/);
+  assert.match(
+    manager,
+    /setShowCreateForm\(false\);[\s\S]{0,50}?setNewName\(''\)/
+  );
   assert.match(manager, /setEditing\(null\)/);
   assert.match(manager, /className="page-card"/);
   assert.match(manager, /className="admin-stack"/);
@@ -125,7 +129,10 @@ test('B.7 keeps legacy as default and opts in only the Gestor job-role surface',
   assert.match(manager, /appearance\?: JobRoleManagerAppearance/);
   assert.match(manager, /appearance = 'legacy'/);
   assert.match(manager, /appearance === 'design-system'/);
-  assert.match(gestor, /<JobRoleManager appearance="design-system"\s*\/>/);
+  assert.match(
+    gestor,
+    /<JobRoleManager[\s\S]*?appearance="design-system"[\s\S]*?\/>/
+  );
 
   const optIns = sourceFilesUnder('src').filter((path) =>
     /<JobRoleManager\b[^>]*appearance=["'{]/s.test(readFileSync(path, 'utf8'))
