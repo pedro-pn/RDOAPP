@@ -627,6 +627,14 @@ export interface ProjectStandbyHistory {
   entries: ProjectStandbyHistoryEntry[];
 }
 
+export interface ProjectManagementNote {
+  id: string;
+  projectId: string;
+  content: string;
+  author: { id: string | null; name: string };
+  createdAt: string;
+}
+
 export async function getProjectCards(): Promise<ProjectCardItem[]> {
   const { data } = await apiClient.get<ProjectCardItem[]>('/acompanhamento/comercial/projetos-cards');
   return data;
@@ -635,6 +643,24 @@ export async function getProjectCards(): Promise<ProjectCardItem[]> {
 export async function getProjectStandbyHistory(projectId: string): Promise<ProjectStandbyHistory> {
   const { data } = await apiClient.get<ProjectStandbyHistory>(
     `/acompanhamento/comercial/projetos/${encodeURIComponent(projectId)}/standby-historico`
+  );
+  return data;
+}
+
+export async function listProjectManagementNotes(projectId: string): Promise<ProjectManagementNote[]> {
+  const { data } = await apiClient.get<ProjectManagementNote[]>(
+    `/acompanhamento/comercial/projetos/${encodeURIComponent(projectId)}/notas-gestao`
+  );
+  return data;
+}
+
+export async function createProjectManagementNote(
+  projectId: string,
+  content: string
+): Promise<ProjectManagementNote> {
+  const { data } = await apiClient.post<ProjectManagementNote>(
+    `/acompanhamento/comercial/projetos/${encodeURIComponent(projectId)}/notas-gestao`,
+    { content }
   );
   return data;
 }

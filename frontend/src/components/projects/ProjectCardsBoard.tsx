@@ -544,11 +544,13 @@ export function ProjectCardsBoard({
   canManage = false,
   canManageGroups = false,
   canManageManualCosts = false,
+  canManageProjectNotes = false,
   progressHistoryNoveltyUser = null
 }: {
   canManage?: boolean;
   canManageGroups?: boolean;
   canManageManualCosts?: boolean;
+  canManageProjectNotes?: boolean;
   progressHistoryNoveltyUser?: Pick<AuthUser, 'id'> | null;
 }) {
   const queryClient = useQueryClient();
@@ -769,8 +771,8 @@ export function ProjectCardsBoard({
   // Todos os hooks acima; só então a troca para o dashboard do projeto (Rules of Hooks).
   if (selected) {
     return selected.kind === 'GROUP'
-      ? <ProjectDetailDashboard groupId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />
-      : <ProjectDetailDashboard projectId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />;
+      ? <ProjectDetailDashboard groupId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} canManageProjectNotes={canManageProjectNotes} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />
+      : <ProjectDetailDashboard projectId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} canManageProjectNotes={canManageProjectNotes} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />;
   }
 
   if (isLoading) return <div className="page-card placeholder-copy">Carregando projetos…</div>;

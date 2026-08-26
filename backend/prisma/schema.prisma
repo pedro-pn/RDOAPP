@@ -722,6 +722,7 @@ model Project {
   stockMovements             StockMovement[]
   manualProgressHistory      ProjectManualProgressHistory[]
   manualCosts                ProjectManualCost[]
+  managementNotes            ProjectManagementNote[]
   additionalProposals        ProjectAdditionalProposal[]
   acompanhamentoGroupMembers AcompanhamentoMissionGroupMember[]
   primaryLaborMissionGroups  AcompanhamentoMissionGroup[]       @relation("AcompanhamentoMissionGroupPrimaryLaborProject")
@@ -926,6 +927,20 @@ model ProjectManualCost {
   createdBy       User?     @relation("ProjectManualCostCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([projectId, deletedAt])
+  @@index([createdByUserId])
+}
+
+model ProjectManagementNote {
+  id              String   @id @default(cuid())
+  projectId       String
+  content         String
+  createdByUserId String?
+  createdByName   String
+  createdAt       DateTime @default(now())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User?    @relation("ProjectManagementNoteCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
   @@index([createdByUserId])
 }
 
@@ -1572,6 +1587,7 @@ model User {
   selectedProjectAdditionalProposals   ProjectAdditionalProposal[]         @relation("ProjectAdditionalProposalSelectedBy")
   stockMovements                       StockMovement[]                     @relation("StockMovementCreator")
   projectManualCosts                   ProjectManualCost[]                 @relation("ProjectManualCostCreator")
+  projectManagementNotes               ProjectManagementNote[]             @relation("ProjectManagementNoteCreator")
   createdAcompanhamentoMissionGroups   AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupCreatedBy")
   dissolvedAcompanhamentoMissionGroups AcompanhamentoMissionGroup[]        @relation("AcompanhamentoMissionGroupDissolvedBy")
   createdQualityRecords                QualityRecord[]                     @relation("QualityRecordCreator")
