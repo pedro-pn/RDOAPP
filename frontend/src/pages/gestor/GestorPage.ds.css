@@ -841,24 +841,92 @@
 :where(.fv-ds, [data-fv-ds])
   .rdo-manager-archive-project-dialog
   .fv-modal__footer {
-  flex-wrap: wrap;
-  gap: var(--space-4);
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
 }
 
-@media (max-width: 480px) {
-  :where(.fv-ds, [data-fv-ds])
-    .rdo-manager-archive-project-dialog
-    .fv-modal__footer {
-    align-items: stretch;
-    flex-direction: column;
-  }
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-archive-project-dialog
+  .fv-modal__footer
+  .fv-button {
+  min-width: 0;
+  min-height: calc(var(--space-10) + var(--space-1));
+  height: auto;
+  flex: 1 1 0;
+  align-self: stretch;
+  justify-content: center;
+  padding: var(--space-2);
+  white-space: normal;
+}
 
-  :where(.fv-ds, [data-fv-ds])
-    .rdo-manager-archive-project-dialog
-    .fv-modal__footer
-    .fv-button {
-    width: 100%;
-  }
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-team-dialog
+  :where(
+    .rdo-manager-project-team-dialog__title,
+    #project-team-dialog-description
+  ) {
+  margin: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-team-dialog
+  #project-team-dialog-description {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-team-dialog__form {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-5);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-team-dialog__form
+  :where(.field-group, .cc-list, .cc-add-row, .fv-control-shell) {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-team-dialog__form
+  .cc-add-row
+  .fv-control-shell {
+  flex: 1 1 14rem;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-team-dialog__form .cc-list {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-team-dialog__form
+  :where(.cc-row, .cc-add-row) {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-team-dialog__form .cc-email {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-team-dialog__form
+  .email-chip-rm {
+  display: inline-grid;
+  width: var(--space-8);
+  min-height: var(--space-8);
+  place-items: center;
+  border-radius: var(--radius-md);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-project-team-dialog__form
+  .email-chip-rm:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* ── Projetos arquivados ────────────────────────────────────────────────────
@@ -1321,56 +1389,6 @@
   border-radius: 0;
 }
 
-:where(.fv-ds, [data-fv-ds]) .rdo-active-project-card__section-nav {
-  display: flex;
-  max-width: 100%;
-  min-width: 0;
-  gap: var(--space-6);
-  overflow-x: auto;
-  border-block: var(--border-width) solid var(--line);
-  scrollbar-width: thin;
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-active-project-card__section-nav a {
-  position: relative;
-  flex: 0 0 auto;
-  padding: var(--space-3) var(--space-2);
-  color: var(--muted);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  line-height: var(--leading-sm);
-  text-decoration: none;
-}
-
-:where(.fv-ds, [data-fv-ds])
-  .rdo-active-project-card__section-nav
-  a:first-child {
-  color: var(--brand-text);
-}
-
-:where(.fv-ds, [data-fv-ds])
-  .rdo-active-project-card__section-nav
-  a:first-child::after {
-  position: absolute;
-  inset-inline: var(--space-2);
-  inset-block-end: -1px;
-  height: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--brand);
-  content: '';
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-active-project-card__section-nav a:hover {
-  color: var(--ink);
-}
-
-:where(.fv-ds, [data-fv-ds])
-  .rdo-active-project-card__section-nav
-  a:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: calc(var(--focus-ring-offset) * -1);
-}
-
 :where(.fv-ds, [data-fv-ds]) .rdo-active-project-card__details-grid {
   display: grid;
   min-width: 0;
@@ -1415,6 +1433,7 @@
   .rdo-active-project-card__quick-actions
   .fv-button {
   width: 100%;
+  min-height: calc(var(--space-10) + var(--space-1));
   justify-content: flex-start;
 }
 
@@ -1461,10 +1480,6 @@
     .rdo-active-project-card__detail-panel--overview
     > dl {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  :where(.fv-ds, [data-fv-ds]) .rdo-active-project-card__section-nav {
-    gap: var(--space-3);
   }
 }
 

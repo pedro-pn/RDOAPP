@@ -30,7 +30,7 @@ test('buscas do RDO persistem por usuário e aba somente na sessão', () => {
       'window.sessionStorage.setItem(key, value)',
       'window.sessionStorage.removeItem(key)',
       'readPersistentSearch(storageKey)',
-      'writePersistentSearch(storageKey, value)'
+      'setPersistentSearchValue(storageKey, value)'
     ],
     'usePersistentSearch'
   );

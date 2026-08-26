@@ -93,7 +93,10 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
 
   const mutationAttempts: string[] = [];
   page.on('request', (request) => {
-    if (MUTATING_METHODS.has(request.method().toUpperCase())) {
+    if (
+      MUTATING_METHODS.has(request.method().toUpperCase()) &&
+      !request.url().endsWith('/api/rdo/reports/counts')
+    ) {
       mutationAttempts.push(`${request.method()} ${request.url()}`);
     }
   });
@@ -131,7 +134,7 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
   ).toBeVisible();
   await expect(
     project.getByRole('navigation', { name: /^Seções de / })
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     project.getByRole('heading', { name: 'Operação', level: 4 })
   ).toBeVisible();
@@ -142,13 +145,24 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
     project.getByRole('heading', { name: 'Ações rápidas', level: 4 })
   ).toBeVisible();
 
-  await project.getByRole('button', { name: /^Editar:/ }).click();
+  const editTrigger = project.getByRole('button', { name: /^Editar:/ });
+  await editTrigger.click();
   const saveProject = project.getByRole('button', {
     name: 'Salvar projeto',
     exact: true
   });
   await expect(saveProject).toBeVisible();
   await expect(saveProject).toHaveClass(/\bfv-button--primary\b/);
+  await expect(saveProject).toHaveClass(/\bfv-button--md\b/);
+  const cancelEdit = project.getByRole('button', {
+    name: 'Cancelar edição',
+    exact: true
+  });
+  await expect(cancelEdit).toHaveClass(/\bfv-button--md\b/);
+  await editTrigger.click();
+  await expect(saveProject).toHaveCount(0);
+  await editTrigger.click();
+  await expect(saveProject).toBeVisible();
   const addButtons = project.getByRole('button', {
     name: '+ Adicionar',
     exact: true
@@ -165,10 +179,27 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
   await expect(
     surface.locator('.project-revision-picker .mini-btn')
   ).toHaveCount(0);
-  await project
-    .getByRole('button', { name: 'Cancelar edição', exact: true })
-    .click();
+  await cancelEdit.click();
   await expect(project.getByRole('button', { name: /^Editar:/ })).toBeVisible();
+
+  await project
+    .getByRole('button', { name: 'Gerenciar equipe', exact: true })
+    .click();
+  const teamDialog = page.getByRole('dialog', { name: 'Gerenciar equipe' });
+  await expect(teamDialog).toBeVisible();
+  await expect(
+    teamDialog.getByRole('combobox', { name: 'Operador responsável' })
+  ).toBeFocused();
+  await expect(
+    teamDialog.getByRole('combobox', { name: 'Usuários internos autorizados' })
+  ).toBeVisible();
+  await expect(
+    teamDialog.getByRole('button', { name: 'Salvar equipe', exact: true })
+  ).toHaveClass(/\bfv-button--md\b/);
+  await teamDialog
+    .getByRole('button', { name: 'Cancelar', exact: true })
+    .click();
+  await expect(teamDialog).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Novo projeto', exact: true }).click();
   const newProjectForm = surface.locator('.rdo-manager-projects__legacy-form');
@@ -220,6 +251,35 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
 
   expect(mutationAttempts).toEqual([]);
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=projetos$/);
+});
+
+test('Ação Ver relatórios abre Aprovados com a busca do projeto preenchida', async ({
+  page
+}) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await loginAs(page, demoCredentials.manager);
+  const surface = await openProjectsPage(page);
+  const project = await readyProject(surface);
+  const detailsToggle = project.getByRole('button', {
+    name: /^(Mostrar|Ocultar) detalhes$/
+  });
+  if ((await detailsToggle.getAttribute('aria-expanded')) !== 'true') {
+    await detailsToggle.click();
+  }
+
+  await project
+    .getByRole('button', { name: 'Ver relatórios', exact: true })
+    .click();
+
+  await expect(page).toHaveURL(/\/rdo\/gestor\?tab=aprovados$/);
+  await expect(
+    page.getByRole('heading', { name: 'Relatórios aprovados', level: 1 })
+  ).toBeVisible();
+  const approvedSearch = page.getByRole('searchbox', {
+    name: 'Buscar em aprovados'
+  });
+  await expect(approvedSearch).not.toHaveValue('');
 });
 
 test('Projetos valida desktop/mobile em light/dark e formulário sem overflow', async ({

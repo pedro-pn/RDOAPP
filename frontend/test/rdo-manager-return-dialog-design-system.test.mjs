@@ -217,7 +217,7 @@ test('Gestor preserva abertura, handler, payload, fechamento e toasts da devolu√
 
   assert.match(
     manager,
-    /useAccumulatedReportsPage, useReportCounts, useReportMutations/
+    /useAccumulatedReportsPage, useBatchedReportCounts, useReportCounts, useReportMutations/
   );
   assert.match(manager, /const reportMutations = useReportMutations\(\)/);
 });

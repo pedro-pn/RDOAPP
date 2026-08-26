@@ -52,6 +52,7 @@ import {
   Input,
   MetricCard,
   SearchInput,
+  Select,
   Skeleton,
   StatusPill,
   type SemanticTone
@@ -72,9 +73,9 @@ import { useGestorBootstrap } from '../../hooks/useBootstrap';
 import { useCollaboratorMutations } from '../../hooks/useCollaborators';
 import { useDraftMutations, useDrafts } from '../../hooks/useDrafts';
 import { useProjectMutations } from '../../hooks/useProjects';
-import { useAccumulatedReportsPage, useReportCounts, useReportMutations } from '../../hooks/useReports';
+import { useAccumulatedReportsPage, useBatchedReportCounts, useReportCounts, useReportMutations } from '../../hooks/useReports';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
-import { usePersistentSearch } from '../../hooks/usePersistentSearch';
+import { setPersistentSearchValue, usePersistentSearch } from '../../hooks/usePersistentSearch';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 import {
   currentPageScrollState,
@@ -702,12 +703,12 @@ function ProjectAuthorizedUsersFields({
             </div>
           ))}
           <div className="cc-add-row">
-            <select id={`${idPrefix}-authorized-users-select`} defaultValue="">
+            <Select id={`${idPrefix}-authorized-users-select`} defaultValue="">
               <option value="">Selecionar usuário...</option>
               {availableUsers.map(user => (
                 <option key={user.id} value={user.id}>{userProjectAccessLabel(user)}</option>
               ))}
-            </select>
+            </Select>
             <Button variant="primary" size="sm" type="button" disabled={!availableUsers.length} onClick={event => {
               const select = event.currentTarget.parentElement?.querySelector('select');
               addUser(select || null);
@@ -981,6 +982,9 @@ function renderProjectCard(
   project: Project,
   options: {
     onEdit: (project: Project) => void;
+    editing?: boolean;
+    onManageTeam?: (project: Project) => void;
+    onViewReports?: (project: Project) => void;
     onToggleArchive: (project: Project) => void;
     onRemove?: (project: Project) => void;
     detailsExpanded: boolean;
@@ -1057,12 +1061,9 @@ function renderProjectCard(
     }
 
     if (activeProject && !options.onToggleReports) {
-      const overviewRegionId = `project-overview-${project.id}`;
-      const operationRegionId = `project-operation-${project.id}`;
-      const actionsRegionId = `project-actions-${project.id}`;
+      const editRegionId = `project-edit-${project.id}`;
       const authorizedUserCount = project.authorizedUsers?.length || 0;
       const additionalSignerCount = project.clientSigners?.length || 0;
-      const configuredReportTypeCount = project.reportSequences?.length || 0;
       const weekendDays =
         [
           project.includesSaturday ? 'sábado' : null,
@@ -1111,6 +1112,8 @@ function renderProjectCard(
                 label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar'}: ${title}`}
                 variant="secondary"
                 size="sm"
+                aria-expanded={options.editing}
+                aria-controls={editRegionId}
                 onClick={() => options.onEdit(project)}
               />
               <IconButton
@@ -1167,8 +1170,8 @@ function renderProjectCard(
             </div>
             <div className="rdo-active-project-card__summary-item">
               <AppIcon icon={DS_ICONS.fileText} size="sm" />
-              <dt>Tipos de relatório</dt>
-              <dd>{configuredReportTypeCount}</dd>
+              <dt>Relatórios</dt>
+              <dd>{options.reportCount ?? '—'}</dd>
             </div>
           </dl>
 
@@ -1184,7 +1187,10 @@ function renderProjectCard(
           ) : null}
 
           {options.children ? (
-            <div className="rdo-active-project-card__embedded-flow">
+            <div
+              className="rdo-active-project-card__embedded-flow"
+              id={editRegionId}
+            >
               {options.children}
             </div>
           ) : null}
@@ -1194,22 +1200,12 @@ function renderProjectCard(
               className="rdo-archived-project-card__details rdo-active-project-card__expanded-content"
               id={detailsRegionId}
             >
-              <nav
-                className="rdo-active-project-card__section-nav"
-                aria-label={`Seções de ${title}`}
-              >
-                <a href={`#${overviewRegionId}`}>Visão geral</a>
-                <a href={`#${operationRegionId}`}>Operação</a>
-                <a href={`#${actionsRegionId}`}>Ações rápidas</a>
-              </nav>
-
               <div className="rdo-active-project-card__details-grid">
                 <section
                   className="rdo-active-project-card__detail-panel rdo-active-project-card__detail-panel--overview"
-                  id={overviewRegionId}
-                  aria-labelledby={`${overviewRegionId}-title`}
+                  aria-labelledby={`project-information-${project.id}-title`}
                 >
-                  <h4 id={`${overviewRegionId}-title`}>
+                  <h4 id={`project-information-${project.id}-title`}>
                     Informações do projeto
                   </h4>
                   <dl>
@@ -1242,10 +1238,9 @@ function renderProjectCard(
 
                 <section
                   className="rdo-active-project-card__detail-panel"
-                  id={operationRegionId}
-                  aria-labelledby={`${operationRegionId}-title`}
+                  aria-labelledby={`project-operation-${project.id}-title`}
                 >
-                  <h4 id={`${operationRegionId}-title`}>Operação</h4>
+                  <h4 id={`project-operation-${project.id}-title`}>Operação</h4>
                   <dl>
                     <div className="rdo-archived-project-card__detail">
                       <dt>Responsável</dt>
@@ -1281,11 +1276,11 @@ function renderProjectCard(
                       <dd>{additionalSignerCount}</dd>
                     </div>
                     <div className="rdo-archived-project-card__detail">
-                      <dt>Tipos de relatório</dt>
-                      <dd>{configuredReportTypeCount}</dd>
+                      <dt>Relatórios vinculados</dt>
+                      <dd>{options.reportCount ?? '—'}</dd>
                     </div>
                     <div className="rdo-archived-project-card__detail">
-                      <dt>Assinatura obrigatória</dt>
+                      <dt>Exige assinatura em relatórios de serviço</dt>
                       <dd>
                         {project.requireServiceReportSignatures ? 'Sim' : 'Não'}
                       </dd>
@@ -1295,37 +1290,40 @@ function renderProjectCard(
 
                 <section
                   className="rdo-active-project-card__detail-panel rdo-active-project-card__quick-actions"
-                  id={actionsRegionId}
-                  aria-labelledby={`${actionsRegionId}-title`}
+                  aria-labelledby={`project-actions-${project.id}-title`}
                 >
-                  <h4 id={`${actionsRegionId}-title`}>Ações rápidas</h4>
+                  <h4 id={`project-actions-${project.id}-title`}>Ações rápidas</h4>
                   <Button
                     variant="secondary"
                     size="sm"
                     iconLeft={<AppIcon icon={DS_ICONS.edit} size="sm" />}
-                    aria-label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar projeto'}: ${title}`}
+                    aria-label={`${options.editing ? 'Fechar edição' : pendingRegistration ? 'Revisar cadastro' : 'Editar projeto'}: ${title}`}
                     onClick={() => options.onEdit(project)}
                   >
-                    {pendingRegistration
-                      ? 'Revisar cadastro'
-                      : 'Editar projeto'}
+                    {options.editing
+                      ? 'Fechar edição'
+                      : pendingRegistration
+                        ? 'Revisar cadastro'
+                        : 'Editar projeto'}
                   </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    iconLeft={<AppIcon icon={DS_ICONS.archive} size="sm" />}
-                    onClick={() => options.onToggleArchive(project)}
-                  >
-                    Arquivar projeto
-                  </Button>
-                  {options.onRemove ? (
+                  {options.onManageTeam ? (
                     <Button
-                      variant="danger"
+                      variant="secondary"
                       size="sm"
-                      iconLeft={<AppIcon icon={DS_ICONS.trash} size="sm" />}
-                      onClick={() => options.onRemove?.(project)}
+                      iconLeft={<AppIcon icon={DS_ICONS.users} size="sm" />}
+                      onClick={() => options.onManageTeam?.(project)}
                     >
-                      Excluir projeto
+                      Gerenciar equipe
+                    </Button>
+                  ) : null}
+                  {options.onViewReports ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                      onClick={() => options.onViewReports?.(project)}
+                    >
+                      Ver relatórios
                     </Button>
                   ) : null}
                 </section>
@@ -1668,6 +1666,9 @@ export function GestorPage() {
   const segmentLabelInputRef = useRef<HTMLInputElement>(null);
   const [archiveSurveyProject, setArchiveSurveyProject] = useState<Project | null>(null);
   const archiveSurveyCancelRef = useRef<HTMLButtonElement>(null);
+  const [projectTeamDialogProject, setProjectTeamDialogProject] = useState<Project | null>(null);
+  const [projectTeamForm, setProjectTeamForm] = useState<ProjectFormState>(emptyProjectForm);
+  const projectTeamOperatorRef = useRef<HTMLSelectElement>(null);
   const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
   const [npsDashboardOpen, setNpsDashboardOpen] = useState(false);
   const [statsDashboardOpen, setStatsDashboardOpen] = useState(false);
@@ -1762,6 +1763,23 @@ export function GestorPage() {
     isError: gestorBootstrapQuery.isError,
     refetch: gestorBootstrapQuery.refetch
   };
+  const activeProjectReportCountQueries = useMemo(
+    () => (activeProjectsQuery.data || []).map(project => ({ projectId: project.id })),
+    [activeProjectsQuery.data]
+  );
+  const activeProjectReportCountsQuery = useBatchedReportCounts(
+    activeProjectReportCountQueries,
+    projectsTab && activeProjectReportCountQueries.length > 0
+  );
+  const activeProjectReportCountById = useMemo(
+    () => new Map(
+      activeProjectReportCountQueries.map((query, index) => [
+        query.projectId,
+        activeProjectReportCountsQuery.data?.[index]
+      ])
+    ),
+    [activeProjectReportCountQueries, activeProjectReportCountsQuery.data]
+  );
   const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
   const commercialPendenciaByProject = useMemo(() => commercialPendenciaMapByProject(commercialPendenciasQuery.data || []), [commercialPendenciasQuery.data]);
   const jobRolesQuery = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
@@ -2084,6 +2102,59 @@ export function GestorPage() {
     setProjectForm(emptyProjectForm);
     setProjectEditingId(null);
     setShowProjectForm(false);
+  }
+
+  function toggleProjectEdit(project: Project) {
+    if (projectEditingId === project.id) {
+      resetProjectForm();
+      return;
+    }
+    setProjectEditingId(project.id);
+    setShowProjectForm(true);
+    setProjectForm(projectToForm(project));
+  }
+
+  function openProjectTeamDialog(project: Project) {
+    setProjectTeamForm(projectToForm(project));
+    setProjectTeamDialogProject(project);
+  }
+
+  function closeProjectTeamDialog() {
+    if (projectMutations.updateProject.isPending) return;
+    setProjectTeamDialogProject(null);
+    setProjectTeamForm(emptyProjectForm);
+  }
+
+  async function handleProjectTeamSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const project = projectTeamDialogProject;
+    if (!project) return;
+
+    try {
+      await projectMutations.updateProject.mutateAsync({
+        id: project.id,
+        payload: {
+          operatorId: projectTeamForm.operatorId || null,
+          authorizedUserIds: projectTeamForm.authorizedUserIds
+        }
+      });
+      showToast('Equipe do projeto atualizada.', 'success');
+      setProjectTeamDialogProject(null);
+      setProjectTeamForm(emptyProjectForm);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível atualizar a equipe do projeto.', 'error');
+    }
+  }
+
+  function handleViewProjectReports(project: Project) {
+    const searchValue = project.code.trim() || project.name.trim();
+    setPersistentSearchValue(
+      `gestor-search:${user?.id || 'anonymous'}:aprovados`,
+      searchValue
+    );
+    navigate(rdoManagerSectionHref('aprovados', searchParams.toString()), {
+      state: location.state
+    });
   }
 
   function openSegmentForm() {
@@ -4101,17 +4172,17 @@ export function GestorPage() {
               </select>
             </div>
             <div className="admin-form-actions">
-              <Button variant="primary" type="submit" disabled={projectMutations.updateProject.isPending}>Salvar projeto</Button>
-              <Button variant="secondary" size="sm" type="button" onClick={resetProjectForm}>Cancelar edição</Button>
+              <Button variant="primary" size="md" type="submit" disabled={projectMutations.updateProject.isPending}>Salvar projeto</Button>
+              <Button variant="secondary" size="md" type="button" onClick={resetProjectForm}>Cancelar edição</Button>
             </div>
         </form>
         )
       ) : null,
-      onEdit: item => {
-        setProjectEditingId(item.id);
-        setShowProjectForm(true);
-        setProjectForm(projectToForm(item));
-      },
+      onEdit: toggleProjectEdit,
+      editing: projectEditingId === project.id,
+      onManageTeam: openProjectTeamDialog,
+      onViewReports: handleViewProjectReports,
+      reportCount: activeProjectReportCountById.get(project.id),
       onToggleArchive: handleProjectToggleArchive,
       onRemove: handleProjectRemove,
       detailsExpanded: projectDetailsExpanded(project.id),
@@ -4377,11 +4448,7 @@ export function GestorPage() {
                     />
                   )
                 ) : null,
-                onEdit: item => {
-                  setProjectEditingId(item.id);
-                  setShowProjectForm(true);
-                  setProjectForm(projectToForm(item));
-                },
+                onEdit: toggleProjectEdit,
                 onToggleArchive: handleProjectToggleArchive,
                 onRemove: handleProjectRemove,
                 detailsExpanded: projectDetailsExpanded(project.id),
@@ -5946,6 +6013,79 @@ export function GestorPage() {
       </Modal>
 
       <Modal
+        open={Boolean(projectTeamDialogProject)}
+        onClose={closeProjectTeamDialog}
+        appearance="design-system"
+        size="md"
+        panelClassName="rdo-manager-project-team-dialog rdo-ds-actions"
+        ariaLabelledBy="project-team-dialog-title"
+        ariaDescribedBy="project-team-dialog-description"
+        initialFocusRef={projectTeamOperatorRef}
+        title={
+          <h2 id="project-team-dialog-title" className="rdo-manager-project-team-dialog__title">
+            Gerenciar equipe
+          </h2>
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="md"
+              type="button"
+              disabled={projectMutations.updateProject.isPending}
+              onClick={closeProjectTeamDialog}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              type="submit"
+              form="project-team-form"
+              loading={projectMutations.updateProject.isPending}
+              loadingLabel="Salvando equipe…"
+            >
+              Salvar equipe
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="project-team-form"
+          className="rdo-manager-project-team-dialog__form"
+          onSubmit={handleProjectTeamSubmit}
+        >
+          <p id="project-team-dialog-description">
+            Defina o operador responsável e os usuários internos autorizados para{' '}
+            <strong>{projectTeamDialogProject ? projectTitle(projectTeamDialogProject) : 'este projeto'}</strong>.
+          </p>
+          <Field id="project-team-operator" label="Operador responsável">
+            <Select
+              ref={projectTeamOperatorRef}
+              value={projectTeamForm.operatorId}
+              onChange={event => setProjectTeamForm(current => ({
+                ...current,
+                operatorId: event.target.value
+              }))}
+            >
+              <option value="">Sem operador responsável</option>
+              {(collaboratorsQuery.data || [])
+                .filter(item => item.isActive)
+                .map(item => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+            </Select>
+          </Field>
+          <ProjectAuthorizedUsersFields
+            form={projectTeamForm}
+            idPrefix="project-team"
+            setForm={setProjectTeamForm}
+            users={internalUsersQuery.data || []}
+          />
+        </form>
+      </Modal>
+
+      <Modal
         open={Boolean(archiveSurveyProject)}
         onClose={() => setArchiveSurveyProject(null)}
         appearance="design-system"
@@ -5988,7 +6128,7 @@ export function GestorPage() {
             </Button>
             <Button
               variant="primary"
-              size="md"
+              size="sm"
               type="button"
               disabled={
                 projectMutations.updateProject.isPending ||

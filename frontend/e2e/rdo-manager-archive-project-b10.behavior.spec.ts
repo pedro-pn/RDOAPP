@@ -321,7 +321,22 @@ test('B.10 caracteriza o diálogo de arquivamento sem alterar projetos', async (
         ).toHaveClass(/\bfv-button--sm\b/);
         await expect(
           dialog.getByRole('button', { name: 'Enviar pesquisa', exact: true })
-        ).toHaveClass(/\bfv-button--md\b/);
+        ).toHaveClass(/\bfv-button--sm\b/);
+        const footerAlignment = await dialog
+          .locator('.fv-modal__footer .fv-button')
+          .evaluateAll((buttons) => {
+            const rectangles = buttons.map((button) =>
+              button.getBoundingClientRect()
+            );
+            const tops = rectangles.map((rectangle) => rectangle.top);
+            const bottoms = rectangles.map((rectangle) => rectangle.bottom);
+            return {
+              topSpread: Math.max(...tops) - Math.min(...tops),
+              bottomSpread: Math.max(...bottoms) - Math.min(...bottoms)
+            };
+          });
+        expect(footerAlignment.topSpread).toBeLessThanOrEqual(2);
+        expect(footerAlignment.bottomSpread).toBeLessThanOrEqual(2);
         expect(await actionButtons.count()).toBeGreaterThanOrEqual(3);
         await expectComfortableTapTargets(
           page,

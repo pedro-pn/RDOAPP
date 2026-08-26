@@ -198,7 +198,7 @@ test('B.10 mantém a hierarquia de botões e o CSS local tokenizado', () => {
   );
   assert.match(
     dialog,
-    /<Button[\s\S]{0,220}?variant="primary"[\s\S]{0,220}?size="md"[\s\S]{0,420}?>\s*Enviar pesquisa/
+    /<Button[\s\S]{0,220}?variant="primary"[\s\S]{0,220}?size="sm"[\s\S]{0,420}?>\s*Enviar pesquisa/
   );
   assert.doesNotMatch(dialog, /size="lg"/);
 
@@ -210,6 +210,7 @@ test('B.10 mantém a hierarquia de botões e o CSS local tokenizado', () => {
   assert.doesNotMatch(block, /#[\da-f]{3,8}\b/i);
   assert.doesNotMatch(block, /\brgba?\(/i);
   assert.doesNotMatch(block, /!important/);
+  assert.match(block, /flex-wrap:\s*nowrap/);
 });
 
 test('B.10 não altera primitives, API nem infraestrutura compartilhada', () => {

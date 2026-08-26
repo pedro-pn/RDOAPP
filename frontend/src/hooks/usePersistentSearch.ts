@@ -9,7 +9,7 @@ function readPersistentSearch(key: string): string {
   }
 }
 
-function writePersistentSearch(key: string, value: string) {
+export function setPersistentSearchValue(key: string, value: string) {
   if (typeof window === 'undefined') return;
   try {
     if (value) window.sessionStorage.setItem(key, value);
@@ -37,7 +37,7 @@ export function usePersistentSearch(storageKey: string): [string, Dispatch<SetSt
       setValue(readPersistentSearch(storageKey));
       return;
     }
-    writePersistentSearch(storageKey, value);
+    setPersistentSearchValue(storageKey, value);
   }, [storageKey, value]);
 
   return [value, setValue];

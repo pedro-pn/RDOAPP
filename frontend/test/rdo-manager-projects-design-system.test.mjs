@@ -70,6 +70,7 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
 
 test('Projetos preserva bootstrap, busca, ordenação e contratos CRUD', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
+  const reportsHook = source('src/hooks/useReports.ts');
   const projectsTab = sectionBetween(
     page,
     'function renderProjectsTab',
@@ -105,6 +106,12 @@ test('Projetos preserva bootstrap, busca, ordenação e contratos CRUD', () => {
     /sortProjects\(pendingRegistrationProjects, projectSortDir\)/
   );
   assert.match(projectsTab, /sortProjects\(activeProjects, projectSortDir\)/);
+  assert.match(page, /useBatchedReportCounts\(/);
+  assert.match(reportsHook, /queries\.slice\(index \* 8, index \* 8 \+ 8\)/);
+  assert.match(
+    reportsHook,
+    /Promise\.all\(batches\.map\(batch => fetchReportCounts\(batch\)\)\)/
+  );
   assert.match(projectsTab, /onToggleArchive: handleProjectToggleArchive/);
   assert.match(projectsTab, /onRemove: handleProjectRemove/);
   assert.match(projectsTab, /onToggleDetails: toggleProjectDetails/);
@@ -161,17 +168,21 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   assert.match(projectCard, /className="rdo-active-project-card__summary"/);
   assert.match(projectCard, /rdo-active-project-card__details-grid/);
   assert.match(projectCard, /rdo-active-project-card__quick-actions/);
-  assert.match(projectCard, />Visão geral<\/a>/);
-  assert.match(projectCard, />Operação<\/a>/);
-  assert.match(projectCard, />Ações rápidas<\/a>/);
+  assert.doesNotMatch(projectCard, /rdo-active-project-card__section-nav/);
+  assert.doesNotMatch(projectCard, />Visão geral<\/a>/);
   assert.match(projectCard, /project\.authorizedUsers\?\.length/);
-  assert.match(projectCard, /project\.reportSequences\?\.length/);
+  assert.match(projectCard, /<dt>Relatórios<\/dt>/);
+  assert.match(projectCard, /<dt>Relatórios vinculados<\/dt>/);
   assert.match(
     projectCard,
-    /\{pendingRegistration \? 'Revisar cadastro' : 'Editar projeto'\}/
+    /<dt>Exige assinatura em relatórios de serviço<\/dt>/
   );
-  assert.match(projectCard, />\s*Arquivar projeto\s*<\/Button>/);
-  assert.match(projectCard, />\s*Excluir projeto\s*<\/Button>/);
+  assert.match(projectCard, /options\.reportCount \?\? '—'/);
+  assert.match(projectCard, /options\.editing[\s\S]*?'Fechar edição'/);
+  assert.match(projectCard, />\s*Gerenciar equipe\s*<\/Button>/);
+  assert.match(projectCard, />\s*Ver relatórios\s*<\/Button>/);
+  assert.doesNotMatch(projectCard, />\s*Arquivar projeto\s*<\/Button>/);
+  assert.doesNotMatch(projectCard, />\s*Excluir projeto\s*<\/Button>/);
   assert.match(projectCard, /\['Cliente', project\.clientName/);
   assert.match(projectCard, /\['Segmento', segmentLabel\]/);
   assert.match(projectCard, /\['Responsável', project\.operator\?\.name/);
@@ -185,6 +196,13 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
     /<form className="admin-inline-form admin-inline-grid"/
   );
   assert.match(projectsTab, /className="rdo-manager-projects__legacy-form"/);
+  assert.match(projectsTab, /onEdit: toggleProjectEdit/);
+  assert.match(projectsTab, /onManageTeam: openProjectTeamDialog/);
+  assert.match(projectsTab, /onViewReports: handleViewProjectReports/);
+  assert.match(
+    projectsTab,
+    /reportCount: activeProjectReportCountById\.get\(project\.id\)/
+  );
   assert.match(projectCard, /<ProjectRevisionPicker projectId=\{project\.id\}/);
   assert.match(
     page,
@@ -194,11 +212,21 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
 
   assert.match(
     projectsTab,
-    /<Button variant="primary" type="submit" disabled=\{projectMutations\.updateProject\.isPending\}>Salvar projeto<\/Button>/
+    /<Button variant="primary" size="md" type="submit" disabled=\{projectMutations\.updateProject\.isPending\}>Salvar projeto<\/Button>/
   );
   assert.match(
     projectsTab,
-    /<Button variant="secondary" size="sm" type="button" onClick=\{resetProjectForm\}>Cancelar edição<\/Button>/
+    /<Button variant="secondary" size="md" type="button" onClick=\{resetProjectForm\}>Cancelar edição<\/Button>/
+  );
+  assert.match(page, /async function handleProjectTeamSubmit/);
+  assert.match(
+    page,
+    /payload: \{\s*operatorId: projectTeamForm\.operatorId \|\| null,\s*authorizedUserIds: projectTeamForm\.authorizedUserIds\s*\}/
+  );
+  assert.match(page, /function handleViewProjectReports/);
+  assert.match(
+    page,
+    /setPersistentSearchValue\([\s\S]*?:aprovados`[\s\S]*?searchValue/
   );
   assert.equal(
     page.match(
