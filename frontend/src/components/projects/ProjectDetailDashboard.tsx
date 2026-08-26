@@ -1,21 +1,24 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 
 import {
+  createProjectManagementNote,
   createManualProjectCost,
   deleteManualProjectCost,
   getMissionGroupDetail,
   getPlannedScope,
   getProjectPlanningContext,
   getProjectDetail,
+  listProjectManagementNotes,
   type BudgetBreakdownSlice,
   type DayStatus,
   type ManualProjectCost,
   type ManualProjectCostPayload,
   type PlannedScope,
+  type ProjectManagementNote,
   type ProgressHistoryPoint,
   type RequiredWeeklyProgress,
   type RequiredWeeklyProgressStatus
@@ -158,6 +161,18 @@ function fmtDate(iso?: string | null) {
   if (!iso) return '—';
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+}
+function fmtDateTime(iso?: string | null) {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 function fmtShortDate(iso?: string | null) {
   if (!iso) return '—';
@@ -539,6 +554,7 @@ export function ProjectDetailDashboard({
   groupId,
   canManage = false,
   canManageManualCosts = false,
+  canManageProjectNotes = false,
   progressHistoryNoveltyUser = null,
   onBack
 }: {
@@ -546,6 +562,7 @@ export function ProjectDetailDashboard({
   groupId?: string;
   canManage?: boolean;
   canManageManualCosts?: boolean;
+  canManageProjectNotes?: boolean;
   progressHistoryNoveltyUser?: Pick<AuthUser, 'id'> | null;
   onBack: () => void;
 }) {
@@ -563,6 +580,8 @@ export function ProjectDetailDashboard({
   const [manualCostFormOpen, setManualCostFormOpen] = useState(false);
   const [manualCostError, setManualCostError] = useState<string | null>(null);
   const [deletingManualCostId, setDeletingManualCostId] = useState<string | null>(null);
+  const [projectNoteContent, setProjectNoteContent] = useState('');
+  const [projectNoteError, setProjectNoteError] = useState<string | null>(null);
   const { control, register, handleSubmit, reset, formState: { errors } } = useForm<ManualCostFormValues>({
     defaultValues: manualCostFormDefaultValues,
     resolver: manualCostFormResolver
@@ -574,6 +593,16 @@ export function ProjectDetailDashboard({
     queryKey: detailKey,
     queryFn: () => isGroup ? getMissionGroupDetail(groupId!) : getProjectDetail(projectId!),
     ...acompanhamentoRefreshQueryOptions
+  });
+  const projectNotesKey = ['project-management-notes', projectId] as const;
+  const {
+    data: projectNotes = [],
+    isLoading: projectNotesLoading,
+    isError: projectNotesLoadError
+  } = useQuery<ProjectManagementNote[]>({
+    queryKey: projectNotesKey,
+    queryFn: () => listProjectManagementNotes(projectId!),
+    enabled: !isGroup && Boolean(projectId)
   });
   const { data: scope } = useQuery({
     queryKey: ['planned-scope', projectId],
@@ -637,11 +666,33 @@ export function ProjectDetailDashboard({
     },
     onSettled: () => setDeletingManualCostId(null)
   });
+  const createProjectNoteMutation = useMutation({
+    mutationFn: (content: string) => {
+      if (!projectId) throw new Error('Abra uma missão individual para adicionar a nota.');
+      return createProjectManagementNote(projectId, content);
+    },
+    onSuccess: (note) => {
+      queryClient.setQueryData<ProjectManagementNote[]>(projectNotesKey, current => [note, ...(current ?? [])]);
+      setProjectNoteContent('');
+      setProjectNoteError(null);
+    },
+    onError: (error: unknown) => {
+      setProjectNoteError(mutationErrorMessage(error, 'Não foi possível adicionar a nota.'));
+    }
+  });
   const submitManualCost = handleSubmit(values => {
     if (!canManageManualCosts || isGroup || createManualCostMutation.isPending) return;
     setManualCostError(null);
     createManualCostMutation.mutate(manualCostFormValuesToPayload(values));
   });
+
+  function submitProjectNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const content = projectNoteContent.trim();
+    if (!canManageProjectNotes || isGroup || !content || createProjectNoteMutation.isPending) return;
+    setProjectNoteError(null);
+    createProjectNoteMutation.mutate(content);
+  }
 
   function closeSchedule() {
     setScheduleProject(null);
@@ -1200,6 +1251,60 @@ export function ProjectDetailDashboard({
             </ul>
           )}
         </div>
+      ) : null}
+
+      {!isGroup ? (
+        <section className="page-card acp-project-notes" data-acp-project-notes aria-labelledby="acp-project-notes-title">
+          <div className="acp-project-notes-head">
+            <h3 id="acp-project-notes-title">Notas da gestão</h3>
+            <span>{projectNotes.length} {projectNotes.length === 1 ? 'nota' : 'notas'}</span>
+          </div>
+
+          {canManageProjectNotes ? (
+            <form className="acp-project-note-form" onSubmit={submitProjectNote}>
+              <div className="field-group acp-project-note-field">
+                <label className="sr-only" htmlFor="acp-project-note-content">Nova nota</label>
+                <textarea
+                  id="acp-project-note-content"
+                  value={projectNoteContent}
+                  onChange={event => setProjectNoteContent(event.target.value)}
+                  maxLength={2000}
+                  rows={2}
+                  placeholder="Adicionar uma nota…"
+                  disabled={createProjectNoteMutation.isPending}
+                />
+              </div>
+              <button
+                type="submit"
+                className="mini-btn"
+                disabled={!projectNoteContent.trim() || createProjectNoteMutation.isPending}
+              >
+                {createProjectNoteMutation.isPending ? 'Adicionando…' : 'Adicionar'}
+              </button>
+            </form>
+          ) : null}
+
+          {projectNoteError ? <div className="form-error" role="alert">{projectNoteError}</div> : null}
+          {projectNotesLoadError ? (
+            <div className="form-error" role="alert">Não foi possível carregar as notas.</div>
+          ) : projectNotesLoading ? (
+            <div className="placeholder-copy">Carregando notas…</div>
+          ) : projectNotes.length === 0 ? (
+            <div className="placeholder-copy">Nenhuma nota adicionada.</div>
+          ) : (
+            <ol className="acp-project-note-list">
+              {projectNotes.map(note => (
+                <li key={note.id}>
+                  <div className="acp-project-note-meta">
+                    <strong>{note.author.name}</strong>
+                    <time dateTime={note.createdAt}>{fmtDateTime(note.createdAt)}</time>
+                  </div>
+                  <p>{note.content}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       ) : null}
 
       <div className="page-card acp-det-block">

@@ -139,7 +139,7 @@ export function AcompanhamentoPage() {
           </div>
 
           <section className="equip-content">
-            {section === 'projetos' ? <ProjectCardsBoard canManage={hasAcompanhamentoAccess} canManageGroups={isManager} canManageManualCosts={isManager} progressHistoryNoveltyUser={user} />
+            {section === 'projetos' ? <ProjectCardsBoard canManage={hasAcompanhamentoAccess} canManageGroups={isManager} canManageManualCosts={isManager} canManageProjectNotes={isManager} progressHistoryNoveltyUser={user} />
               : section === 'sede' ? <SedeCostsBoard />
               : section === 'custo' && isManager ? <CostEngineManager canManageCosts={isManager} />
               : <AcompanhamentoDashboard canManage={hasAcompanhamentoAccess} />}

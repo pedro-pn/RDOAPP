@@ -34,6 +34,11 @@ import { getProjectStandbyHistory } from '../../lib/acompanhamento/standby-histo
 import { groupProjectCards } from '../../lib/acompanhamento/project-card-groups.js';
 import { groupDashboardRows } from '../../lib/acompanhamento/dashboard-groups.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
+import {
+  createProjectManagementNote,
+  listProjectManagementNotes,
+  PROJECT_MANAGEMENT_NOTE_MAX_LENGTH
+} from '../../lib/acompanhamento/project-notes.js';
 import { getOfficialMissionContext } from '../../lib/efetivo/planning/official-mission-context.js';
 import { getMissionGroupDetail } from '../../lib/acompanhamento/project-detail-groups.js';
 import {
@@ -124,6 +129,11 @@ const projectTrackingStateSchema = z.object({
 const projectIdParamSchema = z.object({
   projectId: z.string().trim().min(1).max(200)
 });
+
+const projectManagementNoteSchema = z.object({
+  content: z.string().trim().min(1, 'Escreva uma nota antes de adicionar.')
+    .max(PROJECT_MANAGEMENT_NOTE_MAX_LENGTH, `A nota deve ter no máximo ${PROJECT_MANAGEMENT_NOTE_MAX_LENGTH} caracteres.`)
+}).strict();
 
 function missionGroupErrorResponse(error, res) {
   if (error instanceof MissionGroupError) {
@@ -235,6 +245,39 @@ router.get(
     const history = await getProjectStandbyHistory(projectId);
     if (!history) return res.status(404).json({ error: 'Projeto não encontrado.' });
     return res.json(history);
+  })
+);
+
+router.get(
+  '/projetos/:projectId/notas-gestao',
+  requireAuth,
+  requireAcompanhamentoAccess,
+  asyncHandler(async (req, res) => {
+    const { projectId } = projectIdParamSchema.parse(req.params);
+    try {
+      return res.json(await listProjectManagementNotes(projectId));
+    } catch (error) {
+      return res.status(404).json({ error: error.message });
+    }
+  })
+);
+
+router.post(
+  '/projetos/:projectId/notas-gestao',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const { projectId } = projectIdParamSchema.parse(req.params);
+    const { content } = projectManagementNoteSchema.parse(req.body ?? {});
+    try {
+      const note = await createProjectManagementNote(projectId, content, {
+        userId: req.auth.user.id,
+        userName: req.auth.user.name
+      });
+      return res.status(201).json(note);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
   })
 );
 
