@@ -1018,11 +1018,27 @@ function renderProjectCard(
   const title = projectTitle(project);
   const commercialPendenciaText = options.commercialPendencia ? commercialPendenciaAlertText(options.commercialPendencia) : null;
   if (options.appearance === 'design-system') {
-    const reportsRegionId = `archived-project-reports-${project.id}`;
-    const detailsRegionId = `archived-project-details-${project.id}`;
+    const activeProject = project.isActive !== false;
+    const reportsRegionId = `project-reports-${project.id}`;
+    const detailsRegionId = `project-details-${project.id}`;
     const scheduleLabel = project.includesSaturday || project.includesSunday
       ? 'Escala estendida'
       : 'Escala padrão';
+    const stateLabel = pendingRegistration
+      ? 'Cadastro pendente'
+      : activeProject
+        ? 'Ativo'
+        : 'Arquivado';
+    const stateTone = pendingRegistration
+      ? 'warning'
+      : activeProject
+        ? 'success'
+        : 'neutral';
+    const projectKicker = pendingRegistration
+      ? 'Projeto aguardando revisão'
+      : activeProject
+        ? 'Projeto ativo'
+        : 'Projeto arquivado';
     const detailRows: Array<[string, ReactNode]> = [
       ['Cliente', project.clientName || '-'],
       ['CNPJ', formatCnpj(project.clientCnpj) || '-'],
@@ -1045,8 +1061,9 @@ function renderProjectCard(
 
     return (
       <Card
-        className="rdo-archived-project-card rdo-ds-actions"
-        data-archived-project-id={project.id}
+        className={`rdo-project-card rdo-archived-project-card rdo-ds-actions ${activeProject ? 'rdo-active-project-card' : 'rdo-project-card--archived'} ${pendingRegistration ? 'rdo-active-project-card--pending' : ''}`}
+        data-active-project-id={activeProject ? project.id : undefined}
+        data-archived-project-id={!activeProject ? project.id : undefined}
         key={project.id}
         padding="md"
         title={options.onToggleReports ? (
@@ -1057,7 +1074,7 @@ function renderProjectCard(
             aria-controls={reportsRegionId}
             onClick={() => options.onToggleReports?.(project)}
           >
-            <span className="rdo-archived-project-card__kicker">Projeto arquivado</span>
+            <span className="rdo-archived-project-card__kicker">{projectKicker}</span>
             <span className="rdo-archived-project-card__title">{title}</span>
             <span className="rdo-archived-project-card__count">
               {options.reportCount || 0} relatório{options.reportCount === 1 ? '' : 's'}
@@ -1069,14 +1086,21 @@ function renderProjectCard(
             />
           </button>
         ) : (
-          <h3 className="rdo-archived-project-card__title">{title}</h3>
+          <div className="rdo-active-project-card__identity">
+            <span className="rdo-archived-project-card__kicker">{projectKicker}</span>
+            <h3 className="rdo-archived-project-card__title">{title}</h3>
+          </div>
         )}
         actions={
           <div className="rdo-archived-project-card__badges">
             <Badge tone={project.includesSaturday || project.includesSunday ? 'success' : 'neutral'}>
               {scheduleLabel}
             </Badge>
-            <StatusPill status="archived" label="Arquivado" tone="neutral" />
+            <StatusPill
+              status={pendingRegistration ? 'pending' : activeProject ? 'active' : 'archived'}
+              label={stateLabel}
+              tone={stateTone}
+            />
           </div>
         }
         footer={
@@ -1097,16 +1121,16 @@ function renderProjectCard(
               type="button"
               onClick={() => options.onToggleArchive(project)}
             >
-              Desarquivar
+              {activeProject ? 'Arquivar' : 'Desarquivar'}
             </Button>
             <Button
               variant="secondary"
               size="sm"
               type="button"
-              aria-label={`Editar: ${title}`}
+              aria-label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar'}: ${title}`}
               onClick={() => options.onEdit(project)}
             >
-              Editar
+              {pendingRegistration ? 'Revisar cadastro' : 'Editar'}
             </Button>
             {options.onRemove ? (
               <Button
@@ -1156,6 +1180,11 @@ function renderProjectCard(
           </div>
         }
       >
+        {pendingRegistration ? (
+          <Alert tone="warning" title="Cadastro pendente">
+            {automaticProjectReviewMessage(project)}
+          </Alert>
+        ) : null}
         {commercialPendenciaText ? (
           <Alert tone="warning" title="Revisão comercial pendente">
             {commercialPendenciaText}
@@ -1330,6 +1359,7 @@ export function GestorPage() {
   const showToast = useToast();
   const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
   const reportListingTab = tab === 'pendentes' || tab === 'aprovados';
+  const projectsTab = tab === 'projetos';
   const archivedProjectsTab = tab === 'arquivados';
   const statisticsTab = tab === 'estatisticas';
   const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
@@ -1437,7 +1467,12 @@ export function GestorPage() {
   const [pendingTotalCount, approvedTotalCount, signedTotalCount] = reportCountsQuery.data ?? [0, 0, 0];
   const draftsQuery = useDrafts();
   const gestorBootstrapQuery = useGestorBootstrap();
-  const activeProjectsQuery = { data: gestorBootstrapQuery.data?.activeProjects, isLoading: gestorBootstrapQuery.isLoading };
+  const activeProjectsQuery = {
+    data: gestorBootstrapQuery.data?.activeProjects,
+    isLoading: gestorBootstrapQuery.isLoading,
+    isError: gestorBootstrapQuery.isError,
+    refetch: gestorBootstrapQuery.refetch
+  };
   const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
   const commercialPendenciaByProject = useMemo(() => commercialPendenciaMapByProject(commercialPendenciasQuery.data || []), [commercialPendenciasQuery.data]);
   const jobRolesQuery = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
@@ -3612,14 +3647,38 @@ export function GestorPage() {
       .filter(project => project.isActive !== false);
     const projectRegistrationGroups = partitionProjectsByRegistration(allActiveProjects);
     const pendingRegistrationProjects = projectRegistrationGroups.pending;
-    const activeProjects = projectRegistrationGroups.ready
+    const readyProjects = projectRegistrationGroups.ready;
+    const activeProjects = readyProjects
       .filter(project => matchesSearch(projectSearchParts(project), gestorSearch));
 
     if (activeProjectsQuery.isLoading) {
-      return <div className="page-card placeholder-copy">Carregando projetos...</div>;
+      return (
+        <div className="rdo-manager-projects__loading" role="status" aria-live="polite">
+          <span className="fv-sr-only">Carregando projetos…</span>
+          <Skeleton variant="card" decorative />
+          <Skeleton variant="card" decorative />
+        </div>
+      );
+    }
+
+    if (activeProjectsQuery.isError) {
+      return (
+        <Card padding="lg">
+          <EmptyState
+            variant="error"
+            title="Não foi possível carregar os projetos."
+            description="Tente novamente para consultar e gerenciar os projetos ativos."
+            action={{
+              label: 'Tentar novamente',
+              onClick: () => { void activeProjectsQuery.refetch(); }
+            }}
+          />
+        </Card>
+      );
     }
 
     const renderEditableProjectCard = (project: Project) => renderProjectCard(project, {
+      appearance: 'design-system',
       commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
       children: projectEditingId === project.id ? (
         projectRegistrationPending(project) ? (
@@ -3775,32 +3834,48 @@ export function GestorPage() {
     });
 
     return (
-      <>
-        <section className="page-card project-admin-panel">
-          <div className="admin-toolbar">
-            <div className="sec">{projectEditingId ? 'Editar projeto' : 'Projetos ativos'}</div>
-            <div className="admin-form-actions">
-              <ProjectSortButton
-                direction={projectSortDir}
-                onToggle={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
-              />
-              {!showProjectForm && !projectEditingId ? (
-                <button
-                  className="mini-btn"
-                  type="button"
-                  onClick={() => { setShowProjectForm(true); setProjectEditingId(null); setProjectForm(emptyProjectForm); }}
-                >
-                  + Novo projeto
-                </button>
-              ) : null}
-            </div>
+      <section
+        id="rdo-manager-project-results"
+        className="rdo-manager-projects rdo-ds-actions"
+        aria-label="Lista de projetos ativos"
+      >
+        <div className="rdo-manager-projects__toolbar">
+          <div className="rdo-manager-projects__summary">
+            <Badge tone="success">
+              {readyProjects.length} ativo{readyProjects.length === 1 ? '' : 's'}
+            </Badge>
+            {pendingRegistrationProjects.length ? (
+              <Badge tone="warning">
+                {pendingRegistrationProjects.length} aguardando revisão
+              </Badge>
+            ) : null}
           </div>
-          {showProjectForm && !projectEditingId ? (
-            <div className="admin-inline-form">
-              <div className="admin-section-head">
-                <div className="section-title" style={{ marginBottom: 0 }}>Novo projeto</div>
-                <button className="mini-btn alt" type="button" onClick={resetProjectForm}>Cancelar</button>
-              </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={(
+              <AppIcon
+                icon={projectSortDir === 'asc' ? DS_ICONS.sortAscending : DS_ICONS.sortDescending}
+                size="sm"
+              />
+            )}
+            aria-label={`Ordenar projetos ${projectSortDir === 'asc' ? 'de Z a A' : 'de A a Z'}`}
+            onClick={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
+          >
+            {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
+          </Button>
+        </div>
+        {showProjectForm && !projectEditingId ? (
+          <Card
+            className="rdo-manager-projects__legacy-form"
+            padding="md"
+            title="Novo projeto"
+            actions={(
+              <Button variant="secondary" size="sm" type="button" onClick={resetProjectForm}>
+                Cancelar
+              </Button>
+            )}
+          >
               <form className="admin-inline-grid" onSubmit={handleProjectSubmit}>
                 <div className="field-group">
                   <label htmlFor="project-code">Número da missão</label>
@@ -3919,37 +3994,42 @@ export function GestorPage() {
                   <button className="mini-btn" type="submit" disabled={projectMutations.createProject.isPending}>Criar projeto</button>
                 </div>
               </form>
-            </div>
-          ) : null}
-        </section>
+          </Card>
+        ) : null}
 
         {pendingRegistrationProjects.length ? (
           <section
-            className="project-registration-fixed-block"
+            className="rdo-manager-projects__pending"
             aria-labelledby="pending-project-registration-title"
             data-project-intake-pending
           >
-            <h2 className="section-title" id="pending-project-registration-title">Projetos aguardando revisão</h2>
-            <div className="project-registration-alert project-registration-alert-panel" role="status" aria-live="polite">
-              {pendingProjectRegistrationMessage(pendingRegistrationProjects)}
+            <div className="rdo-manager-projects__pending-header">
+              <h2 id="pending-project-registration-title">Projetos aguardando revisão</h2>
+              <Badge tone="warning">{pendingRegistrationProjects.length}</Badge>
             </div>
-            <div className="admin-stack">
+            <Alert tone="warning" title="Verificação necessária">
+              {pendingProjectRegistrationMessage(pendingRegistrationProjects)}
+            </Alert>
+            <div className="rdo-manager-projects__list">
               {sortProjects(pendingRegistrationProjects, projectSortDir).map(renderEditableProjectCard)}
             </div>
           </section>
         ) : null}
 
         {activeProjects.length ? (
-          <div className="admin-stack">
+          <div className="rdo-manager-projects__list">
             {sortProjects(activeProjects, projectSortDir).map(renderEditableProjectCard)}
           </div>
         ) : pendingRegistrationProjects.length ? null : (
-          <div className="card admin-card">
-            <div className="placeholder-copy">Nenhum projeto ativo.</div>
-          </div>
+          <Card padding="lg">
+            <EmptyState
+              variant={gestorSearch.trim() ? 'search' : 'default'}
+              title={gestorSearch.trim() ? 'Nenhum projeto encontrado.' : 'Nenhum projeto ativo.'}
+              description={gestorSearch.trim() ? 'Revise o termo da busca ou limpe o filtro para ver todos os projetos.' : undefined}
+            />
+          </Card>
         )}
-
-      </>
+      </section>
     );
   }
 
@@ -4856,9 +4936,13 @@ export function GestorPage() {
     const label = labels[tab];
     if (!label) return null;
 
-    if (tab === 'aprovados' || tab === 'arquivados') {
+    if (tab === 'aprovados' || tab === 'projetos' || tab === 'arquivados') {
       const reportResultsId =
-        tab === 'arquivados'
+        tab === 'projetos'
+          ? !activeProjectsQuery.isLoading && !activeProjectsQuery.isError
+            ? 'rdo-manager-project-results'
+            : undefined
+          : tab === 'arquivados'
           ? !reportListQuery.isLoadingInitial && !archivedProjectsQuery.isLoading
             ? 'rdo-manager-archived-results'
             : undefined
@@ -4868,8 +4952,20 @@ export function GestorPage() {
 
       return (
         <FilterBar
-          className={tab === 'arquivados' ? 'rdo-archived-projects__filters' : 'rdo-manager-listing__filters'}
-          label={tab === 'arquivados' ? 'Busca dos projetos arquivados' : 'Busca dos relatórios aprovados'}
+          className={
+            tab === 'projetos'
+              ? 'rdo-manager-projects__filters'
+              : tab === 'arquivados'
+                ? 'rdo-archived-projects__filters'
+                : 'rdo-manager-listing__filters'
+          }
+          label={
+            tab === 'projetos'
+              ? 'Busca dos projetos ativos'
+              : tab === 'arquivados'
+                ? 'Busca dos projetos arquivados'
+                : 'Busca dos relatórios aprovados'
+          }
           resultsId={reportResultsId}
           search={
             <SearchInput
@@ -5034,10 +5130,12 @@ export function GestorPage() {
 
       <main
         className={
-          reportListingTab || archivedProjectsTab || statisticsTab
+          reportListingTab || projectsTab || archivedProjectsTab || statisticsTab
             ? `fv-ds page-scroll ${
                 reportListingTab
                   ? 'rdo-manager-page'
+                  : projectsTab
+                    ? 'rdo-manager-projects-page'
                   : archivedProjectsTab
                     ? 'rdo-manager-archived-page'
                   : 'rdo-manager-stats-page'
@@ -5063,6 +5161,27 @@ export function GestorPage() {
           <PageHeader
             title="Projetos arquivados"
             description="Consulte projetos encerrados, seus relatórios e ações disponíveis."
+          />
+        ) : null}
+        {projectsTab ? (
+          <PageHeader
+            title="Projetos"
+            description="Gerencie os projetos ativos, acompanhe cadastros pendentes e revise suas informações."
+            actions={
+              !showProjectForm && !projectEditingId ? (
+                <Button
+                  variant="primary"
+                  iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                  onClick={() => {
+                    setShowProjectForm(true);
+                    setProjectEditingId(null);
+                    setProjectForm(emptyProjectForm);
+                  }}
+                >
+                  Novo projeto
+                </Button>
+              ) : undefined
+            }
           />
         ) : null}
         {renderReportSummary()}

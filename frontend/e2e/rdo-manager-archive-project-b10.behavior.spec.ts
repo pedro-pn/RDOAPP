@@ -159,8 +159,8 @@ test('B.10 caracteriza o diálogo de arquivamento sem alterar projetos', async (
   await dismissProjectNoveltyIfVisible(page);
 
   const title = projectTitle(eligibleProject);
-  const projectCard = page.locator('article.project-admin-card').filter({
-    has: page.locator('.project-admin-title', { hasText: title })
+  const projectCard = page.locator('.rdo-active-project-card').filter({
+    has: page.locator('.rdo-archived-project-card__title', { hasText: title })
   });
   await expect(projectCard).toHaveCount(1);
   const launcher = projectCard.getByRole('button', {

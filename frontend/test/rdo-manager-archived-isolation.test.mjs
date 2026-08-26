@@ -178,7 +178,10 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
 
   assert.match(archivedTab, /<Skeleton\b/);
   assert.match(archivedTab, /<EmptyState\b/);
-  assert.match(search, /tab === 'aprovados' \|\| tab === 'arquivados'/);
+  assert.match(
+    search,
+    /tab === 'aprovados' \|\| tab === 'projetos' \|\| tab === 'arquivados'/
+  );
   assert.match(search, /<FilterBar[\s\S]*?<SearchInput/);
   assert.match(page, /const archivedProjectsTab = tab === 'arquivados'/);
   assert.match(page, /title="Projetos arquivados"/);

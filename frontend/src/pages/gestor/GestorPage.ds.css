@@ -674,6 +674,7 @@
 /* ── Projetos arquivados ────────────────────────────────────────────────────
    A aba usa os mesmos primitives e a mesma densidade das listagens do Gestor,
    preservando paginação, agrupamento, downloads e mutations existentes. */
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page,
 :where(.fv-ds, [data-fv-ds]).rdo-manager-archived-page {
   display: flex;
   width: 100%;
@@ -688,6 +689,9 @@
   color: var(--ink);
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects,
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__list,
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__loading,
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects,
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__list,
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__loading {
@@ -696,10 +700,12 @@
   gap: var(--space-4);
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__filters,
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__filters {
   width: 100%;
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__toolbar,
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__toolbar {
   display: flex;
   min-width: 0;
@@ -707,6 +713,79 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+/* ── Projetos ativos ────────────────────────────────────────────────────────
+   A listagem compartilha densidade, cards e comportamento responsivo com
+   Arquivados. Os formulários e revisões continuam com seus contratos legacy e
+   entram apenas em containers DS nesta fatia. */
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__summary,
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__pending-header {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__pending {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+  padding-block-end: var(--space-2);
+  border-block-end: var(--border-width) solid var(--line);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__pending-header {
+  justify-content: space-between;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__pending-header h2 {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-lg);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-active-project-card__identity {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-active-project-card__identity
+  > .rdo-archived-project-card__kicker,
+:where(.fv-ds, [data-fv-ds])
+  .rdo-active-project-card__identity
+  > .rdo-archived-project-card__title {
+  grid-area: auto;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-active-project-card--pending {
+  border-color: var(--warning);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-projects__legacy-form,
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-projects__legacy-form
+  .admin-inline-grid,
+:where(.fv-ds, [data-fv-ds]) .rdo-active-project-card .admin-inline-grid {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :where(.rdo-manager-projects__legacy-form, .rdo-active-project-card)
+  .admin-inline-grid {
+  margin: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :where(.rdo-manager-projects__legacy-form, .rdo-active-project-card)
+  :where(.field-group, input, select) {
+  min-width: 0;
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card {

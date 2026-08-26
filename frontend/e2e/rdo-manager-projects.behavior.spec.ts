@@ -1,0 +1,235 @@
+import { expect, test, type Locator, type Page } from '@playwright/test';
+
+import {
+  demoCredentials,
+  expectComfortableTapTargets,
+  expectManagerRdoShell,
+  loginAs
+} from './support/rdo';
+
+const MANAGER_PROJECTS_URL = '/rdo/gestor?tab=projetos';
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+async function setTheme(page: Page, theme: 'light' | 'dark') {
+  const toggle = page.locator('.fv-theme-toggle').first();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const current = await page.evaluate(() =>
+      document.documentElement.getAttribute('data-theme')
+    );
+    if (current === theme) return;
+    await toggle.click();
+  }
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.getAttribute('data-theme'))
+    )
+    .toBe(theme);
+}
+
+async function expectNoHorizontalOverflow(page: Page, surface: Locator) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <= window.innerWidth &&
+          document.body.scrollWidth <= window.innerWidth
+      )
+    )
+    .toBe(true);
+  await expect
+    .poll(() =>
+      surface.evaluate((element) => element.scrollWidth <= element.clientWidth)
+    )
+    .toBe(true);
+}
+
+async function dismissProjectNoveltyIfVisible(page: Page) {
+  const next = page.getByRole('button', {
+    name: 'Ver pendências',
+    exact: true
+  });
+  try {
+    await next.waitFor({ state: 'visible', timeout: 1_500 });
+    await next.click();
+    await page.getByRole('button', { name: 'Entendi', exact: true }).click();
+  } catch {
+    // A novidade só aparece enquanto houver uma pendência ainda não vista.
+  }
+}
+
+async function openProjectsPage(page: Page) {
+  await page.goto(MANAGER_PROJECTS_URL);
+  await expect(
+    page.getByRole('heading', { name: 'Projetos', level: 1 })
+  ).toBeVisible();
+  await dismissProjectNoveltyIfVisible(page);
+  const surface = page.locator('.rdo-manager-projects');
+  await expect(surface).toBeVisible();
+  return surface;
+}
+
+async function readyProject(surface: Locator) {
+  const candidate = surface
+    .locator('.rdo-active-project-card:not(.rdo-active-project-card--pending)')
+    .first();
+  await expect(
+    candidate,
+    'O backend real precisa fornecer ao menos um projeto ativo liberado'
+  ).toBeVisible();
+  const projectId = await candidate.getAttribute('data-active-project-id');
+  expect(projectId).toBeTruthy();
+  return surface.locator(`[data-active-project-id="${projectId}"]`);
+}
+
+test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários sem mutar dados', async ({
+  page
+}) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await loginAs(page, demoCredentials.manager);
+  const surface = await openProjectsPage(page);
+  await expectManagerRdoShell(page);
+
+  const mutationAttempts: string[] = [];
+  page.on('request', (request) => {
+    if (MUTATING_METHODS.has(request.method().toUpperCase())) {
+      mutationAttempts.push(`${request.method()} ${request.url()}`);
+    }
+  });
+
+  const project = await readyProject(surface);
+  await expect(project.getByText('Ativo', { exact: true })).toBeVisible();
+  await expect(
+    project.getByRole('button', { name: 'Arquivar', exact: true })
+  ).toBeVisible();
+
+  const detailsToggle = project.getByRole('button', {
+    name: /^(Mostrar|Ocultar) detalhes$/
+  });
+  if ((await detailsToggle.getAttribute('aria-expanded')) === 'true') {
+    await detailsToggle.click();
+    await expect(
+      project.getByRole('button', { name: 'Mostrar detalhes', exact: true })
+    ).toHaveAttribute('aria-expanded', 'false');
+  }
+  await project
+    .getByRole('button', { name: 'Mostrar detalhes', exact: true })
+    .click();
+  await expect(
+    project.getByRole('button', { name: 'Ocultar detalhes', exact: true })
+  ).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    project.locator('.rdo-archived-project-card__details dl')
+  ).toBeVisible();
+
+  await project.getByRole('button', { name: /^Editar:/ }).click();
+  await expect(
+    project.getByRole('button', { name: 'Salvar projeto', exact: true })
+  ).toBeVisible();
+  await project
+    .getByRole('button', { name: 'Cancelar edição', exact: true })
+    .click();
+  await expect(project.getByRole('button', { name: /^Editar:/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Novo projeto', exact: true }).click();
+  const newProjectForm = surface.locator('.rdo-manager-projects__legacy-form');
+  await expect(newProjectForm).toBeVisible();
+  await expect(
+    newProjectForm.getByRole('textbox', { name: 'Número da missão' })
+  ).toBeVisible();
+  await newProjectForm
+    .getByRole('button', { name: 'Cancelar', exact: true })
+    .click();
+  await expect(newProjectForm).toHaveCount(0);
+
+  const sortButton = surface.getByRole('button', {
+    name: 'Ordenar projetos de Z a A',
+    exact: true
+  });
+  await sortButton.click();
+  await expect(
+    surface.getByRole('button', {
+      name: 'Ordenar projetos de A a Z',
+      exact: true
+    })
+  ).toBeVisible();
+
+  const search = page.getByRole('searchbox', { name: 'Buscar em projetos' });
+  await search.fill('projeto-inexistente-b13');
+  await expect(
+    surface.locator(
+      '.rdo-active-project-card:not(.rdo-active-project-card--pending)'
+    )
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Limpar busca', exact: true }).click();
+  await expect(
+    surface.locator(
+      '.rdo-active-project-card:not(.rdo-active-project-card--pending)'
+    )
+  ).not.toHaveCount(0);
+
+  expect(mutationAttempts).toEqual([]);
+  await expect(page).toHaveURL(/\/rdo\/gestor\?tab=projetos$/);
+});
+
+test('Projetos valida desktop/mobile em light/dark e formulário sem overflow', async ({
+  page
+}) => {
+  test.setTimeout(180_000);
+  const scenarios = [
+    {
+      name: 'desktop light',
+      width: 1280,
+      height: 900,
+      theme: 'light' as const
+    },
+    { name: 'desktop dark', width: 1280, height: 900, theme: 'dark' as const },
+    { name: 'mobile light', width: 390, height: 844, theme: 'light' as const },
+    { name: 'mobile dark', width: 390, height: 844, theme: 'dark' as const }
+  ];
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await loginAs(page, demoCredentials.manager);
+  const surface = await openProjectsPage(page);
+  const project = await readyProject(surface);
+
+  for (const scenario of scenarios) {
+    await page.setViewportSize({
+      width: scenario.width,
+      height: scenario.height
+    });
+    if (scenario.width >= 1024) {
+      await expectManagerRdoShell(page);
+    } else {
+      await expect(page.locator('[data-testid="fv-app-shell"]')).toBeVisible();
+      await expect(page.locator('.fv-sidebar')).toBeHidden();
+      await expect(page.locator('.fv-topbar')).toBeVisible();
+      await expect(page.locator('.fv-theme-toggle')).toBeVisible();
+      await expect(page.locator('.rdo-manager-tabs-wrap')).toBeVisible();
+    }
+    await setTheme(page, scenario.theme);
+
+    await expectNoHorizontalOverflow(page, surface);
+    await expectComfortableTapTargets(page, '.rdo-manager-projects');
+    await expect(project).toHaveCSS(
+      'background-color',
+      scenario.theme === 'dark' ? 'rgb(22, 33, 27)' : 'rgb(255, 255, 255)'
+    );
+    await expect(surface).not.toHaveClass(/(?:^|\s)page-card(?:\s|$)/);
+    await expect(
+      surface.locator(
+        ':scope > .rdo-manager-projects__list > .admin-card, ' +
+          '.rdo-active-project-card > .fv-card__footer .mini-btn, ' +
+          '.rdo-manager-projects__toolbar .secondary-button'
+      )
+    ).toHaveCount(0);
+  }
+
+  await page.getByRole('button', { name: 'Novo projeto', exact: true }).click();
+  const newProjectForm = surface.locator('.rdo-manager-projects__legacy-form');
+  await expect(newProjectForm).toBeVisible();
+  await expectNoHorizontalOverflow(page, surface);
+  await expect(
+    newProjectForm.getByRole('button', { name: 'Criar projeto', exact: true })
+  ).toBeVisible();
+});
