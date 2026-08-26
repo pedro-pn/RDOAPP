@@ -1362,6 +1362,9 @@ export function GestorPage() {
   const reportListingTab = tab === 'pendentes' || tab === 'aprovados';
   const projectsTab = tab === 'projetos';
   const archivedProjectsTab = tab === 'arquivados';
+  const teamTab = tab === 'equipe';
+  const usersTab = tab === 'usuarios';
+  const adminTab = teamTab || usersTab;
   const statisticsTab = tab === 'estatisticas';
   const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
@@ -4111,30 +4114,71 @@ export function GestorPage() {
 
   function renderEquipeTab() {
     return (
-      <>
-        <div className="nav-tabs" role="tablist" aria-label="Seções da equipe" style={{ marginBottom: 12 }}>
-          <button className={`nav-tab ${equipeSubTab === 'colaboradores' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'colaboradores'} onClick={() => setEquipeSubTab('colaboradores')}>
+      <section className="rdo-admin-section rdo-team" aria-label="Gestão da equipe">
+        <div
+          className="rdo-admin-tabs"
+          role="tablist"
+          aria-label="Seções da equipe"
+          onKeyDown={handleHorizontalTabListKeyDown}
+        >
+          <button
+            id="rdo-team-tab-collaborators"
+            className={`rdo-admin-tab ${equipeSubTab === 'colaboradores' ? 'is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={equipeSubTab === 'colaboradores'}
+            aria-controls="rdo-team-panel"
+            onClick={() => setEquipeSubTab('colaboradores')}
+          >
             Colaboradores
           </button>
-          <button className={`nav-tab ${equipeSubTab === 'cargos' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'cargos'} onClick={() => setEquipeSubTab('cargos')}>
+          <button
+            id="rdo-team-tab-roles"
+            className={`rdo-admin-tab ${equipeSubTab === 'cargos' ? 'is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={equipeSubTab === 'cargos'}
+            aria-controls="rdo-team-panel"
+            onClick={() => setEquipeSubTab('cargos')}
+          >
             Cargos
           </button>
-          <button className={`nav-tab ${equipeSubTab === 'dds' ? 'active' : ''}`} type="button" role="tab" aria-selected={equipeSubTab === 'dds'} onClick={() => setEquipeSubTab('dds')}>
+          <button
+            id="rdo-team-tab-dds"
+            className={`rdo-admin-tab ${equipeSubTab === 'dds' ? 'is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={equipeSubTab === 'dds'}
+            aria-controls="rdo-team-panel"
+            onClick={() => setEquipeSubTab('dds')}
+          >
             Temas de DDS
           </button>
         </div>
-        {equipeSubTab === 'cargos' ? <JobRoleManager appearance="design-system" /> : equipeSubTab === 'dds' ? <DdsThemeManager appearance="design-system" /> : renderColaboradoresSubTab()}
-      </>
+        <div
+          className="rdo-admin-section__content"
+          id="rdo-team-panel"
+          role="tabpanel"
+          aria-labelledby={`rdo-team-tab-${equipeSubTab === 'colaboradores' ? 'collaborators' : equipeSubTab === 'cargos' ? 'roles' : 'dds'}`}
+        >
+          {equipeSubTab === 'cargos' ? <JobRoleManager appearance="design-system" /> : equipeSubTab === 'dds' ? <DdsThemeManager appearance="design-system" /> : renderColaboradoresSubTab()}
+        </div>
+      </section>
     );
   }
 
   function renderColaboradoresSubTab() {
     if (collaboratorsQuery.isLoading) {
-      return <div className="page-card placeholder-copy">Carregando colaboradores...</div>;
+      return (
+        <div className="rdo-admin-loading" role="status" aria-live="polite">
+          <span className="fv-sr-only">Carregando colaboradores…</span>
+          <Skeleton variant="card" decorative />
+          <Skeleton variant="card" decorative />
+        </div>
+      );
     }
 
     const allCollaborators = collaboratorsQuery.data || [];
-    const inactiveCollaboratorsCount = allCollaborators.filter(collaborator => collaborator.isActive === false).length;
     const collaborators = allCollaborators
       .filter(collaborator => showInactiveCollaborators ? collaborator.isActive === false : collaborator.isActive !== false)
       .filter(collaborator => matchesSearch(collaboratorSearchParts(collaborator), gestorSearch));
@@ -4143,21 +4187,12 @@ export function GestorPage() {
       : 'Nenhum colaborador ativo.';
 
     return (
-      <>
-          <div className="admin-toolbar">
-            <div className="sec">Equipe</div>
-            {!showCollaboratorForm && !collaboratorEditingId ? (
-              <CollaboratorListToolbarActions showInactive={showInactiveCollaborators} inactiveCount={inactiveCollaboratorsCount} onNew={openNewCollaboratorForm} onToggleInactive={() => {
-                resetCollaboratorForm();
-                setShowInactiveCollaborators(current => !current);
-              }} />
-            ) : null}
-          </div>
+      <div className="rdo-admin-listing" id="rdo-manager-team-results">
           {showCollaboratorForm && !collaboratorEditingId ? (
-	          <form className="admin-inline-form" onSubmit={handleCollaboratorSubmit} autoComplete="off">
-	            <div className="admin-toolbar full">
-	              <div className="sec">Novo colaborador</div>
-	              <button className="mini-btn alt" type="button" onClick={resetCollaboratorForm}>Cancelar</button>
+	          <form className="admin-inline-form rdo-admin-form" onSubmit={handleCollaboratorSubmit} autoComplete="off">
+	            <div className="rdo-admin-form__header">
+	              <h2>Novo colaborador</h2>
+	              <Button variant="secondary" size="sm" type="button" onClick={resetCollaboratorForm}>Cancelar</Button>
 	            </div>
 	            <div className="admin-inline-grid">
 	              <div className="field-group">
@@ -4205,8 +4240,8 @@ export function GestorPage() {
 	              </div>
 	              {renderCollaboratorSignatureField()}
 	              <div className="admin-form-actions">
-	                <button
-	                  className="mini-btn"
+	                <Button
+	                  variant="primary"
 	                  type="submit"
 	                  disabled={
 	                    collaboratorMutations.createCollaborator.isPending ||
@@ -4214,16 +4249,16 @@ export function GestorPage() {
 	                  }
 	                >
 	                  Salvar
-	                </button>
+	                </Button>
 	              </div>
 	            </div>
 	          </form>
           ) : null}
 
           {collaborators.length ? (
-            <div className="admin-stack">
+            <div className="rdo-admin-card-list">
               {collaborators.map(collaborator => (
-                <article className="card admin-card" key={collaborator.id}>
+                <Card className="rdo-admin-person-card" padding="md" key={collaborator.id}>
                   <div className="admin-item-row">
                     <div className="admin-avatar" aria-hidden="true">{initials(collaborator.name)}</div>
                     <div className="admin-item-main">
@@ -4234,8 +4269,9 @@ export function GestorPage() {
                     </div>
                     <CollaboratorStatusPill isActive={collaborator.isActive} />
                     <div className="admin-actions collaborator-card-actions">
-                      <button
-                        className="mini-btn alt"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         type="button"
                         onClick={() => {
                           setCollaboratorEditingId(collaborator.id);
@@ -4244,15 +4280,15 @@ export function GestorPage() {
                         }}
                       >
                         Editar
-                      </button>
-                      {collaborator.isActive !== false ? <button className="mini-btn danger" type="button" onClick={() => void handleCollaboratorToggle(collaborator)}>Remover</button> : null}
+                      </Button>
+                      {collaborator.isActive !== false ? <Button variant="danger" size="sm" type="button" onClick={() => void handleCollaboratorToggle(collaborator)}>Remover</Button> : null}
                     </div>
                   </div>
 	                  {collaboratorEditingId === collaborator.id ? (
-	                    <form className="admin-inline-form" onSubmit={handleCollaboratorSubmit} autoComplete="off">
-	                      <div className="admin-toolbar full">
-	                        <div className="sec">Editar colaborador</div>
-	                        <button className="mini-btn alt" type="button" onClick={resetCollaboratorForm}>Cancelar</button>
+	                    <form className="admin-inline-form rdo-admin-form rdo-admin-form--nested" onSubmit={handleCollaboratorSubmit} autoComplete="off">
+	                      <div className="rdo-admin-form__header">
+	                        <h2>Editar colaborador</h2>
+	                        <Button variant="secondary" size="sm" type="button" onClick={resetCollaboratorForm}>Cancelar</Button>
 	                      </div>
 	                      <div className="admin-inline-grid">
 	                        <div className="field-group">
@@ -4300,20 +4336,20 @@ export function GestorPage() {
 	                        </div>
 	                        {renderCollaboratorSignatureField()}
 	                        <div className="admin-form-actions">
-	                          <button className="mini-btn" type="submit" disabled={collaboratorMutations.updateCollaborator.isPending}>Salvar</button>
+	                          <Button variant="primary" type="submit" disabled={collaboratorMutations.updateCollaborator.isPending}>Salvar</Button>
 	                        </div>
 	                      </div>
 	                    </form>
 	                  ) : null}
-                </article>
+                </Card>
               ))}
             </div>
           ) : (
-            <div className="card admin-card">
-              <div className="placeholder-copy">{emptyCollaboratorsMessage}</div>
-            </div>
+            <Card padding="lg">
+              <EmptyState title={emptyCollaboratorsMessage} />
+            </Card>
           )}
-      </>
+      </div>
     );
   }
 
@@ -4324,19 +4360,30 @@ export function GestorPage() {
       .filter(item => matchesSearch(userSearchParts(item), gestorSearch));
 
     if (internalUsersQuery.isLoading || clientUsersQuery.isLoading) {
-      return <div className="page-card placeholder-copy">{'Carregando usuários...'}</div>;
+      return (
+        <div className="rdo-admin-loading" role="status" aria-live="polite">
+          <span className="fv-sr-only">Carregando usuários…</span>
+          <Skeleton variant="card" decorative />
+          <Skeleton variant="card" decorative />
+        </div>
+      );
     }
     const showInternal = userAdminGroup === 'internal';
 
     return (
-      <>
-        <section className="page-card compact-link-card">
-          <div className="filter-tabs" role="tablist" aria-label="Tipo de usuário" onKeyDown={handleHorizontalTabListKeyDown}>
+      <section
+        className="rdo-admin-section rdo-users"
+        id="rdo-manager-users-results"
+        aria-label="Administração de usuários"
+      >
+          <div className="rdo-admin-tabs" role="tablist" aria-label="Tipo de usuário" onKeyDown={handleHorizontalTabListKeyDown}>
             <button
-              className={`filter-tab ${showInternal ? 'active' : ''}`}
+              id="rdo-users-tab-internal"
+              className={`rdo-admin-tab ${showInternal ? 'is-active' : ''}`}
               type="button"
               role="tab"
               aria-selected={showInternal}
+              aria-controls="rdo-users-panel"
               onClick={() => {
                 setUserAdminGroup('internal');
               }}
@@ -4344,10 +4391,12 @@ export function GestorPage() {
               Internos
             </button>
             <button
-              className={`filter-tab ${!showInternal ? 'active' : ''}`}
+              id="rdo-users-tab-client"
+              className={`rdo-admin-tab ${!showInternal ? 'is-active' : ''}`}
               type="button"
               role="tab"
               aria-selected={!showInternal}
+              aria-controls="rdo-users-panel"
               onClick={() => {
                 setUserAdminGroup('client');
                 resetUserForm();
@@ -4356,27 +4405,21 @@ export function GestorPage() {
               Clientes
             </button>
           </div>
-        </section>
+
+        <div
+          className="rdo-admin-section__content"
+          id="rdo-users-panel"
+          role="tabpanel"
+          aria-labelledby={showInternal ? 'rdo-users-tab-internal' : 'rdo-users-tab-client'}
+        >
 
         {showInternal ? (
         <>
-          <div className="admin-toolbar">
-            <div className="sec">Usuários internos</div>
-          {!showUserForm && !userEditingId ? (
-	              <button
-	                className="mini-btn"
-	                type="button"
-	                onClick={openNewUserForm}
-	              >
-                + Novo usuário
-              </button>
-          ) : null}
-          </div>
           {showUserForm && !userEditingId ? (
-	          <form className="admin-inline-form" onSubmit={handleUserSubmit} autoComplete="off">
-	            <div className="admin-toolbar full">
-	              <div className="sec">Novo usuário</div>
-	              <button className="mini-btn alt" type="button" onClick={resetUserForm}>Cancelar</button>
+	          <form className="admin-inline-form rdo-admin-form" onSubmit={handleUserSubmit} autoComplete="off">
+	            <div className="rdo-admin-form__header">
+	              <h2>Novo usuário</h2>
+	              <Button variant="secondary" size="sm" type="button" onClick={resetUserForm}>Cancelar</Button>
 	            </div>
 	            <div className="admin-inline-grid">
 	              <div className="field-group">
@@ -4466,33 +4509,41 @@ export function GestorPage() {
 	                />
 	              </div>
 	              <div className="admin-form-actions">
-	                <button
-	                  className="mini-btn"
+	                <Button
+	                  variant="primary"
 	                  type="submit"
 	                  disabled={userMutations.createUser.isPending || userMutations.updateUser.isPending}
 	                >
 	                  Salvar
-	                </button>
+	                </Button>
 	              </div>
 	            </div>
 	          </form>
           ) : null}
 
           {internalUsers.length ? (
-            <div className="admin-stack">
+            <div className="rdo-admin-card-list">
               {internalUsers.map(item => (
-                <article className="card admin-card" key={item.id}>
-                  <div className="admin-item-title">
-                    {item.name} · {item.username}
-                  </div>
-	                  <div className="admin-item-sub">
-	                    {formatUserRole(item.role)}
-	                    {item.email ? ` · ${item.email}` : ''}
-	                    {item.collaborator?.name ? ` · ${item.collaborator.name}` : ''}
-	                  </div>
-                  <div className="admin-actions">
-                    <button
-                      className="mini-btn alt"
+                <Card className="rdo-admin-person-card" padding="md" key={item.id}>
+                  <div className="admin-item-row">
+                    <div className="admin-avatar" aria-hidden="true">{initials(item.name)}</div>
+                    <div className="admin-item-main">
+                      <div className="admin-item-title">{item.name}</div>
+	                    <div className="admin-item-sub">
+	                      {item.email || item.username}
+	                      {item.collaborator?.name ? ` · ${item.collaborator.name}` : ''}
+	                    </div>
+                    </div>
+                    <Badge tone="info">{formatUserRole(item.role)}</Badge>
+                    <StatusPill
+                      status={item.isActive ? 'active' : 'inactive'}
+                      label={item.isActive ? 'Ativo' : 'Inativo'}
+                      tone={item.isActive ? 'success' : 'neutral'}
+                    />
+                  <div className="admin-actions rdo-admin-person-card__actions">
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       type="button"
                       onClick={() => {
                         setUserEditingId(item.id);
@@ -4501,16 +4552,17 @@ export function GestorPage() {
                       }}
                     >
                       Editar
-                    </button>
-                    <button className="mini-btn danger" type="button" onClick={() => void handleUserDelete(item.id)}>
+                    </Button>
+                    <Button variant="danger" size="sm" type="button" onClick={() => void handleUserDelete(item.id)}>
                       Remover
-                    </button>
+                    </Button>
+                  </div>
                   </div>
 	                  {userEditingId === item.id ? (
-	                    <form className="admin-inline-form" onSubmit={handleUserSubmit} autoComplete="off">
-	                      <div className="admin-toolbar full">
-	                        <div className="sec">Editar usuário</div>
-	                        <button className="mini-btn alt" type="button" onClick={resetUserForm}>Cancelar</button>
+	                    <form className="admin-inline-form rdo-admin-form rdo-admin-form--nested" onSubmit={handleUserSubmit} autoComplete="off">
+	                      <div className="rdo-admin-form__header">
+	                        <h2>Editar usuário</h2>
+	                        <Button variant="secondary" size="sm" type="button" onClick={resetUserForm}>Cancelar</Button>
 	                      </div>
 	                      <div className="admin-inline-grid">
 	                        <div className="field-group">
@@ -4594,26 +4646,26 @@ export function GestorPage() {
 	                          />
 	                        </div>
 	                        <div className="admin-form-actions">
-	                          <button className="mini-btn" type="submit" disabled={userMutations.updateUser.isPending}>Salvar</button>
+	                          <Button variant="primary" type="submit" disabled={userMutations.updateUser.isPending}>Salvar</Button>
 	                        </div>
 	                      </div>
 	                    </form>
 	                  ) : null}
-                </article>
+                </Card>
               ))}
             </div>
           ) : (
-            <div className="card admin-card">
-              <div className="placeholder-copy">Nenhum usuário interno cadastrado.</div>
-            </div>
+            <Card padding="lg">
+              <EmptyState title="Nenhum usuário interno cadastrado." />
+            </Card>
           )}
         </>
         ) : (
-        <section className="client-accounts-panel">
-          <div className="admin-section-head">
+        <section className="client-accounts-panel rdo-client-accounts">
+          <div className="rdo-admin-section-heading">
             <div>
-              <div className="section-title">Clientes</div>
-              <div className="admin-card-subtitle">Contas criadas automaticamente a partir dos projetos.</div>
+              <h2>Clientes</h2>
+              <p>Contas criadas automaticamente a partir dos projetos.</p>
             </div>
           </div>
           {(() => {
@@ -4654,29 +4706,40 @@ export function GestorPage() {
 
             const renderClientCard = (item: typeof clientUsers[0], isCc: boolean) => {
               return (
-                <div className="card admin-card client-account-card" key={item.id}>
-                  <div className="admin-item-title">{item.name || 'Cliente'}</div>
-                  <div className="admin-item-sub client-account-email">
-                    {item.email || item.username}{item.isActive === false ? ' - Inativo' : ''}
+                <Card className="rdo-client-account-card" padding="sm" key={item.id}>
+                  <div className="admin-avatar" aria-hidden="true">{initials(item.name || 'Cliente')}</div>
+                  <div className="admin-item-main">
+                    <div className="admin-item-title">{item.name || 'Cliente'}</div>
+                    <div className="admin-item-sub client-account-email">
+                      {item.email || item.username}
+                    </div>
                   </div>
                   <div className="client-account-action-area">
                     <div className="client-account-badges">
-                      {isCc ? <span className="status-pill status-pending" style={{ fontSize: 10 }}>CC / Assinante</span> : null}
-                      <span className={`status-pill ${item.isActive ? 'status-approved' : 'status-returned'}`}>{item.isActive ? 'Ativo' : 'Inativo'}</span>
+                      {isCc ? <Badge tone="info">CC / Assinante</Badge> : null}
+                      <StatusPill
+                        status={item.isActive ? 'active' : 'inactive'}
+                        label={item.isActive ? 'Ativo' : 'Inativo'}
+                        tone={item.isActive ? 'success' : 'neutral'}
+                      />
                     </div>
                     <div className="client-account-button-row">
-                      <button className="mini-btn alt" type="button" disabled={userMutations.resendClientAccess.isPending} onClick={() => void handleResendClientAccess(item.id)}>Reenviar acesso</button>
-                      <button className="mini-btn danger" type="button" onClick={() => void handleUserDelete(item.id)}>Remover</button>
+                      <Button variant="secondary" size="sm" type="button" disabled={userMutations.resendClientAccess.isPending} onClick={() => void handleResendClientAccess(item.id)}>Reenviar acesso</Button>
+                      <Button variant="danger" size="sm" type="button" onClick={() => void handleUserDelete(item.id)}>Remover</Button>
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             };
 
-            if (!clientUsers.length) return <p className="placeholder-copy">Nenhum cliente provisionado.</p>;
+            if (!clientUsers.length) return (
+              <Card padding="lg">
+                <EmptyState title="Nenhum cliente provisionado." />
+              </Card>
+            );
 
             return (
-              <div className="admin-stack">
+              <div className="rdo-admin-card-list">
                 {Object.values(groups).map(g => {
                   const closed = closedClientAccountGroupIds.includes(g.cnpj);
                   const linkedProjects = sortProjects(
@@ -4689,41 +4752,48 @@ export function GestorPage() {
                       .map(project => [project.code, project.name].filter(Boolean).join(' - ') || project.name)
                       .filter(Boolean)
                   )).join(', ');
+                  const groupPanelId = `client-account-group-${g.cnpj}`;
                   return (
-                    <article className="card admin-card" key={g.cnpj}>
+                    <Card className="rdo-client-account-group" padding="md" key={g.cnpj}>
                       <button
                         className="client-account-group-toggle"
                         type="button"
+                        aria-expanded={!closed}
+                        aria-controls={groupPanelId}
                         onClick={() => toggleClientAccountGroup(g.cnpj)}
                       >
-                        <span className="rtype-chevron">{closed ? '▸' : '▾'}</span>
                         <span>{title}</span>
+                        <AppIcon
+                          className="rtype-chevron"
+                          icon={DS_ICONS.chevronDown}
+                          size="sm"
+                        />
                       </button>
                       <div className="client-account-group-meta">
                         <span>{formatCnpj(g.cnpj)}</span>
                         {missionSummary ? <span>Missões: {missionSummary}</span> : null}
                       </div>
                       {!closed ? (
-                        <>
+                        <div className="rdo-client-account-group__accounts" id={groupPanelId}>
                           {g.primary ? renderClientCard(g.primary, false) : null}
                           {g.cc.map(u => renderClientCard(u, true))}
-                        </>
+                        </div>
                       ) : null}
-                    </article>
+                    </Card>
                   );
                 })}
                 {noGroup.length ? (
-                  <article className="card admin-card">
-                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Sem CNPJ associado</div>
+                  <Card className="rdo-client-account-group" padding="md" title="Sem CNPJ associado">
                     {noGroup.map(u => renderClientCard(u, true))}
-                  </article>
+                  </Card>
                 ) : null}
               </div>
             );
           })()}
         </section>
         )}
-      </>
+        </div>
+      </section>
     );
   }
 
@@ -4909,17 +4979,26 @@ export function GestorPage() {
     };
     const label = labels[tab];
     if (!label) return null;
+    if (teamTab && equipeSubTab !== 'colaboradores') return null;
 
-    if (reportListingTab || tab === 'projetos' || tab === 'arquivados') {
+    if (reportListingTab || projectsTab || archivedProjectsTab || adminTab) {
       const reportResultsId =
-        tab === 'projetos'
+        projectsTab
           ? !activeProjectsQuery.isLoading && !activeProjectsQuery.isError
             ? 'rdo-manager-project-results'
             : undefined
-          : tab === 'arquivados'
+          : archivedProjectsTab
           ? !reportListQuery.isLoadingInitial && !archivedProjectsQuery.isLoading
             ? 'rdo-manager-archived-results'
             : undefined
+          : teamTab
+            ? !collaboratorsQuery.isLoading
+              ? 'rdo-manager-team-results'
+              : undefined
+            : usersTab
+              ? !internalUsersQuery.isLoading && !clientUsersQuery.isLoading
+                ? 'rdo-manager-users-results'
+                : undefined
           : !reportListQuery.isLoadingInitial &&
               (tab === 'pendentes' ? pendingReports.length : approvedReports.length) > 0
             ? 'rdo-manager-report-results'
@@ -4928,17 +5007,23 @@ export function GestorPage() {
       return (
         <FilterBar
           className={
-            tab === 'projetos'
+            projectsTab
               ? 'rdo-manager-projects__filters'
-              : tab === 'arquivados'
+              : archivedProjectsTab
                 ? 'rdo-archived-projects__filters'
+                : adminTab
+                  ? 'rdo-admin-page__filters'
                 : 'rdo-manager-listing__filters'
           }
           label={
-            tab === 'projetos'
+            projectsTab
               ? 'Busca dos projetos ativos'
-              : tab === 'arquivados'
+              : archivedProjectsTab
                 ? 'Busca dos projetos arquivados'
+                : teamTab
+                  ? 'Busca dos colaboradores'
+                  : usersTab
+                    ? 'Busca dos usuários'
                 : tab === 'pendentes'
                   ? 'Busca dos relatórios pendentes'
                   : 'Busca dos relatórios aprovados'
@@ -5139,6 +5224,78 @@ export function GestorPage() {
     return null;
   }
 
+  function renderAdminMetrics() {
+    if (teamTab) {
+      if (collaboratorsQuery.isLoading) return null;
+      const collaborators = collaboratorsQuery.data || [];
+      const activeCount = collaborators.filter(
+        collaborator => collaborator.isActive !== false
+      ).length;
+      const inactiveCount = collaborators.length - activeCount;
+
+      return (
+        <section className="rdo-manager-metrics" aria-label="Resumo da equipe">
+          <MetricCard
+            label="Colaboradores ativos"
+            value={activeCount}
+            description="Disponíveis para alocação"
+            tone="success"
+            icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />}
+          />
+          <MetricCard
+            label="Colaboradores inativos"
+            value={inactiveCount}
+            description="Fora da equipe ativa"
+            tone="neutral"
+            icon={<AppIcon icon={DS_ICONS.emptyDefault} size="md" />}
+          />
+        </section>
+      );
+    }
+
+    if (usersTab) {
+      if (internalUsersQuery.isLoading || clientUsersQuery.isLoading) {
+        return null;
+      }
+      const internalUsers = internalUsersQuery.data || [];
+      const clientUsers = clientUsersQuery.data || [];
+      const activeCount = [...internalUsers, ...clientUsers].filter(
+        account => account.isActive
+      ).length;
+
+      return (
+        <section
+          className="rdo-manager-metrics"
+          aria-label="Resumo dos usuários"
+        >
+          <MetricCard
+            label="Usuários internos"
+            value={internalUsers.length}
+            description="Contas da operação"
+            tone="brand"
+            icon={<AppIcon icon={DS_ICONS.settings} size="md" />}
+          />
+          <MetricCard
+            label="Clientes"
+            value={clientUsers.length}
+            description="Contas provisionadas"
+            tone="info"
+            icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+          />
+          <MetricCard
+            label="Contas ativas"
+            value={activeCount}
+            description="Internos e clientes"
+            tone="success"
+            icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />}
+          />
+        </section>
+      );
+    }
+
+    return null;
+  }
+
   return (
     <AppShell
       navigation={managerNavigation}
@@ -5188,7 +5345,7 @@ export function GestorPage() {
 
       <main
         className={
-          reportListingTab || projectsTab || archivedProjectsTab || statisticsTab
+          reportListingTab || projectsTab || archivedProjectsTab || adminTab || statisticsTab
             ? `fv-ds page-scroll ${
                 reportListingTab
                   ? 'rdo-manager-page'
@@ -5196,11 +5353,55 @@ export function GestorPage() {
                     ? 'rdo-manager-projects-page'
                   : archivedProjectsTab
                     ? 'rdo-manager-archived-page'
+                    : adminTab
+                      ? 'rdo-manager-admin-page'
                   : 'rdo-manager-stats-page'
               }`
             : 'page-scroll'
         }
       >
+        {teamTab ? (
+          <PageHeader
+            className="rdo-admin-page__header"
+            title="Equipe"
+            description="Gerencie colaboradores, cargos e temas de DDS em uma única área."
+            actions={
+              equipeSubTab === 'colaboradores' &&
+              !showCollaboratorForm &&
+              !collaboratorEditingId ? (
+                <CollaboratorListToolbarActions
+                  showInactive={showInactiveCollaborators}
+                  inactiveCount={(collaboratorsQuery.data || []).filter(
+                    collaborator => collaborator.isActive === false
+                  ).length}
+                  onNew={openNewCollaboratorForm}
+                  onToggleInactive={() => {
+                    resetCollaboratorForm();
+                    setShowInactiveCollaborators(current => !current);
+                  }}
+                />
+              ) : undefined
+            }
+          />
+        ) : null}
+        {usersTab ? (
+          <PageHeader
+            className="rdo-admin-page__header"
+            title="Usuários"
+            description="Administre contas internas e acessos de clientes com seus vínculos e perfis."
+            actions={
+              userAdminGroup === 'internal' && !showUserForm && !userEditingId ? (
+                <Button
+                  variant="primary"
+                  iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                  onClick={openNewUserForm}
+                >
+                  Novo usuário
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : null}
         {reportListingTab ? (
           <PageHeader
             className="rdo-manager-listing__page-header"
@@ -5266,6 +5467,7 @@ export function GestorPage() {
         ) : null}
         {renderReportSummary()}
         {renderProjectMetrics()}
+        {renderAdminMetrics()}
         {renderGestorSearch()}
         {renderTabContent()}
       </main>

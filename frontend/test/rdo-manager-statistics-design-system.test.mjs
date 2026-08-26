@@ -43,7 +43,7 @@ test('Gestor is the only StatsOverview consumer that opts into the Design System
   assert.match(manager, /const statisticsTab = tab === 'estatisticas'/);
   assert.match(
     manager,
-    /reportListingTab \|\| projectsTab \|\| archivedProjectsTab \|\| statisticsTab/
+    /reportListingTab \|\| projectsTab \|\| archivedProjectsTab \|\| adminTab \|\| statisticsTab/
   );
   assert.match(manager, /'rdo-manager-stats-page'/);
   assert.match(managerStatistics, /<PageHeader\b/);

@@ -55,7 +55,7 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
 
   assert.match(
     search,
-    /reportListingTab \|\| tab === 'projetos' \|\| tab === 'arquivados'/
+    /reportListingTab \|\| projectsTab \|\| archivedProjectsTab \|\| adminTab/
   );
   assert.match(search, /'rdo-manager-project-results'/);
   assert.match(search, /'Busca dos projetos ativos'/);

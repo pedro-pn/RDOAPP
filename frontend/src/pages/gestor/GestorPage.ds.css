@@ -1052,6 +1052,277 @@
   }
 }
 
+/* ── Equipe e usuários ─────────────────────────────────────────────────────
+   As duas áreas administrativas compartilham header, métricas, tabs internas,
+   listagens e formulários responsivos sem alterar os contratos de domínio. */
+:where(.fv-ds, [data-fv-ds]).rdo-manager-admin-page {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0;
+  overflow-y: visible;
+  background: transparent;
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-page__filters {
+  width: 100%;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-toolbar__actions,
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-form__header,
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-section-heading,
+:where(.fv-ds, [data-fv-ds]) .client-account-action-area,
+:where(.fv-ds, [data-fv-ds]) .client-account-badges,
+:where(.fv-ds, [data-fv-ds]) .client-account-button-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-section,
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-section__content,
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-listing,
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-card-list,
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-loading,
+:where(.fv-ds, [data-fv-ds]) .rdo-client-account-group__accounts {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-tabs {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-tab {
+  min-height: calc(var(--space-10) + var(--space-1));
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-tab:hover {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-tab.is-active {
+  background: var(--surface);
+  color: var(--brand-text);
+  box-shadow: var(--shadow-e1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-tab:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-form {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-e1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-form--nested {
+  margin-block-start: var(--space-4);
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-form__header {
+  justify-content: space-between;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-form__header h2,
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-section-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-lg);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-section-heading p {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-admin-form
+  :where(.admin-inline-grid, .field-group, input, select, textarea) {
+  min-width: 0;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-form :where(input, select, textarea) {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-person-card .admin-item-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-person-card .admin-item-main {
+  min-width: min(100%, 14rem);
+  flex: 1 1 14rem;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-person-card .admin-item-title,
+:where(.fv-ds, [data-fv-ds]) .rdo-client-account-card .admin-item-title {
+  color: var(--ink);
+  font-weight: var(--font-semibold);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-person-card .admin-item-sub,
+:where(.fv-ds, [data-fv-ds]) .rdo-client-account-card .admin-item-sub {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-admin-person-card__actions {
+  margin-inline-start: auto;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-admin-person-card
+  :where(.fv-badge, .fv-status-pill) {
+  flex: 0 0 auto;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-client-accounts {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-client-account-group > .fv-card__body {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .client-account-group-toggle {
+  display: flex;
+  width: 100%;
+  min-height: calc(var(--space-10) + var(--space-1));
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: var(--font-semibold);
+  text-align: start;
+  cursor: pointer;
+}
+
+:where(.fv-ds, [data-fv-ds]) .client-account-group-toggle:hover {
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .client-account-group-toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .client-account-group-toggle[aria-expanded='false']
+  .rtype-chevron {
+  transform: rotate(-90deg);
+}
+
+:where(.fv-ds, [data-fv-ds]) .client-account-group-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-client-account-card > .fv-card__body {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .client-account-action-area {
+  align-items: flex-end;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+:where(.fv-ds, [data-fv-ds]) .client-account-badges {
+  position: static;
+  max-width: none;
+}
+
+@media (max-width: 480px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-admin-page__header .fv-page-header__actions,
+  :where(.fv-ds, [data-fv-ds]) .rdo-admin-toolbar__actions,
+  :where(.fv-ds, [data-fv-ds]) .rdo-admin-toolbar__actions .fv-button,
+  :where(.fv-ds, [data-fv-ds]) .rdo-admin-page__header .fv-button,
+  :where(.fv-ds, [data-fv-ds]) .rdo-admin-person-card__actions,
+  :where(.fv-ds, [data-fv-ds]) .rdo-admin-person-card__actions .fv-button,
+  :where(.fv-ds, [data-fv-ds]) .client-account-action-area,
+  :where(.fv-ds, [data-fv-ds]) .client-account-button-row,
+  :where(.fv-ds, [data-fv-ds]) .client-account-button-row .fv-button {
+    width: 100%;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-client-account-card > .fv-card__body {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-client-account-card
+    .client-account-action-area {
+    align-items: stretch;
+    grid-column: 1 / -1;
+  }
+}
+
 /* ── RDO B.11 — diálogo Adicionar segmento ──────────────────────────────────
    O opt-in permanece restrito a esta instância. O Modal e os campos do DS
    fornecem superfície, foco, validação nativa e temas; as regras locais cuidam

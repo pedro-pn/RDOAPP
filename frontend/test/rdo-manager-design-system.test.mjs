@@ -83,7 +83,7 @@ test('manager search only references the results region while that region exists
 
   assert.match(
     page,
-    /const reportResultsId =\s*tab === 'projetos'[\s\S]*?\? 'rdo-manager-project-results'[\s\S]*?tab === 'arquivados'[\s\S]*?\? 'rdo-manager-archived-results'[\s\S]*?!reportListQuery\.isLoadingInitial &&[\s\S]*?pendingReports\.length[\s\S]*?approvedReports\.length[\s\S]*?\? 'rdo-manager-report-results'/
+    /const reportResultsId =\s*projectsTab[\s\S]*?\? 'rdo-manager-project-results'[\s\S]*?archivedProjectsTab[\s\S]*?\? 'rdo-manager-archived-results'[\s\S]*?!reportListQuery\.isLoadingInitial &&[\s\S]*?pendingReports\.length[\s\S]*?approvedReports\.length[\s\S]*?\? 'rdo-manager-report-results'/
   );
   assert.match(page, /resultsId=\{reportResultsId\}/);
   assert.match(

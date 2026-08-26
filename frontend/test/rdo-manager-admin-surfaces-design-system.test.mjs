@@ -1,0 +1,101 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const source = (path) =>
+  readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+function sectionBetween(contents, start, end) {
+  const startIndex = contents.indexOf(start);
+  const endIndex = contents.indexOf(end, startIndex);
+
+  assert.notEqual(startIndex, -1, `Seção inicial ausente: ${start}`);
+  assert.notEqual(endIndex, -1, `Seção final ausente: ${end}`);
+
+  return contents.slice(startIndex, endIndex);
+}
+
+test('Equipe usa a hierarquia administrativa DS e preserva suas três subáreas', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+  const team = sectionBetween(
+    page,
+    'function renderEquipeTab',
+    'function renderUsuariosTab'
+  );
+
+  assert.match(page, /title="Equipe"/);
+  assert.match(
+    page,
+    /className="rdo-manager-metrics" aria-label="Resumo da equipe"/
+  );
+  assert.match(team, /className="rdo-admin-tabs"/);
+  assert.match(team, /aria-label="Seções da equipe"/);
+  assert.match(team, /onKeyDown=\{handleHorizontalTabListKeyDown\}/);
+  assert.match(team, />\s*Colaboradores\s*<\/button>/);
+  assert.match(team, />\s*Cargos\s*<\/button>/);
+  assert.match(team, />\s*Temas de DDS\s*<\/button>/);
+  assert.match(team, /<JobRoleManager appearance="design-system"/);
+  assert.match(team, /<DdsThemeManager appearance="design-system"/);
+  assert.match(team, /<Skeleton\b/);
+  assert.match(team, /<Card className="rdo-admin-person-card"/);
+  assert.match(team, /<EmptyState\b/);
+  assert.doesNotMatch(team, /mini-btn|page-card|card admin-card/);
+});
+
+test('Usuários usa cards e status DS sem alterar senha, perfis ou ações reais', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+  const users = sectionBetween(
+    page,
+    'function renderUsuariosTab',
+    'function renderNpsTab'
+  );
+
+  assert.match(page, /title="Usuários"/);
+  assert.match(page, /aria-label="Resumo dos usuários"/);
+  assert.match(users, /className="rdo-admin-section rdo-users"/);
+  assert.match(users, /aria-label="Tipo de usuário"/);
+  assert.match(users, /<Card className="rdo-admin-person-card"/);
+  assert.match(users, /<Card className="rdo-client-account-card"/);
+  assert.match(users, /<StatusPill\b/);
+  assert.match(users, /<Badge\b/);
+  assert.match(users, /type="password"/);
+  assert.match(users, /internalRoles\.map/);
+  assert.match(users, /handleResendClientAccess/);
+  assert.match(users, /handleUserDelete/);
+  assert.match(users, /userMutations\.createUser\.isPending/);
+  assert.match(users, /userMutations\.updateUser\.isPending/);
+  assert.doesNotMatch(users, /mini-btn|page-card|card admin-card|status-pill/);
+});
+
+test('controles de colaboradores reutilizam Button e StatusPill do DS', () => {
+  const controls = source(
+    'src/components/projects/CollaboratorListControls.tsx'
+  );
+
+  assert.match(controls, /import \{ Button, StatusPill \} from '..\/ui\/ds'/);
+  assert.match(controls, /<Button\s+variant="secondary"/);
+  assert.match(controls, /<Button variant="primary"/);
+  assert.match(controls, /<StatusPill/);
+  assert.doesNotMatch(controls, /mini-btn|status-pill/);
+});
+
+test('CSS administrativo permanece escopado, tokenizado e responsivo', () => {
+  const css = source('src/pages/gestor/GestorPage.ds.css');
+  const start = css.indexOf('Equipe e usuários');
+  const end = css.indexOf('RDO B.11', start);
+
+  assert.ok(start >= 0);
+  assert.ok(end > start);
+  const block = css.slice(start, end);
+
+  assert.match(block, /:where\(\.fv-ds, \[data-fv-ds\]\)/);
+  assert.match(block, /\.rdo-manager-admin-page/);
+  assert.match(block, /\.rdo-admin-tabs/);
+  assert.match(block, /\.rdo-admin-person-card/);
+  assert.match(block, /\.rdo-client-account-card/);
+  assert.match(block, /@media \(max-width: 480px\)/);
+  assert.match(block, /var\(--/);
+  assert.doesNotMatch(block, /#[\da-f]{3,8}\b/i);
+  assert.doesNotMatch(block, /\brgba?\(/i);
+  assert.doesNotMatch(block, /!important/);
+});
