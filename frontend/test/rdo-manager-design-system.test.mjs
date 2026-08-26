@@ -18,6 +18,7 @@ test('manager report tabs opt into the DS shell and listing without changing the
   assert.match(page, /appearance="design-system"/);
   assert.match(page, /<SearchInput\b/);
   assert.match(page, /<FilterBar\b/);
+  assert.match(page, /<MetricCard\b/);
   assert.doesNotMatch(page, /<Pagination\b/);
 
   for (const contract of [
@@ -82,7 +83,7 @@ test('manager search only references the results region while that region exists
 
   assert.match(
     page,
-    /const reportResultsId =\s*tab === 'projetos'[\s\S]*?\? 'rdo-manager-project-results'[\s\S]*?tab === 'arquivados'[\s\S]*?\? 'rdo-manager-archived-results'[\s\S]*?!reportListQuery\.isLoadingInitial && approvedReports\.length > 0[\s\S]*?\? 'rdo-manager-report-results'/
+    /const reportResultsId =\s*tab === 'projetos'[\s\S]*?\? 'rdo-manager-project-results'[\s\S]*?tab === 'arquivados'[\s\S]*?\? 'rdo-manager-archived-results'[\s\S]*?!reportListQuery\.isLoadingInitial &&[\s\S]*?pendingReports\.length[\s\S]*?approvedReports\.length[\s\S]*?\? 'rdo-manager-report-results'/
   );
   assert.match(page, /resultsId=\{reportResultsId\}/);
   assert.match(
@@ -107,7 +108,27 @@ test('manager search only references the results region while that region exists
     /!activeProjectsQuery\.isLoading && !activeProjectsQuery\.isError/
   );
   assert.match(page, /if \(reportListQuery\.isLoadingInitial\)/);
+  assert.match(
+    page,
+    /if \(reportListQuery\.isError && !visibleReports\.length\)/
+  );
   assert.match(page, /if \(!visibleReports\.length\)/);
+});
+
+test('manager pending and approved pages compose actions, search and real metrics in the DS hierarchy', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+
+  assert.match(page, /search: debouncedGestorSearch \|\| undefined/);
+  assert.match(page, /pendentes: 'Buscar em pendentes'/);
+  assert.match(page, /className="rdo-manager-listing__page-header"/);
+  assert.match(page, /Upload PDF antigo/);
+  assert.match(page, /Criar Relatório/);
+  assert.match(
+    page,
+    /label="Aguardando revisão"[\s\S]*?value=\{pendingCount\}/
+  );
+  assert.match(page, /label="Aprovados"[\s\S]*?value=\{approvedCount\}/);
+  assert.match(page, /label="Assinados"[\s\S]*?value=\{signedCount\}/);
 });
 
 test('grouped report list keeps legacy as the default and adds an accessible DS opt-in', () => {

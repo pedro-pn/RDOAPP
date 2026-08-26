@@ -769,6 +769,57 @@
   border-block-start: var(--border-width) solid var(--line);
 }
 
+/* MetricCard */
+:where(.fv-ds, [data-fv-ds]) .fv-metric-card {
+  display: flex;
+  min-width: 0;
+  min-height: calc(var(--space-16) + var(--space-5));
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-e1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .fv-metric-card__icon {
+  display: inline-grid;
+  width: var(--space-10);
+  height: var(--space-10);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--fv-tone-bg);
+  color: var(--fv-tone-ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .fv-metric-card__copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .fv-metric-card__label,
+:where(.fv-ds, [data-fv-ds]) .fv-metric-card__description {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]) .fv-metric-card__label {
+  font-weight: var(--font-medium);
+}
+
+:where(.fv-ds, [data-fv-ds]) .fv-metric-card__value {
+  color: var(--ink);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  line-height: var(--leading-xl);
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 767.98px) {
   :where(.fv-ds, [data-fv-ds]) .fv-button {
     min-height: calc(var(--space-10) + var(--space-1));

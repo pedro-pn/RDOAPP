@@ -17,6 +17,7 @@ test('design system barrel exposes every Phase 2 primitive', () => {
     'EmptyState',
     'Field',
     'Input',
+    'MetricCard',
     'Select',
     'Skeleton',
     'Spinner',

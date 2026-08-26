@@ -22,6 +22,7 @@ export {
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { Field, type FieldProps } from './Field';
 export { Input, type InputProps } from './Input';
+export { MetricCard, type MetricCardProps } from './MetricCard';
 export { DataTable, type DataTableProps } from './listings/DataTable';
 export {
   FilterBar,

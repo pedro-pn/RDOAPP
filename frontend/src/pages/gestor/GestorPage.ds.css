@@ -41,36 +41,17 @@
   box-shadow: var(--shadow-e1);
 }
 
-:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary {
-  padding: var(--space-4);
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stats-grid {
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__metrics {
   display: grid;
-  grid-template-columns: 1fr;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
-:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stat-card-react {
-  min-width: 0;
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stat-number-react {
-  color: var(--ink);
-  font-size: var(--text-xl);
-  font-weight: var(--font-bold);
-  line-height: var(--leading-xl);
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stat-label-react {
-  color: var(--muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-listing__metrics
+  .fv-metric-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__filters {
@@ -146,6 +127,11 @@
 
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-card {
   min-width: 0;
+  overflow: hidden;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-card.fv-card--padding-sm {
+  padding: 0;
 }
 
 :where(.fv-ds, [data-fv-ds])
@@ -197,6 +183,13 @@
   outline-offset: var(--focus-ring-offset);
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-project-card .project-group-toggle {
+  padding: var(--space-4) var(--space-5);
+  border-block-end: var(--border-width) solid var(--line);
+  border-radius: 0;
+  background: var(--surface-2);
+}
+
 :where(.fv-ds, [data-fv-ds])
   .rdo-manager-project-group
   .project-group-toggle
@@ -236,7 +229,8 @@
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-type-group {
-  margin-block: var(--space-3) 0;
+  margin: 0;
+  padding-inline: var(--space-4);
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .rtype-count {
@@ -247,7 +241,7 @@
 
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-group .report-type-list {
   gap: var(--space-3);
-  padding-block-start: var(--space-3);
+  padding-block: var(--space-3) var(--space-4);
 }
 
 :where(.fv-ds, [data-fv-ds])
@@ -313,15 +307,31 @@
   min-block-size: calc(var(--space-10) + var(--space-1));
 }
 
-@media (min-width: 768px) {
-  :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__summary .stats-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__page-header
+    .fv-page-header__actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
   }
 
   :where(.fv-ds, [data-fv-ds])
-    .rdo-manager-listing__summary
-    .stats-grid-compact
-    .stat-card-react:nth-child(3) {
+    .rdo-manager-listing__page-header
+    .fv-page-header__actions
+    .fv-button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__metrics {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__metrics
+    .fv-metric-card:last-child:nth-child(odd) {
     grid-column: auto;
   }
 }

@@ -85,7 +85,7 @@ async function managerSearchStorage(page: Page) {
 
 function topLevelProjectSort(page: Page) {
   return page.locator(
-    'main.page-scroll > .admin-create-toolbar > .project-sort-button'
+    '.rdo-manager-listing__filters .project-sort-button'
   );
 }
 

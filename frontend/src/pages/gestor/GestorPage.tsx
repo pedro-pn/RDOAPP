@@ -51,6 +51,7 @@ import {
   FilterBar,
   IconButton,
   Input,
+  MetricCard,
   SearchInput,
   Skeleton,
   StatusPill,
@@ -1408,6 +1409,7 @@ export function GestorPage() {
     summary: true,
     reviewQueue: true,
     projectActive: true,
+    search: debouncedGestorSearch || undefined,
     projectSort: projectSortDir,
     pageSize: REPORT_PAGE_SIZE
   }, tab === 'pendentes');
@@ -3404,36 +3406,24 @@ export function GestorPage() {
       );
     }
 
-    const topActions = (
-      <div className="admin-create-toolbar rdo-manager-listing__toolbar">
-        {tab === 'pendentes' ? (
-          <Button
-            variant="primary"
-            iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
-            onClick={handleNewReport}
-          >
-            Criar Relatório
-          </Button>
-        ) : null}
-        <Button
-          className="project-sort-button"
-          variant="secondary"
-          iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
-          aria-label={
-            projectSortDir === 'asc'
-              ? 'Ordenar projetos de Z a A'
-              : 'Ordenar projetos de A a Z'
-          }
-          onClick={() =>
-            setProjectSortDir((direction) =>
-              direction === 'asc' ? 'desc' : 'asc'
-            )
-          }
-        >
-          {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
-        </Button>
-      </div>
-    );
+    if (reportListQuery.isError && !visibleReports.length) {
+      return (
+        <Card padding="lg">
+          <EmptyState
+            variant="error"
+            title="Não foi possível carregar os relatórios."
+            description="Tente novamente para consultar os relatórios desta área."
+            action={{
+              label: 'Tentar novamente',
+              onClick: () => {
+                void reportListQuery.refetch();
+              }
+            }}
+          />
+        </Card>
+      );
+    }
+
     const drafts = (draftsQuery.data || []).filter(
       (draft) => draft.projectId || draft.payload.projectId
     );
@@ -3503,7 +3493,6 @@ export function GestorPage() {
     if (!visibleReports.length) {
       return (
         <>
-          {topActions}
           {draftsBlock}
           <Card padding="lg">
             <EmptyState
@@ -3623,7 +3612,6 @@ export function GestorPage() {
 
     return (
       <>
-        {topActions}
         {draftsBlock}
         {renderProjectReportGroups(visibleReports)}
         {renderLoadMoreReports('design-system')}
@@ -4917,6 +4905,7 @@ export function GestorPage() {
 
   function renderGestorSearch() {
     const labels: Partial<Record<GestorTab, string>> = {
+      pendentes: 'Buscar em pendentes',
       aprovados: 'Buscar em aprovados',
       projetos: 'Buscar em projetos',
       arquivados: 'Buscar em arquivados',
@@ -4927,7 +4916,7 @@ export function GestorPage() {
     const label = labels[tab];
     if (!label) return null;
 
-    if (tab === 'aprovados' || tab === 'projetos' || tab === 'arquivados') {
+    if (reportListingTab || tab === 'projetos' || tab === 'arquivados') {
       const reportResultsId =
         tab === 'projetos'
           ? !activeProjectsQuery.isLoading && !activeProjectsQuery.isError
@@ -4937,7 +4926,8 @@ export function GestorPage() {
           ? !reportListQuery.isLoadingInitial && !archivedProjectsQuery.isLoading
             ? 'rdo-manager-archived-results'
             : undefined
-          : !reportListQuery.isLoadingInitial && approvedReports.length > 0
+          : !reportListQuery.isLoadingInitial &&
+              (tab === 'pendentes' ? pendingReports.length : approvedReports.length) > 0
             ? 'rdo-manager-report-results'
             : undefined;
 
@@ -4955,7 +4945,9 @@ export function GestorPage() {
               ? 'Busca dos projetos ativos'
               : tab === 'arquivados'
                 ? 'Busca dos projetos arquivados'
-                : 'Busca dos relatórios aprovados'
+                : tab === 'pendentes'
+                  ? 'Busca dos relatórios pendentes'
+                  : 'Busca dos relatórios aprovados'
           }
           resultsId={reportResultsId}
           search={
@@ -4966,6 +4958,28 @@ export function GestorPage() {
               placeholder={label}
               autoComplete="off"
             />
+          }
+          actions={
+            reportListingTab ? (
+              <Button
+                className="project-sort-button"
+                variant="secondary"
+                size="sm"
+                iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
+                aria-label={
+                  projectSortDir === 'asc'
+                    ? 'Ordenar projetos de Z a A'
+                    : 'Ordenar projetos de A a Z'
+                }
+                onClick={() =>
+                  setProjectSortDir(direction =>
+                    direction === 'asc' ? 'desc' : 'asc'
+                  )
+                }
+              >
+                {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
+              </Button>
+            ) : undefined
           }
         />
       );
@@ -5019,39 +5033,44 @@ export function GestorPage() {
     const approvedTotal = approvedCount + signedCount;
 
     return (
-      <Card
-        className="page-card summary-card-compact rdo-manager-listing__summary"
-        padding="md"
-        title="Resumo"
-        actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => openManualReportUpload()}
-          >
-            Upload PDF antigo
-          </Button>
-        }
+      <section
+        className="rdo-manager-listing__metrics"
+        aria-label={`Resumo de ${tab === 'pendentes' ? 'relatórios pendentes' : 'relatórios aprovados'}`}
       >
-        <div className="stats-grid stats-grid-compact">
-          {tab === 'pendentes' ? (
-            <div className="stat-card-react">
-              <div className="stat-number-react">{pendingCount}</div>
-              <div className="stat-label-react">Pendentes/devolvidos</div>
-            </div>
-          ) : null}
-          <div className="stat-card-react">
-            <div className="stat-number-react">{tab === 'aprovados' ? approvedCount : approvedTotal}</div>
-            <div className="stat-label-react">Aprovados</div>
-          </div>
-          {tab === 'aprovados' ? (
-            <div className="stat-card-react">
-              <div className="stat-number-react">{signedCount}</div>
-              <div className="stat-label-react">Assinados</div>
-            </div>
-          ) : null}
-        </div>
-      </Card>
+        {tab === 'pendentes' ? (
+          <MetricCard
+            label="Aguardando revisão"
+            value={pendingCount}
+            description="Pendentes ou devolvidos"
+            tone="warning"
+            icon={<AppIcon icon={DS_ICONS.alertWarning} size="md" />}
+          />
+        ) : (
+          <MetricCard
+            label="Total disponível"
+            value={approvedTotal}
+            description="Aprovados e assinados"
+            tone="brand"
+            icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+          />
+        )}
+        <MetricCard
+          label="Aprovados"
+          value={approvedCount}
+          description="Prontos para consulta"
+          tone="success"
+          icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />}
+        />
+        {tab === 'aprovados' ? (
+          <MetricCard
+            label="Assinados"
+            value={signedCount}
+            description="Com assinatura concluída"
+            tone="info"
+            icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+          />
+        ) : null}
+      </section>
     );
   }
 
@@ -5119,6 +5138,7 @@ export function GestorPage() {
       >
         {reportListingTab ? (
           <PageHeader
+            className="rdo-manager-listing__page-header"
             title={
               tab === 'pendentes'
                 ? 'Relatórios pendentes'
@@ -5128,6 +5148,25 @@ export function GestorPage() {
               tab === 'pendentes'
                 ? 'Acompanhe os relatórios que aguardam revisão ou foram devolvidos.'
                 : 'Consulte os relatórios aprovados e assinados.'
+            }
+            actions={
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => openManualReportUpload()}
+                >
+                  Upload PDF antigo
+                </Button>
+                {tab === 'pendentes' ? (
+                  <Button
+                    variant="primary"
+                    iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                    onClick={handleNewReport}
+                  >
+                    Criar Relatório
+                  </Button>
+                ) : null}
+              </>
             }
           />
         ) : null}
