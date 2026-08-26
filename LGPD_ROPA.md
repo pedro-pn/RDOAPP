@@ -1,7 +1,7 @@
 # Registro de Atividades de Tratamento (ROPA) — NewRDO
 
-**Versão:** ropa_v1
-**Data:** 2026-05-22
+**Versão:** ropa_v2
+**Data:** 2026-08-21
 **Controlador:** Filtrovali Serviços de Filtragem de Óleos Industriais e Limpeza de Tubulações Ltda.
 **Canal de privacidade:** privacidade@filtrovali.com.br
 
@@ -15,6 +15,7 @@ Este documento resume as principais operações de tratamento de dados pessoais 
 | EPI | Colaboradores, técnicos/gestores, signatários | Dados de colaborador, equipamentos entregues, assinatura, IP, User-Agent, PDF assinado | Registrar entrega de EPI e cumprir obrigações trabalhistas | Cumprimento de obrigação legal; execução de contrato de trabalho | Até 20 anos quando aplicável | NewRDO, armazenamento de PDF/evidências | Controle de acesso, auditoria, assinatura e retenção de evidências |
 | Pesquisa de satisfação | Representantes de clientes | E-mail, projeto, respostas, comentários, IP, User-Agent, datas de envio/resposta | Avaliar qualidade e melhoria do serviço | Legítimo interesse | Respostas por 2 anos; IP/User-Agent anonimizados após 1 ano da resposta | NewRDO, e-mail transacional | Link individual, opt-out de lembretes, aviso de privacidade |
 | Romaneio | Usuários internos, motoristas e destinatários de notificação | Dados de romaneio, motorista, placa, itens, destinatários de e-mail | Operar logística, documentação e envio de romaneios | Execução de contrato; legítimo interesse operacional | Conforme necessidade contratual e fiscal/operacional | NewRDO, e-mail transacional, armazenamento de documentos | Controle de acesso por módulo, geração documental, logs operacionais |
+| Efetivo operacional e produtividade individual | Colaboradores | Identificação, cargo, datas de admissão e desligamento, HH normais, horas extras excluídas, taxa de improdutividade, férias e pendências de vínculo/cadastro | Dimensionar e acompanhar a capacidade do efetivo, explicar o indicador oficial e corrigir cadastros operacionais | Legítimo interesse na gestão da operação e execução do contrato de trabalho, mediante avaliação periódica de necessidade e proporcionalidade | Enquanto necessário ao vínculo e aos prazos trabalhistas/defesa de direitos; exclusões de férias preservam trilha com acesso restrito | NewRDO, banco de dados e VR Ponto Mais como origem das jornadas | Acesso por módulo (`efetivo:viewer`/`efetivo:manager`) com bypass administrativo, separação de pendências fora da taxa, sem lançamento manual de HH e trilha de alterações |
 | Auditoria e segurança | Todos os usuários e titulares envolvidos em ações auditáveis | Usuário, ação, data/hora, IP, User-Agent, identificadores técnicos | Segurança, rastreabilidade, prevenção a fraudes e defesa de direitos | Legítimo interesse; exercício regular de direitos | IP/User-Agent de logs operacionais anonimizados após 2 anos | NewRDO, banco de dados | Logs de auditoria, minimização no job de retenção |
 | Direitos do titular | Titulares que acionam o canal LGPD | Nome, e-mail, identificador, tipo de solicitação, detalhes, protocolo, IP/User-Agent | Receber, registrar e responder solicitações do Art. 18 da LGPD | Cumprimento de obrigação legal/regulatória | Pelo período necessário para comprovação de atendimento | NewRDO, canal de privacidade | Protocolo único, status, controle de escopo e análise manual |
 

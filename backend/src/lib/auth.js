@@ -90,7 +90,9 @@ export function publicUser(user) {
           id: user.collaborator.id,
           code: user.collaborator.code,
           name: user.collaborator.name,
-          role: user.collaborator.role
+          jobRoleId: user.collaborator.jobRoleId,
+          jobRole: user.collaborator.jobRole || null,
+          role: user.collaborator.jobRole?.name || ''
         }
       : null
   };

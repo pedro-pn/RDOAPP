@@ -51,7 +51,7 @@ async function findClientUserForEmail(prisma, email, options = {}) {
 
   const usernameMatch = await prisma.user.findFirst({
     where: { username: { equals: normalizedEmail, mode: 'insensitive' } },
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
   if (usernameMatch) {
     if (usernameMatch.role !== 'CLIENT') {
@@ -66,7 +66,7 @@ async function findClientUserForEmail(prisma, email, options = {}) {
       role: 'CLIENT',
       email: { equals: normalizedEmail, mode: 'insensitive' }
     },
-    include: { collaborator: true, moduleRoles: true },
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true },
     orderBy: [{ isActive: 'desc' }, { updatedAt: 'desc' }, { createdAt: 'asc' }]
   });
   if (!emailMatch) return null;
@@ -78,7 +78,7 @@ async function findClientUserForEmail(prisma, email, options = {}) {
       email: normalizedEmail,
       emailVerifiedAt: new Date()
     },
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 }
 
@@ -181,7 +181,7 @@ export async function ensureClientAccountForProject(prisma, projectData, options
           create: moduleRoleRows(user.id, CLIENT_MODULE_ROLES).map(({ module, role }) => ({ module, role }))
         }
       },
-      include: { collaborator: true, moduleRoles: true }
+      include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
     });
   } else {
     initialPassword = generateClientPassword();
@@ -201,7 +201,7 @@ export async function ensureClientAccountForProject(prisma, projectData, options
           create: moduleRoleRows('', CLIENT_MODULE_ROLES).map(({ module, role }) => ({ module, role }))
         }
       },
-      include: { collaborator: true, moduleRoles: true }
+      include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
     });
     created = true;
   }

@@ -22,6 +22,8 @@ import prisma from '../prisma.js';
 import { computeMonthlyCost } from './cost-engine.js';
 import { getAnnualCollaboratorCosts } from './settings.js';
 import { buildProjectTagResolver, isPontoTravelTag } from '../pontomais/normalize.js';
+import { checkWorkforceAvailability } from '../collaborators/availability-service.js';
+import { annotateActualRowsWithWorkforceConflicts, classifyActualWorkforceDays } from '../workforce/actual-conflicts.js';
 
 export { isPontoTravelTag } from '../pontomais/normalize.js';
 
@@ -424,7 +426,7 @@ export function filterIgnoredPontoPeriods(periods = [], ignoredExternalEmployeeI
   ));
 }
 
-// Cargo (JobRole.name = Collaborator.role) -> parâmetros efetivos por data. O cargo herda do modelo
+// Cargo canônico (Collaborator.jobRoleId -> JobRole) -> parâmetros efetivos por data. O cargo herda do modelo
 // que estava vigente na data calculada e sobrescreve o salário base. A insalubridade vem do salário
 // mínimo no motor novo.
 export function buildRoleParamsResolver({ roles = [], models = [] } = {}) {
@@ -1496,7 +1498,7 @@ export async function computeCollaboratorRates(importId = null) {
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
-        collaborator: { select: { id: true, name: true, role: true } },
+        collaborator: { select: { id: true, name: true, jobRole: { select: { name: true } } } },
         import: { select: { createdAt: true } }
       }
     }),
@@ -1518,6 +1520,14 @@ export async function computeCollaboratorRates(importId = null) {
     periodRows,
     ignoredEmployees.map(item => item.externalEmployeeId)
   ));
+  const actualAvailability = periods.length
+    ? await checkWorkforceAvailability(prisma, {
+        collaboratorIds: periods.map(period => period.collaboratorId).filter(Boolean),
+        startDate: dateKeyUTC(pontoScope.periodStart),
+        endDate: dateKeyUTC(pontoScope.periodEnd),
+        context: 'ACTUAL_REPORT'
+      })
+    : { calendarRevision: 1, conflicts: [] };
   const manualProjects = manualProjectsByCollaborator(manualDayOverrides);
   const scheduleWindowEligibility = buildScheduleWindowEligibility(
     projectAllocationContext.scheduleWindows,
@@ -1528,7 +1538,7 @@ export async function computeCollaboratorRates(importId = null) {
   const rates = [];
   const byCollaboratorId = new Map();
   for (const period of periods) {
-    const role = period.collaborator?.role || null;
+    const role = period.collaborator?.jobRole?.name || null;
     const rdo = rdoData.get(period.collaboratorId) || {
       byProject: new Map(),
       dayProjects: new Map(),
@@ -1557,6 +1567,7 @@ export async function computeCollaboratorRates(importId = null) {
       he70Horas,
       he100Horas,
       totalHoras: normalHours + he70Horas + he100Horas,
+      workedDates,
       folgaHours: 0,
       totalMensal: null,
       totalMensalBase: null,
@@ -1743,14 +1754,25 @@ export async function computeCollaboratorRates(importId = null) {
     rates.push(entry);
     byCollaboratorId.set(period.collaboratorId, entry);
   }
+  const annotatedRates = annotateActualRowsWithWorkforceConflicts(rates, actualAvailability.conflicts).map(entry => ({
+    ...entry,
+    workforceCalendarRevision: actualAvailability.calendarRevision,
+    workforceDays: classifyActualWorkforceDays({
+      startDate: dateKeyUTC(pontoScope.periodStart),
+      endDate: dateKeyUTC(pontoScope.periodEnd),
+      workedDates: entry.workedDates,
+      conflicts: actualAvailability.conflicts.filter(conflict => conflict.collaboratorId === entry.collaboratorId)
+    })
+  }));
+  const annotatedByCollaboratorId = new Map(annotatedRates.map(entry => [entry.collaboratorId, entry]));
   return {
     pontoImport: pontoScope.pontoImport,
     pontoImports: pontoScope.pontoImports,
     periodStart: pontoScope.periodStart,
     periodEnd: pontoScope.periodEnd,
     fileName: pontoScope.fileName,
-    rates,
-    byCollaboratorId
+    rates: annotatedRates,
+    byCollaboratorId: annotatedByCollaboratorId
   };
 }
 
@@ -1774,7 +1796,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
-        collaborator: { select: { id: true, name: true, role: true } },
+        collaborator: { select: { id: true, name: true, jobRole: { select: { name: true } } } },
         import: { select: { createdAt: true } }
       }
     }),
@@ -1801,7 +1823,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   ));
   if (!period) throw new Error(`Colaborador "${nameQuery}" não encontrado no ponto vigente.`);
 
-  const role = period.collaborator.role;
+  const role = period.collaborator.jobRole?.name;
   const cov = monthCoverage(monthKey, pontoScope.periodStart, pontoScope.periodEnd);
   const params = roleParams.paramsFor(role, cov.startKey);
   if (!params) throw new Error(`Cargo "${role}" sem custo configurado.`);

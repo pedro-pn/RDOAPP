@@ -134,7 +134,7 @@ test('GET /projects keeps client listings scoped to non-deleted projects', async
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json, []);
-  const projectListQuery = calls.find(call => call.include?.operator === true);
+  const projectListQuery = calls.find(call => call.include?.operator);
   assert.equal(projectListQuery.where.deletedAt, null);
   assert.equal(projectListQuery.where.managerOnly, false);
 });

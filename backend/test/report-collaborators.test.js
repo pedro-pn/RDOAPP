@@ -9,7 +9,8 @@ test('night collaborator snapshot carries role when collaborator link is absent'
     collaborators: [
       {
         collaboratorId: 'day-1',
-        collaborator: { name: 'Colaborador Diurno', role: 'Tecnico' }
+        roleNameSnapshot: 'Tecnico',
+        collaborator: { name: 'Colaborador Diurno', jobRole: { name: 'Tecnico' } }
       }
     ],
     specialConditions: {
@@ -43,7 +44,8 @@ test('night collaborator role can be resolved from report collaborator link', ()
     collaborators: [
       {
         collaboratorId: 'night-1',
-        collaborator: { name: 'Colaborador Noturno', role: 'Operador' }
+        roleNameSnapshot: 'Operador',
+        collaborator: { name: 'Colaborador Noturno', jobRole: { name: 'Operador' } }
       }
     ],
     specialConditions: {
@@ -78,7 +80,7 @@ test('night collaborator ids are enriched with name and role before report persi
     collaborator: {
       async findMany(query) {
         assert.deepEqual(query.where.id.in, ['night-1']);
-        return [{ id: 'night-1', name: 'Colaborador Noturno', role: 'Operador' }];
+        return [{ id: 'night-1', name: 'Colaborador Noturno', jobRole: { name: 'Operador' } }];
       }
     }
   };

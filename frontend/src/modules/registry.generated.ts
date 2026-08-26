@@ -530,6 +530,59 @@ export const moduleRegistry = [
         ]
       }
     ]
+  },
+  {
+    "id": "efetivo",
+    "prismaModule": "EFETIVO",
+    "badge": "EFET",
+    "title": "Efetivo Operacional",
+    "copy": "Produtividade, improdutividade e férias do efetivo operacional.",
+    "hub": {
+      "enabled": true,
+      "roles": [
+        "efetivo:manager",
+        "efetivo:viewer"
+      ],
+      "path": "/efetivo"
+    },
+    "pathPrefixes": [
+      "/efetivo"
+    ],
+    "routes": {
+      "root": "/efetivo"
+    },
+    "routeGroups": {
+      "default": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "efetivo:manager",
+          "efetivo:viewer"
+        ]
+      }
+    },
+    "roles": [
+      {
+        "code": "EFETIVO_MANAGER",
+        "public": "efetivo:manager",
+        "label": "Efetivo Operacional - Gestor",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      },
+      {
+        "code": "EFETIVO_VIEWER",
+        "public": "efetivo:viewer",
+        "label": "Efetivo Operacional - Visualizador",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      }
+    ]
   }
 ] as const;
 

@@ -8,11 +8,15 @@ export interface Collaborator {
   id: string;
   code: string;
   name: string;
+  jobRoleId: string;
+  jobRole: { id: string; name: string; isActive?: boolean };
+  /** Alias derivado de jobRole.name para consumidores visuais existentes. */
   role: string;
   email: string | null;
   cpf?: string | null;
   registrationNumber?: string | null;
   admissionDate?: string | null;
+  terminationDate?: string | null;
   signatureImage: string | null;
   signatureNoticeAcceptedAt?: string | null;
   signatureNoticeVersion?: string | null;

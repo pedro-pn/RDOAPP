@@ -9,6 +9,7 @@ import {
   deleteManualProjectCost,
   getMissionGroupDetail,
   getPlannedScope,
+  getProjectPlanningContext,
   getProjectDetail,
   type BudgetBreakdownSlice,
   type DayStatus,
@@ -579,6 +580,12 @@ export function ProjectDetailDashboard({
     queryFn: () => getPlannedScope(projectId!),
     enabled: !isGroup && Boolean(projectId)
   });
+  const planningReferenceDate = data?.header.lastRdoDate?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const { data: planningContext, isLoading: planningContextLoading } = useQuery({
+    queryKey: ['acompanhamento-planning-context', projectId, planningReferenceDate],
+    queryFn: () => getProjectPlanningContext(projectId!, planningReferenceDate),
+    enabled: !isGroup && Boolean(projectId && data)
+  });
   const { data: qualityDeviations = [], isLoading: qualityDeviationsLoading } = useQuery<ProjectDeviation[]>({
     queryKey: ['qualidade', 'project-deviations', projectId],
     queryFn: () => listProjectQualityDeviations(projectId!),
@@ -732,6 +739,32 @@ export function ProjectDetailDashboard({
           </div>
         ) : null}
       </div>
+
+      {!isGroup ? (
+        <div className="page-card acp-det-planning" data-acp-planning-context>
+          <div>
+            <span className="acp-det-sub">Planejamento do Efetivo</span>
+            {planningContextLoading ? <p className="placeholder-copy">Carregando missão oficial…</p>
+              : planningContext ? (
+                <>
+                  <strong>{planningContext.collaborators.length} colaborador(es) planejado(s)</strong>
+                  <p>
+                    Execução de {fmtDate(planningContext.dates.executionStartDate)} a {fmtDate(planningContext.dates.executionEndDate)}
+                    {' · '}plano rev. {planningContext.planRevision}
+                  </p>
+                </>
+              ) : <p className="placeholder-copy">Sem missão oficial vigente na data de referência.</p>}
+          </div>
+          {planningContext ? (
+            <div className="acp-det-planning-team">
+              {planningContext.collaborators.map(collaborator => (
+                <span key={collaborator.id}>{collaborator.name}<small>{collaborator.jobRole.name}</small></span>
+              ))}
+              {planningContext.needsReplanning ? <em>Replanejamento necessário{planningContext.replanningReason ? `: ${planningContext.replanningReason}` : ''}</em> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="acp-det-cols">
         {/* Coluna 1 */}

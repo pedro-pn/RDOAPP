@@ -7,13 +7,16 @@ import {
   availableHubModulesForUser,
   hasSeenAcompanhamentoNovelty,
   markAcompanhamentoNoveltySeen,
+  markEfetivoHubNoveltySeen,
   markQualidadeNoveltySeen,
+  shouldShowEfetivoHubNovelty,
   shouldShowQualidadeNovelty,
   userHasAcompanhamentoModule
 } from '../auth/moduleNavigation';
 import { HubTutorial } from '../components/HubTutorial';
 import { AcompanhamentoHubNovelty } from '../components/AcompanhamentoHubNovelty';
 import { QualidadeHubNovelty } from '../components/QualidadeHubNovelty';
+import { EfetivoHubNovelty } from '../components/EfetivoHubNovelty';
 import { roleHomePath } from '../auth/rolePath';
 import { Shell } from '../layout/Shell';
 import { TopBar } from '../layout/TopBar';
@@ -80,6 +83,14 @@ const MODULE_ICONS: Partial<Record<HubModuleEntry['id'], ReactNode>> = {
       <path d="M7 15l3-4l3 3l4-6" />
     </>
   ),
+  efetivo: (
+    <>
+      <path d="M4 20v-2a4 4 0 0 1 4-4h3" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M16 11v6" />
+      <path d="M13 14h6" />
+    </>
+  ),
   none: DEFAULT_MODULE_ICON,
 };
 
@@ -91,6 +102,7 @@ const MODULE_ACCENTS: Partial<Record<HubModuleEntry['id'], string>> = {
   epi: '#30503a',
   equipamentos: '#3f6f55',
   acompanhamento: '#3a6a4a',
+  efetivo: '#4f7659',
   none: '#6b7280',
 };
 
@@ -152,11 +164,15 @@ export function HubPage() {
   const [qualityNoveltyActive, setQualityNoveltyActive] = useState(
     () => shouldShowQualidadeNovelty(user)
   );
-  const shouldRedirect = baseShouldRedirect && !acompNoveltyActive && !qualityNoveltyActive;
+  const [efetivoNoveltyActive, setEfetivoNoveltyActive] = useState(
+    () => shouldShowEfetivoHubNovelty(user)
+  );
+  const shouldRedirect = baseShouldRedirect && !acompNoveltyActive && !qualityNoveltyActive && !efetivoNoveltyActive;
 
   useEffect(() => {
     setAcompNoveltyActive(userHasAcompanhamentoModule(user) && !hasSeenAcompanhamentoNovelty(user));
     setQualityNoveltyActive(shouldShowQualidadeNovelty(user));
+    setEfetivoNoveltyActive(shouldShowEfetivoHubNovelty(user));
   }, [user]);
 
   const firstName = user?.name?.split(' ')[0] || 'Usuário';
@@ -250,6 +266,9 @@ export function HubPage() {
                     } else if (module.id === 'qualidade') {
                       markQualidadeNoveltySeen(user);
                       setQualityNoveltyActive(false);
+                    } else if (module.id === 'efetivo') {
+                      markEfetivoHubNoveltySeen(user);
+                      setEfetivoNoveltyActive(false);
                     }
                     navigate(path);
                   } : undefined}
@@ -258,6 +277,9 @@ export function HubPage() {
                     <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
                   )}
                   {module.id === 'qualidade' && qualityNoveltyActive && (
+                    <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
+                  )}
+                  {module.id === 'efetivo' && efetivoNoveltyActive && (
                     <span className="hub-card-new" aria-label="Novo módulo">Novo</span>
                   )}
                   <div className="hub-card-accent" style={{ background: accent }} />
@@ -302,6 +324,13 @@ export function HubPage() {
           user={user}
           enabled={!shouldRedirect && qualityNoveltyActive}
           onSeen={() => setQualityNoveltyActive(false)}
+        />
+      )}
+      {user && (
+        <EfetivoHubNovelty
+          user={user}
+          enabled={!shouldRedirect && efetivoNoveltyActive}
+          onSeen={() => setEfetivoNoveltyActive(false)}
         />
       )}
     </Shell>

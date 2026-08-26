@@ -403,7 +403,7 @@ function addLaborCollaborator(map, collaborator, source) {
   map.set(collaborator.id, {
     id: collaborator.id,
     name: collaborator.name,
-    role: collaborator.role ?? null,
+    role: collaborator.jobRole?.name ?? collaborator.roleNameSnapshot ?? null,
     sources: [source]
   });
 }
@@ -418,16 +418,21 @@ async function listProjectLaborCollaborators(project, sleepModeMap) {
   const [rdoCollaborators, manualCollaborators] = await Promise.all([
     prisma.reportCollaborator.findMany({
       where: { report: { projectId: project.id, reportType: 'RDO', deletedAt: null } },
-      select: { collaborator: { select: { id: true, name: true, role: true } } },
+      select: {
+        roleNameSnapshot: true,
+        collaborator: { select: { id: true, name: true, jobRole: { select: { name: true } } } }
+      },
       orderBy: { collaborator: { name: 'asc' } }
     }),
     prisma.collaborator.findMany({
       where: { id: { in: [...new Set([...manualIds, ...sleepModeIds])] } },
-      select: { id: true, name: true, role: true }
+      select: { id: true, name: true, jobRole: { select: { name: true } } }
     })
   ]);
 
-  for (const row of rdoCollaborators) addLaborCollaborator(rows, row.collaborator, 'RDO');
+  for (const row of rdoCollaborators) {
+    addLaborCollaborator(rows, { ...row.collaborator, roleNameSnapshot: row.roleNameSnapshot }, 'RDO');
+  }
   const manualById = new Map(manualCollaborators.map(collaborator => [collaborator.id, collaborator]));
   for (const id of [...manualIds, ...sleepModeIds]) addLaborCollaborator(rows, manualById.get(id), 'MANUAL');
 
@@ -506,7 +511,7 @@ export async function listProjectRevisions(projectId) {
       offshore: true,
       laborSleepModeByCollaborator: true,
       laborCollaboratorIds: true,
-      operator: { select: { id: true, name: true, role: true } }
+      operator: { select: { id: true, name: true, jobRole: { select: { name: true } } } }
     }
   });
   if (!project) throw new Error('Projeto não encontrado.');

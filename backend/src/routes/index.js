@@ -29,6 +29,8 @@ import surveysRouter from './resources/surveys.js';
 import unitsRouter from './resources/units.js';
 import uploadsRouter from './resources/uploads.js';
 import usersRouter from './resources/users.js';
+import efetivoRouter from './resources/efetivo.js';
+import workforceRouter from './workforce.js';
 // module:scaffold import
 
 const router = Router();
@@ -68,6 +70,8 @@ router.use('/acompanhamento/comercial', acompanhamentoComercialRouter);
 router.use('/acompanhamento/custo', acompanhamentoCustoRouter);
 router.use('/acompanhamento/ponto', acompanhamentoPontoRouter);
 router.use('/operations', operationsRouter);
+router.use('/efetivo', efetivoRouter);
+router.use('/workforce', workforceRouter);
 // module:scaffold mount
 router.use('/admin/accounts', usersRouter);
 router.use('/users', usersRouter);

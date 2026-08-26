@@ -108,9 +108,10 @@ export function buildPlannedRoleCounts(plannedRows = [], collaborators = [], pla
   const roleByCollaboratorId = new Map();
   const useTurnAwareReports = Array.isArray(reports);
   for (const c of collaborators) {
-    if (c.collaboratorId && c.collaborator?.role) roleByCollaboratorId.set(c.collaboratorId, c.collaborator.role);
+    const currentRole = c.roleNameSnapshot || c.collaborator?.jobRole?.name;
+    if (c.collaboratorId && currentRole) roleByCollaboratorId.set(c.collaboratorId, currentRole);
     const workedMinutes = (c.report?.daytimeWorkedMinutes || 0) + (useTurnAwareReports ? 0 : c.report?.nighttimeWorkedMinutes || 0);
-    addRoleWork(collaboratorIdsByRole, workedHoursByRole, c.collaboratorId, c.collaborator?.role, workedMinutes);
+    addRoleWork(collaboratorIdsByRole, workedHoursByRole, c.collaboratorId, currentRole, workedMinutes);
   }
 
   if (useTurnAwareReports) {
@@ -260,7 +261,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       select: {
         reportId: true,
         collaboratorId: true,
-        collaborator: { select: { name: true, role: true } },
+        roleNameSnapshot: true,
+        collaborator: { select: { name: true, jobRole: { select: { name: true } } } },
         report: { select: { daytimeWorkedMinutes: true, nighttimeWorkedMinutes: true } }
       }
     }),
@@ -400,7 +402,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   for (const c of collaborators) {
     ensureCollaborator(c.collaboratorId, {
       name: c.collaborator?.name || '',
-      role: c.collaborator?.role || ''
+      role: c.roleNameSnapshot || c.collaborator?.jobRole?.name || ''
     });
   }
   for (const report of reports) {

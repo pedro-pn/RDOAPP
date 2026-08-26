@@ -4,11 +4,12 @@ import type { Collaborator } from '../types/domain';
 export interface CollaboratorPayload {
   code?: string;
   name: string;
-  role: string;
+  jobRoleId: string;
   email?: string | null;
   signatureImage?: string | null;
   signatureNoticeAccepted?: true;
   signatureNoticeVersion?: string;
+  terminationDate?: string | null;
   isActive?: boolean;
 }
 

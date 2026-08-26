@@ -51,6 +51,7 @@ import {
   type ManualReportCollaboratorReplicationPrompt
 } from './manualReportCollaboratorReplication';
 import { ManualReportUploadFileCard } from './ManualReportUploadFileCard';
+import { CollaboratorForm, type CollaboratorFormState } from './CollaboratorForm';
 import {
   manualReportFileId,
   manualReportUploadListLabel,
@@ -236,15 +237,6 @@ interface ManualReportFormState extends ManualReportOperationalFieldsValue {
   files: ManualReportUploadFileState[];
 }
 
-interface CollaboratorFormState {
-  name: string;
-  role: string;
-  email: string;
-  signatureImage: string;
-  signatureNoticeAccepted: boolean;
-  isActive: boolean;
-}
-
 interface UserFormState {
   username: string;
   name: string;
@@ -321,8 +313,9 @@ const emptyManualReportForm: ManualReportFormState = {
 
 const emptyCollaboratorForm: CollaboratorFormState = {
   name: '',
-  role: '',
+  jobRoleId: '',
   email: '',
+  terminationDate: '',
   signatureImage: '',
   signatureNoticeAccepted: false,
   isActive: true
@@ -922,8 +915,9 @@ function ProjectReportSequenceFields({
 function collaboratorToForm(collaborator: Collaborator): CollaboratorFormState {
   return {
     name: collaborator.name,
-    role: collaborator.role,
+    jobRoleId: collaborator.jobRoleId,
     email: collaborator.email || '',
+    terminationDate: collaborator.terminationDate?.slice(0, 10) || '',
     signatureImage: normalizeSignatureImage(collaborator.signatureImage),
     signatureNoticeAccepted: Boolean(collaborator.signatureNoticeAcceptedAt || collaborator.signatureNoticeVersion),
     isActive: collaborator.isActive
@@ -1206,14 +1200,15 @@ export function GestorPage() {
   const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
   const commercialPendenciaByProject = useMemo(() => commercialPendenciaMapByProject(commercialPendenciasQuery.data || []), [commercialPendenciasQuery.data]);
   const jobRolesQuery = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
-  const jobRoleNames = useMemo(() => (jobRolesQuery.data || []).map(role => role.name), [jobRolesQuery.data]);
+  const jobRoleIds = useMemo(() => new Set((jobRolesQuery.data || []).map(role => role.id)), [jobRolesQuery.data]);
   const renderRoleOptions = (value: string) => {
-    const showCurrent = Boolean(value) && !jobRoleNames.includes(value);
+    const current = collaboratorsQuery.data?.find(item => item.jobRoleId === value)?.jobRole;
+    const showCurrent = Boolean(current) && !jobRoleIds.has(value);
     return (
       <>
         <option value="" disabled>Selecione o cargo</option>
-        {showCurrent ? <option value={value}>{value} (atual)</option> : null}
-        {jobRoleNames.map(name => <option key={name} value={name}>{name}</option>)}
+        {showCurrent ? <option value={value}>{current?.name} (inativo)</option> : null}
+        {(jobRolesQuery.data || []).map(role => <option key={role.id} value={role.id}>{role.name}</option>)}
       </>
     );
   };
@@ -1897,8 +1892,9 @@ export function GestorPage() {
 
     const payload = {
       name: collaboratorForm.name.trim(),
-      role: collaboratorForm.role.trim(),
+      jobRoleId: collaboratorForm.jobRoleId,
       email: collaboratorForm.email.trim() || null,
+      terminationDate: collaboratorForm.terminationDate || null,
       signatureImage,
       isActive: collaboratorForm.isActive,
       ...(signatureImage ? {
@@ -3447,70 +3443,16 @@ export function GestorPage() {
             ) : null}
           </div>
           {showCollaboratorForm && !collaboratorEditingId ? (
-	          <form className="admin-inline-form" onSubmit={handleCollaboratorSubmit} autoComplete="off">
-	            <div className="admin-toolbar full">
-	              <div className="sec">Novo colaborador</div>
-	              <button className="mini-btn alt" type="button" onClick={resetCollaboratorForm}>Cancelar</button>
-	            </div>
-	            <div className="admin-inline-grid">
-	              <div className="field-group">
-	                <label htmlFor="collaborator-name">Nome</label>
-	                <input
-	                  id="collaborator-name"
-	                  value={collaboratorForm.name}
-	                  autoComplete="off"
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, name: event.target.value }))}
-	                  required
-	                />
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="collaborator-role">Cargo</label>
-	                <select
-	                  id="collaborator-role"
-	                  value={collaboratorForm.role}
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
-	                  required
-	                >
-	                  {renderRoleOptions(collaboratorForm.role)}
-	                </select>
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="collaborator-email">E-mail</label>
-	                <input
-	                  id="collaborator-email"
-	                  type="email"
-	                  value={collaboratorForm.email}
-	                  autoComplete="off"
-	                  placeholder="email@empresa.com"
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, email: event.target.value }))}
-	                />
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="collaborator-active">Status</label>
-	                <select
-	                  id="collaborator-active"
-	                  value={String(collaboratorForm.isActive)}
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
-	                >
-	                  <option value="true">Ativo</option>
-	                  <option value="false">Inativo</option>
-	                </select>
-	              </div>
-	              {renderCollaboratorSignatureField()}
-	              <div className="admin-form-actions">
-	                <button
-	                  className="mini-btn"
-	                  type="submit"
-	                  disabled={
-	                    collaboratorMutations.createCollaborator.isPending ||
-	                    collaboratorMutations.updateCollaborator.isPending
-	                  }
-	                >
-	                  Salvar
-	                </button>
-	              </div>
-	            </div>
-	          </form>
+            <CollaboratorForm
+              title="Novo colaborador"
+              value={collaboratorForm}
+              roleOptions={renderRoleOptions(collaboratorForm.jobRoleId)}
+              signatureField={renderCollaboratorSignatureField()}
+              isPending={collaboratorMutations.createCollaborator.isPending || collaboratorMutations.updateCollaborator.isPending}
+              onChange={setCollaboratorForm}
+              onCancel={resetCollaboratorForm}
+              onSubmit={handleCollaboratorSubmit}
+            />
           ) : null}
 
           {collaborators.length ? (
@@ -3541,62 +3483,18 @@ export function GestorPage() {
                       {collaborator.isActive !== false ? <button className="mini-btn danger" type="button" onClick={() => void handleCollaboratorToggle(collaborator)}>Remover</button> : null}
                     </div>
                   </div>
-	                  {collaboratorEditingId === collaborator.id ? (
-	                    <form className="admin-inline-form" onSubmit={handleCollaboratorSubmit} autoComplete="off">
-	                      <div className="admin-toolbar full">
-	                        <div className="sec">Editar colaborador</div>
-	                        <button className="mini-btn alt" type="button" onClick={resetCollaboratorForm}>Cancelar</button>
-	                      </div>
-	                      <div className="admin-inline-grid">
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-name-${collaborator.id}`}>Nome</label>
-	                          <input
-	                            id={`collaborator-name-${collaborator.id}`}
-	                            value={collaboratorForm.name}
-	                            autoComplete="off"
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, name: event.target.value }))}
-	                            required
-	                          />
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-role-${collaborator.id}`}>Cargo</label>
-	                          <select
-	                            id={`collaborator-role-${collaborator.id}`}
-	                            value={collaboratorForm.role}
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
-	                            required
-	                          >
-	                            {renderRoleOptions(collaboratorForm.role)}
-	                          </select>
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-email-${collaborator.id}`}>E-mail</label>
-	                          <input
-	                            id={`collaborator-email-${collaborator.id}`}
-	                            type="email"
-	                            value={collaboratorForm.email}
-	                            autoComplete="off"
-	                            placeholder="email@empresa.com"
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, email: event.target.value }))}
-	                          />
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-active-${collaborator.id}`}>Status</label>
-	                          <select
-	                            id={`collaborator-active-${collaborator.id}`}
-	                            value={String(collaboratorForm.isActive)}
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
-	                          >
-	                            <option value="true">Ativo</option>
-	                            <option value="false">Inativo</option>
-	                          </select>
-	                        </div>
-	                        {renderCollaboratorSignatureField()}
-	                        <div className="admin-form-actions">
-	                          <button className="mini-btn" type="submit" disabled={collaboratorMutations.updateCollaborator.isPending}>Salvar</button>
-	                        </div>
-	                      </div>
-	                    </form>
+                  {collaboratorEditingId === collaborator.id ? (
+                    <CollaboratorForm
+                      idSuffix={collaborator.id}
+                      title="Editar colaborador"
+                      value={collaboratorForm}
+                      roleOptions={renderRoleOptions(collaboratorForm.jobRoleId)}
+                      signatureField={renderCollaboratorSignatureField()}
+                      isPending={collaboratorMutations.updateCollaborator.isPending}
+                      onChange={setCollaboratorForm}
+                      onCancel={resetCollaboratorForm}
+                      onSubmit={handleCollaboratorSubmit}
+                    />
 	                  ) : null}
                 </article>
               ))}

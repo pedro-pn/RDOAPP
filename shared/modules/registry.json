@@ -33,7 +33,11 @@
       "copy": "Controle de relatórios, aprovações, clientes e estatísticas.",
       "hub": {
         "enabled": true,
-        "roles": ["rdo:manager", "rdo:coordinator", "rdo:collaborator"],
+        "roles": [
+          "rdo:manager",
+          "rdo:coordinator",
+          "rdo:collaborator"
+        ],
         "pathStrategy": "roleHome"
       },
       "pathPrefixes": [
@@ -80,24 +84,48 @@
       },
       "routeGroups": {
         "reportWrite": {
-          "allowedRoles": ["COLLABORATOR", "MANAGER", "COORDINATOR"],
-          "allowedModuleRoles": ["rdo:collaborator", "rdo:manager", "rdo:coordinator"]
+          "allowedRoles": [
+            "COLLABORATOR",
+            "MANAGER",
+            "COORDINATOR"
+          ],
+          "allowedModuleRoles": [
+            "rdo:collaborator",
+            "rdo:manager",
+            "rdo:coordinator"
+          ]
         },
         "collaborator": {
-          "allowedRoles": ["COLLABORATOR"],
-          "allowedModuleRoles": ["rdo:collaborator"]
+          "allowedRoles": [
+            "COLLABORATOR"
+          ],
+          "allowedModuleRoles": [
+            "rdo:collaborator"
+          ]
         },
         "manager": {
-          "allowedRoles": ["MANAGER"],
-          "allowedModuleRoles": ["rdo:manager"]
+          "allowedRoles": [
+            "MANAGER"
+          ],
+          "allowedModuleRoles": [
+            "rdo:manager"
+          ]
         },
         "coordinator": {
-          "allowedRoles": ["COORDINATOR"],
-          "allowedModuleRoles": ["rdo:coordinator"]
+          "allowedRoles": [
+            "COORDINATOR"
+          ],
+          "allowedModuleRoles": [
+            "rdo:coordinator"
+          ]
         },
         "client": {
-          "allowedRoles": ["CLIENT"],
-          "allowedModuleRoles": ["rdo:client"]
+          "allowedRoles": [
+            "CLIENT"
+          ],
+          "allowedModuleRoles": [
+            "rdo:client"
+          ]
         }
       },
       "roles": [
@@ -105,28 +133,36 @@
           "code": "RDO_MANAGER",
           "public": "rdo:manager",
           "label": "RDO - Gestor",
-          "accountTypes": ["ADMIN"],
+          "accountTypes": [
+            "ADMIN"
+          ],
           "requiredLegacyRole": "MANAGER"
         },
         {
           "code": "RDO_COORDINATOR",
           "public": "rdo:coordinator",
           "label": "RDO - Coordenador",
-          "accountTypes": ["INTERNAL"],
+          "accountTypes": [
+            "INTERNAL"
+          ],
           "requiredLegacyRole": "COORDINATOR"
         },
         {
           "code": "RDO_COLLABORATOR",
           "public": "rdo:collaborator",
           "label": "RDO - Colaborador",
-          "accountTypes": ["INTERNAL"],
+          "accountTypes": [
+            "INTERNAL"
+          ],
           "requiredLegacyRole": "COLLABORATOR"
         },
         {
           "code": "RDO_CLIENT",
           "public": "rdo:client",
           "label": "RDO - Cliente",
-          "accountTypes": ["CLIENT"],
+          "accountTypes": [
+            "CLIENT"
+          ],
           "requiredLegacyRole": "CLIENT"
         }
       ]
@@ -141,13 +177,17 @@
         "adminOnly": true,
         "path": "/admin/accounts"
       },
-      "pathPrefixes": ["/admin"],
+      "pathPrefixes": [
+        "/admin"
+      ],
       "routes": {
         "accounts": "/admin/accounts"
       },
       "routeGroups": {
         "accounts": {
-          "allowedAccountTypes": ["ADMIN"]
+          "allowedAccountTypes": [
+            "ADMIN"
+          ]
         }
       },
       "roles": []
@@ -160,17 +200,28 @@
       "copy": "Cadastro, calibração, documentação técnica e notificações dos equipamentos.",
       "hub": {
         "enabled": true,
-        "roles": ["equipamentos:manager", "equipamentos:viewer"],
+        "roles": [
+          "equipamentos:manager",
+          "equipamentos:viewer"
+        ],
         "path": "/equipamentos"
       },
-      "pathPrefixes": ["/equipamentos"],
+      "pathPrefixes": [
+        "/equipamentos"
+      ],
       "routes": {
         "index": "/equipamentos"
       },
       "routeGroups": {
         "default": {
-          "allowedAccountTypes": ["ADMIN", "INTERNAL"],
-          "allowedModuleRoles": ["equipamentos:manager", "equipamentos:viewer"]
+          "allowedAccountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "allowedModuleRoles": [
+            "equipamentos:manager",
+            "equipamentos:viewer"
+          ]
         }
       },
       "roles": [
@@ -178,13 +229,19 @@
           "code": "EQUIPAMENTOS_MANAGER",
           "public": "equipamentos:manager",
           "label": "Equipamentos - Gestor",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         },
         {
           "code": "EQUIPAMENTOS_VIEWER",
           "public": "equipamentos:viewer",
           "label": "Equipamentos - Visualizador",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         }
       ]
     },
@@ -196,17 +253,28 @@
       "copy": "Controle de filtros, produtos químicos, lotes e movimentações.",
       "hub": {
         "enabled": true,
-        "roles": ["estoque:manager", "estoque:viewer"],
+        "roles": [
+          "estoque:manager",
+          "estoque:viewer"
+        ],
         "path": "/estoque"
       },
-      "pathPrefixes": ["/estoque"],
+      "pathPrefixes": [
+        "/estoque"
+      ],
       "routes": {
         "index": "/estoque"
       },
       "routeGroups": {
         "default": {
-          "allowedAccountTypes": ["ADMIN", "INTERNAL"],
-          "allowedModuleRoles": ["estoque:manager", "estoque:viewer"]
+          "allowedAccountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "allowedModuleRoles": [
+            "estoque:manager",
+            "estoque:viewer"
+          ]
         }
       },
       "roles": [
@@ -214,13 +282,19 @@
           "code": "ESTOQUE_MANAGER",
           "public": "estoque:manager",
           "label": "Estoque - Gestor",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         },
         {
           "code": "ESTOQUE_VIEWER",
           "public": "estoque:viewer",
           "label": "Estoque - Visualizador",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         }
       ]
     },
@@ -232,17 +306,28 @@
       "copy": "Registros de melhorias, desvios, licoes aprendidas e incidentes.",
       "hub": {
         "enabled": true,
-        "roles": ["qualidade:manager", "qualidade:viewer"],
+        "roles": [
+          "qualidade:manager",
+          "qualidade:viewer"
+        ],
         "path": "/qualidade"
       },
-      "pathPrefixes": ["/qualidade"],
+      "pathPrefixes": [
+        "/qualidade"
+      ],
       "routes": {
         "index": "/qualidade"
       },
       "routeGroups": {
         "default": {
-          "allowedAccountTypes": ["ADMIN", "INTERNAL"],
-          "allowedModuleRoles": ["qualidade:manager", "qualidade:viewer"]
+          "allowedAccountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "allowedModuleRoles": [
+            "qualidade:manager",
+            "qualidade:viewer"
+          ]
         }
       },
       "roles": [
@@ -250,13 +335,19 @@
           "code": "QUALIDADE_MANAGER",
           "public": "qualidade:manager",
           "label": "Qualidade - Gestor",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         },
         {
           "code": "QUALIDADE_VIEWER",
           "public": "qualidade:viewer",
           "label": "Qualidade - Visualizador",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         }
       ]
     },
@@ -268,17 +359,28 @@
       "copy": "Dashboard de previsto x realizado, custos e cronograma dos projetos.",
       "hub": {
         "enabled": true,
-        "roles": ["acompanhamento:manager", "acompanhamento:viewer"],
+        "roles": [
+          "acompanhamento:manager",
+          "acompanhamento:viewer"
+        ],
         "path": "/acompanhamento"
       },
-      "pathPrefixes": ["/acompanhamento"],
+      "pathPrefixes": [
+        "/acompanhamento"
+      ],
       "routes": {
         "index": "/acompanhamento"
       },
       "routeGroups": {
         "default": {
-          "allowedAccountTypes": ["ADMIN", "INTERNAL"],
-          "allowedModuleRoles": ["acompanhamento:manager", "acompanhamento:viewer"]
+          "allowedAccountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "allowedModuleRoles": [
+            "acompanhamento:manager",
+            "acompanhamento:viewer"
+          ]
         }
       },
       "roles": [
@@ -286,13 +388,19 @@
           "code": "ACOMPANHAMENTO_MANAGER",
           "public": "acompanhamento:manager",
           "label": "Acompanhamento - Gestor",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         },
         {
           "code": "ACOMPANHAMENTO_VIEWER",
           "public": "acompanhamento:viewer",
           "label": "Acompanhamento - Visualizador",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         }
       ]
     },
@@ -304,18 +412,29 @@
       "copy": "Controle de romaneios, equipamentos e notificações.",
       "hub": {
         "enabled": true,
-        "roles": ["romaneio:manager", "romaneio:operator"],
+        "roles": [
+          "romaneio:manager",
+          "romaneio:operator"
+        ],
         "path": "/romaneio"
       },
-      "pathPrefixes": ["/romaneio"],
+      "pathPrefixes": [
+        "/romaneio"
+      ],
       "routes": {
         "index": "/romaneio",
         "new": "/romaneio/novo"
       },
       "routeGroups": {
         "default": {
-          "allowedAccountTypes": ["ADMIN", "INTERNAL"],
-          "allowedModuleRoles": ["romaneio:manager", "romaneio:operator"]
+          "allowedAccountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "allowedModuleRoles": [
+            "romaneio:manager",
+            "romaneio:operator"
+          ]
         }
       },
       "roles": [
@@ -323,13 +442,19 @@
           "code": "ROMANEIO_MANAGER",
           "public": "romaneio:manager",
           "label": "Romaneio - Gestor",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         },
         {
           "code": "ROMANEIO_OPERATOR",
           "public": "romaneio:operator",
           "label": "Romaneio - Operador",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         }
       ]
     },
@@ -341,18 +466,31 @@
       "copy": "Fichas de entrega, devolução e assinatura por colaborador.",
       "hub": {
         "enabled": true,
-        "roles": ["epi:technician", "epi:collaborator"],
+        "roles": [
+          "epi:technician",
+          "epi:collaborator"
+        ],
         "path": "/epi"
       },
-      "pathPrefixes": ["/epi"],
-      "pathExclusions": ["/epi/assinar"],
+      "pathPrefixes": [
+        "/epi"
+      ],
+      "pathExclusions": [
+        "/epi/assinar"
+      ],
       "routes": {
         "index": "/epi"
       },
       "routeGroups": {
         "default": {
-          "allowedAccountTypes": ["ADMIN", "INTERNAL"],
-          "allowedModuleRoles": ["epi:technician", "epi:collaborator"]
+          "allowedAccountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "allowedModuleRoles": [
+            "epi:technician",
+            "epi:collaborator"
+          ]
         }
       },
       "roles": [
@@ -360,13 +498,19 @@
           "code": "EPI_TECHNICIAN",
           "public": "epi:technician",
           "label": "EPI - Técnico",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         },
         {
           "code": "EPI_COLLABORATOR",
           "public": "epi:collaborator",
           "label": "EPI - Colaborador",
-          "accountTypes": ["ADMIN", "INTERNAL"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         }
       ]
     },
@@ -378,16 +522,22 @@
       "copy": "Acompanhe solicitações de titulares e protocolos LGPD.",
       "hub": {
         "enabled": true,
-        "roles": ["privacy:admin"],
+        "roles": [
+          "privacy:admin"
+        ],
         "path": "/privacidade/solicitacoes"
       },
-      "pathPrefixes": ["/privacidade/solicitacoes"],
+      "pathPrefixes": [
+        "/privacidade/solicitacoes"
+      ],
       "routes": {
         "requests": "/privacidade/solicitacoes"
       },
       "routeGroups": {
         "default": {
-          "allowedModuleRoles": ["privacy:admin"]
+          "allowedModuleRoles": [
+            "privacy:admin"
+          ]
         }
       },
       "roles": [
@@ -395,8 +545,66 @@
           "code": "PRIVACY_ADMIN",
           "public": "privacy:admin",
           "label": "Privacidade - Admin",
-          "accountTypes": ["ADMIN", "INTERNAL"],
-          "assignableAccountTypes": ["ADMIN"]
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "assignableAccountTypes": [
+            "ADMIN"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "efetivo",
+      "prismaModule": "EFETIVO",
+      "badge": "EFET",
+      "title": "Efetivo Operacional",
+      "copy": "Produtividade, improdutividade e férias do efetivo operacional.",
+      "hub": {
+        "enabled": true,
+        "roles": [
+          "efetivo:manager",
+          "efetivo:viewer"
+        ],
+        "path": "/efetivo"
+      },
+      "pathPrefixes": [
+        "/efetivo"
+      ],
+      "routes": {
+        "root": "/efetivo"
+      },
+      "routeGroups": {
+        "default": {
+          "allowedAccountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ],
+          "allowedModuleRoles": [
+            "efetivo:manager",
+            "efetivo:viewer"
+          ]
+        }
+      },
+      "roles": [
+        {
+          "code": "EFETIVO_MANAGER",
+          "public": "efetivo:manager",
+          "label": "Efetivo Operacional - Gestor",
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
+        },
+        {
+          "code": "EFETIVO_VIEWER",
+          "public": "efetivo:viewer",
+          "label": "Efetivo Operacional - Visualizador",
+          "accountTypes": [
+            "ADMIN",
+            "INTERNAL"
+          ]
         }
       ]
     }

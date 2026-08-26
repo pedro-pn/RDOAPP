@@ -536,9 +536,9 @@ router.get(
     const collaborators = await prisma.collaborator.findMany({
       where: includeInactive ? {} : { isActive: true },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, role: true, isActive: true }
+      select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } }, isActive: true }
     });
-    res.json(collaborators);
+    res.json(collaborators.map(item => ({ ...item, role: item.jobRole?.name || '' })));
   })
 );
 

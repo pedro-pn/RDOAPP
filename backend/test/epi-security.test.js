@@ -89,11 +89,15 @@ function signatureRequest(overrides = {}) {
     collaborator: {
       id: 'collab-1',
       name: 'Colaborador',
-      role: 'Técnico',
+      jobRoleId: 'role-tech',
+      jobRole: { id: 'role-tech', name: 'Técnico' },
       cpf: '123.456.789-09',
       registrationNumber: 'M-1',
       admissionDate: new Date('2024-01-01T12:00:00.000Z')
     },
+    jobRoleIdSnapshot: 'role-tech',
+    roleNameSnapshot: 'Técnico',
+    roleSourceSnapshot: 'CANONICAL',
     records: [
       {
         id: 'record-1',
@@ -178,16 +182,19 @@ test('public EPI signature payload omits CPF and signature image data', () => {
 
 test('EPI role override is limited to the EPI representation and falls back to the official role', () => {
   const collaborator = {
-    role: 'Eletricista',
-    epiRoleOverride: 'Auxiliar de eletricista'
+    jobRole: { id: 'role-electrician', name: 'Eletricista' },
+    epiProfile: { roleOverrideJobRole: { id: 'role-helper', name: 'Auxiliar de eletricista' } }
   };
   const request = signatureRequest();
   request.collaborator = { ...request.collaborator, ...collaborator };
+  request.jobRoleIdSnapshot = 'role-helper';
+  request.roleNameSnapshot = 'Auxiliar de eletricista';
+  request.roleSourceSnapshot = 'EPI_OVERRIDE';
 
   assert.equal(effectiveEpiRole(collaborator), 'Auxiliar de eletricista');
   assert.equal(publicEpiSignaturePayload(request).collaborator.role, 'Auxiliar de eletricista');
-  assert.equal(collaborator.role, 'Eletricista');
-  assert.equal(effectiveEpiRole({ role: 'Eletricista', epiRoleOverride: null }), 'Eletricista');
+  assert.equal(collaborator.jobRole.name, 'Eletricista');
+  assert.equal(effectiveEpiRole({ jobRole: { id: 'role-electrician', name: 'Eletricista' }, epiProfile: null }), 'Eletricista');
 });
 
 test('EPI DOCX uses the temporary EPI role instead of the official role', async () => {
@@ -195,8 +202,8 @@ test('EPI DOCX uses the temporary EPI role instead of the official role', async 
     id: 'collab-1',
     code: 'COL-1',
     name: 'Colaborador',
-    role: 'Eletricista oficial',
-    epiRoleOverride: 'Auxiliar temporário',
+    jobRole: { id: 'role-electrician', name: 'Eletricista oficial' },
+    epiProfile: { roleOverrideJobRole: { id: 'role-helper', name: 'Auxiliar temporário' } },
     createdAt: new Date('2026-08-19T12:00:00.000Z'),
     epiRecords: []
   });
@@ -210,14 +217,14 @@ test('EPI DOCX uses the temporary EPI role instead of the official role', async 
   assert.doesNotMatch(documentXml, /Eletricista oficial/);
 });
 
-test('public EPI PDF cache changes when the EPI role changes', () => {
+test('public EPI PDF cache preserves the request role snapshot when the current EPI override changes', () => {
   const request = signatureRequest();
   request.collaborator.updatedAt = new Date('2026-08-19T12:00:00.000Z');
   const officialRoleKey = publicPdfCacheKey(request);
 
-  request.collaborator.epiRoleOverride = 'Auxiliar temporário';
+  request.collaborator.epiProfile = { roleOverrideJobRole: { id: 'role-helper', name: 'Auxiliar temporário' } };
 
-  assert.notEqual(publicPdfCacheKey(request), officialRoleKey);
+  assert.equal(publicPdfCacheKey(request), officialRoleKey);
 });
 
 test('public EPI signature payload hides records after token is consumed or expired', () => {

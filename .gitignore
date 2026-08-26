@@ -82,6 +82,7 @@ backend/Relatórios/**
 
 # Added by code-review-graph
 .code-review-graph/
+.playwright-cli/
 
 # Saída do script de reparo de imagens
 faltantes-fotos.csv

@@ -235,7 +235,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const users = await prisma.user.findMany({
     where,
-    include: { collaborator: true, moduleRoles: true },
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true },
     orderBy: [{ role: 'asc' }, { name: 'asc' }]
   });
 
@@ -344,7 +344,7 @@ router.post('/', asyncHandler(async (req, res) => {
         create: moduleRoleRows('', accountPayload.moduleRoles).map(({ module, role }) => ({ module, role }))
       }
     },
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 
   if (user.email && INTERNAL_ACCOUNT_ROLES.has(user.role)) {
@@ -407,7 +407,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const user = await prisma.user.update({
     where: { id: req.params.id },
     data: payload,
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 
   res.json(publicUser(user));
