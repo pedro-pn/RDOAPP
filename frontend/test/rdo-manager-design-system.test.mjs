@@ -82,7 +82,7 @@ test('manager search only references the results region while that region exists
 
   assert.match(
     page,
-    /const reportResultsId =\s*!reportListQuery\.isLoadingInitial && approvedReports\.length > 0\s*\? 'rdo-manager-report-results'\s*: undefined/
+    /const reportResultsId =\s*tab === 'arquivados'[\s\S]*?\? 'rdo-manager-archived-results'[\s\S]*?!reportListQuery\.isLoadingInitial && approvedReports\.length > 0[\s\S]*?\? 'rdo-manager-report-results'/
   );
   assert.match(page, /resultsId=\{reportResultsId\}/);
   assert.match(
@@ -93,6 +93,14 @@ test('manager search only references the results region while that region exists
     page.match(/id="rdo-manager-report-results"/g)?.length,
     1,
     'a região controlada deve existir uma única vez no estado populado'
+  );
+  assert.match(
+    page,
+    /id="rdo-manager-archived-results"[\s\S]*?aria-label="Lista de projetos arquivados"/
+  );
+  assert.match(
+    page,
+    /!reportListQuery\.isLoadingInitial && !archivedProjectsQuery\.isLoading/
   );
   assert.match(page, /if \(reportListQuery\.isLoadingInitial\)/);
   assert.match(page, /if \(!visibleReports\.length\)/);

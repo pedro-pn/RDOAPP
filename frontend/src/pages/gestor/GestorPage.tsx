@@ -42,6 +42,8 @@ import { ImageDropzone } from '../../components/ui/ImageDropzone';
 import { InfiniteScrollSentinel } from '../../components/ui/InfiniteScrollSentinel';
 import { SearchBar } from '../../components/ui/SearchBar';
 import {
+  Alert,
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -1005,6 +1007,7 @@ function renderProjectCard(
     children?: ReactNode;
     segments?: ClientSegment[];
     commercialPendencia?: CommercialPendencia | null;
+    appearance?: 'legacy' | 'design-system';
   }
 ) {
   const survey = latestSurvey(project);
@@ -1014,6 +1017,168 @@ function renderProjectCard(
   const pendingRegistration = projectRegistrationPending(project);
   const title = projectTitle(project);
   const commercialPendenciaText = options.commercialPendencia ? commercialPendenciaAlertText(options.commercialPendencia) : null;
+  if (options.appearance === 'design-system') {
+    const reportsRegionId = `archived-project-reports-${project.id}`;
+    const detailsRegionId = `archived-project-details-${project.id}`;
+    const scheduleLabel = project.includesSaturday || project.includesSunday
+      ? 'Escala estendida'
+      : 'Escala padrão';
+    const detailRows: Array<[string, ReactNode]> = [
+      ['Cliente', project.clientName || '-'],
+      ['CNPJ', formatCnpj(project.clientCnpj) || '-'],
+      ['E-mail principal', project.clientEmailPrimary || '-'],
+      ['Signatário principal', formatPrimaryProjectSigner(project)],
+      ['E-mails em cópia', formatList(project.clientEmailCc || [])],
+      ['Assinantes adicionais', formatProjectSigners(project.clientSigners)],
+      ['Proposta', project.contractCode || '-'],
+      ['Local', project.location || '-'],
+      ['Operador', project.operator?.name || '-'],
+      ['Visibilidade', projectVisibilityLabel(project)],
+      ['Sequenciais', formatProjectSequences(project)]
+    ];
+    if (project.clientSegment) {
+      detailRows.splice(9, 0, [
+        'Segmento',
+        (options.segments || []).find(s => s.slug === project.clientSegment)?.label || project.clientSegment
+      ]);
+    }
+
+    return (
+      <Card
+        className="rdo-archived-project-card rdo-ds-actions"
+        data-archived-project-id={project.id}
+        key={project.id}
+        padding="md"
+        title={options.onToggleReports ? (
+          <button
+            className="rdo-archived-project-card__toggle"
+            type="button"
+            aria-expanded={options.reportSectionExpanded}
+            aria-controls={reportsRegionId}
+            onClick={() => options.onToggleReports?.(project)}
+          >
+            <span className="rdo-archived-project-card__kicker">Projeto arquivado</span>
+            <span className="rdo-archived-project-card__title">{title}</span>
+            <span className="rdo-archived-project-card__count">
+              {options.reportCount || 0} relatório{options.reportCount === 1 ? '' : 's'}
+            </span>
+            <AppIcon
+              className="rdo-archived-project-card__chevron"
+              icon={DS_ICONS.chevronDown}
+              size="sm"
+            />
+          </button>
+        ) : (
+          <h3 className="rdo-archived-project-card__title">{title}</h3>
+        )}
+        actions={
+          <div className="rdo-archived-project-card__badges">
+            <Badge tone={project.includesSaturday || project.includesSunday ? 'success' : 'neutral'}>
+              {scheduleLabel}
+            </Badge>
+            <StatusPill status="archived" label="Arquivado" tone="neutral" />
+          </div>
+        }
+        footer={
+          <div className="rdo-archived-project-card__actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              aria-expanded={options.detailsExpanded}
+              aria-controls={detailsRegionId}
+              onClick={() => options.onToggleDetails(project)}
+            >
+              {options.detailsExpanded ? 'Ocultar detalhes' : 'Mostrar detalhes'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={() => options.onToggleArchive(project)}
+            >
+              Desarquivar
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              aria-label={`Editar: ${title}`}
+              onClick={() => options.onEdit(project)}
+            >
+              Editar
+            </Button>
+            {options.onRemove ? (
+              <Button
+                variant="danger"
+                size="sm"
+                type="button"
+                iconLeft={<AppIcon icon={DS_ICONS.trash} size="sm" />}
+                onClick={() => options.onRemove?.(project)}
+              >
+                Excluir
+              </Button>
+            ) : null}
+            {surveyInfos.map((surveyInfo, index) => (
+              <Badge
+                key={`${project.id}-survey-badge-${index}`}
+                tone={surveyInfo.className.includes('badge-ok')
+                  ? 'success'
+                  : surveyInfo.className.includes('badge-rev')
+                    ? 'info'
+                    : 'warning'}
+              >
+                {surveyInfo.label}
+              </Badge>
+            ))}
+            {canSendSurvey && !canResendSurvey && options.onSendSurvey ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                disabled={options.surveyPending}
+                onClick={() => options.onSendSurvey?.(project)}
+              >
+                Enviar pesquisa
+              </Button>
+            ) : null}
+            {canResendSurvey && survey && options.onResendSurvey ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                disabled={options.surveyPending}
+                onClick={() => options.onResendSurvey?.(survey)}
+              >
+                Reenviar pesquisa
+              </Button>
+            ) : null}
+          </div>
+        }
+      >
+        {commercialPendenciaText ? (
+          <Alert tone="warning" title="Revisão comercial pendente">
+            {commercialPendenciaText}
+          </Alert>
+        ) : null}
+        <div id={reportsRegionId}>{options.children}</div>
+        {options.detailsExpanded ? (
+          <div className="rdo-archived-project-card__details" id={detailsRegionId}>
+            <dl>
+              {detailRows.map(([label, value]) => (
+                <div className="rdo-archived-project-card__detail" key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {options.commercialPendencia ? <ProjectRevisionPicker projectId={project.id} /> : null}
+          </div>
+        ) : null}
+      </Card>
+    );
+  }
+
   return (
     <article className={`card admin-card project-admin-card ${pendingRegistration ? 'project-admin-card-pending' : ''}`} key={project.id}>
       <div className="project-admin-head">
@@ -1165,6 +1330,7 @@ export function GestorPage() {
   const showToast = useToast();
   const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
   const reportListingTab = tab === 'pendentes' || tab === 'aprovados';
+  const archivedProjectsTab = tab === 'arquivados';
   const statisticsTab = tab === 'estatisticas';
   const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
@@ -2420,11 +2586,14 @@ export function GestorPage() {
     }
   }
 
-  function renderManagerReportActions(report: ReportSummary) {
+  function renderManagerReportActions(
+    report: ReportSummary,
+    forceDesignSystem = false
+  ) {
     const canReview = tab === 'pendentes' && report.status !== 'SIGNED';
     const manualReport = isManualUploadedReport(report);
 
-    if (reportListingTab) {
+    if (reportListingTab || forceDesignSystem) {
       return (
         <>
           <Button
@@ -2573,12 +2742,15 @@ export function GestorPage() {
     );
   }
 
-  function renderBatchReportActions(reports: ReportSummary[]) {
+  function renderBatchReportActions(
+    reports: ReportSummary[],
+    forceDesignSystem = false
+  ) {
     const visibleIds = reports.map(report => report.id);
     const selectedVisibleCount = selectedReportIds.filter(id => visibleIds.includes(id)).length;
     const hasSelectedVisible = selectedVisibleCount > 0;
 
-    if (reportListingTab) {
+    if (reportListingTab || forceDesignSystem) {
       return (
         <div className="report-batch-toolbar rdo-manager-listing__batch-toolbar">
           <span className="report-batch-count" role="status" aria-live="polite">
@@ -2714,7 +2886,12 @@ export function GestorPage() {
     );
   }
 
-  function renderReportTypeSections(reports: ReportSummary[], projectId?: string) {
+  function renderReportTypeSections(
+    reports: ReportSummary[],
+    projectId?: string,
+    appearance: 'legacy' | 'design-system' = 'legacy'
+  ) {
+    const designSystem = appearance === 'design-system';
     const byType = reports.reduce<Record<string, ReportSummary[]>>((acc, report) => {
       if (!acc[report.reportType]) acc[report.reportType] = [];
       acc[report.reportType].push(report);
@@ -2756,93 +2933,156 @@ export function GestorPage() {
           && !hasLoadedItemsToReveal
           && orderedLoadedCount < totalReports;
         const typeLoading = projectId ? reportListQuery.isGroupLoading(projectId, reportType) : false;
+        const typeContentId = `archived-report-type-${typeKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+        const toggleType = () => toggleArchivedType(typeKey);
+        const loadMoreType = () => {
+          if (hasLoadedItemsToReveal) {
+            revealMoreArchivedType(typeKey, sortedReports.length);
+            return;
+          }
+          if (projectId) {
+            void handleLoadMoreArchivedType(projectId, reportType, typeKey, sortedReports.length, hasLoadedItemsToReveal, typeSortDirection);
+          }
+        };
 
         return (
-          <div className="report-type-group" key={typeKey}>
-            <div
-              className="report-type-header"
-              onClick={() => toggleArchivedType(typeKey)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={event => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  toggleArchivedType(typeKey);
-                }
-              }}
-            >
-              <span className={`rtype-badge rtype-${reportType}`}>{reportType}</span>
-              <span className="rtype-count">
-                {visibleReports.length} de {totalReports} relatório{totalReports !== 1 ? 's' : ''}
-              </span>
-              <span onClick={event => event.stopPropagation()}>
-                <ProjectSortButton direction={typeSortDirection} onToggle={() => toggleArchivedTypeSort(typeKey)} />
-              </span>
-              <span className="rtype-chevron">{typeClosed ? '▸' : '▾'}</span>
-            </div>
+          <div className={designSystem ? 'rdo-archived-report-type' : 'report-type-group'} key={typeKey}>
+            {designSystem ? (
+              <div className="rdo-archived-report-type__header">
+                <button
+                  className="rdo-archived-report-type__toggle"
+                  type="button"
+                  aria-expanded={!typeClosed}
+                  aria-controls={typeContentId}
+                  onClick={toggleType}
+                >
+                  <Badge tone="brand">{reportType}</Badge>
+                  <span className="rdo-archived-report-type__count">
+                    {visibleReports.length} de {totalReports} relatório{totalReports !== 1 ? 's' : ''}
+                  </span>
+                  <AppIcon
+                    className="rdo-archived-report-type__chevron"
+                    icon={DS_ICONS.chevronDown}
+                    size="sm"
+                  />
+                </button>
+                <IconButton
+                  icon={typeSortDirection === 'asc' ? DS_ICONS.sortAscending : DS_ICONS.sortDescending}
+                  label={typeSortDirection === 'asc' ? `Ordenar ${reportType} do mais recente` : `Ordenar ${reportType} do mais antigo`}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => toggleArchivedTypeSort(typeKey)}
+                />
+              </div>
+            ) : (
+              <div
+                className="report-type-header"
+                onClick={toggleType}
+                role="button"
+                tabIndex={0}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleType();
+                  }
+                }}
+              >
+                <span className={`rtype-badge rtype-${reportType}`}>{reportType}</span>
+                <span className="rtype-count">
+                  {visibleReports.length} de {totalReports} relatório{totalReports !== 1 ? 's' : ''}
+                </span>
+                <span onClick={event => event.stopPropagation()}>
+                  <ProjectSortButton direction={typeSortDirection} onToggle={() => toggleArchivedTypeSort(typeKey)} />
+                </span>
+                <span className="rtype-chevron">{typeClosed ? '▸' : '▾'}</span>
+              </div>
+            )}
             {!typeClosed ? (
-              <>
-                {visibleReports.length ? renderBatchReportActions(visibleReports) : null}
+              <div className={designSystem ? 'rdo-archived-report-type__content' : undefined} id={typeContentId}>
+                {visibleReports.length ? renderBatchReportActions(visibleReports, designSystem) : null}
                 {visibleReports.length ? (
-                  <div className="report-type-list">
-                    {visibleReports.map(report => (
-                      <ReportSummaryCard
-                        key={report.id}
-                        report={report}
-                        leadingControl={(
-                          <label className="report-select-checkbox" title="Selecionar relatório">
-                            <input
-                              type="checkbox"
-                              checked={selectedReportIds.includes(report.id)}
-                              onChange={event => toggleReportSelection(report.id, event.target.checked)}
-                            />
-                          </label>
-                        )}
-                        actions={renderManagerReportActions(report)}
-                      />
-                    ))}
-                  </div>
+                  designSystem ? (
+                    <ManagerReportListing
+                      reports={visibleReports}
+                      selectedReportIds={selectedReportIds}
+                      onSelectionChange={(ids) => setSelectedReportIds(ids)}
+                      onOpenReport={handleOpenReport}
+                      renderActions={(report) => renderManagerReportActions(report, true)}
+                      reportType={reportType}
+                      projectLabel={typeReports[0]?.project?.name || 'Projeto arquivado'}
+                      sortDirection={typeSortDirection}
+                      onSortChange={() => toggleArchivedTypeSort(typeKey)}
+                    />
+                  ) : (
+                    <div className="report-type-list">
+                      {visibleReports.map(report => (
+                        <ReportSummaryCard
+                          key={report.id}
+                          report={report}
+                          leadingControl={(
+                            <label className="report-select-checkbox" title="Selecionar relatório">
+                              <input
+                                type="checkbox"
+                                checked={selectedReportIds.includes(report.id)}
+                                onChange={event => toggleReportSelection(report.id, event.target.checked)}
+                              />
+                            </label>
+                          )}
+                          actions={renderManagerReportActions(report)}
+                        />
+                      ))}
+                    </div>
+                  )
                 ) : null}
                 {needsOrderedPage ? (
-                  <div className="placeholder-copy">Carregando relatórios...</div>
+                  designSystem ? (
+                    <div className="rdo-archived-report-type__loading" role="status" aria-live="polite">
+                      <span className="fv-sr-only">Carregando relatórios…</span>
+                      <Skeleton variant="card" decorative />
+                    </div>
+                  ) : (
+                    <div className="placeholder-copy">Carregando relatórios...</div>
+                  )
                 ) : null}
                 {typeErrored ? (
-                  <div className="placeholder-copy">Não foi possível carregar os relatórios desta aba.</div>
+                  designSystem ? (
+                    <EmptyState
+                      variant="error"
+                      title="Não foi possível carregar os relatórios desta seção."
+                    />
+                  ) : (
+                    <div className="placeholder-copy">Não foi possível carregar os relatórios desta aba.</div>
+                  )
                 ) : null}
                 {hasLoadedItemsToReveal || hasRemoteItemsToLoad ? (
-                  <div className="admin-create-toolbar report-type-load-more">
+                  <div className={designSystem ? 'rdo-archived-report-type__load-more' : 'admin-create-toolbar report-type-load-more'}>
                     <InfiniteScrollSentinel
                       hasMore={(hasLoadedItemsToReveal || hasRemoteItemsToLoad) && !typeErrored}
                       isLoading={typeLoading}
-                      onLoadMore={() => {
-                        if (hasLoadedItemsToReveal) {
-                          revealMoreArchivedType(typeKey, sortedReports.length);
-                          return;
-                        }
-                        if (projectId) {
-                          void handleLoadMoreArchivedType(projectId, reportType, typeKey, sortedReports.length, hasLoadedItemsToReveal, typeSortDirection);
-                        }
-                      }}
+                      onLoadMore={loadMoreType}
                     />
-                    <button
-                      className="mini-btn"
-                      type="button"
-                      disabled={typeLoading}
-                      onClick={() => {
-                        if (hasLoadedItemsToReveal) {
-                          revealMoreArchivedType(typeKey, sortedReports.length);
-                          return;
-                        }
-                        if (projectId) {
-                          void handleLoadMoreArchivedType(projectId, reportType, typeKey, sortedReports.length, hasLoadedItemsToReveal, typeSortDirection);
-                        }
-                      }}
-                    >
-                      {typeLoading ? 'Carregando...' : typeErrored ? 'Tentar novamente' : 'Carregar mais'}
-                    </button>
+                    {designSystem ? (
+                      <Button
+                        variant="secondary"
+                        loading={typeLoading}
+                        disabled={typeLoading}
+                        onClick={loadMoreType}
+                      >
+                        Carregar mais
+                      </Button>
+                    ) : (
+                      <button
+                        className="mini-btn"
+                        type="button"
+                        disabled={typeLoading}
+                        onClick={loadMoreType}
+                      >
+                        {typeLoading ? 'Carregando...' : typeErrored ? 'Tentar novamente' : 'Carregar mais'}
+                      </button>
+                    )}
                   </div>
                 ) : null}
-              </>
+              </div>
             ) : null}
           </div>
         );
@@ -3717,7 +3957,13 @@ export function GestorPage() {
     const archivedProjects = (archivedProjectsQuery.data || []).filter(project => project.isActive === false);
 
     if (archivedProjectsQuery.isLoading || reportListQuery.isLoadingInitial) {
-      return <div className="page-card placeholder-copy">Carregando projetos arquivados...</div>;
+      return (
+        <div className="rdo-archived-projects__loading" role="status" aria-live="polite">
+          <span className="fv-sr-only">Carregando projetos arquivados…</span>
+          <Skeleton variant="card" decorative />
+          <Skeleton variant="card" decorative />
+        </div>
+      );
     }
 
     const archivedProjectCards = sortProjects(archivedProjects, projectSortDir)
@@ -3736,33 +3982,49 @@ export function GestorPage() {
       .filter(item => item.visible);
 
     return (
-      <section className="page-card">
-        <div className="admin-section-head">
-          <div className="section-title">Projetos arquivados</div>
-          <ProjectSortButton
-            direction={projectSortDir}
-            onToggle={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
-          />
+      <section
+        id="rdo-manager-archived-results"
+        className="rdo-archived-projects rdo-ds-actions"
+        aria-label="Lista de projetos arquivados"
+      >
+        <div className="rdo-archived-projects__toolbar">
+          <Badge tone="neutral">
+            {archivedProjectCards.length} projeto{archivedProjectCards.length === 1 ? '' : 's'}
+          </Badge>
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={(
+              <AppIcon
+                icon={projectSortDir === 'asc' ? DS_ICONS.sortAscending : DS_ICONS.sortDescending}
+                size="sm"
+              />
+            )}
+            aria-label={`Ordenar projetos ${projectSortDir === 'asc' ? 'de Z a A' : 'de A a Z'}`}
+            onClick={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
+          >
+            {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
+          </Button>
         </div>
         {archivedProjectCards.length ? (
-          <div className="admin-stack">
+          <div className="rdo-archived-projects__list">
             {archivedProjectCards.map(({ project, projectReports }) => {
               const projectClosed = closedArchivedProjectIds.includes(project.id);
               return renderProjectCard(project, {
+                appearance: 'design-system',
                 commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
-                children: (
-                  <>
-                    {projectReports.length ? (
-                      <div className="admin-stack" style={{ marginTop: 14 }}>
-                        {!projectClosed ? renderReportTypeSections(projectReports, project.id) : null}
+                children: !projectClosed ? (
+                  projectReports.length ? (
+                      <div className="rdo-archived-project-card__reports">
+                        {renderReportTypeSections(projectReports, project.id, 'design-system')}
                       </div>
-                    ) : (
-                      <div className="placeholder-copy" style={{ marginTop: 14 }}>
-                        Nenhum relatório aprovado neste projeto arquivado.
-                      </div>
-                    )}
-                  </>
-                ),
+                  ) : (
+                    <EmptyState
+                      title="Nenhum relatório aprovado neste projeto arquivado."
+                      icon={null}
+                    />
+                  )
+                ) : null,
                 onEdit: item => {
                   setProjectEditingId(item.id);
                   setShowProjectForm(true);
@@ -3783,11 +4045,13 @@ export function GestorPage() {
             })}
           </div>
         ) : (
-          <p className="placeholder-copy">
-            {gestorSearch.trim() ? 'Nenhum projeto arquivado encontrado.' : 'Nenhum projeto arquivado.'}
-          </p>
+          <EmptyState
+            variant={gestorSearch.trim() ? 'search' : 'default'}
+            title={gestorSearch.trim() ? 'Nenhum projeto arquivado encontrado.' : 'Nenhum projeto arquivado.'}
+            description={gestorSearch.trim() ? 'Revise o termo da busca ou limpe o filtro para ver todos os projetos.' : undefined}
+          />
         )}
-        {renderLoadMoreReports()}
+        {renderLoadMoreReports('design-system')}
       </section>
     );
   }
@@ -4592,16 +4856,20 @@ export function GestorPage() {
     const label = labels[tab];
     if (!label) return null;
 
-    if (tab === 'aprovados') {
+    if (tab === 'aprovados' || tab === 'arquivados') {
       const reportResultsId =
-        !reportListQuery.isLoadingInitial && approvedReports.length > 0
-          ? 'rdo-manager-report-results'
-          : undefined;
+        tab === 'arquivados'
+          ? !reportListQuery.isLoadingInitial && !archivedProjectsQuery.isLoading
+            ? 'rdo-manager-archived-results'
+            : undefined
+          : !reportListQuery.isLoadingInitial && approvedReports.length > 0
+            ? 'rdo-manager-report-results'
+            : undefined;
 
       return (
         <FilterBar
-          className="rdo-manager-listing__filters"
-          label="Busca dos relatórios aprovados"
+          className={tab === 'arquivados' ? 'rdo-archived-projects__filters' : 'rdo-manager-listing__filters'}
+          label={tab === 'arquivados' ? 'Busca dos projetos arquivados' : 'Busca dos relatórios aprovados'}
           resultsId={reportResultsId}
           search={
             <SearchInput
@@ -4766,10 +5034,12 @@ export function GestorPage() {
 
       <main
         className={
-          reportListingTab || statisticsTab
+          reportListingTab || archivedProjectsTab || statisticsTab
             ? `fv-ds page-scroll ${
                 reportListingTab
                   ? 'rdo-manager-page'
+                  : archivedProjectsTab
+                    ? 'rdo-manager-archived-page'
                   : 'rdo-manager-stats-page'
               }`
             : 'page-scroll'
@@ -4787,6 +5057,12 @@ export function GestorPage() {
                 ? 'Acompanhe os relatórios que aguardam revisão ou foram devolvidos.'
                 : 'Consulte os relatórios aprovados e assinados.'
             }
+          />
+        ) : null}
+        {archivedProjectsTab ? (
+          <PageHeader
+            title="Projetos arquivados"
+            description="Consulte projetos encerrados, seus relatórios e ações disponíveis."
           />
         ) : null}
         {renderReportSummary()}
