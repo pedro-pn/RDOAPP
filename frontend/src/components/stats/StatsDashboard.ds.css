@@ -49,15 +49,21 @@
 :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__count-grid {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-stats-overview__count-grid
+  .fv-metric-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview .stats-ov-count-card {
   min-width: 0;
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  background: var(--surface);
   text-align: start;
   flex: none;
 }
@@ -90,6 +96,9 @@
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'copy count'
+    'track track';
   align-items: center;
   gap: var(--space-2) var(--space-3);
 }
@@ -97,6 +106,7 @@
 :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__bar-copy {
   display: grid;
   min-width: 0;
+  grid-area: copy;
   gap: var(--space-1);
 }
 
@@ -123,7 +133,7 @@
   width: 100%;
   height: var(--space-2);
   overflow: hidden;
-  grid-column: 1 / -1;
+  grid-area: track;
   border-radius: var(--radius-pill);
   background: var(--surface-2);
 }
@@ -137,6 +147,7 @@
 
 :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__bar-count {
   color: var(--ink);
+  grid-area: count;
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   line-height: var(--leading-sm);
@@ -188,12 +199,15 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__bar-row {
-    grid-template-columns: minmax(0, 2fr) minmax(var(--space-16), 3fr) auto;
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-overview__count-grid
+    .fv-metric-card:last-child:nth-child(odd) {
+    grid-column: auto;
   }
 
-  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__bar-track {
-    grid-column: auto;
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__bar-row {
+    grid-template-columns: minmax(0, 2fr) minmax(var(--space-16), 3fr) auto;
+    grid-template-areas: 'copy track count';
   }
 }
 

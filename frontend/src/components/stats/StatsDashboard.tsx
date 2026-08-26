@@ -50,10 +50,12 @@ import {
   EmptyState,
   Field,
   Input,
+  MetricCard,
   Select,
   Skeleton,
   StatusPill,
-  type DataTableColumn
+  type DataTableColumn,
+  type SemanticTone
 } from '../ui/ds';
 import { DS_ICONS } from '../ui/ds/icons';
 import { Modal } from '../ui/Modal';
@@ -2360,20 +2362,26 @@ function reportCountTotal(row: StatsOverviewProject) {
 
 function DesignSystemOverviewCountCard({
   label,
-  value
+  value,
+  description,
+  icon,
+  tone
 }: {
   label: string;
   value: number;
+  description?: string;
+  icon?: ReactNode;
+  tone?: SemanticTone;
 }) {
   return (
-    <Card
+    <MetricCard
       className="stats-ov-count-card rdo-stats-overview__count-card"
-      variant="flat"
-      padding="md"
-    >
-      <div className="stats-ov-count-value">{value}</div>
-      <div className="stats-ov-count-label">{label}</div>
-    </Card>
+      label={label}
+      value={value}
+      description={description}
+      icon={icon}
+      tone={tone}
+    />
   );
 }
 
@@ -2433,6 +2441,7 @@ function DesignSystemReportTypeTable({
     {
       key: 'project',
       header: 'Projeto',
+      rowHeader: true,
       render: (row) => (
         <span className="stats-ov-type-project rdo-stats-overview__project">
           <span className="stats-ov-type-code">{row.code}</span>
@@ -2536,25 +2545,34 @@ function DesignSystemStatsOverview({
 }) {
   return (
     <div className="rdo-manager-stats-overview rdo-stats-overview">
-      <Card
-        className="rdo-stats-overview__section"
-        title={<h2 className="rdo-stats-overview__title">Projetos</h2>}
+      <section
+        className="rdo-stats-overview__section rdo-stats-overview__summary"
+        aria-label="Resumo dos projetos"
       >
         <div className="rdo-stats-overview__count-grid">
           <DesignSystemOverviewCountCard
             label="Em andamento"
             value={data.projectCounts.active}
+            description="Projetos em operação"
+            tone="success"
+            icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />}
           />
           <DesignSystemOverviewCountCard
             label="Arquivados / finalizados"
             value={data.projectCounts.archived}
+            description="Fora da operação ativa"
+            tone="neutral"
+            icon={<AppIcon icon={DS_ICONS.emptyDefault} size="md" />}
           />
           <DesignSystemOverviewCountCard
             label="Total"
             value={data.projectCounts.total}
+            description="Projetos na base atual"
+            tone="brand"
+            icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
           />
         </div>
-      </Card>
+      </section>
 
       {top10.length > 0 ? (
         <Card

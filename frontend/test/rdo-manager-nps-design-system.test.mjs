@@ -115,17 +115,22 @@ test('B.9 usa os primitives DS existentes na aba do Gestor', () => {
   }
 
   assert.match(tab, /className="fv-ds rdo-nps rdo-ds-actions"/);
-  assert.match(tab, /aria-labelledby="rdo-nps-title"/);
+  assert.match(tab, /aria-label="NPS"/);
   // A área de toque das ações compactas vem da escala compartilhada já
   // existente (a9b49969), não de uma nova regra local.
   assert.match(
     source('src/pages/gestor/GestorPage.tsx'),
     /styles\/rdo-ds-actions\.css/
   );
-  assert.match(tab, /<h2 id="rdo-nps-title">NPS<\/h2>/);
+  assert.match(tab, /<PageHeader\b/);
+  assert.match(tab, /title="NPS"/);
   assert.match(tab, /<h3 className="rdo-nps__group-title">/);
 
   for (const component of [
+    'PageHeader',
+    'FilterBar',
+    'SearchInput',
+    'MetricCard',
     'Card',
     'Button',
     'StatusPill',
@@ -165,25 +170,15 @@ test('B.9 corrige a acessibilidade do acordeão de pesquisas', () => {
   assert.match(tab, /aria-label=\{`\$\{surveyLabel\} — \$\{group\.title\}`\}/);
 });
 
-test('B.9 mantém as ações secundárias compactas', () => {
+test('B.9 usa variantes DS coerentes nas ações da página', () => {
   if (expectedAppearance === 'legacy') return;
   const tab = npsTabSource();
 
-  // Nenhuma ação da aba escapa da escala compacta estabelecida em a9b49969.
-  const sizes = tab.match(/<Button[\s\S]{0,160}?size="(\w+)"/g) ?? [];
-  assert.ok(sizes.length >= 3, 'esperados ao menos três Button na aba');
-  assert.doesNotMatch(tab, /<Button[\s\S]{0,160}?size="(?:md|lg)"/);
-  for (const action of [
-    'Editar pesquisa',
-    'Dashboard NPS',
-    'Reenviar pesquisa'
-  ]) {
-    assert.match(
-      tab,
-      new RegExp(`size="sm"[\\s\\S]{0,420}?>\\s*${action}`),
-      `${action} deve usar size="sm"`
-    );
-  }
+  assert.match(tab, /variant="secondary"[\s\S]{0,300}?>\s*Editar pesquisa/);
+  assert.match(tab, /variant="primary"[\s\S]{0,300}?>\s*Dashboard NPS/);
+  assert.match(tab, /size="sm"[\s\S]{0,420}?>\s*Reenviar pesquisa/);
+  assert.match(tab, /icon=\{DS_ICONS\.sort\}/);
+  assert.doesNotMatch(tab, /<ProjectSortButton\b/);
 });
 
 test('B.9 mantém o CSS escopado e tokenizado', () => {
@@ -246,8 +241,9 @@ test('B.9 mantém o CSS escopado e tokenizado', () => {
   }
 });
 
-test('o ProjectSortButton do NPS é corrigido apenas dentro de .rdo-nps', () => {
+test('a ordenação do NPS usa Button DS sem alterar o ProjectSortButton compartilhado', () => {
   const css = source('src/pages/gestor/GestorPage.ds.css');
+  const tab = npsTabSource();
   const component = source('src/utils/ProjectSortButton.tsx');
   const base = source('src/styles/base.css');
 
@@ -267,9 +263,10 @@ test('o ProjectSortButton do NPS é corrigido apenas dentro de .rdo-nps', () => 
   // 2. base.css não ganhou nenhuma regra ligada à superfície NPS.
   assert.doesNotMatch(base, /rdo-nps/);
 
-  // 3./4. Nenhuma regra do sort button vale globalmente: cada uma precisa estar
-  //    sob uma superfície RDO DS. A da B.1 (.rdo-manager-listing__toolbar) já
-  //    existia; as novas são exclusivamente da NPS.
+  assert.doesNotMatch(tab, /<ProjectSortButton\b/);
+  assert.match(tab, /icon=\{DS_ICONS\.sort\}/);
+
+  // Nenhuma regra do sort button compartilhado vale globalmente.
   const rules = [...css.matchAll(/([^{}]*\.project-sort-button[^{}]*)\{/g)].map(
     (match) => match[1].replace(/\s+/g, ' ').trim()
   );
@@ -285,11 +282,6 @@ test('o ProjectSortButton do NPS é corrigido apenas dentro de .rdo-nps', () => 
     );
   }
   assert.ok(
-    rules.some((rule) => /\.rdo-nps\b/.test(rule)),
-    'nenhuma regra do sort button escopada em .rdo-nps'
-  );
-  // A regra pré-existente da B.1 continua intacta e fora da NPS.
-  assert.ok(
     rules.some((rule) => /\.rdo-manager-listing__toolbar\b/.test(rule)),
     'a regra da B.1 para o sort button foi removida'
   );
@@ -297,23 +289,7 @@ test('o ProjectSortButton do NPS é corrigido apenas dentro de .rdo-nps', () => 
   // 5. Nenhum seletor global (fora de .rdo-nps) para o componente.
   assert.doesNotMatch(css, /(^|\})\s*\.project-sort-button\s*\{/);
 
-  // 8. O alvo de 44x44px é devolvido por pseudo-elemento, sem alterar a
-  //    geometria do componente fora daqui.
-  assert.match(
-    css,
-    /\.rdo-nps \.project-sort-button::after \{[\s\S]*?min-width: calc\(var\(--space-10\) \+ var\(--space-1\)\)/
-  );
-  assert.match(
-    css,
-    /\.rdo-nps \.project-sort-button::after \{[\s\S]*?min-height: calc\(var\(--space-10\) \+ var\(--space-1\)\)/
-  );
-
-  // Tokenizado, como o resto da superfície.
-  const block = css.slice(css.indexOf('ProjectSortButton é compartilhado'));
-  assert.match(block, /var\(--/);
-  assert.doesNotMatch(block, /#[\da-f]{3,8}\b/i);
-  assert.doesNotMatch(block, /\brgba?\(/i);
-  assert.doesNotMatch(block, /!important/);
+  assert.doesNotMatch(css, /\.rdo-nps \.project-sort-button/);
 });
 
 test('B.9 não altera o Coordenador nem os componentes compartilhados', () => {

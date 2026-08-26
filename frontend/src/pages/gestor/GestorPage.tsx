@@ -40,7 +40,6 @@ import {
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
 import { ImageDropzone } from '../../components/ui/ImageDropzone';
 import { InfiniteScrollSentinel } from '../../components/ui/InfiniteScrollSentinel';
-import { SearchBar } from '../../components/ui/SearchBar';
 import {
   Alert,
   Badge,
@@ -1365,6 +1364,7 @@ export function GestorPage() {
   const teamTab = tab === 'equipe';
   const usersTab = tab === 'usuarios';
   const adminTab = teamTab || usersTab;
+  const npsTab = tab === 'nps';
   const statisticsTab = tab === 'estatisticas';
   const [equipeSubTab, setEquipeSubTab] = useState<'colaboradores' | 'cargos' | 'dds'>('colaboradores');
   // Busca persistida por aba: ao voltar (de outra aba ou do detalhe), restaura o termo da aba.
@@ -4832,35 +4832,107 @@ export function GestorPage() {
           ? titleA.localeCompare(titleB, 'pt-BR', { numeric: true, sensitivity: 'base' })
           : titleB.localeCompare(titleA, 'pt-BR', { numeric: true, sensitivity: 'base' });
       });
+    const allSurveys = surveysQuery.data || [];
+    const respondedSurveyCount = allSurveys.filter(survey => survey.respondedAt).length;
+    const expiredSurveyCount = allSurveys.filter(
+      survey => !survey.respondedAt && surveyIsExpired(survey)
+    ).length;
+    const pendingSurveyCount = allSurveys.length - respondedSurveyCount - expiredSurveyCount;
+    const surveyedProjectCount = new Set(allSurveys.map(npsProjectKey)).size;
 
     return (
-      <section className="fv-ds rdo-nps rdo-ds-actions" aria-labelledby="rdo-nps-title">
+      <section className="fv-ds rdo-nps rdo-ds-actions" aria-label="NPS">
         {npsDashboardOpen && <SurveyDashboardOverlay onClose={() => setNpsDashboardOpen(false)} />}
-        <Card
-          className="rdo-nps__card"
-          padding="md"
-          title={<h2 id="rdo-nps-title">NPS</h2>}
+        <PageHeader
+          className="rdo-nps__page-header"
+          title="NPS"
+          description="Pesquisas pendentes, respondidas e expiradas."
           actions={
             <div className="rdo-nps__toolbar">
-              <Button size="sm" variant="secondary" onClick={openSurveyQuestionEditor}>
+              <Button
+                variant="secondary"
+                iconLeft={<AppIcon icon={DS_ICONS.settings} size="sm" />}
+                onClick={openSurveyQuestionEditor}
+              >
                 Editar pesquisa
               </Button>
-              <Button size="sm" variant="primary" onClick={() => setNpsDashboardOpen(true)}>
+              <Button
+                variant="primary"
+                iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                onClick={() => setNpsDashboardOpen(true)}
+              >
                 Dashboard NPS
               </Button>
             </div>
           }
-        >
-          <div className="rdo-nps__heading">
-            <p className="rdo-nps__description">
-              Pesquisas pendentes, respondidas e expiradas.
-            </p>
-            <ProjectSortButton
-              direction={npsSortDir}
-              onToggle={() => setNpsSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
-            />
-          </div>
+        />
 
+        <FilterBar
+          className="rdo-nps__filters"
+          label="Busca e ordenação das pesquisas NPS"
+          resultsId="rdo-nps-results"
+          search={
+            <SearchInput
+              value={gestorSearch}
+              onChange={setGestorSearch}
+              label="Buscar em pesquisas NPS"
+              placeholder="Buscar em pesquisas NPS"
+              autoComplete="off"
+            />
+          }
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
+              aria-label={
+                npsSortDir === 'asc'
+                  ? 'Ordenar projetos de Z a A'
+                  : 'Ordenar projetos de A a Z'
+              }
+              onClick={() =>
+                setNpsSortDir(direction => direction === 'asc' ? 'desc' : 'asc')
+              }
+            >
+              {npsSortDir === 'asc' ? 'A→Z' : 'Z→A'}
+            </Button>
+          }
+        />
+
+        {!surveysQuery.isLoading && !gestorBootstrapQuery.isError ? (
+          <section className="rdo-manager-metrics rdo-nps__metrics" aria-label="Resumo das pesquisas NPS">
+            <MetricCard
+              label="Respondidas"
+              value={respondedSurveyCount}
+              description="Com retorno do cliente"
+              tone="success"
+              icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />}
+            />
+            <MetricCard
+              label="Pendentes"
+              value={pendingSurveyCount}
+              description="Aguardando resposta"
+              tone="warning"
+              icon={<AppIcon icon={DS_ICONS.alertWarning} size="md" />}
+            />
+            <MetricCard
+              label="Expiradas"
+              value={expiredSurveyCount}
+              description="Sem resposta no prazo"
+              tone="danger"
+              icon={<AppIcon icon={DS_ICONS.alertDanger} size="md" />}
+            />
+            <MetricCard
+              label="Projetos avaliados"
+              value={surveyedProjectCount}
+              description="Com pesquisa enviada"
+              tone="info"
+              icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
+            />
+          </section>
+        ) : null}
+
+        <div className="rdo-nps__results" id="rdo-nps-results">
           {surveysQuery.isLoading ? (
             <Skeleton
               className="rdo-nps__loading"
@@ -4868,6 +4940,10 @@ export function GestorPage() {
               lines={6}
               label="Carregando pesquisas..."
             />
+          ) : gestorBootstrapQuery.isError ? (
+            <Alert tone="danger" title="Não foi possível carregar as pesquisas.">
+              Tente novamente em instantes.
+            </Alert>
           ) : surveyGroups.length ? (
             <div className="rdo-nps__groups">
               {surveyGroups.map(group => {
@@ -4879,11 +4955,18 @@ export function GestorPage() {
                     variant="flat"
                     padding="md"
                   >
-                    <h3 className="rdo-nps__group-title">{group.title}</h3>
-                    <p className="rdo-nps__group-meta">
-                      <span>{group.clientName}</span>
-                      <span>{group.surveys.length} pesquisa{group.surveys.length !== 1 ? 's' : ''}</span>
-                    </p>
+                    <div className="rdo-nps__group-header">
+                      <span className="rdo-nps__group-icon" aria-hidden="true">
+                        <AppIcon icon={DS_ICONS.fileText} size="md" />
+                      </span>
+                      <div className="rdo-nps__group-copy">
+                        <h3 className="rdo-nps__group-title">{group.title}</h3>
+                        <p className="rdo-nps__group-meta">
+                          <span>{group.clientName}</span>
+                          <span>{group.surveys.length} pesquisa{group.surveys.length !== 1 ? 's' : ''}</span>
+                        </p>
+                      </div>
+                    </div>
                     <div className="rdo-nps__surveys">
                       {group.surveys.map((survey, index) => {
                         const status = surveyStatusLabel(survey);
@@ -4962,7 +5045,7 @@ export function GestorPage() {
               title={gestorSearch.trim() ? 'Nenhuma pesquisa encontrada.' : 'Nenhuma pesquisa NPS disponível.'}
             />
           )}
-        </Card>
+        </div>
       </section>
     );
   }
@@ -4979,6 +5062,7 @@ export function GestorPage() {
     };
     const label = labels[tab];
     if (!label) return null;
+    if (npsTab) return null;
     if (teamTab && equipeSubTab !== 'colaboradores') return null;
 
     if (reportListingTab || projectsTab || archivedProjectsTab || adminTab) {
@@ -5064,11 +5148,7 @@ export function GestorPage() {
       );
     }
 
-    return (
-      <div className="admin-search-row">
-        <SearchBar value={gestorSearch} onChange={setGestorSearch} placeholder={label} ariaLabel={label} />
-      </div>
-    );
+    return null;
   }
 
   function renderEstatisticasTab() {
@@ -5082,11 +5162,16 @@ export function GestorPage() {
             <>
               <Button
                 variant="secondary"
+                iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
                 onClick={() => setAllocationDashboardOpen(true)}
               >
                 Alocação mensal
               </Button>
-              <Button onClick={() => setStatsDashboardOpen(true)}>
+              <Button
+                variant="primary"
+                iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                onClick={() => setStatsDashboardOpen(true)}
+              >
                 Dashboard detalhado
               </Button>
             </>
@@ -5345,7 +5430,7 @@ export function GestorPage() {
 
       <main
         className={
-          reportListingTab || projectsTab || archivedProjectsTab || adminTab || statisticsTab
+          reportListingTab || projectsTab || archivedProjectsTab || adminTab || npsTab || statisticsTab
             ? `fv-ds page-scroll ${
                 reportListingTab
                   ? 'rdo-manager-page'
@@ -5355,7 +5440,9 @@ export function GestorPage() {
                     ? 'rdo-manager-archived-page'
                     : adminTab
                       ? 'rdo-manager-admin-page'
-                  : 'rdo-manager-stats-page'
+                      : npsTab
+                        ? 'rdo-manager-nps-page'
+                        : 'rdo-manager-stats-page'
               }`
             : 'page-scroll'
         }

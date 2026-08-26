@@ -43,7 +43,7 @@ test('Gestor is the only StatsOverview consumer that opts into the Design System
   assert.match(manager, /const statisticsTab = tab === 'estatisticas'/);
   assert.match(
     manager,
-    /reportListingTab \|\| projectsTab \|\| archivedProjectsTab \|\| adminTab \|\| statisticsTab/
+    /reportListingTab \|\| projectsTab \|\| archivedProjectsTab \|\| adminTab \|\| npsTab \|\| statisticsTab/
   );
   assert.match(manager, /'rdo-manager-stats-page'/);
   assert.match(managerStatistics, /<PageHeader\b/);
@@ -133,6 +133,11 @@ test('the DS overview composes responsive listings and explicit loading, error a
     'function DesignSystemReportTypeTable',
     'function DesignSystemStatsOverviewLoading'
   );
+  const countCard = sectionBetween(
+    stats,
+    'function DesignSystemOverviewCountCard',
+    'function DesignSystemTopProjectsBar'
+  );
   const loading = sectionBetween(
     stats,
     'function DesignSystemStatsOverviewLoading',
@@ -148,6 +153,7 @@ test('the DS overview composes responsive listings and explicit loading, error a
   );
 
   assert.match(reportTable, /DataTableColumn<StatsOverviewProject>/);
+  assert.match(reportTable, /rowHeader: true/);
   assert.match(reportTable, /<DataTable\b/);
   assert.match(reportTable, /getRowId=\{\(row\) => row\.projectId\}/);
   assert.match(reportTable, /ariaLabel="Relatórios por projeto e tipo"/);
@@ -170,7 +176,11 @@ test('the DS overview composes responsive listings and explicit loading, error a
   assert.match(loading, /<Skeleton\b/);
   assert.match(loading, /variant="table-rows"/);
 
+  assert.match(countCard, /<MetricCard\b/);
+  assert.match(countCard, /description=\{description\}/);
+  assert.match(countCard, /tone=\{tone\}/);
   assert.match(designSystemOverview, /<Card\b/);
+  assert.match(designSystemOverview, /aria-label="Resumo dos projetos"/);
   assert.match(designSystemOverview, /<DesignSystemOverviewCountCard\b/);
   assert.match(designSystemOverview, /<DesignSystemTopProjectsBar\b/);
   assert.match(designSystemOverview, /<DesignSystemReportTypeTable\b/);

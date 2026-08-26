@@ -129,8 +129,9 @@ test('B.9 caracteriza a aba NPS real sem reenviar pesquisas', async ({
   if (designSystem) {
     await expect(surface).not.toHaveClass(/page-card/);
     await expect(
-      surface.getByRole('heading', { name: 'NPS', level: 2 })
+      surface.getByRole('heading', { name: 'NPS', level: 1 })
     ).toBeVisible();
+    await expect(surface.locator('.fv-metric-card')).toHaveCount(4);
     await expect(surface.locator('.status-pill')).toHaveCount(0);
   } else {
     await expect(surface).not.toHaveClass(/fv-ds/);
@@ -158,7 +159,9 @@ test('B.9 caracteriza a aba NPS real sem reenviar pesquisas', async ({
   expect(ascending).toEqual(sortedAscending);
 
   // Ordenação Z→A e volta para A→Z.
-  const sortButton = surface.getByRole('button', { name: /^(A→Z|Z→A)$/ });
+  const sortButton = surface.getByRole('button', {
+    name: /^Ordenar projetos de [AZ] a [AZ]$/
+  });
   await sortButton.click();
   await expect
     .poll(async () => (await readTitles()).join('|'))
@@ -319,7 +322,7 @@ test('B.9 caracteriza a aba NPS real sem reenviar pesquisas', async ({
   }
 
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=nps$/);
-  await expect(managerTab).toHaveAttribute('aria-selected', 'true');
+  await expect(managerTab).toHaveAttribute('aria-current', 'page');
   expect(mutatingAttempts).toEqual([]);
   expect(downloads).toEqual([]);
   expect(consoleErrors).toEqual([]);

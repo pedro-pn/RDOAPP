@@ -77,14 +77,19 @@ test('B.2 preserva os dados reais e alterna exclusivamente DataTable/MobileList'
   await expect(overview).toBeVisible();
   expect(overviewData).toBeDefined();
 
-  const countValues = await overview
-    .locator('.stats-ov-count-value')
-    .allTextContents();
-  expect(countValues.map((value) => Number(value.trim()))).toEqual([
+  const summaryRegion = page.getByRole('region', {
+    name: 'Resumo dos projetos'
+  });
+  const expectedCountValues = [
     overviewData!.projectCounts.active,
     overviewData!.projectCounts.archived,
     overviewData!.projectCounts.total
-  ]);
+  ];
+  for (const value of expectedCountValues) {
+    await expect(
+      summaryRegion.getByText(String(value), { exact: true })
+    ).toBeVisible();
+  }
 
   const projectsWithReports = overviewData!.byProject.filter(
     (project) => Object.keys(project.reportCounts).length > 0
@@ -117,16 +122,12 @@ test('B.2 preserva os dados reais e alterna exclusivamente DataTable/MobileList'
   await expect(table).toBeVisible();
   await expect(table.locator('thead th[scope="col"]')).not.toHaveCount(0);
 
-  const firstCells = await table
-    .locator('tbody tr')
-    .first()
-    .getByRole('cell')
-    .allTextContents();
-  const renderedTypeCounts = firstCells
-    .slice(1, -1)
-    .map((value) => (value.trim() === '—' ? 0 : Number(value.trim())));
-  expect(Number(firstCells.at(-1)?.trim())).toBe(
-    renderedTypeCounts.reduce((total, value) => total + value, 0)
+  const firstDesktopRow = table.locator('tbody tr').first();
+  await expect(firstDesktopRow.getByRole('rowheader')).toContainText(
+    firstProject.code
+  );
+  await expect(firstDesktopRow.locator('td').last()).toHaveText(
+    String(firstProjectTotal)
   );
 
   const initialRows = await table.locator('tbody tr').count();
