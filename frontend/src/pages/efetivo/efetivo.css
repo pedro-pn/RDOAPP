@@ -591,6 +591,10 @@
   justify-content: space-between;
 }
 
+.efetivo-mission-card header > div {
+  min-width: 0;
+}
+
 .efetivo-role-card dl,
 .efetivo-mission-card dl,
 .efetivo-kanban-card dl {
@@ -819,11 +823,22 @@
 }
 
 .efetivo-status {
+  align-items: center;
   border: 1px solid var(--br);
   border-radius: 999px;
   display: inline-flex;
   font-size: 11px;
+  justify-content: center;
+  line-height: 1.2;
+  max-width: 100%;
   padding: 3px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.efetivo-mission-card header > .efetivo-status {
+  align-self: flex-start;
+  flex: 0 0 auto;
 }
 
 .efetivo-status.status-confirmed,
@@ -1124,6 +1139,8 @@
   border-color: var(--warning-border);
   color: var(--warning-text);
   font-weight: 700;
+  max-width: 116px;
+  white-space: normal;
 }
 
 .efetivo-pending-note { color: var(--warning-text); font-size: 12.5px; margin: 0; }
