@@ -76,7 +76,7 @@ async function cleanup(prisma, data) {
 }
 
 test('duas transações concorrentes só permitem uma alocação conflitante', { skip: databaseTestsEnabled ? false : 'defina EFETIVO_DB_TESTS=1 e DATABASE_URL de um banco descartável' }, async () => {
-  const { default: prisma } = await import('../src/prisma.js');
+  const { default: prisma } = await import('../src/lib/prisma.js');
   const { addMissionAllocation } = await import('../src/lib/efetivo/planning/allocations.js');
   let data = null;
   try {

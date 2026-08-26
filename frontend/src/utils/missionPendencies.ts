@@ -7,7 +7,7 @@ export function missionPendencies(mission: PlanningMission): string[] {
   const pendencies: string[] = [];
   const required = mission.demands.reduce((sum, demand) => sum + demand.requiredCount, 0);
   if (!mission.headquartersResponsibleName) pendencies.push('Definir o responsável da sede');
-  if (!required) pendencies.push('Definir a demanda por função');
+  if (!required) pendencies.push('Selecionar a equipe');
   else if (mission.allocations.length < required) pendencies.push(`Completar a equipe (${mission.allocations.length}/${required})`);
   if (mission.scheduleStatus === 'DRAFT') pendencies.push('Confirmar a programação');
   return pendencies;
@@ -17,7 +17,7 @@ export function missionPendencies(mission: PlanningMission): string[] {
 export const PENDING_PROJECT_PENDENCIES = [
   'Informar mobilização, execução e retorno',
   'Definir o responsável da sede',
-  'Definir a demanda por função e a equipe'
+  'Selecionar os colaboradores da equipe'
 ];
 
 export function countMissionPendencies(missions: PlanningMission[], pendingProjects: PendingMissionProject[]) {

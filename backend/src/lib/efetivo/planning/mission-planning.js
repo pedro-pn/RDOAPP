@@ -2,6 +2,7 @@ import { recordEfetivoAudit } from './audit.js';
 import { collectAllocationConflicts, ensureNoPlanningConflicts, loadCollaboratorConflictData, lockCollaborator } from './conflicts.js';
 import { parseDateKey } from './date-only.js';
 import { conflictError, notFound, planningError } from './errors.js';
+import { resolveSelectedMissionTeam, syncSelectedMissionTeam } from './mission-team.js';
 import {
   bumpPlanRevision,
   requireEditablePlan,
@@ -181,12 +182,15 @@ export async function getMission(missionId, dependencies = {}) {
 export async function createMission(payload, context = {}, dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
   validateMissionChronology(payload);
-  const demands = normalizeMissionDemands(payload.demands, payload.scheduleStatus);
   return runPlanningTransaction(database, async tx => {
     const plan = await requireEditablePlan(tx, payload.planId, { actorUserId: context.actorUserId });
     const project = await tx.project.findFirst({ where: { id: payload.projectId, isActive: true, deletedAt: null } });
     if (!project) throw notFound('Projeto não encontrado ou inativo.');
     const responsible = await resolveMissionResponsible(tx, payload);
+    const team = Array.isArray(payload.collaboratorIds)
+      ? await resolveSelectedMissionTeam(tx, payload, plan.id)
+      : null;
+    const demands = team?.demands || normalizeMissionDemands(payload.demands, payload.scheduleStatus);
     await validateDemandRoles(tx, demands);
     const maxOrder = await tx.efetivoMissionPlan.aggregate({ where: { planId: plan.id, stage: payload.stage, deletedAt: null }, _max: { kanbanOrder: true } });
     const existing = await tx.efetivoMissionPlan.findUnique({
@@ -227,6 +231,10 @@ export async function createMission(payload, context = {}, dependencies = {}) {
         include: missionInclude
       });
     }
+    if (team) {
+      await syncSelectedMissionTeam(tx, mission.id, team, context);
+      mission = await tx.efetivoMissionPlan.findUnique({ where: { id: mission.id }, include: missionInclude });
+    }
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id,
@@ -248,7 +256,6 @@ export async function createMission(payload, context = {}, dependencies = {}) {
 export async function updateMission(missionId, payload, context = {}, dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
   validateMissionChronology(payload);
-  const demands = normalizeMissionDemands(payload.demands, payload.scheduleStatus);
   return runPlanningTransaction(database, async tx => {
     const existing = await tx.efetivoMissionPlan.findUnique({ where: { id: missionId }, include: { ...missionInclude, plan: true } });
     if (!existing || existing.deletedAt) throw notFound('Missão operacional não encontrada.');
@@ -256,10 +263,14 @@ export async function updateMission(missionId, payload, context = {}, dependenci
     if (context.version && existing.version !== context.version) throw conflictError('A missão foi alterada por outra pessoa.', [], 'MISSION_VERSION_CONFLICT');
     if (payload.projectId !== existing.projectId) throw conflictError('O projeto da programação não pode ser substituído.', [], 'MISSION_PROJECT_IMMUTABLE');
     const responsible = await resolveMissionResponsible(tx, payload);
+    const team = Array.isArray(payload.collaboratorIds)
+      ? await resolveSelectedMissionTeam(tx, payload, existing.planId, existing.id)
+      : null;
+    const demands = team?.demands || normalizeMissionDemands(payload.demands, payload.scheduleStatus);
     await validateDemandRoles(tx, demands);
-    await validateExistingAllocations(tx, existing, payload, demands);
+    if (!team) await validateExistingAllocations(tx, existing, payload, demands);
     await tx.efetivoMissionDemand.deleteMany({ where: { missionId } });
-    const updated = await tx.efetivoMissionPlan.update({
+    let updated = await tx.efetivoMissionPlan.update({
       where: { id: missionId },
       data: {
         ...missionData(payload, context.actorUserId, demands, responsible),
@@ -267,6 +278,10 @@ export async function updateMission(missionId, payload, context = {}, dependenci
       },
       include: missionInclude
     });
+    if (team) {
+      await syncSelectedMissionTeam(tx, missionId, team, context);
+      updated = await tx.efetivoMissionPlan.findUnique({ where: { id: missionId }, include: missionInclude });
+    }
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id,

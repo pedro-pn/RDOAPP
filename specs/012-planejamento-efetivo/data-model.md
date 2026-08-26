@@ -134,8 +134,8 @@ Validações:
 - Restrição única `(planId, projectId)`.
 - Projeto não excluído.
 - `mobilizationDate ≤ executionStartDate ≤ executionEndDate ≤ returnDate`.
-- `CONFIRMED` exige ao menos uma demanda positiva.
-- Mudança de datas/demanda revalida todas as alocações.
+- `CONFIRMED` exige ao menos um colaborador selecionado.
+- Mudança de datas/equipe revalida todos os colaboradores antes de persistir.
 
 Índices: `(planId, scheduleStatus, mobilizationDate, returnDate)`, `(planId, stage, kanbanOrder)`, `(planId, deletedAt)`.
 
@@ -149,6 +149,8 @@ Validações:
 | `createdAt` / `updatedAt` | timestamps |
 
 Restrição única `(missionId, jobRoleId)`. Demanda zero remove a linha.
+
+No diálogo de programação, esta entidade é projeção persistida da equipe, não entrada manual: `requiredCount` é a contagem de alocações selecionadas agrupada pelo `jobRoleId` canônico vigente no momento do salvamento. Ela permanece armazenada para preservar as projeções de capacidade e a compatibilidade com cenários.
 
 ### EfetivoMissionAllocation
 
@@ -169,6 +171,7 @@ Restrições:
 - Única por `(missionId, collaboratorId)`; restauração atualiza a linha excluída.
 - Função precisa existir na demanda e não ultrapassar `requiredCount`, salvo atualização explícita conjunta.
 - Colaborador ativo no intervalo, da função correta e sem missão confirmada/ausência sobreposta.
+- A edição da programação faz `upsert` das pessoas selecionadas e exclusão lógica das removidas; essas alterações e a recriação da demanda derivada pertencem à mesma transação da missão.
 
 Índices: `(collaboratorId, deletedAt)`, `(missionId, jobRoleId, deletedAt)`.
 

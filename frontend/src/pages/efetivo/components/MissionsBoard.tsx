@@ -117,7 +117,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
       {totalPendencies ? (
         <section className="page-card efetivo-pending-banner" role="status" data-efetivo-pending-banner>
           <strong>{totalPendencies} {totalPendencies === 1 ? 'missão pendente' : 'missões pendentes'}</strong>
-          <p>As missões vêm dos projetos cadastrados. Abra cada card destacado em amarelo e complete datas, responsável da sede, demanda por função e equipe.</p>
+          <p>As missões vêm dos projetos cadastrados. Abra cada card destacado em amarelo e complete datas, responsável da sede e equipe.</p>
         </section>
       ) : null}
       {missions.isLoading || pending.isLoading ? <section className="page-card placeholder-copy">Carregando missões…</section>
@@ -183,7 +183,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
               })}
             </div>
           ) : <section className="page-card placeholder-copy">Nenhuma missão neste recorte.</section>}
-      {canManage ? <MissionFormModal open={Boolean(formTarget)} mission={formTarget?.mission || null} project={formTarget?.project || null} planId={planId} roles={roles.data || []} coordinators={coordinators.data || []} coordinatorsLoading={coordinators.isLoading} collaborators={collaborators.data || []} saving={save.isPending} onClose={() => setFormTarget(null)} onSubmit={payload => save.mutate(payload)} /> : null}
+      {canManage ? <MissionFormModal open={Boolean(formTarget)} mission={formTarget?.mission || null} project={formTarget?.project || null} planId={planId} roles={roles.data || []} rolesLoading={roles.isLoading} coordinators={coordinators.data || []} coordinatorsLoading={coordinators.isLoading} collaborators={collaborators.data || []} collaboratorsLoading={collaborators.isLoading} saving={save.isPending} onClose={() => setFormTarget(null)} onSubmit={payload => save.mutate(payload)} /> : null}
       <MissionAllocationModal mission={allocating} open={Boolean(allocating)} onClose={() => setAllocating(null)} onPlanningMutated={onPlanningMutated} />
       <ConfirmDialog open={Boolean(deleting)} title="Remover programação?" description="A exclusão é lógica e a trilha permanece na auditoria; o projeto volta a aparecer como missão pendente." highlight={deleting ? `${deleting.project.code} · ${deleting.project.name}` : undefined} confirmLabel={remove.isPending ? 'Removendo…' : 'Remover'} onConfirm={() => { if (deleting) remove.mutate(deleting.id); }} onCancel={() => setDeleting(null)} />
     </div>

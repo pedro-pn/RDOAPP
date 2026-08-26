@@ -752,7 +752,7 @@ components:
         startDate: { $ref: '#/components/schemas/DateOnly' }
         endDate: { $ref: '#/components/schemas/DateOnly' }
         note: { type: [string, 'null'], maxLength: 1000 }
-    MissionDemandInput:
+    MissionDemand:
       type: object
       required: [jobRoleId, requiredCount]
       properties:
@@ -760,7 +760,7 @@ components:
         requiredCount: { type: integer, minimum: 0 }
     MissionInput:
       type: object
-      required: [projectId, scheduleStatus, stage, headquartersResponsibleUserId, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, demands]
+      required: [projectId, scheduleStatus, stage, headquartersResponsibleUserId, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, collaboratorIds]
       properties:
         planId: { type: string }
         projectId: { type: string }
@@ -774,29 +774,51 @@ components:
         executionStartDate: { $ref: '#/components/schemas/DateOnly' }
         executionEndDate: { $ref: '#/components/schemas/DateOnly' }
         returnDate: { $ref: '#/components/schemas/DateOnly' }
+        collaboratorIds:
+          type: array
+          maxItems: 500
+          uniqueItems: true
+          description: Colaboradores selecionados diretamente; a demanda por função é derivada dos cargos canônicos no servidor.
+          items: { type: string }
+    Mission:
+      type: object
+      required: [id, planId, projectId, scheduleStatus, stage, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, version, kanbanOrder, project, demands, allocations]
+      properties:
+        id: { type: string }
+        planId: { type: string }
+        projectId: { type: string }
+        scheduleStatus: { $ref: '#/components/schemas/MissionScheduleStatus' }
+        stage: { $ref: '#/components/schemas/MissionStage' }
+        headquartersResponsibleName: { type: string }
+        headquartersResponsibleRole: { type: string }
+        headquartersResponsibleCollaboratorId: { type: [string, 'null'] }
+        mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
+        executionStartDate: { $ref: '#/components/schemas/DateOnly' }
+        executionEndDate: { $ref: '#/components/schemas/DateOnly' }
+        returnDate: { $ref: '#/components/schemas/DateOnly' }
+        version: { type: integer }
+        kanbanOrder: { type: integer }
+        project: { $ref: '#/components/schemas/ProjectOption' }
         demands:
           type: array
-          items: { $ref: '#/components/schemas/MissionDemandInput' }
-    Mission:
-      allOf:
-        - $ref: '#/components/schemas/MissionInput'
-        - type: object
-          required: [id, version, kanbanOrder, project, allocations]
-          properties:
-            id: { type: string }
-            version: { type: integer }
-            kanbanOrder: { type: integer }
-            project: { $ref: '#/components/schemas/ProjectOption' }
-            allocations:
-              type: array
-              items:
+          description: Contagens derivadas da equipe selecionada, agrupadas por função canônica.
+          items: { $ref: '#/components/schemas/MissionDemand' }
+        allocations:
+          type: array
+          items:
+            type: object
+            required: [id, collaboratorId, jobRoleId]
+            properties:
+              id: { type: string }
+              collaboratorId: { type: string }
+              jobRoleId: { type: string }
+              collaborator:
                 type: object
-                required: [id, collaboratorId, jobRoleId, collaboratorName]
                 properties:
                   id: { type: string }
-                  collaboratorId: { type: string }
-                  jobRoleId: { type: string }
-                  collaboratorName: { type: string }
+                  name: { type: string }
+                  role: { type: string }
+                  jobRoleId: { type: [string, 'null'] }
     RoleCapacity:
       type: object
       required: [jobRoleId, jobRoleName, active, allocated, unavailable, free, demand, deficit]

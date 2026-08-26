@@ -111,7 +111,7 @@ export interface MissionInput {
   executionStartDate: DateOnly;
   executionEndDate: DateOnly;
   returnDate: DateOnly;
-  demands: Array<{ jobRoleId: string; requiredCount: number }>;
+  collaboratorIds: string[];
 }
 
 export interface ContinuousStayAlert {

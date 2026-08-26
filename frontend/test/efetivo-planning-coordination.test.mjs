@@ -66,3 +66,14 @@ test('responsável da sede é obrigatório no tipo, OpenAPI e schema Zod', () =>
   assert.match(openapi, /required:\s*\[[^\]]*headquartersResponsibleUserId[^\]]*\]/);
   assert.match(schemas, /headquartersResponsibleUserId:\s*idSchema/);
 });
+
+test('equipe da missão usa collaboratorIds no tipo, OpenAPI e schema Zod', () => {
+  const api = fs.readFileSync(new URL('../src/api/efetivoPlanning.ts', import.meta.url), 'utf8');
+  const openapi = fs.readFileSync(new URL('../../specs/012-planejamento-efetivo/contracts/efetivo-planning.openapi.yaml', import.meta.url), 'utf8');
+  const schemas = fs.readFileSync(new URL('../../backend/src/lib/efetivo/planning/schemas.js', import.meta.url), 'utf8');
+
+  assert.match(api, /collaboratorIds:\s*string\[\];/);
+  assert.doesNotMatch(api.match(/export interface MissionInput \{[\s\S]*?\n\}/)?.[0] || '', /demands:/);
+  assert.match(openapi, /required:\s*\[[^\]]*collaboratorIds[^\]]*\]/);
+  assert.match(schemas, /collaboratorIds:\s*z\.array\(idSchema\)/);
+});

@@ -10,7 +10,8 @@ export async function lockCollaborator(tx, collaboratorId) {
 export function collaboratorIsEmployedForPeriod(collaborator, period) {
   const admission = collaborator.admissionDate ? parseDateKey(collaborator.admissionDate) : null;
   const termination = collaborator.terminationDate ? parseDateKey(collaborator.terminationDate) : null;
-  return (!admission || admission <= parseDateKey(period.startDate))
+  return collaborator.isActive !== false
+    && (!admission || admission <= parseDateKey(period.startDate))
     && (!termination || termination >= parseDateKey(period.endDate));
 }
 

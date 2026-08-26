@@ -60,9 +60,9 @@ No frontend, validar helpers de calendário, URL e Kanban, além do build TypeSc
 1. Entrar com `efetivo:manager` e abrir `Efetivo > Administração`.
 2. Marcar funções operacionais, definir cores/prazos e cadastrar um feriado.
 3. Em `Colaboradores`, vincular funções/admissões e criar uma folga de teste.
-4. Em `Missões`, selecionar um projeto, informar cronologia/demanda e confirmar a programação.
-5. Tentar alocar a pessoa em folga e verificar o conflito com pessoa, período e caminho do registro.
-6. Usar `Alocar disponíveis` e conferir vagas restantes.
+4. Em `Missões`, selecionar um projeto, informar a cronologia e escolher diretamente colaboradores pelo nome/cargo.
+5. Salvar e conferir que demanda por função e equipe foram derivadas das pessoas selecionadas.
+6. Tentar incluir uma pessoa em folga ou em outra missão e verificar o conflito com pessoa, período e caminho do registro, sem alteração parcial.
 7. Validar a missão no calendário diário, semanal e mensal.
 8. Conferir na Visão geral os totais, déficit, mobilizações e utilização de 90 dias.
 9. Mover a missão no Kanban por arraste e pela alternativa acessível; cancelar um arraste e confirmar rollback visual.
@@ -91,18 +91,20 @@ Validar no mínimo 1440×900, 768×1024 e 390×844:
 - Não incluir cookies, tokens, nomes reais ou outros dados sensíveis em screenshots/logs.
 - Entregar a migração para o operador executar no ambiente de destino conforme o procedimento vigente.
 
-## Evidência registrada em 2026-08-25
+## Evidência registrada em 2026-08-26
 
 Validações executadas nesta branch:
 
-- backend: `138/138` arquivos de teste aprovados com `NODE_ENV=test` e uma `DATABASE_URL` sintática, sem conexão nem escrita no banco de desenvolvimento;
-- frontend: `22/22` arquivos de teste aprovados;
+- backend: `139/139` arquivos de teste aprovados com `NODE_ENV=test` e uma `DATABASE_URL` sintática, sem conexão nem escrita no banco de desenvolvimento;
+- frontend: `23/23` arquivos de teste aprovados;
 - lint frontend: zero erros e um aviso preexistente fora do módulo (`OmieCostCategoriesPanel.tsx`);
 - build frontend: TypeScript e Vite aprovados; permanece apenas o aviso conhecido de chunk principal acima de 500 kB;
 - Prisma: `generate` e `validate` aprovados para o schema novo;
 - arquitetura: verificação do repositório aprovada;
-- contrato OpenAPI: YAML válido, com 25 caminhos reconhecidos;
-- visual: a matriz completa anterior permanece registrada; nesta revisão, o primeiro acesso foi repetido com APIs simuladas e exibiu exatamente um Driver.js, liberando a reserva ao fechar sem sobrepor tutorial e novidade.
+- contrato OpenAPI: YAML válido;
+- visual funcional em `localhost:5175`: criação com duas pessoas de cargos diferentes, demanda derivada `1/1` por cargo, edição com pré-seleção, remoção de uma pessoa, exclusão lógica da programação e retorno do projeto à lista pendente; os dados de teste foram removidos ao final;
+- visual em sessão limpa: lista com 47 colaboradores e seus cargos, busca por `mantenedor`, seleção com resumo `Mantenedor I · 1` e zero erros no console;
+- concorrência PostgreSQL real: `2/2` casos aprovados no container local `filtrovali-local-backend`, incluindo duas transações simultâneas disputando o mesmo colaborador; apenas uma alocação foi persistida e os dados aleatórios do plano de cenário foram removidos pelo próprio teste.
 
 Medição sintética da projeção diária + utilização de 90 dias, com 500 colaboradores, 100 missões confirmadas e 500 alocações:
 
@@ -110,10 +112,9 @@ Medição sintética da projeção diária + utilização de 90 dias, com 500 co
 - depois do índice em memória de ausências/missões e agregação única de demanda: `138,96 ms`;
 - ganho observado na mesma execução: aproximadamente `30,8×`.
 
-Pendências exclusivamente operacionais (revisadas em 2026-08-25):
+Pendências exclusivamente operacionais (revisadas em 2026-08-26):
 
-- a migração versionada não foi aplicada em nenhum banco;
-- o teste de concorrência com duas transações PostgreSQL reais está escrito e é ignorado por padrão; depois da migração, rode-o em um banco descartável com `EFETIVO_DB_TESTS=1 DATABASE_URL=<banco descartável> node --test test/efetivo-allocation-concurrency.test.js` a partir de `backend/` (ele cria e remove os próprios dados em um plano de cenário, sem tocar no planejamento oficial);
-- nesta revisão não havia `DATABASE_URL` nem binários locais do PostgreSQL; a porta 5432 existente não foi usada porque o serviço não pôde ser comprovado como descartável;
-- Docker e serviços existentes não foram reiniciados;
-- o processo já existente em `localhost:5173` não foi alterado; a auditoria visual usou uma porta isolada e esse processo foi encerrado ao final.
+- nenhuma migração foi criada ou aplicada por este ajuste; o banco PostgreSQL local fornecido pelo usuário já estava migrado;
+- o teste de concorrência permanece ignorado por padrão nas suítes comuns; para repeti-lo, use `EFETIVO_DB_TESTS=1 DATABASE_URL=<banco descartável> node --test test/efetivo-allocation-concurrency.test.js` a partir de `backend/` (ele cria e remove os próprios dados em um plano de cenário, sem tocar no planejamento oficial);
+- somente o backend local foi reiniciado para carregar as correções; banco e frontend do ambiente Docker fornecido não foram reiniciados;
+- a auditoria visual reutilizou `localhost:5175` e encerrou apenas a sessão automatizada do navegador ao final.

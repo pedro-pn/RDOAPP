@@ -6,7 +6,7 @@
 
 ## Summary
 
-Expandir o módulo Efetivo Operacional para cobrir o fluxo completo observado na referência aprovada: visão geral por data, calendário, cadastro operacional de colaboradores, programação e alocação de missões, evolução em Kanban, simulações comparáveis/aplicáveis e administração de cargos, feriados e auditoria. A solução preserva `Project`, `Collaborator` e `JobRole` como cadastros canônicos, introduz um plano oficial versionado e cenários materializados, usa intervalos civis inclusivos e protege alterações concorrentes com transação, lock e revisão monotônica. Produtividade continua derivada exclusivamente do Ponto Mais; não haverá lançamento manual de HH.
+Expandir o módulo Efetivo Operacional para cobrir visão geral por data, calendário, cadastro operacional de colaboradores, programação e alocação de missões, evolução em Kanban, simulações comparáveis/aplicáveis e administração de cargos, feriados e auditoria. A programação de missão seleciona diretamente colaboradores do APP com seus cargos; demanda por função e alocações são sincronizadas atomicamente e derivadas da equipe. A solução preserva `Project`, `Collaborator` e `JobRole` como cadastros canônicos, usa intervalos civis inclusivos e protege alterações concorrentes com transação, lock e revisão monotônica. Produtividade continua derivada exclusivamente do Ponto Mais; não haverá lançamento manual de HH.
 
 ## Technical Context
 
@@ -40,7 +40,7 @@ Expandir o módulo Efetivo Operacional para cobrir o fluxo completo observado na
 |---------|----------------------------|--------------------------|-------------------------------|---------------------------|------------------------|------------------------|----------------------------------|
 | Visão geral e calendário | `ProductivityBoard`, `AcompanhamentoDashboard`, `SedeCostsBoard` e layouts `equip-*` | `Card`, `Button`, `SearchBar`, `field-group`, `efetivo-kpis` | filtros default/focus/disabled/empty | N/A | `section`, `date`, `view`, `role` | novidade 10 dias + etapas do tutorial | grade mensal vira agenda; cards encolhem sem overflow |
 | Colaboradores e ausências | `AbsenceFormModal` e tabela responsiva do Efetivo | `Modal`, `Button`, `SearchBar`, novo `SearchCombobox`, `field-invalid`, `field-error` | default/focus/disabled/error/required-empty | N/A | filtros e colaborador em query params | etapa específica no tutorial | tabela vira cards em até 640 px; rodapé fixo no modal |
-| Missões e alocação | `ProjectCardsBoard`, `AbsenceFormModal` | `Modal`, `Button`, `SearchCombobox`, badges e cards | projeto/pessoa pesquisável, loading, empty, disabled, error | N/A | filtros, missão e modal em query params | etapa específica no tutorial | demanda/equipe empilhadas no mobile; sem select largo |
+| Missões e alocação | `ProjectCardsBoard`, `AbsenceFormModal` | `Modal`, `Button`, busca, checkboxes acessíveis, badges e cards | colaboradores pesquisáveis por nome/cargo, loading, empty, disabled, selected e error | N/A | filtros, missão e modal em query params | etapa específica no tutorial | lista de equipe rolável e resumo empilhado no mobile; sem select largo |
 | Evolução das missões | `QualityNaturesTab` e `utils/reorderDrag.ts` | handles/ghost/placeholders compartilhados e `Button` | seletor alternativo default/focus/disabled/error | handle + live placeholder/ghost + Pointer Events + cancel | etapa e missão selecionada em query params | etapa específica no tutorial | colunas no desktop; seletor + lista no mobile |
 | Simulações e administração | `AcompanhamentoDashboard`, formulários admin e atividade existente | `Modal`, `Button`, `SearchCombobox`, `admin-form-grid`, `field-group` | default/focus/disabled/error/required-empty | N/A | cenário/filtros em query params | etapas específicas no tutorial | comparação em cards; formulários e auditoria quebram texto |
 
@@ -132,6 +132,7 @@ frontend/
 - Criar `EfetivoPlan` com um único oficial ativo, revisão monotônica e cenários materializados.
 - Serializar mutações oficiais bloqueando a linha do plano dentro de `$transaction`; aplicar cenários por compare-and-swap de `baseOfficialRevision`.
 - Bloquear por colaborador e revalidar sobreposições antes de gravar ausência, alocação ou confirmação de missão.
+- Na criação/edição da missão, adquirir locks dos colaboradores em ordem estável, derivar `EfetivoMissionDemand` pelos cargos canônicos selecionados e sincronizar `EfetivoMissionAllocation` dentro da mesma transação.
 - Gravar `EfetivoAuditEvent` na mesma transação, com snapshots sanitizados antes/depois.
 - Fazer backfill de `Collaborator.jobRoleId` apenas quando o nome normalizado resolver para exatamente um cargo; manter o texto legado.
 - Nenhuma coluna ou dado existente será removido nesta entrega.
@@ -148,14 +149,14 @@ frontend/
 - Expor projetos mínimos e cargos operacionais pelo escopo `efetivo:viewer`, sem conceder acesso RDO.
 - Restringir mutações cadastrais do Efetivo a nome, função, admissão/desligamento e observação; campos de identidade externa continuam sob seus donos atuais.
 - Erros de conflito retornam código estável, pessoa, origem, período e IDs navegáveis.
-- Rotas existentes permanecem compatíveis; nenhum cliente atual precisa adotar os contratos novos.
+- `MissionInput` passa a receber `collaboratorIds`; a resposta continua expondo demandas derivadas e alocações para capacidade, calendário, cenários e clientes de leitura.
 
 ### Validation and tests
 
 - Datas: ano bissexto, data impossível, limites inclusivos, DST e intervalos invertidos.
 - Capacidade: fins de semana, feriados, vínculo parcial, ausência, denominador zero e deduplicação.
 - Conflitos: ausência × ausência, ausência × missão, missão × missão, função/vínculo e corrida concorrente.
-- Missões: cronologia, demanda, autoalocação determinística, déficit parcial e idempotência.
+- Missões: cronologia, seleção direta da equipe, derivação de demanda, sincronização atômica, autoalocação legada, déficit parcial e idempotência.
 - Permanência/férias: intervalos adjacentes, lacunas, FOLGA, limites e janelas aquisitiva/concessiva.
 - Cenários: comparação isolada, rollback integral, revisão obsoleta, retry e aplicação concorrente.
 - Frontend: navegação por URL, calendário, cards mobile, formulários inválidos, Kanban com cancelamento/toque e alternativa acessível.

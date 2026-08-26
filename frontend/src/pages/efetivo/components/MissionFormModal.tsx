@@ -8,6 +8,8 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { SearchCombobox } from '../../../components/ui/SearchCombobox';
 import { prefillDatesFromProject } from '../../../utils/missionPendencies';
+import { selectedMissionCollaboratorIds } from '../../../utils/missionTeam';
+import { MissionTeamSelector } from './MissionTeamSelector';
 
 const schema = z.object({
   projectId: z.string().min(1, 'Selecione o projeto.'),
@@ -21,14 +23,13 @@ const schema = z.object({
   executionStartDate: z.string().min(1, 'Informe o início.'),
   executionEndDate: z.string().min(1, 'Informe o fim.'),
   returnDate: z.string().min(1, 'Informe o retorno.'),
-  demands: z.record(z.string(), z.number().int().min(0).max(1000))
+  collaboratorIds: z.array(z.string()).max(500, 'Selecione no máximo 500 colaboradores.')
 }).refine(value => value.mobilizationDate <= value.executionStartDate && value.executionStartDate <= value.executionEndDate && value.executionEndDate <= value.returnDate, { path: ['returnDate'], message: 'Use a ordem mobilização ≤ início ≤ fim ≤ retorno.' })
-  .refine(value => value.scheduleStatus !== 'CONFIRMED' || Object.values(value.demands).some(count => count > 0), { path: ['demands'], message: 'Informe ao menos uma demanda para confirmar.' });
+  .refine(value => value.scheduleStatus !== 'CONFIRMED' || value.collaboratorIds.length > 0, { path: ['collaboratorIds'], message: 'Selecione ao menos um colaborador para confirmar.' });
 
 type FormValues = z.infer<typeof schema>;
 
-function initialValues(mission: PlanningMission | null, project: PendingMissionProject | null, roles: PlanningJobRole[], coordinators: PlanningCoordinator[], planId?: string): FormValues & { planId?: string } {
-  const demands = Object.fromEntries(roles.map(role => [role.id, mission?.demands.find(item => item.jobRoleId === role.id)?.requiredCount || 0]));
+function initialValues(mission: PlanningMission | null, project: PendingMissionProject | null, coordinators: PlanningCoordinator[], planId?: string): FormValues & { planId?: string } {
   const coordinator = mission
     ? coordinators.find(item => item.collaborator?.id === mission.headquartersResponsibleCollaboratorId)
       || coordinators.find(item => item.name === mission.headquartersResponsibleName)
@@ -47,25 +48,27 @@ function initialValues(mission: PlanningMission | null, project: PendingMissionP
     executionStartDate: mission?.executionStartDate?.slice(0, 10) || suggested?.executionStartDate || '',
     executionEndDate: mission?.executionEndDate?.slice(0, 10) || suggested?.executionEndDate || '',
     returnDate: mission?.returnDate?.slice(0, 10) || suggested?.returnDate || '',
-    demands
+    collaboratorIds: selectedMissionCollaboratorIds(mission)
   };
 }
 
-export function MissionFormModal({ open, mission, project, planId, roles, coordinators, coordinatorsLoading, collaborators, saving, onClose, onSubmit }: {
+export function MissionFormModal({ open, mission, project, planId, roles, rolesLoading, coordinators, coordinatorsLoading, collaborators, collaboratorsLoading, saving, onClose, onSubmit }: {
   open: boolean;
   mission: PlanningMission | null;
   project: PendingMissionProject | null;
   planId?: string;
   roles: PlanningJobRole[];
+  rolesLoading: boolean;
   coordinators: PlanningCoordinator[];
   coordinatorsLoading: boolean;
   collaborators: PlanningCollaborator[];
+  collaboratorsLoading: boolean;
   saving: boolean;
   onClose: () => void;
   onSubmit: (payload: MissionInput) => void;
 }) {
-  const { register, control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: initialValues(mission, project, roles, coordinators, planId) });
-  useEffect(() => { if (open) reset(initialValues(mission, project, roles, coordinators, planId)); }, [coordinators, mission, open, planId, project, reset, roles]);
+  const { register, control, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: initialValues(mission, project, coordinators, planId) });
+  useEffect(() => { if (open) reset(initialValues(mission, project, coordinators, planId)); }, [coordinators, mission, open, planId, project, reset]);
   const identity = mission?.project || project;
   const responsibleUserId = watch('headquartersResponsibleUserId');
   const linkedLeaderId = watch('headquartersResponsibleCollaboratorId');
@@ -75,9 +78,25 @@ export function MissionFormModal({ open, mission, project, planId, roles, coordi
   const leaderOptions = selectedCoordinator?.collaborator && !collaborators.some(item => item.id === selectedCoordinator.collaborator?.id)
     ? [selectedCoordinator.collaborator, ...collaborators]
     : collaborators;
+  const teamCollaborators = [...collaborators];
+  for (const allocation of mission?.allocations || []) {
+    if (!allocation.collaborator || teamCollaborators.some(item => item.id === allocation.collaboratorId)) continue;
+    teamCollaborators.push({
+      id: allocation.collaborator.id,
+      name: allocation.collaborator.name,
+      role: allocation.collaborator.role,
+      jobRoleId: allocation.collaborator.jobRoleId,
+      admissionDate: null,
+      terminationDate: null,
+      isActive: false,
+      status: 'OUTSIDE_EMPLOYMENT',
+      plannedUtilization90d: null,
+      vacationAlert: null
+    });
+  }
   return (
     <Modal open={open} onClose={onClose} ariaLabelledBy="mission-form-title" panelClassName="modal-card efetivo-detail-modal efetivo-modal">
-      <form className="efetivo-modal-layout" noValidate onSubmit={handleSubmit(values => onSubmit({ ...values, planId, headquartersResponsibleCollaboratorId: values.headquartersResponsibleCollaboratorId || null, demands: Object.entries(values.demands).filter(([, requiredCount]) => requiredCount > 0).map(([jobRoleId, requiredCount]) => ({ jobRoleId, requiredCount })) }))}>
+      <form className="efetivo-modal-layout" noValidate onSubmit={handleSubmit(values => onSubmit({ ...values, planId, headquartersResponsibleCollaboratorId: values.headquartersResponsibleCollaboratorId || null }))}>
         <header className="efetivo-modal-header"><div><h3 id="mission-form-title">{mission ? 'Editar programação' : 'Completar programação da missão'}</h3><p>A missão vem do projeto cadastrado; aqui ficam datas operacionais, responsável, etapa e equipe.</p></div><button className="icon-button" type="button" aria-label="Fechar" onClick={onClose}>×</button></header>
         <div className="efetivo-modal-body efetivo-form-grid">
           <input type="hidden" {...register('projectId')} />
@@ -101,7 +120,7 @@ export function MissionFormModal({ open, mission, project, planId, roles, coordi
           <div className="field-group"><label htmlFor="mission-stage">Etapa *</label><select id="mission-stage" disabled={saving} {...register('stage')}><option value="STANDBY">Stand by</option><option value="MOBILIZATION">Mobilização</option><option value="EXECUTION">Execução</option><option value="FINAL_MEASUREMENT">Medição final</option><option value="FINISHED">Finalizada</option></select></div>
           <div className="field-group"><label htmlFor="mission-status">Situação da programação *</label><select id="mission-status" disabled={saving} {...register('scheduleStatus')}><option value="DRAFT">Rascunho</option><option value="CONFIRMED">Confirmada</option><option value="CANCELLED">Cancelada</option></select></div>
           {([['mobilizationDate', 'Previsão de mobilização'], ['executionStartDate', 'Início da execução'], ['executionEndDate', 'Fim da execução'], ['returnDate', 'Retorno']] as const).map(([name, label]) => <div className={`field-group ${errors[name] ? 'field-invalid' : ''}`} key={name}><label htmlFor={`mission-${name}`}>{label} *</label><input id={`mission-${name}`} type="date" disabled={saving} aria-invalid={Boolean(errors[name])} {...register(name)} />{errors[name] ? <span className="field-error">{errors[name]?.message}</span> : null}</div>)}
-          <fieldset className={`efetivo-demand-fieldset efetivo-form-wide ${errors.demands ? 'field-invalid' : ''}`}><legend>Demanda por função</legend><div className="efetivo-demand-grid">{roles.filter(role => role.isOperational).map(role => <div className="field-group" key={role.id}><label htmlFor={`demand-${role.id}`}><i className="efetivo-role-dot" style={{ background: role.calendarColor || 'var(--mu)' }} aria-hidden="true" />{role.name}</label><input id={`demand-${role.id}`} type="number" min="0" disabled={saving} {...register(`demands.${role.id}`, { valueAsNumber: true })} /></div>)}</div>{typeof errors.demands?.message === 'string' ? <span className="field-error" role="alert">{errors.demands.message}</span> : null}</fieldset>
+          <Controller name="collaboratorIds" control={control} render={({ field }) => <MissionTeamSelector collaborators={teamCollaborators} roles={roles} selectedIds={field.value} loading={rolesLoading || collaboratorsLoading} disabled={saving} error={errors.collaboratorIds?.message} onChange={field.onChange} />} />
         </div>
         <footer className="efetivo-modal-footer"><Button variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar programação'}</Button></footer>
       </form>

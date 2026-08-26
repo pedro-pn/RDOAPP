@@ -22,7 +22,7 @@ function mission(overrides = {}) {
 test('pendências apontam demanda, equipe e confirmação faltantes', async () => {
   const pendencies = await load('/src/utils/missionPendencies.ts');
   assert.deepEqual(pendencies.missionPendencies(mission()), []);
-  assert.deepEqual(pendencies.missionPendencies(mission({ demands: [] })), ['Definir a demanda por função']);
+  assert.deepEqual(pendencies.missionPendencies(mission({ demands: [] })), ['Selecionar a equipe']);
   assert.deepEqual(pendencies.missionPendencies(mission({ allocations: [{ id: 'a1' }] })), ['Completar a equipe (1/2)']);
   assert.deepEqual(pendencies.missionPendencies(mission({ scheduleStatus: 'DRAFT' })), ['Confirmar a programação']);
   assert.deepEqual(pendencies.missionPendencies(mission({ scheduleStatus: 'CANCELLED', demands: [] })), []);
@@ -79,8 +79,9 @@ test('paridade de campos com o exemplo de referência', () => {
   for (const label of ['Nome do cenário *', 'Objetivo da simulação', 'Contratação hipotética', 'Quantidade', 'Disponíveis a partir de']) {
     assert.ok(scenarioForm.includes(label), `campo ausente no diálogo de cenário: ${label}`);
   }
-  const missionForm = read('../src/pages/efetivo/components/MissionFormModal.tsx');
-  for (const label of ['Responsabilidade da sede', 'Etapa e programação', 'Previsão de mobilização', 'Demanda por função']) {
+  const missionForm = read('../src/pages/efetivo/components/MissionFormModal.tsx')
+    + read('../src/pages/efetivo/components/MissionTeamSelector.tsx');
+  for (const label of ['Responsabilidade da sede', 'Etapa e programação', 'Previsão de mobilização', 'Selecionar colaboradores']) {
     assert.ok(missionForm.includes(label), `campo ausente no diálogo de missão: ${label}`);
   }
   const missionsBoard = read('../src/pages/efetivo/components/MissionsBoard.tsx');

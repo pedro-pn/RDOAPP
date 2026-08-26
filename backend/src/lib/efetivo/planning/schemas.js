@@ -87,7 +87,10 @@ export const missionInputSchema = z.object({
   executionStartDate: dateOnlySchema,
   executionEndDate: dateOnlySchema,
   returnDate: dateOnlySchema,
-  demands: z.array(demandInputSchema).max(100)
+  collaboratorIds: z.array(idSchema).max(500).refine(
+    values => new Set(values).size === values.length,
+    'Cada colaborador deve aparecer uma única vez na equipe.'
+  )
 });
 
 export const allocationInputSchema = z.object({

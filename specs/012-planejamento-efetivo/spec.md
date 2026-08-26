@@ -37,20 +37,20 @@ Como gestor do Efetivo, quero abrir uma visão geral posicionada em uma data par
 
 ### User Story 2 - Planejar missões e alocar pessoas (Priority: P1)
 
-Como planejador, quero cadastrar a programação de uma missão, definir a demanda por função e alocar colaboradores disponíveis para montar a equipe sem conflitos.
+Como planejador, quero cadastrar a programação de uma missão e selecionar diretamente os colaboradores do APP, vendo o cargo de cada pessoa, para montar a equipe sem conflitos.
 
 **Why this priority**: missões e alocações por pessoa são a fonte da capacidade futura, do calendário, dos alertas e das simulações.
 
-**Independent Test**: criar uma missão com datas e demanda por duas funções, alocar pessoas elegíveis e confirmar que a missão fica completa e aparece nas demais áreas.
+**Independent Test**: criar uma missão com datas e colaboradores de duas funções, confirmar que a demanda por função foi derivada da equipe e conferir a missão completa nas demais áreas.
 
 **Acceptance Scenarios**:
 
 1. **Given** um projeto ativo recém-cadastrado, **When** o gestor abre a aba Missões, **Then** encontra a missão criada automaticamente em amarelo, com a lista do que falta preencher e sem qualquer opção de cadastro manual de missão.
-2. **Given** um cartão de missão pendente, **When** o gestor clica nele, **Then** informa o responsável da sede entre contas ativas de coordenador, etapa, situação, mobilização, execução, retorno e quantidade exigida por função, com as datas do projeto já sugeridas.
-3. **Given** vagas abertas, **When** o gestor consulta disponíveis, **Then** recebe apenas colaboradores ativos, da função correta e sem ausência ou outra missão conflitante.
-4. **Given** um colaborador já comprometido no período, **When** o gestor tenta alocá-lo, **Then** o sistema recusa e identifica o conflito.
-5. **Given** vagas e candidatos elegíveis, **When** o gestor usa "Alocar disponíveis", **Then** o sistema preenche até o limite possível e mantém visível qualquer déficit restante.
-6. **Given** uma missão alterada, **When** datas ou demanda mudam, **Then** todas as alocações afetadas são revalidadas antes da confirmação.
+2. **Given** um cartão de missão pendente, **When** o gestor clica nele, **Then** informa responsável, etapa, situação e datas e encontra uma lista pesquisável dos colaboradores do APP com nome e cargo, com as datas do projeto já sugeridas.
+3. **Given** colaboradores selecionados de funções diferentes, **When** o gestor salva a programação, **Then** o sistema deriva a demanda por função pela contagem dos cargos canônicos e grava demanda e alocações na mesma transação.
+4. **Given** um colaborador inativo, fora do vínculo, sem função operacional canônica, ausente ou já comprometido no período, **When** o gestor tenta salvar a equipe, **Then** o sistema recusa, identifica a pessoa e a origem do conflito e não persiste alterações parciais.
+5. **Given** uma missão já programada, **When** o gestor a edita, **Then** os colaboradores alocados aparecem pré-selecionados e inclusões ou remoções sincronizam a equipe e a demanda derivada.
+6. **Given** uma missão alterada, **When** datas ou equipe mudam, **Then** todos os colaboradores selecionados são revalidados antes da confirmação.
 
 ---
 
@@ -180,7 +180,7 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - Colaborador admitido ou desligado no meio da janela só oferece capacidade dentro do vínculo ativo.
 - Sábados, domingos e feriados cadastrados não entram na capacidade de dias úteis, mas continuam visíveis no calendário.
 - Ausências parciais por hora não fazem parte desta expansão; períodos são contabilizados por dia inteiro.
-- Missão sem demanda por função pode permanecer rascunho, mas não pode ser confirmada.
+- Missão sem colaboradores selecionados pode permanecer rascunho, mas não pode ser confirmada.
 - Aplicação concorrente de cenário deve detectar que a programação oficial mudou desde a comparação.
 - Nenhum colaborador elegível ou nenhuma missão na janela deve produzir estados vazios claros, nunca percentuais enganosos.
 - Nomes de funções longos, números grandes e muitos eventos no mesmo dia não podem criar scroll horizontal da página.
@@ -206,10 +206,10 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - **FR-015**: Cada missão operacional DEVE estar vinculada a um projeto existente, sem duplicar cliente, local ou identidade do contrato.
 - **FR-016**: A programação da missão DEVE selecionar o responsável da sede entre contas ativas de coordenador, preencher o cargo pelo colaborador vinculado à conta quando houver, permitir cargo livre sem vínculo, identificar o vínculo como “Vincular líder” e registrar snapshots de nome/cargo, etapa, situação, mobilização, início/fim da execução e retorno.
 - **FR-017**: A ordem cronológica das datas da missão DEVE ser validada antes de confirmar.
-- **FR-018**: A demanda de missão DEVE ser expressa como quantidade inteira não negativa por função operacional.
-- **FR-019**: A equipe planejada DEVE vincular pessoas às vagas de função da missão e impedir quantidade alocada acima da demanda sem confirmação explícita de expansão da demanda.
-- **FR-020**: Um colaborador só DEVE ser elegível quando estiver ativo, pertencer à função da vaga e não tiver missão confirmada ou ausência sobreposta.
-- **FR-021**: A ação "Alocar disponíveis" DEVE preencher vagas com colaboradores elegíveis e deixar explícitas as vagas não preenchidas.
+- **FR-018**: O diálogo de programação da missão DEVE substituir a entrada numérica por função por uma lista pesquisável de colaboradores do APP, exibindo nome e cargo e permitindo seleção múltipla direta.
+- **FR-019**: A demanda por função DEVE ser derivada no servidor pela quantidade de colaboradores selecionados em cada `jobRoleId` canônico; o cliente NÃO DEVE informar quantidades editáveis nesse diálogo.
+- **FR-020**: Um colaborador selecionado só DEVE ser elegível quando estiver ativo durante todo o intervalo, possuir função canônica ativa e operacional e não tiver missão confirmada ou ausência sobreposta.
+- **FR-021**: Salvar a programação DEVE sincronizar demanda e alocações atomicamente, pré-selecionar a equipe atual na edição, excluir logicamente as alocações removidas e impedir qualquer persistência parcial em caso de conflito.
 - **FR-022**: Missões em rascunho NÃO DEVEM consumir capacidade oficial; missões confirmadas DEVEM consumir da mobilização ao retorno.
 - **FR-023**: O ciclo de vida da missão DEVE conter Stand by, Mobilização, Execução, Medição final e Finalizada.
 - **FR-024**: O kanban DEVE permitir mudança de etapa por arraste e por alternativa acessível, preservando a ordem e auditando a alteração concluída.
@@ -235,7 +235,7 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - **FR-044**: Exclusões de programação que tenham histórico DEVEM ser lógicas e permanecer na trilha de auditoria.
 - **FR-045**: Todas as consultas DEVEM produzir estados vazios e indisponíveis explícitos quando faltarem dados, sem converter ausência de base em zero enganoso.
 - **FR-046**: A aba Missões DEVE listar automaticamente todo projeto ativo ainda sem programação operacional como missão pendente, sem qualquer cadastro manual de missão fora dos projetos cadastrados.
-- **FR-047**: Missões pendentes e programações incompletas DEVEM ser destacadas em amarelo, indicar exatamente quais informações faltam (datas, responsável, demanda, equipe, confirmação) e abrir o preenchimento ao clique no cartão.
+- **FR-047**: Missões pendentes e programações incompletas DEVEM ser destacadas em amarelo, indicar exatamente quais informações faltam (datas, responsável, equipe e confirmação) e abrir o preenchimento ao clique no cartão.
 - **FR-048**: A navegação do módulo DEVE notificar o gestor com a contagem de missões pendentes enquanto houver informação faltante.
 - **FR-049**: Uma missão pendente NÃO DEVE consumir capacidade, calendário ou alertas antes de ser programada; ao remover uma programação, o projeto DEVE voltar à lista de pendentes.
 - **FR-050**: Cada etapa do kanban DEVE ser identificada por um marcador colorido ao lado do nome da coluna, mantendo colunas e cartões na cor única do módulo; o cartão DEVE ser arrastável por qualquer área e o destaque de arraste DEVE desaparecer assim que a movimentação terminar, sem recarregar a tela.
@@ -258,15 +258,15 @@ O site fornecido é referência funcional, não identidade visual. Todas as supe
 | Visão geral | `SedeCostsBoard.tsx`, dashboards do Acompanhamento | cards de KPI, skeletons, badges e tokens globais | data com `field-group` | N/A | `?data=` | campanha de 10 dias para capacidade planejada | cards com `minmax(min(100%, ...), 1fr)`; números quebram/truncam |
 | Calendário | padrões de filtros e cards existentes | `Button`, selects globais, cards/tokens | selects nativos estilizados ou dropdown compartilhado | N/A | `?view=&data=&funcao=` | tutorial temporário apontando visão/filtros/dia | grade mensal fica contida; no mobile usa agenda empilhada, sem scroll da página |
 | Colaboradores e ausências | `GestorPage.tsx`, `CollaboratorForm.tsx`, `AbsenceFormModal.tsx` | `SearchBar`, `Modal`, `Button`, `ConfirmDialog`, `Toast` | react-hook-form + resolver Zod; `.field-invalid`/`.field-error` | N/A | `?data=&funcao=&colaborador=` | novidade de 10 dias para situação/alocação | tabela vira cards; ações empilham; textos longos não alargam viewport |
-| Missões e alocações | formulários e cards de projetos do Acompanhamento | `Modal`, `Button`, `ConfirmDialog`, `Toast`, componentes de busca | react-hook-form + resolver Zod; combobox compartilhado para pessoas | N/A | `?missao=` | tutorial temporário para demanda e alocação | formulário em uma coluna no mobile; rodapé fixo e corpo rolável |
+| Missões e alocações | formulários e cards de projetos do Acompanhamento | `Modal`, `Button`, `ConfirmDialog`, `Toast`, componentes de busca | react-hook-form + resolver Zod; busca e seleção múltipla de colaboradores com nome/cargo | N/A | `?missao=` | tutorial temporário para montagem da equipe | formulário em uma coluna no mobile; lista de pessoas e corpo roláveis; rodapé fixo |
 | Kanban | `ProjectCardsBoard.tsx` e padrão constitucional de drag/drop | cards, handle dedicado e menu acessível | N/A | handle; reordenação ao vivo; placeholder/legenda; ghost; cancelar restaura; persiste só no drop; Pointer Events | `?section=evolucao&missao=` | tutorial temporário apontando handle e alternativa acessível | colunas viram seletor + lista no mobile, sem scroll horizontal de página |
 | Simulações | cards e modais de planejamento do APP | cards comparativos, `Modal`, `ConfirmDialog`, `Toast` | react-hook-form + resolver Zod | N/A | `?cenario=` | tutorial temporário para comparar/aplicar | comparativo vira blocos empilhados no mobile |
 | Administração e auditoria | `JobRoleManager.tsx`, telas admin existentes | componentes do kit, tokens, lista de atividade | validação compartilhada e campos globais | apenas se houver ordenação de função, usando padrão compartilhado | `?adminTab=` quando aplicável | novidade de 10 dias para parâmetros/feriados | listas e parâmetros viram cards em 390 px |
 
 ### Key Entities *(include if feature involves data)*
 
-- **Programação operacional da missão**: complemento do projeto com etapa, situação, datas, responsável e demanda por função.
-- **Necessidade por função**: quantidade de pessoas de uma função exigida por uma missão.
+- **Programação operacional da missão**: complemento do projeto com etapa, situação, datas, responsável e equipe selecionada.
+- **Necessidade por função**: quantidade derivada dos cargos canônicos dos colaboradores selecionados para uma missão.
 - **Alocação planejada**: vínculo entre colaborador, missão e função ocupada durante a programação.
 - **Cenário de simulação**: conjunto isolado de alterações hipotéticas de missões e contratações, com versão da programação usada como base.
 - **Contratação hipotética**: capacidade adicional por função disponível a partir de uma data, existente somente no cenário até aplicação.
@@ -281,7 +281,7 @@ O site fornecido é referência funcional, não identidade visual. Todas as supe
 
 - **SC-001**: Para uma data com até 500 colaboradores e 100 missões na janela, o gestor visualiza capacidade e déficit em até 3 segundos após abrir ou trocar a posição.
 - **SC-002**: Os totais de alocados, indisponíveis, livres e déficit são reproduzíveis manualmente a partir das listas de pessoas, missões e ausências, sem divergência.
-- **SC-003**: Um gestor consegue criar uma missão, definir demanda e montar uma equipe elegível em menos de 5 minutos sem planilha externa.
+- **SC-003**: Um gestor consegue criar uma missão e montar uma equipe elegível de até 100 colaboradores, pesquisando por nome ou cargo, em menos de 5 minutos sem planilha externa nem contagem manual por função.
 - **SC-004**: 100% das tentativas de dupla alocação ou alocação sobre ausência são bloqueadas antes da confirmação e identificam a origem do conflito.
 - **SC-005**: Dia, semana, mês, função, missão e cenário selecionados permanecem após recarregar ou compartilhar a URL.
 - **SC-006**: Um cenário pode ser criado, comparado e descartado sem alterar nenhum número ou registro da programação oficial.
@@ -310,6 +310,7 @@ Conferência campo a campo feita em 2026-08-21 contra `https://efetivo-operacion
 - **Missão com nome, cliente e local digitados**: aqui a missão é sempre a programação de um projeto cadastrado, e cliente/local vêm do projeto (FR-015, FR-046).
 - **Responsável da sede como texto livre e cargo Coordenador/Engenheiro**: aqui o responsável é uma conta ativa de coordenador e o cargo vem do colaborador vinculado (FR-016).
 - **"Nova função" e "Convidar gestor"**: funções e usuários continuam sob os cadastros existentes do APP; a Administração do Efetivo só ajusta cor, limite de permanência e classificação operacional (FR-002, FR-043).
+- **Quantidade manual por função na missão**: a programação seleciona diretamente colaboradores do APP e deriva as quantidades por cargo no servidor (FR-018..FR-021).
 - **Perfis Planejador/Leitor/Administrador**: o APP mantém `efetivo:manager` e `efetivo:viewer`.
 - **Calendário diário/semanal em timeline por colaborador**: aqui as três visões usam a mesma grade de dias com o detalhe do dia ao lado.
 - **Edição da data de mobilização direto no cartão do kanban**: a alteração de datas continua no formulário da programação, que revalida alocações.

@@ -2,12 +2,22 @@ function sanitizeSnapshot(value) {
   if (value == null) return null;
   const blocked = /password|token|secret|cookie|authorization/i;
   const visit = input => {
-    if (Array.isArray(input)) return input.map(visit);
+    if (Array.isArray(input)) return input.map(visit).filter(item => item !== undefined);
     if (input instanceof Date) return input.toISOString();
+    if (typeof input === 'bigint') return input.toString();
+    if (['function', 'symbol', 'undefined'].includes(typeof input)) return undefined;
     if (!input || typeof input !== 'object') return input;
-    return Object.fromEntries(Object.entries(input)
-      .filter(([key]) => !blocked.test(key))
-      .map(([key, child]) => [key, visit(child)]));
+    if (typeof input.toJSON === 'function') {
+      const serialized = input.toJSON();
+      if (serialized !== input) return visit(serialized);
+    }
+    const result = {};
+    for (const [key, child] of Object.entries(input)) {
+      if (blocked.test(key)) continue;
+      const sanitized = visit(child);
+      if (sanitized !== undefined) result[key] = sanitized;
+    }
+    return result;
   };
   return visit(value);
 }

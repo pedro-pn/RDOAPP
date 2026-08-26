@@ -73,7 +73,7 @@
 
 ## Phase 4: User Story 2 — Planejar missões e alocar pessoas (Priority: P1)
 
-**Goal**: criar programação, demanda e equipe por função sem conflitos, com autoalocação determinística.
+**Goal**: criar programação e equipe por pessoa sem conflitos, com demanda por função derivada e autoalocação legada determinística.
 
 **Independent Test**: criar missão com duas funções, confirmar, alocar elegíveis e observar déficit restante.
 
@@ -436,9 +436,24 @@ US6:
 
 - [X] T146 [US2] Ajustar `backend/src/lib/efetivo/planning/mission-planning.js` para restaurar ou reutilizar com segurança a programação excluída do mesmo projeto, preservando histórico/auditoria e a restrição de unicidade, e adicionar regressão do fluxo excluir → pendente → reprogramar conforme FR-049.
 - [X] T147 [US6] Invalidar e recarregar a comparação e os metadados do cenário em `frontend/src/pages/efetivo/components/MissionsBoard.tsx` e `frontend/src/pages/efetivo/components/ScenariosBoard.tsx` após mutações de missão/alocação no plano de cenário, com teste de cache/integração para FR-028 e US6/AC2.
-- [ ] T148 [P] Executar `backend/test/efetivo-allocation-concurrency.test.js` contra PostgreSQL explicitamente descartável e migrado, registrar a evidência de concorrência real e confirmar SC-004/T033 sem acessar banco de produção.
+- [X] T148 [P] Executar `backend/test/efetivo-allocation-concurrency.test.js` contra PostgreSQL explicitamente descartável e migrado, registrar a evidência de concorrência real e confirmar SC-004/T033 sem acessar banco de produção.
 - [X] T149 [P] Coordenar a abertura do onboarding em `frontend/src/pages/efetivo/EfetivoTutorial.tsx` e `frontend/src/pages/efetivo/EfetivoPlanningNovelty.tsx` para impedir drivers simultâneos no primeiro acesso, com teste de componente ou navegador conforme o Princípio VI.
 - [X] T150 [P] Remover o limite silencioso de 200 projetos pendentes em `backend/src/lib/efetivo/planning/read-model.js`, adotando paginação completa ou agregação equivalente para a lista e o contador de navegação, com teste cobrindo mais de 200 projetos conforme FR-046.
 - [X] T151 Tornar a resolução normalizada de função em `backend/src/lib/efetivo/planning/capacity.js` consciente de ambiguidades, mantendo colaboradores sem `jobRoleId` canônico como pendentes, e adicionar regressão de totais/listagem conforme o modelo de dados e SC-002.
 - [X] T152 [P] Tornar `headquartersResponsibleUserId` obrigatório em `MissionInput` de `frontend/src/api/efetivoPlanning.ts` e adicionar verificação de compatibilidade entre tipo TypeScript, OpenAPI e schema Zod conforme FR-016.
 - [X] T153 [P] Corrigir os comandos de lint/build e atualizar as contagens de testes/evidências em `specs/012-planejamento-efetivo/quickstart.md` para refletir a execução a partir da raiz ou de `frontend/`.
+
+---
+
+## Phase 16: Ajuste pós-uso — seleção direta da equipe na programação
+
+**Purpose**: substituir a contagem manual por cargo pela seleção de colaboradores do APP, mantendo demanda, capacidade e alocações consistentes (FR-018..FR-021).
+
+- [X] T154 [P] [US2] Escrever regressões backend para derivação por cargo canônico, locks ordenados, conflitos e sincronização lógica da equipe em `backend/test/efetivo-mission-team.test.js`.
+- [X] T155 [P] [US2] Escrever regressões frontend para busca por nome/cargo, pré-seleção e contrato `collaboratorIds` em `frontend/test/mission-team-selection.test.mjs` e `frontend/test/efetivo-planning-coordination.test.mjs`.
+- [X] T156 [US2] Substituir `demands` por `collaboratorIds` no schema Zod, contrato OpenAPI e cliente TypeScript, preservando demandas derivadas na resposta.
+- [X] T157 [US2] Implementar derivação e sincronização atômica de demandas/alocações, com lock por colaborador, revalidação temporal e auditoria única em `backend/src/lib/efetivo/planning/mission-team.js` e `mission-planning.js`.
+- [X] T158 [US2] Substituir a grade numérica por uma lista pesquisável e acessível de colaboradores com cargo, resumo derivado e pré-seleção em `MissionFormModal.tsx`, utilitário e CSS.
+- [X] T159 [US2] Atualizar textos de pendência e paridade para a equipe direta em `missionPendencies.ts`, `MissionsBoard.tsx` e testes existentes.
+- [X] T160 Executar suítes completas, build/lint/arquitetura, validar criação e edição em `localhost:5175` e registrar evidências no quickstart.
+- [X] T161 Corrigir a sanitização de snapshots de auditoria para valores Prisma/Decimal e cobrir a exclusão lógica de missão sem falha de serialização em `backend/src/lib/efetivo/planning/audit.js` e `backend/test/efetivo-audit.test.js`.
