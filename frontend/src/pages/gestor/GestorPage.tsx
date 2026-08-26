@@ -1056,6 +1056,290 @@ function renderProjectCard(
       ]);
     }
 
+    if (activeProject && !options.onToggleReports) {
+      const overviewRegionId = `project-overview-${project.id}`;
+      const operationRegionId = `project-operation-${project.id}`;
+      const actionsRegionId = `project-actions-${project.id}`;
+      const authorizedUserCount = project.authorizedUsers?.length || 0;
+      const additionalSignerCount = project.clientSigners?.length || 0;
+      const configuredReportTypeCount = project.reportSequences?.length || 0;
+      const weekendDays =
+        [
+          project.includesSaturday ? 'sábado' : null,
+          project.includesSunday ? 'domingo' : null
+        ]
+          .filter(Boolean)
+          .join(' e ') || 'Não incluído';
+
+      return (
+        <Card
+          className={`rdo-project-card rdo-archived-project-card rdo-ds-actions rdo-active-project-card ${pendingRegistration ? 'rdo-active-project-card--pending' : ''} ${options.detailsExpanded ? 'rdo-active-project-card--expanded' : 'rdo-active-project-card--compact'}`}
+          data-active-project-id={project.id}
+          key={project.id}
+          padding="sm"
+          title={
+            <div className="rdo-active-project-card__heading">
+              <span
+                className="rdo-active-project-card__icon"
+                aria-hidden="true"
+              >
+                <AppIcon icon={DS_ICONS.folder} size="md" />
+              </span>
+              <div className="rdo-active-project-card__identity">
+                <div className="rdo-active-project-card__title-row">
+                  <h3 className="rdo-archived-project-card__title">{title}</h3>
+                  <StatusPill
+                    status={pendingRegistration ? 'pending' : 'active'}
+                    label={stateLabel}
+                    tone={stateTone}
+                  />
+                </div>
+                <div className="rdo-active-project-card__context">
+                  <span>
+                    Cliente:{' '}
+                    <strong>{project.clientName || 'Não informado'}</strong>
+                  </span>
+                  <Badge tone="neutral">{segmentLabel}</Badge>
+                </div>
+              </div>
+            </div>
+          }
+          actions={
+            <div className="rdo-active-project-card__header-actions">
+              <IconButton
+                icon={DS_ICONS.edit}
+                label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar'}: ${title}`}
+                variant="secondary"
+                size="sm"
+                onClick={() => options.onEdit(project)}
+              />
+              <IconButton
+                icon={DS_ICONS.archive}
+                label="Arquivar"
+                variant="secondary"
+                size="sm"
+                onClick={() => options.onToggleArchive(project)}
+              />
+              {options.onRemove ? (
+                <IconButton
+                  icon={DS_ICONS.trash}
+                  label={`Excluir: ${title}`}
+                  variant="danger"
+                  size="sm"
+                  onClick={() => options.onRemove?.(project)}
+                />
+              ) : null}
+              <IconButton
+                className="rdo-active-project-card__details-toggle"
+                icon={DS_ICONS.chevronDown}
+                label={
+                  options.detailsExpanded
+                    ? 'Ocultar detalhes'
+                    : 'Mostrar detalhes'
+                }
+                variant="ghost"
+                size="sm"
+                aria-expanded={options.detailsExpanded}
+                aria-controls={detailsRegionId}
+                onClick={() => options.onToggleDetails(project)}
+              />
+            </div>
+          }
+        >
+          <dl
+            className="rdo-active-project-card__summary"
+            aria-label={`Resumo de ${title}`}
+          >
+            <div className="rdo-active-project-card__summary-item">
+              <AppIcon icon={DS_ICONS.calendar} size="sm" />
+              <dt>Atualização</dt>
+              <dd>{formatDate(project.updatedAt || project.createdAt)}</dd>
+            </div>
+            <div className="rdo-active-project-card__summary-item">
+              <AppIcon icon={DS_ICONS.user} size="sm" />
+              <dt>Responsável</dt>
+              <dd>{project.operator?.name || 'Não informado'}</dd>
+            </div>
+            <div className="rdo-active-project-card__summary-item">
+              <AppIcon icon={DS_ICONS.users} size="sm" />
+              <dt>Equipe autorizada</dt>
+              <dd>{authorizedUserCount}</dd>
+            </div>
+            <div className="rdo-active-project-card__summary-item">
+              <AppIcon icon={DS_ICONS.fileText} size="sm" />
+              <dt>Tipos de relatório</dt>
+              <dd>{configuredReportTypeCount}</dd>
+            </div>
+          </dl>
+
+          {pendingRegistration ? (
+            <Alert tone="warning" title="Cadastro pendente">
+              {automaticProjectReviewMessage(project)}
+            </Alert>
+          ) : null}
+          {commercialPendenciaText ? (
+            <Alert tone="warning" title="Revisão comercial pendente">
+              {commercialPendenciaText}
+            </Alert>
+          ) : null}
+
+          {options.children ? (
+            <div className="rdo-active-project-card__embedded-flow">
+              {options.children}
+            </div>
+          ) : null}
+
+          {options.detailsExpanded ? (
+            <div
+              className="rdo-archived-project-card__details rdo-active-project-card__expanded-content"
+              id={detailsRegionId}
+            >
+              <nav
+                className="rdo-active-project-card__section-nav"
+                aria-label={`Seções de ${title}`}
+              >
+                <a href={`#${overviewRegionId}`}>Visão geral</a>
+                <a href={`#${operationRegionId}`}>Operação</a>
+                <a href={`#${actionsRegionId}`}>Ações rápidas</a>
+              </nav>
+
+              <div className="rdo-active-project-card__details-grid">
+                <section
+                  className="rdo-active-project-card__detail-panel rdo-active-project-card__detail-panel--overview"
+                  id={overviewRegionId}
+                  aria-labelledby={`${overviewRegionId}-title`}
+                >
+                  <h4 id={`${overviewRegionId}-title`}>
+                    Informações do projeto
+                  </h4>
+                  <dl>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Cliente</dt>
+                      <dd>{project.clientName || '-'}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>CNPJ</dt>
+                      <dd>{formatCnpj(project.clientCnpj) || '-'}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Local</dt>
+                      <dd>{project.location || '-'}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Proposta</dt>
+                      <dd>{project.contractCode || '-'}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Segmento</dt>
+                      <dd>{segmentLabel}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>E-mail principal</dt>
+                      <dd>{project.clientEmailPrimary || '-'}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section
+                  className="rdo-active-project-card__detail-panel"
+                  id={operationRegionId}
+                  aria-labelledby={`${operationRegionId}-title`}
+                >
+                  <h4 id={`${operationRegionId}-title`}>Operação</h4>
+                  <dl>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Responsável</dt>
+                      <dd>{project.operator?.name || '-'}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Jornada padrão</dt>
+                      <dd>{project.workdayHours || '-'}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Fim de semana</dt>
+                      <dd>{weekendDays}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Visibilidade</dt>
+                      <dd>{projectVisibilityLabel(project)}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section
+                  className="rdo-active-project-card__detail-panel"
+                  aria-labelledby={`project-summary-${project.id}`}
+                >
+                  <h4 id={`project-summary-${project.id}`}>Resumo</h4>
+                  <dl>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Equipe autorizada</dt>
+                      <dd>{authorizedUserCount}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Assinantes adicionais</dt>
+                      <dd>{additionalSignerCount}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Tipos de relatório</dt>
+                      <dd>{configuredReportTypeCount}</dd>
+                    </div>
+                    <div className="rdo-archived-project-card__detail">
+                      <dt>Assinatura obrigatória</dt>
+                      <dd>
+                        {project.requireServiceReportSignatures ? 'Sim' : 'Não'}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section
+                  className="rdo-active-project-card__detail-panel rdo-active-project-card__quick-actions"
+                  id={actionsRegionId}
+                  aria-labelledby={`${actionsRegionId}-title`}
+                >
+                  <h4 id={`${actionsRegionId}-title`}>Ações rápidas</h4>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    iconLeft={<AppIcon icon={DS_ICONS.edit} size="sm" />}
+                    aria-label={`${pendingRegistration ? 'Revisar cadastro' : 'Editar projeto'}: ${title}`}
+                    onClick={() => options.onEdit(project)}
+                  >
+                    {pendingRegistration
+                      ? 'Revisar cadastro'
+                      : 'Editar projeto'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    iconLeft={<AppIcon icon={DS_ICONS.archive} size="sm" />}
+                    onClick={() => options.onToggleArchive(project)}
+                  >
+                    Arquivar projeto
+                  </Button>
+                  {options.onRemove ? (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      iconLeft={<AppIcon icon={DS_ICONS.trash} size="sm" />}
+                      onClick={() => options.onRemove?.(project)}
+                    >
+                      Excluir projeto
+                    </Button>
+                  ) : null}
+                </section>
+              </div>
+
+              {options.commercialPendencia ? (
+                <ProjectRevisionPicker projectId={project.id} />
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+      );
+    }
+
     return (
       <Card
         className={`rdo-project-card rdo-archived-project-card rdo-ds-actions ${activeProject ? 'rdo-active-project-card' : 'rdo-project-card--archived'} ${pendingRegistration ? 'rdo-active-project-card--pending' : ''}`}
@@ -1632,11 +1916,30 @@ export function GestorPage() {
     try {
       const stored = localStorage.getItem(projectDetailsStorageKey);
       const parsed = stored ? JSON.parse(stored) : [];
-      setCollapsedProjectDetailIds(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []);
+      const storedIds = Array.isArray(parsed)
+        ? parsed.filter((id): id is string => typeof id === 'string')
+        : [];
+      if (stored !== null && Array.isArray(parsed)) {
+        setCollapsedProjectDetailIds(storedIds);
+        return;
+      }
+
+      const activeProjects = (activeProjectsQuery.data || []).filter(
+        project => project.isActive !== false
+      );
+      const readyProjects = partitionProjectsByRegistration(activeProjects).ready;
+      const initiallyExpandedId =
+        sortProjects(readyProjects, projectSortDir)[0]?.id ||
+        activeProjects[0]?.id;
+      setCollapsedProjectDetailIds(
+        activeProjects
+          .filter(project => project.id !== initiallyExpandedId)
+          .map(project => project.id)
+      );
     } catch {
       setCollapsedProjectDetailIds([]);
     }
-  }, [projectDetailsStorageKey]);
+  }, [activeProjectsQuery.data, projectDetailsStorageKey, projectSortDir]);
 
   function persistCollapsedProjectDetails(ids: string[]) {
     try {
@@ -3957,6 +4260,16 @@ export function GestorPage() {
           </Card>
         ) : null}
 
+        <p
+          className="rdo-manager-projects__result-count"
+          role="status"
+          aria-live="polite"
+        >
+          {activeProjects.length} projeto
+          {activeProjects.length === 1 ? '' : 's'} encontrado
+          {activeProjects.length === 1 ? '' : 's'}
+        </p>
+
         {pendingRegistrationProjects.length ? (
           <section
             className="rdo-manager-projects__pending"
@@ -5228,6 +5541,12 @@ export function GestorPage() {
         project => project.isActive !== false
       );
       const projectGroups = partitionProjectsByRegistration(activeProjects);
+      const projectsWithResponsible = projectGroups.ready.filter(
+        project => Boolean(project.operator)
+      ).length;
+      const extendedScheduleProjects = projectGroups.ready.filter(
+        project => project.includesSaturday || project.includesSunday
+      ).length;
 
       return (
         <section
@@ -5247,6 +5566,20 @@ export function GestorPage() {
             description="Cadastros a verificar"
             tone="warning"
             icon={<AppIcon icon={DS_ICONS.alertWarning} size="md" />}
+          />
+          <MetricCard
+            label="Com responsável"
+            value={projectsWithResponsible}
+            description="Operação já atribuída"
+            tone="info"
+            icon={<AppIcon icon={DS_ICONS.user} size="md" />}
+          />
+          <MetricCard
+            label="Escala estendida"
+            value={extendedScheduleProjects}
+            description="Incluem fim de semana"
+            tone="brand"
+            icon={<AppIcon icon={DS_ICONS.calendar} size="md" />}
           />
         </section>
       );

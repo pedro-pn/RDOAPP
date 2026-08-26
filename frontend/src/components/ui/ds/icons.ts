@@ -1,9 +1,11 @@
 import {
+  Archive,
   AlertCircle,
   AlertTriangle,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -13,8 +15,10 @@ import {
   CircleX,
   FileText,
   FileQuestion,
+  FolderKanban,
   Info,
   PackageOpen,
+  Pencil,
   Plus,
   Save,
   Search,
@@ -22,14 +26,18 @@ import {
   Settings,
   SlidersHorizontal,
   Trash2,
+  UserRound,
+  UsersRound,
   X
 } from 'lucide-react';
 
 export const DS_ICONS = {
+  archive: Archive,
   alertDanger: CircleX,
   alertInfo: Info,
   alertSuccess: CheckCircle2,
   alertWarning: AlertTriangle,
+  calendar: CalendarDays,
   chevronDown: ChevronDown,
   filter: SlidersHorizontal,
   firstPage: ChevronsLeft,
@@ -41,13 +49,17 @@ export const DS_ICONS = {
   emptyError: AlertCircle,
   emptySearch: SearchX,
   fileText: FileText,
+  folder: FolderKanban,
   close: X,
   plus: Plus,
+  edit: Pencil,
   save: Save,
   search: Search,
   sort: ArrowUpDown,
   sortAscending: ArrowUp,
   sortDescending: ArrowDown,
   settings: Settings,
-  trash: Trash2
+  trash: Trash2,
+  user: UserRound,
+  users: UsersRound
 } as const;

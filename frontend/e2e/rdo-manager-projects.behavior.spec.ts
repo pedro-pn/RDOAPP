@@ -101,6 +101,11 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
   const project = await readyProject(surface);
   await expect(project.getByText('Ativo', { exact: true })).toBeVisible();
   await expect(
+    page
+      .getByRole('region', { name: 'Resumo dos projetos ativos' })
+      .getByText('Com responsável', { exact: true })
+  ).toBeVisible();
+  await expect(
     project.getByRole('button', { name: 'Arquivar', exact: true })
   ).toBeVisible();
 
@@ -113,14 +118,28 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
       project.getByRole('button', { name: 'Mostrar detalhes', exact: true })
     ).toHaveAttribute('aria-expanded', 'false');
   }
+  await expect(project).toHaveClass(/rdo-active-project-card--compact/);
   await project
     .getByRole('button', { name: 'Mostrar detalhes', exact: true })
     .click();
   await expect(
     project.getByRole('button', { name: 'Ocultar detalhes', exact: true })
   ).toHaveAttribute('aria-expanded', 'true');
+  await expect(project).toHaveClass(/rdo-active-project-card--expanded/);
   await expect(
-    project.locator('.rdo-archived-project-card__details dl')
+    project.locator('.rdo-active-project-card__detail-panel--overview > dl')
+  ).toBeVisible();
+  await expect(
+    project.getByRole('navigation', { name: /^Seções de / })
+  ).toBeVisible();
+  await expect(
+    project.getByRole('heading', { name: 'Operação', level: 4 })
+  ).toBeVisible();
+  await expect(
+    project.getByRole('heading', { name: 'Resumo', level: 4 })
+  ).toBeVisible();
+  await expect(
+    project.getByRole('heading', { name: 'Ações rápidas', level: 4 })
   ).toBeVisible();
 
   await project.getByRole('button', { name: /^Editar:/ }).click();

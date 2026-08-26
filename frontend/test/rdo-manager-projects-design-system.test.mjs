@@ -38,6 +38,8 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
   assert.match(page, /function renderProjectMetrics\(\)/);
   assert.match(page, /label="Projetos ativos"/);
   assert.match(page, /label="Aguardando revisão"/);
+  assert.match(page, /label="Com responsável"/);
+  assert.match(page, /label="Escala estendida"/);
 
   assert.match(projectsTab, /id="rdo-manager-project-results"/);
   assert.match(projectsTab, /className="rdo-manager-projects rdo-ds-actions"/);
@@ -156,6 +158,20 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   assert.match(projectCard, /Projeto arquivado/);
   assert.match(projectCard, /label=\{stateLabel\}/);
   assert.match(projectCard, /className="rdo-project-card__overview"/);
+  assert.match(projectCard, /className="rdo-active-project-card__summary"/);
+  assert.match(projectCard, /rdo-active-project-card__details-grid/);
+  assert.match(projectCard, /rdo-active-project-card__quick-actions/);
+  assert.match(projectCard, />Visão geral<\/a>/);
+  assert.match(projectCard, />Operação<\/a>/);
+  assert.match(projectCard, />Ações rápidas<\/a>/);
+  assert.match(projectCard, /project\.authorizedUsers\?\.length/);
+  assert.match(projectCard, /project\.reportSequences\?\.length/);
+  assert.match(
+    projectCard,
+    /\{pendingRegistration \? 'Revisar cadastro' : 'Editar projeto'\}/
+  );
+  assert.match(projectCard, />\s*Arquivar projeto\s*<\/Button>/);
+  assert.match(projectCard, />\s*Excluir projeto\s*<\/Button>/);
   assert.match(projectCard, /\['Cliente', project\.clientName/);
   assert.match(projectCard, /\['Segmento', segmentLabel\]/);
   assert.match(projectCard, /\['Responsável', project\.operator\?\.name/);
@@ -170,6 +186,11 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   );
   assert.match(projectsTab, /className="rdo-manager-projects__legacy-form"/);
   assert.match(projectCard, /<ProjectRevisionPicker projectId=\{project\.id\}/);
+  assert.match(
+    page,
+    /const initiallyExpandedId =\s*sortProjects\(readyProjects, projectSortDir\)\[0\]\?\.id \|\|\s*activeProjects\[0\]\?\.id/
+  );
+  assert.match(page, /stored !== null && Array\.isArray\(parsed\)/);
 
   assert.match(
     projectsTab,
