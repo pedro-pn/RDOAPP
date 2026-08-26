@@ -154,6 +154,21 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   );
   assert.match(projectsTab, /className="rdo-manager-projects__legacy-form"/);
   assert.match(projectCard, /<ProjectRevisionPicker projectId=\{project\.id\}/);
+
+  assert.match(
+    projectsTab,
+    /<Button variant="primary" type="submit" disabled=\{projectMutations\.updateProject\.isPending\}>Salvar projeto<\/Button>/
+  );
+  assert.match(
+    projectsTab,
+    /<Button variant="secondary" size="sm" type="button" onClick=\{resetProjectForm\}>Cancelar edição<\/Button>/
+  );
+  assert.equal(
+    page.match(
+      /<Button variant="primary" size="sm" type="button"[^>]*>[\s\S]*?\+ Adicionar[\s\S]*?<\/Button>/g
+    )?.length,
+    2
+  );
 });
 
 test('Projetos compartilha o layout de Arquivados com CSS escopado e responsivo', () => {

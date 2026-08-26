@@ -721,12 +721,12 @@ function ProjectAuthorizedUsersFields({
                 <option key={user.id} value={user.id}>{userProjectAccessLabel(user)}</option>
               ))}
             </select>
-            <button className="cc-add-btn" type="button" disabled={!availableUsers.length} onClick={event => {
+            <Button variant="primary" size="sm" type="button" disabled={!availableUsers.length} onClick={event => {
               const select = event.currentTarget.parentElement?.querySelector('select');
               addUser(select || null);
             }}>
               + Adicionar
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -903,12 +903,12 @@ function ProjectClientFields({
               onKeyDown={handleCcInputKeyDown}
               onBlur={event => commitCcInput(event.currentTarget)}
             />
-            <button className="cc-add-btn" type="button" onClick={event => {
+            <Button variant="primary" size="sm" type="button" onClick={event => {
               const input = event.currentTarget.parentElement?.querySelector('input');
               commitCcInput(input || null);
             }}>
               + Adicionar
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -3812,8 +3812,8 @@ export function GestorPage() {
               </select>
             </div>
             <div className="admin-form-actions">
-              <button className="mini-btn" type="submit" disabled={projectMutations.updateProject.isPending}>Salvar projeto</button>
-              <button className="mini-btn alt" type="button" onClick={resetProjectForm}>Cancelar edição</button>
+              <Button variant="primary" type="submit" disabled={projectMutations.updateProject.isPending}>Salvar projeto</Button>
+              <Button variant="secondary" size="sm" type="button" onClick={resetProjectForm}>Cancelar edição</Button>
             </div>
         </form>
         )

@@ -123,9 +123,19 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
   ).toBeVisible();
 
   await project.getByRole('button', { name: /^Editar:/ }).click();
-  await expect(
-    project.getByRole('button', { name: 'Salvar projeto', exact: true })
-  ).toBeVisible();
+  const saveProject = project.getByRole('button', {
+    name: 'Salvar projeto',
+    exact: true
+  });
+  await expect(saveProject).toBeVisible();
+  await expect(saveProject).toHaveClass(/\bfv-button--primary\b/);
+  const addButtons = project.getByRole('button', {
+    name: '+ Adicionar',
+    exact: true
+  });
+  await expect(addButtons).toHaveCount(2);
+  await expect(addButtons.first()).toHaveClass(/\bfv-button--primary\b/);
+  await expect(addButtons.nth(1)).toHaveClass(/\bfv-button--primary\b/);
   await project
     .getByRole('button', { name: 'Cancelar edição', exact: true })
     .click();
