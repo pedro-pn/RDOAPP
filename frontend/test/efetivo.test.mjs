@@ -103,3 +103,11 @@ test('produtividade mostra a situação da competência e a visão geral navega 
   }
   assert.doesNotMatch(overview, /href=\{`\?section=/);
 });
+
+test('edição de colaborador usa o seletor padrão do APP para função', () => {
+  const modal = fs.readFileSync(new URL('../src/pages/efetivo/components/OperationalCollaboratorModal.tsx', import.meta.url), 'utf8');
+
+  assert.match(modal, /<select id="operational-collaborator-role"/);
+  assert.match(modal, /\{\.\.\.register\('jobRoleId'\)\}/);
+  assert.doesNotMatch(modal, /SearchCombobox/);
+});

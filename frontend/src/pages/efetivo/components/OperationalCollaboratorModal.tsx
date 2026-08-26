@@ -1,12 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { useEffect } from 'react';
 import { z } from 'zod';
 
 import type { CollaboratorInput, PlanningCollaborator, PlanningJobRole } from '../../../api/efetivoPlanning';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
-import { SearchCombobox } from '../../../components/ui/SearchCombobox';
 
 const schema = z.object({
   name: z.string().trim().min(1, 'Informe o nome.'),
@@ -36,7 +35,7 @@ export function OperationalCollaboratorModal({ open, collaborator, jobRoles, sav
   onClose: () => void;
   onSubmit: (payload: CollaboratorInput) => void;
 }) {
-  const { register, control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: initialValues(collaborator) });
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: initialValues(collaborator) });
   useEffect(() => { if (open) reset(initialValues(collaborator)); }, [collaborator, open, reset]);
   return (
     <Modal open={open} onClose={onClose} ariaLabelledBy="operational-collaborator-title" panelClassName="modal-card efetivo-modal">
@@ -44,7 +43,14 @@ export function OperationalCollaboratorModal({ open, collaborator, jobRoles, sav
         <header className="efetivo-modal-header"><div><h3 id="operational-collaborator-title">{collaborator ? 'Editar colaborador' : 'Novo colaborador'}</h3><p>Estes campos atualizam o cadastro canônico usado pelo APP.</p></div><button className="icon-button" type="button" aria-label="Fechar" onClick={onClose}>×</button></header>
         <div className="efetivo-modal-body efetivo-form-grid">
           <div className={`field-group ${errors.name ? 'field-invalid' : ''}`}><label htmlFor="operational-collaborator-name">Nome *</label><input id="operational-collaborator-name" aria-invalid={Boolean(errors.name)} disabled={saving} {...register('name')} />{errors.name ? <span className="field-error" role="alert">{errors.name.message}</span> : null}</div>
-          <Controller name="jobRoleId" control={control} render={({ field }) => <SearchCombobox id="operational-collaborator-role" label="Função" required value={field.value} onChange={field.onChange} disabled={saving} error={errors.jobRoleId?.message} options={jobRoles.filter(item => item.isOperational).map(item => ({ value: item.id, label: item.name }))} />} />
+          <div className={`field-group ${errors.jobRoleId ? 'field-invalid' : ''}`}>
+            <label htmlFor="operational-collaborator-role">Função *</label>
+            <select id="operational-collaborator-role" disabled={saving} aria-invalid={Boolean(errors.jobRoleId)} {...register('jobRoleId')}>
+              <option value="">Selecione</option>
+              {jobRoles.filter(item => item.isOperational).map(item => <option value={item.id} key={item.id}>{item.name}</option>)}
+            </select>
+            {errors.jobRoleId ? <span className="field-error" role="alert">{errors.jobRoleId.message}</span> : null}
+          </div>
           <div className={`field-group ${errors.admissionDate ? 'field-invalid' : ''}`}><label htmlFor="operational-collaborator-admission">Admissão *</label><input id="operational-collaborator-admission" type="date" aria-invalid={Boolean(errors.admissionDate)} disabled={saving} {...register('admissionDate')} />{errors.admissionDate ? <span className="field-error" role="alert">{errors.admissionDate.message}</span> : null}</div>
           <div className={`field-group ${errors.terminationDate ? 'field-invalid' : ''}`}><label htmlFor="operational-collaborator-termination">Desligamento</label><input id="operational-collaborator-termination" type="date" aria-invalid={Boolean(errors.terminationDate)} disabled={saving} {...register('terminationDate')} />{errors.terminationDate ? <span className="field-error" role="alert">{errors.terminationDate.message}</span> : null}</div>
           <div className={`field-group efetivo-form-wide ${errors.note ? 'field-invalid' : ''}`}><label htmlFor="operational-collaborator-note">Observação operacional</label><textarea id="operational-collaborator-note" rows={4} aria-invalid={Boolean(errors.note)} disabled={saving} {...register('note')} />{errors.note ? <span className="field-error" role="alert">{errors.note.message}</span> : null}</div>
