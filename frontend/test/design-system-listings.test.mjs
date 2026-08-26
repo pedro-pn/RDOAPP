@@ -66,6 +66,8 @@ test('SearchInput keeps controlled input immediate and debounce as an auxiliary 
   assert.match(searchInput, /onCompositionStart/);
   assert.match(searchInput, /role=["']searchbox["']/);
   assert.match(searchInput, /clearLabel/);
+  assert.match(searchInput, /'fv-control-shell'/);
+  assert.match(searchInput, /className="fv-input fv-search-input__control"/);
 });
 
 test('FilterBar provides active filters and an accessible mobile sheet', () => {

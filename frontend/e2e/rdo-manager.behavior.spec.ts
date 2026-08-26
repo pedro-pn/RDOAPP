@@ -84,9 +84,7 @@ async function managerSearchStorage(page: Page) {
 }
 
 function topLevelProjectSort(page: Page) {
-  return page.locator(
-    '.rdo-manager-listing__filters .project-sort-button'
-  );
+  return page.locator('.rdo-manager-listing__filters .project-sort-button');
 }
 
 async function visibleProjectLabels(page: Page) {
@@ -257,13 +255,13 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
       await waitForReportCards(page);
 
       const sortButton = topLevelProjectSort(page);
-      await expect(sortButton).toHaveText('A→Z');
+      await expect(sortButton).toHaveText('Ordenar por: A–Z');
 
       const ascendingLabels = await visibleProjectLabels(page);
       expect(ascendingLabels.length).toBeGreaterThan(1);
 
       await sortButton.click();
-      await expect(sortButton).toHaveText('Z→A');
+      await expect(sortButton).toHaveText('Ordenar por: Z–A');
       await expect
         .poll(async () => (await visibleProjectLabels(page))[0], {
           timeout: REPORT_LIST_TIMEOUT
@@ -285,7 +283,7 @@ test.describe('RDO A.1 — comportamento do gestor', () => {
 
       await page.reload();
       await expectManagerRdoShell(page);
-      await expect(topLevelProjectSort(page)).toHaveText('Z→A');
+      await expect(topLevelProjectSort(page)).toHaveText('Ordenar por: Z–A');
       await expect
         .poll(async () => (await visibleProjectLabels(page))[0], {
           timeout: REPORT_LIST_TIMEOUT

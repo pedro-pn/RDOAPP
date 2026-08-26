@@ -285,6 +285,15 @@
   outline-offset: var(--focus-ring-offset);
 }
 
+/* Compound controls delegate their single visible focus ring to the rounded
+   shell. Never draw a second rectangular outline on the nested input/select. */
+:where(.fv-ds, [data-fv-ds])
+  .fv-control-shell
+  :where(.fv-input, .fv-select):focus-visible {
+  outline: 0;
+  outline-offset: 0;
+}
+
 :where(.fv-ds, [data-fv-ds]) .fv-control-shell[data-invalid='true'] {
   border-color: var(--danger);
 }

@@ -1344,7 +1344,7 @@ function renderProjectCard(
 export function GestorPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const managerModules = useMemo(() => hubModulesForUser(user), [user]);
   const managerInitials = user?.name
@@ -1357,7 +1357,7 @@ export function GestorPage() {
     : 'FV';
   const { hydrate, reset } = useRdoStore();
   const showToast = useToast();
-  const [tab, setTab] = useState<GestorTab>(() => parseGestorTab(searchParams.get('tab')));
+  const tab = parseGestorTab(searchParams.get('tab'));
   const reportListingTab = tab === 'pendentes' || tab === 'aprovados';
   const projectsTab = tab === 'projetos';
   const archivedProjectsTab = tab === 'arquivados';
@@ -1507,25 +1507,6 @@ export function GestorPage() {
   const draftMutations = useDraftMutations();
   const collaboratorMutations = useCollaboratorMutations();
   const userMutations = useUserMutations();
-
-  useEffect(() => {
-    const nextTab = parseGestorTab(searchParams.get('tab'));
-    setTab(current => current === nextTab ? current : nextTab);
-  }, [searchParams]);
-
-  useEffect(() => {
-    const currentTab = parseGestorTab(searchParams.get('tab'));
-    const tabParam = searchParams.get('tab');
-    if (currentTab === tab && ((tab === 'pendentes' && !tabParam) || (tab !== 'pendentes' && tabParam === tab))) return;
-
-    const nextParams = new URLSearchParams(searchParams);
-    if (tab === 'pendentes') {
-      nextParams.delete('tab');
-    } else {
-      nextParams.set('tab', tab);
-    }
-    setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams, tab]);
 
   const pendingReports = useMemo(
     () =>
@@ -2591,7 +2572,9 @@ export function GestorPage() {
           });
           uploadedFileIds.push(file.id);
         }
-        setTab('aprovados');
+        navigate(rdoManagerSectionHref('aprovados', searchParams.toString()), {
+          state: location.state
+        });
         showToast(uploadFiles.length === 1 ? 'Relatório antigo adicionado.' : `${uploadFiles.length} relatórios antigos adicionados.`, 'success');
       }
       resetManualReportModal();
@@ -4883,7 +4866,6 @@ export function GestorPage() {
           actions={
             <Button
               variant="secondary"
-              size="sm"
               iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
               aria-label={
                 npsSortDir === 'asc'
@@ -4894,7 +4876,7 @@ export function GestorPage() {
                 setNpsSortDir(direction => direction === 'asc' ? 'desc' : 'asc')
               }
             >
-              {npsSortDir === 'asc' ? 'A→Z' : 'Z→A'}
+              Ordenar por: {npsSortDir === 'asc' ? 'A–Z' : 'Z–A'}
             </Button>
           }
         />
@@ -5127,7 +5109,6 @@ export function GestorPage() {
               <Button
                 className="project-sort-button"
                 variant="secondary"
-                size="sm"
                 iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
                 aria-label={
                   projectSortDir === 'asc'
@@ -5140,7 +5121,7 @@ export function GestorPage() {
                   )
                 }
               >
-                {projectSortDir === 'asc' ? 'A→Z' : 'Z→A'}
+                Ordenar por: {projectSortDir === 'asc' ? 'A–Z' : 'Z–A'}
               </Button>
             ) : undefined
           }
@@ -5390,6 +5371,7 @@ export function GestorPage() {
         { label: 'RDO', href: '/rdo/gestor' },
         { label: rdoManagerSectionLabel(tab) }
       ]}
+      contentWidth="fluid"
       profile={
         user
           ? {
@@ -5407,7 +5389,6 @@ export function GestorPage() {
     >
       <RdoSectionNavigation
         current={tab}
-        pendingCount={pendingCount}
         onNavigate={section =>
           navigate(rdoManagerSectionHref(section, searchParams.toString()), {
             state: location.state
@@ -5453,20 +5434,23 @@ export function GestorPage() {
             title="Equipe"
             description="Gerencie colaboradores, cargos e temas de DDS em uma única área."
             actions={
-              equipeSubTab === 'colaboradores' &&
-              !showCollaboratorForm &&
-              !collaboratorEditingId ? (
-                <CollaboratorListToolbarActions
-                  showInactive={showInactiveCollaborators}
-                  inactiveCount={(collaboratorsQuery.data || []).filter(
-                    collaborator => collaborator.isActive === false
-                  ).length}
-                  onNew={openNewCollaboratorForm}
-                  onToggleInactive={() => {
-                    resetCollaboratorForm();
-                    setShowInactiveCollaborators(current => !current);
-                  }}
-                />
+              equipeSubTab === 'colaboradores' ? (
+                <>
+                  {!showCollaboratorForm && !collaboratorEditingId ? (
+                    <CollaboratorListToolbarActions
+                      showInactive={showInactiveCollaborators}
+                      inactiveCount={(collaboratorsQuery.data || []).filter(
+                        collaborator => collaborator.isActive === false
+                      ).length}
+                      onNew={openNewCollaboratorForm}
+                      onToggleInactive={() => {
+                        resetCollaboratorForm();
+                        setShowInactiveCollaborators(current => !current);
+                      }}
+                    />
+                  ) : null}
+                  {renderGestorSearch()}
+                </>
               ) : undefined
             }
           />
@@ -5477,15 +5461,18 @@ export function GestorPage() {
             title="Usuários"
             description="Administre contas internas e acessos de clientes com seus vínculos e perfis."
             actions={
-              userAdminGroup === 'internal' && !showUserForm && !userEditingId ? (
-                <Button
-                  variant="primary"
-                  iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
-                  onClick={openNewUserForm}
-                >
-                  Novo usuário
-                </Button>
-              ) : undefined
+              <>
+                {userAdminGroup === 'internal' && !showUserForm && !userEditingId ? (
+                  <Button
+                    variant="primary"
+                    iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                    onClick={openNewUserForm}
+                  >
+                    Novo usuário
+                  </Button>
+                ) : null}
+                {renderGestorSearch()}
+              </>
             }
           />
         ) : null}
@@ -5519,6 +5506,7 @@ export function GestorPage() {
                     Criar Relatório
                   </Button>
                 ) : null}
+                {renderGestorSearch()}
               </>
             }
           />
@@ -5528,6 +5516,7 @@ export function GestorPage() {
             className="rdo-projects-page__header"
             title="Projetos arquivados"
             description="Consulte projetos encerrados, seus relatórios e ações disponíveis."
+            actions={renderGestorSearch()}
           />
         ) : null}
         {projectsTab ? (
@@ -5536,26 +5525,28 @@ export function GestorPage() {
             title="Projetos"
             description="Gerencie os projetos ativos, acompanhe cadastros pendentes e revise suas informações."
             actions={
-              !showProjectForm && !projectEditingId ? (
-                <Button
-                  variant="primary"
-                  iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
-                  onClick={() => {
-                    setShowProjectForm(true);
-                    setProjectEditingId(null);
-                    setProjectForm(emptyProjectForm);
-                  }}
-                >
-                  Novo projeto
-                </Button>
-              ) : undefined
+              <>
+                {!showProjectForm && !projectEditingId ? (
+                  <Button
+                    variant="primary"
+                    iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                    onClick={() => {
+                      setShowProjectForm(true);
+                      setProjectEditingId(null);
+                      setProjectForm(emptyProjectForm);
+                    }}
+                  >
+                    Novo projeto
+                  </Button>
+                ) : null}
+                {renderGestorSearch()}
+              </>
             }
           />
         ) : null}
         {renderReportSummary()}
         {renderProjectMetrics()}
         {renderAdminMetrics()}
-        {renderGestorSearch()}
         {renderTabContent()}
       </main>
 

@@ -130,6 +130,22 @@ test('desktop sidebar stays in the viewport and owns its vertical scroll', () =>
   assert.match(css, /\.fv-sidebar__navigation\s*\{[\s\S]*overflow-y:\s*auto/);
 });
 
+test('AppShell keeps contained content by default and lets RDO opt into desktop fluid width', () => {
+  const shell = source('src/layout/AppShell.tsx');
+  const css = source('src/layout/AppShell.css');
+  const manager = source('src/pages/gestor/GestorPage.tsx');
+  const hub = source('src/pages/HubPage.tsx');
+
+  assert.match(shell, /contentWidth = 'contained'/);
+  assert.match(shell, /fv-app-shell__content-inner--\$\{contentWidth\}/);
+  assert.match(
+    css,
+    /\.fv-app-shell__content-inner--fluid\s*\{[\s\S]*width:\s*100%[\s\S]*max-width:\s*none/
+  );
+  assert.match(manager, /contentWidth="fluid"/);
+  assert.doesNotMatch(hub, /contentWidth="fluid"/);
+});
+
 test('new shell styles use semantic tokens and only official breakpoints', () => {
   const css = `${source('src/layout/AppShell.css')}\n${source(
     'src/dev/shell-design-system.css'

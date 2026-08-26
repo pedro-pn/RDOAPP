@@ -19,6 +19,7 @@ export interface AppShellProps {
   topBarActions?: ReactNode;
   onLogout?: () => void | Promise<void>;
   contentPadding?: 'default' | 'none';
+  contentWidth?: 'contained' | 'fluid';
 }
 
 export function AppShell({
@@ -32,7 +33,8 @@ export function AppShell({
   utilityActions,
   topBarActions,
   onLogout,
-  contentPadding = 'default'
+  contentPadding = 'default',
+  contentWidth = 'contained'
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
@@ -71,7 +73,11 @@ export function AppShell({
         <div
           className={`fv-app-shell__content fv-app-shell__content--${contentPadding}`}
         >
-          <div className="fv-app-shell__content-inner">{children}</div>
+          <div
+            className={`fv-app-shell__content-inner fv-app-shell__content-inner--${contentWidth}`}
+          >
+            {children}
+          </div>
         </div>
       </div>
 

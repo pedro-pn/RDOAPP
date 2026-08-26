@@ -29,6 +29,11 @@
   margin-inline: auto;
 }
 
+.fv-app-shell__content-inner--fluid {
+  width: 100%;
+  max-width: none;
+}
+
 .fv-app-shell__content--default {
   padding-inline: var(--space-4);
   padding-block-start: var(--space-4);

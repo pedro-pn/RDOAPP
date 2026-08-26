@@ -35,12 +35,18 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
       submenu.getByRole('link', { name: /^Pendentes/ })
     ).toHaveAttribute('aria-current', 'page');
 
-    await submenu
-      .getByRole('link', { name: 'Projetos', exact: true })
-      .click();
+    await submenu.getByRole('link', { name: 'Projetos', exact: true }).click();
     await expect(page).toHaveURL(/\/rdo\/gestor\?tab=projetos$/);
     await expect(
       submenu.getByRole('link', { name: 'Projetos', exact: true })
+    ).toHaveAttribute('aria-current', 'page');
+
+    await submenu.getByRole('link', { name: 'Aprovados', exact: true }).click();
+    await expect(page).toHaveURL(/\/rdo\/gestor\?tab=aprovados$/);
+    await page.waitForTimeout(250);
+    await expect(page).toHaveURL(/\/rdo\/gestor\?tab=aprovados$/);
+    await expect(
+      submenu.getByRole('link', { name: 'Aprovados', exact: true })
     ).toHaveAttribute('aria-current', 'page');
 
     const before = await sidebar.boundingBox();
@@ -73,10 +79,13 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
     });
     await expect(selector).toHaveValue('pendentes');
     await expect(selector.locator('option')).toHaveCount(8);
+    await expect(selector.locator('option:checked')).toHaveText('Pendentes');
+    await expect(selector).not.toContainText('Relatórios e Projetos ·');
 
     await selector.selectOption('arquivados');
     await expect(page).toHaveURL(/\/rdo\/gestor\?tab=arquivados$/);
     await expect(selector).toHaveValue('arquivados');
+    await expect(selector.locator('option:checked')).toHaveText('Arquivados');
     await expect
       .poll(() =>
         page.evaluate(

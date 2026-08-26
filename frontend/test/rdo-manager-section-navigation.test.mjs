@@ -70,10 +70,29 @@ test('RDO manager renders one compact mobile selector instead of global tabs', (
     navigation,
     /aria-label="Navegar nas áreas de Relatórios e Projetos"/
   );
-  assert.match(navigation, /Relatórios e Projetos · \$\{section\.label\}/);
+  assert.match(navigation, /label: section\.label/);
+  assert.doesNotMatch(
+    navigation,
+    /Relatórios e Projetos ·|<Badge|MODULE_NAVIGATION_ICONS/
+  );
   assert.match(css, /\.rdo-section-navigation\s*\{/);
+  assert.match(
+    css,
+    /\.rdo-section-navigation\s*\{[\s\S]*border:\s*0[\s\S]*background:\s*transparent/
+  );
   assert.match(
     css,
     /@media \(min-width:\s*1024px\)[\s\S]*\.rdo-section-navigation\s*\{[\s\S]*display:\s*none/
   );
+});
+
+test('RDO manager derives the current section only from the URL', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+
+  assert.match(
+    page,
+    /const tab = parseGestorTab\(searchParams\.get\('tab'\)\)/
+  );
+  assert.doesNotMatch(page, /\[tab, setTab\]/);
+  assert.doesNotMatch(page, /setSearchParams\(/);
 });

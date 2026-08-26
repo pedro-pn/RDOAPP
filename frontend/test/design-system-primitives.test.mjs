@@ -42,6 +42,19 @@ test('primitive CSS stays scoped and consumes tokens instead of literal colors',
   assert.doesNotMatch(css, /@(media|container)[^{]*(430|560|640|860)px/);
 });
 
+test('compound fields expose one rounded focus ring owned by the control shell', () => {
+  const css = source('src/components/ui/ds/styles.css');
+
+  assert.match(
+    css,
+    /\.fv-control-shell:focus-within\s*\{[\s\S]*outline:\s*var\(--focus-ring-width\) solid var\(--focus-ring\)/
+  );
+  assert.match(
+    css,
+    /\.fv-control-shell\s+:where\(\.fv-input, \.fv-select\):focus-visible\s*\{[\s\S]*outline:\s*0/
+  );
+});
+
 test('status map covers canonical Portuguese workflow states', () => {
   const statusSource = source('src/components/ui/ds/status.ts');
   const expectedStatuses = [

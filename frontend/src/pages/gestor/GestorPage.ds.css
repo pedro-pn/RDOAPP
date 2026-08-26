@@ -1,22 +1,15 @@
 :where(.fv-ds, [data-fv-ds]).rdo-section-navigation {
-  display: grid;
+  display: block;
   min-width: 0;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--space-2);
   margin: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--line-strong);
-  border-radius: var(--radius-lg);
-  background: var(--brand-softer);
-  box-shadow: var(--shadow-e1);
-}
-
-:where(.fv-ds, [data-fv-ds]).rdo-section-navigation__icon {
-  color: var(--brand-text);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 :where(.fv-ds, [data-fv-ds]).rdo-section-navigation__select {
+  width: 100%;
   min-width: 0;
 }
 
@@ -57,6 +50,166 @@
 
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__filters {
   width: 100%;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .fv-filter-bar:where(
+    .rdo-manager-listing__filters,
+    .rdo-manager-projects__filters,
+    .rdo-archived-projects__filters,
+    .rdo-admin-page__filters,
+    .rdo-nps__filters
+  ) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    .fv-page-header__main {
+    flex-direction: column;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    .fv-page-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__filters,
+      .rdo-manager-projects__filters,
+      .rdo-archived-projects__filters,
+      .rdo-admin-page__filters,
+      .rdo-nps__filters
+    )
+    .fv-filter-bar__main {
+    display: grid;
+    grid-template-columns:
+      minmax(0, calc(var(--space-16) * 7))
+      auto;
+    justify-content: space-between;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__filters,
+      .rdo-manager-projects__filters,
+      .rdo-archived-projects__filters,
+      .rdo-admin-page__filters,
+      .rdo-nps__filters
+    )
+    .fv-filter-bar__search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__filters,
+      .rdo-manager-projects__filters,
+      .rdo-archived-projects__filters,
+      .rdo-admin-page__filters,
+      .rdo-nps__filters
+    )
+    .fv-filter-bar__actions {
+    justify-self: end;
+  }
+}
+
+@media (min-width: 1280px) {
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    .fv-page-header__actions {
+    flex-wrap: nowrap;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    .fv-page-header__actions
+    > .fv-button {
+    flex: 0 0 auto;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    .fv-page-header__actions
+    > :where(
+      .rdo-manager-listing__filters,
+      .rdo-manager-projects__filters,
+      .rdo-archived-projects__filters,
+      .rdo-admin-page__filters
+    ) {
+    width: calc(var(--space-16) * 10);
+    max-width: 100%;
+    flex: 0 1 calc(var(--space-16) * 10);
+  }
+}
+
+@media (min-width: 1536px) {
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    .fv-page-header__main {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    .fv-page-header__actions {
+    width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds])
+    :where(
+      .rdo-manager-listing__page-header,
+      .rdo-projects-page__header,
+      .rdo-admin-page__header
+    )
+    :where(
+      .rdo-manager-listing__filters,
+      .rdo-manager-projects__filters,
+      .rdo-archived-projects__filters,
+      .rdo-admin-page__filters
+    ) {
+    width: 100%;
+    grid-column: 1 / -1;
+  }
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__toolbar,
