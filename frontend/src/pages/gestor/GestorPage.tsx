@@ -45,6 +45,7 @@ import {
   Badge,
   Button,
   Card,
+  DataTable,
   EmptyState,
   Field,
   FilterBar,
@@ -55,6 +56,7 @@ import {
   Select,
   Skeleton,
   StatusPill,
+  type DataTableColumn,
   type SemanticTone
 } from '../../components/ui/ds';
 import { DS_ICONS } from '../../components/ui/ds/icons';
@@ -1872,7 +1874,12 @@ export function GestorPage() {
     );
   };
   const archivedProjectsQuery = { data: gestorBootstrapQuery.data?.archivedProjects, isLoading: gestorBootstrapQuery.isLoading };
-  const collaboratorsQuery = { data: gestorBootstrapQuery.data?.collaborators, isLoading: gestorBootstrapQuery.isLoading };
+  const collaboratorsQuery = {
+    data: gestorBootstrapQuery.data?.collaborators,
+    isLoading: gestorBootstrapQuery.isLoading,
+    isError: gestorBootstrapQuery.isError,
+    refetch: gestorBootstrapQuery.refetch
+  };
   const internalUsersQuery = useUsers('internal');
   const clientUsersQuery = useUsers('client');
   const surveysQuery = { data: gestorBootstrapQuery.data?.surveys, isLoading: gestorBootstrapQuery.isLoading };
@@ -4757,16 +4764,6 @@ export function GestorPage() {
   }
 
   function renderColaboradoresSubTab() {
-    if (collaboratorsQuery.isLoading) {
-      return (
-        <div className="rdo-admin-loading" role="status" aria-live="polite">
-          <span className="fv-sr-only">Carregando colaboradores…</span>
-          <Skeleton variant="card" decorative />
-          <Skeleton variant="card" decorative />
-        </div>
-      );
-    }
-
     const allCollaborators = collaboratorsQuery.data || [];
     const collaborators = allCollaborators
       .filter(collaborator => showInactiveCollaborators ? collaborator.isActive === false : collaborator.isActive !== false)
@@ -4774,179 +4771,241 @@ export function GestorPage() {
     const emptyCollaboratorsMessage = showInactiveCollaborators
       ? 'Nenhum colaborador inativo.'
       : 'Nenhum colaborador ativo.';
+    const collaboratorSaving = collaboratorEditingId
+      ? collaboratorMutations.updateCollaborator.isPending
+      : collaboratorMutations.createCollaborator.isPending;
+
+    function openCollaboratorEditor(collaborator: Collaborator) {
+      setCollaboratorEditingId(collaborator.id);
+      setShowCollaboratorForm(true);
+      setCollaboratorForm(collaboratorToForm(collaborator));
+    }
+
+    function renderCollaboratorActions(collaborator: Collaborator) {
+      return (
+        <>
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            iconLeft={<AppIcon icon={DS_ICONS.edit} size="sm" />}
+            onClick={() => openCollaboratorEditor(collaborator)}
+          >
+            Editar
+          </Button>
+          {collaborator.isActive !== false ? (
+            <Button
+              variant="danger"
+              size="sm"
+              type="button"
+              iconLeft={<AppIcon icon={DS_ICONS.trash} size="sm" />}
+              disabled={collaboratorMutations.removeCollaborator.isPending}
+              loading={collaboratorMutations.removeCollaborator.isPending}
+              onClick={() => void handleCollaboratorToggle(collaborator)}
+            >
+              Remover
+            </Button>
+          ) : null}
+        </>
+      );
+    }
+
+    const collaboratorColumns: readonly DataTableColumn<Collaborator>[] = [
+      {
+        key: 'collaborator',
+        header: 'Colaborador',
+        rowHeader: true,
+        render: collaborator => (
+          <div
+            className="rdo-team-collaborator__identity"
+            data-collaborator-name={collaborator.name}
+          >
+            <span className="rdo-team-collaborator__avatar" aria-hidden="true">
+              {initials(collaborator.name)}
+            </span>
+            <span className="rdo-team-collaborator__identity-copy">
+              <strong>{collaborator.name}</strong>
+              <span>{collaborator.code || 'Código não informado'}</span>
+            </span>
+          </div>
+        )
+      },
+      {
+        key: 'role',
+        header: 'Cargo',
+        render: collaborator => (
+          <span className="rdo-team-collaborator__text">
+            {collaborator.role || '—'}
+          </span>
+        )
+      },
+      {
+        key: 'email',
+        header: 'E-mail',
+        render: collaborator => (
+          <span className="rdo-team-collaborator__email">
+            {collaborator.email || '—'}
+          </span>
+        )
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: collaborator => (
+          <CollaboratorStatusPill isActive={collaborator.isActive} />
+        )
+      }
+    ];
 
     return (
-      <div className="rdo-admin-listing">
-          <div className="rdo-team-surface-heading">
-            <span className="rdo-team-surface-heading__icon" aria-hidden="true">
-              <AppIcon icon={DS_ICONS.users} size="md" />
-            </span>
-            <div>
-              <h2>Colaboradores</h2>
-              <p>Gerencie os profissionais disponíveis para composição das equipes de projeto.</p>
-            </div>
+      <div className="rdo-admin-listing rdo-team-collaborators rdo-ds-actions">
+        <div className="rdo-team-surface-heading">
+          <span className="rdo-team-surface-heading__icon" aria-hidden="true">
+            <AppIcon icon={DS_ICONS.users} size="md" />
+          </span>
+          <div>
+            <h2>Colaboradores</h2>
+            <p>Gerencie os profissionais disponíveis para composição das equipes de projeto.</p>
           </div>
-          {showCollaboratorForm && !collaboratorEditingId ? (
-	          <form className="admin-inline-form rdo-admin-form" onSubmit={handleCollaboratorSubmit} autoComplete="off">
-	            <div className="rdo-admin-form__header">
-	              <h2>Novo colaborador</h2>
-	              <Button variant="secondary" size="sm" type="button" onClick={resetCollaboratorForm}>Cancelar</Button>
-	            </div>
-	            <div className="admin-inline-grid">
-	              <div className="field-group">
-	                <label htmlFor="collaborator-name">Nome</label>
-	                <input
-	                  id="collaborator-name"
-	                  value={collaboratorForm.name}
-	                  autoComplete="off"
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, name: event.target.value }))}
-	                  required
-	                />
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="collaborator-role">Cargo</label>
-	                <select
-	                  id="collaborator-role"
-	                  value={collaboratorForm.role}
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
-	                  required
-	                >
-	                  {renderRoleOptions(collaboratorForm.role)}
-	                </select>
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="collaborator-email">E-mail</label>
-	                <input
-	                  id="collaborator-email"
-	                  type="email"
-	                  value={collaboratorForm.email}
-	                  autoComplete="off"
-	                  placeholder="email@empresa.com"
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, email: event.target.value }))}
-	                />
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="collaborator-active">Status</label>
-	                <select
-	                  id="collaborator-active"
-	                  value={String(collaboratorForm.isActive)}
-	                  onChange={event => setCollaboratorForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
-	                >
-	                  <option value="true">Ativo</option>
-	                  <option value="false">Inativo</option>
-	                </select>
-	              </div>
-	              {renderCollaboratorSignatureField()}
-	              <div className="admin-form-actions">
-	                <Button
-	                  variant="primary"
-	                  type="submit"
-	                  disabled={
-	                    collaboratorMutations.createCollaborator.isPending ||
-	                    collaboratorMutations.updateCollaborator.isPending
-	                  }
-	                >
-	                  Salvar
-	                </Button>
-	              </div>
-	            </div>
-	          </form>
-          ) : null}
+        </div>
 
-          {collaborators.length ? (
-            <div className="rdo-admin-card-list">
-              {collaborators.map(collaborator => (
-                <Card className="rdo-admin-person-card" padding="md" key={collaborator.id}>
-                  <div className="admin-item-row">
-                    <div className="admin-avatar" aria-hidden="true">{initials(collaborator.name)}</div>
-                    <div className="admin-item-main">
-                      <div className="admin-item-title">{collaborator.name}</div>
-                      <div className="admin-item-sub">
-                        {collaborator.role || '-'}{collaborator.email ? ` - ${collaborator.email}` : ''}
-                      </div>
-                    </div>
-                    <CollaboratorStatusPill isActive={collaborator.isActive} />
-                    <div className="admin-actions collaborator-card-actions">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        type="button"
-                        onClick={() => {
-                          setCollaboratorEditingId(collaborator.id);
-                          setShowCollaboratorForm(true);
-                          setCollaboratorForm(collaboratorToForm(collaborator));
-                        }}
-                      >
-                        Editar
-                      </Button>
-                      {collaborator.isActive !== false ? <Button variant="danger" size="sm" type="button" onClick={() => void handleCollaboratorToggle(collaborator)}>Remover</Button> : null}
-                    </div>
-                  </div>
-	                  {collaboratorEditingId === collaborator.id ? (
-	                    <form className="admin-inline-form rdo-admin-form rdo-admin-form--nested" onSubmit={handleCollaboratorSubmit} autoComplete="off">
-	                      <div className="rdo-admin-form__header">
-	                        <h2>Editar colaborador</h2>
-	                        <Button variant="secondary" size="sm" type="button" onClick={resetCollaboratorForm}>Cancelar</Button>
-	                      </div>
-	                      <div className="admin-inline-grid">
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-name-${collaborator.id}`}>Nome</label>
-	                          <input
-	                            id={`collaborator-name-${collaborator.id}`}
-	                            value={collaboratorForm.name}
-	                            autoComplete="off"
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, name: event.target.value }))}
-	                            required
-	                          />
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-role-${collaborator.id}`}>Cargo</label>
-	                          <select
-	                            id={`collaborator-role-${collaborator.id}`}
-	                            value={collaboratorForm.role}
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
-	                            required
-	                          >
-	                            {renderRoleOptions(collaboratorForm.role)}
-	                          </select>
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-email-${collaborator.id}`}>E-mail</label>
-	                          <input
-	                            id={`collaborator-email-${collaborator.id}`}
-	                            type="email"
-	                            value={collaboratorForm.email}
-	                            autoComplete="off"
-	                            placeholder="email@empresa.com"
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, email: event.target.value }))}
-	                          />
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`collaborator-active-${collaborator.id}`}>Status</label>
-	                          <select
-	                            id={`collaborator-active-${collaborator.id}`}
-	                            value={String(collaboratorForm.isActive)}
-	                            onChange={event => setCollaboratorForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
-	                          >
-	                            <option value="true">Ativo</option>
-	                            <option value="false">Inativo</option>
-	                          </select>
-	                        </div>
-	                        {renderCollaboratorSignatureField()}
-	                        <div className="admin-form-actions">
-	                          <Button variant="primary" type="submit" disabled={collaboratorMutations.updateCollaborator.isPending}>Salvar</Button>
-	                        </div>
-	                      </div>
-	                    </form>
-	                  ) : null}
-                </Card>
-              ))}
+        {showCollaboratorForm ? (
+          <form
+            className="rdo-admin-form rdo-team-collaborator-form"
+            onSubmit={handleCollaboratorSubmit}
+            autoComplete="off"
+          >
+            <div className="rdo-admin-form__header">
+              <h3>{collaboratorEditingId ? 'Editar colaborador' : 'Novo colaborador'}</h3>
             </div>
-          ) : (
-            <Card padding="lg">
-              <EmptyState title={emptyCollaboratorsMessage} />
-            </Card>
-          )}
+            <div className="rdo-team-collaborator-form__grid">
+              <Field label="Nome" id="collaborator-name" required>
+                <Input
+                  size="lg"
+                  value={collaboratorForm.name}
+                  autoComplete="off"
+                  onChange={event => setCollaboratorForm(current => ({ ...current, name: event.target.value }))}
+                  required
+                />
+              </Field>
+              <Field label="Cargo" id="collaborator-role" required>
+                <Select
+                  size="lg"
+                  value={collaboratorForm.role}
+                  onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
+                  required
+                >
+                  {renderRoleOptions(collaboratorForm.role)}
+                </Select>
+              </Field>
+              <Field label="E-mail" id="collaborator-email">
+                <Input
+                  size="lg"
+                  type="email"
+                  value={collaboratorForm.email}
+                  autoComplete="off"
+                  placeholder="email@empresa.com"
+                  onChange={event => setCollaboratorForm(current => ({ ...current, email: event.target.value }))}
+                />
+              </Field>
+              <Field label="Status" id="collaborator-active" optionalText={null}>
+                <Select
+                  size="lg"
+                  value={String(collaboratorForm.isActive)}
+                  onChange={event => setCollaboratorForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
+                >
+                  <option value="true">Ativo</option>
+                  <option value="false">Inativo</option>
+                </Select>
+              </Field>
+              {renderCollaboratorSignatureField()}
+              <div className="rdo-team-collaborator-form__actions">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  type="button"
+                  onClick={resetCollaboratorForm}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  type="submit"
+                  disabled={collaboratorSaving}
+                  loading={collaboratorSaving}
+                >
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </form>
+        ) : null}
+
+        <DataTable
+          className="rdo-team-collaborators__table"
+          rows={collaborators}
+          columns={collaboratorColumns}
+          getRowId={collaborator => collaborator.id}
+          getRowClassName={collaborator =>
+            collaborator.isActive === false
+              ? 'rdo-team-collaborator__row rdo-team-collaborator__row--inactive'
+              : 'rdo-team-collaborator__row'
+          }
+          ariaLabel="Colaboradores"
+          density="compact"
+          actionsLabel="Ações"
+          rowActions={renderCollaboratorActions}
+          loading={collaboratorsQuery.isLoading}
+          loadingRows={6}
+          error={
+            collaboratorsQuery.isError
+              ? 'Não foi possível carregar os colaboradores.'
+              : undefined
+          }
+          onRetry={() => void collaboratorsQuery.refetch()}
+          emptyState={
+            <EmptyState
+              variant={gestorSearch.trim() ? 'search' : 'default'}
+              title={emptyCollaboratorsMessage}
+              description={
+                gestorSearch.trim()
+                  ? 'Revise a busca para localizar outro colaborador.'
+                  : undefined
+              }
+            />
+          }
+          auxiliary={
+            !collaboratorsQuery.isLoading &&
+            !collaboratorsQuery.isError &&
+            collaborators.length ? (
+              <p className="rdo-team-collaborators__count">
+                {collaborators.length}{' '}
+                {collaborators.length === 1 ? 'colaborador exibido' : 'colaboradores exibidos'}
+              </p>
+            ) : null
+          }
+          mobile={{
+            ariaLabel: 'Colaboradores',
+            renderItem: collaborator => ({
+              title: (
+                <span className="rdo-team-collaborator__mobile-title">
+                  <span className="rdo-team-collaborator__avatar" aria-hidden="true">
+                    {initials(collaborator.name)}
+                  </span>
+                  <span>{collaborator.name}</span>
+                </span>
+              ),
+              subtitle: collaborator.role || 'Cargo não informado',
+              metadata: [
+                { label: 'Código', value: collaborator.code || '—' },
+                { label: 'E-mail', value: collaborator.email || '—' }
+              ],
+              status: <CollaboratorStatusPill isActive={collaborator.isActive} />,
+              actions: renderCollaboratorActions(collaborator)
+            })
+          }}
+        />
       </div>
     );
   }

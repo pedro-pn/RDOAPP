@@ -1990,7 +1990,7 @@
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-team-page__header .rdo-admin-page__filters {
-  width: min(100%, 28rem);
+  width: min(100%, 22rem);
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-team-workspace {
@@ -2067,6 +2067,131 @@
   line-height: var(--leading-sm);
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborators {
+  gap: var(--space-5);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__identity,
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__mobile-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__avatar {
+  display: inline-grid;
+  width: var(--space-10);
+  height: var(--space-10);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__identity-copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__identity-copy strong,
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator__mobile-title
+  > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-weight: var(--font-semibold);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__identity-copy > span,
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborators__count {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-regular);
+  line-height: var(--leading-xs);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :where(.rdo-team-collaborator__text, .rdo-team-collaborator__email) {
+  display: inline-block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__email {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator__row--inactive {
+  opacity: var(--disabled-opacity);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator__row--inactive:is(:hover, :focus-within) {
+  opacity: 1;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborators__count {
+  margin: 0;
+  padding-inline: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator-form {
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator-form__grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator-form__grid
+  > :where(.field-group-wide, .rdo-team-collaborator-form__actions) {
+  grid-column: 1 / -1;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator-form__actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator-form h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-lg);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborators
+  :where(.fv-data-table__actions, .fv-mobile-list__actions) {
+  gap: var(--space-2);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborators .fv-mobile-list__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborators
+  .fv-mobile-list__metadata
+  dd {
+  overflow-wrap: anywhere;
+}
+
 :where(.fv-ds, [data-fv-ds])
   .rdo-team
   :where(.rdo-job-roles__card, .rdo-dds-themes__card) {
@@ -2099,10 +2224,42 @@
     justify-content: flex-end;
   }
 
+  :where(.fv-ds, [data-fv-ds]) .rdo-team-page__header .rdo-admin-page__filters {
+    max-width: 22rem;
+    flex: 1 1 18rem;
+  }
+
   :where(.fv-ds, [data-fv-ds])
     .rdo-team-page__header
     .rdo-admin-toolbar__actions {
+    flex: 0 0 auto;
     flex-wrap: nowrap;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-team-page__header
+    .rdo-admin-toolbar__actions
+    .fv-button {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-team-collaborator-form__grid
+    > :where(.field-group-wide, .rdo-team-collaborator-form__actions) {
+    grid-column: auto;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-team-collaborators
+    .fv-mobile-list__actions
+    .fv-button {
+    flex: 1 1 var(--space-24);
   }
 }
 

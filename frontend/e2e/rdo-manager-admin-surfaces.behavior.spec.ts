@@ -74,6 +74,11 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   await expect(
     teamTabs.getByRole('tab', { name: 'Colaboradores' })
   ).toHaveAttribute('aria-selected', 'true');
+  const collaboratorsSurface = page.locator('.rdo-team-collaborators');
+  await expect(
+    collaboratorsSurface.getByRole('table', { name: 'Colaboradores' })
+  ).toBeVisible();
+  await expect(collaboratorsSurface.locator('.fv-mobile-list')).toHaveCount(0);
 
   const teamSearch = page.getByRole('searchbox', { name: 'Buscar na equipe' });
   await teamSearch.fill('colaborador-inexistente-rdo');
@@ -120,6 +125,26 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   await expect(
     page.getByRole('heading', { name: 'Novo colaborador' })
   ).toBeVisible();
+  const collaboratorName = page.getByRole('textbox', {
+    name: 'Nome',
+    exact: true
+  });
+  await expect(collaboratorName).toHaveAttribute('required', '');
+  await expect(
+    page.getByRole('combobox', { name: 'Cargo', exact: true })
+  ).toHaveAttribute('required', '');
+  await expect(
+    page.getByRole('textbox', { name: 'E-mail', exact: true })
+  ).toHaveAttribute('type', 'email');
+  await collaboratorName.focus();
+  const collaboratorFocusRings = await collaboratorName.evaluate((element) => {
+    const shell = element.closest('.fv-control-shell');
+    return {
+      input: window.getComputedStyle(element).outlineStyle,
+      shell: shell ? window.getComputedStyle(shell).outlineStyle : null
+    };
+  });
+  expect(collaboratorFocusRings).toEqual({ input: 'none', shell: 'solid' });
   await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
 
   await page.goto('/rdo/gestor?tab=usuarios');
@@ -188,6 +213,29 @@ test('Equipe e Usuários mantêm light/dark e desktop/mobile sem overflow', asyn
       await expect(surface).toBeVisible();
       await expectNoHorizontalOverflow(page, surface);
       await expect(surface.locator('.mini-btn')).toHaveCount(0);
+
+      if (section === 'equipe') {
+        const collaboratorsSurface = surface.locator('.rdo-team-collaborators');
+        if (scenario.width < 768) {
+          await expect(
+            collaboratorsSurface.locator('.fv-mobile-list')
+          ).toBeVisible();
+          await expect(
+            collaboratorsSurface.getByRole('table', {
+              name: 'Colaboradores'
+            })
+          ).toHaveCount(0);
+        } else {
+          await expect(
+            collaboratorsSurface.getByRole('table', {
+              name: 'Colaboradores'
+            })
+          ).toBeVisible();
+          await expect(
+            collaboratorsSurface.locator('.fv-mobile-list')
+          ).toHaveCount(0);
+        }
+      }
 
       if (scenario.width < 1024) {
         await expectManagerRdoMobileNavigation(page);
