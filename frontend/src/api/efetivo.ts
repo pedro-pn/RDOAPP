@@ -86,6 +86,13 @@ export interface EfetivoAbsence {
   createdByUserId: string | null;
   createdAt: string;
   updatedAt: string;
+  version: number;
+}
+
+export interface WorkforceAbsenceResult {
+  absence: EfetivoAbsence;
+  affectedMissionIds: string[];
+  calendarRevision: number;
 }
 
 export interface EfetivoAbsencePayload {
@@ -127,7 +134,13 @@ export async function saveEfetivoReferenceSetting(referenciaMensalHH: number) {
 }
 
 export async function listEfetivoAbsences(filters: { ano: number; collaboratorId?: string }) {
-  const { data } = await apiClient.get<EfetivoAbsence[]>('/efetivo/ausencias', { params: filters });
+  const { data } = await apiClient.get<EfetivoAbsence[]>('/workforce/absences', {
+    params: {
+      from: `${filters.ano}-01-01`,
+      to: `${filters.ano}-12-31`,
+      collaboratorId: filters.collaboratorId
+    }
+  });
   return data;
 }
 
@@ -137,15 +150,19 @@ export async function listEfetivoCollaborators() {
 }
 
 export async function createEfetivoAbsence(payload: EfetivoAbsencePayload) {
-  const { data } = await apiClient.post<EfetivoAbsence>('/efetivo/ausencias', payload);
+  const { data } = await apiClient.post<WorkforceAbsenceResult>('/workforce/absences', payload);
   return data;
 }
 
-export async function updateEfetivoAbsence(id: string, payload: Partial<Omit<EfetivoAbsencePayload, 'collaboratorId'>>) {
-  const { data } = await apiClient.patch<EfetivoAbsence>(`/efetivo/ausencias/${encodeURIComponent(id)}`, payload);
+export async function updateEfetivoAbsence(id: string, version: number, payload: Partial<Omit<EfetivoAbsencePayload, 'collaboratorId'>>) {
+  const { data } = await apiClient.patch<WorkforceAbsenceResult>(`/workforce/absences/${encodeURIComponent(id)}`, payload, {
+    headers: { 'If-Match-Version': version }
+  });
   return data;
 }
 
-export async function removeEfetivoAbsence(id: string) {
-  await apiClient.delete(`/efetivo/ausencias/${encodeURIComponent(id)}`);
+export async function removeEfetivoAbsence(id: string, version: number) {
+  await apiClient.delete(`/workforce/absences/${encodeURIComponent(id)}`, {
+    headers: { 'If-Match-Version': version }
+  });
 }

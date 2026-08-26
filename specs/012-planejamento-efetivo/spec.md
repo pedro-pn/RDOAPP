@@ -171,6 +171,54 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 2. **Given** qualquer tela do módulo, **When** o usuário procura uma ação de lançamento de HH, **Then** ela não existe.
 3. **Given** uma mudança em missões ou simulações, **When** a Improdutividade Real é recalculada, **Then** o número não muda sem novos dados do ponto.
 
+---
+
+### User Story 10 - Reutilizar o planejamento na execução (Priority: P1)
+
+Como gestor, quero que RDO e Acompanhamento enxerguem a missão planejada e que o Efetivo compare o plano com o realizado, evitando redigitação sem confundir previsão com fato.
+
+**Why this priority**: a integração só gera valor se os módulos consumidores usarem a mesma identidade de projeto e preservarem as divergências gerenciais.
+
+**Independent Test**: confirmar uma missão e verificar seu contexto no RDO/Acompanhamento; depois registrar uma equipe diferente no RDO e conferir a divergência no Efetivo sem alteração automática do plano.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma missão confirmada para um projeto e data, **When** um RDO é criado, **Then** a equipe planejada aparece como sugestão e só as pessoas confirmadas pelo usuário viram equipe realizada.
+2. **Given** datas e equipe planejadas, **When** o Acompanhamento abre o projeto, **Then** exibe planejamento e realizado separadamente.
+3. **Given** RDOs, progresso ou horas do ponto divergentes do plano, **When** o gestor abre a execução da missão, **Then** vê as diferenças sem mudança automática de datas, etapa ou equipe planejadas.
+
+---
+
+### User Story 11 - Centralizar cargo com exceção segura no EPI (Priority: P1)
+
+Como gestor, quero um único cargo atual por colaborador em todo o APP e uma sobreposição temporária apenas no EPI, para emitir documentos históricos sem corromper o cadastro central.
+
+**Why this priority**: duas fontes editáveis de cargo tornam demanda, relatório e documento inconsistentes.
+
+**Independent Test**: alterar o cargo canônico e conferir todos os módulos; depois selecionar um cargo diferente no EPI, criar o documento, limpar a sobreposição e confirmar que o APP voltou ao cargo canônico enquanto o documento manteve o snapshot emitido.
+
+**Acceptance Scenarios**:
+
+1. **Given** um colaborador, **When** seu cargo atual é alterado em uma superfície autorizada, **Then** todos os módulos passam a ler o mesmo `JobRole` canônico.
+2. **Given** uma sobreposição de cargo no EPI, **When** ela é salva, **Then** somente telas e novas emissões do EPI a utilizam; capacidade, RDO, Ponto e Acompanhamento continuam no cargo canônico.
+3. **Given** uma solicitação/documento EPI criado com sobreposição, **When** a sobreposição é limpa antes da assinatura, **Then** aquela solicitação mantém o cargo capturado e novas emissões usam novamente o cargo canônico.
+
+---
+
+### User Story 12 - Compartilhar disponibilidade e feriados (Priority: P1)
+
+Como gestor, quero que ausências e feriados tenham a mesma origem entre os módulos, para que planejamento, relatórios e cálculos sinalizem o mesmo contexto operacional.
+
+**Why this priority**: calendários independentes podem declarar simultaneamente uma pessoa disponível e ausente ou um dia útil e feriado.
+
+**Independent Test**: cadastrar uma ausência e um feriado manual, conferir o bloqueio no Efetivo, o alerta justificável no RDO, a sinalização no Acompanhamento/Ponto e o mesmo tratamento do feriado na capacidade e hora extra.
+
+**Acceptance Scenarios**:
+
+1. **Given** ausência já cadastrada, **When** uma missão é confirmada, **Then** a alocação é bloqueada; **Given** missão já confirmada, **When** uma ausência real é registrada, **Then** ela é salva e a missão fica pendente de replanejamento; no RDO, trabalho realizado só é aceito com justificativa auditável.
+2. **Given** horas importadas durante ausência, **When** o Ponto é conciliado, **Then** as horas são preservadas e a divergência é sinalizada.
+3. **Given** feriado nacional ou manual global, **When** capacidade e hora extra são calculadas, **Then** ambos recebem o mesmo calendário resolvido.
+
 ### Edge Cases
 
 - Uma pessoa não pode ser contada simultaneamente como livre, alocada e indisponível na mesma data; indisponibilidade prevalece e gera conflito se houver alocação.
@@ -199,12 +247,12 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - **FR-008**: O Calendário DEVE oferecer visualização por dia, semana e mês, com navegação temporal e ação "Hoje".
 - **FR-009**: O Calendário DEVE combinar missões confirmadas, férias, folgas e afastamentos com legenda distinta e filtro por função.
 - **FR-010**: Abrir um dia do calendário DEVE apresentar todos os eventos, pessoas, vagas e conflitos da data.
-- **FR-011**: O cadastro operacional de colaborador DEVE permitir nome, função, admissão, desligamento e observação, reutilizando a mesma pessoa em todo o APP.
+- **FR-011**: O cadastro operacional de colaborador DEVE permitir nome, cargo canônico, admissão, desligamento e observação, reutilizando a mesma pessoa em todo o APP; `jobRoleId` DEVE ser a única fonte do cargo atual.
 - **FR-012**: A lista de colaboradores DEVE permitir busca por nome, filtro por função e data de posição, mostrando situação na data, utilização dos próximos 90 dias, admissão e alerta de férias.
 - **FR-013**: O sistema DEVE expor férias, folga e afastamento como tipos cadastráveis de indisponibilidade; ASO e treinamento permanecem reservados até definição futura.
-- **FR-014**: Períodos invertidos ou sobrepostos para a mesma pessoa DEVEM ser recusados, e conflito com missão DEVE ser apresentado antes de salvar.
+- **FR-014**: Períodos invertidos ou ausências sobrepostas para a mesma pessoa DEVEM ser recusados. Ausência nova sobre missão existente DEVE ser salva e tornar a missão pendente/conflitante; nova alocação ou confirmação sobre ausência existente DEVE ser recusada.
 - **FR-015**: Cada missão operacional DEVE estar vinculada a um projeto existente, sem duplicar cliente, local ou identidade do contrato.
-- **FR-016**: A programação da missão DEVE selecionar o responsável da sede entre contas ativas de coordenador, preencher o cargo pelo colaborador vinculado à conta quando houver, permitir cargo livre sem vínculo, identificar o vínculo como “Vincular líder” e registrar snapshots de nome/cargo, etapa, situação, mobilização, início/fim da execução e retorno.
+- **FR-016**: A programação da missão DEVE selecionar o responsável da sede entre contas ativas de coordenador, persistir o `User` responsável, preencher o cargo pelo colaborador vinculado à conta quando houver, permitir cargo livre sem vínculo e registrar snapshots de nome/cargo, etapa, situação, mobilização, início/fim da execução e retorno.
 - **FR-017**: A ordem cronológica das datas da missão DEVE ser validada antes de confirmar.
 - **FR-018**: O diálogo de programação da missão DEVE substituir a entrada numérica por função por uma lista pesquisável de colaboradores do APP, exibindo nome e cargo e permitindo seleção múltipla direta.
 - **FR-019**: A demanda por função DEVE ser derivada no servidor pela quantidade de colaboradores selecionados em cada `jobRoleId` canônico; o cliente NÃO DEVE informar quantidades editáveis nesse diálogo.
@@ -224,7 +272,7 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - **FR-033**: A permanência contínua DEVE considerar missões confirmadas consecutivas sem retorno/folga suficiente e reiniciar após retorno ou folga registrada.
 - **FR-034**: O sistema DEVE alertar folgas a programar com pessoa, função, missão, dias contínuos previstos e data-limite.
 - **FR-035**: O alerta de férias DEVE usar admissão e períodos cadastrados: janela concessiva encerrada sem férias gera "Férias vencidas"; prazo dentro de 120 dias sem férias futuras gera "Programar férias".
-- **FR-036**: A Administração DEVE permitir cadastrar feriados com data, nome e abrangência global; feriados DEVEM sair dos dias úteis de capacidade.
+- **FR-036**: A Administração DEVE permitir cadastrar feriados manuais com data, nome e abrangência global; o calendário compartilhado DEVE uni-los aos feriados nacionais fixos/móveis e aplicar o mesmo resultado à capacidade e à hora extra.
 - **FR-037**: A Administração DEVE exibir funções operacionais, usuários com papéis do módulo, parâmetros e atividade recente, respeitando permissões.
 - **FR-038**: Toda criação, alteração, exclusão lógica, alocação, mudança de etapa e aplicação de cenário DEVE registrar autor, data, ação e alvo.
 - **FR-039**: Estado compartilhável de seção, data, visão, função, missão, colaborador e cenário DEVE sobreviver ao refresh por parâmetros de URL, exceto dados sensíveis de formulários.
@@ -247,6 +295,19 @@ Como gestor, quero continuar consultando a Improdutividade Real baseada no ponto
 - **FR-056**: Estados compartilháveis de colaborador e de indisponibilidade DEVEM destacar o registro correspondente ao serem abertos por link ou refresh.
 - **FR-057**: A lista de produtividade DEVE indicar a situação da competência de cada pessoa — consolidada, ainda dentro da janela de reprocessamento do ponto, ou sem base analisável — sem introduzir fechamento manual de competência.
 - **FR-058**: Os painéis da visão geral DEVEM oferecer atalhos para calendário, missões, colaboradores e produtividade, navegando dentro do app sem recarregar a página.
+- **FR-059**: Nenhuma rota ou tela DEVE editar um texto livre como cargo atual; alterações canônicas DEVEM gravar `Collaborator.jobRoleId` por um serviço compartilhado e leituras atuais DEVEM resolver `JobRole.name`.
+- **FR-060**: O EPI DEVE manter a sobreposição temporária em perfil próprio, referenciando `roleOverrideJobRoleId` e aceitando cargo inativo para fins históricos, sem modificar o `jobRoleId` canônico nem qualquer projeção externa ao EPI.
+- **FR-061**: Toda solicitação ou artefato documental do EPI DEVE capturar o cargo efetivo em snapshot imutável; alterações posteriores no cargo canônico ou na sobreposição só afetam novas emissões.
+- **FR-062**: A equipe confirmada da missão DEVE ser oferecida ao RDO como sugestão por projeto/data; a equipe realizada DEVE continuar sendo o snapshot explicitamente confirmado no relatório.
+- **FR-063**: O Acompanhamento DEVE exibir datas/equipe planejadas separadas das evidências realizadas, sem substituir silenciosamente campos produtivos existentes de `Project`.
+- **FR-064**: O Efetivo DEVE expor uma projeção planejado × realizado por missão, usando projeto, RDO, Acompanhamento e Ponto e identificando diferenças de datas e pessoas sem alterar automaticamente o plano.
+- **FR-065**: `CollaboratorAbsence` DEVE ser uma fonte compartilhada: sobreposição bloqueia planejamento confirmado, exige justificativa auditável no RDO realizado, sinaliza divergência no Ponto e aparece no Acompanhamento.
+- **FR-066**: Efetivo e cálculo de hora extra DEVEM consumir o mesmo calendário resolvido de feriados nacionais e manuais globais.
+- **FR-067**: Alterações canônicas de cargo, ausências, feriados ou vínculos usados pelo planejamento DEVEM invalidar caches relacionados e incrementar a revisão oficial quando puderem tornar cenário/projeção obsoletos.
+- **FR-068**: Modelos e migrations exclusivos do Efetivo PODEM ser remodelados diretamente antes da primeira produção, sem adaptadores ou backfill de dados inexistentes do módulo.
+- **FR-069**: Dados já existentes de colaboradores, cargos, EPI, RDO, Ponto e Acompanhamento DEVEM ser preservados por migração versionada e diagnóstico idempotente em modo `--dry-run`; todo nome legado não vazio sem correspondência DEVE ser materializado uma única vez como cargo canônico provisório e vinculado automaticamente, enquanto nomes vazios ou associações ambíguas DEVEM bloquear a restrição final.
+- **FR-070**: Ausências e feriados manuais DEVEM incrementar uma revisão global de calendário; caches DEVEM incluir essa revisão e cenários baseados em revisão anterior DEVEM ser marcados como obsoletos antes de aplicação.
+- **FR-071**: Alterar o cargo canônico DEVE ser permitido mesmo quando houver planejamento futuro; alocações incompatíveis DEVEM ser marcadas como pendentes de replanejamento, sem alterar seus snapshots históricos.
 
 ### Visual/UI Contract *(mandatory if feature touches frontend)*
 
@@ -270,10 +331,12 @@ O site fornecido é referência funcional, não identidade visual. Todas as supe
 - **Alocação planejada**: vínculo entre colaborador, missão e função ocupada durante a programação.
 - **Cenário de simulação**: conjunto isolado de alterações hipotéticas de missões e contratações, com versão da programação usada como base.
 - **Contratação hipotética**: capacidade adicional por função disponível a partir de uma data, existente somente no cenário até aplicação.
-- **Feriado operacional**: dia sem capacidade útil, com nome e abrangência global.
+- **Calendário corporativo**: resolução única de feriados nacionais e manuais globais consumida por planejamento e cálculos operacionais.
 - **Configuração de função**: classificação operacional, cor de calendário e prazo de folga contínua.
 - **Evento de auditoria do Efetivo**: autoria e contexto de toda alteração relevante do planejamento.
 - **Indisponibilidade**: férias, folga ou afastamento que bloqueia alocação por dia inteiro.
+- **Perfil EPI do colaborador**: sobreposição opcional de cargo restrita ao EPI, sem alterar o cadastro canônico.
+- **Projeção de execução**: leitura calculada que contrapõe plano da missão e fatos existentes em Project, RDO, Acompanhamento e Ponto.
 
 ## Success Criteria *(mandatory)*
 
@@ -289,11 +352,16 @@ O site fornecido é referência funcional, não identidade visual. Todas as supe
 - **SC-008**: A Improdutividade Real apresenta os mesmos resultados para a mesma base de ponto antes e depois desta expansão.
 - **SC-009**: Todas as oito seções funcionam em viewport de 390 px sem scroll horizontal de página e com todas as ações acessíveis por toque e teclado.
 - **SC-010**: A visão geral identifica todas as funções deficitárias e todas as próximas missões com vagas pendentes dentro da janela apresentada.
+- **SC-011**: 100% dos colaboradores ativos possuem um único `jobRoleId` canônico após a migração; nomes legados ausentes são materializados sem duplicidade e nenhuma associação vazia ou ambígua é aceita.
+- **SC-012**: Alterar ou limpar o override do EPI não modifica o cargo canônico e não altera nenhuma solicitação/documento já criado.
+- **SC-013**: Para o mesmo projeto/data, o RDO recebe a equipe oficial confirmada como sugestão e qualquer ajuste do usuário permanece no realizado sem reescrever o plano.
+- **SC-014**: Efetivo e hora extra classificam 100% das datas do conjunto de teste com o mesmo calendário resolvido.
+- **SC-015**: A projeção de execução identifica integralmente pessoas planejadas não observadas e pessoas observadas não planejadas na amostra validada.
 
 ## Assumptions
 
 - O projeto/contrato existente continua sendo a identidade da missão; o módulo adiciona planejamento de pessoas, sem criar cadastro comercial paralelo.
-- Dia útil significa segunda a sexta-feira, excluindo feriados globais cadastrados e indisponibilidades da pessoa.
+- Dia útil significa segunda a sexta-feira, excluindo o calendário compartilhado de feriados nacionais/manuais e indisponibilidades da pessoa.
 - Missões confirmadas consomem capacidade do dia de mobilização ao dia de retorno, inclusive; rascunhos aparecem apenas nas áreas de planejamento.
 - Ausências são de dia inteiro nesta expansão.
 - A regra de férias é um alerta operacional derivado dos dados cadastrados e não substitui a validação legal ou o sistema de folha.
@@ -301,6 +369,7 @@ O site fornecido é referência funcional, não identidade visual. Todas as supe
 - Produtividade continua automática pelo Ponto Mais e não oferece lançamento manual de HH, mesmo que o site de referência demonstre esse botão.
 - Papéis `efetivo:manager` e `efetivo:viewer` permanecem; os rótulos de perfil do protótipo não criam um segundo modelo de acesso.
 - ASO e treinamento continuam reservados até existirem regras de bloqueio e origem de dados confirmadas.
+- O Efetivo ainda não possui dados de produção; essa premissa não se estende aos cadastros e módulos compartilhados já existentes.
 
 ### Divergências deliberadas em relação ao exemplo de referência
 

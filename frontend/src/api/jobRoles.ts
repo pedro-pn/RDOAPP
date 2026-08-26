@@ -13,8 +13,8 @@ export async function listJobRoles(all = false): Promise<JobRole[]> {
   return data;
 }
 
-export async function createJobRole(name: string): Promise<JobRole> {
-  const { data } = await apiClient.post<JobRole>(rdoApiPath('/job-roles'), { name });
+export async function createJobRole(payload: { name: string; isOperational?: boolean }): Promise<JobRole> {
+  const { data } = await apiClient.post<JobRole>(rdoApiPath('/job-roles'), payload);
   return data;
 }
 

@@ -30,6 +30,7 @@ async function clonePlanGraph(tx, sourcePlanId, planData) {
         projectId: mission.projectId,
         scheduleStatus: mission.scheduleStatus,
         stage: mission.stage,
+        headquartersResponsibleUserId: mission.headquartersResponsibleUserId,
         headquartersResponsibleName: mission.headquartersResponsibleName,
         headquartersResponsibleRole: mission.headquartersResponsibleRole,
         headquartersResponsibleCollaboratorId: mission.headquartersResponsibleCollaboratorId,
@@ -80,6 +81,7 @@ export async function createScenario(payload, context = {}, dependencies = {}) {
     await lockOfficialPlanningState(tx);
     const official = await getActiveOfficialPlan(tx, { create: true, actorUserId: context.actorUserId });
     await lockPlan(tx, official.id);
+    const calendarState = await tx.workforceCalendarState.findUnique({ where: { id: 'global' } });
     const scenario = await clonePlanGraph(tx, official.id, {
       kind: 'SCENARIO',
       status: 'DRAFT',
@@ -88,6 +90,7 @@ export async function createScenario(payload, context = {}, dependencies = {}) {
       revision: 1,
       basePlanId: official.id,
       baseOfficialRevision: official.revision,
+      baseCalendarRevision: calendarState?.revision || 1,
       createdByUserId: context.actorUserId || null
     });
     await recordEfetivoAudit(tx, {
@@ -140,15 +143,18 @@ export async function compareScenario(scenarioId, filters, dependencies = {}) {
   const scenario = await database.efetivoPlan.findUnique({ where: { id: scenarioId } });
   if (!scenario || scenario.kind !== 'SCENARIO') throw notFound('Cenário não encontrado.');
   const official = await getActiveOfficialPlan(database, { create: true });
-  const [officialOverview, scenarioOverview] = await Promise.all([
+  const [officialOverview, scenarioOverview, calendarState] = await Promise.all([
     getPlanningOverview({ date: filters.date, jobRoleId: filters.jobRoleId, planId: official.id }, { database }),
-    getPlanningOverview({ date: filters.date, jobRoleId: filters.jobRoleId, planId: scenario.id }, { database })
+    getPlanningOverview({ date: filters.date, jobRoleId: filters.jobRoleId, planId: scenario.id }, { database }),
+    database.workforceCalendarState.findUnique({ where: { id: 'global' } })
   ]);
   const projectedCapacity = plannedHireCapacityOn(scenarioOverview.plannedHires, filters.date);
   return {
     official: officialOverview,
     scenario: { ...scenarioOverview, projectedHireCapacity: projectedCapacity },
-    isStale: scenario.basePlanId !== official.id || scenario.baseOfficialRevision !== official.revision
+    isStale: scenario.basePlanId !== official.id
+      || scenario.baseOfficialRevision !== official.revision
+      || scenario.baseCalendarRevision !== (calendarState?.revision || 1)
   };
 }
 
@@ -209,7 +215,10 @@ export async function applyScenario(scenarioId, context = {}, dependencies = {})
     await lockOfficialPlanningState(tx);
     const official = await getActiveOfficialPlan(tx, { create: true, actorUserId: context.actorUserId });
     await lockPlan(tx, official.id);
-    if (scenario.basePlanId !== official.id || scenario.baseOfficialRevision !== official.revision) {
+    const calendarState = await tx.workforceCalendarState.findUnique({ where: { id: 'global' } });
+    if (scenario.basePlanId !== official.id
+      || scenario.baseOfficialRevision !== official.revision
+      || scenario.baseCalendarRevision !== (calendarState?.revision || 1)) {
       await tx.efetivoPlan.update({ where: { id: scenario.id }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });
       return { stale: true, officialRevision: official.revision };
     }
@@ -217,7 +226,9 @@ export async function applyScenario(scenarioId, context = {}, dependencies = {})
     await tx.efetivoPlan.update({ where: { id: official.id }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });
     const newOfficial = await clonePlanGraph(tx, scenario.id, {
       kind: 'OFFICIAL', status: 'ACTIVE', name: 'Planejamento oficial', revision: official.revision + 1,
-      basePlanId: official.id, baseOfficialRevision: official.revision, createdByUserId: context.actorUserId || null
+      basePlanId: official.id, baseOfficialRevision: official.revision,
+      baseCalendarRevision: calendarState?.revision || 1,
+      createdByUserId: context.actorUserId || null
     });
     await tx.efetivoPlan.update({
       where: { id: scenario.id },

@@ -9,6 +9,7 @@ import { listReports } from '../../api/reports';
 import { DraftSaveStatus, type DraftSaveStatusValue } from '../../components/reports/DraftSaveStatus';
 import { NewReportSpecialConditions } from '../../components/reports/NewReportSpecialConditions';
 import { RdoDdsNovelty } from '../../components/reports/RdoDdsNovelty';
+import { ReportWorkforceNotices } from '../../components/reports/ReportWorkforceNotices';
 import { ServiceCollaboratorsBlock, ServiceFields } from '../../components/reports/ServiceFields';
 import { serviceTypeLabels } from '../../components/reports/serviceTypes';
 import { Modal } from '../../components/ui/Modal';
@@ -18,6 +19,8 @@ import { useToast } from '../../components/ui/ToastContext';
 import { useNewReportBootstrap } from '../../hooks/useBootstrap';
 import { useDraftMutations, useDrafts } from '../../hooks/useDrafts';
 import { useReportMutations } from '../../hooks/useReports';
+import { useReportWorkforcePlanning } from '../../hooks/useReportWorkforcePlanning';
+import { useRdoPlanningPrefill } from '../../hooks/useRdoPlanningPrefill';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { useRdoStore } from '../../store/rdoStore';
@@ -28,6 +31,7 @@ import { buildReportServicePayload, normalizeServiceType } from '../../utils/rep
 import { sortProjects } from '../../utils/projectSort';
 import { autosaveDraftTargetId } from '../../utils/draftAutosave';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
+import { rdoWorkforceJustificationSchema } from '../../utils/rdoPlanningPrefill';
 
 const TEXT = {
   addService: 'Adicionar serviço',
@@ -186,45 +190,6 @@ function workedMinutes(start: string, end: string, breakValue: string) {
   return Math.max(0, total - parseDurationToMinutes(breakValue));
 }
 
-function addDays(date: Date, days: number) {
-  const copy = new Date(date.getTime());
-  copy.setUTCDate(copy.getUTCDate() + days);
-  return copy;
-}
-
-function dateKey(date: Date) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
-}
-
-function easterDate(year: number) {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-function isHoliday(value: string) {
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return false;
-  const year = date.getUTCFullYear();
-  const key = dateKey(date);
-  const fixed = new Set(['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'].map(day => `${year}-${day}`));
-  const easter = easterDate(year);
-  const movable = new Set([-48, -47, -2, 0, 60].map(days => dateKey(addDays(easter, days))));
-  return fixed.has(key) || movable.has(key);
-}
-
 function formatMinutes(total: number) {
   const hours = Math.floor(total / 60);
   const minutes = total % 60;
@@ -293,7 +258,7 @@ export function NewReportPage() {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [invalidTarget, setInvalidTarget] = useState<string | null>(null);
   const [ddsNoveltyActive, setDdsNoveltyActive] = useState(true);
-  const [collaboratorsPrefilled, setCollaboratorsPrefilled] = useState(false);
+  const [workforceJustification, setWorkforceJustification] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatusValue>('idle');
   const canCreateServiceOnly = user?.role === 'MANAGER';
@@ -341,7 +306,7 @@ export function NewReportPage() {
     if ((projectId || '') !== nextProjectId) {
       setCollaborators([]);
       setNightCollaborators([]);
-      setCollaboratorsPrefilled(false);
+      setWorkforceJustification('');
       previousServiceCollaboratorOptionIdsRef.current = [];
       for (const service of services) {
         if (normalizeServiceType(service.type) === 'inibicao') continue;
@@ -374,6 +339,13 @@ export function NewReportPage() {
     staleTime: 30_000
   });
 
+  const { planningContext, absenceConflicts, serverHoliday } = useReportWorkforcePlanning({
+    projectId,
+    reportDate,
+    collaboratorIds,
+    enabled: !effectiveServiceOnly
+  });
+
   const projectReports = useMemo(() => {
     const reports = lastProjectReportQuery.data || [];
     const cutoff = reportDate ? new Date(`${reportDate}T23:59:59`) : new Date();
@@ -387,6 +359,15 @@ export function NewReportPage() {
     );
   }, [lastProjectReportQuery.data, projectId, reportDate]);
   const lastReport = projectReports[0] || null;
+  const { source: collaboratorPrefillSource, markTouched: markCollaboratorsTouched } = useRdoPlanningPrefill({
+    projectId,
+    reportDate,
+    currentCollaboratorIds: collaboratorIds,
+    missionCollaboratorIds: planningContext?.collaborators.map(item => item.id) || [],
+    lastReportCollaboratorIds: (lastReport?.collaborators || []).map(link => link.collaboratorId).filter(Boolean),
+    setCollaborators
+  });
+  const collaboratorsPrefilled = Boolean(collaboratorPrefillSource);
   const duplicateReportForDate = useMemo(() => {
     if (effectiveServiceOnly || !projectId || !reportDate) return null;
     const selectedDate = reportDate.slice(0, 10);
@@ -519,17 +500,6 @@ export function NewReportPage() {
     if (!effectiveServiceOnly && !lunchBreak) setHeaderField('lunchBreak', '01:00:00');
   }, [effectiveServiceOnly, lunchBreak, setHeaderField]);
 
-  // Pre-fill collaborators from the most recent report of the selected project
-  useEffect(() => {
-    if (!projectId || collaboratorIds.length > 0) return;
-    if (!lastReport) return;
-    const ids = (lastReport.collaborators || []).map(l => l.collaboratorId).filter(Boolean);
-    if (ids.length) {
-      setCollaborators(ids);
-      setCollaboratorsPrefilled(true);
-    }
-  }, [projectId, lastReport, collaboratorIds.length, setCollaborators]);
-
   useEffect(() => {
     if (!projectId || !noturno || nightCollaboratorIds.length > 0) return;
     const noturnoDetails = lastReport?.specialConditions?.noturnoDetails;
@@ -616,7 +586,7 @@ export function NewReportPage() {
     if (!selectedProject) return 0;
     const date = new Date(`${reportDate}T00:00:00Z`);
     if (Number.isNaN(date.getTime())) return parseDurationToMinutes(selectedProject.workdayHours || '09:00');
-    if (isHoliday(reportDate)) return 0;
+    if (serverHoliday) return 0;
     const dow = date.getUTCDay();
     const weekdayBase = parseDurationToMinutes(selectedProject.workdayHours || '09:00');
     const weekendBase = parseDurationToMinutes(selectedProject.weekendWorkdayHours || '08:00');
@@ -624,7 +594,7 @@ export function NewReportPage() {
     if (dow === 6) return selectedProject.includesSaturday ? weekendBase : 0;
     if (dow === 0) return selectedProject.includesSunday ? weekendBase : 0;
     return weekdayBase;
-  }, [reportDate, selectedProject]);
+  }, [reportDate, selectedProject, serverHoliday]);
 
   const overtimeSummary = useMemo(() => {
     const expected = expectedMinutes();
@@ -644,9 +614,9 @@ export function NewReportPage() {
       daytimeOvertimeMinutes,
       nighttimeOvertimeMinutes,
       totalOvertimeMinutes: daytimeOvertimeMinutes + nighttimeOvertimeMinutes,
-      isHoliday: isHoliday(reportDate)
+      isHoliday: serverHoliday
     };
-  }, [arrivalTime, departureTime, expectedMinutes, lunchBreak, noturno, noturnoEnd, noturnoInterval, noturnoStart, reportDate]);
+  }, [arrivalTime, departureTime, expectedMinutes, lunchBreak, noturno, noturnoEnd, noturnoInterval, noturnoStart, serverHoliday]);
 
   const overtimeLines = [
     `Turno diurno: trabalhado ${formatMinutes(overtimeSummary.daytimeWorkedMinutes)} | extra ${formatMinutes(overtimeSummary.daytimeOvertimeMinutes)}`,
@@ -666,6 +636,7 @@ export function NewReportPage() {
       setNightCollaborators(Array.from(new Set([...nightCollaboratorIds, id])));
       return;
     }
+    markCollaboratorsTouched();
     setCollaborators(Array.from(new Set([...collaboratorIds, id])));
   }
 
@@ -674,6 +645,7 @@ export function NewReportPage() {
       setNightCollaborators(nightCollaboratorIds.filter(item => item !== id));
       return;
     }
+    markCollaboratorsTouched();
     setCollaborators(collaboratorIds.filter(item => item !== id));
   }
 
@@ -684,10 +656,14 @@ export function NewReportPage() {
 
     return ids.map(id => {
       const item = collaborators.find(candidate => candidate.id === id);
+      const roleName = item?.jobRole?.name || item?.role || 'Cargo não informado';
       return (
         <span className="colab-tag" key={`${night ? 'night' : 'day'}-${id}`}>
-          <span>{item?.name || id}</span>
-          <button type="button" onClick={() => removeCollaboratorFromList(id, night)}>×</button>
+          <span className="colab-tag-copy">
+            <span>{item?.name || id}</span>
+            <small className="colab-tag-role">{roleName}</small>
+          </span>
+          <button type="button" aria-label={`Remover ${item?.name || id}`} onClick={() => removeCollaboratorFromList(id, night)}>×</button>
         </span>
       );
     });
@@ -802,6 +778,12 @@ export function NewReportPage() {
     if (!departureTime) return failRequired('Saída', 'header:departureTime', 0);
     if (!lunchBreak) return failRequired('Intervalo de almoço', 'header:lunchBreak', 0);
     if (!collaboratorIds.length) return failRequired('Colaboradores', 'header:collaborators', 0);
+    if (!rdoWorkforceJustificationSchema.safeParse({
+      requiresJustification: absenceConflicts.length > 0,
+      workforceJustification
+    }).success) {
+      return failRequired('Justificativa de trabalho durante afastamento', 'header:workforceJustification', 0);
+    }
     if (standby && !standbyDuration) return failRequired('Tempo total (standby)', 'header:standbyDuration', 0);
     if (standby && !standbyMotivo.trim()) return failRequired('Motivo (standby)', 'header:standbyMotivo', 0);
     if (noturno && !noturnoStart) return failRequired('Início (noturno)', 'header:noturnoStart', 0);
@@ -1178,7 +1160,14 @@ export function NewReportPage() {
                 temas: ddsNightThemes
               }
             },
-            overtimeSummary
+            overtimeSummary,
+            workforceJustification: workforceJustification.trim() || null,
+            efetivoPlanningContext: planningContext ? {
+              missionId: planningContext.missionId,
+              missionVersion: planningContext.missionVersion,
+              planRevision: planningContext.planRevision,
+              calendarRevision: planningContext.calendarRevision
+            } : null
           },
           collaboratorIds,
           services: servicePayloads
@@ -1364,8 +1353,19 @@ export function NewReportPage() {
         <section className="page-card">
           <div className="section-title">
             {TEXT.team}
-            {collaboratorsPrefilled ? <span className="pre-badge">pré-preenchido</span> : null}
+            {collaboratorsPrefilled ? (
+              <span className="pre-badge">
+                {collaboratorPrefillSource === 'MISSION' ? 'missão oficial' : 'último RDO'}
+              </span>
+            ) : null}
           </div>
+          <ReportWorkforceNotices
+            planningContext={planningContext}
+            absenceConflictCount={absenceConflicts.length}
+            workforceJustification={workforceJustification}
+            invalid={invalidTarget === 'header:workforceJustification'}
+            onJustificationChange={setWorkforceJustification}
+          />
           <div
             className={`colab-list ${invalidTarget === 'header:collaborators' ? 'field-invalid-panel' : ''}`}
             data-invalid-target="header:collaborators"

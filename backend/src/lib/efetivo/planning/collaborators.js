@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 
+import { markFutureAllocationsForReplanning, withCurrentJobRole } from '../../collaborators/job-role-service.js';
 import { recordEfetivoAudit } from './audit.js';
 import {
   collectAllocationConflicts,
@@ -24,7 +25,6 @@ async function requireOperationalRole(tx, jobRoleId) {
 function collaboratorData(payload, role) {
   return {
     name: payload.name.trim(),
-    role: role.name,
     jobRoleId: role.id,
     admissionDate: utcDate(payload.admissionDate),
     terminationDate: utcDate(payload.terminationDate),
@@ -54,14 +54,15 @@ export async function createPlanningCollaborator(payload, context = {}, dependen
       data: {
         code: `EF-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
         ...collaboratorData(payload, role)
-      }
+      },
+      include: { jobRole: true }
     });
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id, actorUserId: context.actorUserId, action: 'COLLABORATOR_CREATE', entityType: 'COLLABORATOR', entityId: collaborator.id,
       summary: `${collaborator.name} incluído no efetivo operacional.`, afterData: collaborator, evidence: context.evidence
     });
-    return collaborator;
+    return withCurrentJobRole(collaborator);
   });
 }
 
@@ -74,22 +75,16 @@ export async function updatePlanningCollaborator(collaboratorId, payload, contex
     if (!existing) throw notFound('Colaborador não encontrado.');
     const role = await requireOperationalRole(tx, payload.jobRoleId);
     const nextData = collaboratorData(payload, role);
-    const allocations = await tx.efetivoMissionAllocation.findMany({
-      where: {
-        collaboratorId,
-        deletedAt: null,
-        mission: { planId: plan.id, deletedAt: null, scheduleStatus: 'CONFIRMED' }
-      },
-      include: { mission: true }
-    });
-    ensureNoPlanningConflicts(collectCollaboratorUpdateConflicts({ ...existing, ...nextData }, allocations));
-    const updated = await tx.collaborator.update({ where: { id: collaboratorId }, data: nextData });
+    const updated = await tx.collaborator.update({ where: { id: collaboratorId }, data: nextData, include: { jobRole: true } });
+    if (existing.jobRoleId !== nextData.jobRoleId) {
+      await markFutureAllocationsForReplanning(tx, collaboratorId, nextData.jobRoleId);
+    }
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id, actorUserId: context.actorUserId, action: 'COLLABORATOR_UPDATE', entityType: 'COLLABORATOR', entityId: collaboratorId,
       summary: `${updated.name} atualizado no efetivo operacional.`, beforeData: existing, afterData: updated, evidence: context.evidence
     });
-    return updated;
+    return withCurrentJobRole(updated);
   });
 }
 
@@ -133,14 +128,14 @@ export async function createPlanningAbsence(payload, context = {}, dependencies 
         note: String(payload.note || '').trim() || null,
         createdByUserId: context.actorUserId || null
       },
-      include: { collaborator: { select: { id: true, name: true, role: true, jobRoleId: true } } }
+      include: { collaborator: { include: { jobRole: true } } }
     });
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id, actorUserId: context.actorUserId, action: 'ABSENCE_CREATE', entityType: 'ABSENCE', entityId: absence.id,
       summary: `${payload.type} programado para ${collaborator.name}.`, afterData: absence, evidence: context.evidence
     });
-    return absence;
+    return { ...absence, collaborator: withCurrentJobRole(absence.collaborator) };
   });
 }
 
@@ -165,14 +160,14 @@ export async function updatePlanningAbsence(absenceId, payload, context = {}, de
         endDate: utcDate(period.endDate),
         ...(payload.note !== undefined ? { note: String(payload.note || '').trim() || null } : {})
       },
-      include: { collaborator: { select: { id: true, name: true, role: true, jobRoleId: true } } }
+      include: { collaborator: { include: { jobRole: true } } }
     });
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id, actorUserId: context.actorUserId, action: 'ABSENCE_UPDATE', entityType: 'ABSENCE', entityId: absenceId,
       summary: 'Indisponibilidade atualizada.', beforeData: existing, afterData: updated, evidence: context.evidence
     });
-    return updated;
+    return { ...updated, collaborator: withCurrentJobRole(updated.collaborator) };
   });
 }
 
@@ -209,7 +204,7 @@ export async function listPlanningAbsences(filters = {}, dependencies = {}) {
       ...(filters.collaboratorId ? { collaboratorId: filters.collaboratorId } : {}),
       ...(filters.startDate ? { startDate: { lte: utcDate(filters.endDate || filters.startDate) }, endDate: { gte: utcDate(filters.startDate) } } : {})
     },
-    include: { collaborator: { select: { id: true, name: true, role: true, jobRoleId: true } } },
+    include: { collaborator: { include: { jobRole: true } } },
     orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }]
-  });
+  }).then(items => items.map(item => ({ ...item, collaborator: withCurrentJobRole(item.collaborator) })));
 }

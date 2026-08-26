@@ -25,6 +25,7 @@ import { refreshMissionPlanningQueries } from '../../../utils/efetivoPlanningQue
 import { missionPendencies, PENDING_PROJECT_PENDENCIES } from '../../../utils/missionPendencies';
 import { MissionAllocationModal } from './MissionAllocationModal';
 import { MissionFormModal } from './MissionFormModal';
+import { MissionExecutionPanel } from './MissionExecutionPanel';
 
 const statusLabel = { DRAFT: 'Rascunho', CONFIRMED: 'Confirmada', CANCELLED: 'Cancelada' } as const;
 
@@ -170,6 +171,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
                     })}</div>
                     <p className={`efetivo-team-status ${required - mission.allocations.length > 0 ? 'danger' : 'success'}`}>{required - mission.allocations.length > 0 ? `${required - mission.allocations.length} vagas ainda precisam de pessoas` : 'Equipe completa e sem conflitos'}</p>
                     {pendencies.length ? <ul className="efetivo-pending-list">{pendencies.map(item => <li key={item}>{item}</li>)}</ul> : null}
+                    {!planId && selectedMissionId === mission.id ? <MissionExecutionPanel missionId={mission.id} /> : null}
                     <footer>
                       <span>Responsável: <strong>{mission.headquartersResponsibleName}</strong></span>
                       <div className="efetivo-action-row">

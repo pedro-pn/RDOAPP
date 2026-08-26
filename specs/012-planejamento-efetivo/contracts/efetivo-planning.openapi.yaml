@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Efetivo Operacional Planning API
-  version: 1.0.0
-  description: Contrato das áreas de capacidade, calendário, missões, simulações e administração do Efetivo.
+  version: 1.1.0
+  description: Contrato das áreas de capacidade, calendário compartilhado, missões, execução observada, simulações e administração do Efetivo.
 servers:
   - url: /api/efetivo
 security:
@@ -131,43 +131,6 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/CollaboratorResponse' }
         '409': { $ref: '#/components/responses/ConflictResponse' }
-  /planning/absences:
-    post:
-      tags: [Collaborators]
-      summary: Agenda férias, folga ou afastamento sem sobreposição
-      x-required-role: efetivo:manager
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/AbsenceInput' }
-      responses:
-        '201':
-          description: Indisponibilidade criada
-        '409': { $ref: '#/components/responses/ConflictResponse' }
-  /planning/absences/{absenceId}:
-    patch:
-      tags: [Collaborators]
-      summary: Atualiza indisponibilidade após revalidar conflitos
-      x-required-role: efetivo:manager
-      parameters:
-        - $ref: '#/components/parameters/AbsenceId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/AbsenceInput' }
-      responses:
-        '200': { description: Indisponibilidade atualizada }
-        '409': { $ref: '#/components/responses/ConflictResponse' }
-    delete:
-      tags: [Collaborators]
-      summary: Exclui logicamente uma indisponibilidade
-      x-required-role: efetivo:manager
-      parameters:
-        - $ref: '#/components/parameters/AbsenceId'
-      responses:
-        '204': { description: Excluída }
   /planning/missions:
     get:
       tags: [Missions]
@@ -349,6 +312,19 @@ paths:
       responses:
         '200': { description: Etapa e ordem persistidas }
         '409': { $ref: '#/components/responses/ConflictResponse' }
+  /planning/missions/{missionId}/execution:
+    get:
+      tags: [Missions]
+      summary: Compara a missão planejada com fatos observados de Project, RDO, Acompanhamento e Ponto
+      description: Retorna uma projeção de leitura; nunca atualiza automaticamente datas, etapa ou equipe planejadas.
+      parameters:
+        - $ref: '#/components/parameters/MissionId'
+      responses:
+        '200':
+          description: Planejado, observado, divergências e origem/freshness dos dados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MissionExecutionComparison' }
   /planning/scenarios:
     get:
       tags: [Scenarios]
@@ -627,11 +603,6 @@ components:
       in: path
       required: true
       schema: { type: string }
-    AbsenceId:
-      name: absenceId
-      in: path
-      required: true
-      schema: { type: string }
     IfMatchVersion:
       name: If-Match-Version
       in: header
@@ -690,10 +661,11 @@ components:
         registrationPending: { type: boolean }
     JobRole:
       type: object
-      required: [id, name, isOperational, calendarColor]
+      required: [id, name, isActive, isOperational, calendarColor]
       properties:
         id: { type: string }
         name: { type: string }
+        isActive: { type: boolean }
         isOperational: { type: boolean }
         calendarColor: { type: string }
         continuousWorkLimitDays: { type: [integer, 'null'] }
@@ -708,15 +680,17 @@ components:
           properties:
             id: { type: string }
             name: { type: string }
-            role: { type: string }
+            jobRoleId: { type: string }
+            jobRoleName: { type: string }
             isActive: { type: boolean }
     CollaboratorOption:
       type: object
-      required: [id, name, jobRoleId]
+      required: [id, name, jobRoleId, jobRoleName]
       properties:
         id: { type: string }
         name: { type: string }
         jobRoleId: { type: string }
+        jobRoleName: { type: string }
     CollaboratorInput:
       type: object
       required: [name, jobRoleId, admissionDate]
@@ -743,15 +717,6 @@ components:
             status: { type: string, enum: [ALLOCATED, UNAVAILABLE, FREE, OUTSIDE_EMPLOYMENT] }
             plannedUtilization90d: { type: [number, 'null'], minimum: 0, maximum: 100 }
             vacationAlert: { type: [object, 'null'] }
-    AbsenceInput:
-      type: object
-      required: [collaboratorId, type, startDate, endDate]
-      properties:
-        collaboratorId: { type: string }
-        type: { type: string, enum: [FERIAS, FOLGA, AFASTAMENTO] }
-        startDate: { $ref: '#/components/schemas/DateOnly' }
-        endDate: { $ref: '#/components/schemas/DateOnly' }
-        note: { type: [string, 'null'], maxLength: 1000 }
     MissionDemand:
       type: object
       required: [jobRoleId, requiredCount]
@@ -782,13 +747,14 @@ components:
           items: { type: string }
     Mission:
       type: object
-      required: [id, planId, projectId, scheduleStatus, stage, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, version, kanbanOrder, project, demands, allocations]
+      required: [id, planId, projectId, scheduleStatus, stage, headquartersResponsibleUserId, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, version, kanbanOrder, project, demands, allocations]
       properties:
         id: { type: string }
         planId: { type: string }
         projectId: { type: string }
         scheduleStatus: { $ref: '#/components/schemas/MissionScheduleStatus' }
         stage: { $ref: '#/components/schemas/MissionStage' }
+        headquartersResponsibleUserId: { type: string }
         headquartersResponsibleName: { type: string }
         headquartersResponsibleRole: { type: string }
         headquartersResponsibleCollaboratorId: { type: [string, 'null'] }
@@ -817,8 +783,8 @@ components:
                 properties:
                   id: { type: string }
                   name: { type: string }
-                  role: { type: string }
-                  jobRoleId: { type: [string, 'null'] }
+                  jobRoleId: { type: string }
+                  jobRoleName: { type: string }
     RoleCapacity:
       type: object
       required: [jobRoleId, jobRoleName, active, allocated, unavailable, free, demand, deficit]
@@ -899,9 +865,63 @@ components:
       allOf:
         - $ref: '#/components/schemas/HolidayInput'
         - type: object
-          required: [id]
+          required: [id, source, mutable]
           properties:
             id: { type: string }
+            source: { type: string, enum: [NATIONAL, COMPANY] }
+            mutable: { type: boolean }
+    MissionExecutionComparison:
+      type: object
+      required: [missionId, planned, actual, variances, freshness]
+      properties:
+        missionId: { type: string }
+        planned:
+          type: object
+          required: [planRevision, calendarRevision, stage, dates, collaborators]
+          properties:
+            planRevision: { type: integer }
+            calendarRevision: { type: integer }
+            stage: { $ref: '#/components/schemas/MissionStage' }
+            dates:
+              type: object
+              required: [mobilizationDate, executionStartDate, executionEndDate, returnDate]
+              properties:
+                mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
+                executionStartDate: { $ref: '#/components/schemas/DateOnly' }
+                executionEndDate: { $ref: '#/components/schemas/DateOnly' }
+                returnDate: { $ref: '#/components/schemas/DateOnly' }
+            collaborators:
+              type: array
+              items: { $ref: '#/components/schemas/CollaboratorOption' }
+        actual:
+          type: object
+          properties:
+            projectDates: { type: object, additionalProperties: true }
+            firstRdoDate: { type: [string, 'null'], format: date }
+            lastRdoDate: { type: [string, 'null'], format: date }
+            rdoDays: { type: integer, minimum: 0 }
+            collaboratorsObserved:
+              type: array
+              items: { $ref: '#/components/schemas/CollaboratorOption' }
+            pontoHours: { type: number, minimum: 0 }
+            manualProgressPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        variances:
+          type: object
+          required: [plannedNotObserved, unplannedObserved, workedOutsidePlannedWindow, workDuringAbsence]
+          properties:
+            dateDeltas: { type: object, additionalProperties: true }
+            plannedNotObserved: { type: array, items: { type: string } }
+            unplannedObserved: { type: array, items: { type: string } }
+            workedOutsidePlannedWindow: { type: array, items: { $ref: '#/components/schemas/DateOnly' } }
+            workDuringAbsence: { type: array, items: { type: object, additionalProperties: true } }
+            unresolvedPontoDays: { type: array, items: { $ref: '#/components/schemas/DateOnly' } }
+            observedStageSuggestion: { oneOf: [{ $ref: '#/components/schemas/MissionStage' }, { type: 'null' }] }
+        freshness:
+          type: object
+          required: [generatedAt]
+          properties:
+            generatedAt: { type: string, format: date-time }
+            pontoImportIds: { type: array, items: { type: string } }
     AuditEvent:
       type: object
       required: [id, action, entityType, entityId, summary, createdAt]

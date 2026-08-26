@@ -11,10 +11,11 @@ import {
   listEfetivoAbsences
 } from '../../lib/efetivo/service.js';
 import {
-  createPlanningAbsence,
-  deletePlanningAbsence,
-  updatePlanningAbsence
-} from '../../lib/efetivo/planning/collaborators.js';
+  createWorkforceAbsence,
+  deleteWorkforceAbsence,
+  updateWorkforceAbsence
+} from '../../lib/collaborators/availability-service.js';
+import prisma from '../../lib/prisma.js';
 import { requestEvidence } from '../../lib/efetivo/planning/plan-context.js';
 import {
   getEfetivoReferenceSetting,
@@ -102,18 +103,20 @@ router.get('/ausencias', requireEfetivoViewer, asyncHandler(async (req, res) => 
 
 router.post('/ausencias', requireEfetivoManager, asyncHandler(async (req, res) => {
   const payload = absenceCreateSchema.parse(req.body);
-  res.status(201).json(await createPlanningAbsence(payload, planningContext(req)));
+  res.status(201).json(await createWorkforceAbsence(prisma, payload, planningContext(req)));
 }));
 
 router.patch('/ausencias/:id', requireEfetivoManager, asyncHandler(async (req, res) => {
   const id = collaboratorIdSchema.parse(req.params.id);
   const payload = absenceUpdateSchema.parse(req.body);
-  res.json(await updatePlanningAbsence(id, payload, planningContext(req)));
+  const expectedVersion = z.coerce.number().int().min(1).parse(req.get('If-Match-Version'));
+  res.json(await updateWorkforceAbsence(prisma, id, payload, { ...planningContext(req), expectedVersion }));
 }));
 
 router.delete('/ausencias/:id', requireEfetivoManager, asyncHandler(async (req, res) => {
   const id = collaboratorIdSchema.parse(req.params.id);
-  await deletePlanningAbsence(id, planningContext(req));
+  const expectedVersion = z.coerce.number().int().min(1).parse(req.get('If-Match-Version'));
+  await deleteWorkforceAbsence(prisma, id, { ...planningContext(req), expectedVersion });
   res.status(204).end();
 }));
 

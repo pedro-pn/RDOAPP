@@ -5,7 +5,7 @@ import { EfetivoControlNovelty } from '../../components/EfetivoControlNovelty';
 
 export interface CollaboratorFormState {
   name: string;
-  role: string;
+  jobRoleId: string;
   email: string;
   terminationDate: string;
   signatureImage: string;
@@ -55,7 +55,7 @@ export function CollaboratorForm({
         </div>
         <div className="field-group">
           <label htmlFor={id('role')}>Cargo</label>
-          <select id={id('role')} value={value.role} onChange={event => set('role', event.target.value)} required>
+          <select id={id('role')} value={value.jobRoleId} onChange={event => set('jobRoleId', event.target.value)} required>
             {roleOptions}
           </select>
         </div>

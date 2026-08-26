@@ -14,14 +14,15 @@
 
 ## 2. Vínculo estável entre colaborador e função
 
-**Decision**: adicionar `Collaborator.jobRoleId` opcional e manter `Collaborator.role` como snapshot/compatibilidade.
+**Decision**: tornar `Collaborator.jobRoleId` obrigatório e a única fonte do cargo atual. `Collaborator.role` deixa de receber escritas, todos os consumidores passam a ler `JobRole.name` pela relação e a coluna textual é removida depois do backfill auditado. Contextos históricos mantêm snapshots próprios, sem reutilizar o cargo atual.
 
-**Rationale**: elegibilidade, demanda e alocação exigem chave relacional. Hoje o casamento por nome normalizado é tolerável para relatórios, mas renomear um cargo pode quebrar planejamento e histórico. Na transição, registros sem chave continuam resolvidos pelo nome e aparecem como pendência quando ambíguos.
+**Rationale**: elegibilidade, demanda, alocação e integrações exigem uma chave relacional única. Manter duas representações editáveis recria divergência a cada alteração. A branch ainda não foi para produção quanto ao Efetivo, portanto não há motivo para carregar compatibilidade interna do novo módulo. Os colaboradores já existentes no APP, porém, são dados produtivos: antes de impor `NOT NULL`, um comando idempotente com modo `--dry-run` lista correspondências e cargos provisórios. Nomes legados não vazios são materializados uma única vez e vinculados automaticamente; somente nomes vazios ou ambiguidades reais bloqueiam a implantação.
 
 **Alternatives considered**:
 
 - Continuar apenas com texto: frágil a renome, duplicidade e acentos.
-- Remover `role`: quebra integrações, formulários e relatórios existentes; a migração precisa ser gradual.
+- Manter `role` indefinidamente como fallback: preserva duas fontes de verdade e torna impossível garantir centralização real.
+- Tornar `jobRoleId` obrigatório sem auditoria: arrisca associar cargos errados em cadastros já produtivos.
 
 ## 3. Datas civis e sobreposição
 
@@ -145,3 +146,100 @@
 
 - `select` com centenas de pessoas/projetos: ruim para busca e acessibilidade.
 - Combobox específico em cada modal: duplica lógica complexa.
+
+## 14. Exceção de cargo restrita ao EPI
+
+**Decision**: mover a sobreposição atual para `EpiCollaboratorProfile.roleOverrideJobRoleId`, temporária e exclusiva do EPI. Ela nunca altera `Collaborator.jobRoleId`, não aparece como cargo atual fora do EPI e pode ser limpa para retornar imediatamente ao cargo canônico. O override pode apontar para cargo inativo (histórico), enquanto novas atribuições canônicas exigem cargo ativo. O cargo efetivo do documento é capturado como snapshot na solicitação/artefato do EPI.
+
+**Rationale**: o gestor precisa emitir documentos referentes ao cargo anterior sem falsificar o cadastro atual do colaborador. Hoje o EPI já possui o conceito de override, mas parte da geração consulta o colaborador ao vivo; restaurar o override antes da assinatura poderia trocar o cargo do documento. O snapshot torna a solicitação imutável e auditável.
+
+**Alternatives considered**:
+
+- Alterar temporariamente `jobRoleId`: propagaria um dado deliberadamente local para todo o APP.
+- Usar sempre o cargo atual na emissão: impede reproduzir corretamente entregas feitas no cargo anterior.
+- Manter o override textual no cadastro global: funciona, mas deixa uma exceção de um módulo dentro da entidade canônica e perde integridade com o catálogo.
+- Consultar o override ao vivo durante toda a assinatura: permite que um documento pendente mude depois de criado.
+
+## 15. Planejado e realizado por projeto
+
+**Decision**: manter datas, etapa e equipe da missão como planejamento; manter `Project`, RDO, Acompanhamento e Ponto como evidências do realizado. A integração é feita por `projectId`, com uma projeção planejado × realizado, sem sincronização bidirecional silenciosa.
+
+**Rationale**: `EfetivoMissionPlan` responde “o que deveria acontecer”; datas operacionais do projeto, relatórios, pessoas efetivamente lançadas e horas do ponto respondem “o que aconteceu”. Sobrescrever um lado pelo outro apagaria divergências que são justamente úteis à gestão.
+
+**Alternatives considered**:
+
+- Copiar datas da missão para `Project` em toda edição: confunde intenção com execução e pode alterar um módulo produtivo sem confirmação.
+- Atualizar automaticamente a etapa planejada por RDO/Ponto: transforma evidência incompleta em decisão oficial.
+- Duplicar o realizado dentro do Efetivo: cria nova fonte de verdade para dados já existentes.
+
+## 16. Consumo da equipe planejada por RDO e Acompanhamento
+
+**Decision**: disponibilizar um contexto de planejamento por `projectId` e data. O RDO usa a equipe da missão confirmada como sugestão inicial, mas grava em `ReportCollaborator` somente a equipe efetivamente confirmada pelo usuário. O Acompanhamento exibe lado a lado equipe/datas planejadas e realizadas; seu `laborCollaboratorIds` existente não se torna fonte do planejamento novo.
+
+**Rationale**: o prefill elimina recadastro sem transformar planejamento em fato consumado. Preservar o snapshot do RDO mantém a fidelidade histórica e permite apontar pessoas não planejadas ou planejadas sem evidência de atuação.
+
+**Alternatives considered**:
+
+- Copiar automaticamente a equipe para todo RDO: pode registrar presença de quem não trabalhou.
+- Manter seleção totalmente independente: desperdiça a integração e multiplica divergências manuais.
+- Substituir imediatamente `Project.laborCollaboratorIds`: esse campo já pode conter dados produtivos do Acompanhamento e exige evolução separada.
+
+## 17. Ausências compartilhadas
+
+**Decision**: `CollaboratorAbsence` passa a pertencer ao domínio compartilhado de disponibilidade do colaborador. O Efetivo bloqueia nova alocação/confirmacão sobreposta, mas uma ausência verdadeira pode ser cadastrada mesmo quando já existir missão e torna essa programação pendente/conflitante até replanejamento. RDO alerta e exige justificativa auditável para registrar trabalho efetivo no período; Ponto sinaliza a divergência sem apagar horas; Acompanhamento exibe a indisponibilidade no contexto da equipe.
+
+**Rationale**: férias, folgas e afastamentos são fatos do colaborador, não do Efetivo. O tratamento precisa variar conforme a natureza do módulo: planejamento pode bloquear, enquanto um registro do realizado precisa aceitar correção/exceção de forma explícita.
+
+**Alternatives considered**:
+
+- Bloquear RDO e Ponto: pode impedir o registro fiel do que de fato ocorreu.
+- Apenas alertar no planejamento: permite oficializar equipes impossíveis.
+- Duplicar ausências por módulo: gera conflitos insolúveis de fonte de verdade.
+
+## 18. Calendário corporativo único
+
+**Decision**: substituir `EfetivoHoliday` por um calendário compartilhado. Um serviço resolve feriados nacionais fixos/móveis já considerados pelo RDO e os feriados manuais globais cadastrados pelo gestor; Efetivo e cálculo de hora extra recebem o mesmo conjunto resolvido para o intervalo. Uma revisão global do calendário/força de trabalho participa das chaves de cache e da obsolescência de cenários.
+
+**Rationale**: hoje o Efetivo consulta tabela própria e o RDO usa uma função hardcoded, permitindo resultados distintos no mesmo dia. A geração nacional determinística preserva o comportamento existente; registros manuais complementam o calendário sem duplicar a regra.
+
+**Alternatives considered**:
+
+- Fazer o RDO consultar somente a tabela: perderia feriados atuais se o cadastro não estivesse completo.
+- Manter calendários separados: perpetua a divergência que a integração pretende eliminar.
+- Fazer acesso ao banco dentro de cada função de cálculo: espalha I/O e torna as regras puras difíceis de testar; o serviço deve resolver o período antes do cálculo.
+
+## 19. Responsável da missão vinculado ao usuário
+
+**Decision**: persistir `headquartersResponsibleUserId` obrigatório em `EfetivoMissionPlan`, além dos snapshots de nome/cargo e do vínculo opcional com `Collaborator`.
+
+**Rationale**: a conta ativa é a identidade operacional estável para permissões, notificações e filtros; os snapshots preservam o histórico exibido mesmo quando nome, cargo ou vínculo mudarem. Como missões do Efetivo ainda não existem em produção, a FK pode nascer obrigatória sem backfill de legado do módulo.
+
+**Alternatives considered**:
+
+- Guardar apenas nome/cargo: não permite direcionar ações a uma conta.
+- Guardar apenas `User`: muda retrospectivamente a apresentação histórica.
+- Exigir `Collaborator`: nem toda conta responsável precisa possuir esse vínculo.
+
+## 20. Fronteira de migração antes da primeira produção
+
+**Decision**: remodelar diretamente tabelas, contratos e migrations exclusivos do Efetivo, sem adaptadores de compatibilidade ou backfill de dados do próprio módulo. Para entidades compartilhadas já produtivas, usar migração versionada, diagnóstico `--dry-run`, criação automática de cargos provisórios a partir de nomes legados não vazios, correção explícita de nomes vazios/ambiguidades e gates de integridade antes de remover a representação antiga.
+
+**Rationale**: carregar compatibilidade para dados que nunca existiram em produção aumenta custo sem benefício. A mesma premissa não autoriza descartar dados dos demais módulos já em uso.
+
+**Alternatives considered**:
+
+- Tratar todo o APP como greenfield: risco de perda ou associação incorreta de dados existentes.
+- Tratar o Efetivo como legado: cria fases, fallbacks e código temporário desnecessários.
+
+## 21. Inventário de implementação das integrações
+
+Levantamento executado com code-review-graph antes da inspeção textual:
+
+- **Cargo canônico**: `Collaborator.role` e `jobRoleId` convivem; escritores estão nas rotas de colaboradores, planejamento do Efetivo e scripts de importação/normalização. Os leitores atuais alcançam RDO/PDF, Acompanhamento/custos, Ponto, autenticação, EPI e Efetivo. O raio de impacto conjunto de schema, cargo, EPI, RDO, feriados e missão alcança 57 arquivos adicionais em dois saltos e foi classificado como alto.
+- **EPI**: `effectiveEpiRole` possui cinco consumidores diretos relevantes — base DOCX, payload público, chave de cache PDF e testes. `EpiSignatureRequest` não possui snapshot; a correção precisa atravessar criação, leitura pública, cache e geração assinada.
+- **RDO**: `buildReportCollaboratorRows` alimenta DOCX/PDF e já tem testes unitários. `ReportCollaborator` guarda apenas FKs; criação/edição passa por `routes/resources/reports.js` e por helpers de dados operacionais manuais.
+- **Ausências**: a tabela é global, mas todas as regras estão em `lib/efetivo/service.js` e `lib/efetivo/planning/*`; nenhum consumidor atual do RDO/Ponto/Acompanhamento usa a entidade.
+- **Feriados**: o Efetivo persiste `EfetivoHoliday`; `isBrazilHoliday` em `lib/overtime.js` possui dois consumidores diretos (`getExpectedMinutes` e `calculateReportOvertime`) e não tem cobertura direta no grafo.
+- **Missões**: `mission-planning.js` concentra persistência e equipe, enquanto o RDO/Acompanhamento não possuem contexto oficial por projeto/data. `Project.laborCollaboratorIds` permanece consumidor do motor de rateio e não será substituído.
+
+Este inventário define a ordem segura: schema/serviços puros → snapshots/cargo → calendário/ausências → contexto planejado → comparação. Arquivos de alto acoplamento (`schema.prisma`, `reports.js`, `efetivo-planning.js`) permanecem seriais.

@@ -2305,22 +2305,49 @@ a {
 .acp-kpi-value { font-size: 22px; font-weight: 700; color: #1f3a2a; line-height: 1.2; }
 .acp-kpi-foot { font-size: 11px; color: #9aa3a0; }
 
-.job-role-operational-control {
-  align-items: center;
-  border: 1px solid var(--br);
-  border-radius: var(--rs);
-  display: inline-flex;
-  gap: 6px;
-  padding: 5px 8px;
+.tog-row.job-role-operational-field {
+  border-bottom: 0;
+  grid-column: 1 / -1;
+  gap: 16px;
+  padding: 8px 0 4px;
 }
 
-.job-role-operational-control:focus-within {
-  border-color: var(--g);
+.job-role-operational-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-.job-role-operational-control:has(input:disabled) {
-  color: var(--mu);
+.job-role-operational-copy .placeholder-copy {
+  font-size: 11px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.job-role-operational-field .tog:has(input:disabled) {
   cursor: not-allowed;
+  opacity: .55;
+}
+
+.job-role-operational-field .tog:has(input:disabled) .tog-sl {
+  cursor: not-allowed;
+}
+
+.job-role-operational-field .tog input:focus-visible + .tog-sl {
+  outline: 2px solid color-mix(in srgb, var(--g) 40%, transparent);
+  outline-offset: 2px;
+}
+
+.job-role-row {
+  flex-wrap: wrap;
+}
+
+.job-role-row > .admin-inline-form {
+  flex: 1 1 100%;
+  margin-top: 0;
+  width: 100%;
 }
 
 .acp-bars { display: flex; flex-direction: column; gap: 8px; }
@@ -3042,6 +3069,18 @@ a {
 @media (max-width: 980px) { .acp-det-cols { grid-template-columns: 1fr; } }
 .acp-det-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .acp-det-block { display: flex; flex-direction: column; gap: 10px; }
+.acp-det-planning { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.acp-det-planning > div:first-child { display: grid; gap: 5px; }
+.acp-det-planning p { margin: 0; }
+.acp-det-planning-team { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 55%; }
+.acp-det-planning-team span { border: 1px solid var(--bd); border-radius: 999px; padding: 5px 9px; display: grid; line-height: 1.1; }
+.acp-det-planning-team small { color: var(--mu); }
+.acp-det-planning-team em { color: var(--rd); flex-basis: 100%; text-align: right; }
+@media (max-width: 760px) {
+  .acp-det-planning { flex-direction: column; }
+  .acp-det-planning-team { max-width: none; justify-content: flex-start; }
+  .acp-det-planning-team em { text-align: left; }
+}
 .acp-det-sub { font-weight: 600; font-size: 13px; color: var(--tx); margin-top: 2px; }
 .acp-det-metric, .acp-det-avanco { display: flex; flex-direction: column; gap: 5px; }
 .acp-det-metric-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
@@ -4071,6 +4110,18 @@ a {
 .colab-tag span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.colab-tag-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.colab-tag-role {
+  color: var(--mu);
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .colab-tag button {

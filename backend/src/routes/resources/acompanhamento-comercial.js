@@ -34,6 +34,7 @@ import { getProjectStandbyHistory } from '../../lib/acompanhamento/standby-histo
 import { groupProjectCards } from '../../lib/acompanhamento/project-card-groups.js';
 import { groupDashboardRows } from '../../lib/acompanhamento/dashboard-groups.js';
 import { getProjectDetail } from '../../lib/acompanhamento/project-detail.js';
+import { getOfficialMissionContext } from '../../lib/efetivo/planning/official-mission-context.js';
 import { getMissionGroupDetail } from '../../lib/acompanhamento/project-detail-groups.js';
 import {
   createMissionGroup,
@@ -602,6 +603,17 @@ router.put(
 );
 
 // Dashboard detalhado de um projeto (aberto ao clicar no card da aba Projetos).
+router.get(
+  '/projetos/:projectId/planning-context',
+  requireAuth,
+  requireAcompanhamentoAccess,
+  asyncHandler(async (req, res) => {
+    const date = z.string().date().optional().parse(req.query.date)
+      || new Date().toISOString().slice(0, 10);
+    res.json(await getOfficialMissionContext({ projectId: req.params.projectId, date }));
+  })
+);
+
 router.get(
   '/projetos/:projectId/detalhe',
   requireAuth,

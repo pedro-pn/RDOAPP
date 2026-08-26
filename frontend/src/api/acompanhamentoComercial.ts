@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { OfficialMissionContext } from './reports';
 
 export interface CommercialRevision {
   codBd: number;
@@ -159,6 +160,14 @@ export interface PresumedProfitTaxEstimate {
 export async function getProjectRevisions(projectId: string): Promise<ProjectRevisions> {
   const { data } = await apiClient.get<ProjectRevisions>(
     `/acompanhamento/comercial/projetos/${projectId}/revisoes`
+  );
+  return data;
+}
+
+export async function getProjectPlanningContext(projectId: string, date: string): Promise<OfficialMissionContext | null> {
+  const { data } = await apiClient.get<OfficialMissionContext | null>(
+    `/acompanhamento/comercial/projetos/${projectId}/planning-context`,
+    { params: { date } }
   );
   return data;
 }

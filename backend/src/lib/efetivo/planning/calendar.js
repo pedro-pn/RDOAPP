@@ -35,7 +35,7 @@ export async function getPlanningCalendar(filters, dependencies = {}) {
         endDate: { gte: utcDate(startDate) },
         ...(filters.jobRoleId ? { collaborator: { jobRoleId: filters.jobRoleId } } : {})
       },
-      include: { collaborator: { select: { id: true, name: true, role: true, jobRoleId: true } } }
+      include: { collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } } }
     })
   ]);
   const missionEvents = missions.map(mission => ({

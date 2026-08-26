@@ -1,6 +1,7 @@
 import { getEfetivoReferenceSetting } from './settings.js';
 import { buildProductivityReport } from './productivity.js';
 import { ensureNoAbsenceOverlap, validateAbsencePeriod } from './absences.js';
+import { withCurrentJobRole } from '../collaborators/job-role-service.js';
 
 export function efetivoStatus() {
   return {
@@ -36,19 +37,15 @@ function pendingUnlinkedRows(rows) {
   return [...unique.values()];
 }
 
-function roleKey(value) {
-  return String(value || '').trim().toLocaleLowerCase('pt-BR');
-}
-
 function collaboratorPendingItems(collaborators, jobRoles, reportedIds) {
-  const roles = new Map(jobRoles.map(role => [roleKey(role.name), role]));
+  const roles = new Map(jobRoles.map(role => [role.id, role]));
   const pending = [];
   for (const collaborator of collaborators) {
-    const role = roles.get(roleKey(collaborator.role));
+    const role = roles.get(collaborator.jobRoleId);
     if (!role) {
       pending.push({
         tipo: 'CARGO_NAO_CADASTRADO',
-        descricao: `${collaborator.name} usa o cargo “${collaborator.role}”, que não existe no cadastro de funções.`,
+        descricao: `${collaborator.name} não possui um cargo canônico válido.`,
         referencia: collaborator.id
       });
       continue;
@@ -97,7 +94,8 @@ async function buildEfetivoProductivity(filters, dependencies = {}) {
           select: {
             id: true,
             name: true,
-            role: true,
+            jobRoleId: true,
+            jobRole: { select: { id: true, name: true } },
             admissionDate: true,
             terminationDate: true,
             isActive: true
@@ -124,7 +122,8 @@ async function buildEfetivoProductivity(filters, dependencies = {}) {
       select: {
         id: true,
         name: true,
-        role: true,
+        jobRoleId: true,
+        jobRole: { select: { id: true, name: true } },
         admissionDate: true,
         terminationDate: true,
         isActive: true
@@ -211,10 +210,11 @@ export async function getEfetivoCollaboratorProductivity(collaboratorId, filters
 
 export async function listEfetivoCollaborators(dependencies = {}) {
   const { database } = await resolveDependencies({ ...dependencies, laborCost: dependencies.laborCost || {} });
-  return database.collaborator.findMany({
-    select: { id: true, name: true, role: true, isActive: true },
+  const items = await database.collaborator.findMany({
+    select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } }, isActive: true },
     orderBy: { name: 'asc' }
   });
+  return items.map(withCurrentJobRole);
 }
 
 function absenceDate(value) {
@@ -239,9 +239,9 @@ export async function listEfetivoAbsences(filters, dependencies = {}) {
       endDate: { gte: start },
       ...(filters.collaboratorId ? { collaboratorId: filters.collaboratorId } : {})
     },
-    include: { collaborator: { select: { id: true, name: true, role: true } } },
+    include: { collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } } },
     orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }]
-  });
+  }).then(items => items.map(item => ({ ...item, collaborator: withCurrentJobRole(item.collaborator) })));
 }
 
 async function absenceConflicts(database, collaboratorId) {
@@ -265,8 +265,8 @@ export async function createEfetivoAbsence(payload, createdByUserId, dependencie
       note: String(payload.note || '').trim() || null,
       createdByUserId: createdByUserId || null
     },
-    include: { collaborator: { select: { id: true, name: true, role: true } } }
-  });
+    include: { collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } } }
+  }).then(item => ({ ...item, collaborator: withCurrentJobRole(item.collaborator) }));
 }
 
 export async function updateEfetivoAbsence(id, payload, dependencies = {}) {
@@ -291,8 +291,8 @@ export async function updateEfetivoAbsence(id, payload, dependencies = {}) {
       ...(payload.type !== undefined ? { type: payload.type } : {}),
       ...(payload.note !== undefined ? { note: String(payload.note || '').trim() || null } : {})
     },
-    include: { collaborator: { select: { id: true, name: true, role: true } } }
-  });
+    include: { collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } } }
+  }).then(item => ({ ...item, collaborator: withCurrentJobRole(item.collaborator) }));
 }
 
 export async function deleteEfetivoAbsence(id, dependencies = {}) {

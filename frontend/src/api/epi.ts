@@ -45,12 +45,15 @@ export interface EpiRecord {
 }
 
 export interface EpiCollaborator extends Collaborator {
+  currentJobRole: EpiJobRole;
+  roleOverrideJobRole?: EpiJobRole | null;
+  effectiveRole: { jobRoleId: string | null; name: string; source: 'CANONICAL' | 'EPI_OVERRIDE' };
   epiRoleOverride?: string | null;
   epiRecords: EpiRecord[];
 }
 
-export function effectiveEpiRole(collaborator: Pick<EpiCollaborator, 'role' | 'epiRoleOverride'>) {
-  return collaborator.epiRoleOverride?.trim() || collaborator.role;
+export function effectiveEpiRole(collaborator: Pick<EpiCollaborator, 'effectiveRole'>) {
+  return collaborator.effectiveRole.name;
 }
 
 export interface EpiRecordPayload {
@@ -87,7 +90,7 @@ export async function listEpiJobRoles() {
   return data;
 }
 
-export async function updateEpiCollaboratorProfile(id: string, payload: { cpf?: string | null; registrationNumber?: string | null; admissionDate?: string | null; epiRoleOverride?: string | null }) {
+export async function updateEpiCollaboratorProfile(id: string, payload: { cpf?: string | null; registrationNumber?: string | null; admissionDate?: string | null; roleOverrideJobRoleId?: string | null }) {
   const { data } = await apiClient.put<EpiCollaborator>(epiApiPath(`/collaborators/${id}/profile`), payload);
   return data;
 }

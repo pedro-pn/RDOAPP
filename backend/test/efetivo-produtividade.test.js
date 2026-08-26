@@ -31,7 +31,7 @@ test('relatório usa total dividido pelos meses analisados e não depende de per
   const collaborators = [{
     id: 'col-1',
     name: 'Joana',
-    role: 'Operadora',
+    jobRoleId: 'role-operator',
     admissionDate: new Date('2026-07-01T00:00:00.000Z'),
     terminationDate: null
   }];
@@ -54,11 +54,11 @@ test('relatório usa total dividido pelos meses analisados e não depende de per
   };
   const withoutCost = buildProductivityReport({
     ...base,
-    jobRoles: [{ name: 'Operadora', isOperational: true }]
+    jobRoles: [{ id: 'role-operator', name: 'Operadora', isOperational: true }]
   });
   const withCost = buildProductivityReport({
     ...base,
-    jobRoles: [{ name: 'Operadora', isOperational: true, costProfile: { id: 'irrelevante' } }]
+    jobRoles: [{ id: 'role-operator', name: 'Operadora', isOperational: true, costProfile: { id: 'irrelevante' } }]
   });
 
   assert.deepEqual(withCost, withoutCost);
@@ -189,9 +189,9 @@ test('serviço explicita ponto sem vínculo, ausência de dados e cargo não cad
     }
   ];
   const collaborators = [
-    { id: 'col-linked', name: 'Ligada', role: 'Operadora', admissionDate: null, terminationDate: null, isActive: true },
-    { id: 'col-empty', name: 'Sem dados', role: 'Operadora', admissionDate: null, terminationDate: null, isActive: true },
-    { id: 'col-role', name: 'Cargo livre', role: 'Cargo sem cadastro', admissionDate: null, terminationDate: null, isActive: true }
+    { id: 'col-linked', name: 'Ligada', jobRoleId: 'role-1', jobRole: { id: 'role-1', name: 'Operadora' }, admissionDate: null, terminationDate: null, isActive: true },
+    { id: 'col-empty', name: 'Sem dados', jobRoleId: 'role-1', jobRole: { id: 'role-1', name: 'Operadora' }, admissionDate: null, terminationDate: null, isActive: true },
+    { id: 'col-role', name: 'Cargo livre', jobRoleId: null, jobRole: null, admissionDate: null, terminationDate: null, isActive: true }
   ];
   const database = {
     pontoPeriodSummary: { findMany: async () => rows },
@@ -227,12 +227,12 @@ test('serviço explicita ponto sem vínculo, ausência de dados e cargo não cad
 test('cargo não operacional sai da taxa e o default operacional preserva o cálculo', () => {
   const report = buildProductivityReport({
     collaborators: [
-      { id: 'operational-default', name: 'Operacional', role: 'Campo', admissionDate: null, terminationDate: null },
-      { id: 'administrative', name: 'Administrativa', role: 'Administrativo', admissionDate: null, terminationDate: null }
+      { id: 'operational-default', name: 'Operacional', jobRoleId: 'role-field', admissionDate: null, terminationDate: null },
+      { id: 'administrative', name: 'Administrativa', jobRoleId: 'role-admin', admissionDate: null, terminationDate: null }
     ],
     jobRoles: [
-      { name: 'Campo' },
-      { name: 'Administrativo', isOperational: false }
+      { id: 'role-field', name: 'Campo' },
+      { id: 'role-admin', name: 'Administrativo', isOperational: false }
     ],
     periods: [
       { collaboratorId: 'operational-default', monthly: { '2025-01': { normalMinutes: reference * 60 } } },
@@ -248,8 +248,8 @@ test('cargo não operacional sai da taxa e o default operacional preserva o cál
 
 test('férias marcam o mês sem reduzir denominador nem alterar a taxa oficial', () => {
   const base = {
-    collaborators: [{ id: 'vacation', name: 'Férias', role: 'Campo', admissionDate: null, terminationDate: null }],
-    jobRoles: [{ name: 'Campo', isOperational: true }],
+    collaborators: [{ id: 'vacation', name: 'Férias', jobRoleId: 'role-field', admissionDate: null, terminationDate: null }],
+    jobRoles: [{ id: 'role-field', name: 'Campo', isOperational: true }],
     periods: [{ collaboratorId: 'vacation', monthly: { '2025-01': { normalMinutes: (reference - 7) * 60 } } }],
     filters: { year: 2025, cutoffMonth: 1, currentMonth: '2026-08' },
     reference
@@ -273,8 +273,8 @@ test('férias marcam o mês sem reduzir denominador nem alterar a taxa oficial',
 
 test('soma das HH mensais do detalhe bate com o acumulado da lista', () => {
   const report = buildProductivityReport({
-    collaborators: [{ id: 'detail', name: 'Detalhada', role: 'Campo', admissionDate: null, terminationDate: null }],
-    jobRoles: [{ name: 'Campo', isOperational: true }],
+    collaborators: [{ id: 'detail', name: 'Detalhada', jobRoleId: 'role-field', admissionDate: null, terminationDate: null }],
+    jobRoles: [{ id: 'role-field', name: 'Campo', isOperational: true }],
     periods: [{
       collaboratorId: 'detail',
       monthly: {

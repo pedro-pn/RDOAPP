@@ -64,14 +64,14 @@ export function buildContinuousStayAlerts({ missions = [], collaborators = [], j
     if (!current) continue;
     const role = jobRoles.find(item => item.id === collaborator.jobRoleId);
     const limit = role?.continuousWorkLimitDays
-      ?? defaultContinuousWorkLimitDays(role?.name || collaborator.role);
+      ?? defaultContinuousWorkLimitDays(role?.name);
     const projectedDays = inclusiveDayCount(current.startDate, current.endDate);
     if (projectedDays < limit) continue;
     alerts.push({
       collaboratorId: collaborator.id,
       collaboratorName: collaborator.name,
       jobRoleId: role?.id || collaborator.jobRoleId || null,
-      jobRoleName: role?.name || collaborator.role,
+      jobRoleName: role?.name || collaborator.jobRole?.name || '',
       missionIds: current.missionIds || [],
       startDate: current.startDate,
       projectedEndDate: current.endDate,

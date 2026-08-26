@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
+import { normalizeJobRoleKey } from '../../lib/collaborators/job-role-service.js';
 import { requireJobRolePatchAccess } from '../../lib/efetivo/access.js';
 import { sortJobRolesByName } from '../../lib/job-roles/index.js';
 import prisma from '../../lib/prisma.js';
@@ -29,7 +30,13 @@ router.get('/', requireAuth, requireRdoInternal, asyncHandler(async (req, res) =
 router.post('/', requireAuth, requireRdoInternal, requireManager, asyncHandler(async (req, res) => {
   const data = schema.parse(req.body);
   const item = await prisma.jobRole.create({
-    data: { name: data.name.trim(), order: data.order ?? 0, isActive: data.isActive ?? true }
+    data: {
+      name: data.name.trim(),
+      normalizedKey: normalizeJobRoleKey(data.name),
+      order: data.order ?? 0,
+      isActive: data.isActive ?? true,
+      isOperational: data.isOperational ?? true
+    }
   });
   res.status(201).json(item);
 }));
@@ -40,6 +47,7 @@ router.patch('/:id', requireAuth, requireRdoInternal, requireJobRolePatchAccess,
     where: { id: req.params.id },
     data: {
       ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(data.name !== undefined ? { normalizedKey: normalizeJobRoleKey(data.name) } : {}),
       ...(data.order !== undefined ? { order: data.order } : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
       ...(data.isOperational !== undefined ? { isOperational: data.isOperational } : {})

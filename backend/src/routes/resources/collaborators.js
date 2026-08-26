@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
+import {
+  listCollaboratorsWithCurrentJobRole,
+  markFutureAllocationsForReplanning,
+  requireCanonicalJobRole,
+  withCurrentJobRole
+} from '../../lib/collaborators/job-role-service.js';
 import prisma from '../../lib/prisma.js';
 import { COLLABORATOR_SIGNATURE_NOTICE_VERSION } from '../../lib/privacy-consent.js';
 import { collaboratorsCache } from '../../lib/resource-list-cache.js';
@@ -24,7 +30,7 @@ const optionalNullableDate = z.union([z.string().date(), z.literal(''), z.null()
 export const collaboratorSchema = z.object({
   code: z.string().trim().min(1).optional(),
   name: z.string().min(1),
-  role: z.string().min(1),
+  jobRoleId: z.string().trim().min(1),
   email: optionalNullableEmail,
   signatureImage: optionalNullableString,
   signatureNoticeAccepted: z.literal(true).optional(),
@@ -112,14 +118,10 @@ async function normalizeCollaboratorInput(data) {
 }
 
 router.get('/', requireInternalUser, asyncHandler(async (_req, res) => {
-  const normalized = await collaboratorsCache.get(async () => {
-    const items = await prisma.collaborator.findMany({ orderBy: { name: 'asc' } });
-    const result = [];
-    for (const item of items) {
-      result.push(await ensureCollaboratorSignatureDataUrl(prisma, item));
-    }
-    return result;
-  });
+  const normalized = await collaboratorsCache.get(() => listCollaboratorsWithCurrentJobRole(
+    prisma,
+    item => ensureCollaboratorSignatureDataUrl(prisma, item)
+  ));
   res.json(normalized);
 }));
 
@@ -134,10 +136,15 @@ router.post('/', requireManager, asyncHandler(async (req, res) => {
   const notice = buildCollaboratorSignatureNoticeData(data, existing);
   if (existing && !existing.isActive) {
     const item = await prisma.$transaction(async tx => {
+      await requireCanonicalJobRole(tx, notice.data.jobRoleId);
       const updated = await tx.collaborator.update({
         where: { id: existing.id },
-        data: { ...notice.data, isActive: true }
+        data: { ...notice.data, isActive: true },
+        include: { jobRole: true }
       });
+      if (existing.jobRoleId !== notice.data.jobRoleId) {
+        await markFutureAllocationsForReplanning(tx, updated.id, notice.data.jobRoleId);
+      }
       if (notice.shouldLogNotice) {
         await tx.collaboratorSignatureNoticeLog.create({
           data: {
@@ -147,13 +154,14 @@ router.post('/', requireManager, asyncHandler(async (req, res) => {
           }
         });
       }
-      return updated;
+      return withCurrentJobRole(updated);
     });
     collaboratorsCache.clear();
     return res.status(200).json(item);
   }
   const item = await prisma.$transaction(async tx => {
-    const created = await tx.collaborator.create({ data: notice.data });
+    await requireCanonicalJobRole(tx, notice.data.jobRoleId);
+    const created = await tx.collaborator.create({ data: notice.data, include: { jobRole: true } });
     if (notice.shouldLogNotice) {
       await tx.collaboratorSignatureNoticeLog.create({
         data: {
@@ -163,7 +171,7 @@ router.post('/', requireManager, asyncHandler(async (req, res) => {
         }
       });
     }
-    return created;
+    return withCurrentJobRole(created);
   });
   collaboratorsCache.clear();
   res.status(201).json(item);
@@ -174,7 +182,11 @@ router.put('/:id', requireManager, asyncHandler(async (req, res) => {
   const existing = await prisma.collaborator.findUniqueOrThrow({ where: { id: req.params.id } });
   const notice = buildCollaboratorSignatureNoticeData(data, existing);
   const item = await prisma.$transaction(async tx => {
-    const updated = await tx.collaborator.update({ where: { id: req.params.id }, data: notice.data });
+    if (notice.data.jobRoleId) await requireCanonicalJobRole(tx, notice.data.jobRoleId);
+    const updated = await tx.collaborator.update({ where: { id: req.params.id }, data: notice.data, include: { jobRole: true } });
+    if (notice.data.jobRoleId && existing.jobRoleId !== notice.data.jobRoleId) {
+      await markFutureAllocationsForReplanning(tx, updated.id, notice.data.jobRoleId);
+    }
     if (notice.shouldLogNotice) {
       await tx.collaboratorSignatureNoticeLog.create({
         data: {
@@ -184,7 +196,7 @@ router.put('/:id', requireManager, asyncHandler(async (req, res) => {
         }
       });
     }
-    return updated;
+    return withCurrentJobRole(updated);
   });
   collaboratorsCache.clear();
   res.json(item);

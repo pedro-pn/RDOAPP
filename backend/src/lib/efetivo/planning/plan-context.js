@@ -31,9 +31,16 @@ export async function getActiveOfficialPlan(database, { create = true, actorUser
     orderBy: { createdAt: 'desc' }
   });
   if (!plan && create) {
+    const calendarState = await database.workforceCalendarState.findUnique({ where: { id: 'global' } });
     try {
       plan = await database.efetivoPlan.create({
-        data: { kind: 'OFFICIAL', status: 'ACTIVE', name: 'Planejamento oficial', createdByUserId: actorUserId }
+        data: {
+          kind: 'OFFICIAL',
+          status: 'ACTIVE',
+          name: 'Planejamento oficial',
+          baseCalendarRevision: calendarState?.revision || 1,
+          createdByUserId: actorUserId
+        }
       });
     } catch (error) {
       if (error?.code !== 'P2002') throw error;

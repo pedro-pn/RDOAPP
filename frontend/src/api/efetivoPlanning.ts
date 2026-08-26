@@ -98,6 +98,32 @@ export interface PlanningMission {
   allocations: MissionAllocation[];
 }
 
+export interface MissionExecutionComparison {
+  missionId: string;
+  projectId: string;
+  freshness: { observedUpdatedAt: string | null; missionUpdatedAt: string | null };
+  planned: {
+    dates: { mobilizationDate: DateOnly; executionStartDate: DateOnly; executionEndDate: DateOnly; returnDate: DateOnly };
+    collaborators: Array<{ id: string; name: string; role: string }>;
+  };
+  observed: {
+    firstReportDate: DateOnly | null;
+    lastReportDate: DateOnly | null;
+    reportCount: number;
+    collaborators: Array<{ id: string; name: string; role: string }>;
+    totalWorkedMinutes: number;
+    totalOvertimeMinutes: number;
+    progressPct: number | null;
+  };
+  divergences: {
+    missingPlannedCollaboratorIds: string[];
+    unplannedObservedCollaboratorIds: string[];
+    executionStartedOnDifferentDate: boolean;
+    workforceConflicts: Array<{ code?: string; collaboratorId?: string }>;
+  };
+  suggestion: { stage: MissionStage; reason: string } | null;
+}
+
 export interface MissionInput {
   planId?: string;
   projectId: string;
@@ -127,7 +153,7 @@ export interface ContinuousStayAlert {
 
 export interface PlanningOverview {
   date: DateOnly;
-  plan: { id: string; revision: number };
+  plan: { id: string; revision: number; calendarRevision: number };
   totals: RoleCapacity;
   byRole: RoleCapacity[];
   upcomingMobilizations: PlanningMission[];
@@ -169,6 +195,7 @@ export interface CollaboratorInput {
 
 export interface PlanningAbsence {
   id: string;
+  version: number;
   collaboratorId: string;
   type: AbsenceType;
   startDate: DateOnly;
@@ -250,19 +277,24 @@ export async function updatePlanningCollaborator(id: string, payload: Collaborat
   return (await apiClient.patch<PlanningCollaborator>(`${base}/collaborators/${encodeURIComponent(id)}`, payload)).data;
 }
 export async function listPlanningAbsences(params: { collaboratorId?: string; startDate?: string; endDate?: string } = {}) {
-  return (await apiClient.get<PlanningAbsence[]>(`${base}/absences`, { params })).data;
+  return (await apiClient.get<PlanningAbsence[]>('/workforce/absences', {
+    params: { collaboratorId: params.collaboratorId, from: params.startDate, to: params.endDate }
+  })).data;
 }
-export async function createPlanningAbsence(payload: Omit<PlanningAbsence, 'id' | 'collaborator'>) {
-  return (await apiClient.post<PlanningAbsence>(`${base}/absences`, payload)).data;
+export async function createPlanningAbsence(payload: Omit<PlanningAbsence, 'id' | 'version' | 'collaborator'>) {
+  return (await apiClient.post<{ absence: PlanningAbsence; affectedMissionIds: string[]; calendarRevision: number }>('/workforce/absences', payload)).data;
 }
-export async function updatePlanningAbsence(id: string, payload: Partial<Omit<PlanningAbsence, 'id' | 'collaborator' | 'collaboratorId'>>) {
-  return (await apiClient.patch<PlanningAbsence>(`${base}/absences/${encodeURIComponent(id)}`, payload)).data;
+export async function updatePlanningAbsence(id: string, version: number, payload: Partial<Omit<PlanningAbsence, 'id' | 'version' | 'collaborator' | 'collaboratorId'>>) {
+  return (await apiClient.patch<{ absence: PlanningAbsence; affectedMissionIds: string[]; calendarRevision: number }>(`/workforce/absences/${encodeURIComponent(id)}`, payload, { headers: { 'If-Match-Version': version } })).data;
 }
-export async function deletePlanningAbsence(id: string) {
-  await apiClient.delete(`${base}/absences/${encodeURIComponent(id)}`);
+export async function deletePlanningAbsence(id: string, version: number) {
+  await apiClient.delete(`/workforce/absences/${encodeURIComponent(id)}`, { headers: { 'If-Match-Version': version } });
 }
 export async function listPlanningMissions(params: { planId?: string; status?: MissionScheduleStatus; stage?: MissionStage } = {}) {
   return (await apiClient.get<PlanningMission[]>(`${base}/missions`, { params })).data;
+}
+export async function getMissionExecutionComparison(missionId: string) {
+  return (await apiClient.get<MissionExecutionComparison>(`${base}/missions/${encodeURIComponent(missionId)}/execution`)).data;
 }
 export async function listPendingMissionProjects(params: { planId?: string } = {}) {
   return (await apiClient.get<PendingMissionProject[]>(`${base}/missions/pending`, { params })).data;

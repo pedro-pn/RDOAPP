@@ -1,4 +1,5 @@
 import { recordEfetivoAudit } from './audit.js';
+import { bumpWorkforceCalendarRevision } from '../../collaborators/availability-service.js';
 import { parseDateKey } from './date-only.js';
 import { notFound } from './errors.js';
 import { bumpPlanRevision, requireEditablePlan, resolvePlanningDatabase, runPlanningTransaction } from './plan-context.js';
@@ -25,7 +26,7 @@ export async function updatePlanningJobRole(jobRoleId, payload, context = {}, de
 
 export async function listHolidays(filters, dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
-  return database.efetivoHoliday.findMany({
+  return database.workforceHoliday.findMany({
     where: {
       deletedAt: null,
       ...(filters?.startDate ? { holidayDate: { gte: utcDate(filters.startDate), ...(filters.endDate ? { lte: utcDate(filters.endDate) } : {}) } } : {})
@@ -39,13 +40,14 @@ export async function saveHoliday(payload, context = {}, dependencies = {}) {
   return runPlanningTransaction(database, async tx => {
     const plan = await requireEditablePlan(tx, undefined, { actorUserId: context.actorUserId });
     const date = utcDate(payload.holidayDate);
-    const existing = await tx.efetivoHoliday.findUnique({ where: { holidayDate: date } });
-    const holiday = await tx.efetivoHoliday.upsert({
+    const existing = await tx.workforceHoliday.findUnique({ where: { holidayDate: date } });
+    const holiday = await tx.workforceHoliday.upsert({
       where: { holidayDate: date },
-      create: { holidayDate: date, name: payload.name.trim(), createdByUserId: context.actorUserId || null, updatedByUserId: context.actorUserId || null },
+      create: { holidayDate: date, name: payload.name.trim(), source: 'COMPANY', createdByUserId: context.actorUserId || null, updatedByUserId: context.actorUserId || null },
       update: { name: payload.name.trim(), deletedAt: null, updatedByUserId: context.actorUserId || null }
     });
     await bumpPlanRevision(tx, plan);
+    await bumpWorkforceCalendarRevision(tx);
     await recordEfetivoAudit(tx, {
       planId: plan.id, actorUserId: context.actorUserId, action: existing ? 'HOLIDAY_UPDATE' : 'HOLIDAY_CREATE', entityType: 'HOLIDAY', entityId: holiday.id,
       summary: `Feriado ${holiday.name} salvo.`, beforeData: existing, afterData: holiday, evidence: context.evidence
@@ -57,11 +59,12 @@ export async function saveHoliday(payload, context = {}, dependencies = {}) {
 export async function updateHoliday(holidayId, payload, context = {}, dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
   return runPlanningTransaction(database, async tx => {
-    const existing = await tx.efetivoHoliday.findUnique({ where: { id: holidayId } });
+    const existing = await tx.workforceHoliday.findUnique({ where: { id: holidayId } });
     if (!existing || existing.deletedAt) throw notFound('Feriado não encontrado.');
     const plan = await requireEditablePlan(tx, undefined, { actorUserId: context.actorUserId });
-    const updated = await tx.efetivoHoliday.update({ where: { id: holidayId }, data: { holidayDate: utcDate(payload.holidayDate), name: payload.name.trim(), updatedByUserId: context.actorUserId || null } });
+    const updated = await tx.workforceHoliday.update({ where: { id: holidayId }, data: { holidayDate: utcDate(payload.holidayDate), name: payload.name.trim(), updatedByUserId: context.actorUserId || null } });
     await bumpPlanRevision(tx, plan);
+    await bumpWorkforceCalendarRevision(tx);
     await recordEfetivoAudit(tx, { planId: plan.id, actorUserId: context.actorUserId, action: 'HOLIDAY_UPDATE', entityType: 'HOLIDAY', entityId: holidayId, summary: `Feriado ${updated.name} atualizado.`, beforeData: existing, afterData: updated, evidence: context.evidence });
     return updated;
   });
@@ -70,11 +73,12 @@ export async function updateHoliday(holidayId, payload, context = {}, dependenci
 export async function deleteHoliday(holidayId, context = {}, dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
   return runPlanningTransaction(database, async tx => {
-    const existing = await tx.efetivoHoliday.findUnique({ where: { id: holidayId } });
+    const existing = await tx.workforceHoliday.findUnique({ where: { id: holidayId } });
     if (!existing || existing.deletedAt) throw notFound('Feriado não encontrado.');
     const plan = await requireEditablePlan(tx, undefined, { actorUserId: context.actorUserId });
-    const deleted = await tx.efetivoHoliday.update({ where: { id: holidayId }, data: { deletedAt: new Date(), updatedByUserId: context.actorUserId || null } });
+    const deleted = await tx.workforceHoliday.update({ where: { id: holidayId }, data: { deletedAt: new Date(), updatedByUserId: context.actorUserId || null } });
     await bumpPlanRevision(tx, plan);
+    await bumpWorkforceCalendarRevision(tx);
     await recordEfetivoAudit(tx, { planId: plan.id, actorUserId: context.actorUserId, action: 'HOLIDAY_DELETE', entityType: 'HOLIDAY', entityId: holidayId, summary: `Feriado ${existing.name} removido.`, beforeData: existing, afterData: deleted, evidence: context.evidence });
     return deleted;
   });

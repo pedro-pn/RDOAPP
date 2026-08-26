@@ -153,6 +153,15 @@ enum EfetivoAllocationSource {
   SCENARIO_COPY
 }
 
+enum EpiRoleSource {
+  CANONICAL
+  EPI_OVERRIDE
+}
+
+enum WorkforceHolidaySource {
+  COMPANY
+}
+
 enum StockItemType {
   FILTRO
   PRODUTO_QUIMICO
@@ -301,38 +310,37 @@ enum QualityStatus {
 }
 
 model Collaborator {
-  id                        String                           @id @default(cuid())
-  code                      String                           @unique
-  name                      String
-  role                      String
-  jobRoleId                 String?
-  efetivoNote               String?
-  epiRoleOverride           String?
-  email                     String?
-  cpf                       String?
-  registrationNumber        String?
-  admissionDate             DateTime?
-  terminationDate           DateTime?
-  signatureImage            String?
-  signatureNoticeAcceptedAt DateTime?
-  signatureNoticeVersion    String?
-  isActive                  Boolean                          @default(true)
-  createdAt                 DateTime                         @default(now())
-  updatedAt                 DateTime                         @updatedAt
-  projectsLed               Project[]                        @relation("ProjectOperator")
-  reportLinks               ReportCollaborator[]
-  user                      User?
-  epiRecords                EpiRecord[]
-  epiSignatureRequests      EpiSignatureRequest[]
-  signatureNoticeLogs       CollaboratorSignatureNoticeLog[]
-  pontoPeriods              PontoPeriodSummary[]
-  pontoNameAliases          PontoNameAlias[]
-  pontoExternalLinks        PontoExternalEmployeeLink[]
-  pontoDayProjectOverrides  PontoDayProjectOverride[]
-  absences                  CollaboratorAbsence[]
-  jobRole                   JobRole?                           @relation("CollaboratorJobRole", fields: [jobRoleId], references: [id], onDelete: SetNull)
-  efetivoMissionResponsibilities EfetivoMissionPlan[]           @relation("EfetivoMissionResponsible")
-  efetivoMissionAllocations EfetivoMissionAllocation[]
+  id                             String                           @id @default(cuid())
+  code                           String                           @unique
+  name                           String
+  jobRoleId                      String
+  efetivoNote                    String?
+  email                          String?
+  cpf                            String?
+  registrationNumber             String?
+  admissionDate                  DateTime?
+  terminationDate                DateTime?
+  signatureImage                 String?
+  signatureNoticeAcceptedAt      DateTime?
+  signatureNoticeVersion         String?
+  isActive                       Boolean                          @default(true)
+  createdAt                      DateTime                         @default(now())
+  updatedAt                      DateTime                         @updatedAt
+  projectsLed                    Project[]                        @relation("ProjectOperator")
+  reportLinks                    ReportCollaborator[]
+  user                           User?
+  epiRecords                     EpiRecord[]
+  epiSignatureRequests           EpiSignatureRequest[]
+  epiProfile                     EpiCollaboratorProfile?
+  signatureNoticeLogs            CollaboratorSignatureNoticeLog[]
+  pontoPeriods                   PontoPeriodSummary[]
+  pontoNameAliases               PontoNameAlias[]
+  pontoExternalLinks             PontoExternalEmployeeLink[]
+  pontoDayProjectOverrides       PontoDayProjectOverride[]
+  absences                       CollaboratorAbsence[]
+  jobRole                        JobRole                          @relation("CollaboratorJobRole", fields: [jobRoleId], references: [id], onDelete: Restrict)
+  efetivoMissionResponsibilities EfetivoMissionPlan[]             @relation("EfetivoMissionResponsible")
+  efetivoMissionAllocations      EfetivoMissionAllocation[]
 
   @@index([jobRoleId])
 }
@@ -414,6 +422,8 @@ model CollaboratorAbsence {
   endDate         DateTime                @db.Date
   note            String?
   createdByUserId String?
+  updatedByUserId String?
+  version         Int                     @default(1)
   deletedAt       DateTime?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
@@ -619,22 +629,26 @@ model PontoDayProjectOverride {
 
 // Lista gerenciável de cargos (substitui o texto livre em Collaborator.role).
 model JobRole {
-  id                 String                      @id @default(cuid())
-  name               String                      @unique
-  order              Int                         @default(0)
-  isActive           Boolean                     @default(true)
-  isOperational      Boolean                     @default(true)
-  calendarColor      String                      @default("#64748B")
-  continuousWorkLimitDays Int?
-  createdAt          DateTime                    @default(now())
-  updatedAt          DateTime                    @updatedAt
-  plannedNormalHours ProjectPlannedNormalHours[]
-  plannedOvertime    ProjectPlannedOvertime[]
-  costProfile        CostProfile?
-  collaborators      Collaborator[]              @relation("CollaboratorJobRole")
-  efetivoMissionDemands EfetivoMissionDemand[]
-  efetivoMissionAllocations EfetivoMissionAllocation[]
-  efetivoPlannedHires EfetivoPlannedHire[]
+  id                          String                      @id @default(cuid())
+  name                        String                      @unique
+  normalizedKey               String                      @unique
+  order                       Int                         @default(0)
+  isActive                    Boolean                     @default(true)
+  isOperational               Boolean                     @default(true)
+  calendarColor               String                      @default("#64748B")
+  continuousWorkLimitDays     Int?
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  plannedNormalHours          ProjectPlannedNormalHours[]
+  plannedOvertime             ProjectPlannedOvertime[]
+  costProfile                 CostProfile?
+  collaborators               Collaborator[]              @relation("CollaboratorJobRole")
+  efetivoMissionDemands       EfetivoMissionDemand[]
+  efetivoMissionAllocations   EfetivoMissionAllocation[]
+  efetivoPlannedHires         EfetivoPlannedHire[]
+  epiProfiles                 EpiCollaboratorProfile[]    @relation("EpiRoleOverride")
+  epiSignatureSnapshots       EpiSignatureRequest[]       @relation("EpiSignatureJobRoleSnapshot")
+  reportCollaboratorSnapshots ReportCollaborator[]        @relation("ReportCollaboratorJobRoleSnapshot")
 
   @@index([isActive, order])
 }
@@ -724,26 +738,27 @@ model Project {
 // === Efetivo Operacional — planejamento oficial e cenários ===
 
 model EfetivoPlan {
-  id                   String            @id @default(cuid())
+  id                   String               @id @default(cuid())
   kind                 EfetivoPlanKind
   status               EfetivoPlanStatus
   name                 String
   objective            String?
-  revision             Int               @default(1)
+  revision             Int                  @default(1)
   basePlanId           String?
   baseOfficialRevision Int?
+  baseCalendarRevision Int                  @default(1)
   appliedPlanId        String?
   createdByUserId      String?
   appliedByUserId      String?
   appliedAt            DateTime?
   discardedAt          DateTime?
   supersededAt         DateTime?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
-  basePlan             EfetivoPlan?       @relation("EfetivoPlanBase", fields: [basePlanId], references: [id], onDelete: SetNull)
-  derivedPlans         EfetivoPlan[]       @relation("EfetivoPlanBase")
-  appliedPlan          EfetivoPlan?       @relation("EfetivoPlanApplication", fields: [appliedPlanId], references: [id], onDelete: SetNull)
-  appliedFromScenarios EfetivoPlan[]       @relation("EfetivoPlanApplication")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  basePlan             EfetivoPlan?         @relation("EfetivoPlanBase", fields: [basePlanId], references: [id], onDelete: SetNull)
+  derivedPlans         EfetivoPlan[]        @relation("EfetivoPlanBase")
+  appliedPlan          EfetivoPlan?         @relation("EfetivoPlanApplication", fields: [appliedPlanId], references: [id], onDelete: SetNull)
+  appliedFromScenarios EfetivoPlan[]        @relation("EfetivoPlanApplication")
   missions             EfetivoMissionPlan[]
   plannedHires         EfetivoPlannedHire[]
   auditEvents          EfetivoAuditEvent[]
@@ -754,54 +769,61 @@ model EfetivoPlan {
 }
 
 model EfetivoMissionPlan {
-  id                                    String                         @id @default(cuid())
+  id                                    String                       @id @default(cuid())
   planId                                String
   projectId                             String
-  scheduleStatus                        EfetivoMissionScheduleStatus   @default(DRAFT)
-  stage                                 EfetivoMissionStage            @default(STANDBY)
-  headquartersResponsibleName          String
-  headquartersResponsibleRole          String
+  scheduleStatus                        EfetivoMissionScheduleStatus @default(DRAFT)
+  stage                                 EfetivoMissionStage          @default(STANDBY)
+  headquartersResponsibleUserId         String
+  headquartersResponsibleName           String
+  headquartersResponsibleRole           String
   headquartersResponsibleCollaboratorId String?
-  mobilizationDate                      DateTime                       @db.Date
-  executionStartDate                    DateTime                       @db.Date
-  executionEndDate                      DateTime                       @db.Date
-  returnDate                            DateTime                       @db.Date
-  version                               Int                            @default(1)
-  kanbanOrder                           Int                            @default(0)
+  mobilizationDate                      DateTime                     @db.Date
+  executionStartDate                    DateTime                     @db.Date
+  executionEndDate                      DateTime                     @db.Date
+  returnDate                            DateTime                     @db.Date
+  version                               Int                          @default(1)
+  kanbanOrder                           Int                          @default(0)
+  needsReplanning                      Boolean                      @default(false)
+  replanningReason                     String?
   createdByUserId                       String?
   updatedByUserId                       String?
   deletedAt                             DateTime?
-  createdAt                             DateTime                       @default(now())
-  updatedAt                             DateTime                       @updatedAt
-  plan                                  EfetivoPlan                    @relation(fields: [planId], references: [id], onDelete: Cascade)
-  project                               Project                        @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  headquartersResponsibleCollaborator  Collaborator?                  @relation("EfetivoMissionResponsible", fields: [headquartersResponsibleCollaboratorId], references: [id], onDelete: SetNull)
+  createdAt                             DateTime                     @default(now())
+  updatedAt                             DateTime                     @updatedAt
+  plan                                  EfetivoPlan                  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  project                               Project                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  headquartersResponsibleCollaborator   Collaborator?                @relation("EfetivoMissionResponsible", fields: [headquartersResponsibleCollaboratorId], references: [id], onDelete: SetNull)
+  headquartersResponsibleUser           User                         @relation("EfetivoMissionResponsibleUser", fields: [headquartersResponsibleUserId], references: [id], onDelete: Restrict)
   demands                               EfetivoMissionDemand[]
   allocations                           EfetivoMissionAllocation[]
+  reports                               Report[]                     @relation("ReportEfetivoMission")
 
   @@unique([planId, projectId])
   @@index([planId, scheduleStatus, mobilizationDate, returnDate])
   @@index([planId, stage, kanbanOrder])
   @@index([planId, deletedAt])
   @@index([headquartersResponsibleCollaboratorId])
+  @@index([headquartersResponsibleUserId])
+  @@index([planId, projectId, scheduleStatus, mobilizationDate, returnDate])
 }
 
 model EfetivoMissionDemand {
-  id            String              @id @default(cuid())
+  id            String             @id @default(cuid())
   missionId     String
   jobRoleId     String
   requiredCount Int
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  mission       EfetivoMissionPlan  @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  jobRole       JobRole             @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  mission       EfetivoMissionPlan @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  jobRole       JobRole            @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
 
   @@unique([missionId, jobRoleId])
   @@index([jobRoleId])
 }
 
 model EfetivoMissionAllocation {
-  id                  String                   @id @default(cuid())
+  id                  String                  @id @default(cuid())
   missionId           String
   collaboratorId      String
   jobRoleId           String
@@ -809,11 +831,11 @@ model EfetivoMissionAllocation {
   source              EfetivoAllocationSource @default(MANUAL)
   createdByUserId     String?
   deletedAt           DateTime?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  mission             EfetivoMissionPlan       @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  collaborator        Collaborator             @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
-  jobRole             JobRole                  @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  mission             EfetivoMissionPlan      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  collaborator        Collaborator            @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  jobRole             JobRole                 @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
 
   @@unique([missionId, collaboratorId])
   @@index([collaboratorId, deletedAt])
@@ -821,47 +843,56 @@ model EfetivoMissionAllocation {
 }
 
 model EfetivoPlannedHire {
-  id            String       @id @default(cuid())
+  id            String      @id @default(cuid())
   planId        String
   jobRoleId     String
   quantity      Int
-  availableFrom DateTime     @db.Date
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  plan          EfetivoPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
-  jobRole       JobRole      @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+  availableFrom DateTime    @db.Date
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  plan          EfetivoPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  jobRole       JobRole     @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
 
   @@unique([planId, jobRoleId, availableFrom])
   @@index([jobRoleId, availableFrom])
 }
 
-model EfetivoHoliday {
-  id              String    @id @default(cuid())
-  holidayDate     DateTime  @unique @db.Date
+model WorkforceHoliday {
+  id              String                 @id @default(cuid())
+  holidayDate     DateTime               @unique @db.Date
   name            String
+  source          WorkforceHolidaySource @default(COMPANY)
+  scope           String                 @default("GLOBAL")
   createdByUserId String?
   updatedByUserId String?
   deletedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@index([deletedAt, holidayDate])
 }
 
+model WorkforceCalendarState {
+  id        String   @id @default("global")
+  revision  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model EfetivoAuditEvent {
-  id           String       @id @default(cuid())
-  planId       String?
-  actorUserId  String?
-  action       String
-  entityType   String
-  entityId     String
-  summary      String
-  beforeData   Json?
-  afterData    Json?
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime     @default(now())
-  plan         EfetivoPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  id          String       @id @default(cuid())
+  planId      String?
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  summary     String
+  beforeData  Json?
+  afterData   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime     @default(now())
+  plan        EfetivoPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([entityType, entityId, createdAt])
@@ -960,6 +991,8 @@ model ProjectAuthorizedUser {
 model Report {
   id                         String                            @id @default(cuid())
   projectId                  String
+  efetivoMissionId           String?
+  efetivoPlanRevision        Int?
   createdByUserId            String?
   reviewedByUserId           String?
   reportType                 ReportType                        @default(RDO)
@@ -991,6 +1024,7 @@ model Report {
   updatedAt                  DateTime                          @updatedAt
   deletedAt                  DateTime?
   project                    Project                           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  efetivoMission             EfetivoMissionPlan?               @relation("ReportEfetivoMission", fields: [efetivoMissionId], references: [id], onDelete: SetNull)
   createdBy                  User?                             @relation("ReportCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   reviewedBy                 User?                             @relation("ReportReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   collaborators              ReportCollaborator[]
@@ -1013,6 +1047,7 @@ model Report {
   @@index([reportType, status, reportDate])
   @@index([projectId, reportType, status, reportDate])
   @@index([deletedAt])
+  @@index([efetivoMissionId])
 }
 
 model ReportApprovalPostProcessingJob {
@@ -1138,12 +1173,16 @@ model ReportAuditLog {
 }
 
 model ReportCollaborator {
-  reportId       String
-  collaboratorId String
-  report         Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  collaborator   Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  reportId          String
+  collaboratorId    String
+  jobRoleIdSnapshot String?
+  roleNameSnapshot  String?
+  report            Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  collaborator      Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  jobRoleSnapshot   JobRole?     @relation("ReportCollaboratorJobRoleSnapshot", fields: [jobRoleIdSnapshot], references: [id], onDelete: Restrict)
 
   @@id([reportId, collaboratorId])
+  @@index([jobRoleIdSnapshot])
 }
 
 model ReportService {
@@ -1538,6 +1577,7 @@ model User {
   createdQualityRecords                QualityRecord[]                     @relation("QualityRecordCreator")
   updatedQualityRecords                QualityRecord[]                     @relation("QualityRecordUpdater")
   deletedQualityRecords                QualityRecord[]                     @relation("QualityRecordDeletedBy")
+  responsibleEfetivoMissions           EfetivoMissionPlan[]                @relation("EfetivoMissionResponsibleUser")
 
   @@index([clientCnpj])
 }
@@ -1695,6 +1735,9 @@ model EpiSignatureRequest {
   id                      String                        @id @default(cuid())
   collaboratorId          String
   requestedByUserId       String?
+  jobRoleIdSnapshot       String?
+  roleNameSnapshot        String
+  roleSourceSnapshot      EpiRoleSource
   tokenHash               String                        @unique
   status                  String                        @default("PENDING")
   expiresAt               DateTime
@@ -1712,12 +1755,26 @@ model EpiSignatureRequest {
   updatedAt               DateTime                      @updatedAt
   collaborator            Collaborator                  @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
   requestedBy             User?                         @relation("EpiSignatureRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  jobRoleSnapshot         JobRole?                      @relation("EpiSignatureJobRoleSnapshot", fields: [jobRoleIdSnapshot], references: [id], onDelete: Restrict)
   records                 EpiRecord[]
   auditLogs               EpiSignatureRequestAuditLog[]
 
   @@index([collaboratorId])
   @@index([status])
   @@index([expiresAt])
+  @@index([jobRoleIdSnapshot])
+}
+
+model EpiCollaboratorProfile {
+  collaboratorId        String       @id
+  roleOverrideJobRoleId String?
+  updatedByUserId       String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  collaborator          Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  roleOverrideJobRole   JobRole?     @relation("EpiRoleOverride", fields: [roleOverrideJobRoleId], references: [id], onDelete: Restrict)
+
+  @@index([roleOverrideJobRoleId])
 }
 
 model EpiSignatureRequestAuditLog {

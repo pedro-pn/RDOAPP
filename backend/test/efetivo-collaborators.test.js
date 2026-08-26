@@ -7,8 +7,14 @@ import { listPlanningCollaborators, listPlanningCoordinators } from '../src/lib/
 
 test('backfill vincula somente nome de função inequívoco e preserva pendências', () => {
   const result = planJobRoleBackfill([{ id: 'c1', role: 'Operador', jobRoleId: null }, { id: 'c2', role: 'Ambíguo', jobRoleId: null }], [{ id: 'r1', name: 'operador' }, { id: 'r2', name: 'Ambíguo' }, { id: 'r3', name: 'ambíguo' }]);
-  assert.deepEqual(result.matches, [{ collaboratorId: 'c1', jobRoleId: 'r1' }]);
-  assert.deepEqual(result.unresolved, [{ collaboratorId: 'c2', role: 'Ambíguo', candidates: 2 }]);
+  assert.deepEqual(result.matches, [{ collaboratorId: 'c1', jobRoleId: 'r1', jobRoleName: 'operador' }]);
+  assert.deepEqual(result.unresolved, [{
+    collaboratorId: 'c2',
+    collaboratorName: null,
+    legacyRole: 'Ambíguo',
+    reason: 'AMBIGUOUS',
+    candidateIds: ['r2', 'r3']
+  }]);
 });
 
 test('edição cadastral não pode invalidar função ou vínculo de alocação confirmada', () => {
@@ -22,11 +28,12 @@ test('edição cadastral não pode invalidar função ou vínculo de alocação 
 test('lista de colaboradores serializa datas Prisma como data civil para o navegador', async () => {
   const database = {
     efetivoPlan: { findFirst: async () => ({ id: 'p1' }) },
-    collaborator: { findMany: async () => [{ id: 'c1', name: 'Ana', role: 'Operadora', jobRoleId: 'r1', admissionDate: new Date('2025-07-04T15:00:00.000Z'), terminationDate: null, isActive: true }] },
+    collaborator: { findMany: async () => [{ id: 'c1', name: 'Ana', jobRoleId: 'r1', jobRole: { id: 'r1', name: 'Operadora' }, admissionDate: new Date('2025-07-04T15:00:00.000Z'), terminationDate: null, isActive: true }] },
     jobRole: { findMany: async () => [{ id: 'r1', name: 'Operadora', isActive: true, isOperational: true }] },
     efetivoMissionPlan: { findMany: async () => [] },
     collaboratorAbsence: { findMany: async () => [] },
-    efetivoHoliday: { findMany: async () => [] },
+    workforceHoliday: { findMany: async () => [] },
+    workforceCalendarState: { findUnique: async () => ({ id: 'global', revision: 1 }) },
     efetivoSetting: { findUnique: async () => null },
     efetivoPlannedHire: { findMany: async () => [] }
   };

@@ -16,6 +16,34 @@ function nightCollaboratorSnapshot(value) {
   };
 }
 
+export function reportCollaboratorCreateData(collaborator) {
+  const jobRole = collaborator?.jobRole;
+  return {
+    collaboratorId: collaborator.id,
+    jobRoleIdSnapshot: jobRole?.id || collaborator?.jobRoleId || null,
+    roleNameSnapshot: stringValue(jobRole?.name)
+  };
+}
+
+export async function reportCollaboratorCreateManyData(database, collaboratorIds = []) {
+  const uniqueIds = [...new Set(collaboratorIds.filter(Boolean))];
+  if (!uniqueIds.length) return [];
+  const collaborators = await database.collaborator.findMany({
+    where: { id: { in: uniqueIds } },
+    include: { jobRole: true }
+  });
+  const byId = new Map(collaborators.map(collaborator => [collaborator.id, collaborator]));
+  const missingIds = uniqueIds.filter(id => !byId.has(id));
+  if (missingIds.length) {
+    const error = new Error('Um ou mais colaboradores do relatório não foram encontrados.');
+    error.status = 400;
+    error.statusCode = 400;
+    error.missingCollaboratorIds = missingIds;
+    throw error;
+  }
+  return uniqueIds.map(id => reportCollaboratorCreateData(byId.get(id)));
+}
+
 export function buildReportCollaboratorRows(report) {
   const rows = new Map();
   const keyByName = new Map();
@@ -56,7 +84,7 @@ export function buildReportCollaboratorRows(report) {
     const entry = {
       id: link.collaboratorId,
       name: link.collaborator?.name,
-      role: link.collaborator?.role
+      role: link.roleNameSnapshot || link.collaborator?.jobRole?.name
     };
     if (entry.id) collaboratorById.set(entry.id, entry);
     upsert(entry, 'Diurno');

@@ -2,7 +2,7 @@
 
 **Input**: Design documents from `/specs/012-planejamento-efetivo/`
 
-**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/efetivo-planning.openapi.yaml`, `quickstart.md`
+**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/efetivo-planning.openapi.yaml`, `contracts/efetivo-integrations.openapi.yaml`, `quickstart.md`
 
 **Tests**: regras de negócio e contratos são obrigatoriamente cobertos no backend; helpers interativos críticos recebem testes no frontend.
 
@@ -457,3 +457,155 @@ US6:
 - [X] T159 [US2] Atualizar textos de pendência e paridade para a equipe direta em `missionPendencies.ts`, `MissionsBoard.tsx` e testes existentes.
 - [X] T160 Executar suítes completas, build/lint/arquitetura, validar criação e edição em `localhost:5175` e registrar evidências no quickstart.
 - [X] T161 Corrigir a sanitização de snapshots de auditoria para valores Prisma/Decimal e cobrir a exclusão lógica de missão sem falha de serialização em `backend/src/lib/efetivo/planning/audit.js` e `backend/test/efetivo-audit.test.js`.
+
+---
+
+## Phase 17: Foundation das integrações compartilhadas
+
+**Purpose**: criar persistência e serviços corporativos necessários às histórias 10–12 sem alterar fatos produtivos existentes.
+
+- [X] T162 Inventariar leitores/escritores de `Collaborator.role`, cargo EPI, ausências, feriados e equipe RDO com code-review-graph e registrar o mapa final em `specs/012-planejamento-efetivo/research.md`
+- [X] T163 Modelar `EpiCollaboratorProfile`, snapshots EPI/RDO, responsável User da missão, `WorkforceCalendarState`, versão/autoria de ausência, calendário manual compartilhado e rastreio opcional da missão no RDO em `backend/prisma/schema.prisma`
+- [X] T164 Criar migration Prisma versionada e segura para os modelos compartilhados/produtivos e remodelar diretamente as tabelas inéditas do Efetivo em `backend/prisma/migrations/<timestamp>_centralize_workforce_planning/migration.sql`
+- [X] T165 Criar diagnóstico/backfill idempotente com `--dry-run` para cargo canônico e override EPI em `backend/scripts/backfill-collaborator-job-roles.mjs`
+- [X] T166 [P] Implementar serviço canônico de cargo e normalização em `backend/src/lib/collaborators/job-role-service.js`
+- [X] T167 [P] Implementar calendário corporativo nacional/manual puro em `backend/src/lib/calendar/corporate-calendar.js`
+- [X] T168 Implementar serviço compartilhado de disponibilidade, revisão global e missões afetadas em `backend/src/lib/collaborators/availability-service.js`
+- [X] T169 Consolidar schemas Zod e contratos internos de cargo, perfil EPI, disponibilidade e contexto oficial em `backend/src/lib/workforce/schemas.js`
+- [X] T170 Validar geração Prisma, migration SQL e os dois contratos OpenAPI sem aplicar migração em produção usando `backend/prisma/schema.prisma` e `specs/012-planejamento-efetivo/contracts/`
+
+**Checkpoint**: os serviços compartilhados existem, mas os módulos ainda não mudaram seus fluxos visíveis.
+
+---
+
+## Phase 18: User Story 11 — Centralizar cargo com exceção segura no EPI (Priority: P1)
+
+**Goal**: garantir um único cargo atual no APP, override relacional exclusivo do EPI e snapshots históricos imutáveis em EPI/RDO.
+
+**Independent Test**: trocar o cargo canônico, emitir EPI com cargo anterior, limpar o override e confirmar que apenas novas emissões voltam ao cargo atual; RDOs/documentos anteriores não mudam.
+
+### Tests for User Story 11
+
+- [X] T171 [P] [US11] Cobrir serviço canônico, cargo inativo, ambiguidades e invalidação de alocação futura em `backend/test/collaborator-job-role-service.test.js`
+- [X] T172 [P] [US11] Cobrir dry-run/apply idempotente, override produtivo e gate zero-nulos em `backend/test/collaborator-job-role-backfill.test.js`
+- [X] T173 [P] [US11] Cobrir isolamento do perfil EPI e snapshots de solicitação, payload público e PDF em `backend/test/epi-role-snapshot.test.js`
+- [X] T174 [P] [US11] Cobrir snapshots de cargo do RDO e reprodução histórica após troca canônica em `backend/test/report-collaborator-role-snapshot.test.js`
+
+### Implementation for User Story 11
+
+- [X] T175 [US11] Migrar rotas/importadores/automações de colaborador para o serviço canônico e rejeitar escrita livre de cargo em `backend/src/routes/resources/collaborators.js`, `backend/src/lib/efetivo/planning/collaborators.js` e importadores encontrados no inventário
+- [X] T176 [US11] Migrar leitores backend de cargo atual para `jobRole.name`, mantendo snapshots históricos em `backend/src/lib/` e `backend/src/routes/`
+- [X] T177 [US11] Implementar perfil/override relacional e resposta de cargo efetivo do EPI em `backend/src/lib/epi/collaborators.js` e `backend/src/routes/resources/epis.js`
+- [X] T178 [US11] Capturar e consumir snapshots de ID/nome/origem em toda solicitação/documento EPI em `backend/src/lib/epi-docx.js`, `backend/src/lib/epi-signature.js` e rotas EPI relacionadas
+- [X] T179 [US11] Capturar snapshots de cargo ao gravar `ReportCollaborator` e usá-los em PDFs/leitores históricos em `backend/src/lib/report-collaborators.js` e geradores de RDO
+- [X] T180 [P] [US11] Atualizar contratos/tipos/formulários de colaborador para `jobRoleId`/`jobRole` em `frontend/src/api/collaborators.ts` e telas Gestor/Efetivo consumidoras
+- [X] T181 [P] [US11] Atualizar perfil EPI para selecionar cargo canônico ou inativo sem editar o cargo global em `frontend/src/api/epi.ts` e `frontend/src/pages/epis/EpiPage.tsx`
+- [X] T182 [US11] Remover fallbacks e escritas físicas de `Collaborator.role`, impor `jobRoleId` obrigatório e remover a coluna apenas após o gate em `backend/prisma/schema.prisma` e na migration da T164
+
+**Checkpoint**: cargo atual é canônico em todo o APP; a única exceção está isolada e documentada no EPI.
+
+---
+
+## Phase 19: User Story 12 — Compartilhar disponibilidade e feriados (Priority: P1)
+
+**Goal**: unificar ausências/feriados e aplicar políticas adequadas a planejamento, RDO, Ponto e Acompanhamento.
+
+**Independent Test**: cadastrar ausência e feriado manual, observar bloqueio/replanejamento no Efetivo, justificativa no RDO e sinalização sem perda de horas/custos nos módulos realizados.
+
+### Tests for User Story 12
+
+- [X] T183 [P] [US12] Cobrir feriados nacionais fixos/móveis, merge manual, revisão e paridade RDO/Efetivo em `backend/test/corporate-calendar.test.js`
+- [X] T184 [P] [US12] Cobrir ausência superveniente, bloqueio de nova alocação, concorrência e cenário obsoleto em `backend/test/workforce-availability.test.js`
+- [X] T185 [P] [US12] Cobrir warning/justificativa RDO e alertas Ponto/Acompanhamento sem alterar horas/custos em `backend/test/workforce-actual-conflicts.test.js`
+- [X] T186 [P] [US12] Cobrir contrato/RBAC das rotas workforce em `backend/test/workforce-routes.test.js`
+
+### Implementation for User Story 12
+
+- [X] T187 [US12] Expor calendário, preflight e CRUD versionado de ausências em `backend/src/routes/workforce.js` e registrar o router em `backend/src/app.js`
+- [X] T188 [US12] Fazer capacidade/calendário/cenários do Efetivo consumirem disponibilidade e revisão globais em `backend/src/lib/efetivo/planning/`
+- [X] T189 [US12] Substituir feriado isolado/hardcoded pelo calendário resolvido nos cálculos novos de hora extra em `backend/src/lib/overtime.js` e orquestração de relatórios
+- [X] T190 [US12] Permitir ausência superveniente com pendência de missão e consolidar os endpoints duplicados do Efetivo em `backend/src/routes/efetivo-planning.js` e `backend/src/routes/efetivo.js`
+- [X] T191 [US12] Implementar preflight e justificativa auditável para trabalho durante ausência no fluxo RDO em `backend/src/routes/resources/reports.js` e `backend/src/lib/reports/`
+- [X] T192 [US12] Classificar trabalho durante ausência/feriado no Ponto e separar ausência/feriado de folga residual no Acompanhamento sem recalcular totais em `backend/src/lib/acompanhamento/`
+- [X] T193 [P] [US12] Migrar clientes/telas do Efetivo para as rotas workforce e exibir missão pendente após ausência em `frontend/src/api/efetivoPlanning.ts` e `frontend/src/pages/efetivo/components/`
+
+**Checkpoint**: todos os módulos recebem o mesmo calendário e a mesma ausência, preservando fatos realizados.
+
+---
+
+## Phase 20: User Story 10 — Reutilizar o planejamento na execução (Priority: P1)
+
+**Goal**: sugerir o plano ao RDO/Acompanhamento e comparar plano com fatos realizados sem sincronização silenciosa.
+
+**Independent Test**: confirmar missão, receber prefill no RDO, alterar equipe realizada e ver a divergência no Efetivo/Acompanhamento sem reescrever missão ou Project.
+
+### Tests for User Story 10
+
+- [X] T194 [P] [US10] Cobrir lookup oficial por projeto/data, exclusão de cenário/rascunho e fronteiras inclusivas em `backend/test/official-mission-context.test.js`
+- [X] T195 [P] [US10] Cobrir RBAC e contrato sanitizado do contexto RDO/Acompanhamento em `backend/test/planning-context-routes.test.js`
+- [X] T196 [P] [US10] Cobrir planejado × observado, divergências, freshness e não mutação do plano/Project em `backend/test/mission-execution-comparison.test.js`
+- [X] T197 [P] [US10] Cobrir precedência do prefill e preservação de seleção manual no frontend em `frontend/test/rdo-planning-prefill.test.mjs`
+
+### Implementation for User Story 10
+
+- [X] T198 [US10] Implementar `getOfficialMissionContext` restrito ao oficial confirmado em `backend/src/lib/efetivo/planning/official-mission-context.js`
+- [X] T199 [US10] Expor contexto mínimo nas permissões próprias de RDO/Acompanhamento em `backend/src/routes/resources/reports.js` e rotas do Acompanhamento
+- [X] T200 [US10] Integrar prefill RDO com precedência seleção tocada → missão → último RDO e rastrear revisão usada em `frontend/src/pages/reports/NewReportPage.tsx` e `frontend/src/api/reports.ts`
+- [X] T201 [P] [US10] Exibir bloco Planejado separado de Observado/Exceções no detalhe do Acompanhamento em `frontend/src/pages/acompanhamento/` e cliente correspondente
+- [X] T202 [US10] Implementar read model de execução reutilizando Project, RDO, progresso e Ponto em `backend/src/lib/efetivo/planning/execution-comparison.js`
+- [X] T203 [US10] Expor `GET /planning/missions/:missionId/execution` em `backend/src/routes/efetivo-planning.js` e cliente em `frontend/src/api/efetivoPlanning.ts`
+- [X] T204 [US10] Exibir comparação de datas/equipe/horas, pendências e sugestão de etapa sem auto-movimento em `frontend/src/pages/efetivo/components/MissionExecutionPanel.tsx` e `frontend/src/pages/efetivo/efetivo.css`
+
+**Checkpoint**: planejamento é reutilizado como contexto e comparação, nunca como fato realizado automático.
+
+---
+
+## Phase 21: Polish e validação cruzada das integrações
+
+**Purpose**: fechar contratos, migração, regressões, responsividade e evidência sem operar infraestrutura externa.
+
+- [X] T205 Atualizar OpenAPI, modelo, quickstart e rastreabilidade final das FR-059..FR-071 em `specs/012-planejamento-efetivo/`
+- [X] T206 [P] Validar formulários/campos novos com Zod nas duas pontas e estados `.field-invalid`/`.field-error` nas superfícies alteradas do frontend
+- [X] T207 [P] Auditar RBAC e exposição mínima entre Efetivo, EPI, RDO, Workforce e Acompanhamento em `backend/test/`
+- [X] T208 Executar testes backend/frontend, lint, builds, Prisma validate/generate e arquitetura conforme `specs/012-planejamento-efetivo/quickstart.md`
+- [X] T209 Executar `detect_changes`, `get_affected_flows` e `tests_for` no code-review-graph e corrigir riscos bloqueantes encontrados
+- [X] T210 Registrar resultados, limitações operacionais e comandos destinados ao operador em `specs/012-planejamento-efetivo/quickstart.md`
+
+---
+
+## Dependencies adicionais — integrações
+
+```text
+Phase 17 Foundation
+├── US11 Cargo/EPI ─────┐
+├── US12 Calendário ────┼── US10 Planejado × realizado
+└───────────────────────┘
+                         └── Phase 21 Validação
+```
+
+- T163–T170 bloqueiam as três histórias novas.
+- US11 antecede snapshots de cargo usados pelo RDO em US10.
+- US12 antecede divergências de ausência/feriado exibidas em US10.
+- Dentro de cada história, testes são escritos antes da implementação correspondente.
+- T208 só começa após T171–T207; T209 revisa o diff completo; T210 encerra a entrega documental.
+
+### Parallel opportunities das integrações
+
+- T166 e T167 podem avançar em paralelo depois do schema definido.
+- T171–T174, T183–T186 e T194–T197 são testes em arquivos distintos.
+- T180/T181, T193 e T201 atuam em superfícies frontend separadas depois dos respectivos contratos backend.
+- Nenhuma tarefa paralela deve editar simultaneamente `schema.prisma`, `efetivo-planning.js`, `reports.js` ou os lockfiles.
+
+### MVP das integrações
+
+O menor incremento seguro é Phase 17 + US11: cargo canônico e EPI histórico resolvem a divergência cadastral sem depender das telas analíticas. US12 entra em seguida; US10 fecha o reaproveitamento operacional e a comparação gerencial.
+
+---
+
+## Phase 22: Correção do bootstrap de cargos canônicos
+
+**Purpose**: impedir que cargos textuais não cadastrados bloqueiem a inicialização ao aplicar a centralização em ambientes existentes.
+
+- [X] T211 Escrever regressões para materialização deduplicada de cargos canônicos ausentes, vínculo de colaboradores e idempotência do backfill/migration em `backend/test/collaborator-job-role-backfill.test.js`.
+- [X] T212 Criar cargos canônicos a partir de nomes legados não vazios antes dos vínculos e do gate `jobRoleId NOT NULL`, preservando bloqueio para nomes vazios/ambiguidades, em `backend/scripts/backfill-collaborator-job-roles.mjs` e na migration `20260826160000_centralize_workforce_planning`.
+- [X] T213 Atualizar o handoff operacional e executar regressões focais, suíte backend, Prisma, arquitetura e revisão do code-review-graph.

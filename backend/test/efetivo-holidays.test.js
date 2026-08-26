@@ -9,7 +9,11 @@ test('salvar a mesma data restaura feriado excluído e audita na transação', a
   const database = {
     $transaction: async callback => callback(database),
     efetivoPlan: { findFirst: async () => plan, findUnique: async () => plan, update: async () => ({ ...plan, revision: 2 }) },
-    efetivoHoliday: { findUnique: async () => ({ id: 'h1', deletedAt: new Date() }), upsert: async input => { upsert = input; return { id: 'h1', holidayDate: input.where.holidayDate, name: input.update.name, deletedAt: null }; } },
+    workforceHoliday: { findUnique: async () => ({ id: 'h1', deletedAt: new Date() }), upsert: async input => { upsert = input; return { id: 'h1', holidayDate: input.where.holidayDate, name: input.update.name, deletedAt: null }; } },
+    workforceCalendarState: {
+      upsert: async () => ({ id: 'global', revision: 1 }),
+      update: async () => ({ id: 'global', revision: 2 })
+    },
     efetivoAuditEvent: { create: async input => input.data }
   };
   const result = await saveHoliday({ holidayDate: '2026-12-25', name: 'Natal' }, { actorUserId: 'u1' }, { database });

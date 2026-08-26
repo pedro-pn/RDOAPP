@@ -141,7 +141,7 @@ export function EpiPage() {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
-  const [profileForm, setProfileForm] = useState({ cpf: '', registrationNumber: '', admissionDate: '', epiRoleOverride: '' });
+  const [profileForm, setProfileForm] = useState({ cpf: '', registrationNumber: '', admissionDate: '', roleOverrideJobRoleId: '' });
   const [recordForm, setRecordForm] = useState<EpiRecordPayload>(emptyRecord);
   const [recordTab, setRecordTab] = useState<RecordTab>('active');
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(() => new Set());
@@ -183,7 +183,8 @@ export function EpiPage() {
   const saveProfileMutation = useMutation({
     mutationFn: (collaboratorId: string) => updateEpiCollaboratorProfile(collaboratorId, {
       ...profileForm,
-      admissionDate: inputDateToPtBr(profileForm.admissionDate)
+      admissionDate: inputDateToPtBr(profileForm.admissionDate),
+      roleOverrideJobRoleId: profileForm.roleOverrideJobRoleId || null
     }),
     onSuccess: () => {
       invalidate();
@@ -292,7 +293,7 @@ export function EpiPage() {
         cpf: formatCpfInput(collaborator.cpf || ''),
         registrationNumber: collaborator.registrationNumber || '',
         admissionDate: dateInput(collaborator.admissionDate),
-        epiRoleOverride: collaborator.epiRoleOverride || ''
+        roleOverrideJobRoleId: collaborator.roleOverrideJobRole?.id || ''
       });
       setRecordForm(emptyRecord);
     }
@@ -321,7 +322,7 @@ export function EpiPage() {
       cpf: formatCpfInput(collaborator.cpf || ''),
       registrationNumber: collaborator.registrationNumber || '',
       admissionDate: dateInput(collaborator.admissionDate),
-      epiRoleOverride: collaborator.epiRoleOverride || ''
+      roleOverrideJobRoleId: collaborator.roleOverrideJobRole?.id || ''
     });
     setEditingProfileId(collaborator.id);
   }
@@ -481,8 +482,8 @@ export function EpiPage() {
 
             {visibleCollaborators.map(collaborator => {
               const isOpen = expandedId === collaborator.id;
-              const epiRoleOverrideIsInactive = Boolean(collaborator.epiRoleOverride)
-                && !(jobRolesQuery.data || []).some(role => role.name === collaborator.epiRoleOverride);
+              const epiRoleOverrideIsInactive = Boolean(collaborator.roleOverrideJobRole)
+                && !(jobRolesQuery.data || []).some(role => role.id === collaborator.roleOverrideJobRole?.id);
               const activeRecords = collaborator.epiRecords.filter(record => !record.archivedAt && !record.pendingReturn);
               const archivedRecords = collaborator.epiRecords.filter(record => record.archivedAt);
               const visibleRecords = recordTab === 'archived' ? archivedRecords : activeRecords;
@@ -509,16 +510,16 @@ export function EpiPage() {
                             <label htmlFor={`epi-profile-role-${collaborator.id}`}>Cargo no EPI</label>
                             <select
                               id={`epi-profile-role-${collaborator.id}`}
-                              value={profileForm.epiRoleOverride}
-                              onChange={event => setProfileForm(current => ({ ...current, epiRoleOverride: event.target.value }))}
+                              value={profileForm.roleOverrideJobRoleId}
+                              onChange={event => setProfileForm(current => ({ ...current, roleOverrideJobRoleId: event.target.value }))}
                               disabled={!isTechnician || jobRolesQuery.isLoading}
                             >
-                              <option value="">Usar cargo atual do RDO — {collaborator.role}</option>
+                              <option value="">Usar cargo atual do APP — {collaborator.currentJobRole.name}</option>
                               {epiRoleOverrideIsInactive ? (
-                                <option value={collaborator.epiRoleOverride || ''}>{collaborator.epiRoleOverride} (inativo)</option>
+                                <option value={collaborator.roleOverrideJobRole?.id || ''}>{collaborator.roleOverrideJobRole?.name} (inativo)</option>
                               ) : null}
                               {(jobRolesQuery.data || []).map(role => (
-                                <option key={role.id} value={role.name}>{role.name}</option>
+                                <option key={role.id} value={role.id}>{role.name}{role.isActive ? '' : ' (inativo)'}</option>
                               ))}
                             </select>
                             <small>Selecione um cargo cadastrado ou use o cargo atual do RDO.</small>
@@ -559,7 +560,7 @@ export function EpiPage() {
                           <div>
                             <span>Cargo no EPI</span>
                             <strong>{effectiveEpiRole(collaborator)}</strong>
-                            <small>{collaborator.epiRoleOverride ? `Cargo atual no RDO: ${collaborator.role}` : 'Sincronizado com o RDO'}</small>
+                            <small>{collaborator.roleOverrideJobRole ? `Cargo atual no APP: ${collaborator.currentJobRole.name}` : 'Sincronizado com o cargo atual do APP'}</small>
                           </div>
                           <div>
                             <span>CPF</span>

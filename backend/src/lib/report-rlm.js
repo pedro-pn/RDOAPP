@@ -343,7 +343,7 @@ function buildRlmBaseData(report) {
     steps: stringify(getField(sd, ['Etapas realizadas no dia'])),
     obs: stringify(getField(sd, ['Observações', 'Observacoes'])),
     leadername: safeText(sc.__leaderSnapshot?.name || report.project?.operator?.name),
-    leaderposition: safeText(sc.__leaderSnapshot?.role || report.project?.operator?.role)
+    leaderposition: safeText(sc.__leaderSnapshot?.role || report.project?.operator?.jobRole?.name)
   };
 }
 

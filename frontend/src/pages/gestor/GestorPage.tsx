@@ -313,7 +313,7 @@ const emptyManualReportForm: ManualReportFormState = {
 
 const emptyCollaboratorForm: CollaboratorFormState = {
   name: '',
-  role: '',
+  jobRoleId: '',
   email: '',
   terminationDate: '',
   signatureImage: '',
@@ -915,7 +915,7 @@ function ProjectReportSequenceFields({
 function collaboratorToForm(collaborator: Collaborator): CollaboratorFormState {
   return {
     name: collaborator.name,
-    role: collaborator.role,
+    jobRoleId: collaborator.jobRoleId,
     email: collaborator.email || '',
     terminationDate: collaborator.terminationDate?.slice(0, 10) || '',
     signatureImage: normalizeSignatureImage(collaborator.signatureImage),
@@ -1200,14 +1200,15 @@ export function GestorPage() {
   const commercialPendenciasQuery = useQuery({ queryKey: ['commercial-pendencias'], queryFn: getCommercialPendencias });
   const commercialPendenciaByProject = useMemo(() => commercialPendenciaMapByProject(commercialPendenciasQuery.data || []), [commercialPendenciasQuery.data]);
   const jobRolesQuery = useQuery({ queryKey: ['job-roles'], queryFn: () => listJobRoles() });
-  const jobRoleNames = useMemo(() => (jobRolesQuery.data || []).map(role => role.name), [jobRolesQuery.data]);
+  const jobRoleIds = useMemo(() => new Set((jobRolesQuery.data || []).map(role => role.id)), [jobRolesQuery.data]);
   const renderRoleOptions = (value: string) => {
-    const showCurrent = Boolean(value) && !jobRoleNames.includes(value);
+    const current = collaboratorsQuery.data?.find(item => item.jobRoleId === value)?.jobRole;
+    const showCurrent = Boolean(current) && !jobRoleIds.has(value);
     return (
       <>
         <option value="" disabled>Selecione o cargo</option>
-        {showCurrent ? <option value={value}>{value} (atual)</option> : null}
-        {jobRoleNames.map(name => <option key={name} value={name}>{name}</option>)}
+        {showCurrent ? <option value={value}>{current?.name} (inativo)</option> : null}
+        {(jobRolesQuery.data || []).map(role => <option key={role.id} value={role.id}>{role.name}</option>)}
       </>
     );
   };
@@ -1891,7 +1892,7 @@ export function GestorPage() {
 
     const payload = {
       name: collaboratorForm.name.trim(),
-      role: collaboratorForm.role.trim(),
+      jobRoleId: collaboratorForm.jobRoleId,
       email: collaboratorForm.email.trim() || null,
       terminationDate: collaboratorForm.terminationDate || null,
       signatureImage,
@@ -3445,7 +3446,7 @@ export function GestorPage() {
             <CollaboratorForm
               title="Novo colaborador"
               value={collaboratorForm}
-              roleOptions={renderRoleOptions(collaboratorForm.role)}
+              roleOptions={renderRoleOptions(collaboratorForm.jobRoleId)}
               signatureField={renderCollaboratorSignatureField()}
               isPending={collaboratorMutations.createCollaborator.isPending || collaboratorMutations.updateCollaborator.isPending}
               onChange={setCollaboratorForm}
@@ -3487,7 +3488,7 @@ export function GestorPage() {
                       idSuffix={collaborator.id}
                       title="Editar colaborador"
                       value={collaboratorForm}
-                      roleOptions={renderRoleOptions(collaboratorForm.role)}
+                      roleOptions={renderRoleOptions(collaboratorForm.jobRoleId)}
                       signatureField={renderCollaboratorSignatureField()}
                       isPending={collaboratorMutations.updateCollaborator.isPending}
                       onChange={setCollaboratorForm}

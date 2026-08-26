@@ -1,22 +1,8 @@
 import { addCalendarDays, parseDateKey } from './date-only.js';
 import { businessDatesInclusive, holidayDateSet, isBusinessDay } from './business-days.js';
 
-function roleKey(value) {
-  return String(value || '').trim().toLocaleLowerCase('pt-BR');
-}
-
-function uniqueRolesByName(roles) {
-  const index = new Map();
-  for (const role of roles) {
-    const key = roleKey(role.name);
-    if (!key) continue;
-    index.set(key, index.has(key) ? null : role);
-  }
-  return index;
-}
-
-function collaboratorRoleId(collaborator, rolesByName) {
-  return collaborator.jobRoleId || rolesByName.get(roleKey(collaborator.role))?.id || null;
+function collaboratorRoleId(collaborator) {
+  return collaborator.jobRoleId || null;
 }
 
 export function isCollaboratorActiveOn(collaborator, value) {
@@ -89,7 +75,6 @@ export function calculateDailyCapacity({
 }) {
   const dateKey = parseDateKey(date);
   const roles = jobRoles.filter(role => role.isActive !== false && role.isOperational !== false);
-  const rolesByName = uniqueRolesByName(roles);
   const absenceIndex = indexAbsencesByCollaborator(absences);
   const missionIndex = indexMissionsByCollaborator(missions);
   const demandTotals = demandByRoleOn(missions, dateKey);
@@ -97,7 +82,7 @@ export function calculateDailyCapacity({
 
   for (const collaborator of collaborators) {
     if (!isCollaboratorActiveOn(collaborator, dateKey)) continue;
-    const jobRoleId = collaboratorRoleId(collaborator, rolesByName);
+    const jobRoleId = collaboratorRoleId(collaborator);
     if (!jobRoleId || !roles.some(role => role.id === jobRoleId)) continue;
     const absence = recordOn(absenceIndex, collaborator.id, dateKey);
     const mission = recordOn(missionIndex, collaborator.id, dateKey);
@@ -155,7 +140,6 @@ export function calculateUtilization90Days({
   const endDate = addCalendarDays(startDate, 89);
   const holidaySet = holidayDateSet(holidays);
   const roles = jobRoles.filter(role => role.isActive !== false && role.isOperational !== false);
-  const rolesByName = uniqueRolesByName(roles);
   const absenceIndex = indexAbsencesByCollaborator(absences);
   const missionIndex = indexMissionsByCollaborator(missions);
   const businessDates = businessDatesInclusive(startDate, endDate, holidaySet);
@@ -165,7 +149,7 @@ export function calculateUtilization90Days({
   const committedByRole = new Map(roles.map(role => [role.id, new Set()]));
 
   for (const collaborator of collaborators) {
-    const jobRoleId = collaboratorRoleId(collaborator, rolesByName);
+    const jobRoleId = collaboratorRoleId(collaborator);
     if (!availableByRole.has(jobRoleId)) continue;
     for (const day of businessDates) {
       if (!isCollaboratorActiveOn(collaborator, day) || recordOn(absenceIndex, collaborator.id, day)) continue;

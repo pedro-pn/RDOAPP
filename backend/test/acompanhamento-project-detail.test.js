@@ -35,11 +35,11 @@ test('buildPlannedRoleCounts conta colaboradores distintos e horas usadas por ca
     { roleName: null }
   ];
   const collaborators = [
-    { collaboratorId: 'c1', collaborator: { role: 'tecnico de campo' }, report: { daytimeWorkedMinutes: 1800, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c1', collaborator: { role: 'Técnico de Campo' }, report: { daytimeWorkedMinutes: 1200, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c2', collaborator: { role: 'TÉCNICO DE CAMPO' }, report: { daytimeWorkedMinutes: 3000, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c3', collaborator: { role: 'Auxiliar' }, report: { daytimeWorkedMinutes: 600, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c4', collaborator: { role: 'Encarregado' }, report: { daytimeWorkedMinutes: 480, nighttimeWorkedMinutes: 120 } }
+    { collaboratorId: 'c1', roleNameSnapshot: 'tecnico de campo', collaborator: { jobRole: { name: 'Técnico de Campo' } }, report: { daytimeWorkedMinutes: 1800, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c1', roleNameSnapshot: 'Técnico de Campo', collaborator: { jobRole: { name: 'Técnico de Campo' } }, report: { daytimeWorkedMinutes: 1200, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c2', roleNameSnapshot: 'TÉCNICO DE CAMPO', collaborator: { jobRole: { name: 'Técnico de Campo' } }, report: { daytimeWorkedMinutes: 3000, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c3', roleNameSnapshot: 'Auxiliar', collaborator: { jobRole: { name: 'Auxiliar' } }, report: { daytimeWorkedMinutes: 600, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c4', roleNameSnapshot: 'Encarregado', collaborator: { jobRole: { name: 'Encarregado' } }, report: { daytimeWorkedMinutes: 480, nighttimeWorkedMinutes: 120 } }
   ];
 
   assert.deepEqual(buildPlannedRoleCounts(plannedRows, collaborators, 300), [
@@ -56,7 +56,8 @@ test('buildPlannedRoleCounts separa horas noturnas por equipe do turno quando re
   const collaborators = [
     {
       collaboratorId: 'day-1',
-      collaborator: { role: 'Técnico' },
+      roleNameSnapshot: 'Técnico',
+      collaborator: { jobRole: { name: 'Técnico' } },
       report: { daytimeWorkedMinutes: 480, nighttimeWorkedMinutes: 360 }
     }
   ];
@@ -81,7 +82,7 @@ test('buildPlannedRoleCounts separa horas noturnas por equipe do turno quando re
 test('buildPlannedRoleCounts omite cargos previstos sem colaborador correspondente', () => {
   const out = buildPlannedRoleCounts(
     [{ roleName: 'Supervisor' }],
-    [{ collaboratorId: 'c1', collaborator: { role: 'Técnico' } }]
+    [{ collaboratorId: 'c1', roleNameSnapshot: 'Técnico', collaborator: { jobRole: { name: 'Técnico' } } }]
   );
 
   assert.deepEqual(out, []);

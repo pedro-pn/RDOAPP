@@ -127,10 +127,6 @@ export function computeGeneralRate(individualRates = []) {
   return valid.reduce((total, value) => total + value, 0) / valid.length;
 }
 
-function roleKey(value) {
-  return String(value || '').trim().toLocaleLowerCase('pt-BR');
-}
-
 function absenceMonthSet(absences, collaboratorId) {
   const months = new Set();
   for (const absence of absences || []) {
@@ -163,12 +159,12 @@ export function buildProductivityReport({
   const year = Number(filters.year ?? filters.ano);
   const cutoffMonth = Number(filters.cutoffMonth ?? filters.ateMes);
   const currentMonth = filters.currentMonth || new Date().toISOString().slice(0, 7);
-  const roles = new Map(jobRoles.map(role => [roleKey(role.name), role]));
+  const roles = new Map(jobRoles.map(role => [role.id, role]));
   const monthlyByCollaborator = buildMonthlyProductiveHours(periods);
   const rows = [];
 
   for (const collaborator of collaborators) {
-    const role = roles.get(roleKey(collaborator.role));
+    const role = roles.get(collaborator.jobRoleId) || collaborator.jobRole;
     if (!role || role.isOperational === false) continue;
     const analyzed = selectAnalyzedMonths({
       year,
@@ -200,7 +196,7 @@ export function buildProductivityReport({
     rows.push({
       id: collaborator.id,
       nome: collaborator.name,
-      cargo: collaborator.role,
+      cargo: role.name,
       hhAcumuladas: totalHours,
       mediaMensal: average,
       heExcluidas: overtime,

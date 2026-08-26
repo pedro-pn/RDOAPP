@@ -54,23 +54,29 @@ export function AbsencesBoard({ canManage, selectedAbsenceId }: { canManage: boo
   };
   const saveMutation = useMutation({
     mutationFn: (payload: EfetivoAbsencePayload) => editing
-      ? updateEfetivoAbsence(editing.id, {
+      ? updateEfetivoAbsence(editing.id, editing.version, {
         type: payload.type,
         startDate: payload.startDate,
         endDate: payload.endDate,
         note: payload.note
       })
       : createEfetivoAbsence(payload),
-    onSuccess: async () => {
+    onSuccess: async result => {
       await invalidate();
-      showToast(editing ? 'Indisponibilidade atualizada.' : 'Indisponibilidade cadastrada.', 'success');
+      const affected = result.affectedMissionIds.length;
+      showToast(
+        affected
+          ? `Indisponibilidade salva. ${affected} missão(ões) ficaram pendentes de replanejamento.`
+          : editing ? 'Indisponibilidade atualizada.' : 'Indisponibilidade cadastrada.',
+        affected ? 'info' : 'success'
+      );
       setEditing(null);
       setFormOpen(false);
     },
     onError: () => showToast('Não foi possível salvar. Verifique as datas e possíveis sobreposições.', 'error')
   });
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => removeEfetivoAbsence(id),
+    mutationFn: (absence: EfetivoAbsence) => removeEfetivoAbsence(absence.id, absence.version),
     onSuccess: async () => {
       await invalidate();
       showToast('Indisponibilidade removida.', 'success');
@@ -164,7 +170,7 @@ export function AbsencesBoard({ canManage, selectedAbsenceId }: { canManage: boo
         description="O período deixa de aparecer na tela, mas a trilha é preservada."
         highlight={deleting ? `${deleting.collaborator.name} · ${displayDate(deleting.startDate)} a ${displayDate(deleting.endDate)}` : undefined}
         confirmLabel={deleteMutation.isPending ? 'Removendo…' : 'Remover'}
-        onConfirm={() => { if (deleting && !deleteMutation.isPending) deleteMutation.mutate(deleting.id); }}
+        onConfirm={() => { if (deleting && !deleteMutation.isPending) deleteMutation.mutate(deleting); }}
         onCancel={() => setDeleting(null)}
       />
     </div>

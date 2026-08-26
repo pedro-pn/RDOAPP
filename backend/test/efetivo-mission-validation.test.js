@@ -16,14 +16,14 @@ test('demanda remove zeros, recusa duplicidade e confirmação vazia', () => {
 
 test('responsável usa nome da conta coordenadora e cargo do colaborador vinculado', async () => {
   const responsible = await resolveMissionResponsible({
-    user: { findFirst: async () => ({ id: 'u1', name: 'Coordenação', collaborator: { id: 'c1', role: 'Líder de Operações' } }) }
+    user: { findFirst: async () => ({ id: 'u1', name: 'Coordenação', collaborator: { id: 'c1', jobRole: { name: 'Líder de Operações' } } }) }
   }, {
     headquartersResponsibleUserId: 'u1',
     headquartersResponsibleName: 'Texto adulterado',
     headquartersResponsibleRole: 'Texto adulterado',
     headquartersResponsibleCollaboratorId: null
   });
-  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Líder de Operações', collaboratorId: 'c1' });
+  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Líder de Operações', collaboratorId: 'c1', userId: 'u1' });
 });
 
 test('responsável sem colaborador na conta preserva cargo livre quando não há líder', async () => {
@@ -35,18 +35,18 @@ test('responsável sem colaborador na conta preserva cargo livre quando não há
     headquartersResponsibleRole: 'Planejamento',
     headquartersResponsibleCollaboratorId: null
   });
-  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Planejamento', collaboratorId: null });
+  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Planejamento', collaboratorId: null, userId: 'u1' });
 });
 
 test('líder escolhido para conta sem vínculo também fornece o cargo canônico', async () => {
   const responsible = await resolveMissionResponsible({
     user: { findFirst: async () => ({ id: 'u1', name: 'Coordenação', collaborator: null }) },
-    collaborator: { findUnique: async () => ({ id: 'c2', role: 'Supervisora de Operações' }) }
+    collaborator: { findUnique: async () => ({ id: 'c2', jobRole: { name: 'Supervisora de Operações' } }) }
   }, {
     headquartersResponsibleUserId: 'u1',
     headquartersResponsibleName: 'Coordenação',
     headquartersResponsibleRole: 'Texto livre ignorado',
     headquartersResponsibleCollaboratorId: 'c2'
   });
-  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Supervisora de Operações', collaboratorId: 'c2' });
+  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Supervisora de Operações', collaboratorId: 'c2', userId: 'u1' });
 });

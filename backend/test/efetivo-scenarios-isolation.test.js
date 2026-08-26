@@ -14,6 +14,7 @@ test('criação materializa cenário sem alterar o oficial', async () => {
       create: async ({ data }) => ({ id: 'scenario', ...data }),
       update: async input => { updates.push(input); return input.data; }
     },
+    workforceCalendarState: { findUnique: async () => ({ id: 'global', revision: 1 }) },
     efetivoAuditEvent: { create: async input => input.data }
   };
   const scenario = await createScenario({ name: 'Alternativa A' }, { actorUserId: 'u1' }, { database });

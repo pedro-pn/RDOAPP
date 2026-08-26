@@ -4,13 +4,14 @@ import { addCalendarDays, parseDateKey } from './date-only.js';
 import { businessDatesInclusive, holidayDateSet } from './business-days.js';
 import { getActiveOfficialPlan, resolvePlanningDatabase } from './plan-context.js';
 import { buildVacationAlert } from './vacation-alerts.js';
+import { loadCorporateCalendar } from '../../calendar/corporate-calendar.js';
 
 const missionReadInclude = {
   project: { select: { id: true, code: true, name: true, clientName: true, location: true } },
   demands: { include: { jobRole: { select: { id: true, name: true, calendarColor: true } } } },
   allocations: {
     where: { deletedAt: null },
-    include: { collaborator: { select: { id: true, name: true, role: true, jobRoleId: true } } }
+    include: { collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } } }
   }
 };
 
@@ -49,7 +50,7 @@ export async function listPlanningJobRoles(dependencies = {}) {
 
 export async function listPlanningCoordinators(dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
-  return database.user.findMany({
+  const users = await database.user.findMany({
     where: {
       isActive: true,
       OR: [
@@ -60,10 +61,16 @@ export async function listPlanningCoordinators(dependencies = {}) {
     select: {
       id: true,
       name: true,
-      collaborator: { select: { id: true, name: true, role: true, isActive: true } }
+      collaborator: { select: { id: true, name: true, isActive: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } }
     },
     orderBy: { name: 'asc' }
   });
+  return users.map(user => ({
+    ...user,
+    collaborator: user.collaborator
+      ? { ...user.collaborator, role: user.collaborator.jobRole?.name || '' }
+      : null
+  }));
 }
 
 export async function loadPlanningProjection({ date, planId = null }, dependencies = {}) {
@@ -73,13 +80,13 @@ export async function loadPlanningProjection({ date, planId = null }, dependenci
   const plan = planId
     ? await database.efetivoPlan.findUnique({ where: { id: planId } })
     : await getActiveOfficialPlan(database, { create: true });
-  const [collaborators, jobRoles, missions, absences, holidays, targetSetting, plannedHires] = await Promise.all([
+  const [collaborators, jobRoles, missions, absences, calendar, targetSetting, plannedHires] = await Promise.all([
     database.collaborator.findMany({
       where: {
         OR: [{ isActive: true }, { terminationDate: { gte: utcDate(startDate) } }],
         AND: [{ OR: [{ admissionDate: null }, { admissionDate: { lte: utcDate(endDate) } }] }]
       },
-      select: { id: true, name: true, role: true, jobRoleId: true, admissionDate: true, terminationDate: true, isActive: true }
+      select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } }, admissionDate: true, terminationDate: true, isActive: true }
     }),
     database.jobRole.findMany({ where: { isActive: true, isOperational: true }, orderBy: [{ order: 'asc' }, { name: 'asc' }] }),
     database.efetivoMissionPlan.findMany({
@@ -94,13 +101,17 @@ export async function loadPlanningProjection({ date, planId = null }, dependenci
     database.collaboratorAbsence.findMany({
       where: { deletedAt: null, startDate: { lte: utcDate(endDate) }, endDate: { gte: utcDate(startDate) } }
     }),
-    database.efetivoHoliday.findMany({
-      where: { deletedAt: null, holidayDate: { gte: utcDate(startDate), lte: utcDate(endDate) } }
-    }),
+    loadCorporateCalendar(database, startDate, endDate),
     database.efetivoSetting.findUnique({ where: { key: 'plannedUtilizationTarget' } }),
     database.efetivoPlannedHire.findMany({ where: { planId: plan.id }, include: { jobRole: { select: { id: true, name: true } } } })
   ]);
-  return { plan, collaborators, jobRoles, missions, absences, holidays, targetSetting, plannedHires };
+  const holidays = calendar.holidays.map(item => ({
+    id: item.id || item.date,
+    holidayDate: item.date,
+    name: item.name,
+    source: item.source
+  }));
+  return { plan, collaborators, jobRoles, missions, absences, holidays, calendarRevision: calendar.revision, targetSetting, plannedHires };
 }
 
 export async function getPlanningOverview(filters, dependencies = {}) {
@@ -145,7 +156,7 @@ export async function getPlanningOverview(filters, dependencies = {}) {
     .slice(0, 8);
   return {
     date,
-    plan: { id: projection.plan.id, revision: projection.plan.revision },
+    plan: { id: projection.plan.id, revision: projection.plan.revision, calendarRevision: projection.calendarRevision },
     totals: filters.jobRoleId
       ? byRole.reduce((sum, item) => ({
         ...sum,
@@ -230,7 +241,7 @@ export async function listPlanningCollaborators(filters, dependencies = {}) {
   }).map(collaborator => ({
     id: collaborator.id,
     name: collaborator.name,
-    role: collaborator.role,
+    role: collaborator.jobRole?.name || '',
     jobRoleId: collaborator.jobRoleId,
     admissionDate: collaborator.admissionDate ? parseDateKey(collaborator.admissionDate) : null,
     terminationDate: collaborator.terminationDate ? parseDateKey(collaborator.terminationDate) : null,

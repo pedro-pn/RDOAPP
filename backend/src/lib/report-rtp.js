@@ -414,7 +414,7 @@ function buildRtpBaseData(report) {
     tags: stringify(getField(sd, ['Desenhos / TAGs', 'Desenhos / Tags'])),
     obs: stringify(getField(sd, ['Observações', 'Observacoes'])),
     leadername: safeText(sc.__leaderSnapshot?.name || report.project?.operator?.name),
-    leaderposition: safeText(sc.__leaderSnapshot?.role || report.project?.operator?.role)
+    leaderposition: safeText(sc.__leaderSnapshot?.role || report.project?.operator?.jobRole?.name)
   };
 }
 

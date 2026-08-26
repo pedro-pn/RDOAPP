@@ -16,12 +16,25 @@ export const missionInclude = {
   allocations: {
     where: { deletedAt: null },
     include: {
-      collaborator: { select: { id: true, name: true, role: true, jobRoleId: true } },
+      collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } },
       jobRole: { select: { id: true, name: true } }
     },
     orderBy: { createdAt: 'asc' }
   }
 };
+
+function missionWithCurrentRoles(mission) {
+  if (!mission) return mission;
+  return {
+    ...mission,
+    allocations: (mission.allocations || []).map(allocation => ({
+      ...allocation,
+      collaborator: allocation.collaborator
+        ? { ...allocation.collaborator, role: allocation.collaborator.jobRole?.name || '' }
+        : allocation.collaborator
+    }))
+  };
+}
 
 function dateValue(value) {
   return new Date(`${parseDateKey(value)}T00:00:00.000Z`);
@@ -64,6 +77,7 @@ function missionData(payload, actorUserId, demands, responsible) {
     headquartersResponsibleName: responsible.name,
     headquartersResponsibleRole: responsible.role,
     headquartersResponsibleCollaboratorId: responsible.collaboratorId,
+    headquartersResponsibleUserId: responsible.userId,
     mobilizationDate: dateValue(payload.mobilizationDate),
     executionStartDate: dateValue(payload.executionStartDate),
     executionEndDate: dateValue(payload.executionEndDate),
@@ -75,11 +89,9 @@ function missionData(payload, actorUserId, demands, responsible) {
 
 export async function resolveMissionResponsible(tx, payload) {
   if (!payload.headquartersResponsibleUserId) {
-    return {
-      name: payload.headquartersResponsibleName.trim(),
-      role: payload.headquartersResponsibleRole.trim(),
-      collaboratorId: payload.headquartersResponsibleCollaboratorId || null
-    };
+    throw planningError('Selecione uma conta ativa de coordenador para o responsável da sede.', {
+      code: 'INVALID_MISSION_COORDINATOR'
+    });
   }
   const coordinator = await tx.user.findFirst({
     where: {
@@ -93,7 +105,7 @@ export async function resolveMissionResponsible(tx, payload) {
     select: {
       id: true,
       name: true,
-      collaborator: { select: { id: true, role: true } }
+      collaborator: { select: { id: true, jobRole: { select: { name: true } } } }
     }
   });
   if (!coordinator) {
@@ -105,7 +117,7 @@ export async function resolveMissionResponsible(tx, payload) {
     || (payload.headquartersResponsibleCollaboratorId
       ? await tx.collaborator.findUnique({
         where: { id: payload.headquartersResponsibleCollaboratorId },
-        select: { id: true, role: true }
+        select: { id: true, jobRole: { select: { name: true } } }
       })
       : null);
   if (payload.headquartersResponsibleCollaboratorId && !linkedCollaborator) {
@@ -113,8 +125,9 @@ export async function resolveMissionResponsible(tx, payload) {
   }
   return {
     name: coordinator.name,
-    role: linkedCollaborator?.role || payload.headquartersResponsibleRole.trim(),
-    collaboratorId: linkedCollaborator?.id || null
+    role: linkedCollaborator?.jobRole?.name || payload.headquartersResponsibleRole.trim(),
+    collaboratorId: linkedCollaborator?.id || null,
+    userId: coordinator.id
   };
 }
 
@@ -160,7 +173,7 @@ export async function listMissions(filters = {}, dependencies = {}) {
     ? await database.efetivoPlan.findUnique({ where: { id: filters.planId } })
     : await database.efetivoPlan.findFirst({ where: { kind: 'OFFICIAL', status: 'ACTIVE' } });
   if (!plan) return [];
-  return database.efetivoMissionPlan.findMany({
+  const missions = await database.efetivoMissionPlan.findMany({
     where: {
       planId: plan.id,
       deletedAt: null,
@@ -170,13 +183,14 @@ export async function listMissions(filters = {}, dependencies = {}) {
     include: missionInclude,
     orderBy: [{ stage: 'asc' }, { kanbanOrder: 'asc' }, { mobilizationDate: 'asc' }]
   });
+  return missions.map(missionWithCurrentRoles);
 }
 
 export async function getMission(missionId, dependencies = {}) {
   const database = await resolvePlanningDatabase(dependencies.database);
   const mission = await database.efetivoMissionPlan.findUnique({ where: { id: missionId }, include: missionInclude });
   if (!mission || mission.deletedAt) throw notFound('Missão operacional não encontrada.');
-  return mission;
+  return missionWithCurrentRoles(mission);
 }
 
 export async function createMission(payload, context = {}, dependencies = {}) {
@@ -249,7 +263,7 @@ export async function createMission(payload, context = {}, dependencies = {}) {
       afterData: mission,
       evidence: context.evidence
     });
-    return mission;
+    return missionWithCurrentRoles(mission);
   });
 }
 
@@ -290,7 +304,7 @@ export async function updateMission(missionId, payload, context = {}, dependenci
       summary: `Programação de ${updated.project.name} atualizada.`,
       beforeData: existing, afterData: updated, evidence: context.evidence
     });
-    return updated;
+    return missionWithCurrentRoles(updated);
   });
 }
 
@@ -337,6 +351,6 @@ export async function moveMissionStage(missionId, payload, context = {}, depende
       planId: plan.id, actorUserId: context.actorUserId, action: 'MISSION_STAGE_CHANGE', entityType: 'MISSION', entityId: missionId,
       summary: `${existing.project.name} movida para ${payload.stage}.`, beforeData: { stage: existing.stage, order: existing.kanbanOrder }, afterData: { stage: payload.stage, order: index }, evidence: context.evidence
     });
-    return moved;
+    return missionWithCurrentRoles(moved);
   });
 }

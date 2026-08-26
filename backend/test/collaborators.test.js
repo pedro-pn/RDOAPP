@@ -9,6 +9,7 @@ import {
 test('collaborator schema accepts empty nullable contact fields', () => {
   const parsed = collaboratorSchema.parse({
     name: 'Colaborador',
+    jobRoleId: 'role-1',
     role: 'Operador',
     email: null,
     signatureImage: null
@@ -21,6 +22,7 @@ test('collaborator schema accepts empty nullable contact fields', () => {
 test('collaborator schema normalizes blank contact fields to null', () => {
   const parsed = collaboratorSchema.parse({
     name: 'Colaborador',
+    jobRoleId: 'role-1',
     role: 'Operador',
     email: '',
     signatureImage: ''

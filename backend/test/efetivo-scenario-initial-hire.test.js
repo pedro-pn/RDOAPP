@@ -10,6 +10,7 @@ function fakeDatabase() {
     $transaction: async callback => callback(tx),
     $queryRawUnsafe: async () => [],
     $executeRawUnsafe: async () => 0,
+    workforceCalendarState: { findUnique: async () => ({ id: 'global', revision: 1 }) },
     efetivoPlan: {
       findFirst: async () => ({ id: 'oficial', kind: 'OFFICIAL', status: 'ACTIVE', revision: 4 }),
       findUnique: async () => ({ id: 'oficial', missions: [], plannedHires: [] }),

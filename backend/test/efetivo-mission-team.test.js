@@ -11,7 +11,6 @@ const role = (id, name) => ({ id, name, isActive: true, isOperational: true });
 const collaborator = (id, jobRole) => ({
   id,
   name: `Pessoa ${id}`,
-  role: jobRole.name,
   jobRoleId: jobRole.id,
   jobRole,
   isActive: true,
@@ -38,7 +37,7 @@ test('equipe selecionada deriva demanda pelos cargos canônicos', () => {
 test('missão confirmada exige pessoa e função operacional canônica', () => {
   assert.throws(() => deriveSelectedMissionTeam([], 'CONFIRMED'), /colaborador/i);
   assert.throws(() => deriveSelectedMissionTeam([{
-    id: 'c1', name: 'Sem função', role: 'Legado', jobRoleId: null, jobRole: null, isActive: true
+    id: 'c1', name: 'Sem função', jobRoleId: null, jobRole: null, isActive: true
   }], 'DRAFT'), /função operacional/i);
 });
 

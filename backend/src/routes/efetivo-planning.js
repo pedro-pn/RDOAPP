@@ -18,13 +18,16 @@ import { addMissionAllocation, listEligibleCollaborators, removeMissionAllocatio
 import { autoAllocateMission } from '../lib/efetivo/planning/auto-allocation.js';
 import { getPlanningCalendar } from '../lib/efetivo/planning/calendar.js';
 import {
-  createPlanningAbsence,
   createPlanningCollaborator,
-  deletePlanningAbsence,
-  listPlanningAbsences,
-  updatePlanningAbsence,
   updatePlanningCollaborator
 } from '../lib/efetivo/planning/collaborators.js';
+import {
+  createWorkforceAbsence,
+  deleteWorkforceAbsence,
+  listWorkforceAbsences,
+  updateWorkforceAbsence
+} from '../lib/collaborators/availability-service.js';
+import prisma from '../lib/prisma.js';
 import {
   createMission,
   deleteMission,
@@ -34,6 +37,8 @@ import {
   updateMission
 } from '../lib/efetivo/planning/mission-planning.js';
 import { requestEvidence } from '../lib/efetivo/planning/plan-context.js';
+import { getMissionExecutionComparison } from '../lib/efetivo/planning/execution-comparison.js';
+import { computeProjectProgress } from '../lib/acompanhamento/avanco.js';
 import {
   getPlanningOverview,
   listPendingMissionProjects,
@@ -125,19 +130,21 @@ router.patch('/collaborators/:collaboratorId', requireEfetivoManager, asyncHandl
 }));
 
 router.get('/absences', requireEfetivoViewer, asyncHandler(async (req, res) => {
-  res.json(await listPlanningAbsences(absenceListQuerySchema.parse(req.query)));
+  res.json(await listWorkforceAbsences(prisma, absenceListQuerySchema.parse(req.query)));
 }));
 
 router.post('/absences', requireEfetivoManager, asyncHandler(async (req, res) => {
-  res.status(201).json(await createPlanningAbsence(absenceInputSchema.parse(req.body), context(req)));
+  res.status(201).json(await createWorkforceAbsence(prisma, absenceInputSchema.parse(req.body), context(req)));
 }));
 
 router.patch('/absences/:absenceId', requireEfetivoManager, asyncHandler(async (req, res) => {
-  res.json(await updatePlanningAbsence(idSchema.parse(req.params.absenceId), absenceUpdateSchema.parse(req.body), context(req)));
+  const expectedVersion = z.coerce.number().int().min(1).parse(req.get('If-Match-Version'));
+  res.json(await updateWorkforceAbsence(prisma, idSchema.parse(req.params.absenceId), absenceUpdateSchema.parse(req.body), { ...context(req), expectedVersion }));
 }));
 
 router.delete('/absences/:absenceId', requireEfetivoManager, asyncHandler(async (req, res) => {
-  await deletePlanningAbsence(idSchema.parse(req.params.absenceId), context(req));
+  const expectedVersion = z.coerce.number().int().min(1).parse(req.get('If-Match-Version'));
+  await deleteWorkforceAbsence(prisma, idSchema.parse(req.params.absenceId), { ...context(req), expectedVersion });
   res.status(204).end();
 }));
 
@@ -155,6 +162,12 @@ router.get('/missions/pending', requireEfetivoViewer, asyncHandler(async (req, r
 
 router.get('/missions/:missionId', requireEfetivoViewer, asyncHandler(async (req, res) => {
   res.json(await getMission(idSchema.parse(req.params.missionId)));
+}));
+
+router.get('/missions/:missionId/execution', requireEfetivoViewer, asyncHandler(async (req, res) => {
+  res.json(await getMissionExecutionComparison(idSchema.parse(req.params.missionId), {
+    loadProgress: computeProjectProgress
+  }));
 }));
 
 router.patch('/missions/:missionId', requireEfetivoManager, asyncHandler(async (req, res) => {

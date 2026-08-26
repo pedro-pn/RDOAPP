@@ -18,13 +18,12 @@ const utcDate = value => new Date(`${value}T00:00:00.000Z`);
 
 async function seed(prisma) {
   const jobRole = await prisma.jobRole.create({
-    data: { name: `Operador ${suffix}`, isActive: true, isOperational: true }
+    data: { name: `Operador ${suffix}`, normalizedKey: `operador ${suffix}`, isActive: true, isOperational: true }
   });
   const collaborator = await prisma.collaborator.create({
     data: {
       code: `COL-${suffix}`,
       name: `Colaborador ${suffix}`,
-      role: jobRole.name,
       jobRoleId: jobRole.id,
       isActive: true,
       admissionDate: utcDate('2020-01-01')
@@ -40,6 +39,14 @@ async function seed(prisma) {
       location: 'Laboratório'
     }
   })));
+  const responsibleUser = await prisma.user.create({
+    data: {
+      username: `responsavel-${suffix}`,
+      name: `Responsável ${suffix}`,
+      passwordHash: 'test-only-not-a-real-hash',
+      role: 'MANAGER'
+    }
+  });
   // Plano de cenário: mantém o teste fora do planejamento oficial e ainda assim editável.
   const plan = await prisma.efetivoPlan.create({
     data: { kind: 'SCENARIO', status: 'DRAFT', name: `Concorrência ${suffix}` }
@@ -52,6 +59,7 @@ async function seed(prisma) {
       stage: 'STANDBY',
       headquartersResponsibleName: 'Coordenação de teste',
       headquartersResponsibleRole: 'Coordenador',
+      headquartersResponsibleUserId: responsibleUser.id,
       mobilizationDate: utcDate('2026-09-01'),
       executionStartDate: utcDate('2026-09-02'),
       executionEndDate: utcDate('2026-09-09'),
@@ -59,7 +67,7 @@ async function seed(prisma) {
       demands: { create: [{ jobRoleId: jobRole.id, requiredCount: 1 }] }
     }
   })));
-  return { jobRole, collaborator, projects, plan, missions };
+  return { jobRole, collaborator, responsibleUser, projects, plan, missions };
 }
 
 async function cleanup(prisma, data) {
@@ -72,6 +80,7 @@ async function cleanup(prisma, data) {
   await prisma.efetivoPlan.delete({ where: { id: data.plan.id } });
   await prisma.project.deleteMany({ where: { id: { in: data.projects.map(project => project.id) } } });
   await prisma.collaborator.delete({ where: { id: data.collaborator.id } });
+  await prisma.user.delete({ where: { id: data.responsibleUser.id } });
   await prisma.jobRole.delete({ where: { id: data.jobRole.id } });
 }
 

@@ -60,17 +60,17 @@ test('período é mapeado para todos os meses afetados', () => {
 
 test('formulário de férias usa listagem mínima própria do módulo', async () => {
   let query;
-  const expected = [{ id: 'collaborator-1', name: 'Ana', role: 'Operadora', isActive: true }];
+  const stored = [{ id: 'collaborator-1', name: 'Ana', jobRoleId: 'role-1', jobRole: { id: 'role-1', name: 'Operadora' }, isActive: true }];
   const database = {
     collaborator: {
       findMany: async options => {
         query = options;
-        return expected;
+        return stored;
       }
     }
   };
   const result = await listEfetivoCollaborators({ database, laborCost: {} });
-  assert.equal(result, expected);
-  assert.deepEqual(query.select, { id: true, name: true, role: true, isActive: true });
+  assert.deepEqual(result, [{ id: 'collaborator-1', name: 'Ana', jobRoleId: 'role-1', jobRole: { id: 'role-1', name: 'Operadora' }, isActive: true, currentRoleName: 'Operadora', role: 'Operadora' }]);
+  assert.deepEqual(query.select, { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } }, isActive: true });
   assert.deepEqual(query.orderBy, { name: 'asc' });
 });
