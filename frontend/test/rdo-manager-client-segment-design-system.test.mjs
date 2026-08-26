@@ -35,7 +35,7 @@ test('B.11 preserva abertura, limpeza e fechamento do formulário de segmento', 
 
   const launchers = [
     ...manager.matchAll(
-      /<button className="mini-btn alt" type="button" onClick=\{openSegmentForm\}>\+ Adicionar segmento<\/button>/g
+      /<Button variant="secondary" size="sm" type="button" onClick=\{openSegmentForm\}>\+ Adicionar segmento<\/Button>/g
     )
   ];
   assert.equal(launchers.length, 2);

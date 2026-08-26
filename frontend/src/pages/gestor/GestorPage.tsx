@@ -3746,7 +3746,7 @@ export function GestorPage() {
                   <option key={s.slug} value={s.slug}>{s.label}</option>
                 ))}
               </select>
-              <button className="mini-btn alt" type="button" onClick={openSegmentForm}>+ Adicionar segmento</button>
+              <Button variant="secondary" size="sm" type="button" onClick={openSegmentForm}>+ Adicionar segmento</Button>
             </div>
             <div className="field-group">
               <label htmlFor={`project-visible-${project.id}`}>Visibilidade / criação de relatórios</label>
@@ -3925,7 +3925,7 @@ export function GestorPage() {
                       <option key={s.slug} value={s.slug}>{s.label}</option>
                     ))}
                   </select>
-                  <button className="mini-btn alt" type="button" onClick={openSegmentForm}>+ Adicionar segmento</button>
+                  <Button variant="secondary" size="sm" type="button" onClick={openSegmentForm}>+ Adicionar segmento</Button>
                 </div>
                 <div className="field-group">
                   <label htmlFor="project-visible">Visibilidade / criação de relatórios</label>
@@ -3991,7 +3991,7 @@ export function GestorPage() {
                   </select>
                 </div>
                 <div className="admin-form-actions">
-                  <button className="mini-btn" type="submit" disabled={projectMutations.createProject.isPending}>Criar projeto</button>
+                  <Button variant="primary" type="submit" disabled={projectMutations.createProject.isPending}>Criar projeto</Button>
                 </div>
               </form>
           </Card>

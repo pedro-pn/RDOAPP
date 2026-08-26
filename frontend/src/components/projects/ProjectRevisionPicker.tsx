@@ -7,6 +7,7 @@ import {
   setProjectAdditionalRevision,
   setProjectRevision
 } from '../../api/acompanhamentoComercial';
+import { Button } from '../ui/ds';
 import { useToast } from '../ui/ToastContext';
 
 function formatBRL(value?: string | number | null) {
@@ -97,14 +98,15 @@ export function ProjectRevisionPicker({ projectId }: { projectId: string }) {
                 </option>
               ))}
             </select>
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               type="button"
-              className="mini-btn"
               disabled={mutation.isPending || chosen === null || chosen === current}
               onClick={() => chosen !== null && mutation.mutate(chosen)}
             >
               {mutation.isPending ? 'Aplicando…' : 'Aplicar'}
-            </button>
+            </Button>
           </span>
         </div>
       ) : null}
@@ -129,23 +131,25 @@ export function ProjectRevisionPicker({ projectId }: { projectId: string }) {
                   </option>
                 ))}
               </select>
-              <button
+              <Button
+                variant="primary"
+                size="sm"
                 type="button"
-                className="mini-btn"
                 disabled={additionalMutation.isPending || additionalChosen === null || additionalChosen === group.currentCodBd}
                 onClick={() => additionalChosen !== null && additionalMutation.mutate(additionalChosen)}
               >
                 {additionalMutation.isPending ? 'Aplicando…' : group.currentCodBd ? 'Aplicar' : 'Adicionar'}
-              </button>
+              </Button>
               {group.currentCodBd ? (
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   type="button"
-                  className="mini-btn alt"
                   disabled={removeAdditionalMutation.isPending || !Number.isInteger(proposalCode)}
                   onClick={() => Number.isInteger(proposalCode) && removeAdditionalMutation.mutate(proposalCode)}
                 >
                   {removeAdditionalMutation.isPending ? 'Removendo…' : 'Remover'}
-                </button>
+                </Button>
               ) : null}
             </span>
           </div>

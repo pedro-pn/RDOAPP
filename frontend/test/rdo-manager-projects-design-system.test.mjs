@@ -117,6 +117,10 @@ test('Projetos preserva bootstrap, busca, ordenação e contratos CRUD', () => {
 
 test('Projetos reaproveita o card DS e mantém formulários e revisões isolados', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
+  const pendingReview = source('src/pages/gestor/PendingProjectReviewForm.tsx');
+  const revisionPicker = source(
+    'src/components/projects/ProjectRevisionPicker.tsx'
+  );
   const projectCard = sectionBetween(
     page,
     'function renderProjectCard',
@@ -168,6 +172,35 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
       /<Button variant="primary" size="sm" type="button"[^>]*>[\s\S]*?\+ Adicionar[\s\S]*?<\/Button>/g
     )?.length,
     2
+  );
+  assert.equal(
+    projectsTab.match(
+      /<Button variant="secondary" size="sm" type="button" onClick=\{openSegmentForm\}>\+ Adicionar segmento<\/Button>/g
+    )?.length,
+    2
+  );
+  assert.match(
+    projectsTab,
+    /<Button variant="primary" type="submit" disabled=\{projectMutations\.createProject\.isPending\}>Criar projeto<\/Button>/
+  );
+
+  assert.doesNotMatch(revisionPicker, /mini-btn/);
+  assert.match(
+    revisionPicker,
+    /<Button[\s\S]*?variant="primary"[\s\S]*?size="sm"[\s\S]*?mutation\.isPending[\s\S]*?Aplicar/
+  );
+  assert.match(
+    revisionPicker,
+    /<Button[\s\S]*?variant="secondary"[\s\S]*?size="sm"[\s\S]*?removeAdditionalMutation\.isPending[\s\S]*?Remover/
+  );
+  assert.doesNotMatch(pendingReview, /mini-btn/);
+  assert.match(
+    pendingReview,
+    /<Button variant="primary" type="submit" disabled=\{saving\}>Confirmar e salvar<\/Button>/
+  );
+  assert.match(
+    pendingReview,
+    /<Button variant="secondary" size="sm" type="button" onClick=\{onCancel\}>Cancelar revisão<\/Button>/
   );
 });
 

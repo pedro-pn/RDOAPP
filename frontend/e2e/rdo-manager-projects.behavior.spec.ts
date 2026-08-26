@@ -136,6 +136,15 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
   await expect(addButtons).toHaveCount(2);
   await expect(addButtons.first()).toHaveClass(/\bfv-button--primary\b/);
   await expect(addButtons.nth(1)).toHaveClass(/\bfv-button--primary\b/);
+  await expect(
+    project.getByRole('button', {
+      name: '+ Adicionar segmento',
+      exact: true
+    })
+  ).toHaveClass(/\bfv-button--secondary\b/);
+  await expect(
+    surface.locator('.project-revision-picker .mini-btn')
+  ).toHaveCount(0);
   await project
     .getByRole('button', { name: 'Cancelar edição', exact: true })
     .click();
@@ -147,6 +156,16 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
   await expect(
     newProjectForm.getByRole('textbox', { name: 'Número da missão' })
   ).toBeVisible();
+  await expect(
+    newProjectForm.getByRole('button', {
+      name: '+ Adicionar segmento',
+      exact: true
+    })
+  ).toHaveClass(/\bfv-button--secondary\b/);
+  await expect(
+    newProjectForm.getByRole('button', { name: 'Criar projeto', exact: true })
+  ).toHaveClass(/\bfv-button--primary\b/);
+  await expect(newProjectForm.locator('.mini-btn')).toHaveCount(0);
   await newProjectForm
     .getByRole('button', { name: 'Cancelar', exact: true })
     .click();
@@ -229,7 +248,7 @@ test('Projetos valida desktop/mobile em light/dark e formulário sem overflow', 
     await expect(
       surface.locator(
         ':scope > .rdo-manager-projects__list > .admin-card, ' +
-          '.rdo-active-project-card > .fv-card__footer .mini-btn, ' +
+          '.mini-btn, ' +
           '.rdo-manager-projects__toolbar .secondary-button'
       )
     ).toHaveCount(0);
@@ -241,5 +260,6 @@ test('Projetos valida desktop/mobile em light/dark e formulário sem overflow', 
   await expectNoHorizontalOverflow(page, surface);
   await expect(
     newProjectForm.getByRole('button', { name: 'Criar projeto', exact: true })
-  ).toBeVisible();
+  ).toHaveClass(/\bfv-button--primary\b/);
+  await expect(newProjectForm.locator('.mini-btn')).toHaveCount(0);
 });
