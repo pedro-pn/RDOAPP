@@ -1181,6 +1181,7 @@ export function GestorPage() {
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showSegmentForm, setShowSegmentForm] = useState(false);
   const [segmentLabel, setSegmentLabel] = useState('');
+  const segmentLabelInputRef = useRef<HTMLInputElement>(null);
   const [archiveSurveyProject, setArchiveSurveyProject] = useState<Project | null>(null);
   const archiveSurveyCancelRef = useRef<HTMLButtonElement>(null);
   const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
@@ -4803,27 +4804,55 @@ export function GestorPage() {
       <Modal
         open={showSegmentForm}
         onClose={closeSegmentForm}
+        appearance="design-system"
+        size="sm"
+        panelClassName="rdo-manager-segment-dialog rdo-ds-actions"
         ariaLabelledBy="client-segment-title"
+        initialFocusRef={segmentLabelInputRef}
+        showCloseButton={false}
+        title={
+          <h2 className="rdo-manager-segment-dialog__title">
+            Adicionar segmento
+          </h2>
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              disabled={projectSegmentMutations.createSegment.isPending}
+              onClick={closeSegmentForm}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              type="submit"
+              form="client-segment-form"
+              loading={projectSegmentMutations.createSegment.isPending}
+              loadingLabel="Salvando segmento…"
+            >
+              Salvar segmento
+            </Button>
+          </>
+        }
       >
-        <form className="admin-form" onSubmit={handleSegmentSubmit}>
-          <div className="section-title" id="client-segment-title">Adicionar segmento</div>
-          <div className="field-group">
-            <label htmlFor="client-segment-label">Nome</label>
-            <input
-              id="client-segment-label"
+        <form
+          id="client-segment-form"
+          className="rdo-manager-segment-dialog__form"
+          onSubmit={handleSegmentSubmit}
+        >
+          <Field id="client-segment-label" label="Nome" required>
+            <Input
+              ref={segmentLabelInputRef}
               value={segmentLabel}
-              onChange={event => setSegmentLabel(event.target.value)}
+              onChange={(event) => setSegmentLabel(event.target.value)}
+              autoComplete="off"
               required
             />
-          </div>
-          <div className="admin-form-actions segment-dialog-actions">
-            <button className="secondary-button" type="button" onClick={closeSegmentForm}>
-              Cancelar
-            </button>
-            <button className="primary-button" type="submit" disabled={projectSegmentMutations.createSegment.isPending}>
-              Salvar segmento
-            </button>
-          </div>
+          </Field>
         </form>
       </Modal>
 

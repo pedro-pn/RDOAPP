@@ -670,3 +670,42 @@
     width: 100%;
   }
 }
+
+/* ── RDO B.11 — diálogo Adicionar segmento ──────────────────────────────────
+   O opt-in permanece restrito a esta instância. O Modal e os campos do DS
+   fornecem superfície, foco, validação nativa e temas; as regras locais cuidam
+   apenas da composição do formulário e do footer responsivo. */
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-segment-dialog
+  .rdo-manager-segment-dialog__title {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-segment-dialog
+  .rdo-manager-segment-dialog__form {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-5);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-segment-dialog .fv-modal__footer {
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+@media (max-width: 480px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-segment-dialog .fv-modal__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-segment-dialog
+    .fv-modal__footer
+    .fv-button {
+    width: 100%;
+  }
+}

@@ -128,7 +128,7 @@ test('diálogo de numeração preserva conteúdo, constraints e estados pending'
   );
 });
 
-test('diálogo de numeração mantém opt-in DS e só a B.10 amplia os Modals autorizados', () => {
+test('diálogo de numeração mantém opt-in DS e só B.10/B.11 ampliam os Modals autorizados', () => {
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const modal = source('src/components/ui/Modal.tsx');
   const reasonDialog = source('src/components/ui/ReasonDialog.tsx');
@@ -144,6 +144,11 @@ test('diálogo de numeração mantém opt-in DS e só a B.10 amplia os Modals au
     manager,
     '<Modal\n        open={Boolean(archiveSurveyProject)}',
     '<Modal\n        open={showSurveyQuestionEditor}'
+  );
+  const segmentDialog = sectionBetween(
+    manager,
+    '<Modal\n        open={showSegmentForm}',
+    '<Modal\n        open={Boolean(archiveSurveyProject)}'
   );
   const detailSequenceDialog = sectionBetween(
     reportDetail,
@@ -162,6 +167,7 @@ test('diálogo de numeração mantém opt-in DS e só a B.10 amplia os Modals au
   );
   const managerWithoutAuthorizedDialogs = manager
     .replace(sequenceDialog, '')
+    .replace(segmentDialog, '')
     .replace(archiveProjectDialog, '');
   const otherManagerModals = [
     ...managerWithoutAuthorizedDialogs.matchAll(/<Modal\b[\s\S]*?<\/Modal>/g)
@@ -179,11 +185,12 @@ test('diálogo de numeração mantém opt-in DS e só a B.10 amplia os Modals au
     archiveProjectDialog,
     /<Modal\b[\s\S]*?appearance="design-system"/
   );
+  assert.match(segmentDialog, /<Modal\b[\s\S]*?appearance="design-system"/);
   for (const otherModal of otherManagerModals) {
     assert.doesNotMatch(
       otherModal,
       /appearance="design-system"/,
-      'nenhum Modal além das instâncias B.4 e B.10 pode receber opt-in DS'
+      'nenhum Modal além das instâncias B.4, B.10 e B.11 pode receber opt-in DS'
     );
   }
   assert.doesNotMatch(
