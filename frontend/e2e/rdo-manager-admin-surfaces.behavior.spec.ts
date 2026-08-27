@@ -196,9 +196,19 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
     name: 'Usuários internos'
   });
   await expect(internalUsersTable).toBeVisible();
-  await expect(internalUsersTable.locator('tbody tr[data-row-id]')).toHaveCount(
-    5
+  const internalUserCount = Number.parseInt(
+    (await page.locator('.rdo-users__table-summary strong').innerText()).match(
+      /\d+/
+    )?.[0] || '0',
+    10
   );
+  await expect(internalUsersTable.locator('tbody tr[data-row-id]')).toHaveCount(
+    internalUserCount
+  );
+  await expect(page.locator('.fv-pagination')).toHaveCount(0);
+  await expect(
+    page.getByRole('combobox', { name: 'Itens por página' })
+  ).toHaveCount(0);
   const userTabs = page.getByRole('tablist', { name: 'Tipo de usuário' });
   await expect(userTabs.getByRole('tab')).toHaveCount(2);
 
@@ -368,8 +378,20 @@ test('Equipe e Usuários mantêm light/dark e desktop/mobile sem overflow', asyn
 
       if (section === 'usuarios') {
         const usersSurface = surface.locator('.rdo-users');
+        const internalUserCount = Number.parseInt(
+          (
+            await usersSurface
+              .locator('.rdo-users__table-summary strong')
+              .innerText()
+          ).match(/\d+/)?.[0] || '0',
+          10
+        );
+        await expect(usersSurface.locator('.fv-pagination')).toHaveCount(0);
         if (scenario.width < 768) {
           await expect(usersSurface.locator('.fv-mobile-list')).toBeVisible();
+          await expect(
+            usersSurface.locator('.fv-mobile-list__item')
+          ).toHaveCount(internalUserCount);
           await expect(
             usersSurface.getByRole('table', { name: 'Usuários internos' })
           ).toHaveCount(0);
@@ -380,6 +402,9 @@ test('Equipe e Usuários mantêm light/dark e desktop/mobile sem overflow', asyn
           await expect(
             usersSurface.getByRole('table', { name: 'Usuários internos' })
           ).toBeVisible();
+          await expect(
+            usersSurface.locator('tbody tr[data-row-id]')
+          ).toHaveCount(internalUserCount);
           await expect(usersSurface.locator('.fv-mobile-list')).toHaveCount(0);
         }
       }

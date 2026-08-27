@@ -52,7 +52,6 @@ import {
   IconButton,
   Input,
   MetricCard,
-  Pagination,
   SearchInput,
   Select,
   Skeleton,
@@ -1805,12 +1804,6 @@ export function GestorPage() {
   const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>('all');
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>('all');
   const [userSortMode, setUserSortMode] = useState<UserSortMode>('name-asc');
-  const [userPage, setUserPage] = useState(1);
-  const [userPageSize, setUserPageSize] = useState(5);
-
-  useEffect(() => {
-    setUserPage(1);
-  }, [gestorSearch, userAdminGroup, userRoleFilter, userSortMode, userStatusFilter]);
 
   const [returnReport, setReturnReport] = useState<ReportSummary | null>(null);
   const returnReportTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -5300,15 +5293,6 @@ export function GestorPage() {
       );
     }
     const showInternal = userAdminGroup === 'internal';
-    const internalTotalPages = Math.max(
-      1,
-      Math.ceil(internalUsers.length / userPageSize)
-    );
-    const currentInternalPage = Math.min(userPage, internalTotalPages);
-    const visibleInternalUsers = internalUsers.slice(
-      (currentInternalPage - 1) * userPageSize,
-      currentInternalPage * userPageSize
-    );
 
     function openInternalUserEditor(item: InternalUserSummary) {
       if (showUserForm && userEditingId === item.id) {
@@ -5624,7 +5608,7 @@ export function GestorPage() {
 
           <DataTable
             className="rdo-users__table"
-            rows={visibleInternalUsers}
+            rows={internalUsers}
             columns={internalUserColumns}
             getRowId={item => item.id}
             ariaLabel="Usuários internos"
@@ -5649,20 +5633,6 @@ export function GestorPage() {
               <EmptyState
                 title="Nenhum usuário interno encontrado."
                 description="Revise a busca ou os filtros aplicados."
-              />
-            }
-            pagination={
-              <Pagination
-                page={currentInternalPage}
-                total={internalUsers.length}
-                pageSize={userPageSize}
-                pageSizeOptions={[5, 10, 25]}
-                onPageChange={setUserPage}
-                onPageSizeChange={pageSize => {
-                  setUserPageSize(pageSize);
-                  setUserPage(1);
-                }}
-                label="Paginação dos usuários internos"
               />
             }
             mobile={{

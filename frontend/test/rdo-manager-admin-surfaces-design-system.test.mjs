@@ -71,8 +71,13 @@ test('Usuários usa toolbar, listagem responsiva e formulários DS sem alterar c
   assert.match(users, /aria-label="Tipo de usuário"/);
   assert.match(users, /<DataTable\b/);
   assert.match(users, /className="rdo-users__table"/);
+  assert.match(users, /rows=\{internalUsers\}/);
   assert.match(users, /renderRowDetails=\{item =>/);
-  assert.match(users, /<Pagination\b/);
+  assert.doesNotMatch(page, /<Pagination\b/);
+  assert.doesNotMatch(
+    users,
+    /userPage|userPageSize|visibleInternalUsers|currentInternalPage|internalTotalPages/
+  );
   assert.match(users, /data-user-form=\{mode\}/);
   assert.match(users, /<Field\b/);
   assert.match(users, /<Input\b/);
