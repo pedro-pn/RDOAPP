@@ -564,6 +564,21 @@
   min-block-size: calc(var(--space-10) + var(--space-1));
 }
 
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]).rdo-manager-sequence-dialog-backdrop {
+    align-items: center;
+    padding: var(--space-4);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-sequence-dialog-modal {
+    width: min(100%, var(--fv-modal-width));
+    height: auto;
+    max-height: calc(100dvh - var(--space-8));
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+}
+
 :where(.fv-ds, [data-fv-ds])
   .reason-dialog--design-system
   .reason-dialog__content {

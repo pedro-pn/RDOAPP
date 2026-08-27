@@ -4139,13 +4139,15 @@ export function GestorPage() {
         title="Alterar numeração"
         ariaLabelledBy="report-sequence-edit-title"
         ariaDescribedBy="report-sequence-edit-description"
+        backdropClassName="rdo-manager-sequence-dialog-backdrop"
         panelClassName="rdo-manager-sequence-dialog-modal"
+        fullscreenOnMobile={false}
         initialFocusRef={sequenceEditInputRef}
         footer={
           <>
             <Button
               variant="secondary"
-              size="lg"
+              size="md"
               type="button"
               disabled={reportMutations.updateSequence.isPending}
               onClick={closeReportSequenceEdit}
@@ -4154,7 +4156,7 @@ export function GestorPage() {
             </Button>
             <Button
               variant="primary"
-              size="lg"
+              size="md"
               type="submit"
               form="report-sequence-edit-form"
               disabled={reportMutations.updateSequence.isPending}

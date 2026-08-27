@@ -90,6 +90,15 @@ test('diálogo de numeração preserva conteúdo, constraints e estados pending'
   assert.match(sequenceDialog, /open=\{!!sequenceEditReport\}/);
   assert.match(sequenceDialog, /onClose=\{closeReportSequenceEdit\}/);
   assert.match(
+    sequenceDialog,
+    /backdropClassName="rdo-manager-sequence-dialog-backdrop"/
+  );
+  assert.match(
+    sequenceDialog,
+    /panelClassName="rdo-manager-sequence-dialog-modal"/
+  );
+  assert.match(sequenceDialog, /fullscreenOnMobile=\{false\}/);
+  assert.match(
     manager,
     /const sequenceEditInputRef = useRef<HTMLInputElement>\(null\)/
   );
@@ -126,6 +135,21 @@ test('diálogo de numeração preserva conteúdo, constraints e estados pending'
     sequenceDialog,
     /reportMutations\.updateSequence\.isPending\s*\?\s*'Salvando\.\.\.'\s*:\s*'Salvar número'/
   );
+});
+
+test('diálogo de numeração permanece compacto e centralizado no mobile', () => {
+  const styles = source('src/pages/gestor/GestorPage.ds.css');
+  const mobileDialog = sectionBetween(
+    styles,
+    '@media (max-width: 768px) {\n  :where(.fv-ds, [data-fv-ds]).rdo-manager-sequence-dialog-backdrop',
+    ':where(.fv-ds, [data-fv-ds])\n  .reason-dialog--design-system'
+  );
+
+  assert.match(mobileDialog, /align-items: center/);
+  assert.match(mobileDialog, /padding: var\(--space-4\)/);
+  assert.match(mobileDialog, /height: auto/);
+  assert.match(mobileDialog, /max-height: calc\(100dvh - var\(--space-8\)\)/);
+  assert.match(mobileDialog, /border-radius: var\(--radius-lg\)/);
 });
 
 test('diálogo de numeração mantém opt-in DS e só B.10/B.11 ampliam os Modals autorizados', () => {

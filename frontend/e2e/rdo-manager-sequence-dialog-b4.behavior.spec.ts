@@ -182,5 +182,23 @@ test('B.4 caracteriza o diálogo de numeração sem executar mutações', async 
     await expectListingStatePreserved();
   });
 
+  await test.step('diálogo compacto no mobile', async () => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await openAndCharacterizeDialog();
+    await expect(dialog).not.toHaveClass(/fv-modal--mobile-fullscreen/);
+
+    const box = await dialog.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box?.x).toBeGreaterThan(0);
+    expect(box?.y).toBeGreaterThan(0);
+    expect(box?.width).toBeLessThan(375);
+    expect(box?.height).toBeLessThan(812);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(launcher).toBeFocused();
+    await expectListingStatePreserved();
+  });
+
   expect(mutationAttempts).toEqual([]);
 });
