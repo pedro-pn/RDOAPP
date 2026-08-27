@@ -142,6 +142,10 @@ test('manager pending and approved pages compose actions, search and real metric
   assert.match(page, /Criar Relatório/);
   assert.match(
     page,
+    /\{renderReportSummary\(\)\}\s*\{reportListingTab \? renderGestorSearch\(\) : null\}/
+  );
+  assert.match(
+    page,
     /label="Aguardando revisão"[\s\S]*?value=\{pendingCount\}/
   );
   assert.match(page, /label="Aprovados"[\s\S]*?value=\{approvedCount\}/);
@@ -186,6 +190,22 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   assert.match(
     pageCss,
     /\.rdo-team \.rdo-admin-tab,\s*[\s\S]*?\.rdo-users \.rdo-admin-tab\s*\{[\s\S]*?min-height:\s*calc\(var\(--space-8\) \+ var\(--space-1\)\)/
+  );
+  assert.match(
+    pageCss,
+    /\.fv-control-shell[\s\S]*?:where\(\.fv-input, \.fv-select\)[\s\S]*?font-size:\s*var\(--text-base\)/
+  );
+  assert.match(
+    pageCss,
+    /\.fv-mobile-list__item[\s\S]*?> \.fv-card\s*\{[\s\S]*?padding:\s*var\(--space-2\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-admin-form\s*\{[\s\S]*?gap:\s*var\(--space-3\)[\s\S]*?padding:\s*var\(--space-3\)/
+  );
+  assert.match(
+    pageCss,
+    /\.client-account-button-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 3fr\) minmax\(0, 2fr\)/
   );
   assert.match(
     pageCss,

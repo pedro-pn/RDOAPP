@@ -6670,7 +6670,6 @@ export function GestorPage() {
                     </span>
                   </Button>
                 ) : null}
-                {renderGestorSearch()}
               </>
             }
           />
@@ -6709,6 +6708,7 @@ export function GestorPage() {
         ) : null}
         {archivedProjectsTab ? renderGestorSearch() : null}
         {renderReportSummary()}
+        {reportListingTab ? renderGestorSearch() : null}
         {renderProjectMetrics()}
         {renderAdminMetrics()}
         {renderTabContent()}

@@ -56,7 +56,7 @@ test('RDO manager navigation preserves unrelated query params and canonical pend
   );
 });
 
-test('RDO manager renders one compact accessible mobile menu instead of global tabs', () => {
+test('RDO manager renders one compact accessible mobile toggle group instead of a dropdown', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
   const navigation = source('src/pages/gestor/RdoSectionNavigation.tsx');
   const css = source('src/pages/gestor/GestorPage.ds.css');
@@ -70,12 +70,15 @@ test('RDO manager renders one compact accessible mobile menu instead of global t
     navigation,
     /aria-label="Navegar nas áreas de Relatórios e Projetos"/
   );
-  assert.match(navigation, /aria-haspopup="menu"/);
-  assert.match(navigation, /role="menu"/);
-  assert.match(navigation, /role="menuitem"/);
+  assert.match(navigation, /role="group"/);
+  assert.match(navigation, /aria-pressed=\{active\}/);
   assert.match(navigation, /aria-current=\{active \? 'page' : undefined\}/);
-  assert.match(navigation, /event\.key === 'Escape'/);
-  assert.match(navigation, /'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'/);
+  assert.match(
+    navigation,
+    /'ArrowDown',[\s\S]*?'ArrowUp',[\s\S]*?'ArrowLeft',[\s\S]*?'ArrowRight'/
+  );
+  assert.match(navigation, /'Home',[\s\S]*?'End'/);
+  assert.doesNotMatch(navigation, /aria-haspopup|role="menu"|role="menuitem"/);
   assert.doesNotMatch(navigation, /<Select\b|<option\b/);
   assert.doesNotMatch(
     navigation,
@@ -86,7 +89,11 @@ test('RDO manager renders one compact accessible mobile menu instead of global t
     css,
     /\.rdo-section-navigation\s*\{[\s\S]*border:\s*0[\s\S]*background:\s*transparent/
   );
-  assert.match(css, /\.rdo-section-navigation__items\s*\{[\s\S]*repeat\(2,/);
+  assert.match(css, /\.rdo-section-navigation__items\s*\{[\s\S]*repeat\(4,/);
+  assert.match(
+    css,
+    /@media \(min-width: 768px\) and \(max-width: 1024px\)[\s\S]*?\.rdo-section-navigation__items\s*\{[\s\S]*?repeat\(8,/
+  );
   assert.match(
     css,
     /@media \(min-width:\s*1024px\)[\s\S]*\.rdo-section-navigation\s*\{[\s\S]*display:\s*none/

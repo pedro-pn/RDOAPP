@@ -121,6 +121,10 @@ test('CSS administrativo permanece escopado, tokenizado e responsivo', () => {
   assert.match(block, /\.rdo-admin-tabs/);
   assert.match(block, /\.rdo-admin-person-card/);
   assert.match(block, /\.rdo-client-account-card/);
+  assert.match(
+    block,
+    /\.rdo-admin-form[\s\S]*?\.fv-control-shell[\s\S]*?:where\(\.fv-input, \.fv-select\)\s*\{[\s\S]*?background:\s*transparent/
+  );
   assert.match(block, /@media \(max-width: 480px\)/);
   assert.match(block, /var\(--/);
   assert.doesNotMatch(block, /#[\da-f]{3,8}\b/i);

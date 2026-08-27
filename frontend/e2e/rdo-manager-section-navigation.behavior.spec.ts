@@ -66,7 +66,7 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
     expect(scrollContract).toEqual({ overflowY: 'auto', scrollable: true });
   });
 
-  test('mobile usa o menu compacto por teclado, preserva a rota e não cria overflow', async ({
+  test('mobile usa o grupo segmentado por teclado, preserva a rota e não cria overflow', async ({
     page
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
@@ -74,43 +74,30 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
     await page.goto(MANAGER_HOME);
     await expectManagerRdoMobileNavigation(page);
 
-    const trigger = page.getByRole('button', {
-      name: 'Área atual: Pendentes. Trocar área do RDO'
-    });
-    await expect(trigger).toHaveText('Pendentes');
-    await expect(trigger).not.toContainText('Relatórios e Projetos ·');
-
-    await trigger.click();
-    const menu = page.getByRole('menu', {
+    const navigation = page.getByRole('group', {
       name: 'Áreas de Relatórios e Projetos'
     });
-    await expect(menu).toBeVisible();
-    await expect(menu.getByRole('menuitem')).toHaveCount(8);
-    const pendingItem = menu.getByRole('menuitem', {
+    await expect(navigation.getByRole('button')).toHaveCount(8);
+    const pendingItem = navigation.getByRole('button', {
       name: 'Pendentes',
       exact: true
     });
     await expect(pendingItem).toHaveAttribute('aria-current', 'page');
-    await expect(pendingItem).toBeFocused();
+    await expect(pendingItem).toHaveAttribute('aria-pressed', 'true');
+    await pendingItem.focus();
     await pendingItem.press('ArrowRight');
     await expect(
-      menu.getByRole('menuitem', { name: 'Aprovados', exact: true })
+      navigation.getByRole('button', { name: 'Aprovados', exact: true })
     ).toBeFocused();
-    await page.keyboard.press('Escape');
-    await expect(menu).toBeHidden();
-    await expect(trigger).toBeFocused();
-
-    await trigger.click();
-    await menu
-      .getByRole('menuitem', { name: 'Arquivados', exact: true })
+    await navigation
+      .getByRole('button', { name: 'Arquivados', exact: true })
       .click();
     await expect(page).toHaveURL(/\/rdo\/gestor\?tab=arquivados$/);
     await expect(
-      page.getByRole('button', {
-        name: 'Área atual: Arquivados. Trocar área do RDO'
-      })
-    ).toHaveText('Arquivados');
-    await expect(menu).toBeHidden();
+      page
+        .getByRole('group', { name: 'Áreas de Relatórios e Projetos' })
+        .getByRole('button', { name: 'Arquivados', exact: true })
+    ).toHaveAttribute('aria-current', 'page');
     await expect
       .poll(() =>
         page.evaluate(

@@ -264,17 +264,28 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
       .closest('form')
       ?.querySelector('input:not([readonly])')
       ?.closest('.fv-control-shell');
+    const inputRect = element.getBoundingClientRect();
+    const shellRect = shell?.getBoundingClientRect();
 
     return {
       continuousSurface:
         Boolean(shell && editableShell) &&
         window.getComputedStyle(shell!).backgroundColor ===
           window.getComputedStyle(editableShell!).backgroundColor,
+      innerSurface: window.getComputedStyle(element).backgroundColor,
+      contained:
+        Boolean(shellRect) &&
+        inputRect.left >= shellRect!.left &&
+        inputRect.right <= shellRect!.right &&
+        inputRect.top >= shellRect!.top &&
+        inputRect.bottom <= shellRect!.bottom,
       readOnlyState: shell?.getAttribute('data-readonly')
     };
   });
   expect(usernameSurface).toEqual({
     continuousSurface: true,
+    innerSurface: 'rgba(0, 0, 0, 0)',
+    contained: true,
     readOnlyState: 'true'
   });
   await readonlyUsername.focus();

@@ -213,8 +213,12 @@
 
 @media (max-width: 768px) {
   :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview {
-    gap: var(--space-3);
-    padding-block-end: var(--space-4);
+    gap: var(--space-2);
+    padding-block-end: var(--space-3);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__section.fv-card {
+    padding: var(--space-3);
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__count-grid {
@@ -235,11 +239,11 @@
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview .stats-ov-count-card {
-    min-width: calc(var(--space-16) * 2 + var(--space-4));
+    min-width: calc(var(--space-16) * 2);
     min-height: var(--space-16);
-    flex: 1 0 calc(var(--space-16) * 2 + var(--space-4));
+    flex: 1 0 calc(var(--space-16) * 2);
     gap: var(--space-2);
-    padding: var(--space-3);
+    padding: var(--space-2);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-e0);
     scroll-snap-align: start;
@@ -249,14 +253,14 @@
     .rdo-stats-overview
     .stats-ov-count-card
     .fv-metric-card__icon {
-    width: var(--space-8);
-    height: var(--space-8);
+    width: calc(var(--space-8) - var(--space-1));
+    height: calc(var(--space-8) - var(--space-1));
     border-radius: var(--radius-sm);
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview .stats-ov-count-value {
-    font-size: var(--text-lg);
-    line-height: var(--leading-lg);
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
   }
 
   :where(.fv-ds, [data-fv-ds])

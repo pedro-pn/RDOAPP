@@ -114,9 +114,27 @@
 }
 
 @media (max-width: 767.98px) {
+  .fv-ds.rdo-dds-themes .rdo-dds-themes__card > .fv-card__body {
+    gap: var(--space-3);
+  }
+
+  .fv-ds.rdo-dds-themes .rdo-dds-themes__card h2 {
+    font-size: var(--text-lg);
+    line-height: var(--leading-lg);
+  }
+
+  .fv-ds.rdo-dds-themes .rdo-dds-themes__title {
+    gap: var(--space-2);
+  }
+
+  .fv-ds.rdo-dds-themes .rdo-dds-themes__title-icon {
+    width: calc(var(--space-8) + var(--space-1));
+    height: calc(var(--space-8) + var(--space-1));
+  }
+
   .fv-ds.rdo-dds-themes .rdo-dds-themes__card > .fv-card__header {
     display: grid;
-    gap: var(--space-4);
+    gap: var(--space-2);
     align-items: stretch;
   }
 
@@ -140,5 +158,10 @@
 
   .fv-ds.rdo-dds-themes .fv-mobile-list__actions .fv-button {
     flex: 1 1 var(--space-24);
+  }
+
+  .fv-ds.rdo-dds-themes .rdo-dds-themes__create-form {
+    gap: var(--space-2);
+    padding: var(--space-3);
   }
 }
