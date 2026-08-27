@@ -123,10 +123,12 @@ test('campanha do QR é individual e expira globalmente após dez dias', async (
 });
 
 test('campanha apresenta etiquetas e scanner apontando para controles reais', async () => {
-  const [noveltySource, overviewSource, formSource] = await Promise.all([
+  const [noveltySource, overviewSource, formSource, labelModalSource, stylesSource] = await Promise.all([
     readFile(new URL('../src/pages/romaneio/RomaneioQrNovelty.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/romaneio/RomaneioPage.tsx', import.meta.url), 'utf8'),
-    readFile(new URL('../src/pages/romaneio/NewRomaneioPage.tsx', import.meta.url), 'utf8')
+    readFile(new URL('../src/pages/romaneio/NewRomaneioPage.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/pages/romaneio/RomaneioQrLabelModal.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/styles/base.css', import.meta.url), 'utf8')
   ]);
 
   assert.match(noveltySource, /QR codes no romaneio/);
@@ -136,4 +138,12 @@ test('campanha apresenta etiquetas e scanner apontando para controles reais', as
   assert.match(overviewSource, /data-romaneio-category-qr-trigger/);
   assert.match(overviewSource, /data-romaneio-qr-label-trigger/);
   assert.match(formSource, /data-romaneio-qr-scanner-trigger/);
+
+  const labelStyles = stylesSource.slice(
+    stylesSource.indexOf('.romaneio-qr-label {'),
+    stylesSource.indexOf('.romaneio-qr-scanner-modal')
+  );
+  assert.match(labelModalSource, /scaleX/);
+  assert.doesNotMatch(labelModalSource, /text-overflow:\s*ellipsis/);
+  assert.doesNotMatch(labelStyles, /text-overflow:\s*ellipsis/);
 });

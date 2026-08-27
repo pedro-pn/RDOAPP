@@ -16,62 +16,71 @@ const labelSizeOptions = ROMANEIO_QR_LABEL_SIZES;
 
 const previewNameMaximumFontCqw = 14 * 25.4 / 72 / 120 * 100;
 const previewCodeMaximumFontCqw = 34 * 25.4 / 72 / 120 * 100;
-const previewCodeMinimumFontCqw = 16 * 25.4 / 72 / 120 * 100;
+const previewMinimumFontPixels = 1;
 
-function previewNameMinimumFontCqw(labelWidthMillimeters: number) {
-  const scale = labelWidthMillimeters / labelSizeOptions[0].widthMillimeters;
-  const minimumFontPt = Math.max(8 * scale, 5.5);
-  return minimumFontPt * 25.4 / 72 / labelWidthMillimeters * 100;
+function fitPreviewText(
+  container: HTMLElement,
+  text: HTMLElement,
+  maximumFontCqw: number
+) {
+  text.style.fontSize = `${maximumFontCqw}cqw`;
+  text.style.transform = 'none';
+  const containerStyle = window.getComputedStyle(container);
+  const horizontalPadding = Number.parseFloat(containerStyle.paddingLeft)
+    + Number.parseFloat(containerStyle.paddingRight);
+  const availableWidth = Math.max(1, container.clientWidth - horizontalPadding);
+  let currentFontSize = Number.parseFloat(window.getComputedStyle(text).fontSize);
+
+  while (text.scrollWidth > availableWidth && currentFontSize > previewMinimumFontPixels) {
+    currentFontSize = Math.max(previewMinimumFontPixels, currentFontSize - 0.25);
+    text.style.fontSize = `${currentFontSize.toFixed(2)}px`;
+  }
+
+  if (text.scrollWidth > availableWidth) {
+    text.style.transform = `scaleX(${Math.max(0.01, availableWidth / text.scrollWidth).toFixed(4)})`;
+  }
 }
 
-function RomaneioQrLabelPreviewName({ name, labelWidthMillimeters }: { name: string; labelWidthMillimeters: number }) {
-  const elementRef = useRef<HTMLElement>(null);
+function RomaneioQrLabelPreviewName({ name }: { name: string }) {
+  const containerRef = useRef<HTMLElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
   const uppercaseName = name.toLocaleUpperCase('pt-BR');
 
   useLayoutEffect(() => {
-    const element = elementRef.current;
-    const label = element?.closest<HTMLElement>('.romaneio-qr-label');
-    if (!element || !label) return;
+    const container = containerRef.current;
+    const text = textRef.current;
+    const label = container?.closest<HTMLElement>('.romaneio-qr-label');
+    if (!container || !text || !label) return;
 
     const fitName = () => {
-      element.style.fontSize = `${previewNameMaximumFontCqw}cqw`;
-      let currentFontSize = Number.parseFloat(window.getComputedStyle(element).fontSize);
-      const minimumFontSize = label.clientWidth * previewNameMinimumFontCqw(labelWidthMillimeters) / 100;
-      while (element.scrollWidth > element.clientWidth && currentFontSize > minimumFontSize) {
-        currentFontSize = Math.max(minimumFontSize, currentFontSize - 0.25);
-        element.style.fontSize = `${currentFontSize.toFixed(2)}px`;
-      }
+      fitPreviewText(container, text, previewNameMaximumFontCqw);
     };
 
     fitName();
     const resizeObserver = new ResizeObserver(fitName);
     resizeObserver.observe(label);
     return () => resizeObserver.disconnect();
-  }, [labelWidthMillimeters, uppercaseName]);
+  }, [uppercaseName]);
 
   return (
-    <strong ref={elementRef} title={uppercaseName}>
-      {uppercaseName}
+    <strong ref={containerRef} title={uppercaseName}>
+      <span className="romaneio-qr-label-fitted-text" ref={textRef}>{uppercaseName}</span>
     </strong>
   );
 }
 
 function RomaneioQrLabelPreviewCode({ code }: { code: string }) {
-  const elementRef = useRef<HTMLSpanElement>(null);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
 
   useLayoutEffect(() => {
-    const element = elementRef.current;
-    const label = element?.closest<HTMLElement>('.romaneio-qr-label');
-    if (!element || !label) return;
+    const container = containerRef.current;
+    const text = textRef.current;
+    const label = container?.closest<HTMLElement>('.romaneio-qr-label');
+    if (!container || !text || !label) return;
 
     const fitCode = () => {
-      element.style.fontSize = `${previewCodeMaximumFontCqw}cqw`;
-      let currentFontSize = Number.parseFloat(window.getComputedStyle(element).fontSize);
-      const minimumFontSize = label.clientWidth * previewCodeMinimumFontCqw / 100;
-      while (element.scrollWidth > element.clientWidth && currentFontSize > minimumFontSize) {
-        currentFontSize = Math.max(minimumFontSize, currentFontSize - 0.25);
-        element.style.fontSize = `${currentFontSize.toFixed(2)}px`;
-      }
+      fitPreviewText(container, text, previewCodeMaximumFontCqw);
     };
 
     fitCode();
@@ -81,8 +90,8 @@ function RomaneioQrLabelPreviewCode({ code }: { code: string }) {
   }, [code]);
 
   return (
-    <span className="romaneio-qr-label-code" ref={elementRef} title={code}>
-      {code}
+    <span className="romaneio-qr-label-code" ref={containerRef} title={code}>
+      <span className="romaneio-qr-label-fitted-text" ref={textRef}>{code}</span>
     </span>
   );
 }
@@ -157,9 +166,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         scale,
         scaledMm,
         codeMaximumFontPt: Math.max(34 * scale, 17),
-        codeMinimumFontPt: Math.max(16 * scale, 8),
-        nameMaximumFontPt: Math.max(14 * scale, 7),
-        nameMinimumFontPt: Math.max(8 * scale, 5.5)
+        nameMaximumFontPt: Math.max(14 * scale, 7)
       };
     });
 
@@ -184,9 +191,9 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         --qr-padding: ${scaledMm(1.5)}mm;
         --qr-radius: ${scaledMm(3, 1.4)}mm;
         --divider-width: ${scaledMm(0.35, 0.2)}mm;
-        --brand-height: ${scaledMm(13)}mm;
-        --logo-width: ${scaledMm(34)}mm;
-        --logo-height: ${scaledMm(9)}mm;
+        --brand-height: ${scaledMm(14)}mm;
+        --logo-width: ${scaledMm(38)}mm;
+        --logo-height: ${scaledMm(10)}mm;
         --caption-font: ${Math.max(5.4 * scale, 3.2).toFixed(1)}pt;
         --identity-gap: ${scaledMm(1.2)}mm;
         --code-padding-y: ${scaledMm(0.8)}mm;
@@ -267,7 +274,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       .divider {
         width: var(--divider-width);
         height: 88%;
-        background: linear-gradient(180deg, transparent, #dcebe5 12%, #176b55 50%, #dcebe5 88%, transparent);
+        background: #c9ddd6;
       }
       .details {
         height: 100%;
@@ -319,28 +326,32 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         display: block;
         width: 100%;
         padding: var(--code-padding-y) var(--code-padding-x);
-        overflow: hidden;
+        overflow: visible;
         border-radius: 999px;
         color: #fff;
-        background: #176b55;
+        background: linear-gradient(135deg, #176b55 0%, #0c5e4b 100%);
         font-size: var(--code-font);
         font-weight: 700;
         letter-spacing: 0.05em;
         line-height: 1;
-        text-overflow: ellipsis;
         white-space: nowrap;
       }
       .name {
         display: block;
         width: 100%;
-        overflow: hidden;
+        overflow: visible;
         color: #183b32;
         font-size: var(--name-font);
         font-weight: 700;
         line-height: 1.1;
         text-align: center;
-        text-overflow: ellipsis;
         text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .fitted-text {
+        display: inline-block;
+        max-width: none;
+        transform-origin: center;
         white-space: nowrap;
       }
       ${sizeRules}
@@ -348,8 +359,8 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
     document.head.append(style);
 
     const logos: HTMLImageElement[] = [];
-    const fittedCodes: Array<{ element: HTMLDivElement; maximum: number; minimum: number }> = [];
-    const fittedNames: Array<{ element: HTMLDivElement; maximum: number; minimum: number }> = [];
+    const fittedCodes: Array<{ container: HTMLDivElement; element: HTMLSpanElement; maximum: number }> = [];
+    const fittedNames: Array<{ container: HTMLDivElement; element: HTMLSpanElement; maximum: number }> = [];
     const printMetricBySize = new Map(printMetrics.map(metric => [metric.option.id, metric]));
 
     labelPages.forEach(page => {
@@ -368,9 +379,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
           const {
             option,
             codeMaximumFontPt,
-            codeMinimumFontPt,
-            nameMaximumFontPt,
-            nameMinimumFontPt
+            nameMaximumFontPt
           } = metric;
           const label = document.createElement('article');
           label.className = 'label';
@@ -408,15 +417,21 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
           if (item.code) {
             const code = document.createElement('div');
             code.className = 'code';
-            code.textContent = item.code;
-            fittedCodes.push({ element: code, maximum: codeMaximumFontPt, minimum: codeMinimumFontPt });
+            const codeText = document.createElement('span');
+            codeText.className = 'fitted-text';
+            codeText.textContent = item.code;
+            code.append(codeText);
+            fittedCodes.push({ container: code, element: codeText, maximum: codeMaximumFontPt });
             identity.append(code);
           }
 
           const name = document.createElement('div');
           name.className = 'name';
-          name.textContent = item.name.toLocaleUpperCase('pt-BR');
-          fittedNames.push({ element: name, maximum: nameMaximumFontPt, minimum: nameMinimumFontPt });
+          const nameText = document.createElement('span');
+          nameText.className = 'fitted-text';
+          nameText.textContent = item.name.toLocaleUpperCase('pt-BR');
+          name.append(nameText);
+          fittedNames.push({ container: name, element: nameText, maximum: nameMaximumFontPt });
           identity.append(name);
           details.append(identity);
           content.append(details);
@@ -434,11 +449,24 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
     const startPrint = () => {
       if (printStarted) return;
       printStarted = true;
-      const fitText = ({ element, maximum, minimum }: { element: HTMLDivElement; maximum: number; minimum: number }) => {
+      const fitText = ({
+        container,
+        element,
+        maximum
+      }: { container: HTMLDivElement; element: HTMLSpanElement; maximum: number }) => {
+        element.style.transform = 'none';
         let currentFontSize = maximum;
-        while (element.scrollWidth > element.clientWidth && currentFontSize > minimum) {
-          currentFontSize = Math.max(minimum, currentFontSize - 0.25);
+        element.style.fontSize = `${currentFontSize.toFixed(2)}pt`;
+        const containerStyle = document.defaultView?.getComputedStyle(container);
+        const horizontalPadding = Number.parseFloat(containerStyle?.paddingLeft || '0')
+          + Number.parseFloat(containerStyle?.paddingRight || '0');
+        const availableWidth = Math.max(1, container.clientWidth - horizontalPadding);
+        while (element.scrollWidth > availableWidth && currentFontSize > 0.5) {
+          currentFontSize = Math.max(0.5, currentFontSize - 0.25);
           element.style.fontSize = `${currentFontSize.toFixed(2)}pt`;
+        }
+        if (element.scrollWidth > availableWidth) {
+          element.style.transform = `scaleX(${Math.max(0.01, availableWidth / element.scrollWidth).toFixed(4)})`;
         }
       };
       fittedCodes.forEach(fitText);
@@ -543,10 +571,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
                             </div>
                             <div className="romaneio-qr-label-identity">
                               {item.code ? <RomaneioQrLabelPreviewCode code={item.code} /> : null}
-                              <RomaneioQrLabelPreviewName
-                                name={item.name}
-                                labelWidthMillimeters={size.widthMillimeters}
-                              />
+                              <RomaneioQrLabelPreviewName name={item.name} />
                             </div>
                           </div>
                         </div>
