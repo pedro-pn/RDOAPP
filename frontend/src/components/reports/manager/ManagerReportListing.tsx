@@ -6,7 +6,6 @@ import type { ProjectSortDirection } from '../../../utils/projectSort';
 import { reportSignatureProgress } from '../../../utils/signatureProgress';
 import { AppIcon } from '../../icons/AppIcon';
 import {
-  Button,
   DataTable,
   StatusPill,
   type DataTableColumn,
@@ -531,21 +530,6 @@ export function ManagerReportListing({
 
   return (
     <>
-      <div className="rdo-manager-listing__mobile-sort">
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
-          aria-label={
-            sortDirection === 'asc'
-              ? 'Ordenar relatórios em ordem decrescente'
-              : 'Ordenar relatórios em ordem crescente'
-          }
-          onClick={onSortChange}
-        >
-          {sortDirection === 'asc' ? 'A→Z' : 'Z→A'}
-        </Button>
-      </div>
       <DataTable<ReportSummary>
         className="rdo-manager-listing"
         onClick={handleRowClick}

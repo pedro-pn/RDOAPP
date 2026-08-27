@@ -373,15 +373,31 @@ export function GroupedReportList({
               return (
                 <div className="report-type-group" key={typeKey}>
                   {designSystem ? (
-                    <button
-                      type="button"
-                      className="report-type-header"
-                      onClick={() => toggleType(typeKey)}
-                      aria-expanded={!typeClosed}
-                      aria-controls={typePanelId}
-                    >
-                      {typeHeaderContent}
-                    </button>
+                    <div className="rdo-manager-report-type-row">
+                      <button
+                        type="button"
+                        className="report-type-header"
+                        onClick={() => toggleType(typeKey)}
+                        aria-expanded={!typeClosed}
+                        aria-controls={typePanelId}
+                      >
+                        {typeHeaderContent}
+                      </button>
+                      {showTypeSort ? (
+                        <Button
+                          className="rdo-manager-report-type-sort"
+                          variant="secondary"
+                          size="sm"
+                          iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
+                          aria-label={typeSortDirection === 'asc'
+                            ? `Ordenar relatórios ${reportType} em ordem decrescente`
+                            : `Ordenar relatórios ${reportType} em ordem crescente`}
+                          onClick={() => toggleTypeSort(typeKey)}
+                        >
+                          {typeSortDirection === 'asc' ? 'A→Z' : 'Z→A'}
+                        </Button>
+                      ) : null}
+                    </div>
                   ) : (
                     <div
                       className="report-type-header"

@@ -4,14 +4,6 @@
   min-width: 0;
 }
 
-:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__mobile-sort {
-  display: flex;
-  min-width: 0;
-  justify-content: flex-end;
-  margin-block-end: var(--space-3);
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__mobile-sort .fv-button,
 :where(.fv-ds, [data-fv-ds])
   .rdo-manager-listing
   .fv-mobile-list__actions

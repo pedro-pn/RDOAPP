@@ -44,7 +44,7 @@ test('manager listing composes DataTable and MobileList explicitly while preserv
 
   assert.match(listing, /<DataTable<ReportSummary>/);
   assert.match(listing, /mobile=\{\{/);
-  assert.match(listing, /rdo-manager-listing__mobile-sort/);
+  assert.doesNotMatch(listing, /rdo-manager-listing__mobile-sort/);
   assert.match(listing, /showSelectAll: false/);
   assert.match(listing, /controlClassName: 'report-select-checkbox'/);
   assert.match(listing, /'rel-item rdo-manager-listing__row'/);
@@ -57,6 +57,19 @@ test('manager listing composes DataTable and MobileList explicitly while preserv
   assert.match(listing, /data-row-navigation-ignore/);
   assert.match(listing, /onSortChange/);
   assert.doesNotMatch(listing, /from ['"]lucide-react['"]/);
+});
+
+test('manager report ordering stays beside the report type on mobile', () => {
+  const groupedList = source('src/components/reports/GroupedReportList.tsx');
+  const styles = source('src/pages/gestor/GestorPage.ds.css');
+
+  assert.match(groupedList, /rdo-manager-report-type-row/);
+  assert.match(groupedList, /rdo-manager-report-type-sort/);
+  assert.match(groupedList, /showTypeSort \?/);
+  assert.match(
+    styles,
+    /\.rdo-manager-report-type-sort[\s\S]*?display: none;[\s\S]*?@media \(max-width: 768px\)[\s\S]*?\.rdo-manager-report-type-sort[\s\S]*?display: inline-flex;/
+  );
 });
 
 test('manager row navigation preserves the non-clickable legacy side regions', () => {
@@ -157,6 +170,14 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   assert.match(
     pageCss,
     /\.rdo-manager-listing__batch-toolbar[\s\S]*?border-block:\s*0/
+  );
+  assert.match(
+    pageCss,
+    /@media \(max-width: 768px\)[\s\S]*?\.fv-control-shell\s*\{[\s\S]*?height:\s*var\(--space-10\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-listing__page-header[\s\S]*?\.fv-page-header__actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
   );
   assert.match(
     statsCss,
