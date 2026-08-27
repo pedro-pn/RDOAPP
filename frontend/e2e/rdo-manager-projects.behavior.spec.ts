@@ -112,22 +112,24 @@ test('Projetos preserva busca, ordenação, detalhes e abertura dos formulários
     project.getByRole('button', { name: 'Arquivar', exact: true })
   ).toBeVisible();
 
-  const detailsToggle = project.getByRole('button', {
-    name: /^(Mostrar|Ocultar) detalhes$/
-  });
+  const detailsToggle = project.locator(
+    '.rdo-active-project-card__details-toggle'
+  );
+  const projectTitleToggle = project.locator('.rdo-project-card__title-toggle');
   if ((await detailsToggle.getAttribute('aria-expanded')) === 'true') {
     await detailsToggle.click();
-    await expect(
-      project.getByRole('button', { name: 'Mostrar detalhes', exact: true })
-    ).toHaveAttribute('aria-expanded', 'false');
+    await expect(detailsToggle).toHaveAttribute('aria-expanded', 'false');
   }
   await expect(project).toHaveClass(/rdo-active-project-card--compact/);
-  await project
-    .getByRole('button', { name: 'Mostrar detalhes', exact: true })
-    .click();
-  await expect(
-    project.getByRole('button', { name: 'Ocultar detalhes', exact: true })
-  ).toHaveAttribute('aria-expanded', 'true');
+  await projectTitleToggle.click();
+  await expect(projectTitleToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(detailsToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(project).toHaveClass(/rdo-active-project-card--expanded/);
+  await detailsToggle.click();
+  await expect(projectTitleToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(project).toHaveClass(/rdo-active-project-card--compact/);
+  await detailsToggle.click();
+  await expect(projectTitleToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(project).toHaveClass(/rdo-active-project-card--expanded/);
   await expect(
     project.locator('.rdo-active-project-card__detail-panel--overview > dl')
@@ -261,9 +263,9 @@ test('Ação Ver relatórios abre Aprovados com a busca do projeto preenchida', 
   await loginAs(page, demoCredentials.manager);
   const surface = await openProjectsPage(page);
   const project = await readyProject(surface);
-  const detailsToggle = project.getByRole('button', {
-    name: /^(Mostrar|Ocultar) detalhes$/
-  });
+  const detailsToggle = project.locator(
+    '.rdo-active-project-card__details-toggle'
+  );
   if ((await detailsToggle.getAttribute('aria-expanded')) !== 'true') {
     await detailsToggle.click();
   }

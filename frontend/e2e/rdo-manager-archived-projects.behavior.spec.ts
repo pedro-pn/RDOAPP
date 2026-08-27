@@ -89,20 +89,27 @@ test('Arquivados preserva busca, agrupamentos, seleção e ações sem mutar dad
     0
   );
   await expect(
-    surface.locator('.rdo-archived-project-card__toggle[aria-expanded="false"]')
+    surface.locator(
+      '.rdo-archived-project-card__reports-toggle[aria-expanded="false"]'
+    )
   ).not.toHaveCount(0);
   const project = await projectWithReports(surface);
-  const projectToggle = project.locator('.rdo-archived-project-card__toggle');
+  const projectToggle = project.locator(
+    '.rdo-archived-project-card__reports-toggle'
+  );
+  const projectTitleToggle = project.locator('.rdo-project-card__title-toggle');
   const reportRegionId = await projectToggle.getAttribute('aria-controls');
   expect(reportRegionId).toBeTruthy();
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
 
-  await projectToggle.click();
+  await projectTitleToggle.click();
+  await expect(projectTitleToggle).toHaveAttribute('aria-expanded', 'false');
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'false');
   await expect(
     project.locator('.rdo-archived-report-type__toggle')
   ).toHaveCount(0);
   await projectToggle.click();
+  await expect(projectTitleToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
 
   const typeToggle = project

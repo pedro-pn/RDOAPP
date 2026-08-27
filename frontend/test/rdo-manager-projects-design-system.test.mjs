@@ -168,6 +168,14 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   assert.match(projectCard, /className="rdo-active-project-card__summary"/);
   assert.match(projectCard, /rdo-active-project-card__details-grid/);
   assert.match(projectCard, /rdo-active-project-card__quick-actions/);
+  assert.match(
+    projectCard,
+    /className="rdo-project-card__title-toggle"[\s\S]{0,360}?aria-expanded=\{options\.detailsExpanded\}[\s\S]{0,240}?onClick=\{\(\) => options\.onToggleDetails\(project\)\}/
+  );
+  assert.match(
+    projectCard,
+    /className="rdo-active-project-card__details-toggle"[\s\S]{0,520}?>\s*Detalhes\s*<\/Button>/
+  );
   assert.doesNotMatch(projectCard, /rdo-active-project-card__section-nav/);
   assert.doesNotMatch(projectCard, />Visão geral<\/a>/);
   assert.match(projectCard, /project\.authorizedUsers\?\.length/);
@@ -283,6 +291,8 @@ test('Projetos compartilha o layout de Arquivados com CSS escopado e responsivo'
   assert.match(block, /\.rdo-project-card__overview/);
   assert.match(block, /\.rdo-manager-projects__pending/);
   assert.match(block, /\.rdo-active-project-card__identity/);
+  assert.match(block, /\.rdo-project-card__title-toggle:focus-visible/);
+  assert.match(block, /\.rdo-archived-project-card__reports-toggle/);
   assert.match(block, /\.rdo-manager-projects__legacy-form/);
   assert.match(block, /@media \(min-width: 768px\)/);
   assert.match(block, /@media \(max-width: 480px\)/);

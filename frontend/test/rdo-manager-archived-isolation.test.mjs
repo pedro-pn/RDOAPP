@@ -167,6 +167,14 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
   assert.match(projectCard, /<Button\b/);
   assert.match(projectCard, /aria-expanded=\{options\.reportSectionExpanded\}/);
   assert.match(projectCard, /aria-expanded=\{options\.detailsExpanded\}/);
+  assert.match(
+    projectCard,
+    /className="rdo-archived-project-card__reports-toggle"[\s\S]{0,620}?>\s*Relatórios\s*<\/Button>/
+  );
+  assert.match(
+    projectCard,
+    /className="rdo-project-card__title-toggle"[\s\S]{0,360}?aria-expanded=\{options\.reportSectionExpanded\}[\s\S]{0,240}?onClick=\{\(\) => options\.onToggleReports\?\.\(project\)\}/
+  );
   assert.match(projectCard, /<dl>[\s\S]*?<dt>[\s\S]*?<dd>/);
   assert.match(projectCard, /className=\{`card admin-card project-admin-card/);
 

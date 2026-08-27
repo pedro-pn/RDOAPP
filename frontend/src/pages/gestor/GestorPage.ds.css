@@ -1325,6 +1325,31 @@
   line-height: var(--leading-lg);
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-project-card__title-toggle {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-project-card__title-toggle:hover {
+  color: var(--brand-text);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-project-card__title-toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__count {
   grid-area: count;
   color: var(--muted);
@@ -1341,6 +1366,9 @@
 
 :where(.fv-ds, [data-fv-ds])
   .rdo-archived-project-card__toggle[aria-expanded='false']
+  .rdo-archived-project-card__chevron,
+:where(.fv-ds, [data-fv-ds])
+  .rdo-archived-project-card__reports-toggle[aria-expanded='false']
   .rdo-archived-project-card__chevron,
 :where(.fv-ds, [data-fv-ds])
   .rdo-archived-report-type__toggle[aria-expanded='false']
@@ -1442,6 +1470,11 @@
   grid-template-columns: auto auto auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__reports-toggle {
+  align-self: center;
+  white-space: nowrap;
 }
 
 :where(.fv-ds, [data-fv-ds])
@@ -1972,8 +2005,8 @@
   :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__heading {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      'toggle identity'
-      'selection identity';
+      'identity selection'
+      'toggle toggle';
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__icon {
@@ -1982,13 +2015,14 @@
 
   :where(.fv-ds, [data-fv-ds])
     .rdo-project-card--archived
-    .rdo-archived-project-card__toggle {
+    .rdo-archived-project-card__reports-toggle {
     grid-area: toggle;
+    justify-self: start;
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__selection {
     grid-area: selection;
-    justify-self: center;
+    justify-self: end;
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__identity {

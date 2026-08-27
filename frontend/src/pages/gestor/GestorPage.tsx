@@ -1111,7 +1111,18 @@ function renderProjectCard(
               </span>
               <div className="rdo-active-project-card__identity">
                 <div className="rdo-active-project-card__title-row">
-                  <h3 className="rdo-archived-project-card__title">{title}</h3>
+                  <h3 className="rdo-archived-project-card__title">
+                    <button
+                      className="rdo-project-card__title-toggle"
+                      type="button"
+                      aria-label={`${options.detailsExpanded ? 'Ocultar' : 'Mostrar'} detalhes de ${title}`}
+                      aria-expanded={options.detailsExpanded}
+                      aria-controls={detailsRegionId}
+                      onClick={() => options.onToggleDetails(project)}
+                    >
+                      {title}
+                    </button>
+                  </h3>
                   <StatusPill
                     status={pendingRegistration ? 'pending' : 'active'}
                     label={stateLabel}
@@ -1155,20 +1166,19 @@ function renderProjectCard(
                   onClick={() => options.onRemove?.(project)}
                 />
               ) : null}
-              <IconButton
+              <Button
                 className="rdo-active-project-card__details-toggle"
-                icon={DS_ICONS.chevronDown}
-                label={
-                  options.detailsExpanded
-                    ? 'Ocultar detalhes'
-                    : 'Mostrar detalhes'
-                }
-                variant="ghost"
+                iconLeft={<AppIcon icon={DS_ICONS.chevronDown} size="sm" />}
+                variant="secondary"
                 size="sm"
+                type="button"
+                aria-label={`${options.detailsExpanded ? 'Ocultar' : 'Mostrar'} detalhes de ${title}`}
                 aria-expanded={options.detailsExpanded}
                 aria-controls={detailsRegionId}
                 onClick={() => options.onToggleDetails(project)}
-              />
+              >
+                Detalhes
+              </Button>
             </div>
           }
         >
@@ -1370,20 +1380,25 @@ function renderProjectCard(
         padding="md"
         title={options.onToggleReports ? (
           <div className="rdo-archived-project-card__heading">
-            <button
-              className="rdo-archived-project-card__toggle"
+            <Button
+              className="rdo-archived-project-card__reports-toggle"
               type="button"
               aria-label={`${options.reportSectionExpanded ? 'Recolher' : 'Expandir'} relatórios de ${title}`}
               aria-expanded={options.reportSectionExpanded}
               aria-controls={reportsRegionId}
               onClick={() => options.onToggleReports?.(project)}
+              variant="secondary"
+              size="sm"
+              iconLeft={
+                <AppIcon
+                  className="rdo-archived-project-card__chevron"
+                  icon={DS_ICONS.chevronDown}
+                  size="sm"
+                />
+              }
             >
-              <AppIcon
-                className="rdo-archived-project-card__chevron"
-                icon={DS_ICONS.chevronDown}
-                size="sm"
-              />
-            </button>
+              Relatórios
+            </Button>
             {options.reportSelection ? (
               <label
                 className="fv-listing-checkbox rdo-archived-project-card__selection"
@@ -1406,7 +1421,18 @@ function renderProjectCard(
             </span>
             <span className="rdo-archived-project-card__identity">
               <span className="rdo-archived-project-card__title-row">
-                <span className="rdo-archived-project-card__title">{title}</span>
+                <span className="rdo-archived-project-card__title">
+                  <button
+                    className="rdo-project-card__title-toggle"
+                    type="button"
+                    aria-label={`${options.reportSectionExpanded ? 'Recolher' : 'Expandir'} relatórios de ${title}`}
+                    aria-expanded={options.reportSectionExpanded}
+                    aria-controls={reportsRegionId}
+                    onClick={() => options.onToggleReports?.(project)}
+                  >
+                    {title}
+                  </button>
+                </span>
                 <Badge tone={project.includesSaturday || project.includesSunday ? 'warning' : 'neutral'}>
                   {scheduleLabel}
                 </Badge>
