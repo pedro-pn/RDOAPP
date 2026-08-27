@@ -4908,7 +4908,9 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 
 .romaneio-category-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .romaneio-category-edit {
@@ -5094,16 +5096,31 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   width: min(100%, 360px);
   aspect-ratio: 210 / 297;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.7%;
+  display: grid;
+  place-items: center;
   overflow: hidden;
+  padding: 4.762%;
   border: 1px solid #d8e0dd;
   border-radius: 4px;
   background: #fff;
   box-shadow: 0 8px 24px rgba(22, 58, 48, 0.1);
+}
+
+.romaneio-qr-sheet-preview-rows {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2.381cqw;
+}
+
+.romaneio-qr-sheet-preview-row {
+  width: 100%;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2.381cqw;
 }
 
 .romaneio-qr-label {
@@ -5114,7 +5131,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   --romaneio-preview-qr-border-width: 0.25cqw;
   container-type: inline-size;
   position: relative;
-  width: 57.142%;
+  width: 63.158%;
   aspect-ratio: 1;
   flex: 0 0 auto;
   display: flex;
@@ -5153,7 +5170,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   --romaneio-preview-outline-width: 0.438cqw;
   --romaneio-preview-divider-height: 0.375cqw;
   --romaneio-preview-qr-border-width: 0.375cqw;
-  width: 38.095%;
+  width: 42.105%;
 }
 
 .romaneio-qr-label[data-label-size='small'] {
@@ -5162,7 +5179,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   --romaneio-preview-caption-font: 2.76cqw;
   --romaneio-preview-divider-height: 0.5cqw;
   --romaneio-preview-qr-border-width: 0.5cqw;
-  width: 28.571%;
+  width: 31.579%;
 }
 
 .romaneio-qr-label-brand {

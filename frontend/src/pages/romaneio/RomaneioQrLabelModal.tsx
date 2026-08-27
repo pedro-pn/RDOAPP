@@ -2,18 +2,17 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type { RomaneioCatalogItem } from '../../api/romaneio';
 import { Modal } from '../../components/ui/Modal';
-import { buildRomaneioItemQrValue } from '../../utils/romaneioQr';
+import {
+  buildRomaneioItemQrValue,
+  paginateRomaneioQrLabels,
+  ROMANEIO_QR_LABEL_SIZES,
+  type RomaneioQrLabelSizeId
+} from '../../utils/romaneioQr';
 
 const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
 const brandLogoUrl = `${assetsBaseUrl}/assets/Logo/LOGO_COLORIDO.png`;
 
-const labelSizeOptions = [
-  { id: 'large', label: 'Grande', millimeters: 120 },
-  { id: 'medium', label: 'Média', millimeters: 80 },
-  { id: 'small', label: 'Pequena', millimeters: 60 }
-] as const;
-
-type RomaneioQrLabelSize = typeof labelSizeOptions[number]['id'];
+const labelSizeOptions = ROMANEIO_QR_LABEL_SIZES;
 
 const previewNameMaximumFontCqw = 18 * 25.4 / 72 / 120 * 100;
 const previewCodeMaximumFontCqw = 30 * 25.4 / 72 / 120 * 100;
@@ -89,46 +88,56 @@ function RomaneioQrLabelPreviewCode({ code }: { code: string }) {
 }
 
 interface RomaneioQrLabelModalProps {
-  item: RomaneioCatalogItem | null;
+  items: RomaneioCatalogItem[];
+  categoryName?: string;
   onClose: () => void;
 }
 
-export function RomaneioQrLabelModal({ item, onClose }: RomaneioQrLabelModalProps) {
+export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQrLabelModalProps) {
   const [error, setError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [qrSvgMarkup, setQrSvgMarkup] = useState('');
-  const [selectedLabelSizes, setSelectedLabelSizes] = useState<RomaneioQrLabelSize[]>(['large']);
+  const [qrSvgMarkupByItemId, setQrSvgMarkupByItemId] = useState<Record<string, string>>({});
+  const [selectedLabelSizes, setSelectedLabelSizes] = useState<RomaneioQrLabelSizeId[]>(['large']);
 
   useEffect(() => {
-    if (!item) return;
+    if (items.length === 0) return;
 
     let disposed = false;
-    setQrSvgMarkup('');
+    setQrSvgMarkupByItemId({});
     setIsGenerating(true);
     void import('@zxing/browser').then(({ BrowserQRCodeSvgWriter }) => {
       if (disposed) return;
-      const value = buildRomaneioItemQrValue(item.id);
-      const qrCode = new BrowserQRCodeSvgWriter().write(value, 320, 320);
-      qrCode.setAttribute('role', 'img');
-      qrCode.setAttribute('aria-label', `QR code de ${item.name}`);
-      setQrSvgMarkup(qrCode.outerHTML);
+      const writer = new BrowserQRCodeSvgWriter();
+      const markups = Object.fromEntries(items.map(item => {
+        const value = buildRomaneioItemQrValue(item.id);
+        const qrCode = writer.write(value, 320, 320);
+        qrCode.setAttribute('role', 'img');
+        qrCode.setAttribute('aria-label', `QR code de ${item.name}`);
+        return [item.id, qrCode.outerHTML];
+      }));
+      setQrSvgMarkupByItemId(markups);
       setError('');
       setIsGenerating(false);
     }).catch(() => {
       if (disposed) return;
-      setQrSvgMarkup('');
-      setError('Não foi possível gerar o QR code deste item.');
+      setQrSvgMarkupByItemId({});
+      setError('Não foi possível gerar os QR codes selecionados.');
       setIsGenerating(false);
     });
 
     return () => {
       disposed = true;
     };
-  }, [item]);
+  }, [items]);
 
   const selectedSizeOptions = labelSizeOptions.filter(option => selectedLabelSizes.includes(option.id));
+  const labelPages = paginateRomaneioQrLabels(items, selectedLabelSizes);
+  const totalLabels = items.length * selectedSizeOptions.length;
+  const firstPreviewPage = labelPages[0];
+  const isBatch = Boolean(categoryName);
+  const isReady = items.length > 0 && Object.keys(qrSvgMarkupByItemId).length === items.length;
 
-  function toggleLabelSize(size: RomaneioQrLabelSize) {
+  function toggleLabelSize(size: RomaneioQrLabelSizeId) {
     setSelectedLabelSizes(current => {
       const isSelected = current.includes(size);
       if (isSelected && current.length === 1) return current;
@@ -138,7 +147,7 @@ export function RomaneioQrLabelModal({ item, onClose }: RomaneioQrLabelModalProp
   }
 
   function printLabel() {
-    if (!item || !qrSvgMarkup || selectedSizeOptions.length === 0) return;
+    if (!isReady || selectedSizeOptions.length === 0) return;
 
     const printMetrics = selectedSizeOptions.map(option => {
       const scale = option.millimeters / labelSizeOptions[0].millimeters;
@@ -209,7 +218,18 @@ export function RomaneioQrLabelModal({ item, onClose }: RomaneioQrLabelModalProp
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
+        justify-content: center;
+        gap: 5mm;
+        padding: 10mm;
+        break-after: page;
+        page-break-after: always;
+      }
+      .sheet:last-child { break-after: auto; page-break-after: auto; }
+      .label-row {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: flex-start;
         justify-content: center;
         gap: 5mm;
       }
@@ -321,66 +341,82 @@ export function RomaneioQrLabelModal({ item, onClose }: RomaneioQrLabelModalProp
     `;
     document.head.append(style);
 
-    const sheet = document.createElement('main');
-    sheet.className = 'sheet';
     const logos: HTMLImageElement[] = [];
     const fittedCodes: Array<{ element: HTMLDivElement; maximum: number; minimum: number }> = [];
     const fittedNames: Array<{ element: HTMLDivElement; maximum: number; minimum: number }> = [];
+    const printMetricBySize = new Map(printMetrics.map(metric => [metric.option.id, metric]));
 
-    printMetrics.forEach(({
-      option,
-      codeMaximumFontPt,
-      codeMinimumFontPt,
-      nameMaximumFontPt,
-      nameMinimumFontPt
-    }) => {
-      const label = document.createElement('article');
-      label.className = 'label';
-      label.dataset.size = option.id;
+    labelPages.forEach(page => {
+      const sheet = document.createElement('main');
+      sheet.className = 'sheet';
 
-      const brand = document.createElement('header');
-      brand.className = 'brand';
-      const logo = document.createElement('img');
-      logo.src = new URL(brandLogoUrl, window.location.href).href;
-      logo.alt = 'Filtrovali';
-      logos.push(logo);
-      const brandCaption = document.createElement('span');
-      brandCaption.textContent = 'Identificação de equipamento';
-      brand.append(logo, brandCaption);
-      label.append(brand);
+      page.rows.forEach(row => {
+        const labelRow = document.createElement('div');
+        labelRow.className = 'label-row';
 
-      const divider = document.createElement('div');
-      divider.className = 'divider';
-      label.append(divider);
+        row.entries.forEach(({ item, size }) => {
+          const metric = printMetricBySize.get(size.id);
+          const qrSvgMarkup = qrSvgMarkupByItemId[item.id];
+          if (!metric || !qrSvgMarkup) return;
 
-      const qrTemplate = document.createElement('template');
-      qrTemplate.innerHTML = qrSvgMarkup;
-      const qrCode = qrTemplate.content.querySelector('svg');
-      const qrShell = document.createElement('div');
-      qrShell.className = 'qr-shell';
-      if (qrCode) qrShell.append(qrCode);
-      label.append(qrShell);
+          const {
+            option,
+            codeMaximumFontPt,
+            codeMinimumFontPt,
+            nameMaximumFontPt,
+            nameMinimumFontPt
+          } = metric;
+          const label = document.createElement('article');
+          label.className = 'label';
+          label.dataset.size = option.id;
 
-      const identity = document.createElement('section');
-      identity.className = 'identity';
-      if (item.code) {
-        const code = document.createElement('div');
-        code.className = 'code';
-        code.textContent = item.code;
-        fittedCodes.push({ element: code, maximum: codeMaximumFontPt, minimum: codeMinimumFontPt });
-        identity.append(code);
-      }
+          const brand = document.createElement('header');
+          brand.className = 'brand';
+          const logo = document.createElement('img');
+          logo.src = new URL(brandLogoUrl, window.location.href).href;
+          logo.alt = 'Filtrovali';
+          logos.push(logo);
+          const brandCaption = document.createElement('span');
+          brandCaption.textContent = 'Identificação de equipamento';
+          brand.append(logo, brandCaption);
+          label.append(brand);
 
-      const name = document.createElement('div');
-      name.className = 'name';
-      name.textContent = item.name.toLocaleUpperCase('pt-BR');
-      fittedNames.push({ element: name, maximum: nameMaximumFontPt, minimum: nameMinimumFontPt });
-      identity.append(name);
-      label.append(identity);
-      sheet.append(label);
+          const divider = document.createElement('div');
+          divider.className = 'divider';
+          label.append(divider);
+
+          const qrTemplate = document.createElement('template');
+          qrTemplate.innerHTML = qrSvgMarkup;
+          const qrCode = qrTemplate.content.querySelector('svg');
+          const qrShell = document.createElement('div');
+          qrShell.className = 'qr-shell';
+          if (qrCode) qrShell.append(qrCode);
+          label.append(qrShell);
+
+          const identity = document.createElement('section');
+          identity.className = 'identity';
+          if (item.code) {
+            const code = document.createElement('div');
+            code.className = 'code';
+            code.textContent = item.code;
+            fittedCodes.push({ element: code, maximum: codeMaximumFontPt, minimum: codeMinimumFontPt });
+            identity.append(code);
+          }
+
+          const name = document.createElement('div');
+          name.className = 'name';
+          name.textContent = item.name.toLocaleUpperCase('pt-BR');
+          fittedNames.push({ element: name, maximum: nameMaximumFontPt, minimum: nameMinimumFontPt });
+          identity.append(name);
+          label.append(identity);
+          labelRow.append(label);
+        });
+
+        sheet.append(labelRow);
+      });
+
+      document.body.append(sheet);
     });
-
-    document.body.append(sheet);
 
     let printStarted = false;
     const startPrint = () => {
@@ -418,15 +454,19 @@ export function RomaneioQrLabelModal({ item, onClose }: RomaneioQrLabelModalProp
 
   return (
     <Modal
-      open={Boolean(item)}
+      open={items.length > 0}
       onClose={onClose}
       ariaLabelledBy="romaneio-qr-label-title"
       ariaDescribedBy="romaneio-qr-label-description"
       panelClassName="modal-card romaneio-qr-label-modal"
     >
-      <div className="section-title" id="romaneio-qr-label-title">QR code do equipamento</div>
+      <div className="section-title" id="romaneio-qr-label-title">
+        {isBatch ? `QR codes da categoria ${categoryName}` : 'QR code do equipamento'}
+      </div>
       <p className="placeholder-copy" id="romaneio-qr-label-description">
-        Imprima a etiqueta e cole-a no equipamento correspondente.
+        {isBatch
+          ? `${items.length} equipamentos serão organizados automaticamente em folhas A4. Na impressão, escolha uma impressora ou Salvar como PDF.`
+          : 'Imprima a etiqueta e cole-a no equipamento correspondente.'}
       </p>
       <fieldset className="romaneio-qr-label-size-fieldset">
         <legend>Tamanhos para imprimir</legend>
@@ -451,47 +491,57 @@ export function RomaneioQrLabelModal({ item, onClose }: RomaneioQrLabelModalProp
           })}
         </div>
       </fieldset>
-      {item ? (
+      {items.length > 0 ? (
         <div className="romaneio-qr-sheet-preview-section">
           <div className="romaneio-qr-sheet-preview-heading">
-            <strong>Prévia da folha A4</strong>
-            <span>{selectedSizeOptions.length} {selectedSizeOptions.length === 1 ? 'etiqueta' : 'etiquetas'}</span>
+            <strong>{labelPages.length > 1 ? 'Prévia da primeira folha A4' : 'Prévia da folha A4'}</strong>
+            <span>
+              {totalLabels} {totalLabels === 1 ? 'etiqueta' : 'etiquetas'} · {labelPages.length} {labelPages.length === 1 ? 'página' : 'páginas'}
+            </span>
           </div>
           <div
             className="romaneio-qr-sheet-preview"
             aria-live="polite"
-            aria-label={`Pré-visualização da folha A4 com ${selectedSizeOptions.length} ${selectedSizeOptions.length === 1 ? 'etiqueta' : 'etiquetas'}`}
+            aria-label={`Pré-visualização da primeira folha A4 de um total de ${labelPages.length} ${labelPages.length === 1 ? 'página' : 'páginas'}`}
           >
             {isGenerating ? <span className="rel-meta">Gerando QR code...</span> : null}
-            {qrSvgMarkup ? selectedSizeOptions.map(option => (
-              <article
-                className="romaneio-qr-label"
-                data-label-size={option.id}
-                key={option.id}
-                aria-label={`Etiqueta ${option.label}, ${option.millimeters} por ${option.millimeters} milímetros`}
-              >
-                <div className="romaneio-qr-label-content">
-                  <div className="romaneio-qr-label-brand">
-                    <img src={brandLogoUrl} alt="Filtrovali" />
-                    <span>Identificação de equipamento</span>
+            {isReady && firstPreviewPage ? (
+              <div className="romaneio-qr-sheet-preview-rows">
+                {firstPreviewPage.rows.map((row, rowIndex) => (
+                  <div className="romaneio-qr-sheet-preview-row" key={rowIndex}>
+                    {row.entries.map(({ item, size }) => (
+                      <article
+                        className="romaneio-qr-label"
+                        data-label-size={size.id}
+                        key={`${item.id}-${size.id}`}
+                        aria-label={`Etiqueta de ${item.name}, tamanho ${size.label}, ${size.millimeters} por ${size.millimeters} milímetros`}
+                      >
+                        <div className="romaneio-qr-label-content">
+                          <div className="romaneio-qr-label-brand">
+                            <img src={brandLogoUrl} alt="Filtrovali" />
+                            <span>Identificação de equipamento</span>
+                          </div>
+                          <div className="romaneio-qr-label-divider" />
+                          <div className="romaneio-qr-code-shell">
+                            <div
+                              className="romaneio-qr-code"
+                              dangerouslySetInnerHTML={{ __html: qrSvgMarkupByItemId[item.id] }}
+                            />
+                          </div>
+                          <div className="romaneio-qr-label-identity">
+                            {item.code ? <RomaneioQrLabelPreviewCode code={item.code} /> : null}
+                            <RomaneioQrLabelPreviewName
+                              name={item.name}
+                              labelMillimeters={size.millimeters}
+                            />
+                          </div>
+                        </div>
+                      </article>
+                    ))}
                   </div>
-                  <div className="romaneio-qr-label-divider" />
-                  <div className="romaneio-qr-code-shell">
-                    <div
-                      className="romaneio-qr-code"
-                      dangerouslySetInnerHTML={{ __html: qrSvgMarkup }}
-                    />
-                  </div>
-                  <div className="romaneio-qr-label-identity">
-                    {item.code ? <RomaneioQrLabelPreviewCode code={item.code} /> : null}
-                    <RomaneioQrLabelPreviewName
-                      name={item.name}
-                      labelMillimeters={option.millimeters}
-                    />
-                  </div>
-                </div>
-              </article>
-            )) : null}
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -502,9 +552,9 @@ export function RomaneioQrLabelModal({ item, onClose }: RomaneioQrLabelModalProp
           className="primary-button"
           type="button"
           onClick={printLabel}
-          disabled={Boolean(error) || isGenerating || !qrSvgMarkup}
+          disabled={Boolean(error) || isGenerating || !isReady}
         >
-          {selectedSizeOptions.length === 1 ? 'Imprimir etiqueta' : `Imprimir ${selectedSizeOptions.length} etiquetas`}
+          {`Baixar / imprimir ${totalLabels} ${totalLabels === 1 ? 'etiqueta' : 'etiquetas'}`}
         </button>
       </div>
     </Modal>

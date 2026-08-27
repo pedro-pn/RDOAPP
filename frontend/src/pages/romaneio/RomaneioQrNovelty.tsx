@@ -10,6 +10,7 @@ import {
 import type { AuthUser } from '../../types/auth';
 
 const EQUIPMENT_TAB_SELECTOR = '[data-romaneio-equipment-tab]';
+const CATEGORY_QR_TRIGGER_SELECTOR = '[data-romaneio-category-qr-trigger]';
 const QR_LABEL_TRIGGER_SELECTOR = '[data-romaneio-qr-label-trigger]';
 const CREATE_ROMANEIO_SELECTOR = '[data-romaneio-create-trigger]';
 const QR_SCANNER_SELECTOR = '[data-romaneio-qr-scanner-trigger]';
@@ -58,7 +59,7 @@ export function RomaneioQrNovelty({
         {
           popover: {
             title: '✨ Novidade: QR codes no romaneio',
-            description: 'Agora você pode imprimir etiquetas com QR code para os equipamentos e adicioná-los ao romaneio usando a câmera do celular.'
+            description: 'Agora você pode baixar ou imprimir etiquetas com QR code, inclusive uma categoria inteira de uma vez, e adicionar equipamentos ao romaneio usando a câmera do celular.'
           }
         }
       ];
@@ -79,6 +80,16 @@ export function RomaneioQrNovelty({
         });
 
         if (hasQrLabelTarget) {
+          steps.push({
+            element: CATEGORY_QR_TRIGGER_SELECTOR,
+            popover: {
+              title: 'Baixe uma categoria inteira',
+              description: 'Use este botão para gerar os QR codes de todos os equipamentos da categoria. Escolha um ou mais tamanhos e salve tudo em um único PDF ou envie para a impressora.',
+              side: 'left',
+              align: 'center'
+            }
+          });
+
           steps.push({
             element: QR_LABEL_TRIGGER_SELECTOR,
             popover: {

@@ -60,6 +60,33 @@ test('itens não serializados e medidas variáveis pedem quantidade após o scan
   assert.equal(romaneioQrRequiresQuantity({ isSerialized: true, measureType: 'WEIGHT' }), true);
 });
 
+test('impressão em lote pagina todos os equipamentos e tamanhos sem perder etiquetas', async () => {
+  const { paginateRomaneioQrLabels } = await loadRomaneioQr();
+  const items = Array.from({ length: 13 }, (_, index) => ({ id: `item-${index + 1}` }));
+
+  const smallPages = paginateRomaneioQrLabels(items, ['small']);
+  const smallEntries = smallPages.map(page => page.rows.flatMap(row => row.entries));
+  assert.equal(smallPages.length, 2);
+  assert.equal(smallEntries[0].length, 12);
+  assert.equal(smallEntries[1].length, 1);
+
+  const mixedPages = paginateRomaneioQrLabels(items.slice(0, 2), ['large', 'medium', 'small']);
+  const mixedEntries = mixedPages.flatMap(page => page.rows.flatMap(row => row.entries));
+  assert.equal(mixedPages.length, 2);
+  assert.equal(mixedEntries.length, 6);
+  assert.deepEqual(
+    mixedEntries.map(entry => `${entry.item.id}:${entry.size.id}`),
+    [
+      'item-1:large',
+      'item-1:medium',
+      'item-1:small',
+      'item-2:large',
+      'item-2:medium',
+      'item-2:small'
+    ]
+  );
+});
+
 test('campanha do QR é individual e expira globalmente após dez dias', async () => {
   const stored = new Map();
   const originalNow = Date.now;
@@ -96,7 +123,9 @@ test('campanha apresenta etiquetas e scanner apontando para controles reais', as
 
   assert.match(noveltySource, /QR codes no romaneio/);
   assert.match(noveltySource, /QR_LABEL_TRIGGER_SELECTOR/);
+  assert.match(noveltySource, /CATEGORY_QR_TRIGGER_SELECTOR/);
   assert.match(noveltySource, /QR_SCANNER_SELECTOR/);
+  assert.match(overviewSource, /data-romaneio-category-qr-trigger/);
   assert.match(overviewSource, /data-romaneio-qr-label-trigger/);
   assert.match(formSource, /data-romaneio-qr-scanner-trigger/);
 });
