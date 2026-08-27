@@ -189,6 +189,10 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   );
   assert.match(
     pageCss,
+    /\.rdo-manager-listing[\s\S]*?\.fv-mobile-list__item[\s\S]*?> \.fv-card:not\(\.fv-card--selected\)\s*\{[\s\S]*?border-color:\s*var\(--line-strong\)[\s\S]*?background:\s*var\(--surface-2\)[\s\S]*?box-shadow:\s*var\(--shadow-e1\)/
+  );
+  assert.match(
+    pageCss,
     /\.rdo-manager-listing__page-header[\s\S]*?\.fv-page-header__actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
   );
   assert.match(

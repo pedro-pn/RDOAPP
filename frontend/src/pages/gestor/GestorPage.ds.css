@@ -3303,6 +3303,15 @@
     border-radius: var(--radius-md);
   }
 
+  :where(.fv-ds, [data-fv-ds]):is(.rdo-manager-page, .rdo-manager-archived-page)
+    .rdo-manager-listing
+    .fv-mobile-list__item
+    > .fv-card:not(.fv-card--selected) {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+    box-shadow: var(--shadow-e1);
+  }
+
   :where(.fv-ds, [data-fv-ds]):is(
       .rdo-manager-page,
       .rdo-manager-admin-page,
