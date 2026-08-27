@@ -56,7 +56,7 @@ test('RDO manager navigation preserves unrelated query params and canonical pend
   );
 });
 
-test('RDO manager renders one compact mobile selector instead of global tabs', () => {
+test('RDO manager renders one compact accessible mobile menu instead of global tabs', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
   const navigation = source('src/pages/gestor/RdoSectionNavigation.tsx');
   const css = source('src/pages/gestor/GestorPage.ds.css');
@@ -70,7 +70,13 @@ test('RDO manager renders one compact mobile selector instead of global tabs', (
     navigation,
     /aria-label="Navegar nas áreas de Relatórios e Projetos"/
   );
-  assert.match(navigation, /label: section\.label/);
+  assert.match(navigation, /aria-haspopup="menu"/);
+  assert.match(navigation, /role="menu"/);
+  assert.match(navigation, /role="menuitem"/);
+  assert.match(navigation, /aria-current=\{active \? 'page' : undefined\}/);
+  assert.match(navigation, /event\.key === 'Escape'/);
+  assert.match(navigation, /'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'/);
+  assert.doesNotMatch(navigation, /<Select\b|<option\b/);
   assert.doesNotMatch(
     navigation,
     /Relatórios e Projetos ·|<Badge|MODULE_NAVIGATION_ICONS/
@@ -80,6 +86,7 @@ test('RDO manager renders one compact mobile selector instead of global tabs', (
     css,
     /\.rdo-section-navigation\s*\{[\s\S]*border:\s*0[\s\S]*background:\s*transparent/
   );
+  assert.match(css, /\.rdo-section-navigation__items\s*\{[\s\S]*repeat\(2,/);
   assert.match(
     css,
     /@media \(min-width:\s*1024px\)[\s\S]*\.rdo-section-navigation\s*\{[\s\S]*display:\s*none/

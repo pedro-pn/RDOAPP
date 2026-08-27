@@ -5863,16 +5863,28 @@ export function GestorPage() {
               <Button
                 variant="secondary"
                 iconLeft={<AppIcon icon={DS_ICONS.settings} size="sm" />}
+                aria-label="Editar pesquisa NPS"
                 onClick={openSurveyQuestionEditor}
               >
-                Editar pesquisa
+                <span className="rdo-action-label rdo-action-label--full">
+                  Editar pesquisa
+                </span>
+                <span className="rdo-action-label rdo-action-label--compact">
+                  Editar
+                </span>
               </Button>
               <Button
                 variant="primary"
                 iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                aria-label="Abrir dashboard NPS"
                 onClick={() => setNpsDashboardOpen(true)}
               >
-                Dashboard NPS
+                <span className="rdo-action-label rdo-action-label--full">
+                  Dashboard NPS
+                </span>
+                <span className="rdo-action-label rdo-action-label--compact">
+                  Dashboard
+                </span>
               </Button>
             </div>
           }
@@ -5904,7 +5916,12 @@ export function GestorPage() {
                 setNpsSortDir(direction => direction === 'asc' ? 'desc' : 'asc')
               }
             >
-              Ordenar por: {npsSortDir === 'asc' ? 'A–Z' : 'Z–A'}
+              <span className="rdo-sort-label rdo-sort-label--full">
+                Ordenar por: {npsSortDir === 'asc' ? 'A–Z' : 'Z–A'}
+              </span>
+              <span className="rdo-sort-label rdo-sort-label--compact">
+                {npsSortDir === 'asc' ? 'A–Z' : 'Z–A'}
+              </span>
             </Button>
           }
         />
@@ -6152,7 +6169,12 @@ export function GestorPage() {
                   )
                 }
               >
-                Ordenar por: {projectSortDir === 'asc' ? 'A–Z' : 'Z–A'}
+                <span className="rdo-sort-label rdo-sort-label--full">
+                  Ordenar por: {projectSortDir === 'asc' ? 'A–Z' : 'Z–A'}
+                </span>
+                <span className="rdo-sort-label rdo-sort-label--compact">
+                  {projectSortDir === 'asc' ? 'A–Z' : 'Z–A'}
+                </span>
               </Button>
             ) : undefined
           }
@@ -6175,16 +6197,28 @@ export function GestorPage() {
               <Button
                 variant="secondary"
                 iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                aria-label="Abrir alocação mensal"
                 onClick={() => setAllocationDashboardOpen(true)}
               >
-                Alocação mensal
+                <span className="rdo-action-label rdo-action-label--full">
+                  Alocação mensal
+                </span>
+                <span className="rdo-action-label rdo-action-label--compact">
+                  Alocação
+                </span>
               </Button>
               <Button
                 variant="primary"
                 iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                aria-label="Abrir dashboard detalhado"
                 onClick={() => setStatsDashboardOpen(true)}
               >
-                Dashboard detalhado
+                <span className="rdo-action-label rdo-action-label--full">
+                  Dashboard detalhado
+                </span>
+                <span className="rdo-action-label rdo-action-label--compact">
+                  Dashboard
+                </span>
               </Button>
             </>
           }
@@ -6613,17 +6647,29 @@ export function GestorPage() {
               <>
                 <Button
                   variant="secondary"
+                  aria-label="Abrir upload de PDF antigo"
                   onClick={() => openManualReportUpload()}
                 >
-                  Upload PDF antigo
+                  <span className="rdo-action-label rdo-action-label--full">
+                    Upload PDF antigo
+                  </span>
+                  <span className="rdo-action-label rdo-action-label--compact">
+                    Upload PDF
+                  </span>
                 </Button>
                 {tab === 'pendentes' ? (
                   <Button
                     variant="primary"
                     iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                    aria-label="Criar relatório"
                     onClick={handleNewReport}
                   >
-                    Criar Relatório
+                    <span className="rdo-action-label rdo-action-label--full">
+                      Criar Relatório
+                    </span>
+                    <span className="rdo-action-label rdo-action-label--compact">
+                      Criar relatório
+                    </span>
                   </Button>
                 ) : null}
                 {renderGestorSearch()}

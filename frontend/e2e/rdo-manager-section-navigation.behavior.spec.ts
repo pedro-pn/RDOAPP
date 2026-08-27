@@ -66,7 +66,7 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
     expect(scrollContract).toEqual({ overflowY: 'auto', scrollable: true });
   });
 
-  test('mobile usa o seletor compacto, preserva a rota e não cria overflow', async ({
+  test('mobile usa o menu compacto por teclado, preserva a rota e não cria overflow', async ({
     page
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
@@ -74,18 +74,43 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
     await page.goto(MANAGER_HOME);
     await expectManagerRdoMobileNavigation(page);
 
-    const selector = page.getByRole('combobox', {
-      name: 'Navegar nas áreas de Relatórios e Projetos'
+    const trigger = page.getByRole('button', {
+      name: 'Área atual: Pendentes. Trocar área do RDO'
     });
-    await expect(selector).toHaveValue('pendentes');
-    await expect(selector.locator('option')).toHaveCount(8);
-    await expect(selector.locator('option:checked')).toHaveText('Pendentes');
-    await expect(selector).not.toContainText('Relatórios e Projetos ·');
+    await expect(trigger).toHaveText('Pendentes');
+    await expect(trigger).not.toContainText('Relatórios e Projetos ·');
 
-    await selector.selectOption('arquivados');
+    await trigger.click();
+    const menu = page.getByRole('menu', {
+      name: 'Áreas de Relatórios e Projetos'
+    });
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('menuitem')).toHaveCount(8);
+    const pendingItem = menu.getByRole('menuitem', {
+      name: 'Pendentes',
+      exact: true
+    });
+    await expect(pendingItem).toHaveAttribute('aria-current', 'page');
+    await expect(pendingItem).toBeFocused();
+    await pendingItem.press('ArrowRight');
+    await expect(
+      menu.getByRole('menuitem', { name: 'Aprovados', exact: true })
+    ).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await menu
+      .getByRole('menuitem', { name: 'Arquivados', exact: true })
+      .click();
     await expect(page).toHaveURL(/\/rdo\/gestor\?tab=arquivados$/);
-    await expect(selector).toHaveValue('arquivados');
-    await expect(selector.locator('option:checked')).toHaveText('Arquivados');
+    await expect(
+      page.getByRole('button', {
+        name: 'Área atual: Arquivados. Trocar área do RDO'
+      })
+    ).toHaveText('Arquivados');
+    await expect(menu).toBeHidden();
     await expect
       .poll(() =>
         page.evaluate(
@@ -93,5 +118,72 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
         )
       )
       .toBe(true);
+  });
+
+  test('mobile mantém as oito áreas densas, sem divisórias de ação ou overflow', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await loginAs(page, demoCredentials.manager);
+
+    const sections = [
+      'pendentes',
+      'aprovados',
+      'projetos',
+      'arquivados',
+      'equipe',
+      'usuarios',
+      'nps',
+      'estatisticas'
+    ];
+
+    for (const section of sections) {
+      await page.goto(`${MANAGER_HOME}?tab=${section}`);
+      await expectManagerRdoMobileNavigation(page);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth
+          )
+        )
+        .toBe(true);
+
+      const metricTops = await page
+        .locator('.rdo-manager-metrics .fv-metric-card')
+        .evaluateAll((cards) =>
+          cards.map((card) => Math.round(card.getBoundingClientRect().top))
+        );
+      if (metricTops.length > 1) {
+        expect(new Set(metricTops).size).toBe(1);
+      }
+
+      const actionDividers = await page
+        .locator('.fv-mobile-list__actions:visible')
+        .evaluateAll((actions) =>
+          actions.map(
+            (action) => window.getComputedStyle(action).borderTopWidth
+          )
+        );
+      expect(actionDividers.every((width) => width === '0px')).toBe(true);
+    }
+
+    await page.goto(`${MANAGER_HOME}?tab=equipe`);
+    const teamActionTops = await page
+      .locator('.rdo-admin-toolbar__actions .fv-button')
+      .evaluateAll((buttons) =>
+        buttons.map((button) => Math.round(button.getBoundingClientRect().top))
+      );
+    expect(new Set(teamActionTops).size).toBe(1);
+
+    for (const width of [320, 480, 768]) {
+      await page.setViewportSize({ width, height: 812 });
+      await page.goto(MANAGER_HOME);
+      await expectManagerRdoMobileNavigation(page);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth
+        )
+      ).toBe(true);
+    }
   });
 });

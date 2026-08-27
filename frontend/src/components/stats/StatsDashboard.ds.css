@@ -211,6 +211,69 @@
   }
 }
 
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview {
+    gap: var(--space-3);
+    padding-block-end: var(--space-4);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__count-grid {
+    display: flex;
+    grid-template-columns: none;
+    gap: var(--space-2);
+    padding: var(--focus-ring-offset) var(--focus-ring-offset) var(--space-2);
+    overflow-x: auto;
+    scroll-padding-inline: var(--focus-ring-offset);
+    scroll-snap-type: inline proximity;
+    scrollbar-width: thin;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-overview__count-grid
+    .fv-metric-card:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview .stats-ov-count-card {
+    min-width: calc(var(--space-16) * 2 + var(--space-4));
+    min-height: var(--space-16);
+    flex: 1 0 calc(var(--space-16) * 2 + var(--space-4));
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-e0);
+    scroll-snap-align: start;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-overview
+    .stats-ov-count-card
+    .fv-metric-card__icon {
+    width: var(--space-8);
+    height: var(--space-8);
+    border-radius: var(--radius-sm);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview .stats-ov-count-value {
+    font-size: var(--text-lg);
+    line-height: var(--leading-lg);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-overview
+    .fv-metric-card__description {
+    display: none;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__bar-list {
+    gap: var(--space-2);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-stats-overview__bar-row {
+    gap: var(--space-1) var(--space-2);
+  }
+}
+
 /* RDO Gestor detailed statistics dashboard. The legacy dashboard remains the
    default for Coordinator and is intentionally styled by base.css. */
 

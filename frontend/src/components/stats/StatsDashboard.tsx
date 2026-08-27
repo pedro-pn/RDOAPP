@@ -2498,10 +2498,12 @@ function DesignSystemReportTypeTable({
               {reportCountTotal(row) || '—'}
             </span>
           ),
-          metadata: usedTypes.map((type) => ({
-            label: REPORT_TYPE_LABELS[type],
-            value: row.reportCounts[type] || '—'
-          }))
+          metadata: usedTypes
+            .filter((type) => (row.reportCounts[type] ?? 0) > 0)
+            .map((type) => ({
+              label: REPORT_TYPE_LABELS[type],
+              value: row.reportCounts[type]
+            }))
         })
       }}
     />

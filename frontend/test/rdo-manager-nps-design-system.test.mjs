@@ -174,8 +174,14 @@ test('B.9 usa variantes DS coerentes nas ações da página', () => {
   if (expectedAppearance === 'legacy') return;
   const tab = npsTabSource();
 
-  assert.match(tab, /variant="secondary"[\s\S]{0,300}?>\s*Editar pesquisa/);
-  assert.match(tab, /variant="primary"[\s\S]{0,300}?>\s*Dashboard NPS/);
+  assert.match(
+    tab,
+    /variant="secondary"[\s\S]{0,300}?aria-label="Editar pesquisa NPS"/
+  );
+  assert.match(
+    tab,
+    /variant="primary"[\s\S]{0,300}?aria-label="Abrir dashboard NPS"/
+  );
   assert.match(tab, /size="sm"[\s\S]{0,420}?>\s*Reenviar pesquisa/);
   assert.match(tab, /icon=\{DS_ICONS\.sort\}/);
   assert.doesNotMatch(tab, /<ProjectSortButton\b/);

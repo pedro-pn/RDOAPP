@@ -59,8 +59,16 @@ test('Gestor is the only StatsOverview consumer that opts into the Design System
     managerStatistics,
     /onClick=\{\(\) => setStatsDashboardOpen\(true\)\}/
   );
-  assert.match(managerStatistics, />\s*Alocação mensal\s*<\/Button>/);
-  assert.match(managerStatistics, />\s*Dashboard detalhado\s*<\/Button>/);
+  assert.match(managerStatistics, /aria-label="Abrir alocação mensal"/);
+  assert.match(
+    managerStatistics,
+    /rdo-action-label--full">\s*Alocação mensal\s*<\/span>/
+  );
+  assert.match(managerStatistics, /aria-label="Abrir dashboard detalhado"/);
+  assert.match(
+    managerStatistics,
+    /rdo-action-label--full">\s*Dashboard detalhado\s*<\/span>/
+  );
   assert.doesNotMatch(managerStatistics, /mini-btn|nps-tab-toolbar/);
 
   assert.match(coordinator, /<StatsOverview\s*\/>/);
@@ -159,7 +167,10 @@ test('the DS overview composes responsive listings and explicit loading, error a
   assert.match(reportTable, /ariaLabel="Relatórios por projeto e tipo"/);
   assert.match(reportTable, /mobile=\{\{/);
   assert.match(reportTable, /renderItem: \(row\) => \(\{/);
-  assert.match(reportTable, /metadata: usedTypes\.map/);
+  assert.match(
+    reportTable,
+    /metadata: usedTypes[\s\S]*?\.filter\(\(type\) => \(row\.reportCounts\[type\] \?\? 0\) > 0\)[\s\S]*?\.map/
+  );
   assert.match(
     reportTable,
     /ALL_REPORT_TYPES\.filter\([\s\S]*?row\.reportCounts\[type\]/

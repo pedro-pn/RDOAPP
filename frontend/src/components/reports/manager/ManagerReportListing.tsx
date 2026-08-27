@@ -151,6 +151,21 @@ function servicesLabel(report: ReportSummary) {
   return summarizeServices(report.services) || 'Sem serviços';
 }
 
+function mobileServicesLabel(report: ReportSummary) {
+  if (isManualUploadedReport(report)) {
+    return 'Relatório adicionado manualmente';
+  }
+
+  const services = report.services || [];
+  if (!services.length) return 'Sem serviços';
+
+  const firstService = summarizeServices(services.slice(0, 1));
+  const remaining = services.length - 1;
+  return remaining
+    ? `${firstService} · +${remaining} serviço${remaining === 1 ? '' : 's'}`
+    : firstService;
+}
+
 function hasWorkTimes(report: ReportSummary) {
   return (
     Boolean(report.arrivalTime || report.departureTime) &&
@@ -577,9 +592,7 @@ export function ManagerReportListing({
               title: (
                 <span className="rdo-manager-listing__mobile-title">
                   <AppIcon icon={DS_ICONS.fileText} size="md" />
-                  <span className="rel-name">
-                    {fullReportLabel(report, projectLabel)}
-                  </span>
+                  <span className="rel-name">{reportLabel(report)}</span>
                 </span>
               ),
               subtitle: ownerLabel(report),
@@ -592,7 +605,7 @@ export function ManagerReportListing({
                     report.reportDate
                   )
                 },
-                { label: 'Serviços', value: servicesLabel(report) },
+                { label: 'Serviços', value: mobileServicesLabel(report) },
                 ...(hasWorkTimes(report)
                   ? [{ label: 'Horário', value: workTimesLabel(report) }]
                   : [])

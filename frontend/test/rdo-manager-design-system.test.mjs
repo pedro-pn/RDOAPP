@@ -135,6 +135,41 @@ test('manager pending and approved pages compose actions, search and real metric
   assert.match(page, /label="Assinados"[\s\S]*?value=\{signedCount\}/);
 });
 
+test('manager mobile composition keeps metrics in one row and removes redundant list detail', () => {
+  const pageCss = source('src/pages/gestor/GestorPage.ds.css');
+  const statsCss = source('src/components/stats/StatsDashboard.ds.css');
+  const listing = source(
+    'src/components/reports/manager/ManagerReportListing.tsx'
+  );
+
+  assert.match(
+    pageCss,
+    /@media \(max-width: 768px\)[\s\S]*?\.rdo-manager-metrics\s*\{[\s\S]*?display:\s*flex[\s\S]*?overflow-x:\s*auto/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-metrics[\s\S]*?\.fv-metric-card__description\s*\{[\s\S]*?display:\s*none/
+  );
+  assert.match(
+    pageCss,
+    /\.fv-mobile-list__actions,\s*\.fv-mobile-list__details\)[\s\S]*?border-block-start:\s*0/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-listing__batch-toolbar[\s\S]*?border-block:\s*0/
+  );
+  assert.match(
+    statsCss,
+    /@media \(max-width: 768px\)[\s\S]*?\.rdo-stats-overview__count-grid\s*\{[\s\S]*?display:\s*flex[\s\S]*?overflow-x:\s*auto/
+  );
+  assert.match(listing, /function mobileServicesLabel/);
+  assert.match(listing, /\+\$\{remaining\} serviço/);
+  assert.match(
+    listing,
+    /className="rdo-manager-listing__mobile-title"[\s\S]*?\{reportLabel\(report\)\}/
+  );
+});
+
 test('grouped report list keeps legacy as the default and adds an accessible DS opt-in', () => {
   const grouped = source('src/components/reports/GroupedReportList.tsx');
 

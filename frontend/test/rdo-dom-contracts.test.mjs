@@ -200,11 +200,14 @@ test('gestor usa navegação secundária responsiva sem a barra horizontal globa
     navigation,
     [
       'aria-label="Navegar nas áreas de Relatórios e Projetos"',
-      '<Select',
-      'onChange={handleChange}'
+      'aria-haspopup="menu"',
+      'role="menu"',
+      'role="menuitem"',
+      "aria-current={active ? 'page' : undefined}"
     ],
     'RdoSectionNavigation'
   );
+  assert.doesNotMatch(navigation, /<Select\b|<option\b/);
   assert.doesNotMatch(page, /aria-label="Seções do gestor"/);
   assert.doesNotMatch(page, /rdo-manager-tabs-wrap/);
 });

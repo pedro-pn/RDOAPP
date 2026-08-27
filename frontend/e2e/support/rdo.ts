@@ -68,8 +68,8 @@ export async function expectManagerRdoMobileNavigation(page: Page) {
   await expect(page.locator('.fv-theme-toggle')).toBeVisible();
   await expect(page.locator('.rdo-manager-tabs-wrap')).toHaveCount(0);
   await expect(
-    page.getByRole('combobox', {
-      name: 'Navegar nas áreas de Relatórios e Projetos'
+    page.getByRole('button', {
+      name: /Área atual: .+\. Trocar área do RDO/
     })
   ).toBeVisible();
 }
