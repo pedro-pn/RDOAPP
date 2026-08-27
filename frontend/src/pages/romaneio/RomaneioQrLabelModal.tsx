@@ -295,72 +295,74 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       panelClassName="modal-card romaneio-qr-label-modal"
     >
       <style dangerouslySetInnerHTML={{ __html: previewLabelStyles }} />
-      <div className="section-title" id="romaneio-qr-label-title">
-        {isBatch ? `QR codes da categoria ${categoryName}` : 'QR code do equipamento'}
+      <div className="romaneio-qr-label-modal-body">
+        <div className="section-title" id="romaneio-qr-label-title">
+          {isBatch ? `QR codes da categoria ${categoryName}` : 'QR code do equipamento'}
+        </div>
+        <p className="placeholder-copy" id="romaneio-qr-label-description">
+          {isBatch
+            ? `${items.length} equipamentos serão organizados automaticamente em folhas A4. Na impressão, escolha uma impressora ou Salvar como PDF.`
+            : 'Imprima a etiqueta e cole-a no equipamento correspondente.'}
+        </p>
+        <fieldset className="romaneio-qr-label-size-fieldset">
+          <legend>Tamanhos para imprimir</legend>
+          <p>Selecione um ou mais tamanhos para compor a mesma folha A4.</p>
+          <div className="romaneio-qr-label-size-options">
+            {labelSizeOptions.map(option => {
+              const isSelected = selectedLabelSizes.includes(option.id);
+              return (
+                <button
+                  className={isSelected ? 'is-selected' : ''}
+                  type="button"
+                  key={option.id}
+                  aria-pressed={isSelected}
+                  title={isSelected && selectedLabelSizes.length === 1 ? 'Mantenha ao menos um tamanho selecionado.' : undefined}
+                  onClick={() => toggleLabelSize(option.id)}
+                >
+                  <span className="romaneio-qr-label-size-check" aria-hidden="true">{isSelected ? '✓' : ''}</span>
+                  <strong>{option.label}</strong>
+                  <span>{formatMillimeters(option.widthMillimeters)} × {formatMillimeters(option.heightMillimeters)} mm</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        {items.length > 0 ? (
+          <div className="romaneio-qr-sheet-preview-section">
+            <div className="romaneio-qr-sheet-preview-heading">
+              <strong>{labelPages.length > 1 ? 'Prévia da primeira folha A4' : 'Prévia da folha A4'}</strong>
+              <span>
+                {totalLabels} {totalLabels === 1 ? 'etiqueta' : 'etiquetas'} · {labelPages.length} {labelPages.length === 1 ? 'página' : 'páginas'}
+              </span>
+            </div>
+            <div
+              className="romaneio-qr-sheet-preview"
+              aria-live="polite"
+              aria-label={`Pré-visualização da primeira folha A4 de um total de ${labelPages.length} ${labelPages.length === 1 ? 'página' : 'páginas'}`}
+            >
+              {isGenerating ? <span className="rel-meta">Gerando QR code...</span> : null}
+              {isReady && firstPreviewPage ? (
+                <div className="romaneio-qr-sheet-preview-rows">
+                  {firstPreviewPage.rows.map((row, rowIndex) => (
+                    <div className="romaneio-qr-sheet-preview-row" key={rowIndex}>
+                      {row.entries.map(({ item, size }) => (
+                        <RomaneioQrLabelPreview
+                          key={`${item.id}-${size.id}`}
+                          item={item}
+                          sizeId={size.id}
+                          qrSvgMarkup={qrSvgMarkupByItemId[item.id]}
+                          ariaLabel={`Etiqueta de ${item.name}, tamanho ${size.label}, ${formatMillimeters(size.widthMillimeters)} por ${formatMillimeters(size.heightMillimeters)} milímetros`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {error ? <div className="form-error" role="alert">{error}</div> : null}
       </div>
-      <p className="placeholder-copy" id="romaneio-qr-label-description">
-        {isBatch
-          ? `${items.length} equipamentos serão organizados automaticamente em folhas A4. Na impressão, escolha uma impressora ou Salvar como PDF.`
-          : 'Imprima a etiqueta e cole-a no equipamento correspondente.'}
-      </p>
-      <fieldset className="romaneio-qr-label-size-fieldset">
-        <legend>Tamanhos para imprimir</legend>
-        <p>Selecione um ou mais tamanhos para compor a mesma folha A4.</p>
-        <div className="romaneio-qr-label-size-options">
-          {labelSizeOptions.map(option => {
-            const isSelected = selectedLabelSizes.includes(option.id);
-            return (
-              <button
-                className={isSelected ? 'is-selected' : ''}
-                type="button"
-                key={option.id}
-                aria-pressed={isSelected}
-                title={isSelected && selectedLabelSizes.length === 1 ? 'Mantenha ao menos um tamanho selecionado.' : undefined}
-                onClick={() => toggleLabelSize(option.id)}
-              >
-                <span className="romaneio-qr-label-size-check" aria-hidden="true">{isSelected ? '✓' : ''}</span>
-                <strong>{option.label}</strong>
-                <span>{formatMillimeters(option.widthMillimeters)} × {formatMillimeters(option.heightMillimeters)} mm</span>
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
-      {items.length > 0 ? (
-        <div className="romaneio-qr-sheet-preview-section">
-          <div className="romaneio-qr-sheet-preview-heading">
-            <strong>{labelPages.length > 1 ? 'Prévia da primeira folha A4' : 'Prévia da folha A4'}</strong>
-            <span>
-              {totalLabels} {totalLabels === 1 ? 'etiqueta' : 'etiquetas'} · {labelPages.length} {labelPages.length === 1 ? 'página' : 'páginas'}
-            </span>
-          </div>
-          <div
-            className="romaneio-qr-sheet-preview"
-            aria-live="polite"
-            aria-label={`Pré-visualização da primeira folha A4 de um total de ${labelPages.length} ${labelPages.length === 1 ? 'página' : 'páginas'}`}
-          >
-            {isGenerating ? <span className="rel-meta">Gerando QR code...</span> : null}
-            {isReady && firstPreviewPage ? (
-              <div className="romaneio-qr-sheet-preview-rows">
-                {firstPreviewPage.rows.map((row, rowIndex) => (
-                  <div className="romaneio-qr-sheet-preview-row" key={rowIndex}>
-                    {row.entries.map(({ item, size }) => (
-                      <RomaneioQrLabelPreview
-                        key={`${item.id}-${size.id}`}
-                        item={item}
-                        sizeId={size.id}
-                        qrSvgMarkup={qrSvgMarkupByItemId[item.id]}
-                        ariaLabel={`Etiqueta de ${item.name}, tamanho ${size.label}, ${formatMillimeters(size.widthMillimeters)} por ${formatMillimeters(size.heightMillimeters)} milímetros`}
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      {error ? <div className="form-error" role="alert">{error}</div> : null}
       <div className="admin-form-actions">
         <button className="secondary-button" type="button" onClick={onClose}>Fechar</button>
         <button
