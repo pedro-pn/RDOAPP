@@ -5,94 +5,72 @@ import { Modal } from '../../components/ui/Modal';
 import {
   buildRomaneioItemQrValue,
   paginateRomaneioQrLabels,
+  ROMANEIO_QR_LABEL_SHEET,
   ROMANEIO_QR_LABEL_SIZES,
   type RomaneioQrLabelSizeId
 } from '../../utils/romaneioQr';
+import {
+  buildRomaneioQrLabelArtStyles,
+  buildRomaneioQrLabelSizeStyles,
+  fitRomaneioQrLabelText,
+  trimRomaneioQrSvgQuietZone
+} from './romaneioQrLabelArt';
 
 const assetsBaseUrl = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
 const brandLogoUrl = `${assetsBaseUrl}/assets/Logo/LOGO_COLORIDO.png`;
 
 const labelSizeOptions = ROMANEIO_QR_LABEL_SIZES;
+const labelCaption = 'Identificação de equipamento';
 
-const previewNameMaximumFontCqw = 14 * 25.4 / 72 / 120 * 100;
-const previewCodeMaximumFontCqw = 30 * 25.4 / 72 / 120 * 100;
-const previewMinimumFontPixels = 1;
+const previewLabelStyles = `${buildRomaneioQrLabelArtStyles()}${buildRomaneioQrLabelSizeStyles(labelSizeOptions, 'preview')}`;
 
-function fitPreviewText(
-  container: HTMLElement,
-  text: HTMLElement,
-  maximumFontCqw: number
-) {
-  text.style.fontSize = `${maximumFontCqw}cqw`;
-  text.style.transform = 'none';
-  const containerStyle = window.getComputedStyle(container);
-  const horizontalPadding = Number.parseFloat(containerStyle.paddingLeft)
-    + Number.parseFloat(containerStyle.paddingRight);
-  const availableWidth = Math.max(1, container.clientWidth - horizontalPadding);
-  let currentFontSize = Number.parseFloat(window.getComputedStyle(text).fontSize);
-
-  while (text.scrollWidth > availableWidth && currentFontSize > previewMinimumFontPixels) {
-    currentFontSize = Math.max(previewMinimumFontPixels, currentFontSize - 0.25);
-    text.style.fontSize = `${currentFontSize.toFixed(2)}px`;
-  }
-
-  if (text.scrollWidth > availableWidth) {
-    text.style.transform = `scaleX(${Math.max(0.01, availableWidth / text.scrollWidth).toFixed(4)})`;
-  }
+function formatMillimeters(value: number) {
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 }
 
-function RomaneioQrLabelPreviewName({ name }: { name: string }) {
-  const containerRef = useRef<HTMLElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const uppercaseName = name.toLocaleUpperCase('pt-BR');
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const text = textRef.current;
-    const label = container?.closest<HTMLElement>('.romaneio-qr-label');
-    if (!container || !text || !label) return;
-
-    const fitName = () => {
-      fitPreviewText(container, text, previewNameMaximumFontCqw);
-    };
-
-    fitName();
-    const resizeObserver = new ResizeObserver(fitName);
-    resizeObserver.observe(label);
-    return () => resizeObserver.disconnect();
-  }, [uppercaseName]);
-
-  return (
-    <strong ref={containerRef} title={uppercaseName}>
-      <span className="romaneio-qr-label-fitted-text" ref={textRef}>{uppercaseName}</span>
-    </strong>
-  );
+interface RomaneioQrLabelProps {
+  item: RomaneioCatalogItem;
+  qrSvgMarkup: string;
+  sizeId: RomaneioQrLabelSizeId;
+  ariaLabel: string;
 }
 
-function RomaneioQrLabelPreviewCode({ code }: { code: string }) {
-  const containerRef = useRef<HTMLSpanElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
+function RomaneioQrLabelPreview({ item, qrSvgMarkup, sizeId, ariaLabel }: RomaneioQrLabelProps) {
+  const labelRef = useRef<HTMLElement>(null);
+  const uppercaseName = item.name.toLocaleUpperCase('pt-BR');
 
   useLayoutEffect(() => {
-    const container = containerRef.current;
-    const text = textRef.current;
-    const label = container?.closest<HTMLElement>('.romaneio-qr-label');
-    if (!container || !text || !label) return;
+    const label = labelRef.current;
+    if (!label) return;
 
-    const fitCode = () => {
-      fitPreviewText(container, text, previewCodeMaximumFontCqw);
-    };
-
-    fitCode();
-    const resizeObserver = new ResizeObserver(fitCode);
+    const fit = () => fitRomaneioQrLabelText(label);
+    fit();
+    const resizeObserver = new ResizeObserver(fit);
     resizeObserver.observe(label);
     return () => resizeObserver.disconnect();
-  }, [code]);
+  }, [item.code, uppercaseName, qrSvgMarkup]);
 
   return (
-    <span className="romaneio-qr-label-code" ref={containerRef} title={code}>
-      <span className="romaneio-qr-label-fitted-text" ref={textRef}>{code}</span>
-    </span>
+    <article className="romaneio-qr-label" data-label-size={sizeId} ref={labelRef} aria-label={ariaLabel}>
+      <div className="romaneio-qr-label-content">
+        <div className="romaneio-qr-label-qr" dangerouslySetInnerHTML={{ __html: qrSvgMarkup }} />
+        <div className="romaneio-qr-label-divider" />
+        <div className="romaneio-qr-label-details">
+          <img className="romaneio-qr-label-logo" src={brandLogoUrl} alt="Filtrovali" />
+          <div className="romaneio-qr-label-identity">
+            <span className="romaneio-qr-label-caption">{labelCaption}</span>
+            {item.code ? (
+              <span className="romaneio-qr-label-code" title={item.code}>
+                <span className="romaneio-qr-label-fit">{item.code}</span>
+              </span>
+            ) : null}
+          </div>
+          <strong className="romaneio-qr-label-name" title={uppercaseName}>
+            <span className="romaneio-qr-label-fit">{uppercaseName}</span>
+          </strong>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -119,7 +97,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       const writer = new BrowserQRCodeSvgWriter();
       const markups = Object.fromEntries(items.map(item => {
         const value = buildRomaneioItemQrValue(item.id);
-        const qrCode = writer.write(value, 320, 320);
+        const qrCode = trimRomaneioQrSvgQuietZone(writer.write(value, 320, 320));
         qrCode.setAttribute('role', 'img');
         qrCode.setAttribute('aria-label', `QR code de ${item.name}`);
         return [item.id, qrCode.outerHTML];
@@ -158,18 +136,6 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
   function printLabel() {
     if (!isReady || selectedSizeOptions.length === 0) return;
 
-    const printMetrics = selectedSizeOptions.map(option => {
-      const scale = option.widthMillimeters / labelSizeOptions[0].widthMillimeters;
-      const scaledMm = (value: number, minimum = 0) => Math.max(value * scale, minimum).toFixed(2);
-      return {
-        option,
-        scale,
-        scaledMm,
-        codeMaximumFontPt: Math.max(30 * scale, 15),
-        nameMaximumFontPt: Math.max(14 * scale, 7)
-      };
-    });
-
     const printWindow = window.open('', '_blank', 'width=900,height=900');
     if (!printWindow) {
       setError('O navegador bloqueou a impressão. Permita pop-ups e tente novamente.');
@@ -177,315 +143,128 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
     }
 
     const { document } = printWindow;
-    document.title = '\u200B';
+    document.title = '​';
+    const sheet = ROMANEIO_QR_LABEL_SHEET;
     const style = document.createElement('style');
-    const sizeRules = printMetrics.map(({ option, scale, scaledMm, codeMaximumFontPt, nameMaximumFontPt }) => `
-      .label[data-size="${option.id}"] {
-        --label-width: ${option.widthMillimeters}mm;
-        --label-height: ${option.heightMillimeters}mm;
-        --label-padding: ${scaledMm(4)}mm;
-        --border-inset: ${scaledMm(0.6, 0.4)}mm;
-        --border-radius: ${scaledMm(3.2, 1.6)}mm;
-        --content-gap: ${scaledMm(2)}mm;
-        --qr-size: ${scaledMm(45)}mm;
-        --qr-padding: ${scaledMm(1.5)}mm;
-        --qr-radius: ${scaledMm(3, 1.4)}mm;
-        --divider-width: ${scaledMm(0.35, 0.2)}mm;
-        --logo-width: ${scaledMm(38)}mm;
-        --logo-height: ${scaledMm(10)}mm;
-        --brand-gap: ${scaledMm(0.4)}mm;
-        --details-gap: ${scaledMm(0.6)}mm;
-        --caption-font: ${Math.max(9 * scale, 4.5).toFixed(1)}pt;
-        --identity-gap: ${scaledMm(0.8)}mm;
-        --code-padding-y: ${scaledMm(2.2)}mm;
-        --code-padding-x: ${scaledMm(3)}mm;
-        --code-font: ${codeMaximumFontPt.toFixed(1)}pt;
-        --name-font: ${nameMaximumFontPt.toFixed(1)}pt;
-      }
-    `).join('');
     style.textContent = `
       @page { size: A4 portrait; margin: 0; }
-      * { box-sizing: border-box; }
-      html, body { width: 210mm; height: 297mm; margin: 0; }
+      html, body { width: ${sheet.widthMillimeters}mm; height: ${sheet.heightMillimeters}mm; margin: 0; }
       body {
-        color: #30503a;
         background: #fff;
-        font-family: Arial, Helvetica, sans-serif;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      .sheet {
-        width: 210mm;
-        height: 297mm;
+      .romaneio-qr-sheet {
+        box-sizing: border-box;
+        width: ${sheet.widthMillimeters}mm;
+        height: ${sheet.heightMillimeters}mm;
         overflow: hidden;
         display: flex;
         flex-direction: column;
         align-items: stretch;
         justify-content: center;
-        gap: 5mm;
-        padding: 10mm;
+        gap: ${sheet.gapMillimeters}mm;
+        padding: ${sheet.marginMillimeters}mm;
         break-after: page;
         page-break-after: always;
       }
-      .sheet:last-child { break-after: auto; page-break-after: auto; }
-      .label-row {
+      .romaneio-qr-sheet:last-child { break-after: auto; page-break-after: auto; }
+      .romaneio-qr-sheet-row {
         display: flex;
         flex: 0 0 auto;
         align-items: flex-start;
         justify-content: center;
-        gap: 5mm;
+        gap: ${sheet.gapMillimeters}mm;
       }
-      .label {
-        --label-green: #30503a;
-        position: relative;
-        width: var(--label-width);
-        height: var(--label-height);
-        flex: 0 0 var(--label-width);
-        overflow: hidden;
-        padding: var(--label-padding);
-        background: #fff;
-      }
-      .label::before {
-        position: absolute;
-        inset: var(--border-inset);
-        border: 0.6mm solid var(--label-green);
-        border-radius: var(--border-radius);
-        content: '';
-        pointer-events: none;
-      }
-      .label-content {
-        position: relative;
-        z-index: 1;
-        width: 100%;
-        height: 100%;
-        display: grid;
-        grid-template-columns: var(--qr-size) var(--divider-width) minmax(0, 1fr);
-        align-items: center;
-        gap: var(--content-gap);
-        min-width: 0;
-      }
-      .qr-shell {
-        position: relative;
-        width: var(--qr-size);
-        height: var(--qr-size);
-        padding: var(--qr-padding);
-        border: 0.3mm solid transparent;
-        border-radius: var(--qr-radius);
-        background: #fff;
-      }
-      .qr-shell::before {
-        position: absolute;
-        inset: -0.3mm;
-        border: 0.3mm solid var(--label-green);
-        border-radius: inherit;
-        content: '';
-        opacity: 0.18;
-        pointer-events: none;
-      }
-      .qr-shell svg { display: block; width: 100%; height: 100%; }
-      .divider {
-        width: var(--divider-width);
-        height: 88%;
-        background: var(--label-green);
-        opacity: 0.18;
-      }
-      .details {
-        height: 100%;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: var(--details-gap);
-      }
-      .brand {
-        width: 90%;
-        flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        justify-content: center;
-        gap: var(--brand-gap);
-      }
-      .brand img {
-        display: block;
-        width: var(--logo-width);
-        max-height: var(--logo-height);
-        object-fit: contain;
-        object-position: left center;
-      }
-      .brand span {
-        width: 100%;
-        color: var(--label-green);
-        font-size: var(--caption-font);
-        font-weight: 700;
-        letter-spacing: 0.11em;
-        line-height: 1;
-        text-align: center;
-        text-transform: uppercase;
-        transform: scaleX(0.8);
-        transform-origin: center;
-        white-space: nowrap;
-      }
-      .identity {
-        width: 90%;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        flex: 0 0 auto;
-        gap: var(--identity-gap);
-        text-align: center;
-      }
-      .code {
-        display: block;
-        width: 100%;
-        padding: var(--code-padding-y) var(--code-padding-x);
-        overflow: visible;
-        border-radius: 999px;
-        color: #fff;
-        background: var(--label-green);
-        font-size: var(--code-font);
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        line-height: 1;
-        white-space: nowrap;
-      }
-      .name {
-        display: block;
-        width: 100%;
-        overflow: visible;
-        color: var(--label-green);
-        font-size: var(--name-font);
-        font-weight: 700;
-        line-height: 1.1;
-        text-align: center;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-      .fitted-text {
-        display: inline-block;
-        max-width: none;
-        transform-origin: center;
-        white-space: nowrap;
-      }
-      ${sizeRules}
+      ${buildRomaneioQrLabelArtStyles()}
+      ${buildRomaneioQrLabelSizeStyles(selectedSizeOptions, 'print')}
     `;
     document.head.append(style);
 
     const logos: HTMLImageElement[] = [];
-    const fittedCodes: Array<{ container: HTMLDivElement; element: HTMLSpanElement; maximum: number }> = [];
-    const fittedNames: Array<{ container: HTMLDivElement; element: HTMLSpanElement; maximum: number }> = [];
-    const printMetricBySize = new Map(printMetrics.map(metric => [metric.option.id, metric]));
+    const labels: HTMLElement[] = [];
 
     labelPages.forEach(page => {
-      const sheet = document.createElement('main');
-      sheet.className = 'sheet';
+      const sheetElement = document.createElement('main');
+      sheetElement.className = 'romaneio-qr-sheet';
 
       page.rows.forEach(row => {
         const labelRow = document.createElement('div');
-        labelRow.className = 'label-row';
+        labelRow.className = 'romaneio-qr-sheet-row';
 
         row.entries.forEach(({ item, size }) => {
-          const metric = printMetricBySize.get(size.id);
           const qrSvgMarkup = qrSvgMarkupByItemId[item.id];
-          if (!metric || !qrSvgMarkup) return;
+          if (!qrSvgMarkup) return;
 
-          const {
-            option,
-            codeMaximumFontPt,
-            nameMaximumFontPt
-          } = metric;
           const label = document.createElement('article');
-          label.className = 'label';
-          label.dataset.size = option.id;
+          label.className = 'romaneio-qr-label';
+          label.dataset.labelSize = size.id;
 
           const content = document.createElement('div');
-          content.className = 'label-content';
-          const qrTemplate = document.createElement('template');
-          qrTemplate.innerHTML = qrSvgMarkup;
-          const qrCode = qrTemplate.content.querySelector('svg');
+          content.className = 'romaneio-qr-label-content';
+
           const qrShell = document.createElement('div');
-          qrShell.className = 'qr-shell';
-          if (qrCode) qrShell.append(qrCode);
+          qrShell.className = 'romaneio-qr-label-qr';
+          qrShell.innerHTML = qrSvgMarkup;
           content.append(qrShell);
 
           const divider = document.createElement('div');
-          divider.className = 'divider';
+          divider.className = 'romaneio-qr-label-divider';
           content.append(divider);
 
           const details = document.createElement('div');
-          details.className = 'details';
-          const brand = document.createElement('header');
-          brand.className = 'brand';
+          details.className = 'romaneio-qr-label-details';
+
           const logo = document.createElement('img');
+          logo.className = 'romaneio-qr-label-logo';
           logo.src = new URL(brandLogoUrl, window.location.href).href;
           logo.alt = 'Filtrovali';
           logos.push(logo);
-          const brandCaption = document.createElement('span');
-          brandCaption.textContent = 'Identificação de equipamento';
-          brand.append(logo, brandCaption);
-          details.append(brand);
+          details.append(logo);
 
-          const identity = document.createElement('section');
-          identity.className = 'identity';
+          const identity = document.createElement('div');
+          identity.className = 'romaneio-qr-label-identity';
+          const caption = document.createElement('span');
+          caption.className = 'romaneio-qr-label-caption';
+          caption.textContent = labelCaption;
+          identity.append(caption);
+
           if (item.code) {
-            const code = document.createElement('div');
-            code.className = 'code';
+            const code = document.createElement('span');
+            code.className = 'romaneio-qr-label-code';
             const codeText = document.createElement('span');
-            codeText.className = 'fitted-text';
+            codeText.className = 'romaneio-qr-label-fit';
             codeText.textContent = item.code;
             code.append(codeText);
-            fittedCodes.push({ container: code, element: codeText, maximum: codeMaximumFontPt });
             identity.append(code);
           }
+          details.append(identity);
 
-          const name = document.createElement('div');
-          name.className = 'name';
+          const name = document.createElement('strong');
+          name.className = 'romaneio-qr-label-name';
           const nameText = document.createElement('span');
-          nameText.className = 'fitted-text';
+          nameText.className = 'romaneio-qr-label-fit';
           nameText.textContent = item.name.toLocaleUpperCase('pt-BR');
           name.append(nameText);
-          fittedNames.push({ container: name, element: nameText, maximum: nameMaximumFontPt });
-          identity.append(name);
-          details.append(identity);
+          details.append(name);
+
           content.append(details);
           label.append(content);
           labelRow.append(label);
+          labels.push(label);
         });
 
-        sheet.append(labelRow);
+        sheetElement.append(labelRow);
       });
 
-      document.body.append(sheet);
+      document.body.append(sheetElement);
     });
 
     let printStarted = false;
     const startPrint = () => {
       if (printStarted) return;
       printStarted = true;
-      const fitText = ({
-        container,
-        element,
-        maximum
-      }: { container: HTMLDivElement; element: HTMLSpanElement; maximum: number }) => {
-        element.style.transform = 'none';
-        let currentFontSize = maximum;
-        element.style.fontSize = `${currentFontSize.toFixed(2)}pt`;
-        const containerStyle = document.defaultView?.getComputedStyle(container);
-        const horizontalPadding = Number.parseFloat(containerStyle?.paddingLeft || '0')
-          + Number.parseFloat(containerStyle?.paddingRight || '0');
-        const availableWidth = Math.max(1, container.clientWidth - horizontalPadding);
-        while (element.scrollWidth > availableWidth && currentFontSize > 0.5) {
-          currentFontSize = Math.max(0.5, currentFontSize - 0.25);
-          element.style.fontSize = `${currentFontSize.toFixed(2)}pt`;
-        }
-        if (element.scrollWidth > availableWidth) {
-          element.style.transform = `scaleX(${Math.max(0.01, availableWidth / element.scrollWidth).toFixed(4)})`;
-        }
-      };
-      fittedCodes.forEach(fitText);
-      fittedNames.forEach(fitText);
+      labels.forEach(fitRomaneioQrLabelText);
       printWindow.focus();
       printWindow.print();
     };
@@ -515,6 +294,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       ariaDescribedBy="romaneio-qr-label-description"
       panelClassName="modal-card romaneio-qr-label-modal"
     >
+      <style dangerouslySetInnerHTML={{ __html: previewLabelStyles }} />
       <div className="section-title" id="romaneio-qr-label-title">
         {isBatch ? `QR codes da categoria ${categoryName}` : 'QR code do equipamento'}
       </div>
@@ -540,7 +320,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
               >
                 <span className="romaneio-qr-label-size-check" aria-hidden="true">{isSelected ? '✓' : ''}</span>
                 <strong>{option.label}</strong>
-                <span>{option.widthMillimeters} × {option.heightMillimeters} mm</span>
+                <span>{formatMillimeters(option.widthMillimeters)} × {formatMillimeters(option.heightMillimeters)} mm</span>
               </button>
             );
           })}
@@ -565,32 +345,13 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
                 {firstPreviewPage.rows.map((row, rowIndex) => (
                   <div className="romaneio-qr-sheet-preview-row" key={rowIndex}>
                     {row.entries.map(({ item, size }) => (
-                      <article
-                        className="romaneio-qr-label"
-                        data-label-size={size.id}
+                      <RomaneioQrLabelPreview
                         key={`${item.id}-${size.id}`}
-                        aria-label={`Etiqueta de ${item.name}, tamanho ${size.label}, ${size.widthMillimeters} por ${size.heightMillimeters} milímetros`}
-                      >
-                        <div className="romaneio-qr-label-content">
-                          <div className="romaneio-qr-code-shell">
-                            <div
-                              className="romaneio-qr-code"
-                              dangerouslySetInnerHTML={{ __html: qrSvgMarkupByItemId[item.id] }}
-                            />
-                          </div>
-                          <div className="romaneio-qr-label-divider" />
-                          <div className="romaneio-qr-label-details">
-                            <div className="romaneio-qr-label-brand">
-                              <img src={brandLogoUrl} alt="Filtrovali" />
-                              <span>Identificação de equipamento</span>
-                            </div>
-                            <div className="romaneio-qr-label-identity">
-                              {item.code ? <RomaneioQrLabelPreviewCode code={item.code} /> : null}
-                              <RomaneioQrLabelPreviewName name={item.name} />
-                            </div>
-                          </div>
-                        </div>
-                      </article>
+                        item={item}
+                        sizeId={size.id}
+                        qrSvgMarkup={qrSvgMarkupByItemId[item.id]}
+                        ariaLabel={`Etiqueta de ${item.name}, tamanho ${size.label}, ${formatMillimeters(size.widthMillimeters)} por ${formatMillimeters(size.heightMillimeters)} milímetros`}
+                      />
                     ))}
                   </div>
                 ))}

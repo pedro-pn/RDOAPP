@@ -4,10 +4,12 @@ import { romaneioUsesVariableQuantity } from './romaneioMeasure';
 const ROMANEIO_QR_PREFIX = 'FILTROVALI:ROMANEIO_ITEM:1:';
 const CATALOG_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
+// A arte de referência é horizontal (proporção 2,9039:1); as alturas abaixo
+// derivam das larguras para que os três tamanhos sejam a mesma etiqueta em escala.
 export const ROMANEIO_QR_LABEL_SIZES = [
-  { id: 'large', label: 'Grande', widthMillimeters: 120, heightMillimeters: 60 },
-  { id: 'medium', label: 'Média', widthMillimeters: 80, heightMillimeters: 40 },
-  { id: 'small', label: 'Pequena', widthMillimeters: 60, heightMillimeters: 30 }
+  { id: 'large', label: 'Grande', widthMillimeters: 120, heightMillimeters: 41.3 },
+  { id: 'medium', label: 'Média', widthMillimeters: 80, heightMillimeters: 27.5 },
+  { id: 'small', label: 'Pequena', widthMillimeters: 60, heightMillimeters: 20.7 }
 ] as const;
 
 export type RomaneioQrLabelSize = typeof ROMANEIO_QR_LABEL_SIZES[number];
@@ -28,9 +30,18 @@ export interface RomaneioQrLabelPage<T> {
   rows: RomaneioQrLabelPageRow<T>[];
 }
 
-const A4_LABEL_CONTENT_WIDTH_MM = 190;
-const A4_LABEL_CONTENT_HEIGHT_MM = 277;
-const A4_LABEL_GAP_MM = 5;
+export const ROMANEIO_QR_LABEL_SHEET = {
+  widthMillimeters: 210,
+  heightMillimeters: 297,
+  marginMillimeters: 10,
+  contentWidthMillimeters: 190,
+  contentHeightMillimeters: 277,
+  gapMillimeters: 5
+} as const;
+
+const A4_LABEL_CONTENT_WIDTH_MM = ROMANEIO_QR_LABEL_SHEET.contentWidthMillimeters;
+const A4_LABEL_CONTENT_HEIGHT_MM = ROMANEIO_QR_LABEL_SHEET.contentHeightMillimeters;
+const A4_LABEL_GAP_MM = ROMANEIO_QR_LABEL_SHEET.gapMillimeters;
 
 export function buildRomaneioItemQrValue(catalogItemId: string) {
   const normalizedId = catalogItemId.trim();
