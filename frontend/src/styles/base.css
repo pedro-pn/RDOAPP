@@ -4974,14 +4974,28 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 
 .romaneio-qr-label-modal {
   width: min(100%, 560px);
+  max-height: calc(100dvh - 36px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.romaneio-qr-label-modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
 }
 
 .romaneio-qr-label-modal > .admin-form-actions {
+  flex: 0 0 auto;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 20px;
-  padding-top: 14px;
+  margin-top: 0;
+  padding: 14px 18px 18px;
   border-top: 1px solid var(--br);
+  background: var(--wh);
 }
 
 .romaneio-qr-label-size-fieldset {
@@ -5183,6 +5197,31 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 }
 
 @media (max-width: 640px) {
+  .romaneio-qr-label-modal {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .romaneio-qr-label-modal-body {
+    padding: 16px;
+  }
+
+  .romaneio-qr-label-modal > .admin-form-actions {
+    flex-wrap: nowrap;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .romaneio-qr-label-modal > .admin-form-actions > .secondary-button {
+    flex: 0 0 auto;
+  }
+
+  .romaneio-qr-label-modal > .admin-form-actions > .primary-button {
+    min-width: 0;
+    flex: 1 1 auto;
+    white-space: normal;
+  }
+
   .romaneio-selected-row {
     align-items: stretch;
     flex-direction: column;
