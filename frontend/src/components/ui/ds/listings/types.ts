@@ -25,6 +25,7 @@ export interface MobileListItemContent {
   status?: ReactNode;
   value?: ReactNode;
   actions?: ReactNode;
+  details?: ReactNode;
   href?: string;
   onClick?: () => void;
   accessibleLabel?: string;

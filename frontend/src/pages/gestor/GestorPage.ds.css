@@ -2175,6 +2175,56 @@
   line-height: var(--leading-lg);
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-team-collaborator-form .upload-dropzone {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator-form
+  .upload-dropzone:hover {
+  border-color: var(--brand);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator-form
+  .upload-dropzone:focus-visible {
+  border-color: var(--brand);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: none;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator-form
+  .upload-dropzone:is(.drag-over, .has-file) {
+  border-color: var(--brand);
+  background: var(--brand-softer);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator-form
+  .upload-dropzone-text
+  strong {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator-form
+  .upload-dropzone-text
+  small {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-team-collaborator-form
+  .image-dropzone-preview {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
 :where(.fv-ds, [data-fv-ds])
   .rdo-team-collaborators
   :where(.fv-data-table__actions, .fv-mobile-list__actions) {

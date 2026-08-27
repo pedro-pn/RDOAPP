@@ -4776,12 +4776,22 @@ export function GestorPage() {
       : collaboratorMutations.createCollaborator.isPending;
 
     function openCollaboratorEditor(collaborator: Collaborator) {
+      if (
+        showCollaboratorForm &&
+        collaboratorEditingId === collaborator.id
+      ) {
+        resetCollaboratorForm();
+        return;
+      }
       setCollaboratorEditingId(collaborator.id);
       setShowCollaboratorForm(true);
       setCollaboratorForm(collaboratorToForm(collaborator));
     }
 
     function renderCollaboratorActions(collaborator: Collaborator) {
+      const editing =
+        showCollaboratorForm && collaboratorEditingId === collaborator.id;
+
       return (
         <>
           <Button
@@ -4789,6 +4799,8 @@ export function GestorPage() {
             size="sm"
             type="button"
             iconLeft={<AppIcon icon={DS_ICONS.edit} size="sm" />}
+            aria-expanded={editing}
+            aria-controls={`rdo-team-collaborator-edit-${collaborator.id}`}
             onClick={() => openCollaboratorEditor(collaborator)}
           >
             Editar
@@ -4857,6 +4869,107 @@ export function GestorPage() {
       }
     ];
 
+    function renderCollaboratorForm(
+      mode: 'create' | 'edit',
+      collaborator?: Collaborator
+    ) {
+      const editing = mode === 'edit' && collaborator;
+      const idSuffix = editing ? `-${collaborator.id}` : '';
+      const formId = editing
+        ? `rdo-team-collaborator-edit-${collaborator.id}`
+        : 'rdo-team-collaborator-create';
+
+      return (
+        <form
+          id={formId}
+          className={`rdo-admin-form rdo-team-collaborator-form${editing ? ' rdo-admin-form--nested' : ''}`}
+          data-collaborator-form={mode}
+          onSubmit={handleCollaboratorSubmit}
+          autoComplete="off"
+        >
+          <div className="rdo-admin-form__header">
+            <h3>
+              {editing ? `Editar ${collaborator.name}` : 'Novo colaborador'}
+            </h3>
+          </div>
+          <div className="rdo-team-collaborator-form__grid">
+            <Field
+              label="Nome"
+              id={`collaborator-name${idSuffix}`}
+              required
+            >
+              <Input
+                size="lg"
+                value={collaboratorForm.name}
+                autoComplete="off"
+                autoFocus
+                onChange={event => setCollaboratorForm(current => ({ ...current, name: event.target.value }))}
+                required
+              />
+            </Field>
+            <Field
+              label="Cargo"
+              id={`collaborator-role${idSuffix}`}
+              required
+            >
+              <Select
+                size="lg"
+                value={collaboratorForm.role}
+                onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
+                required
+              >
+                {renderRoleOptions(collaboratorForm.role)}
+              </Select>
+            </Field>
+            <Field label="E-mail" id={`collaborator-email${idSuffix}`}>
+              <Input
+                size="lg"
+                type="email"
+                value={collaboratorForm.email}
+                autoComplete="off"
+                placeholder="email@empresa.com"
+                onChange={event => setCollaboratorForm(current => ({ ...current, email: event.target.value }))}
+              />
+            </Field>
+            <Field
+              label="Status"
+              id={`collaborator-active${idSuffix}`}
+              optionalText={null}
+            >
+              <Select
+                size="lg"
+                value={String(collaboratorForm.isActive)}
+                onChange={event => setCollaboratorForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
+              >
+                <option value="true">Ativo</option>
+                <option value="false">Inativo</option>
+              </Select>
+            </Field>
+            {renderCollaboratorSignatureField()}
+            <div className="rdo-team-collaborator-form__actions">
+              <Button
+                variant="secondary"
+                size="md"
+                type="button"
+                onClick={resetCollaboratorForm}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                disabled={collaboratorSaving}
+                loading={collaboratorSaving}
+              >
+                Salvar
+              </Button>
+            </div>
+          </div>
+        </form>
+      );
+    }
+
     return (
       <div className="rdo-admin-listing rdo-team-collaborators rdo-ds-actions">
         <div className="rdo-team-surface-heading">
@@ -4869,78 +4982,9 @@ export function GestorPage() {
           </div>
         </div>
 
-        {showCollaboratorForm ? (
-          <form
-            className="rdo-admin-form rdo-team-collaborator-form"
-            onSubmit={handleCollaboratorSubmit}
-            autoComplete="off"
-          >
-            <div className="rdo-admin-form__header">
-              <h3>{collaboratorEditingId ? 'Editar colaborador' : 'Novo colaborador'}</h3>
-            </div>
-            <div className="rdo-team-collaborator-form__grid">
-              <Field label="Nome" id="collaborator-name" required>
-                <Input
-                  size="lg"
-                  value={collaboratorForm.name}
-                  autoComplete="off"
-                  onChange={event => setCollaboratorForm(current => ({ ...current, name: event.target.value }))}
-                  required
-                />
-              </Field>
-              <Field label="Cargo" id="collaborator-role" required>
-                <Select
-                  size="lg"
-                  value={collaboratorForm.role}
-                  onChange={event => setCollaboratorForm(current => ({ ...current, role: event.target.value }))}
-                  required
-                >
-                  {renderRoleOptions(collaboratorForm.role)}
-                </Select>
-              </Field>
-              <Field label="E-mail" id="collaborator-email">
-                <Input
-                  size="lg"
-                  type="email"
-                  value={collaboratorForm.email}
-                  autoComplete="off"
-                  placeholder="email@empresa.com"
-                  onChange={event => setCollaboratorForm(current => ({ ...current, email: event.target.value }))}
-                />
-              </Field>
-              <Field label="Status" id="collaborator-active" optionalText={null}>
-                <Select
-                  size="lg"
-                  value={String(collaboratorForm.isActive)}
-                  onChange={event => setCollaboratorForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
-                >
-                  <option value="true">Ativo</option>
-                  <option value="false">Inativo</option>
-                </Select>
-              </Field>
-              {renderCollaboratorSignatureField()}
-              <div className="rdo-team-collaborator-form__actions">
-                <Button
-                  variant="secondary"
-                  size="md"
-                  type="button"
-                  onClick={resetCollaboratorForm}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  variant="primary"
-                  size="md"
-                  type="submit"
-                  disabled={collaboratorSaving}
-                  loading={collaboratorSaving}
-                >
-                  Salvar
-                </Button>
-              </div>
-            </div>
-          </form>
-        ) : null}
+        {showCollaboratorForm && !collaboratorEditingId
+          ? renderCollaboratorForm('create')
+          : null}
 
         <DataTable
           className="rdo-team-collaborators__table"
@@ -4956,6 +5000,12 @@ export function GestorPage() {
           density="compact"
           actionsLabel="Ações"
           rowActions={renderCollaboratorActions}
+          renderRowDetails={collaborator =>
+            showCollaboratorForm &&
+            collaboratorEditingId === collaborator.id
+              ? renderCollaboratorForm('edit', collaborator)
+              : null
+          }
           loading={collaboratorsQuery.isLoading}
           loadingRows={6}
           error={

@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -106,6 +107,7 @@ export interface DataTableProps<T> extends Omit<
     index: number,
     context: { disabled: boolean }
   ) => ReactNode;
+  renderRowDetails?: (row: T, index: number) => ReactNode;
   actionsLabel?: string;
   mobile: DataTableMobileConfig<T>;
   loading?: boolean;
@@ -132,6 +134,7 @@ export function DataTable<T>({
   selection,
   getRowClassName,
   rowActions,
+  renderRowDetails,
   actionsLabel = 'Ações',
   mobile,
   loading = false,
@@ -196,7 +199,8 @@ export function DataTable<T>({
     const content = mobile.renderItem(row, index);
     return {
       ...content,
-      actions: content.actions ?? rowActions?.(row, index, { disabled })
+      actions: content.actions ?? rowActions?.(row, index, { disabled }),
+      details: content.details ?? renderRowDetails?.(row, index)
     };
   };
 
@@ -387,61 +391,76 @@ export function DataTable<T>({
                   const isSelected = selectedSet.has(rowId);
                   const rowLabel =
                     selection?.getRowLabel?.(row) ?? String(rowId);
+                  const rowDetails = renderRowDetails?.(row, rowIndex);
 
                   return (
-                    <tr
-                      className={joinClassNames(
-                        isSelected && 'fv-data-table__row--selected',
-                        getRowClassName?.(row, rowIndex)
-                      )}
-                      key={rowId}
-                      data-row-id={String(rowId)}
-                      aria-selected={selection ? isSelected : undefined}
-                    >
-                      {selection ? (
-                        <td className="fv-data-table__selection">
-                          <SelectionCheckbox
-                            checked={isSelected}
-                            disabled={!isSelectable}
-                            label={`${isSelected ? 'Desmarcar' : 'Selecionar'} ${rowLabel}`}
-                            className={selection.controlClassName}
-                            onChange={() => updateRowSelection(rowId)}
-                          />
-                        </td>
-                      ) : null}
-                      {columns.map((column) => {
-                        const cellClassName = joinClassNames(
-                          `fv-data-table__cell--${column.align ?? (column.numeric ? 'right' : 'left')}`,
-                          column.numeric && 'fv-data-table__cell--numeric'
-                        );
-                        const cellContent = renderColumnValue(
-                          column,
-                          row,
-                          rowIndex
-                        );
-
-                        return column.rowHeader ? (
-                          <th
-                            className={cellClassName}
-                            key={column.key}
-                            scope="row"
-                          >
-                            {cellContent}
-                          </th>
-                        ) : (
-                          <td className={cellClassName} key={column.key}>
-                            {cellContent}
+                    <Fragment key={rowId}>
+                      <tr
+                        className={joinClassNames(
+                          isSelected && 'fv-data-table__row--selected',
+                          getRowClassName?.(row, rowIndex)
+                        )}
+                        data-row-id={String(rowId)}
+                        aria-selected={selection ? isSelected : undefined}
+                      >
+                        {selection ? (
+                          <td className="fv-data-table__selection">
+                            <SelectionCheckbox
+                              checked={isSelected}
+                              disabled={!isSelectable}
+                              label={`${isSelected ? 'Desmarcar' : 'Selecionar'} ${rowLabel}`}
+                              className={selection.controlClassName}
+                              onChange={() => updateRowSelection(rowId)}
+                            />
                           </td>
-                        );
-                      })}
-                      {rowActions ? (
-                        <td>
-                          <div className="fv-data-table__actions">
-                            {rowActions(row, rowIndex, { disabled })}
-                          </div>
-                        </td>
+                        ) : null}
+                        {columns.map((column) => {
+                          const cellClassName = joinClassNames(
+                            `fv-data-table__cell--${column.align ?? (column.numeric ? 'right' : 'left')}`,
+                            column.numeric && 'fv-data-table__cell--numeric'
+                          );
+                          const cellContent = renderColumnValue(
+                            column,
+                            row,
+                            rowIndex
+                          );
+
+                          return column.rowHeader ? (
+                            <th
+                              className={cellClassName}
+                              key={column.key}
+                              scope="row"
+                            >
+                              {cellContent}
+                            </th>
+                          ) : (
+                            <td className={cellClassName} key={column.key}>
+                              {cellContent}
+                            </td>
+                          );
+                        })}
+                        {rowActions ? (
+                          <td>
+                            <div className="fv-data-table__actions">
+                              {rowActions(row, rowIndex, { disabled })}
+                            </div>
+                          </td>
+                        ) : null}
+                      </tr>
+                      {rowDetails !== null && rowDetails !== undefined ? (
+                        <tr
+                          className="fv-data-table__details-row"
+                          data-details-for-row={String(rowId)}
+                        >
+                          <td
+                            className="fv-data-table__details"
+                            colSpan={columnCount}
+                          >
+                            {rowDetails}
+                          </td>
+                        </tr>
                       ) : null}
-                    </tr>
+                    </Fragment>
                   );
                 })
               )}

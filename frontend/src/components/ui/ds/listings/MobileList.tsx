@@ -243,6 +243,12 @@ export function MobileList<T>({
                     {content.actions}
                   </div>
                 ) : null}
+
+                {hasContent(content.details) ? (
+                  <div className="fv-mobile-list__details">
+                    {content.details}
+                  </div>
+                ) : null}
               </Card>
             </li>
           );

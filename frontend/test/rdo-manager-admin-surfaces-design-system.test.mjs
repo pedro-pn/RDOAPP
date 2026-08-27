@@ -45,7 +45,10 @@ test('Equipe usa a hierarquia administrativa DS e preserva suas três subáreas'
   assert.match(team, /<DataTable\b/);
   assert.match(team, /className="rdo-team-collaborators__table"/);
   assert.match(team, /loading=\{collaboratorsQuery\.isLoading\}/);
+  assert.match(team, /renderRowDetails=\{collaborator =>/);
   assert.match(team, /mobile=\{\{/);
+  assert.match(team, /data-collaborator-form=\{mode\}/);
+  assert.match(team, /aria-expanded=\{editing\}/);
   assert.match(team, /<EmptyState\b/);
   assert.doesNotMatch(team, /rdo-admin-person-card/);
   assert.doesNotMatch(team, /mini-btn|page-card|card admin-card/);

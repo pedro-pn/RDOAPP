@@ -119,6 +119,24 @@ test('MobileList exposes the current selection state on each list item', () => {
   );
 });
 
+test('DataTable and MobileList expose optional contextual row details', () => {
+  const dataTable = source('src/components/ui/ds/listings/DataTable.tsx');
+  const mobileList = source('src/components/ui/ds/listings/MobileList.tsx');
+  const listingTypes = source('src/components/ui/ds/listings/types.ts');
+
+  assert.match(dataTable, /renderRowDetails\?/);
+  assert.match(dataTable, /data-details-for-row=/);
+  assert.match(dataTable, /className="fv-data-table__details"/);
+  assert.match(dataTable, /colSpan=\{columnCount\}/);
+  assert.match(
+    dataTable,
+    /details: content\.details \?\? renderRowDetails\?\.\(row, index\)/
+  );
+  assert.match(listingTypes, /details\?: ReactNode/);
+  assert.match(mobileList, /hasContent\(content\.details\)/);
+  assert.match(mobileList, /className="fv-mobile-list__details"/);
+});
+
 test('listing CSS is DS-scoped, tokenized and uses only official breakpoints', () => {
   const css = source('src/components/ui/ds/listings/listings.css');
 

@@ -121,6 +121,34 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   ).toBeFocused();
   await teamTabs.getByRole('tab', { name: 'Colaboradores' }).click();
 
+  const firstCollaboratorRow = collaboratorsSurface
+    .locator('tbody tr[data-row-id]')
+    .first();
+  const firstCollaboratorId =
+    await firstCollaboratorRow.getAttribute('data-row-id');
+  expect(firstCollaboratorId).toBeTruthy();
+  const firstCollaboratorEdit = firstCollaboratorRow.getByRole('button', {
+    name: 'Editar',
+    exact: true
+  });
+  await firstCollaboratorEdit.click();
+  await expect(firstCollaboratorEdit).toHaveAttribute('aria-expanded', 'true');
+  const collaboratorDetailsRow = collaboratorsSurface.locator(
+    `[data-details-for-row="${firstCollaboratorId}"]`
+  );
+  const inlineEditForm = collaboratorDetailsRow.locator(
+    'form[data-collaborator-form="edit"]'
+  );
+  await expect(inlineEditForm).toBeVisible();
+  await expect(
+    inlineEditForm.getByRole('heading', { name: /^Editar / })
+  ).toBeVisible();
+  await expect(
+    inlineEditForm.getByRole('textbox', { name: 'Nome', exact: true })
+  ).toBeFocused();
+  await firstCollaboratorEdit.click();
+  await expect(collaboratorDetailsRow).toHaveCount(0);
+
   await page.getByRole('button', { name: /Novo colaborador$/ }).click();
   await expect(
     page.getByRole('heading', { name: 'Novo colaborador' })
@@ -225,6 +253,23 @@ test('Equipe e Usuários mantêm light/dark e desktop/mobile sem overflow', asyn
               name: 'Colaboradores'
             })
           ).toHaveCount(0);
+          const firstCollaboratorCard = collaboratorsSurface
+            .locator('.fv-mobile-list__item')
+            .first();
+          await firstCollaboratorCard
+            .getByRole('button', { name: 'Editar', exact: true })
+            .click();
+          const mobileEditForm = firstCollaboratorCard.locator(
+            'form[data-collaborator-form="edit"]'
+          );
+          await expect(mobileEditForm).toBeVisible();
+          await expect(
+            collaboratorsSurface.locator('form[data-collaborator-form="edit"]')
+          ).toHaveCount(1);
+          await mobileEditForm
+            .getByRole('button', { name: 'Cancelar', exact: true })
+            .click();
+          await expect(mobileEditForm).toHaveCount(0);
         } else {
           await expect(
             collaboratorsSurface.getByRole('table', {
