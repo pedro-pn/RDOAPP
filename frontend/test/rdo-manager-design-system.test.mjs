@@ -7,6 +7,10 @@ const source = (path) =>
 
 test('manager report tabs opt into the DS shell and listing without changing the domain hooks', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
+  const reportTab = page.slice(
+    page.indexOf('function renderReportTabContent'),
+    page.indexOf('function renderProjectsTab')
+  );
 
   assert.match(
     page,
@@ -19,7 +23,7 @@ test('manager report tabs opt into the DS shell and listing without changing the
   assert.match(page, /<SearchInput\b/);
   assert.match(page, /<FilterBar\b/);
   assert.match(page, /<MetricCard\b/);
-  assert.doesNotMatch(page, /<Pagination\b/);
+  assert.doesNotMatch(reportTab, /<Pagination\b/);
 
   for (const contract of [
     'useAccumulatedReportsPage',

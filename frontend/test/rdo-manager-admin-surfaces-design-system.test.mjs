@@ -54,7 +54,7 @@ test('Equipe usa a hierarquia administrativa DS e preserva suas três subáreas'
   assert.doesNotMatch(team, /mini-btn|page-card|card admin-card/);
 });
 
-test('Usuários usa cards e status DS sem alterar senha, perfis ou ações reais', () => {
+test('Usuários usa toolbar, listagem responsiva e formulários DS sem alterar contratos', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
   const users = sectionBetween(
     page,
@@ -64,9 +64,19 @@ test('Usuários usa cards e status DS sem alterar senha, perfis ou ações reais
 
   assert.match(page, /title="Usuários"/);
   assert.match(page, /aria-label="Resumo dos usuários"/);
+  assert.match(page, /label="Usuários ativos"/);
+  assert.match(page, /label="Gestores"/);
+  assert.match(page, /label="Contas inativas"/);
   assert.match(users, /className="rdo-admin-section rdo-users"/);
   assert.match(users, /aria-label="Tipo de usuário"/);
-  assert.match(users, /<Card className="rdo-admin-person-card"/);
+  assert.match(users, /<DataTable\b/);
+  assert.match(users, /className="rdo-users__table"/);
+  assert.match(users, /renderRowDetails=\{item =>/);
+  assert.match(users, /<Pagination\b/);
+  assert.match(users, /data-user-form=\{mode\}/);
+  assert.match(users, /<Field\b/);
+  assert.match(users, /<Input\b/);
+  assert.match(users, /<Select\b/);
   assert.match(users, /<Card className="rdo-client-account-card"/);
   assert.match(users, /<StatusPill\b/);
   assert.match(users, /<Badge\b/);
@@ -76,6 +86,7 @@ test('Usuários usa cards e status DS sem alterar senha, perfis ou ações reais
   assert.match(users, /handleUserDelete/);
   assert.match(users, /userMutations\.createUser\.isPending/);
   assert.match(users, /userMutations\.updateUser\.isPending/);
+  assert.doesNotMatch(users, /rdo-admin-person-card/);
   assert.doesNotMatch(users, /mini-btn|page-card|card admin-card|status-pill/);
 });
 

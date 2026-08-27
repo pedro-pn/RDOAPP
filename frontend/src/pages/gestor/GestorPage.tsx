@@ -52,6 +52,7 @@ import {
   IconButton,
   Input,
   MetricCard,
+  Pagination,
   SearchInput,
   Select,
   Skeleton,
@@ -287,6 +288,9 @@ interface UserFormState {
 }
 
 const internalRoles: Array<Exclude<UserRole, 'CLIENT'>> = ['COLLABORATOR', 'COORDINATOR', 'MANAGER'];
+type UserRoleFilter = 'all' | Exclude<UserRole, 'CLIENT'>;
+type UserStatusFilter = 'all' | 'active' | 'inactive';
+type UserSortMode = 'name-asc' | 'name-desc' | 'role-asc';
 type ProjectVisibilityMode = 'manager-coordinator' | 'all-authorized' | 'manager-only';
 const projectReportTypes: ReportType[] = ['RDO', 'RTP', 'RLQ', 'RCPU', 'RLM', 'RLI', 'RLF'];
 
@@ -531,6 +535,13 @@ function formatUserRole(role: UserRole) {
   };
 
   return labels[role] || role;
+}
+
+function userRoleTone(role: UserRole): SemanticTone {
+  if (role === 'MANAGER') return 'brand';
+  if (role === 'COORDINATOR') return 'info';
+  if (role === 'CLIENT') return 'warning';
+  return 'neutral';
 }
 
 function initials(name: string) {
@@ -1765,6 +1776,15 @@ export function GestorPage() {
   const [userEditingId, setUserEditingId] = useState<string | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [userAdminGroup, setUserAdminGroup] = useState<'internal' | 'client'>('internal');
+  const [userRoleFilter, setUserRoleFilter] = useState<UserRoleFilter>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>('all');
+  const [userSortMode, setUserSortMode] = useState<UserSortMode>('name-asc');
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(5);
+
+  useEffect(() => {
+    setUserPage(1);
+  }, [gestorSearch, userAdminGroup, userRoleFilter, userSortMode, userStatusFilter]);
 
   const [returnReport, setReturnReport] = useState<ReportSummary | null>(null);
   const returnReportTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -5060,11 +5080,170 @@ export function GestorPage() {
     );
   }
 
+  function renderUsersToolbar() {
+    const sourceUsers =
+      userAdminGroup === 'internal'
+        ? internalUsersQuery.data || []
+        : clientUsersQuery.data || [];
+    const searchedUsers = sourceUsers.filter(item =>
+      matchesSearch(userSearchParts(item), gestorSearch)
+    );
+    const filteredUsers = searchedUsers.filter(item => {
+      const matchesRole =
+        userAdminGroup === 'client' ||
+        userRoleFilter === 'all' ||
+        item.role === userRoleFilter;
+      const matchesStatus =
+        userStatusFilter === 'all' ||
+        (userStatusFilter === 'active' ? item.isActive : !item.isActive);
+      return matchesRole && matchesStatus;
+    });
+    const activeFilters = [
+      ...(userAdminGroup === 'internal' && userRoleFilter !== 'all'
+        ? [
+            {
+              id: 'role',
+              label: `Perfil: ${formatUserRole(userRoleFilter)}`,
+              onRemove: () => setUserRoleFilter('all')
+            }
+          ]
+        : []),
+      ...(userStatusFilter !== 'all'
+        ? [
+            {
+              id: 'status',
+              label: `Status: ${userStatusFilter === 'active' ? 'Ativo' : 'Inativo'}`,
+              onRemove: () => setUserStatusFilter('all')
+            }
+          ]
+        : [])
+    ];
+
+    return (
+      <FilterBar
+        className="rdo-users__filters"
+        label="Busca e filtros dos usuários"
+        resultsId="rdo-manager-users-results"
+        search={
+          <SearchInput
+            value={gestorSearch}
+            onChange={setGestorSearch}
+            label="Buscar em usuários"
+            placeholder="Buscar por nome, usuário ou e-mail..."
+            autoComplete="off"
+            resultCount={{
+              shown: filteredUsers.length,
+              total: sourceUsers.length
+            }}
+          />
+        }
+        activeFilters={activeFilters}
+        activeCount={activeFilters.length}
+        onClear={
+          activeFilters.length
+            ? () => {
+                setUserRoleFilter('all');
+                setUserStatusFilter('all');
+              }
+            : undefined
+        }
+        clearLabel="Limpar filtros de usuários"
+        mobileTitle="Filtrar usuários"
+        mobileDescription="Refine por perfil, status e ordenação."
+      >
+        {userAdminGroup === 'internal' ? (
+          <label className="rdo-users-filter-control">
+            <span>Perfil</span>
+            <Select
+              size="md"
+              aria-label="Filtrar usuários por perfil"
+              value={userRoleFilter}
+              onChange={event =>
+                setUserRoleFilter(event.target.value as UserRoleFilter)
+              }
+              options={[
+                { value: 'all', label: 'Todos' },
+                ...internalRoles.map(role => ({
+                  value: role,
+                  label: formatUserRole(role)
+                }))
+              ]}
+            />
+          </label>
+        ) : null}
+        <label className="rdo-users-filter-control">
+          <span>Status</span>
+          <Select
+            size="md"
+            aria-label="Filtrar usuários por status"
+            value={userStatusFilter}
+            onChange={event =>
+              setUserStatusFilter(event.target.value as UserStatusFilter)
+            }
+            options={[
+              { value: 'all', label: 'Todos' },
+              { value: 'active', label: 'Ativos' },
+              { value: 'inactive', label: 'Inativos' }
+            ]}
+          />
+        </label>
+        <label className="rdo-users-filter-control rdo-users-filter-control--sort">
+          <span className="fv-sr-only">Ordenação</span>
+          <Select
+            size="md"
+            aria-label="Ordenar usuários"
+            value={userSortMode}
+            onChange={event =>
+              setUserSortMode(event.target.value as UserSortMode)
+            }
+            options={[
+              { value: 'name-asc', label: 'Ordenar por: Nome (A–Z)' },
+              { value: 'name-desc', label: 'Ordenar por: Nome (Z–A)' },
+              { value: 'role-asc', label: 'Ordenar por: Perfil' }
+            ]}
+          />
+        </label>
+      </FilterBar>
+    );
+  }
+
   function renderUsuariosTab() {
-    const internalUsers = (internalUsersQuery.data || [])
-      .filter(item => matchesSearch(userSearchParts(item), gestorSearch));
-    const clientUsers = (clientUsersQuery.data || [])
-      .filter(item => matchesSearch(userSearchParts(item), gestorSearch));
+    const sortUsers = (items: InternalUserSummary[]) =>
+      [...items].sort((left, right) => {
+        if (userSortMode === 'role-asc') {
+          const roleComparison = formatUserRole(left.role).localeCompare(
+            formatUserRole(right.role),
+            'pt-BR',
+            { sensitivity: 'base' }
+          );
+          if (roleComparison) return roleComparison;
+        }
+
+        const nameComparison = (left.name || left.username).localeCompare(
+          right.name || right.username,
+          'pt-BR',
+          { numeric: true, sensitivity: 'base' }
+        );
+        return userSortMode === 'name-desc' ? -nameComparison : nameComparison;
+      });
+    const matchesUserStatus = (item: InternalUserSummary) =>
+      userStatusFilter === 'all' ||
+      (userStatusFilter === 'active' ? item.isActive : !item.isActive);
+    const internalUsers = sortUsers(
+      (internalUsersQuery.data || []).filter(
+        item =>
+          matchesSearch(userSearchParts(item), gestorSearch) &&
+          (userRoleFilter === 'all' || item.role === userRoleFilter) &&
+          matchesUserStatus(item)
+      )
+    );
+    const clientUsers = sortUsers(
+      (clientUsersQuery.data || []).filter(
+        item =>
+          matchesSearch(userSearchParts(item), gestorSearch) &&
+          matchesUserStatus(item)
+      )
+    );
 
     if (internalUsersQuery.isLoading || clientUsersQuery.isLoading) {
       return (
@@ -5075,7 +5254,293 @@ export function GestorPage() {
         </div>
       );
     }
+    if (internalUsersQuery.isError || clientUsersQuery.isError) {
+      return (
+        <Alert
+          tone="danger"
+          title="Não foi possível carregar os usuários"
+          action={{
+            label: 'Tentar novamente',
+            onClick: () => {
+              void internalUsersQuery.refetch();
+              void clientUsersQuery.refetch();
+            }
+          }}
+        >
+          Os dados existentes não foram alterados. Tente carregar a listagem novamente.
+        </Alert>
+      );
+    }
     const showInternal = userAdminGroup === 'internal';
+    const internalTotalPages = Math.max(
+      1,
+      Math.ceil(internalUsers.length / userPageSize)
+    );
+    const currentInternalPage = Math.min(userPage, internalTotalPages);
+    const visibleInternalUsers = internalUsers.slice(
+      (currentInternalPage - 1) * userPageSize,
+      currentInternalPage * userPageSize
+    );
+
+    function openInternalUserEditor(item: InternalUserSummary) {
+      if (showUserForm && userEditingId === item.id) {
+        resetUserForm();
+        return;
+      }
+      setUserEditingId(item.id);
+      setShowUserForm(true);
+      setUserForm(userToForm(item));
+    }
+
+    function renderInternalUserForm(
+      mode: 'create' | 'edit',
+      item?: InternalUserSummary
+    ) {
+      const editing = mode === 'edit' && item;
+      const idSuffix = editing ? `-${item.id}` : '';
+
+      return (
+        <form
+          id={editing ? `rdo-user-edit-${item.id}` : 'rdo-user-create'}
+          className={`rdo-admin-form rdo-user-form${editing ? ' rdo-admin-form--nested' : ''}`}
+          data-user-form={mode}
+          onSubmit={handleUserSubmit}
+          autoComplete="off"
+        >
+          <div className="rdo-admin-form__header">
+            <h2>{editing ? `Editar ${item.name}` : 'Novo usuário'}</h2>
+          </div>
+          <div className="rdo-user-form__grid">
+            <Field label="Usuário" id={`user-username${idSuffix}`} required>
+              <Input
+                size="lg"
+                value={userForm.username}
+                autoComplete="off"
+                readOnly={Boolean(editing)}
+                onChange={event =>
+                  setUserForm(current => ({
+                    ...current,
+                    username: event.target.value
+                  }))
+                }
+                required
+              />
+            </Field>
+            <Field label="Nome" id={`user-name${idSuffix}`} required>
+              <Input
+                size="lg"
+                value={userForm.name}
+                autoComplete="off"
+                autoFocus
+                onChange={event =>
+                  setUserForm(current => ({
+                    ...current,
+                    name: event.target.value
+                  }))
+                }
+                required
+              />
+            </Field>
+            <Field label="E-mail" id={`user-email${idSuffix}`}>
+              <Input
+                size="lg"
+                type="email"
+                value={userForm.email}
+                autoComplete="off"
+                placeholder="email@empresa.com"
+                onChange={event =>
+                  setUserForm(current => ({
+                    ...current,
+                    email: event.target.value
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Perfil" id={`user-role${idSuffix}`} required>
+              <Select
+                size="lg"
+                value={userForm.role}
+                onChange={event =>
+                  setUserForm(current => ({
+                    ...current,
+                    role: event.target.value as Exclude<UserRole, 'CLIENT'>
+                  }))
+                }
+                required
+              >
+                {internalRoles.map(role => (
+                  <option key={role} value={role}>
+                    {formatUserRole(role)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Status" id={`user-active${idSuffix}`}>
+              <Select
+                size="lg"
+                value={String(userForm.isActive)}
+                onChange={event =>
+                  setUserForm(current => ({
+                    ...current,
+                    isActive: event.target.value === 'true'
+                  }))
+                }
+              >
+                <option value="true">Ativo</option>
+                <option value="false">Inativo</option>
+              </Select>
+            </Field>
+            <Field
+              label="Vincular colaborador"
+              id={`user-collaborator${idSuffix}`}
+            >
+              <Select
+                size="lg"
+                value={userForm.collaboratorId}
+                onChange={event =>
+                  setUserForm(current => ({
+                    ...current,
+                    collaboratorId: event.target.value
+                  }))
+                }
+              >
+                <option value="">Sem vínculo</option>
+                {(collaboratorsQuery.data || [])
+                  .filter(collaborator => collaborator.isActive)
+                  .map(collaborator => (
+                    <option key={collaborator.id} value={collaborator.id}>
+                      {collaborator.name}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field
+              label={editing ? 'Nova senha' : 'Senha'}
+              helperText={editing ? 'Deixe em branco para manter a senha atual.' : undefined}
+              id={`user-password${idSuffix}`}
+              required={!editing}
+            >
+              <Input
+                size="lg"
+                type="password"
+                value={userForm.password}
+                autoComplete="new-password"
+                onChange={event =>
+                  setUserForm(current => ({
+                    ...current,
+                    password: event.target.value
+                  }))
+                }
+                required={!editing}
+              />
+            </Field>
+            <div className="rdo-user-form__actions">
+              <Button
+                variant="secondary"
+                size="md"
+                type="button"
+                onClick={resetUserForm}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                loading={
+                  editing
+                    ? userMutations.updateUser.isPending
+                    : userMutations.createUser.isPending
+                }
+              >
+                Salvar usuário
+              </Button>
+            </div>
+          </div>
+        </form>
+      );
+    }
+
+    function renderInternalUserActions(item: InternalUserSummary) {
+      const editing = showUserForm && userEditingId === item.id;
+
+      return (
+        <>
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            iconLeft={<AppIcon icon={DS_ICONS.edit} size="sm" />}
+            aria-expanded={editing}
+            aria-controls={`rdo-user-edit-${item.id}`}
+            onClick={() => openInternalUserEditor(item)}
+          >
+            Editar
+          </Button>
+          <IconButton
+            variant="danger"
+            size="sm"
+            type="button"
+            icon={DS_ICONS.trash}
+            label={`Remover ${item.name}`}
+            onClick={() => void handleUserDelete(item.id)}
+          />
+        </>
+      );
+    }
+
+    const internalUserColumns: DataTableColumn<InternalUserSummary>[] = [
+      {
+        key: 'user',
+        header: 'Usuário',
+        rowHeader: true,
+        render: item => (
+          <span className="rdo-user-identity">
+            <span className="rdo-user-avatar" aria-hidden="true">
+              {initials(item.name)}
+            </span>
+            <span className="rdo-user-identity__copy">
+              <strong>{item.name}</strong>
+              <span>{item.username}</span>
+            </span>
+          </span>
+        )
+      },
+      {
+        key: 'email',
+        header: 'E-mail',
+        render: item => (
+          <span className="rdo-user-email">{item.email || 'Não informado'}</span>
+        )
+      },
+      {
+        key: 'role',
+        header: 'Perfil',
+        render: item => (
+          <Badge tone={userRoleTone(item.role)}>{formatUserRole(item.role)}</Badge>
+        )
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: item => (
+          <StatusPill
+            status={item.isActive ? 'active' : 'inactive'}
+            label={item.isActive ? 'Ativo' : 'Inativo'}
+            tone={item.isActive ? 'success' : 'neutral'}
+          />
+        )
+      },
+      {
+        key: 'link',
+        header: 'Vínculo',
+        render: item => (
+          <span className="rdo-user-link">
+            {item.collaborator?.name || 'Sem colaborador vinculado'}
+          </span>
+        )
+      }
+    ];
 
     return (
       <section
@@ -5083,6 +5548,7 @@ export function GestorPage() {
         id="rdo-manager-users-results"
         aria-label="Administração de usuários"
       >
+        <Card className="rdo-users-workspace" padding="md">
           <div className="rdo-admin-tabs" role="tablist" aria-label="Tipo de usuário" onKeyDown={handleHorizontalTabListKeyDown}>
             <button
               id="rdo-users-tab-internal"
@@ -5093,6 +5559,7 @@ export function GestorPage() {
               aria-controls="rdo-users-panel"
               onClick={() => {
                 setUserAdminGroup('internal');
+                resetUserForm();
               }}
             >
               Internos
@@ -5106,6 +5573,7 @@ export function GestorPage() {
               aria-controls="rdo-users-panel"
               onClick={() => {
                 setUserAdminGroup('client');
+                setUserRoleFilter('all');
                 resetUserForm();
               }}
             >
@@ -5122,250 +5590,85 @@ export function GestorPage() {
 
         {showInternal ? (
         <>
-          {showUserForm && !userEditingId ? (
-	          <form className="admin-inline-form rdo-admin-form" onSubmit={handleUserSubmit} autoComplete="off">
-	            <div className="rdo-admin-form__header">
-	              <h2>Novo usuário</h2>
-	              <Button variant="secondary" size="sm" type="button" onClick={resetUserForm}>Cancelar</Button>
-	            </div>
-	            <div className="admin-inline-grid">
-	              <div className="field-group">
-	                <label htmlFor="user-username">Usuário</label>
-	                <input
-	                  id="user-username"
-	                  value={userForm.username}
-	                  autoComplete="off"
-	                  onChange={event => setUserForm(current => ({ ...current, username: event.target.value }))}
-	                  required
-	                />
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="user-name">Nome</label>
-	                <input
-	                  id="user-name"
-	                  value={userForm.name}
-	                  autoComplete="off"
-	                  onChange={event => setUserForm(current => ({ ...current, name: event.target.value }))}
-	                  required
-	                />
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="user-email">E-mail</label>
-	                <input
-	                  id="user-email"
-	                  type="email"
-	                  value={userForm.email}
-	                  autoComplete="off"
-	                  placeholder="email@empresa.com"
-	                  onChange={event => setUserForm(current => ({ ...current, email: event.target.value }))}
-	                />
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="user-role">Perfil</label>
-	                <select
-	                  id="user-role"
-	                  value={userForm.role}
-	                  onChange={event =>
-	                    setUserForm(current => ({ ...current, role: event.target.value as Exclude<UserRole, 'CLIENT'> }))
-	                  }
-	                >
-	                  {internalRoles.map(role => (
-	                    <option key={role} value={role}>
-	                      {formatUserRole(role)}
-	                    </option>
-	                  ))}
-	                </select>
-	              </div>
-	              <div className="field-group">
-	                <label htmlFor="user-active">Status</label>
-	                <select
-	                  id="user-active"
-	                  value={String(userForm.isActive)}
-	                  onChange={event => setUserForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
-	                >
-	                  <option value="true">Ativo</option>
-	                  <option value="false">Inativo</option>
-	                </select>
-	              </div>
-	              <div className="field-group field-group-wide">
-	                <label htmlFor="user-collaborator">Vincular colaborador</label>
-	                <select
-	                  id="user-collaborator"
-	                  value={userForm.collaboratorId}
-	                  onChange={event => setUserForm(current => ({ ...current, collaboratorId: event.target.value }))}
-	                >
-	                  <option value="">Sem vínculo</option>
-	                  {(collaboratorsQuery.data || [])
-	                    .filter(item => item.isActive)
-	                    .map(item => (
-	                      <option key={item.id} value={item.id}>
-	                        {item.name}
-	                      </option>
-	                    ))}
-	                </select>
-	              </div>
-	              <div className="field-group field-group-wide">
-	                <label htmlFor="user-password">Senha</label>
-	                <input
-	                  id="user-password"
-	                  type="password"
-	                  value={userForm.password}
-	                  autoComplete="new-password"
-	                  onChange={event => setUserForm(current => ({ ...current, password: event.target.value }))}
-	                  required
-	                />
-	              </div>
-	              <div className="admin-form-actions">
-	                <Button
-	                  variant="primary"
-	                  type="submit"
-	                  disabled={userMutations.createUser.isPending || userMutations.updateUser.isPending}
-	                >
-	                  Salvar
-	                </Button>
-	              </div>
-	            </div>
-	          </form>
-          ) : null}
+          {showUserForm && !userEditingId
+            ? renderInternalUserForm('create')
+            : null}
 
-          {internalUsers.length ? (
-            <div className="rdo-admin-card-list">
-              {internalUsers.map(item => (
-                <Card className="rdo-admin-person-card" padding="md" key={item.id}>
-                  <div className="admin-item-row">
-                    <div className="admin-avatar" aria-hidden="true">{initials(item.name)}</div>
-                    <div className="admin-item-main">
-                      <div className="admin-item-title">{item.name}</div>
-	                    <div className="admin-item-sub">
-	                      {item.email || item.username}
-	                      {item.collaborator?.name ? ` · ${item.collaborator.name}` : ''}
-	                    </div>
-                    </div>
-                    <Badge tone="info">{formatUserRole(item.role)}</Badge>
-                    <StatusPill
-                      status={item.isActive ? 'active' : 'inactive'}
-                      label={item.isActive ? 'Ativo' : 'Inativo'}
-                      tone={item.isActive ? 'success' : 'neutral'}
-                    />
-                  <div className="admin-actions rdo-admin-person-card__actions">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      onClick={() => {
-                        setUserEditingId(item.id);
-                        setShowUserForm(true);
-                        setUserForm(userToForm(item));
-                      }}
-                    >
-                      Editar
-                    </Button>
-                    <Button variant="danger" size="sm" type="button" onClick={() => void handleUserDelete(item.id)}>
-                      Remover
-                    </Button>
-                  </div>
-                  </div>
-	                  {userEditingId === item.id ? (
-	                    <form className="admin-inline-form rdo-admin-form rdo-admin-form--nested" onSubmit={handleUserSubmit} autoComplete="off">
-	                      <div className="rdo-admin-form__header">
-	                        <h2>Editar usuário</h2>
-	                        <Button variant="secondary" size="sm" type="button" onClick={resetUserForm}>Cancelar</Button>
-	                      </div>
-	                      <div className="admin-inline-grid">
-	                        <div className="field-group">
-	                          <label htmlFor={`user-username-${item.id}`}>Usuário</label>
-	                          <input
-	                            id={`user-username-${item.id}`}
-	                            value={userForm.username}
-	                            autoComplete="off"
-	                            onChange={event => setUserForm(current => ({ ...current, username: event.target.value }))}
-	                            required
-	                            readOnly
-	                          />
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`user-name-${item.id}`}>Nome</label>
-	                          <input
-	                            id={`user-name-${item.id}`}
-	                            value={userForm.name}
-	                            autoComplete="off"
-	                            onChange={event => setUserForm(current => ({ ...current, name: event.target.value }))}
-	                            required
-	                          />
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`user-email-${item.id}`}>E-mail</label>
-	                          <input
-	                            id={`user-email-${item.id}`}
-	                            type="email"
-	                            value={userForm.email}
-	                            autoComplete="off"
-	                            placeholder="email@empresa.com"
-	                            onChange={event => setUserForm(current => ({ ...current, email: event.target.value }))}
-	                          />
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`user-role-${item.id}`}>Perfil</label>
-	                          <select
-	                            id={`user-role-${item.id}`}
-	                            value={userForm.role}
-	                            onChange={event => setUserForm(current => ({ ...current, role: event.target.value as Exclude<UserRole, 'CLIENT'> }))}
-	                          >
-	                            {internalRoles.map(role => <option key={role} value={role}>{formatUserRole(role)}</option>)}
-	                          </select>
-	                        </div>
-	                        <div className="field-group">
-	                          <label htmlFor={`user-active-${item.id}`}>Status</label>
-	                          <select
-	                            id={`user-active-${item.id}`}
-	                            value={String(userForm.isActive)}
-	                            onChange={event => setUserForm(current => ({ ...current, isActive: event.target.value === 'true' }))}
-	                          >
-	                            <option value="true">Ativo</option>
-	                            <option value="false">Inativo</option>
-	                          </select>
-	                        </div>
-	                        <div className="field-group field-group-wide">
-	                          <label htmlFor={`user-collaborator-${item.id}`}>Vincular colaborador</label>
-	                          <select
-	                            id={`user-collaborator-${item.id}`}
-	                            value={userForm.collaboratorId}
-	                            onChange={event => setUserForm(current => ({ ...current, collaboratorId: event.target.value }))}
-	                          >
-	                            <option value="">Sem vínculo</option>
-	                            {(collaboratorsQuery.data || [])
-	                              .filter(collaborator => collaborator.isActive)
-	                              .map(collaborator => (
-	                                <option key={collaborator.id} value={collaborator.id}>
-	                                  {collaborator.name}
-	                                </option>
-	                              ))}
-	                          </select>
-	                        </div>
-	                        <div className="field-group field-group-wide">
-	                          <label htmlFor={`user-password-${item.id}`}>Senha (opcional)</label>
-	                          <input
-	                            id={`user-password-${item.id}`}
-	                            type="password"
-	                            value={userForm.password}
-	                            autoComplete="new-password"
-	                            onChange={event => setUserForm(current => ({ ...current, password: event.target.value }))}
-	                          />
-	                        </div>
-	                        <div className="admin-form-actions">
-	                          <Button variant="primary" type="submit" disabled={userMutations.updateUser.isPending}>Salvar</Button>
-	                        </div>
-	                      </div>
-	                    </form>
-	                  ) : null}
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card padding="lg">
-              <EmptyState title="Nenhum usuário interno cadastrado." />
-            </Card>
-          )}
+          <DataTable
+            className="rdo-users__table"
+            rows={visibleInternalUsers}
+            columns={internalUserColumns}
+            getRowId={item => item.id}
+            ariaLabel="Usuários internos"
+            density="compact"
+            actionsLabel="Ações"
+            rowActions={renderInternalUserActions}
+            renderRowDetails={item =>
+              showUserForm && userEditingId === item.id
+                ? renderInternalUserForm('edit', item)
+                : null
+            }
+            toolbar={
+              <div className="rdo-users__table-summary">
+                <strong>
+                  {internalUsers.length}{' '}
+                  {internalUsers.length === 1 ? 'usuário interno' : 'usuários internos'}
+                </strong>
+                <span>Contas da operação com acesso ao RDO</span>
+              </div>
+            }
+            emptyState={
+              <EmptyState
+                title="Nenhum usuário interno encontrado."
+                description="Revise a busca ou os filtros aplicados."
+              />
+            }
+            pagination={
+              <Pagination
+                page={currentInternalPage}
+                total={internalUsers.length}
+                pageSize={userPageSize}
+                pageSizeOptions={[5, 10, 25]}
+                onPageChange={setUserPage}
+                onPageSizeChange={pageSize => {
+                  setUserPageSize(pageSize);
+                  setUserPage(1);
+                }}
+                label="Paginação dos usuários internos"
+              />
+            }
+            mobile={{
+              ariaLabel: 'Usuários internos',
+              renderItem: item => ({
+                title: (
+                  <span className="rdo-user-identity rdo-user-identity--mobile">
+                    <span className="rdo-user-avatar" aria-hidden="true">
+                      {initials(item.name)}
+                    </span>
+                    <span className="rdo-user-identity__copy">
+                      <strong>{item.name}</strong>
+                      <span>{item.email || item.username}</span>
+                    </span>
+                  </span>
+                ),
+                metadata: [
+                  { label: 'Perfil', value: formatUserRole(item.role) },
+                  {
+                    label: 'Vínculo',
+                    value: item.collaborator?.name || 'Sem vínculo'
+                  }
+                ],
+                status: (
+                  <StatusPill
+                    status={item.isActive ? 'active' : 'inactive'}
+                    label={item.isActive ? 'Ativo' : 'Inativo'}
+                    tone={item.isActive ? 'success' : 'neutral'}
+                  />
+                ),
+                actions: renderInternalUserActions(item)
+              })
+            }}
+          />
         </>
         ) : (
         <section className="client-accounts-panel rdo-client-accounts">
@@ -5500,6 +5803,7 @@ export function GestorPage() {
         </section>
         )}
         </div>
+        </Card>
       </section>
     );
   }
@@ -6115,6 +6419,10 @@ export function GestorPage() {
       const activeCount = [...internalUsers, ...clientUsers].filter(
         account => account.isActive
       ).length;
+      const managerCount = internalUsers.filter(
+        account => account.role === 'MANAGER'
+      ).length;
+      const inactiveCount = internalUsers.length + clientUsers.length - activeCount;
 
       return (
         <section
@@ -6122,9 +6430,16 @@ export function GestorPage() {
           aria-label="Resumo dos usuários"
         >
           <MetricCard
-            label="Usuários internos"
-            value={internalUsers.length}
-            description="Contas da operação"
+            label="Usuários ativos"
+            value={activeCount}
+            description={`${internalUsers.length} internos · ${clientUsers.length} clientes`}
+            tone="success"
+            icon={<AppIcon icon={DS_ICONS.users} size="md" />}
+          />
+          <MetricCard
+            label="Gestores"
+            value={managerCount}
+            description="Contas com perfil de gestor"
             tone="brand"
             icon={<AppIcon icon={DS_ICONS.settings} size="md" />}
           />
@@ -6136,11 +6451,11 @@ export function GestorPage() {
             icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
           />
           <MetricCard
-            label="Contas ativas"
-            value={activeCount}
-            description="Internos e clientes"
-            tone="success"
-            icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />}
+            label="Contas inativas"
+            value={inactiveCount}
+            description="Acessos atualmente desativados"
+            tone={inactiveCount ? 'warning' : 'neutral'}
+            icon={<AppIcon icon={DS_ICONS.alertWarning} size="md" />}
           />
         </section>
       );
@@ -6264,25 +6579,23 @@ export function GestorPage() {
         ) : null}
         {usersTab ? (
           <PageHeader
-            className="rdo-admin-page__header"
+            className="rdo-admin-page__header rdo-users-page__header"
             title="Usuários"
             description="Administre contas internas e acessos de clientes com seus vínculos e perfis."
             actions={
-              <>
-                {userAdminGroup === 'internal' && !showUserForm && !userEditingId ? (
-                  <Button
-                    variant="primary"
-                    iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
-                    onClick={openNewUserForm}
-                  >
-                    Novo usuário
-                  </Button>
-                ) : null}
-                {renderGestorSearch()}
-              </>
+              userAdminGroup === 'internal' && !showUserForm && !userEditingId ? (
+                <Button
+                  variant="primary"
+                  iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
+                  onClick={openNewUserForm}
+                >
+                  Novo usuário
+                </Button>
+              ) : null
             }
           />
         ) : null}
+        {usersTab ? renderUsersToolbar() : null}
         {reportListingTab ? (
           <PageHeader
             className="rdo-manager-listing__page-header"

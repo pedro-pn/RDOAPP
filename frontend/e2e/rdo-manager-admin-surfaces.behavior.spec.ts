@@ -179,7 +179,26 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   await expect(
     page.getByRole('heading', { name: 'Usuários', level: 1 })
   ).toBeVisible();
-  await expect(page.locator('.fv-metric-card')).toHaveCount(3);
+  await expect(page.locator('.fv-metric-card')).toHaveCount(4);
+  await expect(
+    page.getByRole('region', { name: 'Busca e filtros dos usuários' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('combobox', { name: 'Filtrar usuários por perfil' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('combobox', { name: 'Filtrar usuários por status' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('combobox', { name: 'Ordenar usuários' })
+  ).toBeVisible();
+  const internalUsersTable = page.getByRole('table', {
+    name: 'Usuários internos'
+  });
+  await expect(internalUsersTable).toBeVisible();
+  await expect(internalUsersTable.locator('tbody tr[data-row-id]')).toHaveCount(
+    5
+  );
   const userTabs = page.getByRole('tablist', { name: 'Tipo de usuário' });
   await expect(userTabs.getByRole('tab')).toHaveCount(2);
 
@@ -188,9 +207,43 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   });
   await userSearch.fill('usuario-inexistente-rdo');
   await expect(
-    page.getByText('Nenhum usuário interno cadastrado.', { exact: true })
+    page.getByText('Nenhum usuário interno encontrado.', { exact: true })
   ).toBeVisible();
   await userSearch.fill('');
+
+  await page
+    .getByRole('combobox', { name: 'Filtrar usuários por perfil' })
+    .selectOption('MANAGER');
+  await expect(
+    internalUsersTable.locator('tbody tr[data-row-id]').first()
+  ).toContainText('Gestor');
+  await page
+    .getByRole('combobox', { name: 'Filtrar usuários por perfil' })
+    .selectOption('all');
+
+  const firstInternalUserRow = internalUsersTable
+    .locator('tbody tr[data-row-id]')
+    .first();
+  const firstInternalUserId =
+    await firstInternalUserRow.getAttribute('data-row-id');
+  expect(firstInternalUserId).toBeTruthy();
+  const firstInternalUserEdit = firstInternalUserRow.getByRole('button', {
+    name: 'Editar',
+    exact: true
+  });
+  await firstInternalUserEdit.click();
+  await expect(firstInternalUserEdit).toHaveAttribute('aria-expanded', 'true');
+  const internalUserDetails = page.locator(
+    `[data-details-for-row="${firstInternalUserId}"]`
+  );
+  await expect(
+    internalUserDetails.locator('form[data-user-form="edit"]')
+  ).toBeVisible();
+  await expect(
+    internalUserDetails.getByRole('textbox', { name: 'Nome', exact: true })
+  ).toBeFocused();
+  await firstInternalUserEdit.click();
+  await expect(internalUserDetails).toHaveCount(0);
 
   await userTabs.getByRole('tab', { name: 'Clientes' }).click();
   const clientGroup = page.locator('.rdo-client-account-group').first();
@@ -206,10 +259,7 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   await expect(
     page.getByRole('heading', { name: 'Novo usuário' })
   ).toBeVisible();
-  await expect(page.getByLabel('Senha', { exact: true })).toHaveAttribute(
-    'type',
-    'password'
-  );
+  await expect(page.getByLabel(/^Senha/)).toHaveAttribute('type', 'password');
   await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
 
   expect(mutationAttempts).toEqual([]);
@@ -279,6 +329,24 @@ test('Equipe e Usuários mantêm light/dark e desktop/mobile sem overflow', asyn
           await expect(
             collaboratorsSurface.locator('.fv-mobile-list')
           ).toHaveCount(0);
+        }
+      }
+
+      if (section === 'usuarios') {
+        const usersSurface = surface.locator('.rdo-users');
+        if (scenario.width < 768) {
+          await expect(usersSurface.locator('.fv-mobile-list')).toBeVisible();
+          await expect(
+            usersSurface.getByRole('table', { name: 'Usuários internos' })
+          ).toHaveCount(0);
+          await expect(
+            surface.getByRole('button', { name: 'Filtros', exact: true })
+          ).toBeVisible();
+        } else {
+          await expect(
+            usersSurface.getByRole('table', { name: 'Usuários internos' })
+          ).toBeVisible();
+          await expect(usersSurface.locator('.fv-mobile-list')).toHaveCount(0);
         }
       }
 
