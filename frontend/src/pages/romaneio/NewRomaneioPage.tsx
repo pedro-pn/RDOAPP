@@ -38,6 +38,9 @@ import { autosaveDraftTargetId } from '../../utils/draftAutosave';
 import { defaultRomaneioUnit, romaneioMeasureLabel, romaneioUsesVariableQuantity } from '../../utils/romaneioMeasure';
 import { mergeRomaneioReturnSelection, romaneioReturnKey } from '../../utils/romaneioReturnItems';
 import { RomaneioChecklistModal } from './RomaneioChecklistModal';
+import { romaneioQrRequiresQuantity } from '../../utils/romaneioQr';
+import { RomaneioQrNovelty } from './RomaneioQrNovelty';
+import { RomaneioQrScannerModal } from './RomaneioQrScannerModal';
 
 interface SelectedItem {
   key: string;
@@ -218,6 +221,9 @@ export function NewRomaneioPage() {
   const [checklistSignatureOpen, setChecklistSignatureOpen] = useState(false);
   const [extraItemModalOpen, setExtraItemModalOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [qrQuantityItem, setQrQuantityItem] = useState<RomaneioCatalogItem | null>(null);
+  const [qrQuantity, setQrQuantity] = useState('');
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState({
     itemName: '',
@@ -340,6 +346,9 @@ export function NewRomaneioPage() {
     setActiveChecklistItem(null);
     setExtraItemModalOpen(false);
     setExtraCategoryFilter('');
+    setQrScannerOpen(false);
+    setQrQuantityItem(null);
+    setQrQuantity('');
     hydratedReturnItemsKeyRef.current = '';
   }
 
@@ -360,16 +369,14 @@ export function NewRomaneioPage() {
     }));
   }
 
-  function addCatalogItem(item: RomaneioCatalogItem) {
-    const variableQuantity = romaneioUsesVariableQuantity(item.measureType);
-    const quantity = Number(quantities[item.id] || (variableQuantity ? '' : item.isSerialized ? 1 : ''));
-    if (!quantity || quantity <= 0) {
+  function addCatalogItemWithQuantity(item: RomaneioCatalogItem, quantity: number) {
+    if (!Number.isFinite(quantity) || quantity <= 0) {
       showToast('Informe a quantidade do item.');
-      return;
+      return false;
     }
-    if (!variableQuantity && item.isSerialized && selectedItems.some(selected => selected.catalogItemId === item.id)) {
+    if (!romaneioUsesVariableQuantity(item.measureType) && item.isSerialized && selectedItems.some(selected => selected.catalogItemId === item.id)) {
       showToast('Este item único já foi adicionado.');
-      return;
+      return false;
     }
 
     const next: SelectedItem = {
@@ -396,6 +403,46 @@ export function NewRomaneioPage() {
     if (checklistMapQuery.data?.map[item.id]) {
       setActiveChecklistItem(next);
     }
+    return true;
+  }
+
+  function addCatalogItem(item: RomaneioCatalogItem) {
+    const variableQuantity = romaneioUsesVariableQuantity(item.measureType);
+    const quantity = Number(quantities[item.id] || (variableQuantity ? '' : item.isSerialized ? 1 : ''));
+    addCatalogItemWithQuantity(item, quantity);
+  }
+
+  function handleScannedCatalogItem(catalogItemId: string) {
+    setQrScannerOpen(false);
+    const item = (catalogQuery.data || []).find(candidate => candidate.id === catalogItemId && candidate.isActive);
+    if (!item) {
+      showToast('Equipamento não encontrado ou inativo no catálogo do romaneio.');
+      return;
+    }
+
+    if (romaneioQrRequiresQuantity(item)) {
+      setQrQuantityItem(item);
+      setQrQuantity('');
+      return;
+    }
+
+    if (addCatalogItemWithQuantity(item, 1)) {
+      showToast('Equipamento adicionado pelo QR code.');
+    }
+  }
+
+  function confirmScannedItemQuantity(event: FormEvent) {
+    event.preventDefault();
+    if (!qrQuantityItem) return;
+    const quantity = Number(qrQuantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      showToast('Informe uma quantidade válida.');
+      return;
+    }
+    if (!addCatalogItemWithQuantity(qrQuantityItem, quantity)) return;
+    setQrQuantityItem(null);
+    setQrQuantity('');
+    showToast('Equipamento adicionado pelo QR code.');
   }
 
   function addExtraCatalogItem(item: RomaneioCatalogItem) {
@@ -1051,6 +1098,15 @@ export function NewRomaneioPage() {
         {romaneioType === 'OUTBOUND' && <section className="page-card romaneio-panel">
           <div className="admin-toolbar">
             <div className="sec">Materiais disponíveis</div>
+            <button
+              className="secondary-button romaneio-scan-button"
+              type="button"
+              data-romaneio-qr-scanner-trigger
+              disabled={catalogQuery.isLoading}
+              onClick={() => setQrScannerOpen(true)}
+            >
+              Escanear QR code
+            </button>
           </div>
           <label className="field-group">
             <span>Pesquisar item</span>
@@ -1163,6 +1219,48 @@ export function NewRomaneioPage() {
           </button>
         </section>
       </form>
+      <RomaneioQrNovelty
+        user={user}
+        enabled={romaneioType === 'OUTBOUND' && !catalogQuery.isLoading}
+        variant="form"
+      />
+      <RomaneioQrScannerModal
+        open={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        onDetectedCatalogItemId={handleScannedCatalogItem}
+      />
+      <Modal
+        open={Boolean(qrQuantityItem)}
+        onClose={() => { setQrQuantityItem(null); setQrQuantity(''); }}
+        ariaLabelledBy="romaneio-qr-quantity-title"
+        ariaDescribedBy="romaneio-qr-quantity-description"
+        panelClassName="modal-card romaneio-qr-quantity-modal"
+      >
+        <form onSubmit={confirmScannedItemQuantity}>
+          <div className="section-title" id="romaneio-qr-quantity-title">Informar quantidade</div>
+          <p className="placeholder-copy" id="romaneio-qr-quantity-description">
+            {[qrQuantityItem?.code, qrQuantityItem?.name].filter(Boolean).join(' - ')}
+          </p>
+          <label className="field-group">
+            <span>Quantidade ({qrQuantityItem?.defaultUnitLabel || (qrQuantityItem ? defaultRomaneioUnit(qrQuantityItem.measureType) : 'unidade')})</span>
+            <input
+              autoFocus
+              type="number"
+              min="0"
+              step={qrQuantityItem && romaneioUsesVariableQuantity(qrQuantityItem.measureType) ? '0.1' : '1'}
+              value={qrQuantity}
+              onChange={event => setQrQuantity(event.target.value)}
+              required
+            />
+          </label>
+          <div className="admin-form-actions">
+            <button className="secondary-button" type="button" onClick={() => { setQrQuantityItem(null); setQrQuantity(''); }}>
+              Cancelar
+            </button>
+            <button className="primary-button" type="submit">Adicionar ao romaneio</button>
+          </div>
+        </form>
+      </Modal>
       <Modal
         open={extraItemModalOpen}
         onClose={() => setExtraItemModalOpen(false)}
