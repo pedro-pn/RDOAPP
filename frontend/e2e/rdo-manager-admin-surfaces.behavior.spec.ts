@@ -236,12 +236,46 @@ test('Equipe e Usuários preservam navegação, busca e formulários sem mutar d
   const internalUserDetails = page.locator(
     `[data-details-for-row="${firstInternalUserId}"]`
   );
-  await expect(
-    internalUserDetails.locator('form[data-user-form="edit"]')
-  ).toBeVisible();
+  const internalUserEditForm = internalUserDetails.locator(
+    'form[data-user-form="edit"]'
+  );
+  await expect(internalUserEditForm).toBeVisible();
   await expect(
     internalUserDetails.getByRole('textbox', { name: 'Nome', exact: true })
   ).toBeFocused();
+  const readonlyUsername = internalUserEditForm.getByRole('textbox', {
+    name: 'Usuário',
+    exact: true
+  });
+  await expect(readonlyUsername).toHaveAttribute('readonly', '');
+  const usernameSurface = await readonlyUsername.evaluate((element) => {
+    const shell = element.closest('.fv-control-shell');
+    const editableShell = element
+      .closest('form')
+      ?.querySelector('input:not([readonly])')
+      ?.closest('.fv-control-shell');
+
+    return {
+      continuousSurface:
+        Boolean(shell && editableShell) &&
+        window.getComputedStyle(shell!).backgroundColor ===
+          window.getComputedStyle(editableShell!).backgroundColor,
+      readOnlyState: shell?.getAttribute('data-readonly')
+    };
+  });
+  expect(usernameSurface).toEqual({
+    continuousSurface: true,
+    readOnlyState: 'true'
+  });
+  await readonlyUsername.focus();
+  const usernameFocusRings = await readonlyUsername.evaluate((element) => {
+    const shell = element.closest('.fv-control-shell');
+    return {
+      input: window.getComputedStyle(element).outlineStyle,
+      shell: shell ? window.getComputedStyle(shell).outlineStyle : null
+    };
+  });
+  expect(usernameFocusRings).toEqual({ input: 'none', shell: 'solid' });
   await firstInternalUserEdit.click();
   await expect(internalUserDetails).toHaveCount(0);
 

@@ -53,6 +53,10 @@ test('compound fields expose one rounded focus ring owned by the control shell',
     css,
     /\.fv-control-shell\s+:where\(\.fv-input, \.fv-select\):focus-visible\s*\{[\s\S]*outline:\s*0/
   );
+  assert.match(
+    css,
+    /\.fv-control-shell\[data-readonly='true'\]\s*\{\s*background:\s*var\(--surface\);\s*\}/
+  );
 });
 
 test('status map covers canonical Portuguese workflow states', () => {

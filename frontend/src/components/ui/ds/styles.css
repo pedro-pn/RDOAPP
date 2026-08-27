@@ -306,7 +306,7 @@
 }
 
 :where(.fv-ds, [data-fv-ds]) .fv-control-shell[data-readonly='true'] {
-  background: var(--surface-2);
+  background: var(--surface);
 }
 
 :where(.fv-ds, [data-fv-ds]) .fv-control-shell__adornment,
