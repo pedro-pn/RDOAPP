@@ -92,6 +92,14 @@ test('RDO manager renders one compact accessible mobile toggle group instead of 
   assert.match(css, /\.rdo-section-navigation__items\s*\{[\s\S]*repeat\(4,/);
   assert.match(
     css,
+    /\.rdo-section-navigation__item\.is-active\s*\{[\s\S]*background:\s*var\(--surface\)[\s\S]*color:\s*var\(--brand-text\)/
+  );
+  assert.match(
+    css,
+    /\.rdo-section-navigation__item\.is-active::after\s*\{[\s\S]*background:\s*var\(--brand\)/
+  );
+  assert.match(
+    css,
     /@media \(min-width: 768px\) and \(max-width: 1024px\)[\s\S]*?\.rdo-section-navigation__items\s*\{[\s\S]*?repeat\(8,/
   );
   assert.match(

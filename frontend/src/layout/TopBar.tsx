@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { useAuth } from '../auth/AuthContext';
+import { BrandLogo } from '../components/brand/BrandLogo';
 import { AppIcon } from '../components/icons/AppIcon';
 import { IconButton } from '../components/ui/ds';
 import { ThemeToggle } from '../theme/ThemeToggle';
@@ -106,6 +107,7 @@ function DesignSystemTopBar({
   return (
     <header className="fv-ds fv-topbar">
       <div className="fv-topbar__leading">
+        <BrandLogo variant="adaptive" className="fv-topbar__brand" />
         {onOpenMenu ? (
           <IconButton
             className="fv-topbar__menu"

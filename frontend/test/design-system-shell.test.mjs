@@ -171,6 +171,24 @@ test('legacy TopBar and BottomBar APIs remain available as the default branch', 
   assert.match(bottomBar, /className="bottom-bar-react"/);
 });
 
+test('design-system TopBar restores the adaptive brand while the sidebar is hidden', () => {
+  const topBar = source('src/layout/TopBar.tsx');
+  const css = source('src/layout/AppShell.css');
+
+  assert.match(
+    topBar,
+    /<BrandLogo variant="adaptive" className="fv-topbar__brand" \/>/
+  );
+  assert.match(
+    css,
+    /\.fv-topbar \.fv-topbar__brand\s*\{[\s\S]*height:\s*var\(--space-6\)/
+  );
+  assert.match(
+    css,
+    /@media \(min-width: 1024px\)[\s\S]*\.fv-topbar \.fv-topbar__brand\s*\{[\s\S]*display:\s*none/
+  );
+});
+
 test('shell harness is isolated from application routes and simulates no permissions', () => {
   const html = source('shell-design-system.html');
   const entry = source('src/dev/shell-design-system-main.tsx');

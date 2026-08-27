@@ -65,6 +65,7 @@ export async function expectManagerRdoMobileNavigation(page: Page) {
   await expect(page.locator('[data-testid="fv-app-shell"]')).toBeVisible();
   await expect(page.locator('.fv-sidebar')).toBeHidden();
   await expect(page.locator('.fv-topbar')).toBeVisible();
+  await expect(page.locator('.fv-topbar .fv-topbar__brand')).toBeVisible();
   await expect(page.locator('.fv-theme-toggle')).toBeVisible();
   await expect(page.locator('.rdo-manager-tabs-wrap')).toHaveCount(0);
   const navigation = page.getByRole('group', {

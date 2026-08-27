@@ -333,6 +333,13 @@
   flex: 1 1 auto;
 }
 
+.fv-topbar .fv-topbar__brand {
+  width: auto;
+  max-width: calc(var(--space-16) + var(--space-8));
+  height: var(--space-6);
+  flex: 0 0 auto;
+}
+
 .fv-topbar__context {
   display: grid;
   min-width: 0;
@@ -588,6 +595,17 @@
   gap: var(--space-3);
 }
 
+@media (max-width: 480px) {
+  .fv-topbar {
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+  }
+
+  .fv-topbar__context {
+    display: none;
+  }
+}
+
 @media (min-width: 768px) {
   .fv-app-shell__content {
     padding-block-end: 0;
@@ -666,6 +684,10 @@
   }
 
   .fv-topbar__menu {
+    display: none;
+  }
+
+  .fv-topbar .fv-topbar__brand {
     display: none;
   }
 
