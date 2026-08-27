@@ -144,6 +144,11 @@ test('campanha apresenta etiquetas e scanner apontando para controles reais', as
     stylesSource.indexOf('.romaneio-qr-scanner-modal')
   );
   assert.match(labelModalSource, /scaleX/);
+  assert.match(labelModalSource, /border:\s*0\.6mm solid #176b55/);
+  assert.match(labelModalSource, /object-position:\s*left center/);
+  assert.match(labelModalSource, /--caption-font:\s*\$\{Math\.max\(9 \* scale, 4\.5\)/);
+  assert.match(labelStyles, /align-items:\s*flex-start/);
+  assert.match(labelStyles, /transform:\s*scaleX\(0\.88\)/);
   assert.doesNotMatch(labelModalSource, /text-overflow:\s*ellipsis/);
   assert.doesNotMatch(labelStyles, /text-overflow:\s*ellipsis/);
 });

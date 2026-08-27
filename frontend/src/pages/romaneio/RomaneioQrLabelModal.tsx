@@ -183,20 +183,21 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       .label[data-size="${option.id}"] {
         --label-width: ${option.widthMillimeters}mm;
         --label-height: ${option.heightMillimeters}mm;
-        --label-padding: ${scaledMm(5)}mm;
-        --border-inset: ${scaledMm(2, 0.9)}mm;
+        --label-padding: ${scaledMm(4)}mm;
+        --border-inset: ${scaledMm(0.6, 0.4)}mm;
         --border-radius: ${scaledMm(3.2, 1.6)}mm;
-        --content-gap: ${scaledMm(3)}mm;
-        --qr-size: ${scaledMm(44)}mm;
+        --content-gap: ${scaledMm(2)}mm;
+        --qr-size: ${scaledMm(45)}mm;
         --qr-padding: ${scaledMm(1.5)}mm;
         --qr-radius: ${scaledMm(3, 1.4)}mm;
         --divider-width: ${scaledMm(0.35, 0.2)}mm;
-        --brand-height: ${scaledMm(14)}mm;
         --logo-width: ${scaledMm(38)}mm;
         --logo-height: ${scaledMm(10)}mm;
-        --caption-font: ${Math.max(5.4 * scale, 3.2).toFixed(1)}pt;
-        --identity-gap: ${scaledMm(1.2)}mm;
-        --code-padding-y: ${scaledMm(0.8)}mm;
+        --brand-gap: ${scaledMm(0.4)}mm;
+        --details-gap: ${scaledMm(0.6)}mm;
+        --caption-font: ${Math.max(9 * scale, 4.5).toFixed(1)}pt;
+        --identity-gap: ${scaledMm(0.8)}mm;
+        --code-padding-y: ${scaledMm(1.6)}mm;
         --code-padding-x: ${scaledMm(3)}mm;
         --code-font: ${codeMaximumFontPt.toFixed(1)}pt;
         --name-font: ${nameMaximumFontPt.toFixed(1)}pt;
@@ -246,7 +247,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       .label::before {
         position: absolute;
         inset: var(--border-inset);
-        border: 0.35mm solid #176b55;
+        border: 0.6mm solid #176b55;
         border-radius: var(--border-radius);
         content: '';
         pointer-events: none;
@@ -283,24 +284,26 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: var(--details-gap);
       }
       .brand {
         width: 100%;
-        height: var(--brand-height);
-        flex: 0 0 var(--brand-height);
+        flex: 0 0 auto;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
+        gap: var(--brand-gap);
       }
       .brand img {
         display: block;
         width: var(--logo-width);
         max-height: var(--logo-height);
         object-fit: contain;
-        object-position: center;
+        object-position: left center;
       }
       .brand span {
+        width: 100%;
         color: #176b55;
         font-size: var(--caption-font);
         font-weight: 700;
@@ -308,6 +311,8 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         line-height: 1;
         text-align: center;
         text-transform: uppercase;
+        transform: scaleX(0.88);
+        transform-origin: center;
         white-space: nowrap;
       }
       .identity {
@@ -316,10 +321,8 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         display: flex;
         flex-direction: column;
         align-items: center;
-        flex: 1;
-        justify-content: center;
+        flex: 0 0 auto;
         gap: var(--identity-gap);
-        min-height: 0;
         text-align: center;
       }
       .code {
