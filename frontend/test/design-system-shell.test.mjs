@@ -174,10 +174,19 @@ test('legacy TopBar and BottomBar APIs remain available as the default branch', 
 test('design-system TopBar restores the adaptive brand while the sidebar is hidden', () => {
   const topBar = source('src/layout/TopBar.tsx');
   const css = source('src/layout/AppShell.css');
+  const designSystemTopBar = topBar.slice(
+    topBar.indexOf('function DesignSystemTopBar'),
+    topBar.indexOf('export function TopBar')
+  );
 
   assert.match(
     topBar,
     /<BrandLogo variant="adaptive" className="fv-topbar__brand" \/>/
+  );
+  assert.ok(
+    designSystemTopBar.indexOf('className="fv-topbar__menu"') <
+      designSystemTopBar.indexOf('<BrandLogo'),
+    'o acionador do menu deve vir antes da marca no header mobile'
   );
   assert.match(
     css,

@@ -183,6 +183,10 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
     /appearance: 'legacy' \| 'design-system' = 'legacy'/
   );
   assert.match(archivedTypeSections, /<ManagerReportListing/);
+  assert.match(
+    archivedTypeSections,
+    /<ReportTypeBadge reportType=\{reportType\} \/>/
+  );
   assert.match(archivedTypeSections, /<Skeleton\b/);
   assert.match(archivedTypeSections, /<EmptyState\b/);
   assert.match(archivedTypeSections, /<IconButton\b/);

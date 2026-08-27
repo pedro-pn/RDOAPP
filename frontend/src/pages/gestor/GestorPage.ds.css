@@ -358,6 +358,13 @@
   overflow: hidden;
 }
 
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-listing
+  > .rdo-manager-project-card
+  + .rdo-manager-project-card {
+  margin-block-start: var(--space-4);
+}
+
 :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-card.fv-card--padding-sm {
   padding: 0;
 }
@@ -3055,6 +3062,13 @@
   :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-card .project-group-toggle {
     min-height: calc(var(--space-8) + var(--space-1));
     padding: var(--space-2) var(--space-3);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing
+    > .rdo-manager-project-card
+    + .rdo-manager-project-card {
+    margin-block-start: var(--space-3);
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-team .rdo-admin-tab,

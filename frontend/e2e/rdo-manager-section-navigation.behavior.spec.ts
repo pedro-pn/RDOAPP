@@ -74,6 +74,14 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
     await page.goto(MANAGER_HOME);
     await expectManagerRdoMobileNavigation(page);
 
+    const menuBounds = await page.locator('.fv-topbar__menu').boundingBox();
+    const brandBounds = await page.locator('.fv-topbar__brand').boundingBox();
+    expect(menuBounds).not.toBeNull();
+    expect(brandBounds).not.toBeNull();
+    expect(menuBounds?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(
+      brandBounds?.x ?? Number.NEGATIVE_INFINITY
+    );
+
     const navigation = page.getByRole('group', {
       name: 'Áreas de Relatórios e Projetos'
     });

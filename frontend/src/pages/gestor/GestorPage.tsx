@@ -29,6 +29,7 @@ import {
 } from '../../auth/moduleNavigation';
 import { rdoPath, rdoReportDetailPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
+import { ReportTypeBadge } from '../../components/reports/ReportTypeBadge';
 import { ManagerReportListing } from '../../components/reports/manager/ManagerReportListing';
 import { AppIcon } from '../../components/icons/AppIcon';
 import { ManualReportOperationalFields, type ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
@@ -3577,7 +3578,7 @@ export function GestorPage() {
                   aria-controls={typeContentId}
                   onClick={toggleType}
                 >
-                  <Badge tone="brand">{reportType}</Badge>
+                  <ReportTypeBadge reportType={reportType} />
                   <span className="rdo-archived-report-type__count">
                     {visibleReports.length} de {totalReports} relatório{totalReports !== 1 ? 's' : ''}
                   </span>

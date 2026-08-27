@@ -61,11 +61,34 @@ test('manager listing composes DataTable and MobileList explicitly while preserv
 
 test('manager report ordering stays beside the report type on mobile', () => {
   const groupedList = source('src/components/reports/GroupedReportList.tsx');
+  const reportTypeBadge = source('src/components/reports/ReportTypeBadge.tsx');
+  const reportTypeBadgeCss = source(
+    'src/components/reports/ReportTypeBadge.css'
+  );
   const styles = source('src/pages/gestor/GestorPage.ds.css');
 
   assert.match(groupedList, /rdo-manager-report-type-row/);
   assert.match(groupedList, /rdo-manager-report-type-sort/);
   assert.match(groupedList, /showTypeSort \?/);
+  assert.match(
+    groupedList,
+    /<ReportTypeBadge[\s\S]*?reportType=\{reportType\}/
+  );
+  assert.match(
+    reportTypeBadge,
+    /data-report-type=\{reportTypeToken\(reportType\)\}/
+  );
+  for (const reportType of ['RDO', 'RTP', 'RLQ', 'RCPU', 'RLM', 'RLI', 'RLF']) {
+    assert.match(
+      reportTypeBadgeCss,
+      new RegExp(`data-report-type='${reportType}'`)
+    );
+  }
+  assert.doesNotMatch(reportTypeBadgeCss, /#[\da-f]{3,8}\b|\brgba?\(/i);
+  assert.match(
+    styles,
+    /\.rdo-manager-listing[\s\S]*?> \.rdo-manager-project-card[\s\S]*?\+ \.rdo-manager-project-card[\s\S]*?margin-block-start:\s*var\(--space-4\)/
+  );
   assert.match(
     styles,
     /\.rdo-manager-report-type-sort[\s\S]*?display: none;[\s\S]*?@media \(max-width: 768px\)[\s\S]*?\.rdo-manager-report-type-sort[\s\S]*?display: inline-flex;/

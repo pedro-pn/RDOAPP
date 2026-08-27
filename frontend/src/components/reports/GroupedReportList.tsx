@@ -16,6 +16,7 @@ import { ProjectSortButton } from '../../utils/ProjectSortButton';
 import { Alert, Badge, Button, Card, Skeleton } from '../ui/ds';
 import { DS_ICONS } from '../ui/ds/icons';
 import { InfiniteScrollSentinel } from '../ui/InfiniteScrollSentinel';
+import { ReportTypeBadge } from './ReportTypeBadge';
 import { ReportSummaryCard } from './ReportSummaryCard';
 
 export interface GroupedReportCollectionContext {
@@ -335,12 +336,10 @@ export function GroupedReportList({
               const typeHeaderContent = (
                 <>
                   {designSystem ? (
-                    <Badge
+                    <ReportTypeBadge
                       className="rdo-manager-report-type-badge"
-                      tone="info"
-                    >
-                      {reportType}
-                    </Badge>
+                      reportType={reportType}
+                    />
                   ) : (
                     <span className={`rtype-badge rtype-${reportType}`}>
                       {reportType}

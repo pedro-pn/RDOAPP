@@ -107,7 +107,6 @@ function DesignSystemTopBar({
   return (
     <header className="fv-ds fv-topbar">
       <div className="fv-topbar__leading">
-        <BrandLogo variant="adaptive" className="fv-topbar__brand" />
         {onOpenMenu ? (
           <IconButton
             className="fv-topbar__menu"
@@ -116,6 +115,7 @@ function DesignSystemTopBar({
             onClick={onOpenMenu}
           />
         ) : null}
+        <BrandLogo variant="adaptive" className="fv-topbar__brand" />
         <div className="fv-topbar__context">
           {breadcrumb?.length ? (
             <nav className="fv-topbar__breadcrumb" aria-label="Breadcrumb">
