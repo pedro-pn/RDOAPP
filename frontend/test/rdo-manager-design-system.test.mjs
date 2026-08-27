@@ -177,6 +177,18 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   );
   assert.match(
     pageCss,
+    /@media \(max-width: 768px\)[\s\S]*?\.fv-button\s*\{[\s\S]*?min-height:\s*calc\(var\(--space-8\) \+ var\(--space-1\)\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-project-card \.project-group-toggle\s*\{[\s\S]*?min-height:\s*calc\(var\(--space-8\) \+ var\(--space-1\)\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-team \.rdo-admin-tab,\s*[\s\S]*?\.rdo-users \.rdo-admin-tab\s*\{[\s\S]*?min-height:\s*calc\(var\(--space-8\) \+ var\(--space-1\)\)/
+  );
+  assert.match(
+    pageCss,
     /\.rdo-manager-listing__page-header[\s\S]*?\.fv-page-header__actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
   );
   assert.match(

@@ -2924,7 +2924,7 @@
 
   :where(.fv-ds, [data-fv-ds]) .rdo-section-navigation__trigger,
   :where(.fv-ds, [data-fv-ds]) .rdo-section-navigation__item {
-    min-height: var(--space-10);
+    min-height: calc(var(--space-8) + var(--space-1));
     padding-inline: var(--space-3);
   }
 
@@ -2950,8 +2950,8 @@
       .rdo-nps
     )
     .fv-button {
-    min-height: var(--space-10);
-    --fv-button-height: var(--space-10);
+    min-height: calc(var(--space-8) + var(--space-1));
+    --fv-button-height: calc(var(--space-8) + var(--space-1));
     --fv-button-padding: var(--space-3);
     --fv-button-font-size: var(--text-sm);
     --fv-button-line-height: var(--leading-sm);
@@ -2967,9 +2967,9 @@
       .rdo-nps
     )
     .fv-icon-button {
-    min-width: var(--space-10);
-    min-height: var(--space-10);
-    --fv-button-height: var(--space-10);
+    min-width: calc(var(--space-8) + var(--space-1));
+    min-height: calc(var(--space-8) + var(--space-1));
+    --fv-button-height: calc(var(--space-8) + var(--space-1));
   }
 
   :where(.fv-ds, [data-fv-ds]):is(
@@ -3016,13 +3016,21 @@
     .rdo-manager-project-group
     .rdo-manager-report-type-row
     > .report-type-header {
-    min-height: var(--space-10);
+    height: calc(var(--space-8) + var(--space-1));
+    min-height: calc(var(--space-8) + var(--space-1));
     gap: var(--space-2);
     padding-inline: var(--space-2);
+    padding-block: 0;
   }
 
-  :where(.fv-ds, [data-fv-ds]) .rdo-team .rdo-admin-tab {
-    min-height: var(--space-10);
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-card .project-group-toggle {
+    min-height: calc(var(--space-8) + var(--space-1));
+    padding: var(--space-2) var(--space-3);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-team .rdo-admin-tab,
+  :where(.fv-ds, [data-fv-ds]) .rdo-users .rdo-admin-tab {
+    min-height: calc(var(--space-8) + var(--space-1));
   }
 
   :where(.fv-ds, [data-fv-ds])
@@ -3117,7 +3125,7 @@
   :where(.fv-ds, [data-fv-ds]).rdo-manager-nps-page
     .rdo-nps__filters
     .fv-button {
-    min-height: var(--space-10);
+    min-height: calc(var(--space-8) + var(--space-1));
   }
 
   :where(.fv-ds, [data-fv-ds])
