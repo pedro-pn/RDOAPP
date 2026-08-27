@@ -15,7 +15,7 @@ const brandLogoUrl = `${assetsBaseUrl}/assets/Logo/LOGO_COLORIDO.png`;
 const labelSizeOptions = ROMANEIO_QR_LABEL_SIZES;
 
 const previewNameMaximumFontCqw = 14 * 25.4 / 72 / 120 * 100;
-const previewCodeMaximumFontCqw = 34 * 25.4 / 72 / 120 * 100;
+const previewCodeMaximumFontCqw = 30 * 25.4 / 72 / 120 * 100;
 const previewMinimumFontPixels = 1;
 
 function fitPreviewText(
@@ -165,7 +165,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         option,
         scale,
         scaledMm,
-        codeMaximumFontPt: Math.max(34 * scale, 17),
+        codeMaximumFontPt: Math.max(30 * scale, 15),
         nameMaximumFontPt: Math.max(14 * scale, 7)
       };
     });
@@ -197,7 +197,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         --details-gap: ${scaledMm(0.6)}mm;
         --caption-font: ${Math.max(9 * scale, 4.5).toFixed(1)}pt;
         --identity-gap: ${scaledMm(0.8)}mm;
-        --code-padding-y: ${scaledMm(1.6)}mm;
+        --code-padding-y: ${scaledMm(2.2)}mm;
         --code-padding-x: ${scaledMm(3)}mm;
         --code-font: ${codeMaximumFontPt.toFixed(1)}pt;
         --name-font: ${nameMaximumFontPt.toFixed(1)}pt;
@@ -208,7 +208,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       * { box-sizing: border-box; }
       html, body { width: 210mm; height: 297mm; margin: 0; }
       body {
-        color: #17352e;
+        color: #30503a;
         background: #fff;
         font-family: Arial, Helvetica, sans-serif;
         -webkit-print-color-adjust: exact;
@@ -236,6 +236,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         gap: 5mm;
       }
       .label {
+        --label-green: #30503a;
         position: relative;
         width: var(--label-width);
         height: var(--label-height);
@@ -247,7 +248,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       .label::before {
         position: absolute;
         inset: var(--border-inset);
-        border: 0.6mm solid #176b55;
+        border: 0.6mm solid var(--label-green);
         border-radius: var(--border-radius);
         content: '';
         pointer-events: none;
@@ -264,18 +265,29 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         min-width: 0;
       }
       .qr-shell {
+        position: relative;
         width: var(--qr-size);
         height: var(--qr-size);
         padding: var(--qr-padding);
-        border: 0.3mm solid #d7e6df;
+        border: 0.3mm solid transparent;
         border-radius: var(--qr-radius);
         background: #fff;
+      }
+      .qr-shell::before {
+        position: absolute;
+        inset: -0.3mm;
+        border: 0.3mm solid var(--label-green);
+        border-radius: inherit;
+        content: '';
+        opacity: 0.18;
+        pointer-events: none;
       }
       .qr-shell svg { display: block; width: 100%; height: 100%; }
       .divider {
         width: var(--divider-width);
         height: 88%;
-        background: #c9ddd6;
+        background: var(--label-green);
+        opacity: 0.18;
       }
       .details {
         height: 100%;
@@ -287,7 +299,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         gap: var(--details-gap);
       }
       .brand {
-        width: 100%;
+        width: 90%;
         flex: 0 0 auto;
         display: flex;
         flex-direction: column;
@@ -304,19 +316,19 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       }
       .brand span {
         width: 100%;
-        color: #176b55;
+        color: var(--label-green);
         font-size: var(--caption-font);
         font-weight: 700;
         letter-spacing: 0.11em;
         line-height: 1;
         text-align: center;
         text-transform: uppercase;
-        transform: scaleX(0.88);
+        transform: scaleX(0.8);
         transform-origin: center;
         white-space: nowrap;
       }
       .identity {
-        width: 100%;
+        width: 90%;
         min-width: 0;
         display: flex;
         flex-direction: column;
@@ -332,7 +344,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         overflow: visible;
         border-radius: 999px;
         color: #fff;
-        background: linear-gradient(135deg, #176b55 0%, #0c5e4b 100%);
+        background: var(--label-green);
         font-size: var(--code-font);
         font-weight: 700;
         letter-spacing: 0.05em;
@@ -343,7 +355,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         display: block;
         width: 100%;
         overflow: visible;
-        color: #183b32;
+        color: var(--label-green);
         font-size: var(--name-font);
         font-weight: 700;
         line-height: 1.1;

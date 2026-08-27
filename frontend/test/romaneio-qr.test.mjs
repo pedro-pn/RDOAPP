@@ -144,11 +144,16 @@ test('campanha apresenta etiquetas e scanner apontando para controles reais', as
     stylesSource.indexOf('.romaneio-qr-scanner-modal')
   );
   assert.match(labelModalSource, /scaleX/);
-  assert.match(labelModalSource, /border:\s*0\.6mm solid #176b55/);
+  assert.match(labelModalSource, /--label-green:\s*#30503a/);
+  assert.match(labelModalSource, /border:\s*0\.6mm solid var\(--label-green\)/);
   assert.match(labelModalSource, /object-position:\s*left center/);
   assert.match(labelModalSource, /--caption-font:\s*\$\{Math\.max\(9 \* scale, 4\.5\)/);
+  assert.match(labelModalSource, /codeMaximumFontPt:\s*Math\.max\(30 \* scale, 15\)/);
+  assert.match(labelStyles, /--romaneio-label-green:\s*#30503a/);
   assert.match(labelStyles, /align-items:\s*flex-start/);
-  assert.match(labelStyles, /transform:\s*scaleX\(0\.88\)/);
+  assert.match(labelStyles, /transform:\s*scaleX\(0\.8\)/);
+  assert.doesNotMatch(labelModalSource, /#176b55|#0c5e4b|#183b32|#17352e|#c9ddd6|#d7e6df/);
+  assert.doesNotMatch(labelStyles, /#176b55|#0c5e4b|#183b32|#c9ddd6|#d7e6df/);
   assert.doesNotMatch(labelModalSource, /text-overflow:\s*ellipsis/);
   assert.doesNotMatch(labelStyles, /text-overflow:\s*ellipsis/);
 });

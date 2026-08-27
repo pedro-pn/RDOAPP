@@ -5124,6 +5124,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 }
 
 .romaneio-qr-label {
+  --romaneio-label-green: #30503a;
   --romaneio-preview-outline-width: 0.5cqw;
   --romaneio-preview-radius: 2.67cqw;
   --romaneio-preview-caption-font: 2.646cqw;
@@ -5144,7 +5145,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   position: absolute;
   z-index: 0;
   inset: 0.5cqw;
-  border: var(--romaneio-preview-outline-width) solid #176b55;
+  border: var(--romaneio-preview-outline-width) solid var(--romaneio-label-green);
   border-radius: var(--romaneio-preview-radius);
   content: '';
   pointer-events: none;
@@ -5181,16 +5182,28 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .romaneio-qr-label-divider {
   width: 0.292cqw;
   height: 88%;
-  background: #c9ddd6;
+  background: var(--romaneio-label-green);
+  opacity: 0.18;
 }
 
 .romaneio-qr-code-shell {
+  position: relative;
   width: 37.5cqw;
   height: 37.5cqw;
   padding: 1.25cqw;
-  border: var(--romaneio-preview-qr-border-width) solid #d7e6df;
+  border: var(--romaneio-preview-qr-border-width) solid transparent;
   border-radius: 2.5cqw;
   background: #fff;
+}
+
+.romaneio-qr-code-shell::before {
+  position: absolute;
+  inset: calc(-1 * var(--romaneio-preview-qr-border-width));
+  border: var(--romaneio-preview-qr-border-width) solid var(--romaneio-label-green);
+  border-radius: inherit;
+  content: '';
+  opacity: 0.18;
+  pointer-events: none;
 }
 
 .romaneio-qr-code {
@@ -5216,7 +5229,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 }
 
 .romaneio-qr-label-brand {
-  width: 100%;
+  width: 90%;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -5235,20 +5248,20 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 
 .romaneio-qr-label-brand span {
   width: 100%;
-  color: #176b55;
+  color: var(--romaneio-label-green);
   font-size: var(--romaneio-preview-caption-font);
   font-weight: 700;
   letter-spacing: 0.1em;
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
-  transform: scaleX(0.88);
+  transform: scaleX(0.8);
   transform-origin: center;
   white-space: nowrap;
 }
 
 .romaneio-qr-label-identity {
-  width: 100%;
+  width: 90%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -5261,7 +5274,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   display: block;
   width: 100%;
   overflow: visible;
-  color: #183b32;
+  color: var(--romaneio-label-green);
   font-weight: 700;
   line-height: 1.1;
   text-transform: uppercase;
@@ -5272,11 +5285,11 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   display: block;
   width: 100%;
   overflow: visible;
-  padding: 1.333cqw 2.5cqw;
+  padding: 1.833cqw 2.5cqw;
   border-radius: 999px;
   color: #fff;
-  background: linear-gradient(135deg, #176b55 0%, #0c5e4b 100%);
-  font-size: 10cqw;
+  background: var(--romaneio-label-green);
+  font-size: 8.819cqw;
   font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1;
