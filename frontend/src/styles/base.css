@@ -4908,7 +4908,9 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 
 .romaneio-category-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .romaneio-category-edit {
@@ -4964,6 +4966,206 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 
 .romaneio-checklist-chip {
   margin-top: 8px;
+}
+
+.romaneio-scan-button {
+  flex: 0 0 auto;
+}
+
+.romaneio-qr-label-modal {
+  width: min(100%, 560px);
+}
+
+.romaneio-qr-label-modal > .admin-form-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--br);
+}
+
+.romaneio-qr-label-size-fieldset {
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.romaneio-qr-label-size-fieldset legend {
+  padding: 0;
+  color: var(--tx);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.romaneio-qr-label-size-fieldset > p {
+  margin: 4px 0 10px;
+  color: var(--mu);
+  font-size: 0.78rem;
+}
+
+.romaneio-qr-label-size-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.romaneio-qr-label-size-options button {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 11px 30px 10px 12px;
+  border: 1px solid var(--br);
+  border-radius: 10px;
+  color: var(--tx);
+  background: var(--wh);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.romaneio-qr-label-size-options button:hover {
+  border-color: #75a696;
+}
+
+.romaneio-qr-label-size-options button:focus-visible {
+  outline: 2px solid #176b55;
+  outline-offset: 2px;
+}
+
+.romaneio-qr-label-size-options button.is-selected {
+  border-color: #176b55;
+  background: color-mix(in srgb, #176b55 7%, var(--wh));
+  box-shadow: inset 0 0 0 1px #176b55;
+}
+
+.romaneio-qr-label-size-options button strong {
+  font-size: 0.82rem;
+}
+
+.romaneio-qr-label-size-options button > span:not(.romaneio-qr-label-size-check) {
+  color: var(--mu);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.romaneio-qr-label-size-check {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 1px solid var(--br);
+  border-radius: 50%;
+  color: #fff;
+  background: var(--wh);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.romaneio-qr-label-size-options button.is-selected .romaneio-qr-label-size-check {
+  border-color: #176b55;
+  background: #176b55;
+}
+
+.romaneio-qr-sheet-preview-section {
+  margin-top: 16px;
+}
+
+.romaneio-qr-sheet-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--tx);
+  font-size: 0.78rem;
+}
+
+.romaneio-qr-sheet-preview-heading span {
+  color: var(--mu);
+  font-size: 0.72rem;
+}
+
+.romaneio-qr-sheet-preview {
+  container-type: inline-size;
+  width: min(100%, 360px);
+  aspect-ratio: 210 / 297;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 4.762%;
+  border: 1px solid #d8e0dd;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(22, 58, 48, 0.1);
+}
+
+.romaneio-qr-sheet-preview-rows {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2.381cqw;
+}
+
+.romaneio-qr-sheet-preview-row {
+  width: 100%;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2.381cqw;
+}
+
+/*
+ * A arte da etiqueta (moldura, QR, logo, pílula do código e nome) vive em
+ * src/pages/romaneio/romaneioQrLabelArt.ts, para que a prévia e a folha de
+ * impressão usem exatamente as mesmas medidas.
+ */
+
+.romaneio-qr-scanner-modal {
+  width: min(100%, 620px);
+}
+
+.romaneio-qr-camera {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  margin: 14px 0;
+  overflow: hidden;
+  border-radius: var(--rs);
+  background: #111827;
+}
+
+.romaneio-qr-camera video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.romaneio-qr-camera-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(62%, 280px);
+  aspect-ratio: 1;
+  border: 3px solid #fff;
+  border-radius: 14px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.romaneio-qr-quantity-modal form {
+  display: grid;
+  gap: 14px;
 }
 
 .romaneio-extra-badge {
