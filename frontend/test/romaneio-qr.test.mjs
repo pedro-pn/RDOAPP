@@ -61,19 +61,24 @@ test('itens não serializados e medidas variáveis pedem quantidade após o scan
 });
 
 test('impressão em lote pagina todos os equipamentos e tamanhos sem perder etiquetas', async () => {
-  const { paginateRomaneioQrLabels } = await loadRomaneioQr();
-  const items = Array.from({ length: 13 }, (_, index) => ({ id: `item-${index + 1}` }));
+  const { paginateRomaneioQrLabels, ROMANEIO_QR_LABEL_SIZES } = await loadRomaneioQr();
+  const items = Array.from({ length: 25 }, (_, index) => ({ id: `item-${index + 1}` }));
+
+  assert.deepEqual(
+    ROMANEIO_QR_LABEL_SIZES.map(size => [size.widthMillimeters, size.heightMillimeters]),
+    [[120, 60], [80, 40], [60, 30]]
+  );
 
   const smallPages = paginateRomaneioQrLabels(items, ['small']);
   const smallEntries = smallPages.map(page => page.rows.flatMap(row => row.entries));
   assert.equal(smallPages.length, 2);
-  assert.equal(smallEntries[0].length, 12);
+  assert.equal(smallEntries[0].length, 24);
   assert.equal(smallEntries[1].length, 1);
 
-  const mixedPages = paginateRomaneioQrLabels(items.slice(0, 2), ['large', 'medium', 'small']);
+  const mixedPages = paginateRomaneioQrLabels(items.slice(0, 3), ['large', 'medium', 'small']);
   const mixedEntries = mixedPages.flatMap(page => page.rows.flatMap(row => row.entries));
   assert.equal(mixedPages.length, 2);
-  assert.equal(mixedEntries.length, 6);
+  assert.equal(mixedEntries.length, 9);
   assert.deepEqual(
     mixedEntries.map(entry => `${entry.item.id}:${entry.size.id}`),
     [
@@ -82,7 +87,10 @@ test('impressão em lote pagina todos os equipamentos e tamanhos sem perder etiq
       'item-1:small',
       'item-2:large',
       'item-2:medium',
-      'item-2:small'
+      'item-2:small',
+      'item-3:large',
+      'item-3:medium',
+      'item-3:small'
     ]
   );
 });

@@ -14,17 +14,17 @@ const brandLogoUrl = `${assetsBaseUrl}/assets/Logo/LOGO_COLORIDO.png`;
 
 const labelSizeOptions = ROMANEIO_QR_LABEL_SIZES;
 
-const previewNameMaximumFontCqw = 18 * 25.4 / 72 / 120 * 100;
-const previewCodeMaximumFontCqw = 30 * 25.4 / 72 / 120 * 100;
+const previewNameMaximumFontCqw = 14 * 25.4 / 72 / 120 * 100;
+const previewCodeMaximumFontCqw = 34 * 25.4 / 72 / 120 * 100;
 const previewCodeMinimumFontCqw = 16 * 25.4 / 72 / 120 * 100;
 
-function previewNameMinimumFontCqw(labelMillimeters: number) {
-  const scale = labelMillimeters / labelSizeOptions[0].millimeters;
-  const minimumFontPt = Math.max(10 * scale, 6.5);
-  return minimumFontPt * 25.4 / 72 / labelMillimeters * 100;
+function previewNameMinimumFontCqw(labelWidthMillimeters: number) {
+  const scale = labelWidthMillimeters / labelSizeOptions[0].widthMillimeters;
+  const minimumFontPt = Math.max(8 * scale, 5.5);
+  return minimumFontPt * 25.4 / 72 / labelWidthMillimeters * 100;
 }
 
-function RomaneioQrLabelPreviewName({ name, labelMillimeters }: { name: string; labelMillimeters: number }) {
+function RomaneioQrLabelPreviewName({ name, labelWidthMillimeters }: { name: string; labelWidthMillimeters: number }) {
   const elementRef = useRef<HTMLElement>(null);
   const uppercaseName = name.toLocaleUpperCase('pt-BR');
 
@@ -36,7 +36,7 @@ function RomaneioQrLabelPreviewName({ name, labelMillimeters }: { name: string; 
     const fitName = () => {
       element.style.fontSize = `${previewNameMaximumFontCqw}cqw`;
       let currentFontSize = Number.parseFloat(window.getComputedStyle(element).fontSize);
-      const minimumFontSize = label.clientWidth * previewNameMinimumFontCqw(labelMillimeters) / 100;
+      const minimumFontSize = label.clientWidth * previewNameMinimumFontCqw(labelWidthMillimeters) / 100;
       while (element.scrollWidth > element.clientWidth && currentFontSize > minimumFontSize) {
         currentFontSize = Math.max(minimumFontSize, currentFontSize - 0.25);
         element.style.fontSize = `${currentFontSize.toFixed(2)}px`;
@@ -47,7 +47,7 @@ function RomaneioQrLabelPreviewName({ name, labelMillimeters }: { name: string; 
     const resizeObserver = new ResizeObserver(fitName);
     resizeObserver.observe(label);
     return () => resizeObserver.disconnect();
-  }, [labelMillimeters, uppercaseName]);
+  }, [labelWidthMillimeters, uppercaseName]);
 
   return (
     <strong ref={elementRef} title={uppercaseName}>
@@ -150,16 +150,16 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
     if (!isReady || selectedSizeOptions.length === 0) return;
 
     const printMetrics = selectedSizeOptions.map(option => {
-      const scale = option.millimeters / labelSizeOptions[0].millimeters;
+      const scale = option.widthMillimeters / labelSizeOptions[0].widthMillimeters;
       const scaledMm = (value: number, minimum = 0) => Math.max(value * scale, minimum).toFixed(2);
       return {
         option,
         scale,
         scaledMm,
-        codeMaximumFontPt: Math.max(30 * scale, 15),
+        codeMaximumFontPt: Math.max(34 * scale, 17),
         codeMinimumFontPt: Math.max(16 * scale, 8),
-        nameMaximumFontPt: Math.max(18 * scale, 9),
-        nameMinimumFontPt: Math.max(10 * scale, 6.5)
+        nameMaximumFontPt: Math.max(14 * scale, 7),
+        nameMinimumFontPt: Math.max(8 * scale, 5.5)
       };
     });
 
@@ -174,30 +174,24 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
     const style = document.createElement('style');
     const sizeRules = printMetrics.map(({ option, scale, scaledMm, codeMaximumFontPt, nameMaximumFontPt }) => `
       .label[data-size="${option.id}"] {
-        --label-size: ${option.millimeters}mm;
-        --label-padding: ${scaledMm(4.8)}mm;
-        --border-inset: ${scaledMm(2.25, 1.1)}mm;
-        --border-radius: ${scaledMm(3.2, 1.8)}mm;
-        --brand-height: ${scaledMm(11.2)}mm;
-        --brand-gap: ${scaledMm(3)}mm;
-        --brand-padding: ${scaledMm(1.2)}mm;
-        --logo-width: ${scaledMm(42)}mm;
-        --logo-height: ${scaledMm(10.2)}mm;
-        --caption-font: ${Math.max(7.2 * scale, 4.7).toFixed(1)}pt;
-        --divider-top: ${scaledMm(1.5)}mm;
-        --divider-side: ${scaledMm(1.2)}mm;
-        --qr-size: ${scaledMm(64.5)}mm;
-        --qr-margin-top: ${scaledMm(2.25)}mm;
-        --qr-margin-bottom: ${scaledMm(1.35)}mm;
-        --qr-padding: ${scaledMm(2.25)}mm;
-        --qr-radius: ${scaledMm(3, 1.5)}mm;
-        --identity-padding-side: ${scaledMm(1.4)}mm;
-        --identity-padding-bottom: ${scaledMm(1.5)}mm;
-        --code-margin-bottom: ${scaledMm(1.2)}mm;
-        --code-padding-y: ${scaledMm(1)}mm;
-        --code-padding-x: ${scaledMm(4.2)}mm;
+        --label-width: ${option.widthMillimeters}mm;
+        --label-height: ${option.heightMillimeters}mm;
+        --label-padding: ${scaledMm(5)}mm;
+        --border-inset: ${scaledMm(2, 0.9)}mm;
+        --border-radius: ${scaledMm(3.2, 1.6)}mm;
+        --content-gap: ${scaledMm(3)}mm;
+        --qr-size: ${scaledMm(44)}mm;
+        --qr-padding: ${scaledMm(1.5)}mm;
+        --qr-radius: ${scaledMm(3, 1.4)}mm;
+        --divider-width: ${scaledMm(0.35, 0.2)}mm;
+        --brand-height: ${scaledMm(13)}mm;
+        --logo-width: ${scaledMm(34)}mm;
+        --logo-height: ${scaledMm(9)}mm;
+        --caption-font: ${Math.max(5.4 * scale, 3.2).toFixed(1)}pt;
+        --identity-gap: ${scaledMm(1.2)}mm;
+        --code-padding-y: ${scaledMm(0.8)}mm;
+        --code-padding-x: ${scaledMm(3)}mm;
         --code-font: ${codeMaximumFontPt.toFixed(1)}pt;
-        --name-max-width: ${scaledMm(110)}mm;
         --name-font: ${nameMaximumFontPt.toFixed(1)}pt;
       }
     `).join('');
@@ -235,12 +229,10 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       }
       .label {
         position: relative;
-        width: var(--label-size);
-        height: var(--label-size);
-        flex: 0 0 var(--label-size);
+        width: var(--label-width);
+        height: var(--label-height);
+        flex: 0 0 var(--label-width);
         overflow: hidden;
-        display: flex;
-        flex-direction: column;
         padding: var(--label-padding);
         background: #fff;
       }
@@ -252,65 +244,80 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
         content: '';
         pointer-events: none;
       }
-      .brand {
+      .label-content {
+        position: relative;
         z-index: 1;
-        height: var(--brand-height);
-        display: flex;
+        width: 100%;
+        height: 100%;
+        display: grid;
+        grid-template-columns: var(--qr-size) var(--divider-width) minmax(0, 1fr);
         align-items: center;
-        justify-content: space-between;
-        gap: var(--brand-gap);
-        padding: 0 var(--brand-padding);
-      }
-      .brand img {
-        display: block;
-        width: var(--logo-width);
-        max-height: var(--logo-height);
-        object-fit: contain;
-        object-position: left center;
-      }
-      .brand span {
-        color: #176b55;
-        font-size: var(--caption-font);
-        font-weight: 700;
-        letter-spacing: 0.11em;
-        line-height: 1.15;
-        text-align: right;
-        text-transform: uppercase;
-      }
-      .divider {
-        z-index: 1;
-        height: 0.3mm;
-        margin: var(--divider-top) var(--divider-side) 0;
-        background: linear-gradient(90deg, #176b55, #dcebe5 72%, transparent);
+        gap: var(--content-gap);
+        min-width: 0;
       }
       .qr-shell {
-        z-index: 1;
         width: var(--qr-size);
         height: var(--qr-size);
-        flex: 0 0 var(--qr-size);
-        margin: var(--qr-margin-top) auto var(--qr-margin-bottom);
         padding: var(--qr-padding);
         border: 0.3mm solid #d7e6df;
         border-radius: var(--qr-radius);
         background: #fff;
       }
       .qr-shell svg { display: block; width: 100%; height: 100%; }
+      .divider {
+        width: var(--divider-width);
+        height: 88%;
+        background: linear-gradient(180deg, transparent, #dcebe5 12%, #176b55 50%, #dcebe5 88%, transparent);
+      }
+      .details {
+        height: 100%;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand {
+        width: 100%;
+        height: var(--brand-height);
+        flex: 0 0 var(--brand-height);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand img {
+        display: block;
+        width: var(--logo-width);
+        max-height: var(--logo-height);
+        object-fit: contain;
+        object-position: center;
+      }
+      .brand span {
+        color: #176b55;
+        font-size: var(--caption-font);
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        line-height: 1;
+        text-align: center;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
       .identity {
-        z-index: 1;
+        width: 100%;
+        min-width: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
         flex: 1;
         justify-content: center;
+        gap: var(--identity-gap);
         min-height: 0;
-        padding: 0 var(--identity-padding-side) var(--identity-padding-bottom);
         text-align: center;
       }
       .code {
-        display: inline-block;
-        width: var(--qr-size);
-        max-width: 100%;
-        margin-bottom: var(--code-margin-bottom);
+        display: block;
+        width: 100%;
         padding: var(--code-padding-y) var(--code-padding-x);
         overflow: hidden;
         border-radius: 999px;
@@ -326,7 +333,6 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
       .name {
         display: block;
         width: 100%;
-        max-width: var(--name-max-width);
         overflow: hidden;
         color: #183b32;
         font-size: var(--name-font);
@@ -370,6 +376,22 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
           label.className = 'label';
           label.dataset.size = option.id;
 
+          const content = document.createElement('div');
+          content.className = 'label-content';
+          const qrTemplate = document.createElement('template');
+          qrTemplate.innerHTML = qrSvgMarkup;
+          const qrCode = qrTemplate.content.querySelector('svg');
+          const qrShell = document.createElement('div');
+          qrShell.className = 'qr-shell';
+          if (qrCode) qrShell.append(qrCode);
+          content.append(qrShell);
+
+          const divider = document.createElement('div');
+          divider.className = 'divider';
+          content.append(divider);
+
+          const details = document.createElement('div');
+          details.className = 'details';
           const brand = document.createElement('header');
           brand.className = 'brand';
           const logo = document.createElement('img');
@@ -379,19 +401,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
           const brandCaption = document.createElement('span');
           brandCaption.textContent = 'Identificação de equipamento';
           brand.append(logo, brandCaption);
-          label.append(brand);
-
-          const divider = document.createElement('div');
-          divider.className = 'divider';
-          label.append(divider);
-
-          const qrTemplate = document.createElement('template');
-          qrTemplate.innerHTML = qrSvgMarkup;
-          const qrCode = qrTemplate.content.querySelector('svg');
-          const qrShell = document.createElement('div');
-          qrShell.className = 'qr-shell';
-          if (qrCode) qrShell.append(qrCode);
-          label.append(qrShell);
+          details.append(brand);
 
           const identity = document.createElement('section');
           identity.className = 'identity';
@@ -408,7 +418,9 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
           name.textContent = item.name.toLocaleUpperCase('pt-BR');
           fittedNames.push({ element: name, maximum: nameMaximumFontPt, minimum: nameMinimumFontPt });
           identity.append(name);
-          label.append(identity);
+          details.append(identity);
+          content.append(details);
+          label.append(content);
           labelRow.append(label);
         });
 
@@ -485,7 +497,7 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
               >
                 <span className="romaneio-qr-label-size-check" aria-hidden="true">{isSelected ? '✓' : ''}</span>
                 <strong>{option.label}</strong>
-                <span>{option.millimeters} × {option.millimeters} mm</span>
+                <span>{option.widthMillimeters} × {option.heightMillimeters} mm</span>
               </button>
             );
           })}
@@ -514,26 +526,28 @@ export function RomaneioQrLabelModal({ items, categoryName, onClose }: RomaneioQ
                         className="romaneio-qr-label"
                         data-label-size={size.id}
                         key={`${item.id}-${size.id}`}
-                        aria-label={`Etiqueta de ${item.name}, tamanho ${size.label}, ${size.millimeters} por ${size.millimeters} milímetros`}
+                        aria-label={`Etiqueta de ${item.name}, tamanho ${size.label}, ${size.widthMillimeters} por ${size.heightMillimeters} milímetros`}
                       >
                         <div className="romaneio-qr-label-content">
-                          <div className="romaneio-qr-label-brand">
-                            <img src={brandLogoUrl} alt="Filtrovali" />
-                            <span>Identificação de equipamento</span>
-                          </div>
-                          <div className="romaneio-qr-label-divider" />
                           <div className="romaneio-qr-code-shell">
                             <div
                               className="romaneio-qr-code"
                               dangerouslySetInnerHTML={{ __html: qrSvgMarkupByItemId[item.id] }}
                             />
                           </div>
-                          <div className="romaneio-qr-label-identity">
-                            {item.code ? <RomaneioQrLabelPreviewCode code={item.code} /> : null}
-                            <RomaneioQrLabelPreviewName
-                              name={item.name}
-                              labelMillimeters={size.millimeters}
-                            />
+                          <div className="romaneio-qr-label-divider" />
+                          <div className="romaneio-qr-label-details">
+                            <div className="romaneio-qr-label-brand">
+                              <img src={brandLogoUrl} alt="Filtrovali" />
+                              <span>Identificação de equipamento</span>
+                            </div>
+                            <div className="romaneio-qr-label-identity">
+                              {item.code ? <RomaneioQrLabelPreviewCode code={item.code} /> : null}
+                              <RomaneioQrLabelPreviewName
+                                name={item.name}
+                                labelWidthMillimeters={size.widthMillimeters}
+                              />
+                            </div>
                           </div>
                         </div>
                       </article>

@@ -5126,17 +5126,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .romaneio-qr-label {
   --romaneio-preview-outline-width: 0.292cqw;
   --romaneio-preview-radius: 2.67cqw;
-  --romaneio-preview-caption-font: 2.12cqw;
-  --romaneio-preview-divider-height: 0.25cqw;
+  --romaneio-preview-caption-font: 1.588cqw;
   --romaneio-preview-qr-border-width: 0.25cqw;
   container-type: inline-size;
   position: relative;
   width: 63.158%;
-  aspect-ratio: 1;
+  aspect-ratio: 2;
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   margin: 0;
   overflow: hidden;
   padding: 0;
@@ -5147,7 +5143,7 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .romaneio-qr-label::before {
   position: absolute;
   z-index: 0;
-  inset: 1.875cqw;
+  inset: 1.667cqw;
   border: var(--romaneio-preview-outline-width) solid #176b55;
   border-radius: var(--romaneio-preview-radius);
   content: '';
@@ -5159,16 +5155,17 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   z-index: 1;
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 36.667cqw 0.292cqw minmax(0, 1fr);
   align-items: center;
+  gap: 2.5cqw;
+  min-width: 0;
   overflow: hidden;
-  padding: 4cqw;
+  padding: 4.167cqw;
 }
 
 .romaneio-qr-label[data-label-size='medium'] {
   --romaneio-preview-outline-width: 0.438cqw;
-  --romaneio-preview-divider-height: 0.375cqw;
   --romaneio-preview-qr-border-width: 0.375cqw;
   width: 42.105%;
 }
@@ -5176,54 +5173,21 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 .romaneio-qr-label[data-label-size='small'] {
   --romaneio-preview-outline-width: 0.583cqw;
   --romaneio-preview-radius: 3cqw;
-  --romaneio-preview-caption-font: 2.76cqw;
-  --romaneio-preview-divider-height: 0.5cqw;
+  --romaneio-preview-caption-font: 1.882cqw;
   --romaneio-preview-qr-border-width: 0.5cqw;
   width: 31.579%;
 }
 
-.romaneio-qr-label-brand {
-  width: 100%;
-  height: 9.33cqw;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2.5cqw;
-  padding: 0 1cqw;
-}
-
-.romaneio-qr-label-brand img {
-  display: block;
-  width: 35cqw;
-  max-height: 8.5cqw;
-  object-fit: contain;
-  object-position: left center;
-}
-
-.romaneio-qr-label-brand span {
-  max-width: 47cqw;
-  color: #176b55;
-  font-size: var(--romaneio-preview-caption-font);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  line-height: 1.2;
-  text-align: right;
-  text-transform: uppercase;
-}
-
 .romaneio-qr-label-divider {
-  width: 100%;
-  height: var(--romaneio-preview-divider-height);
-  margin-top: 1.25cqw;
-  background: linear-gradient(90deg, #176b55, #dcebe5 72%, transparent);
+  width: 0.292cqw;
+  height: 88%;
+  background: linear-gradient(180deg, transparent, #dcebe5 12%, #176b55 50%, #dcebe5 88%, transparent);
 }
 
 .romaneio-qr-code-shell {
-  width: 53.75cqw;
-  height: 53.75cqw;
-  flex: 0 0 53.75cqw;
-  margin: 1.875cqw auto 1.125cqw;
-  padding: 1.875cqw;
+  width: 36.667cqw;
+  height: 36.667cqw;
+  padding: 1.25cqw;
   border: var(--romaneio-preview-qr-border-width) solid #d7e6df;
   border-radius: 2.5cqw;
   background: #fff;
@@ -5240,7 +5204,48 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   height: 100%;
 }
 
+.romaneio-qr-label-details {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.romaneio-qr-label-brand {
+  width: 100%;
+  height: 10.833cqw;
+  flex: 0 0 10.833cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.romaneio-qr-label-brand img {
+  display: block;
+  width: 28.333cqw;
+  max-height: 7.5cqw;
+  object-fit: contain;
+  object-position: center;
+}
+
+.romaneio-qr-label-brand span {
+  color: #176b55;
+  font-size: var(--romaneio-preview-caption-font);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .romaneio-qr-label-identity {
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -5248,13 +5253,11 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   justify-content: center;
   gap: 1cqw;
   min-height: 0;
-  max-width: 100%;
-  padding: 0 1.15cqw 1.25cqw;
 }
 
 .romaneio-qr-label-identity strong {
   display: block;
-  width: 91.67cqw;
+  width: 100%;
   overflow: hidden;
   color: #183b32;
   font-weight: 700;
@@ -5266,14 +5269,13 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
 
 .romaneio-qr-label-code {
   display: block;
-  width: 53.75cqw;
-  max-width: 100%;
+  width: 100%;
   overflow: hidden;
-  padding: 0.833cqw 3.5cqw;
+  padding: 0.667cqw 2.5cqw;
   border-radius: 999px;
   color: #fff;
   background: #176b55;
-  font-size: 8.82cqw;
+  font-size: 10cqw;
   font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1;

@@ -69,7 +69,7 @@ export function RomaneioQrNovelty({
           element: EQUIPMENT_TAB_SELECTOR,
           popover: {
             title: 'Gere as etiquetas',
-            description: 'Na aba Equipamentos, cada item pode gerar etiquetas em três tamanhos. Você também pode combinar vários tamanhos na mesma folha A4.',
+            description: 'Na aba Equipamentos, cada item pode gerar etiquetas horizontais em três tamanhos. Você também pode combinar vários tamanhos na mesma folha A4.',
             side: 'bottom',
             align: 'start',
             onNextClick: (_element, _step, { driver: driverObj }) => {

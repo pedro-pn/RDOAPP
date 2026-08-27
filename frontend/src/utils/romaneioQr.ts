@@ -5,9 +5,9 @@ const ROMANEIO_QR_PREFIX = 'FILTROVALI:ROMANEIO_ITEM:1:';
 const CATALOG_ITEM_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export const ROMANEIO_QR_LABEL_SIZES = [
-  { id: 'large', label: 'Grande', millimeters: 120 },
-  { id: 'medium', label: 'Média', millimeters: 80 },
-  { id: 'small', label: 'Pequena', millimeters: 60 }
+  { id: 'large', label: 'Grande', widthMillimeters: 120, heightMillimeters: 60 },
+  { id: 'medium', label: 'Média', widthMillimeters: 80, heightMillimeters: 40 },
+  { id: 'small', label: 'Pequena', widthMillimeters: 60, heightMillimeters: 30 }
 ] as const;
 
 export type RomaneioQrLabelSize = typeof ROMANEIO_QR_LABEL_SIZES[number];
@@ -70,8 +70,8 @@ export function paginateRomaneioQrLabels<T>(
 
     const lastRow = page.rows.at(-1);
     if (lastRow) {
-      const nextWidth = lastRow.widthMillimeters + A4_LABEL_GAP_MM + entry.size.millimeters;
-      const nextHeight = Math.max(lastRow.heightMillimeters, entry.size.millimeters);
+      const nextWidth = lastRow.widthMillimeters + A4_LABEL_GAP_MM + entry.size.widthMillimeters;
+      const nextHeight = Math.max(lastRow.heightMillimeters, entry.size.heightMillimeters);
       const currentPageHeight = page.rows.reduce((total, row) => total + row.heightMillimeters, 0)
         + Math.max(0, page.rows.length - 1) * A4_LABEL_GAP_MM;
       const nextPageHeight = currentPageHeight - lastRow.heightMillimeters + nextHeight;
@@ -86,7 +86,8 @@ export function paginateRomaneioQrLabels<T>(
 
     const currentPageHeight = page.rows.reduce((total, row) => total + row.heightMillimeters, 0)
       + Math.max(0, page.rows.length - 1) * A4_LABEL_GAP_MM;
-    const nextPageHeight = currentPageHeight + (page.rows.length ? A4_LABEL_GAP_MM : 0) + entry.size.millimeters;
+    const nextPageHeight = currentPageHeight + (page.rows.length ? A4_LABEL_GAP_MM : 0)
+      + entry.size.heightMillimeters;
 
     if (page.rows.length > 0 && nextPageHeight > A4_LABEL_CONTENT_HEIGHT_MM) {
       page = { rows: [] };
@@ -95,8 +96,8 @@ export function paginateRomaneioQrLabels<T>(
 
     page.rows.push({
       entries: [entry],
-      heightMillimeters: entry.size.millimeters,
-      widthMillimeters: entry.size.millimeters
+      heightMillimeters: entry.size.heightMillimeters,
+      widthMillimeters: entry.size.widthMillimeters
     });
   });
 
