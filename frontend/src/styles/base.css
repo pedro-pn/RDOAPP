@@ -10956,17 +10956,10 @@ select:disabled {
   gap: 14px;
 }
 
-/* Módulo mais largo no desktop (dashboard/detalhe com mais colunas sem rolagem horizontal) */
+/* Módulos operacionais usam toda a largura disponível, como o Efetivo. */
 .app-shell:has(.equip-page),
 .app-shell:has(.stock-page) {
-  max-width: 1320px;
-}
-
-@media (min-width: 1280px) {
-  .app-shell:has(.equip-page),
-  .app-shell:has(.stock-page) {
-    max-width: 1440px;
-  }
+  max-width: none;
 }
 
 /* ── Módulo Equipamentos ── */
