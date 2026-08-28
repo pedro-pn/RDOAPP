@@ -19,8 +19,7 @@ import { useToast } from '../../components/ui/ToastContext';
 import { useNewReportBootstrap } from '../../hooks/useBootstrap';
 import { useDraftMutations, useDrafts } from '../../hooks/useDrafts';
 import { useReportMutations } from '../../hooks/useReports';
-import { useReportWorkforcePlanning } from '../../hooks/useReportWorkforcePlanning';
-import { useRdoPlanningPrefill } from '../../hooks/useRdoPlanningPrefill';
+import { useReportWorkforcePrefill } from '../../hooks/useReportWorkforcePrefill';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { useRdoStore } from '../../store/rdoStore';
@@ -59,7 +58,6 @@ const TEXT = {
   start: 'Início',
   next: 'Próximo →',
   submit: 'Enviar relatório ✓',
-  team: 'Equipe diurna',
   specialConditions: 'Condições especiais',
   identification: 'Identificação',
   schedules: 'Horários',
@@ -339,19 +337,6 @@ export function NewReportPage() {
     staleTime: 30_000
   });
 
-  const {
-    planningContext,
-    lastReportPrefill,
-    lastReportPrefillStatus,
-    absenceConflicts,
-    serverHoliday
-  } = useReportWorkforcePlanning({
-    projectId,
-    reportDate,
-    collaboratorIds,
-    enabled: !effectiveServiceOnly
-  });
-
   const projectReports = useMemo(() => {
     const reports = lastProjectReportQuery.data || [];
     const cutoff = reportDate ? new Date(`${reportDate}T23:59:59`) : new Date();
@@ -366,27 +351,23 @@ export function NewReportPage() {
     );
   }, [lastProjectReportQuery.data, projectId, reportDate]);
   const lastReport = projectReports[0] || null;
-  const shouldUseHistoryForPrefillStatus = effectiveServiceOnly || lastReportPrefillStatus === 'ERROR';
-  const resolvedLastReportStatus = shouldUseHistoryForPrefillStatus
-    ? (lastProjectReportQuery.isSuccess ? (lastReport ? 'FOUND' as const : 'EMPTY' as const) : 'PENDING' as const)
-    : lastReportPrefillStatus;
-  const lastReportCollaboratorIds = lastReportPrefillStatus === 'FOUND'
-    ? (lastReportPrefill?.collaboratorIds || [])
-    : (lastReport?.collaborators || []).map(link => link.collaboratorId).filter(Boolean);
   const {
-    source: collaboratorPrefillSource,
+    planningContext,
+    absenceConflicts,
+    serverHoliday,
+    collaboratorPrefillSource,
     missionSuggestionCollaboratorIds,
     canApplyMissionSuggestion,
-    markTouched: markCollaboratorsTouched,
+    markCollaboratorsTouched,
     applyMissionSuggestion,
     dismissMissionSuggestion
-  } = useRdoPlanningPrefill({
+  } = useReportWorkforcePrefill({
     projectId,
     reportDate,
-    currentCollaboratorIds: collaboratorIds,
-    missionCollaboratorIds: planningContext?.collaborators.map(item => item.id) || [],
-    lastReportCollaboratorIds,
-    lastReportStatus: resolvedLastReportStatus,
+    collaboratorIds,
+    effectiveServiceOnly,
+    historicalLastReport: lastReport,
+    historyLoaded: lastProjectReportQuery.isSuccess,
     setCollaborators
   });
   const collaboratorsPrefilled = Boolean(collaboratorPrefillSource);
@@ -1373,16 +1354,9 @@ export function NewReportPage() {
 
         {/* Card 3: Equipe diurna */}
         <section className="page-card">
-          <div className="section-title">
-            {TEXT.team}
-            {collaboratorsPrefilled ? (
-              <span className="pre-badge">
-                último RDO
-              </span>
-            ) : null}
-          </div>
           <ReportWorkforceNotices
             planningContext={planningContext}
+            prefilledFromLastReport={collaboratorsPrefilled}
             missionSuggestionCollaboratorIds={missionSuggestionCollaboratorIds}
             canApplyMissionSuggestion={canApplyMissionSuggestion}
             absenceConflictCount={absenceConflicts.length}

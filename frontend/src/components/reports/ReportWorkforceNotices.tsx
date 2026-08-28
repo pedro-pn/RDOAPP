@@ -2,6 +2,7 @@ import type { OfficialMissionContext } from '../../api/reports';
 
 export function ReportWorkforceNotices({
   planningContext,
+  prefilledFromLastReport,
   missionSuggestionCollaboratorIds,
   canApplyMissionSuggestion,
   absenceConflictCount,
@@ -12,6 +13,7 @@ export function ReportWorkforceNotices({
   onJustificationChange
 }: {
   planningContext: OfficialMissionContext | null;
+  prefilledFromLastReport: boolean;
   missionSuggestionCollaboratorIds: string[];
   canApplyMissionSuggestion: boolean;
   absenceConflictCount: number;
@@ -26,6 +28,10 @@ export function ReportWorkforceNotices({
 
   return (
     <>
+      <div className="section-title">
+        Equipe diurna
+        {prefilledFromLastReport ? <span className="pre-badge">último RDO</span> : null}
+      </div>
       {planningContext?.needsReplanning ? (
         <div className="form-hint" role="status">
           A missão oficial está marcada para replanejamento{planningContext.replanningReason ? `: ${planningContext.replanningReason}` : '.'}

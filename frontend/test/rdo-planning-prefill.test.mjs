@@ -99,13 +99,15 @@ test('justificativa é obrigatória somente quando o preflight detecta afastamen
 test('equipe anterior usa prefill mínimo sem aguardar o histórico completo', () => {
   const api = fs.readFileSync(new URL('../src/api/reports.ts', import.meta.url), 'utf8');
   const planningHook = fs.readFileSync(new URL('../src/hooks/useReportWorkforcePlanning.ts', import.meta.url), 'utf8');
+  const prefillHook = fs.readFileSync(new URL('../src/hooks/useReportWorkforcePrefill.ts', import.meta.url), 'utf8');
   const notices = fs.readFileSync(new URL('../src/components/reports/ReportWorkforceNotices.tsx', import.meta.url), 'utf8');
   const page = fs.readFileSync(new URL('../src/pages/collaborator/NewReportPage.tsx', import.meta.url), 'utf8');
 
   assert.match(api, /reports\/collaborator-prefill/);
   assert.match(planningHook, /getReportCollaboratorPrefill\(projectId!, reportDate\)/);
   assert.match(page, /listReports\(\{ projectId: projectId!, summary: true \}\)/);
-  assert.match(page, /lastReportPrefillStatus === 'FOUND'/);
+  assert.match(page, /useReportWorkforcePrefill/);
+  assert.match(prefillHook, /lastReportPrefillStatus === 'FOUND'/);
   assert.match(notices, /Adicionar sugeridos/);
   assert.match(notices, /Manter equipe atual/);
   assert.match(notices, /disabled=\{!canApplyMissionSuggestion\}/);
