@@ -1349,7 +1349,7 @@ export function ProjectDetailDashboard({
             <div className="acp-det-collab-body">
               <div className="acp-det-collab-context" role="note">
                 <strong>Base da apropriação: ponto de {fmtDate(data.maoDeObra.periodStart)} a {fmtDate(data.maoDeObra.periodEnd)}</strong>
-                <span>As horas, o custo e o custo/hora abaixo usam o mesmo rateio financeiro.</span>
+                <span>O deslocamento já está incluído nas horas e no custo total; aparece separado apenas para detalhamento.</span>
               </div>
 
               <div className="acp-table-wrap">
@@ -1367,6 +1367,9 @@ export function ProjectDetailDashboard({
                       <th style={{ textAlign: 'right' }}>
                         <HelpTip help="Custo apropriado dividido pelas horas apropriadas. Por isso este valor pode variar entre colaboradores com salários-base próximos.">Custo efetivo/h</HelpTip>
                       </th>
+                      <th style={{ textAlign: 'right' }}>
+                        <HelpTip help="Horas apropriadas em dias marcados como viagem. O valor abaixo é a parcela proporcional do custo apropriado e não representa um custo adicional.">Deslocamento</HelpTip>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1378,6 +1381,14 @@ export function ProjectDetailDashboard({
                         <td data-label="Custo apropriado" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{brl(c.custo)}</td>
                         <td data-label="Custo efetivo/h" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {c.custoHora != null ? `${brl(c.custoHora)}/h` : '—'}
+                        </td>
+                        <td data-label="Deslocamento" style={{ textAlign: 'right' }}>
+                          {c.horasDeslocamento > 0 ? (
+                            <span className="acp-det-collab-travel">
+                              <strong>{fmtHours(c.horasDeslocamento)}</strong>
+                              {c.custoDeslocamento != null ? <small>{brl(c.custoDeslocamento)} do custo</small> : null}
+                            </span>
+                          ) : '—'}
                         </td>
                       </tr>
                     ))}

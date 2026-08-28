@@ -497,6 +497,41 @@ test('custo de missão aplica piso de 8h48 em dia útil e preserva sede e fim de
   ]);
 });
 
+test('apropriações contábil e analítica preservam as horas de deslocamento', () => {
+  const accounting = computeCollaboratorCost({
+    params: PARAMS,
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    folgaHours: 0,
+    projects: [{
+      pid: 'A',
+      rdoDaysHours: 8.8,
+      awayDaysHours: 8.8,
+      rdoWorkedHours: 8.8,
+      travelHours: 4.4,
+      he70Hours: 0,
+      he100Hours: 0
+    }]
+  });
+  assert.equal(accounting.byProject.A.travelHours, 4.4);
+
+  const analytical = computeAnalyticalProjectCosts({
+    params: PARAMS,
+    fixedBase: accounting.fixoMensal,
+    totalHours: accounting.totalHours,
+    projects: [{
+      pid: 'A',
+      rdoDaysHours: 8.8,
+      awayDaysHours: 8.8,
+      travelHours: 2.2,
+      he70Hours: 0,
+      he100Hours: 0
+    }]
+  });
+  assert.equal(analytical.A.travelHours, 2.2);
+});
+
 test('precedência de pesos diários cobre etiqueta única, interseção e fallback de RDO', () => {
   const oneTag = buildDailyProjectWeights({
     tags: ['Missão A'],

@@ -191,7 +191,15 @@ export function buildProjectDetailCollaborator({
   includeCollaboratorCosts = false
 } = {}) {
   const custo = allocation?.cost ?? null;
-  const custoHora = allocation && allocation.hours > 0 ? allocation.cost / allocation.hours : null;
+  const horasApropriadas = Math.max(0, toNum(allocation?.hours) ?? 0);
+  const horasDeslocamento = Math.min(
+    horasApropriadas,
+    Math.max(0, toNum(allocation?.travelHours) ?? 0)
+  );
+  const custoHora = allocation && horasApropriadas > 0 ? allocation.cost / horasApropriadas : null;
+  const custoDeslocamento = custo != null && horasApropriadas > 0 && horasDeslocamento > 0
+    ? roundMoney(custo * (horasDeslocamento / horasApropriadas))
+    : null;
   const horasRelatorios = minutesToHours(workedMinutes);
   const horasRelatoriosPorData = [...workedMinutesByDate.entries()]
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
@@ -204,11 +212,13 @@ export function buildProjectDetailCollaborator({
     horas: horasRelatorios,
     horasLancadas: Math.max(0, workedMinutes) / 60,
     horasApropriadas: allocation?.hours ?? null,
+    horasDeslocamento,
     sobreposicaoHoras: 0,
     horasRelatoriosPorData,
     // Custo é dado sensível (salário): só para gestores.
     custo: includeCollaboratorCosts ? custo : null,
-    custoHora: includeCollaboratorCosts ? custoHora : null
+    custoHora: includeCollaboratorCosts ? custoHora : null,
+    custoDeslocamento: includeCollaboratorCosts ? custoDeslocamento : null
   };
 }
 

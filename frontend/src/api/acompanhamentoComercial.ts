@@ -705,10 +705,14 @@ export interface ProjectDetailCollaborator {
   horasLancadas: number;
   /** Horas analíticas do Ponto Mais apropriadas ao projeto; podem repetir em execução compartilhada. */
   horasApropriadas: number | null;
+  /** Parte das horas apropriadas registrada em dias marcados como viagem/deslocamento. */
+  horasDeslocamento: number;
   sobreposicaoHoras: number;
   horasRelatoriosPorData: Array<{ data: string; horas: number }>;
   custo: number | null;
   custoHora: number | null;
+  /** Parcela proporcional do custo apropriado correspondente às horas de deslocamento. */
+  custoDeslocamento: number | null;
 }
 
 export interface ProjectDetail {

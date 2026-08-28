@@ -1413,7 +1413,12 @@ export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMe
     const variavelPBase = computeMonthlyCost(params, { ...inputsP, diasFora: (hours.awayHours + hours.offshoreHours) / dpd, offshoreDays: 0 }).totalMensal - zeroNoEpi;
     const hoursForProration = projectHoursTotal + he70P + he100P;
     const fixoP = totalHours > 0 ? fixedBase * (hoursForProration / totalHours) : 0;
-    byProject[p.pid] = { cost: fixoP + variavelP, costBase: fixoP + variavelPBase, hours: hoursForProration };
+    byProject[p.pid] = {
+      cost: fixoP + variavelP,
+      costBase: fixoP + variavelPBase,
+      hours: hoursForProration,
+      travelHours: Math.min(hoursForProration, Math.max(0, Number(p.travelHours) || 0))
+    };
     sumCost += fixoP + variavelP;
     sumCostBase += fixoP + variavelPBase;
     sumProjectHours += hoursForProration;
@@ -1480,7 +1485,8 @@ export function computeAnalyticalProjectCosts({ params, fixedBase = 0, totalHour
     result[project.pid] = {
       cost: Math.round((fixedProject + variableProject) * 100) / 100,
       costBase: Math.round((fixedProject + variableProjectBase) * 100) / 100,
-      hours: hoursForProration
+      hours: hoursForProration,
+      travelHours: Math.min(hoursForProration, Math.max(0, Number(project.travelHours) || 0))
     };
   }
   return result;
@@ -1494,6 +1500,7 @@ function costProjectsFromClassification(classified) {
     homeDaysHours: project.homeHours,
     offshoreDaysHours: project.offshoreHours,
     rdoWorkedHours: project.rdoWorkedHours,
+    travelHours: project.travelHours,
     he70Hours: project.he70Hours,
     he100Hours: project.he100Hours,
     offshore: project.offshore
@@ -1713,14 +1720,16 @@ export async function computeCollaboratorRates(importId = null) {
           monthAgg.variavel += res.variavelMensal; monthAgg.totalHours += res.totalHours; monthAgg.folga += folgaS;
           monthAgg.normal += normalHoursS; monthAgg.he70 += he70S; monthAgg.he100 += he100S;
           for (const [pid, a] of Object.entries(res.byProject)) {
-            if (!monthByProject[pid]) monthByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+            if (!monthByProject[pid]) monthByProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
             monthByProject[pid].cost += a.cost; monthByProject[pid].costBase += a.costBase; monthByProject[pid].hours += a.hours;
+            monthByProject[pid].travelHours += a.travelHours || 0;
           }
           for (const [pid, a] of Object.entries(analyticalCosts)) {
-            if (!monthAnalyticalByProject[pid]) monthAnalyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+            if (!monthAnalyticalByProject[pid]) monthAnalyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
             monthAnalyticalByProject[pid].cost += a.cost;
             monthAnalyticalByProject[pid].costBase += a.costBase;
             monthAnalyticalByProject[pid].hours += a.hours;
+            monthAnalyticalByProject[pid].travelHours += a.travelHours || 0;
           }
           monthIdle.sede.cost += res.idle.sede.cost; monthIdle.sede.costBase += res.idle.sede.costBase; monthIdle.sede.hours += res.idle.sede.hours;
           monthIdle.folga.cost += res.idle.folga.cost; monthIdle.folga.costBase += res.idle.folga.costBase; monthIdle.folga.hours += res.idle.folga.hours;
@@ -1731,14 +1740,16 @@ export async function computeCollaboratorRates(importId = null) {
         agg.variavel += monthAgg.variavel; agg.totalHours += monthAgg.totalHours; agg.folga += monthAgg.folga;
         agg.normal += monthAgg.normal; agg.he70 += monthAgg.he70; agg.he100 += monthAgg.he100;
         for (const [pid, a] of Object.entries(monthByProject)) {
-          if (!byProject[pid]) byProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+          if (!byProject[pid]) byProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
           byProject[pid].cost += a.cost; byProject[pid].costBase += a.costBase; byProject[pid].hours += a.hours;
+          byProject[pid].travelHours += a.travelHours || 0;
         }
         for (const [pid, a] of Object.entries(monthAnalyticalByProject)) {
-          if (!analyticalByProject[pid]) analyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+          if (!analyticalByProject[pid]) analyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
           analyticalByProject[pid].cost += a.cost;
           analyticalByProject[pid].costBase += a.costBase;
           analyticalByProject[pid].hours += a.hours;
+          analyticalByProject[pid].travelHours += a.travelHours || 0;
         }
         idle.sede.cost += monthIdle.sede.cost; idle.sede.costBase += monthIdle.sede.costBase; idle.sede.hours += monthIdle.sede.hours;
         idle.folga.cost += monthIdle.folga.cost; idle.folga.costBase += monthIdle.folga.costBase; idle.folga.hours += monthIdle.folga.hours;

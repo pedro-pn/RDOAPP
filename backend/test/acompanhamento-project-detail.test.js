@@ -92,7 +92,7 @@ test('buildProjectDetailCollaborator separa apropriação financeira da jornada 
   const result = buildProjectDetailCollaborator({
     name: 'Ana',
     role: 'Operadora',
-    allocation: { cost: 212.5, hours: 4.25 },
+    allocation: { cost: 212.5, hours: 4.25, travelHours: 1.5 },
     workedMinutes: 630,
     workedMinutesByDate: new Map([
       ['2026-07-17', 150],
@@ -107,28 +107,32 @@ test('buildProjectDetailCollaborator separa apropriação financeira da jornada 
     horas: 10.5,
     horasLancadas: 10.5,
     horasApropriadas: 4.25,
+    horasDeslocamento: 1.5,
     sobreposicaoHoras: 0,
     horasRelatoriosPorData: [
       { data: '2026-07-16', horas: 8 },
       { data: '2026-07-17', horas: 2.5 }
     ],
     custo: 212.5,
-    custoHora: 50
+    custoHora: 50,
+    custoDeslocamento: 75
   });
 });
 
 test('buildProjectDetailCollaborator oculta valores financeiros sem ocultar as horas apropriadas', () => {
   const result = buildProjectDetailCollaborator({
     rate: { name: 'Carlos', role: 'Assistente' },
-    allocation: { cost: 180, hours: 6 },
+    allocation: { cost: 180, hours: 6, travelHours: 2 },
     includeCollaboratorCosts: false
   });
 
   assert.equal(result.name, 'Carlos');
   assert.equal(result.role, 'Assistente');
   assert.equal(result.horasApropriadas, 6);
+  assert.equal(result.horasDeslocamento, 2);
   assert.equal(result.custo, null);
   assert.equal(result.custoHora, null);
+  assert.equal(result.custoDeslocamento, null);
 });
 
 test('buildOmieCostPaymentSummary separa pago de títulos previstos a pagar', () => {
