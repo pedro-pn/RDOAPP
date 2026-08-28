@@ -160,25 +160,29 @@ export function buildAmbiguousDayPendencies({
   const rdoByCollaborator = rdoDataByCollaboratorFromReports(rdoReports);
   const resolveTag = buildProjectTagResolver({ projects, tagAliases });
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
-  // A janela do cronograma também vale aqui: sem ela, um dia que a regra já resolve continuaria
-  // listado como pendência para o gestor.
+  // A janela do cronograma continua como pista para mostrar projetos candidatos na pendência, mas
+  // não substitui o RDO do próprio dia nem resolve a alocação sozinha.
   const scheduleWindows = buildScheduleWindows(projects);
   const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
   const codeByProjectId = new Map(projects.map(project => [project.id, String(project.code || '')]).filter(([, code]) => code));
-  const overriddenDays = new Set(manualDayOverrides.map(item => (
-    `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`
-  )));
+  const manualProjectsByDay = new Map();
+  for (const item of manualDayOverrides) {
+    const key = `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`;
+    if (!manualProjectsByDay.has(key)) manualProjectsByDay.set(key, []);
+    if (item.projectId) manualProjectsByDay.get(key).push(item.projectId);
+  }
   const pending = [];
 
   for (const { period, day } of latestPeriodDays(periods)) {
     const rdo = rdoByCollaborator.get(period.collaboratorId) || { dayProjects: new Map() };
-    if (overriddenDays.has(`${period.collaboratorId}:${day.date}`)) continue;
+    const manualProjectIds = manualProjectsByDay.get(`${period.collaboratorId}:${day.date}`) || [];
     const rdoProjects = rdo.dayProjects.get(day.date) || new Map();
     const mobilizationProjectIds = rdo.mobilizationProjectsByDate?.get(day.date) || new Set();
     const decision = buildDailyProjectWeights({
       tags: day.tags,
       rdoProjects,
       resolveTag,
+      manualProjectIds,
       mobilizationProjectIds,
       scheduleWindowProjectIds: scheduleWindowsForDay({
         scheduleWindows,
@@ -192,7 +196,8 @@ export function buildAmbiguousDayPendencies({
       'UNCONFIRMED_MULTIPLE_TAGS',
       'AMBIGUOUS_WITHOUT_TAGS',
       'TAG_RDO_CONFLICT',
-      'MOBILIZATION_RDO_AMBIGUOUS'
+      'MOBILIZATION_RDO_AMBIGUOUS',
+      'NO_RDO_EVIDENCE'
     ].includes(decision.reason)) continue;
     const tagProjectIds = new Set((day.tags || []).map(resolveTag).filter(Boolean));
     const rdoProjectIds = new Set(rdoProjects.keys());
@@ -201,6 +206,7 @@ export function buildAmbiguousDayPendencies({
       ...rdoProjectIds,
       ...(decision.candidateProjectIds || [])
     ]);
+    if (decision.reason === 'NO_RDO_EVIDENCE' && projectIds.size === 0) continue;
     pending.push({
       externalEmployeeId: period.externalEmployeeId,
       date: day.date,
@@ -243,14 +249,17 @@ export function filterCurrentlyResolvedAmbiguousDays({
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
   const scheduleWindows = buildScheduleWindows(projects);
   const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
-  const overriddenDays = new Set(manualDayOverrides.map(item => (
-    `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`
-  )));
+  const manualProjectsByDay = new Map();
+  for (const item of manualDayOverrides) {
+    const key = `${item.collaboratorId}:${new Date(item.workDate).toISOString().slice(0, 10)}`;
+    if (!manualProjectsByDay.has(key)) manualProjectsByDay.set(key, []);
+    if (item.projectId) manualProjectsByDay.get(key).push(item.projectId);
+  }
 
   return ambiguousDays.filter(item => {
     const collaboratorId = collaboratorByExternalId.get(String(item.externalEmployeeId));
     if (!collaboratorId) return true;
-    if (overriddenDays.has(`${collaboratorId}:${item.date}`)) return false;
+    const manualProjectIds = manualProjectsByDay.get(`${collaboratorId}:${item.date}`) || [];
     const collaboratorRdo = rdoByCollaborator.get(collaboratorId);
     const rdoProjects = collaboratorRdo?.dayProjects?.get(item.date) || new Map();
     const mobilizationProjectIds = collaboratorRdo?.mobilizationProjectsByDate?.get(item.date) || new Set();
@@ -260,6 +269,7 @@ export function filterCurrentlyResolvedAmbiguousDays({
         : item.tagProjectCodes || [],
       rdoProjects,
       resolveTag: code => projectIdByCode.get(String(code).trim()) || null,
+      manualProjectIds,
       mobilizationProjectIds,
       scheduleWindowProjectIds: scheduleWindowsForDay({
         scheduleWindows,

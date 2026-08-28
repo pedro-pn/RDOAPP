@@ -175,6 +175,29 @@ test('auditoria por colaborador soma por projeto respeitando o peso do rateio', 
   assert.ok(Math.abs(collaborator.totals.unallocatedHours - 8) < 1e-6);
 });
 
+test('auditoria soma por projeto as horas efetivamente apropriadas após o piso diário', () => {
+  const days = [day('2026-08-17', {
+    normalHours: 7,
+    costNormalHours: 7.8,
+    minimumNormalHoursApplied: true,
+    he70Hours: 1,
+    rdoProjects: [{ projectId: 'p-5804', hours: 8 }],
+    allocations: [{ projectId: 'p-5804', weight: 1 }],
+    reason: 'SINGLE_RDO_FALLBACK'
+  })];
+  const result = buildAllocationAudit({
+    rates: [rate(days)],
+    projectsById: PROJECTS,
+    knownMissionCodes: KNOWN_CODES,
+    collaboratorId: 'c-1'
+  });
+
+  const [collaborator] = result.collaborators;
+  assert.ok(Math.abs(collaborator.totals.byProject[0].normalHours - 7.8) < 1e-6);
+  assert.ok(Math.abs(collaborator.days[0].appropriatedTotalHours - 8.8) < 1e-6);
+  assert.equal(collaborator.days[0].minimumNormalHoursApplied, true);
+});
+
 test('filtro de não alocados esconde os dias já resolvidos', () => {
   const days = [
     day('2026-07-20', { allocations: [{ projectId: 'p-5804', weight: 1 }], reason: 'SINGLE_RDO_FALLBACK' }),

@@ -592,8 +592,8 @@ export async function listProjectRevisions(projectId) {
 }
 
 /*
- * A desmobilização fecha a janela que aloca ponto sem etiqueta e sem RDO, então precisa ser
- * coerente: sem mobilização não há janela, e uma data anterior à mobilização inverteria o intervalo.
+ * A desmobilização fecha a janela usada como contexto do cronograma, então precisa ser coerente:
+ * sem mobilização não há janela, e uma data anterior à mobilização inverteria o intervalo.
  * Como cada campo é opcional na requisição, a mobilização vigente vem do banco quando não veio no
  * corpo — `undefined` significa "não mexeu", `null` significa "limpou".
  */

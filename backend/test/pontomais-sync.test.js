@@ -320,7 +320,7 @@ test('pendência usa o mesmo fallback de missão mesclada do cálculo financeiro
   assert.deepEqual(unresolved[0].rdoProjectCodes, ['5761', '5794']);
 });
 
-test('pendências de viagem usam mobilização e RDO posterior nominal sem copiar horas futuras', () => {
+test('RDO posterior sugere o projeto, mas não substitui o RDO do próprio dia', () => {
   const projects = [
     { id: 'project-a', code: '5810', mobilizationDate: new Date('2026-08-01T00:00:00.000Z') },
     { id: 'project-b', code: '5813', mobilizationDate: new Date('2026-08-01T00:00:00.000Z') }
@@ -350,7 +350,15 @@ test('pendências de viagem usam mobilização e RDO posterior nominal sem copia
     periods: normalized.periods,
     projects,
     rdoReports: [laterRdo('project-a')]
-  }), []);
+  }), [{
+    externalEmployeeId: '101',
+    date: '2026-08-01',
+    projectCodes: ['5810'],
+    tagProjectCodes: [],
+    rdoProjectCodes: [],
+    reason: 'RDO_NOT_CONFIRMED',
+    travelContext: true
+  }]);
 
   const ambiguous = buildAmbiguousDayPendencies({
     periods: normalized.periods,
@@ -363,7 +371,7 @@ test('pendências de viagem usam mobilização e RDO posterior nominal sem copia
     projectCodes: ['5810', '5813'],
     tagProjectCodes: [],
     rdoProjectCodes: [],
-    reason: 'MOBILIZATION_RDO_AMBIGUOUS',
+    reason: 'RDO_NOT_CONFIRMED',
     travelContext: true
   }]);
 
@@ -372,7 +380,7 @@ test('pendências de viagem usam mobilização e RDO posterior nominal sem copia
     periodLinks: [{ externalEmployeeId: '101', collaboratorId: 'collaborator-1' }],
     projects,
     rdoReports: [laterRdo('project-a')]
-  }), []);
+  }), ambiguous);
 });
 
 function createFakeDb({ running = false, automationState = null } = {}) {
@@ -1049,7 +1057,7 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
   assert.deepEqual(corrected.missingProjects.ambiguousDays, []);
 });
 
-test('janela do cronograma resolve pendência de viagem e ela some da lista do gestor', () => {
+test('janela do cronograma não resolve pendência sem RDO do próprio dia', () => {
   const ambiguousDay = {
     externalEmployeeId: '101',
     date: '2026-07-15',
@@ -1077,7 +1085,7 @@ test('janela do cronograma resolve pendência de viagem e ela some da lista do g
   });
   assert.deepEqual(emAndamento, [ambiguousDay]);
 
-  // Com a desmobilização preenchida a janela fecha e o dia é alocado automaticamente.
+  // Mesmo com a janela fechada, ela é só uma pista de projeto e não autoriza apropriação.
   const comJanela = filterCurrentlyResolvedAmbiguousDays({
     ambiguousDays: [ambiguousDay],
     periodLinks,
@@ -1090,7 +1098,7 @@ test('janela do cronograma resolve pendência de viagem e ela some da lista do g
     }],
     rdoReports: []
   });
-  assert.deepEqual(comJanela, []);
+  assert.deepEqual(comJanela, [ambiguousDay]);
 
   // Colaborador fora da equipe cadastrada não é varrido pela janela.
   const foraDaEquipe = filterCurrentlyResolvedAmbiguousDays({
