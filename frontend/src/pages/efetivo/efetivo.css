@@ -3,6 +3,11 @@
   min-width: 0;
 }
 
+/* O Efetivo é um painel operacional largo e usa toda a viewport no desktop. */
+.app-shell:has(.equip-page.efetivo-page) {
+  max-width: none;
+}
+
 .efetivo-board {
   display: flex;
   flex-direction: column;
@@ -308,6 +313,15 @@
 .modal-card.efetivo-detail-modal {
   max-width: 820px;
   width: min(96vw, 820px);
+}
+
+.modal-card.efetivo-team-availability-modal {
+  max-width: 1280px;
+  width: min(98vw, 1280px);
+}
+
+.efetivo-team-availability-backdrop {
+  z-index: 1100;
 }
 
 .efetivo-detail-summary {
@@ -705,6 +719,48 @@
   padding: 0 5px;
 }
 
+.efetivo-team-picker-trigger {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.efetivo-team-picker-trigger > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.efetivo-team-picker-trigger span,
+.efetivo-team-dialog-toolbar label > span {
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.efetivo-team-availability-body { min-height: min(570px, 68vh); }
+.efetivo-team-period-empty { align-items: center; color: var(--mu); display: flex; flex-direction: column; gap: 6px; justify-content: center; min-height: 260px; text-align: center; }
+.efetivo-team-period-empty strong { color: var(--tx); font-size: 16px; }
+.efetivo-team-dialog-toolbar {
+  align-items: end;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.efetivo-team-dialog-toolbar .field-group { flex: 1 1 320px; max-width: 440px; }
+.efetivo-team-dialog-toolbar > strong { color: var(--g); font-size: 13px; padding-bottom: 9px; }
+.efetivo-team-availability-kanban .efetivo-kanban-list { max-height: min(430px, calc(90vh - 280px)); }
+.efetivo-team-availability-card label { align-items: center; cursor: pointer; display: flex; gap: 9px; }
+.efetivo-team-availability-card label > input { accent-color: var(--g); flex: 0 0 auto; height: 18px; width: 18px; }
+.efetivo-team-availability-card.selected { border-color: var(--g); box-shadow: inset 3px 0 0 var(--g); }
+.efetivo-team-availability-card.unavailable:not(.selected) { opacity: .68; }
+.efetivo-team-availability-card.unavailable:not(.selected) label { cursor: not-allowed; }
+.efetivo-team-hidden-selected { background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: var(--rs); display: grid; gap: 6px; margin-bottom: 12px; padding: 10px; }
+.efetivo-team-hidden-selected > span { color: var(--mu); font-size: 12px; }
+.efetivo-team-hidden-selected > div { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
+.efetivo-team-hidden-selected > div > span { font-size: 12px; }
+
 .efetivo-team-toolbar {
   align-items: flex-end;
   display: flex;
@@ -1029,20 +1085,43 @@
   justify-content: space-between;
 }
 
+.efetivo-kanban-view-controls { align-items: center; display: flex; gap: 12px; }
+.efetivo-toggle {
+  align-items: center;
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 7px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+.efetivo-toggle input { accent-color: var(--g); height: 16px; margin: 0; width: 16px; }
+.efetivo-toggle span { font-size: 12px; font-weight: 700; }
+.efetivo-toggle small { background: var(--sf); border-radius: 999px; color: var(--mu); font-size: 11px; padding: 1px 6px; }
+
 .efetivo-kanban-mobile-select { display: none; }
+.efetivo-kanban-card .efetivo-kanban-move-select { display: none; }
 
 .efetivo-kanban {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
+.efetivo-kanban.show-cancelled { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 
 /* Cor só na bolinha da etapa; colunas e cards seguem a cor única do módulo. */
-[data-kanban-stage='STANDBY'] { --stage: #5b6b7c; }
-[data-kanban-stage='MOBILIZATION'] { --stage: #b45309; }
-[data-kanban-stage='EXECUTION'] { --stage: #11437e; }
-[data-kanban-stage='FINAL_MEASUREMENT'] { --stage: #6d5b9b; }
-[data-kanban-stage='FINISHED'] { --stage: #30503a; }
+[data-kanban-stage='STANDBY'] { --stage: #64748b; }
+[data-kanban-stage='MOBILIZATION'] { --stage: #f59e0b; }
+[data-kanban-stage='EXECUTION'] { --stage: #2563eb; }
+[data-kanban-stage='FINAL_MEASUREMENT'] { --stage: #8b5cf6; }
+[data-kanban-stage='FINISHED'] { --stage: #16a34a; }
+[data-kanban-status='CANCELLED'] { --stage: #dc2626; }
+[data-availability-status='AVAILABLE'] { --stage: #16a34a; }
+[data-availability-status='AWAITING_MOBILIZATION'] { --stage: #f59e0b; }
+[data-availability-status='MOBILIZED'] { --stage: #2563eb; }
+[data-availability-status='ON_VACATION'] { --stage: #8b5cf6; }
 
 .efetivo-kanban-column {
   background: var(--sf);
@@ -1070,17 +1149,28 @@
   background: var(--stage, var(--mu));
   border-radius: 50%;
   flex: 0 0 auto;
-  height: 9px;
-  width: 9px;
+  height: 11px;
+  padding: 0;
+  width: 11px;
 }
 
-.efetivo-kanban-column > header span {
+.efetivo-kanban-column > header > div > span {
   background: var(--wh);
   border-radius: 999px;
   padding: 2px 7px;
 }
 
-.efetivo-kanban-list { display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
+.efetivo-kanban-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: max(280px, calc(100vh - 330px));
+  min-height: 80px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 3px;
+  scrollbar-gutter: stable;
+}
 
 .efetivo-kanban-card {
   background: var(--wh);
@@ -1095,6 +1185,22 @@
 
 .efetivo-kanban-card.draggable { cursor: grab; }
 .efetivo-kanban-card.draggable:hover { box-shadow: 0 6px 16px rgba(20, 20, 20, .1); }
+.efetivo-kanban-card.efetivo-kanban-pending {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  cursor: pointer;
+}
+.efetivo-lock { color: var(--warning-text); font-size: 8px; }
+.efetivo-complete-mission {
+  background: transparent;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--rs);
+  color: var(--warning-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px;
+}
 .efetivo-kanban-card.selected,
 .efetivo-mission-card.selected { border-color: var(--gl); box-shadow: 0 0 0 2px var(--gl); }
 
@@ -1134,6 +1240,58 @@
 .efetivo-kanban-card-head { align-items: center; display: flex; gap: 7px; }
 .efetivo-drag-grip { color: var(--mu); font-size: 12px; letter-spacing: -3px; line-height: 1; }
 .efetivo-kanban-ghost { box-shadow: var(--shadow); opacity: .92; transform-origin: top left; z-index: 1000; }
+
+.efetivo-readonly-badge {
+  background: var(--bg);
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  color: var(--mu);
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.efetivo-availability-kanban {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.efetivo-availability-card {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 11px;
+}
+
+.efetivo-availability-person { align-items: center; display: flex; gap: 9px; }
+.efetivo-availability-person > i {
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--br);
+  border-radius: 50%;
+  color: var(--g);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+.efetivo-availability-person > span,
+.efetivo-availability-context { display: flex; flex-direction: column; gap: 2px; }
+.efetivo-availability-person strong { font-size: 13px; }
+.efetivo-availability-person small,
+.efetivo-availability-context small { color: var(--mu); font-size: 11px; }
+.efetivo-availability-context { border-top: 1px solid var(--br); padding-top: 8px; }
+.efetivo-availability-context span { font-size: 12px; font-weight: 700; }
+.efetivo-availability-note { color: var(--mu); font-size: 12px; margin: -4px 2px 0; }
 
 /* Missões pendentes: projeto sem programação ou programação incompleta. */
 .efetivo-pending-banner {
@@ -1214,6 +1372,8 @@
 
 @media (max-width: 1000px) {
   .efetivo-kanban { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .efetivo-kanban.show-cancelled { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .efetivo-availability-kanban { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .efetivo-admin-role { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -1226,21 +1386,25 @@
   .efetivo-calendar-grid > button { min-height: auto; }
   .efetivo-calendar-events small { white-space: normal; }
   .efetivo-kanban-mobile-select { display: flex; }
+  .efetivo-kanban-card .efetivo-kanban-move-select { display: flex; }
   .efetivo-kanban { display: block; }
-  .efetivo-kanban-column { display: none; }
-  .efetivo-kanban-column.mobile-active { display: block; }
+  .efetivo-kanban > .efetivo-kanban-column { display: none; }
+  .efetivo-kanban > .efetivo-kanban-column.mobile-active { display: block; }
+  .efetivo-kanban > .efetivo-cancelled-column.cancelled-visible { display: block; margin-top: 10px; }
   .efetivo-allocation-add,
   .efetivo-holiday-form,
   .efetivo-hire-form { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 540px) {
+  .efetivo-availability-kanban { grid-template-columns: 1fr; }
   .efetivo-context-toolbar,
   .efetivo-list-toolbar,
   .efetivo-calendar-toolbar,
   .efetivo-scenario-actions,
   .efetivo-setting-row,
   .efetivo-kanban-intro,
+  .efetivo-kanban-view-controls,
   .efetivo-mission-card header,
   .efetivo-mission-card footer,
   .efetivo-scenario-comparison > header,
@@ -1255,6 +1419,9 @@
   .efetivo-demand-fieldset,
   .efetivo-team-fieldset { grid-column: auto; }
   .efetivo-team-toolbar { align-items: stretch; flex-direction: column; }
+  .efetivo-team-picker-trigger,
+  .efetivo-team-dialog-toolbar { align-items: stretch; flex-direction: column; }
+  .efetivo-team-dialog-toolbar .field-group { max-width: none; }
   .efetivo-team-search { flex-basis: auto; }
   .efetivo-team-option { align-items: start; grid-template-columns: auto minmax(0, 1fr); }
   .efetivo-team-option em { grid-column: 2; text-align: left; }

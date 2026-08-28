@@ -7,12 +7,9 @@ import {
 } from './conflicts.js';
 import { parseDateKey } from './date-only.js';
 import { conflictError, notFound } from './errors.js';
+import { missionEndsOnOrAfter, missionPeriod } from './mission-period.js';
 import { missionInclude } from './mission-planning.js';
 import { bumpPlanRevision, requireEditablePlan, resolvePlanningDatabase, runPlanningTransaction } from './plan-context.js';
-
-function missionPeriod(mission) {
-  return { startDate: parseDateKey(mission.mobilizationDate), endDate: parseDateKey(mission.returnDate) };
-}
 
 async function requireMissionForAllocation(tx, missionId) {
   const mission = await tx.efetivoMissionPlan.findUnique({
@@ -76,7 +73,7 @@ export async function listEligibleCollaborators(missionId, jobRoleId, dependenci
     database.efetivoMissionAllocation.findMany({
       where: {
         deletedAt: null,
-        mission: { planId: mission.planId, deletedAt: null, scheduleStatus: 'CONFIRMED', id: { not: mission.id }, mobilizationDate: { lte: new Date(`${period.endDate}T00:00:00.000Z`) }, returnDate: { gte: new Date(`${period.startDate}T00:00:00.000Z`) } }
+        mission: { planId: mission.planId, deletedAt: null, scheduleStatus: 'CONFIRMED', id: { not: mission.id }, mobilizationDate: { lte: new Date(`${period.endDate}T00:00:00.000Z`) }, ...missionEndsOnOrAfter(new Date(`${period.startDate}T00:00:00.000Z`)) }
       }, include: { mission: true }
     })
   ]);

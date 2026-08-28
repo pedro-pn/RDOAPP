@@ -1,5 +1,6 @@
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor, conflictError } from './errors.js';
+import { missionEndDate, missionEndsOnOrAfter } from './mission-period.js';
 
 export async function lockCollaborator(tx, collaboratorId) {
   if (typeof tx?.$queryRawUnsafe === 'function') {
@@ -61,12 +62,12 @@ export function collectAllocationConflicts({
     if (allocation.deletedAt || !mission || mission.deletedAt || mission.id === ignoredMissionId
       || mission.scheduleStatus !== 'CONFIRMED' || !periodsOverlap(period, {
         startDate: mission.mobilizationDate,
-        endDate: mission.returnDate
+        endDate: missionEndDate(mission)
       })) continue;
     conflicts.push(conflictDescriptor({
       collaborator,
       startDate: parseDateKey(mission.mobilizationDate),
-      endDate: parseDateKey(mission.returnDate),
+      endDate: missionEndDate(mission),
       sourceType: 'MISSION',
       sourceId: mission.id,
       entityPath: `/efetivo?section=missoes&missao=${mission.id}`,
@@ -102,7 +103,7 @@ export async function loadCollaboratorConflictData(tx, collaboratorId, period, p
           deletedAt: null,
           scheduleStatus: 'CONFIRMED',
           mobilizationDate: { lte: new Date(`${parseDateKey(period.endDate)}T00:00:00.000Z`) },
-          returnDate: { gte: new Date(`${parseDateKey(period.startDate)}T00:00:00.000Z`) }
+          ...missionEndsOnOrAfter(new Date(`${parseDateKey(period.startDate)}T00:00:00.000Z`))
         }
       },
       include: { mission: true }

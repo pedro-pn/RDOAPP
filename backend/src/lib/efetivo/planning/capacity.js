@@ -1,5 +1,6 @@
 import { addCalendarDays, parseDateKey } from './date-only.js';
 import { businessDatesInclusive, holidayDateSet, isBusinessDay } from './business-days.js';
+import { missionEndDate } from './mission-period.js';
 
 function collaboratorRoleId(collaborator) {
   return collaborator.jobRoleId || null;
@@ -36,7 +37,7 @@ function indexMissionsByCollaborator(missions) {
     const interval = {
       record: mission,
       startDate: parseDateKey(mission.mobilizationDate),
-      endDate: parseDateKey(mission.returnDate)
+      endDate: missionEndDate(mission)
     };
     for (const allocation of mission.allocations || []) {
       if (allocation.deletedAt) continue;
@@ -58,7 +59,7 @@ function demandByRoleOn(missions, date) {
     if (mission.deletedAt
       || mission.scheduleStatus !== 'CONFIRMED'
       || parseDateKey(mission.mobilizationDate) > date
-      || parseDateKey(mission.returnDate) < date) continue;
+      || missionEndDate(mission) < date) continue;
     for (const demand of mission.demands || []) {
       totals.set(demand.jobRoleId, (totals.get(demand.jobRoleId) || 0) + Number(demand.requiredCount || 0));
     }

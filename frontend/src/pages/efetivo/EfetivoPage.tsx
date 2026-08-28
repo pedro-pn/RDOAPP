@@ -11,6 +11,7 @@ import { countMissionPendencies } from '../../utils/missionPendencies';
 import { parsePlanningSection, setPlanningSectionParams, type EfetivoPlanningSection } from '../../utils/planningNavigation';
 import { AbsencesBoard } from './components/AbsencesBoard';
 import { AdministrationBoard } from './components/AdministrationBoard';
+import { AvailabilityBoard } from './components/AvailabilityBoard';
 import { CollaboratorsBoard } from './components/CollaboratorsBoard';
 import { MissionKanban } from './components/MissionKanban';
 import { MissionsBoard } from './components/MissionsBoard';
@@ -26,6 +27,7 @@ const SECTIONS: Array<{ id: EfetivoPlanningSection; label: string; icon: string 
   { id: 'visao-geral', label: 'Visão geral', icon: '▦' },
   { id: 'calendario', label: 'Calendário', icon: '□' },
   { id: 'colaboradores', label: 'Colaboradores', icon: '♙' },
+  { id: 'disponibilidade', label: 'Disponibilidade', icon: '◫' },
   { id: 'missoes', label: 'Missões', icon: '◆' },
   { id: 'evolucao', label: 'Evolução das missões', icon: '⇥' },
   { id: 'simulacoes', label: 'Simulações', icon: '◈' },
@@ -74,7 +76,7 @@ export function EfetivoPage() {
       return next;
     }, { replace: false });
   }, [setSearchParams]);
-  const needsPositionFilters = ['visao-geral', 'calendario', 'colaboradores', 'simulacoes'].includes(section);
+  const needsPositionFilters = ['visao-geral', 'calendario', 'colaboradores', 'disponibilidade', 'simulacoes'].includes(section);
 
   return (
     <Shell>
@@ -88,6 +90,7 @@ export function EfetivoPage() {
             {section === 'visao-geral' ? <OverviewBoard date={date} jobRoleId={jobRoleId} onNavigate={goToSection} /> : null}
             {section === 'calendario' ? <OperationalCalendar date={date} view={calendarView} jobRoleId={jobRoleId} selectedDay={selectedDay} onDateChange={value => updateParam('date', value)} onViewChange={value => updateParam('view', value === 'month' ? undefined : value)} onDaySelect={value => updateParam('dia', value)} /> : null}
             {section === 'colaboradores' ? <><CollaboratorsBoard date={date} jobRoleId={jobRoleId} search={search} canManage={canManage} selectedCollaboratorId={selectedCollaboratorId} onSearchChange={value => updateParam('search', value || undefined)} onCollaboratorSelect={value => updateParam('colaborador', value)} /><AbsencesBoard canManage={canManage} selectedAbsenceId={selectedAbsenceId} /></> : null}
+            {section === 'disponibilidade' ? <AvailabilityBoard date={date} jobRoleId={jobRoleId} /> : null}
             {section === 'missoes' ? <MissionsBoard canManage={canManage} status={missionStatus} search={search} selectedMissionId={selectedMissionId} onMissionSelect={value => updateParam('missao', value)} onSearchChange={value => updateParam('search', value || undefined)} onStatusChange={value => updateParam('status', value)} /> : null}
             {section === 'evolucao' ? <MissionKanban canManage={canManage} mobileStage={missionStage} selectedMissionId={selectedMissionId} onMobileStageChange={value => updateParam('etapa', value === 'STANDBY' ? undefined : value)} onMissionSelect={value => updateParam('missao', value)} /> : null}
             {section === 'simulacoes' ? <ScenariosBoard date={date} jobRoleId={jobRoleId} selectedScenarioId={scenarioId} canManage={canManage} onScenarioSelect={value => updateParam('cenario', value)} /> : null}

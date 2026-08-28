@@ -38,7 +38,7 @@ export interface OfficialMissionContext {
   projectId: string;
   needsReplanning: boolean;
   replanningReason?: string | null;
-  dates: { mobilizationDate: string; executionStartDate: string; executionEndDate: string; returnDate: string };
+  dates: { mobilizationDate: string; executionStartDate: string; executionEndDate: string; returnDate: string | null };
   collaborators: Array<{ id: string; name: string; jobRole: { id: string; name: string; isActive: boolean } }>;
 }
 

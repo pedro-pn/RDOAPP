@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   assertScheduleWindowDates,
+  syncProjectDemobilizationToMissions,
   applyManualCostsToDashboardRows,
   applyStockCostsToDashboardRows,
   buildCommercialPendencias,
@@ -432,4 +433,18 @@ test('janela de um dia só é válida e ausência de desmobilização nunca bloq
   // Obra em andamento: sem desmobilização a regra segue conservadora e nada é validado.
   assert.doesNotThrow(() => assertScheduleWindowDates({ mobilizationDate: null, demobilizationDate: null }));
   assert.doesNotThrow(() => assertScheduleWindowDates({}));
+});
+
+test('cronograma replica a desmobilização para as programações da missão', async () => {
+  const calls = [];
+  const tx = {
+    efetivoMissionPlan: {
+      findMany: async () => [{ planId: 'official' }, { planId: 'scenario' }, { planId: 'official' }],
+      updateMany: async input => { calls.push(['missions', input]); }
+    },
+    efetivoPlan: { updateMany: async input => { calls.push(['plans', input]); } }
+  };
+  await syncProjectDemobilizationToMissions(tx, 'project-1', '2026-08-31T00:00:00.000Z');
+  assert.equal(calls[0][1].data.returnDate.toISOString(), '2026-08-31T00:00:00.000Z');
+  assert.deepEqual(calls[1][1].where.id.in, ['official', 'scenario']);
 });

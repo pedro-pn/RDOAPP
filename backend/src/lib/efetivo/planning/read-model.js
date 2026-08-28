@@ -5,9 +5,10 @@ import { businessDatesInclusive, holidayDateSet } from './business-days.js';
 import { getActiveOfficialPlan, resolvePlanningDatabase } from './plan-context.js';
 import { buildVacationAlert } from './vacation-alerts.js';
 import { loadCorporateCalendar } from '../../calendar/corporate-calendar.js';
+import { missionEndsOnOrAfter } from './mission-period.js';
 
 const missionReadInclude = {
-  project: { select: { id: true, code: true, name: true, clientName: true, location: true } },
+  project: { select: { id: true, code: true, name: true, clientName: true, location: true, mobilizationDate: true, demobilizationDate: true } },
   demands: { include: { jobRole: { select: { id: true, name: true, calendarColor: true } } } },
   allocations: {
     where: { deletedAt: null },
@@ -33,7 +34,7 @@ export async function listPlanningProjects(filters = {}, dependencies = {}) {
         ]
       } : {})
     },
-    select: { id: true, code: true, name: true, clientName: true, location: true },
+    select: { id: true, code: true, name: true, clientName: true, location: true, mobilizationDate: true, demobilizationDate: true },
     orderBy: [{ code: 'asc' }, { name: 'asc' }],
     take: 100
   });
@@ -94,7 +95,7 @@ export async function loadPlanningProjection({ date, planId = null }, dependenci
         planId: plan.id,
         deletedAt: null,
         mobilizationDate: { lte: utcDate(endDate) },
-        returnDate: { gte: utcDate(startDate) }
+        ...missionEndsOnOrAfter(utcDate(startDate))
       },
       include: missionReadInclude
     }),
@@ -273,6 +274,7 @@ export async function listPendingMissionProjects(filters = {}, dependencies = {}
       clientName: true,
       location: true,
       mobilizationDate: true,
+      demobilizationDate: true,
       startDate: true,
       registrationPending: true
     },

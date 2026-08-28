@@ -1,5 +1,6 @@
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor } from './errors.js';
+import { missionEndDate, missionEndsOnOrAfter } from './mission-period.js';
 import { resolvePlanningDatabase, getActiveOfficialPlan } from './plan-context.js';
 
 function utcDate(value) {
@@ -18,7 +19,7 @@ export async function getPlanningCalendar(filters, dependencies = {}) {
         deletedAt: null,
         scheduleStatus: 'CONFIRMED',
         mobilizationDate: { lte: utcDate(endDate) },
-        returnDate: { gte: utcDate(startDate) },
+        ...missionEndsOnOrAfter(utcDate(startDate)),
         ...(filters.jobRoleId ? { demands: { some: { jobRoleId: filters.jobRoleId } } } : {})
       },
       include: {
@@ -43,7 +44,7 @@ export async function getPlanningCalendar(filters, dependencies = {}) {
     type: 'MISSION',
     title: `${mission.project.code} · ${mission.project.name}`,
     startDate: parseDateKey(mission.mobilizationDate),
-    endDate: parseDateKey(mission.returnDate),
+    endDate: missionEndDate(mission),
     jobRoleIds: mission.demands.map(item => item.jobRoleId),
     entityPath: `/efetivo?section=missoes&missao=${mission.id}`,
     project: mission.project,
@@ -79,7 +80,7 @@ function overlapWindow(left, right) {
 export function collectCalendarConflicts(missions = [], absences = []) {
   const assignments = [];
   for (const mission of missions) {
-    const period = { startDate: parseDateKey(mission.mobilizationDate), endDate: parseDateKey(mission.returnDate) };
+    const period = { startDate: parseDateKey(mission.mobilizationDate), endDate: missionEndDate(mission) };
     for (const allocation of mission.allocations || []) {
       if (allocation.deletedAt || !allocation.collaborator) continue;
       assignments.push({ mission, period, collaborator: allocation.collaborator });

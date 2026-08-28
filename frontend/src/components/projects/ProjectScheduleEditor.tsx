@@ -163,6 +163,8 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
       queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] });
       queryClient.invalidateQueries({ queryKey: ['ponto-colaboradores'] });
+      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-missions'] });
+      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-missions-pending'] });
     },
     onError: () => showToast('Não foi possível atualizar o cronograma.')
   });

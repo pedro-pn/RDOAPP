@@ -40,6 +40,52 @@ test('cartão arrastado não é remontado em outra coluna durante o arraste', as
   assert.match(source, /if \(missionStage\(columns, missionId\) === stage\) \{\s*[\s\S]{0,200}?liveMove\(/);
   assert.doesNotMatch(source, /onDragOver=\{[\s\S]{0,200}?liveMove\(/);
   // Soltar encerra o arraste na hora, sem depender do evento dragend.
-  assert.match(source, /function dropOnStage[\s\S]{0,400}?endDrag\(\);/);
+  assert.match(source, /function dropOnStage[\s\S]{0,700}?endDrag\(\);/);
   assert.match(source, /onDrop=\{event => \{\s*event\.preventDefault\(\);\s*dropOnStage\(stage\);/);
+});
+
+test('kanban mostra pendentes no Stand by e só libera arraste após dados obrigatórios', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionKanban.tsx', import.meta.url), 'utf8');
+  assert.match(source, /listPendingMissionProjects/);
+  assert.match(source, /stage === 'STANDBY' \? pendingProjects\.map/);
+  assert.match(source, /mission\.scheduleStatus === 'CONFIRMED' && missionPendencies\(mission\)\.length === 0/);
+  assert.match(source, /setFormTarget\(\{ mission: null, project \}\)/);
+});
+
+test('cada etapa usa rolagem local e o arraste rola a lista da coluna', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionKanban.tsx', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../src/pages/efetivo/efetivo.css', import.meta.url), 'utf8');
+  assert.match(source, /closest<HTMLElement>\('\.efetivo-kanban-list'\)/);
+  assert.match(css, /\.efetivo-kanban-list\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(css, /overscroll-behavior:\s*contain/);
+});
+
+test('desktop oculta Mover para e mobile mantém o seletor', async () => {
+  const fs = await import('node:fs');
+  const css = fs.readFileSync(new URL('../src/pages/efetivo/efetivo.css', import.meta.url), 'utf8');
+  assert.match(css, /\.efetivo-kanban-card \.efetivo-kanban-move-select \{ display: none; \}/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.efetivo-kanban-card \.efetivo-kanban-move-select \{ display: flex; \}/);
+});
+
+test('concluir pelo kanban solicita desmobilização opcional e sincronizada', async () => {
+  const fs = await import('node:fs');
+  const kanban = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionKanban.tsx', import.meta.url), 'utf8');
+  const modal = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionCompletionModal.tsx', import.meta.url), 'utf8');
+  assert.match(kanban, /mission\.stage !== 'FINISHED' && stage === 'FINISHED'/);
+  assert.match(kanban, /MissionCompletionModal/);
+  assert.match(modal, /Data de desmobilização/);
+  assert.match(modal, /Opcional\./);
+  assert.match(modal, /sincronizada com o cronograma do Planejamento/);
+});
+
+test('canceladas ficam em coluna própria oculta por toggle', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionKanban.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const \[showCancelled, setShowCancelled\] = useState\(false\)/);
+  assert.match(source, /mission\.scheduleStatus !== 'CANCELLED'/);
+  assert.match(source, /Mostrar canceladas/);
+  assert.match(source, /showCancelled \? <div className="efetivo-kanban-column efetivo-cancelled-column/);
+  assert.match(source, /data-kanban-status="CANCELLED"/);
 });

@@ -1,3 +1,5 @@
+import { missionEndsOnOrAfter } from '../efetivo/planning/mission-period.js';
+
 export function normalizeJobRoleKey(value) {
   return String(value || '')
     .normalize('NFD')
@@ -111,7 +113,7 @@ export async function markFutureAllocationsForReplanning(database, collaboratorI
       mission: {
         deletedAt: null,
         scheduleStatus: { not: 'CANCELLED' },
-        returnDate: { gte: new Date() }
+        ...missionEndsOnOrAfter(new Date())
       }
     },
     select: { missionId: true, mission: { select: { planId: true } } }

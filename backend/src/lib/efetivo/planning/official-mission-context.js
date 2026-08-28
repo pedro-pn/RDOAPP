@@ -1,5 +1,6 @@
 import { corporateDateKey } from '../../calendar/corporate-calendar.js';
 import { resolvePlanningDatabase } from './plan-context.js';
+import { missionEndsOnOrAfter } from './mission-period.js';
 
 function utcDate(value) {
   return new Date(`${corporateDateKey(value)}T00:00:00.000Z`);
@@ -24,7 +25,7 @@ function missionContextDto(mission, calendarRevision = 1) {
       mobilizationDate: corporateDateKey(mission.mobilizationDate),
       executionStartDate: corporateDateKey(mission.executionStartDate),
       executionEndDate: corporateDateKey(mission.executionEndDate),
-      returnDate: corporateDateKey(mission.returnDate)
+      returnDate: mission.returnDate ? corporateDateKey(mission.returnDate) : null
     },
     collaborators: mission.allocations.map(allocation => ({
       id: allocation.collaborator.id,
@@ -53,7 +54,7 @@ export async function getOfficialMissionContext({ projectId, date }, dependencie
         deletedAt: null,
         scheduleStatus: 'CONFIRMED',
         mobilizationDate: { lte: position },
-        returnDate: { gte: position },
+        ...missionEndsOnOrAfter(position),
         plan: { kind: 'OFFICIAL', status: 'ACTIVE' }
       },
       include: {

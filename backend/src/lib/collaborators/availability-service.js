@@ -1,4 +1,5 @@
 import { corporateDateKey, loadCorporateCalendar } from '../calendar/corporate-calendar.js';
+import { missionEndDate, missionEndsOnOrAfter } from '../efetivo/planning/mission-period.js';
 
 function utcDate(value) {
   return new Date(`${corporateDateKey(value)}T00:00:00.000Z`);
@@ -46,7 +47,7 @@ export async function markMissionsAffectedByAbsence(database, collaboratorId, pe
         deletedAt: null,
         scheduleStatus: { not: 'CANCELLED' },
         mobilizationDate: { lte: utcDate(period.endDate) },
-        returnDate: { gte: utcDate(period.startDate) }
+        ...missionEndsOnOrAfter(utcDate(period.startDate))
       }
     },
     select: { missionId: true }
@@ -191,7 +192,7 @@ export async function checkWorkforceAvailability(database, input) {
           deletedAt: null,
           scheduleStatus: 'CONFIRMED',
           mobilizationDate: { lte: utcDate(endDate) },
-          returnDate: { gte: utcDate(startDate) }
+          ...missionEndsOnOrAfter(utcDate(startDate))
         }
       },
       include: { mission: true }
@@ -213,7 +214,7 @@ export async function checkWorkforceAvailability(database, input) {
       collaboratorId: allocation.collaboratorId,
       sourceId: allocation.missionId,
       startDate: corporateDateKey(allocation.mission.mobilizationDate),
-      endDate: corporateDateKey(allocation.mission.returnDate),
+      endDate: missionEndDate(allocation.mission),
       policy: 'BLOCK'
     }))),
     ...(actual ? calendar.holidays.flatMap(holiday => collaboratorIds.map(collaboratorId => ({

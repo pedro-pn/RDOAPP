@@ -12,7 +12,9 @@ function mission(overrides = {}) {
   return {
     id: 'm1',
     scheduleStatus: 'CONFIRMED',
+    headquartersResponsibleUserId: 'u1',
     headquartersResponsibleName: 'Coordenação',
+    headquartersResponsibleCollaboratorId: 'c1',
     demands: [{ jobRoleId: 'r1', requiredCount: 2 }],
     allocations: [{ id: 'a1' }, { id: 'a2' }],
     ...overrides
@@ -55,7 +57,8 @@ test('aba Missões só nasce de projeto cadastrado, sem cadastro manual', () => 
 
 test('kanban arrasta pelo card inteiro e limpa o estado de arraste ao soltar', () => {
   const kanban = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionKanban.tsx', import.meta.url), 'utf8');
-  assert.match(kanban, /draggable=\{canManage\}/);
+  assert.match(kanban, /draggable=\{moveAllowed\}/);
+  assert.match(kanban, /missionPendencies\(mission\)\.length === 0/);
   assert.match(kanban, /const \[draggingId, setDraggingId\]/);
   assert.doesNotMatch(kanban, /drag-placeholder/);
   assert.doesNotMatch(kanban, /efetivo-drag-handle/);
@@ -81,7 +84,7 @@ test('paridade de campos com o exemplo de referência', () => {
   }
   const missionForm = read('../src/pages/efetivo/components/MissionFormModal.tsx')
     + read('../src/pages/efetivo/components/MissionTeamSelector.tsx');
-  for (const label of ['Responsabilidade da sede', 'Etapa e programação', 'Previsão de mobilização', 'Selecionar colaboradores']) {
+  for (const label of ['Liderança', 'Vincular líder', 'Programação', 'Previsão de mobilização', 'Desmobilização', 'Opcional.', 'Ver colaboradores']) {
     assert.ok(missionForm.includes(label), `campo ausente no diálogo de missão: ${label}`);
   }
   const missionsBoard = read('../src/pages/efetivo/components/MissionsBoard.tsx');
@@ -89,7 +92,7 @@ test('paridade de campos com o exemplo de referência', () => {
     assert.ok(missionsBoard.includes(label), `resumo ausente na aba Missões: ${label}`);
   }
   const kanban = read('../src/pages/efetivo/components/MissionKanban.tsx');
-  for (const label of ['contratos no fluxo', 'RESPONSÁVEL DA SEDE', 'Ver responsável e equipe', 'Nenhuma missão nesta etapa']) {
+  for (const label of ['contratos no fluxo', 'LÍDER VINCULADO', 'Ver líder e equipe', 'Nenhuma missão nesta etapa']) {
     assert.ok(kanban.includes(label), `elemento ausente no kanban: ${label}`);
   }
   const stages = read('../src/utils/missionKanban.ts');

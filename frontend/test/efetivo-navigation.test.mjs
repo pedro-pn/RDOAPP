@@ -22,14 +22,22 @@ test('cliente de planejamento não expõe lançamento manual de HH', () => {
   assert.doesNotMatch(source, /lan[cç]ar.*hh|manual.*hours/i);
 });
 
-test('formulário de missão usa coordenadores e identifica o vínculo como líder', () => {
+test('formulário de missão usa apenas a conta vinculada como líder', () => {
   const client = fs.readFileSync(new URL('../src/api/efetivoPlanning.ts', import.meta.url), 'utf8');
   const form = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionFormModal.tsx', import.meta.url), 'utf8');
   assert.match(client, /\/coordinators/);
-  assert.match(form, /label="Responsável da sede"/);
-  assert.match(form, />Vincular líder</);
-  assert.doesNotMatch(form, /Vincular ao colaborador/);
-  assert.match(form, /coordinator\?\.collaborator\?\.role/);
+  assert.match(form, /label="Vincular líder"/);
+  assert.doesNotMatch(form, /Responsável da sede|Cargo do responsável/);
+  assert.match(form, /item\.collaborator\?\.role/);
+});
+
+test('navegação inclui disponibilidade e preserva data e função', async () => {
+  const navigation = await load('/src/utils/planningNavigation.ts');
+  assert.ok(navigation.EFETIVO_SECTIONS.includes('disponibilidade'));
+  const next = navigation.setPlanningSectionParams(new URLSearchParams('section=missoes&date=2026-08-21&funcao=r1&missao=m1'), 'disponibilidade');
+  assert.equal(next.get('date'), '2026-08-21');
+  assert.equal(next.get('funcao'), 'r1');
+  assert.equal(next.has('missao'), false);
 });
 
 test('seção de colaboradores preserva colaborador, ausência e ano ao voltar', async () => {

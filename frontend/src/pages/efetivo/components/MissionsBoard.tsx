@@ -6,7 +6,6 @@ import {
   createPlanningMission,
   deletePlanningMission,
   listPendingMissionProjects,
-  listPlanningCollaborators,
   listPlanningCoordinators,
   listPlanningJobRoles,
   listPlanningMissions,
@@ -20,7 +19,7 @@ import { Button } from '../../../components/ui/Button';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { SearchBar } from '../../../components/ui/SearchBar';
 import { useToast } from '../../../components/ui/ToastContext';
-import { displayDateOnly, todayDateOnly } from '../../../utils/calendarGrid';
+import { displayDateOnly } from '../../../utils/calendarGrid';
 import { refreshMissionPlanningQueries } from '../../../utils/efetivoPlanningQueries';
 import { missionPendencies, PENDING_PROJECT_PENDENCIES } from '../../../utils/missionPendencies';
 import { MissionAllocationModal } from './MissionAllocationModal';
@@ -56,7 +55,6 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
   const pending = useQuery({ queryKey: ['efetivo-planning-missions-pending', planId || 'official'], queryFn: () => listPendingMissionProjects({ planId }) });
   const roles = useQuery({ queryKey: ['efetivo-planning-job-roles'], queryFn: listPlanningJobRoles });
   const coordinators = useQuery({ queryKey: ['efetivo-planning-coordinators'], queryFn: listPlanningCoordinators });
-  const collaborators = useQuery({ queryKey: ['efetivo-planning-collaborators-options'], queryFn: () => listPlanningCollaborators({ date: todayDateOnly() }) });
   useEffect(() => {
     if (!allocating || !missions.data) return;
     const refreshed = missions.data.find(mission => mission.id === allocating.id);
@@ -69,7 +67,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
     mutationFn: (payload: MissionInput) => formTarget?.mission
       ? updatePlanningMission(formTarget.mission.id, formTarget.mission.version, payload)
       : createPlanningMission(payload),
-    onSuccess: async () => { await refresh(); setFormTarget(null); toast('Programação salva.', 'success'); },
+    onSuccess: async (_, payload) => { await refresh(); await queryClient.invalidateQueries({ queryKey: ['commercial-revisions', payload.projectId] }); setFormTarget(null); toast('Programação salva.', 'success'); },
     onError: (error: Error) => toast(error.message, 'error')
   });
   const autoAllocate = useMutation({
@@ -118,7 +116,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
       {totalPendencies ? (
         <section className="page-card efetivo-pending-banner" role="status" data-efetivo-pending-banner>
           <strong>{totalPendencies} {totalPendencies === 1 ? 'missão pendente' : 'missões pendentes'}</strong>
-          <p>As missões vêm dos projetos cadastrados. Abra cada card destacado em amarelo e complete datas, responsável da sede e equipe.</p>
+          <p>As missões vêm dos projetos cadastrados. Abra cada card destacado em amarelo e complete líder, datas, equipe e confirmação.</p>
         </section>
       ) : null}
       {missions.isLoading || pending.isLoading ? <section className="page-card placeholder-copy">Carregando missões…</section>
@@ -162,7 +160,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
                     <dl>
                       <div><dt>Mobilização</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div>
                       <div><dt>Execução</dt><dd>{displayDateOnly(mission.executionStartDate)}–{displayDateOnly(mission.executionEndDate)}</dd></div>
-                      <div><dt>Retorno</dt><dd>{displayDateOnly(mission.returnDate)}</dd></div>
+                      <div><dt>Desmobilização</dt><dd>{displayDateOnly(mission.returnDate)}</dd></div>
                       <div><dt>Equipe</dt><dd>{mission.allocations.length}/{required}</dd></div>
                     </dl>
                     <div className="efetivo-demand-chips">{mission.demands.map(demand => {
@@ -173,7 +171,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
                     {pendencies.length ? <ul className="efetivo-pending-list">{pendencies.map(item => <li key={item}>{item}</li>)}</ul> : null}
                     {!planId && selectedMissionId === mission.id ? <MissionExecutionPanel missionId={mission.id} /> : null}
                     <footer>
-                      <span>Responsável: <strong>{mission.headquartersResponsibleName}</strong></span>
+                      <span>Líder: <strong>{mission.headquartersResponsibleName}</strong></span>
                       <div className="efetivo-action-row">
                         <Button variant="secondary" onClick={() => setAllocating(mission)}>Equipe</Button>
                         {canManage && required > mission.allocations.length ? <Button variant="secondary" disabled={autoAllocate.isPending} onClick={() => autoAllocate.mutate(mission.id)}>{autoAllocate.isPending ? 'Alocando…' : 'Alocar disponíveis'}</Button> : null}
@@ -185,7 +183,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
               })}
             </div>
           ) : <section className="page-card placeholder-copy">Nenhuma missão neste recorte.</section>}
-      {canManage ? <MissionFormModal open={Boolean(formTarget)} mission={formTarget?.mission || null} project={formTarget?.project || null} planId={planId} roles={roles.data || []} rolesLoading={roles.isLoading} coordinators={coordinators.data || []} coordinatorsLoading={coordinators.isLoading} collaborators={collaborators.data || []} collaboratorsLoading={collaborators.isLoading} saving={save.isPending} onClose={() => setFormTarget(null)} onSubmit={payload => save.mutate(payload)} /> : null}
+      {canManage ? <MissionFormModal open={Boolean(formTarget)} mission={formTarget?.mission || null} project={formTarget?.project || null} planId={planId} roles={roles.data || []} rolesLoading={roles.isLoading} coordinators={coordinators.data || []} coordinatorsLoading={coordinators.isLoading} saving={save.isPending} onClose={() => setFormTarget(null)} onSubmit={payload => save.mutate(payload)} /> : null}
       <MissionAllocationModal mission={allocating} open={Boolean(allocating)} onClose={() => setAllocating(null)} onPlanningMutated={onPlanningMutated} />
       <ConfirmDialog open={Boolean(deleting)} title="Remover programação?" description="A exclusão é lógica e a trilha permanece na auditoria; o projeto volta a aparecer como missão pendente." highlight={deleting ? `${deleting.project.code} · ${deleting.project.name}` : undefined} confirmLabel={remove.isPending ? 'Removendo…' : 'Remover'} onConfirm={() => { if (deleting) remove.mutate(deleting.id); }} onCancel={() => setDeleting(null)} />
     </div>
