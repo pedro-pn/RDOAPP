@@ -7036,6 +7036,72 @@ textarea.pre {
   vertical-align: middle;
 }
 
+.rdo-mission-team-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid #f59e0b;
+  border-radius: var(--rs);
+  background: #fffbeb;
+  color: var(--tx);
+  font-size: 12px;
+}
+
+.rdo-mission-team-suggestion-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 3px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rdo-mission-team-suggestion-list > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--g) 28%, var(--br));
+  border-radius: var(--rs);
+  background: color-mix(in srgb, var(--g) 7%, var(--wh));
+}
+
+.rdo-mission-team-suggestion-list > li > strong {
+  min-width: 0;
+  color: var(--g);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.rdo-mission-team-suggestion-marker {
+  display: inline-flex;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--g);
+  color: var(--wh);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.rdo-mission-team-suggestion > small {
+  color: var(--mu);
+}
+
+.rdo-mission-team-suggestion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+}
+
 /* ── Mini buttons (paridade com .mini-btn do HTML) ── */
 .mini-btn {
   background: var(--g);

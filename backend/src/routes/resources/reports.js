@@ -61,7 +61,10 @@ import { calculateReportOvertime } from '../../lib/overtime.js';
 import { loadCorporateCalendar } from '../../lib/calendar/corporate-calendar.js';
 import { reportCollaboratorCreateManyData } from '../../lib/report-collaborators.js';
 import { buildReportSnapshot, stripAuthoritativeExecutionContext, stripInternalEditState } from '../../lib/reports/edit-snapshot.js';
-import { reportPlanningContextHandler } from '../../lib/reports/planning-context-handler.js';
+import {
+  reportCollaboratorPrefillHandler,
+  reportPlanningContextHandler
+} from '../../lib/reports/planning-context-handler.js';
 import { coordinatorNotificationEmails, NotificationEmailCategory, notificationRecipientsForEmails } from '../../lib/notification-preferences.js';
 import { createMemoryRateLimit } from '../../lib/rate-limit.js';
 import prisma from '../../lib/prisma.js';
@@ -5791,6 +5794,7 @@ async function buildReportListWhere(auth, query) {
 }
 
 router.get('/planning-context', requireAuth, requireRdoAccess, asyncHandler(reportPlanningContextHandler));
+router.get('/collaborator-prefill', requireAuth, requireRdoAccess, asyncHandler(reportCollaboratorPrefillHandler));
 
 router.get('/', requireAuth, requireRdoAccess, asyncHandler(async (req, res) => {
   const pagination = parseReportListPagination(req.query);

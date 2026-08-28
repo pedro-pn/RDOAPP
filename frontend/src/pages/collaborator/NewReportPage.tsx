@@ -331,15 +331,21 @@ export function NewReportPage() {
     return '';
   }
 
-  // Fetch reports of selected project for pre-fill and continuity
+  // Fetch the summarized project history for service continuity and duplicate checks.
   const lastProjectReportQuery = useQuery({
     queryKey: ['reports', 'last-project', projectId],
-    queryFn: () => listReports({ projectId: projectId! }),
+    queryFn: () => listReports({ projectId: projectId!, summary: true }),
     enabled: !!projectId,
     staleTime: 30_000
   });
 
-  const { planningContext, absenceConflicts, serverHoliday } = useReportWorkforcePlanning({
+  const {
+    planningContext,
+    lastReportPrefill,
+    lastReportPrefillStatus,
+    absenceConflicts,
+    serverHoliday
+  } = useReportWorkforcePlanning({
     projectId,
     reportDate,
     collaboratorIds,
@@ -353,18 +359,34 @@ export function NewReportPage() {
     return reports.filter(report => (
       report.reportType === 'RDO'
       && report.projectId === projectId
+      && !report.deletedAt
       && new Date(report.reportDate || report.createdAt || 0).getTime() <= cutoffTime
     )).sort(
       (a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()
     );
   }, [lastProjectReportQuery.data, projectId, reportDate]);
   const lastReport = projectReports[0] || null;
-  const { source: collaboratorPrefillSource, markTouched: markCollaboratorsTouched } = useRdoPlanningPrefill({
+  const shouldUseHistoryForPrefillStatus = effectiveServiceOnly || lastReportPrefillStatus === 'ERROR';
+  const resolvedLastReportStatus = shouldUseHistoryForPrefillStatus
+    ? (lastProjectReportQuery.isSuccess ? (lastReport ? 'FOUND' as const : 'EMPTY' as const) : 'PENDING' as const)
+    : lastReportPrefillStatus;
+  const lastReportCollaboratorIds = lastReportPrefillStatus === 'FOUND'
+    ? (lastReportPrefill?.collaboratorIds || [])
+    : (lastReport?.collaborators || []).map(link => link.collaboratorId).filter(Boolean);
+  const {
+    source: collaboratorPrefillSource,
+    missionSuggestionCollaboratorIds,
+    canApplyMissionSuggestion,
+    markTouched: markCollaboratorsTouched,
+    applyMissionSuggestion,
+    dismissMissionSuggestion
+  } = useRdoPlanningPrefill({
     projectId,
     reportDate,
     currentCollaboratorIds: collaboratorIds,
     missionCollaboratorIds: planningContext?.collaborators.map(item => item.id) || [],
-    lastReportCollaboratorIds: (lastReport?.collaborators || []).map(link => link.collaboratorId).filter(Boolean),
+    lastReportCollaboratorIds,
+    lastReportStatus: resolvedLastReportStatus,
     setCollaborators
   });
   const collaboratorsPrefilled = Boolean(collaboratorPrefillSource);
@@ -1355,15 +1377,19 @@ export function NewReportPage() {
             {TEXT.team}
             {collaboratorsPrefilled ? (
               <span className="pre-badge">
-                {collaboratorPrefillSource === 'MISSION' ? 'missão oficial' : 'último RDO'}
+                último RDO
               </span>
             ) : null}
           </div>
           <ReportWorkforceNotices
             planningContext={planningContext}
+            missionSuggestionCollaboratorIds={missionSuggestionCollaboratorIds}
+            canApplyMissionSuggestion={canApplyMissionSuggestion}
             absenceConflictCount={absenceConflicts.length}
             workforceJustification={workforceJustification}
             invalid={invalidTarget === 'header:workforceJustification'}
+            onApplyMissionSuggestion={applyMissionSuggestion}
+            onDismissMissionSuggestion={dismissMissionSuggestion}
             onJustificationChange={setWorkforceJustification}
           />
           <div

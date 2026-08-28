@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { checkReportWorkforceAvailability, getReportPlanningContext } from '../api/reports';
+import {
+  checkReportWorkforceAvailability,
+  getReportCollaboratorPrefill,
+  getReportPlanningContext
+} from '../api/reports';
 
 export function useReportWorkforcePlanning({
   projectId,
@@ -19,6 +23,12 @@ export function useReportWorkforcePlanning({
     enabled: Boolean(enabled && projectId && reportDate),
     staleTime: 30_000
   });
+  const lastReportPrefill = useQuery({
+    queryKey: ['reports', 'collaborator-prefill', projectId, reportDate],
+    queryFn: () => getReportCollaboratorPrefill(projectId!, reportDate),
+    enabled: Boolean(enabled && projectId && reportDate),
+    staleTime: 30_000
+  });
   const availability = useQuery({
     queryKey: ['workforce', 'report-availability', reportDate, [...collaboratorIds].sort().join(',')],
     queryFn: () => checkReportWorkforceAvailability(collaboratorIds, reportDate),
@@ -28,6 +38,10 @@ export function useReportWorkforcePlanning({
   const workforceConflicts = availability.data?.conflicts || [];
   return {
     planningContext: planning.data || null,
+    lastReportPrefill: lastReportPrefill.data || null,
+    lastReportPrefillStatus: lastReportPrefill.isSuccess
+      ? (lastReportPrefill.data ? 'FOUND' as const : 'EMPTY' as const)
+      : (lastReportPrefill.isError ? 'ERROR' as const : 'PENDING' as const),
     absenceConflicts: workforceConflicts.filter(conflict => conflict.policy === 'REQUIRE_JUSTIFICATION'),
     serverHoliday: Boolean(availability.data?.holidays?.some(holiday => holiday.date === reportDate))
   };
