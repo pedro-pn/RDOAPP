@@ -6,10 +6,12 @@
  *
  * FOLHA (custo mensal do colaborador, por mês):
  *  - dias trabalhados = horas normais do ponto ÷ 8,8 (HORAS_POR_DIA).
+ *  - em dias úteis alocados em viagem/projeto, a hora normal considerada no custo tem piso de
+ *    8,8h (8h48); marcações maiores e fins de semana preservam o valor real do ponto.
  *  - diasCliente (periculosidade) = dias COM projeto (RDO). Em projeto não-offshore, a configuração
  *    manual por colaborador define se o dia entra como diasFora (dorme fora) ou diasCasa (dorme em
  *    casa/gratificação). Dia com ponto e sem RDO não alimenta verbas variáveis.
- *  - Dia de semana sem ponto = folga: 8,8h zerados (só no denominador do HH).
+ *  - Dia de semana sem ponto e sem alocação = folga: 8,8h zerados (só no denominador do HH).
  *  - HH = folha ÷ (horas do ponto + horas de folga).
  *
  * CUSTO POR PROJETO: recalcula o motor com as horas de RDO do projeto para os adicionais/HE
@@ -28,6 +30,20 @@ import { annotateActualRowsWithWorkforceConflicts, classifyActualWorkforceDays }
 export { isPontoTravelTag } from '../pontomais/normalize.js';
 
 const HORAS_POR_DIA = 8.8;
+
+function isWeekday(dateKey) {
+  const date = dateFromYmd(dateKey);
+  if (Number.isNaN(date.getTime())) return false;
+  const day = date.getUTCDay();
+  return day >= 1 && day <= 5;
+}
+
+function costNormalHoursForDay(dateKey, recordedNormalHours, hasProjectAllocation) {
+  if (!hasProjectAllocation || !isWeekday(dateKey)) {
+    return recordedNormalHours;
+  }
+  return Math.max(HORAS_POR_DIA, recordedNormalHours);
+}
 
 function dateKeyUTC(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -1016,6 +1032,7 @@ export function classifyProjectHours(
   const unresolvedDays = [];
   const dayTrail = [];
   const dayProjects = rdo?.dayProjects || new Map();
+  let costNormalHours = 0;
 
   for (const row of dayRows) {
     const rdoProjects = dayProjects.get(row.date) || new Map();
@@ -1040,10 +1057,18 @@ export function classifyProjectHours(
     const dayHe70Hours = Math.max(0, Number(row.he70Horas) || 0);
     const dayHe100Hours = Math.max(0, Number(row.he100Horas) || 0);
     const dayTotalHours = dayNormalHours + dayHe70Hours + dayHe100Hours;
+    const dayCostNormalHours = costNormalHoursForDay(
+      row.date,
+      dayNormalHours,
+      decision.allocations.length > 0
+    );
+    costNormalHours += dayCostNormalHours;
     // Trilha da decisão de cada dia: base única do painel de auditoria e das pendências.
     dayTrail.push({
       date: row.date,
       normalHours: dayNormalHours,
+      costNormalHours: dayCostNormalHours,
+      minimumNormalHoursApplied: dayCostNormalHours > dayNormalHours,
       he70Hours: dayHe70Hours,
       he100Hours: dayHe100Hours,
       tags: uniqueStrings(row.tags),
@@ -1091,11 +1116,11 @@ export function classifyProjectHours(
         };
         byProject.set(allocation.projectId, project);
       }
-      project.normalHours += Math.max(0, Number(row.normalHours) || 0) * allocation.weight;
+      project.normalHours += dayCostNormalHours * allocation.weight;
       project.he70Hours += Math.max(0, Number(row.he70Horas) || 0) * allocation.weight;
       project.he100Hours += Math.max(0, Number(row.he100Horas) || 0) * allocation.weight;
       project.rdoWorkedHours += Math.max(0, Number(allocation.rdo?.hours) || 0);
-      const allocatedNormalHours = dayNormalHours * allocation.weight;
+      const allocatedNormalHours = dayCostNormalHours * allocation.weight;
       const travelContext = (row.tags || []).some(isPontoTravelTag);
       if (project.offshore) project.offshoreHours += allocatedNormalHours;
       else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += allocatedNormalHours;
@@ -1104,7 +1129,7 @@ export function classifyProjectHours(
     }
   }
 
-  return { byProject, unresolvedDays, dayTrail };
+  return { byProject, unresolvedDays, dayTrail, costNormalHours };
 }
 
 // Fração do mês coberta pelo arquivo (para proporcionalizar o fixo no mês parcial).
@@ -1583,7 +1608,29 @@ export async function computeCollaboratorRates(importId = null) {
       months: [] // detalhe por mês (para o filtro da aba Custo/hora)
     };
 
-    if (role && roleParams.hasProfile(role) && totalWorkedDays > 0) {
+    // A trilha também define se uma marcação zerada em dia útil deve receber o piso de projeto.
+    // Ela fica fora do bloco de custo porque colaboradores sem perfil configurado ainda precisam
+    // aparecer na auditoria e nas pendências.
+    const trailDays = monthsOf(period).flatMap(mrec => splitOvertimeDays(
+      mrec.days || [],
+      Number(roleParams.paramsFor(role, `${mrec.monthKey}-01`)?.he70LimiteHoras) || 30
+    ));
+    trailDays.sort((left, right) => left.date.localeCompare(right.date));
+    const trail = classifyProjectHours(
+      trailDays,
+      rdo,
+      projectAllocationContext.resolveTag,
+      projectMetaById,
+      manualProjects.get(period.collaboratorId) || new Map(),
+      projectAllocationContext.missionGroupProjectsByProjectId,
+      'ACCOUNTING',
+      scheduleWindowContext
+    );
+    entry.allocationTrail = trail.dayTrail;
+    entry.unresolvedDays = trail.unresolvedDays;
+    const hasMinimumPaidProjectDay = trail.dayTrail.some(day => day.minimumNormalHoursApplied);
+
+    if (role && roleParams.hasProfile(role) && (totalWorkedDays > 0 || hasMinimumPaidProjectDay)) {
       const months = monthsOf(period);
 
       const agg = { folha: 0, folhaBase: 0, fixo: 0, variavel: 0, totalHours: 0, folga: 0, normal: 0, he70: 0, he100: 0 };
@@ -1611,10 +1658,8 @@ export async function computeCollaboratorRates(importId = null) {
           const segCov = coverageForRange(mk, fileStart, fileEnd, segment.startKey, segment.endKey);
           if (segCov.days <= 0) continue;
           const segmentDays = daysWithOvertime.filter(day => day.date >= segCov.startKey && day.date <= segCov.endKey);
-          const normalHoursS = segmentDays.reduce((sum, day) => sum + (day.normalHours || 0), 0);
           const he70S = segmentDays.reduce((sum, day) => sum + (day.he70Horas || 0), 0);
           const he100S = segmentDays.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
-          const folgaS = countFolgaWeekdays(segCov.start, segCov.end, workedSet) * HORAS_POR_DIA;
 
           const classified = classifyProjectHours(
             segmentDays,
@@ -1626,6 +1671,12 @@ export async function computeCollaboratorRates(importId = null) {
             'ACCOUNTING',
             scheduleWindowContext
           );
+          const normalHoursS = classified.costNormalHours;
+          const costWorkedSet = new Set(workedSet);
+          for (const day of classified.dayTrail) {
+            if (day.costNormalHours > 0) costWorkedSet.add(day.date);
+          }
+          const folgaS = countFolgaWeekdays(segCov.start, segCov.end, costWorkedSet) * HORAS_POR_DIA;
           const analyticalClassified = classifyProjectHours(
             segmentDays,
             rdo,
@@ -1730,27 +1781,6 @@ export async function computeCollaboratorRates(importId = null) {
       }
     }
 
-    // Trilha de alocação diária. Fica fora do bloco de custo de propósito: quem não tem perfil de
-    // cargo configurado também precisa aparecer na auditoria e nas pendências. A decisão de projeto
-    // não depende de parâmetro de custo — só o teto de HE70 depende, e aí o padrão de 30h resolve.
-    const trailDays = monthsOf(period).flatMap(mrec => splitOvertimeDays(
-      mrec.days || [],
-      Number(roleParams.paramsFor(role, `${mrec.monthKey}-01`)?.he70LimiteHoras) || 30
-    ));
-    trailDays.sort((left, right) => left.date.localeCompare(right.date));
-    const trail = classifyProjectHours(
-      trailDays,
-      rdo,
-      projectAllocationContext.resolveTag,
-      projectMetaById,
-      manualProjects.get(period.collaboratorId) || new Map(),
-      projectAllocationContext.missionGroupProjectsByProjectId,
-      'ACCOUNTING',
-      scheduleWindowContext
-    );
-    entry.allocationTrail = trail.dayTrail;
-    entry.unresolvedDays = trail.unresolvedDays;
-
     rates.push(entry);
     byCollaboratorId.set(period.collaboratorId, entry);
   }
@@ -1833,10 +1863,8 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   const mrec = monthsOf(period).find(m => m.monthKey === monthKey);
   if (!mrec) throw new Error(`Sem dados de ${nameQuery} no mês ${monthKey}.`);
   const daysM = splitOvertimeDays(mrec.days || [], cap);
-  const normalHoursM = daysM.reduce((sum, day) => sum + (day.normalHours || 0), 0);
   const he70M = daysM.reduce((sum, day) => sum + (day.he70Horas || 0), 0);
   const he100M = daysM.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
-  const folgaHours = countFolgaWeekdays(cov.start, cov.end, new Set(period.workedDates || [])) * HORAS_POR_DIA;
 
   const classified = classifyProjectHours(
     daysM,
@@ -1852,6 +1880,12 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
       collaboratorId: period.collaboratorId
     }
   );
+  const normalHoursM = classified.costNormalHours;
+  const costWorkedSet = new Set(period.workedDates || []);
+  for (const day of classified.dayTrail) {
+    if (day.costNormalHours > 0) costWorkedSet.add(day.date);
+  }
+  const folgaHours = countFolgaWeekdays(cov.start, cov.end, costWorkedSet) * HORAS_POR_DIA;
   let projectDaysHours = 0;
   let awayDaysHours = 0;
   let homeDaysHours = 0;
