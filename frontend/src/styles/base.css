@@ -3545,6 +3545,9 @@ a {
 .acp-det-collab-audit-copy { margin: 8px 0; color: var(--mu); font-size: 12px; line-height: 1.45; }
 .acp-det-collab-overlap { color: var(--warning-text); font-weight: 700; }
 .acp-det-collab-overlap-note { display: block; margin-top: 2px; color: var(--warning-text); font-size: 11px; white-space: nowrap; }
+.acp-det-collab-travel { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
+.acp-det-collab-travel strong { color: var(--tx); font-size: 13px; }
+.acp-det-collab-travel small { color: var(--mu); font-size: 11px; }
 .acp-det-collab-audit-table td:last-child { vertical-align: top; }
 .acp-det-tax-body { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
 .acp-det-tax-summary-value { float: right; color: var(--tx); font-size: 13px; letter-spacing: 0; }

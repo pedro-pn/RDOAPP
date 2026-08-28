@@ -163,15 +163,18 @@ function combineCollaborators(details) {
         role,
         horasLancadas: 0,
         horasApropriadas: null,
+        horasDeslocamento: 0,
         horasRelatoriosPorData: new Map(),
         custo: null,
-        custoHora: null
+        custoHora: null,
+        custoDeslocamento: null
       };
       existing.horasLancadas += toNumber(item.horasLancadas) ?? toNumber(item.horas) ?? 0;
       const horasApropriadas = toNumber(item.horasApropriadas);
       if (horasApropriadas !== null) {
         existing.horasApropriadas = (existing.horasApropriadas ?? 0) + horasApropriadas;
       }
+      existing.horasDeslocamento += toNumber(item.horasDeslocamento) ?? 0;
       for (const day of item.horasRelatoriosPorData ?? []) {
         if (!day?.data) continue;
         const horas = toNumber(day.horas) ?? 0;
@@ -182,6 +185,10 @@ function combineCollaborators(details) {
       }
       const cost = toNumber(item.custo);
       if (cost !== null) existing.custo = round2((existing.custo ?? 0) + cost);
+      const travelCost = toNumber(item.custoDeslocamento);
+      if (travelCost !== null) {
+        existing.custoDeslocamento = round2((existing.custoDeslocamento ?? 0) + travelCost);
+      }
       byPerson.set(key, existing);
     }
   }
@@ -205,10 +212,12 @@ function combineCollaborators(details) {
         horas,
         horasLancadas,
         horasApropriadas: item.horasApropriadas,
+        horasDeslocamento: round1(item.horasDeslocamento),
         sobreposicaoHoras,
         horasRelatoriosPorData,
         custo: item.custo,
-        custoHora
+        custoHora,
+        custoDeslocamento: item.custoDeslocamento
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
