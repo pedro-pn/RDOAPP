@@ -126,10 +126,8 @@ test('manager search only references the results region while that region exists
     /const reportResultsId =\s*projectsTab[\s\S]*?\? 'rdo-manager-project-results'[\s\S]*?archivedProjectsTab[\s\S]*?\? 'rdo-manager-archived-results'[\s\S]*?!reportListQuery\.isLoadingInitial &&[\s\S]*?pendingReports\.length[\s\S]*?approvedReports\.length[\s\S]*?\? 'rdo-manager-report-results'/
   );
   assert.match(page, /resultsId=\{reportResultsId\}/);
-  assert.match(
-    page,
-    /className="rdo-manager-listing" id="rdo-manager-report-results"/
-  );
+  assert.match(page, /id="rdo-manager-report-results"/);
+  assert.match(page, /rdo-manager-listing--approved/);
   assert.equal(
     page.match(/id="rdo-manager-report-results"/g)?.length,
     1,
@@ -176,11 +174,18 @@ test('manager pending and approved pages compose actions, search and real metric
 });
 
 test('manager mobile composition keeps metrics in one row and removes redundant list detail', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
   const pageCss = source('src/pages/gestor/GestorPage.ds.css');
   const statsCss = source('src/components/stats/StatsDashboard.ds.css');
   const listing = source(
     'src/components/reports/manager/ManagerReportListing.tsx'
   );
+
+  assert.match(
+    page,
+    /tab === 'aprovados' \? ' rdo-manager-listing--approved' : ''/
+  );
+  assert.match(page, /rdo-approved-action-label--compact/);
 
   assert.match(
     pageCss,
@@ -237,6 +242,14 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   assert.match(
     pageCss,
     /\.rdo-manager-listing__page-header[\s\S]*?\.fv-page-header__actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-listing--approved[\s\S]*?\.fv-mobile-list__actions[\s\S]*?> \.rdo-manager-listing__actions\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-listing--approved[\s\S]*?\.fv-mobile-list__actions[\s\S]*?\.fv-button\s*\{[\s\S]*?flex:\s*1 1 0[\s\S]*?--fv-button-padding:\s*var\(--space-1\)/
   );
   assert.match(
     statsCss,

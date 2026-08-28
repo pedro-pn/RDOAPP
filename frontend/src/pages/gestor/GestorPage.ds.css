@@ -2955,6 +2955,10 @@
   display: none;
 }
 
+:where(.fv-ds, [data-fv-ds]) .rdo-approved-action-label--compact {
+  display: none;
+}
+
 @media (max-width: 768px) {
   :where(.fv-ds, [data-fv-ds]).rdo-section-navigation {
     margin-block-end: var(--space-3);
@@ -3416,6 +3420,37 @@
     --fv-button-padding: var(--space-2);
     --fv-button-font-size: var(--text-xs);
     --fv-button-line-height: var(--leading-xs);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing--approved
+    .fv-mobile-list__actions
+    > .rdo-manager-listing__actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing--approved
+    .fv-mobile-list__actions
+    .fv-button {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 0;
+    --fv-button-padding: var(--space-1);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing--approved
+    .rdo-approved-action-label--full {
+    display: none;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing--approved
+    .rdo-approved-action-label--compact {
+    display: inline;
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-team-workspace,

@@ -3176,12 +3176,14 @@ export function GestorPage() {
           ) : null}
           {manualReport ? (
             <Button
+              aria-label="Editar manual"
               variant="secondary"
               size="sm"
               disabled={reportMutations.replaceManualReportPdf.isPending}
               onClick={() => openManualReportReplace(report)}
             >
-              Editar manual
+              <span className="rdo-approved-action-label rdo-approved-action-label--full" aria-hidden="true">Editar manual</span>
+              <span className="rdo-approved-action-label rdo-approved-action-label--compact" aria-hidden="true">Editar</span>
             </Button>
           ) : null}
           {canReview && report.status !== 'APPROVED' ? (
@@ -3445,7 +3447,10 @@ export function GestorPage() {
 
   function renderProjectReportGroups(reports: ReportSummary[]) {
     return (
-      <div className="rdo-manager-listing" id="rdo-manager-report-results">
+      <div
+        className={`rdo-manager-listing${tab === 'aprovados' ? ' rdo-manager-listing--approved' : ''}`}
+        id="rdo-manager-report-results"
+      >
         <GroupedReportList
           reports={reports}
           appearance="design-system"
