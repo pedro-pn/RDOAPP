@@ -2676,7 +2676,7 @@ a {
 @media (max-width: 430px) {
   .acp-pcards-filters .acp-seg {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .acp-pcards-filters .acp-seg-btn {
     min-width: 0;

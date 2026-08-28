@@ -56,7 +56,7 @@ export function ProjectTrackingNovelties({
             element: '[data-acp-tracking-action]',
             popover: {
               title: 'Ações do acompanhamento',
-              description: 'O arquivamento daqui não altera Relatórios. Na aba Arquivados, use a conferência para identificar o que já foi revisado.',
+              description: 'O arquivamento daqui não altera Relatórios. Depois da revisão, marque a missão como conferida para movê-la à aba Conferidas.',
               side: 'top',
               align: 'end'
             }
@@ -79,7 +79,7 @@ export function ProjectTrackingNovelties({
           element: '[data-acp-review-action]',
           popover: {
             title: '✨ Novidade: marcar como conferido',
-            description: 'Depois da verificação semanal, marque o projeto como conferido. O card ficará verde e poderá ser desmarcado se precisar de uma nova revisão.',
+            description: 'Depois da verificação semanal, marque o projeto como conferido. O card irá para a aba Conferidas e poderá ser desmarcado se precisar de uma nova revisão.',
             side: 'top',
             align: 'end'
           }
