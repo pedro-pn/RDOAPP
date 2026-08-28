@@ -1,6 +1,7 @@
 import { collectAllocationConflicts, lockCollaborator } from './conflicts.js';
 import { parseDateKey } from './date-only.js';
 import { conflictError, notFound, planningError } from './errors.js';
+import { missionEndsOnOrAfter } from './mission-period.js';
 
 function dateValue(value) {
   return new Date(`${parseDateKey(value)}T00:00:00.000Z`);
@@ -47,7 +48,7 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
   const lockedIds = [...uniqueIds].sort();
   for (const collaboratorId of lockedIds) await lockCollaborator(tx, collaboratorId);
 
-  const period = { startDate: parseDateKey(payload.mobilizationDate), endDate: parseDateKey(payload.returnDate) };
+  const period = { startDate: parseDateKey(payload.mobilizationDate), endDate: parseDateKey(payload.returnDate || payload.executionEndDate) };
   const [collaborators, absences, allocations] = await Promise.all([
     tx.collaborator.findMany({
       where: { id: { in: uniqueIds } },
@@ -71,7 +72,7 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
           deletedAt: null,
           scheduleStatus: 'CONFIRMED',
           mobilizationDate: { lte: dateValue(period.endDate) },
-          returnDate: { gte: dateValue(period.startDate) }
+          ...missionEndsOnOrAfter(dateValue(period.startDate))
         }
       },
       include: { mission: true }

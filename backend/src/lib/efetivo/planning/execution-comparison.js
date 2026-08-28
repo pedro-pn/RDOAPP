@@ -1,6 +1,7 @@
 import { corporateDateKey } from '../../calendar/corporate-calendar.js';
 import { notFound } from './errors.js';
 import { resolvePlanningDatabase } from './plan-context.js';
+import { missionEndDate } from './mission-period.js';
 
 function sum(values) {
   return values.reduce((total, value) => total + Number(value || 0), 0);
@@ -38,7 +39,7 @@ export function buildMissionExecutionComparison(mission, reports = [], progress 
         mobilizationDate: corporateDateKey(mission.mobilizationDate),
         executionStartDate: corporateDateKey(mission.executionStartDate),
         executionEndDate: corporateDateKey(mission.executionEndDate),
-        returnDate: corporateDateKey(mission.returnDate)
+        returnDate: mission.returnDate ? corporateDateKey(mission.returnDate) : null
       },
       collaborators: plannedCollaborators
     },
@@ -81,7 +82,7 @@ export async function getMissionExecutionComparison(missionId, dependencies = {}
       projectId: mission.projectId,
       deletedAt: null,
       reportType: 'RDO',
-      reportDate: { gte: mission.mobilizationDate, lte: mission.returnDate }
+      reportDate: { gte: mission.mobilizationDate, lte: new Date(`${missionEndDate(mission)}T00:00:00.000Z`) }
     },
     include: {
       collaborators: {

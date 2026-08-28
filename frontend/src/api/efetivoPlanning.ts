@@ -23,10 +23,11 @@ export interface ProjectOption {
   name: string;
   clientName: string | null;
   location: string | null;
+  mobilizationDate: string | null;
+  demobilizationDate: string | null;
 }
 
 export interface PendingMissionProject extends ProjectOption {
-  mobilizationDate: string | null;
   startDate: string | null;
   registrationPending: boolean;
 }
@@ -85,13 +86,14 @@ export interface PlanningMission {
   project: ProjectOption;
   scheduleStatus: MissionScheduleStatus;
   stage: MissionStage;
+  headquartersResponsibleUserId: string;
   headquartersResponsibleName: string;
   headquartersResponsibleRole: string;
   headquartersResponsibleCollaboratorId: string | null;
   mobilizationDate: DateOnly;
   executionStartDate: DateOnly;
   executionEndDate: DateOnly;
-  returnDate: DateOnly;
+  returnDate: DateOnly | null;
   version: number;
   kanbanOrder: number;
   demands: MissionDemand[];
@@ -103,7 +105,7 @@ export interface MissionExecutionComparison {
   projectId: string;
   freshness: { observedUpdatedAt: string | null; missionUpdatedAt: string | null };
   planned: {
-    dates: { mobilizationDate: DateOnly; executionStartDate: DateOnly; executionEndDate: DateOnly; returnDate: DateOnly };
+    dates: { mobilizationDate: DateOnly; executionStartDate: DateOnly; executionEndDate: DateOnly; returnDate: DateOnly | null };
     collaborators: Array<{ id: string; name: string; role: string }>;
   };
   observed: {
@@ -128,15 +130,11 @@ export interface MissionInput {
   planId?: string;
   projectId: string;
   scheduleStatus: MissionScheduleStatus;
-  stage: MissionStage;
   headquartersResponsibleUserId: string;
-  headquartersResponsibleName: string;
-  headquartersResponsibleRole: string;
-  headquartersResponsibleCollaboratorId?: string | null;
   mobilizationDate: DateOnly;
   executionStartDate: DateOnly;
   executionEndDate: DateOnly;
-  returnDate: DateOnly;
+  returnDate?: DateOnly | null;
   collaboratorIds: string[];
 }
 
@@ -320,8 +318,12 @@ export async function removeMissionAllocation(missionId: string, allocationId: s
 export async function autoAllocateMission(missionId: string) {
   return (await apiClient.post<{ created: MissionAllocation[]; remainingDeficits: Array<{ jobRoleId: string; jobRoleName: string; deficit: number }> }>(`${base}/missions/${encodeURIComponent(missionId)}/auto-allocate`)).data;
 }
-export async function movePlanningMission(id: string, version: number, stage: MissionStage, order: number) {
-  return (await apiClient.patch<PlanningMission>(`${base}/missions/${encodeURIComponent(id)}/stage`, { stage, order }, { headers: { 'If-Match-Version': version } })).data;
+export async function movePlanningMission(id: string, version: number, stage: MissionStage, order: number, returnDate?: DateOnly | null) {
+  return (await apiClient.patch<PlanningMission>(`${base}/missions/${encodeURIComponent(id)}/stage`, {
+    stage,
+    order,
+    ...(returnDate !== undefined ? { returnDate } : {})
+  }, { headers: { 'If-Match-Version': version } })).data;
 }
 export async function listPlanningScenarios() {
   return (await apiClient.get<PlanningScenario[]>(`${base}/scenarios`)).data;

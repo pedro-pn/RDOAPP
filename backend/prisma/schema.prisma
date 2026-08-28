@@ -782,7 +782,7 @@ model EfetivoMissionPlan {
   mobilizationDate                      DateTime                     @db.Date
   executionStartDate                    DateTime                     @db.Date
   executionEndDate                      DateTime                     @db.Date
-  returnDate                            DateTime                     @db.Date
+  returnDate                            DateTime?                    @db.Date
   version                               Int                          @default(1)
   kanbanOrder                           Int                          @default(0)
   needsReplanning                      Boolean                      @default(false)

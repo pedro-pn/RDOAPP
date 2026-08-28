@@ -47,6 +47,7 @@ export function moveCalendarPosition(date: string, view: 'day' | 'week' | 'month
   return target.toISOString().slice(0, 10);
 }
 
-export function displayDateOnly(value: string, options: Intl.DateTimeFormatOptions = {}) {
+export function displayDateOnly(value: string | null | undefined, options: Intl.DateTimeFormatOptions = {}) {
+  if (!value) return '—';
   return parseDateOnly(String(value || '').slice(0, 10)).toLocaleDateString('pt-BR', { timeZone: 'UTC', ...options });
 }

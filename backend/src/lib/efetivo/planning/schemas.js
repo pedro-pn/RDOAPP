@@ -7,7 +7,6 @@ export const dateOnlySchema = z.string().regex(datePattern, 'Use o formato AAAA-
 }, 'Informe uma data válida.');
 
 export const idSchema = z.string().trim().min(1).max(100);
-export const optionalIdSchema = idSchema.nullable().optional();
 export const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, 'Informe uma cor hexadecimal válida.');
 export const absenceTypeSchema = z.enum(['FERIAS', 'FOLGA', 'AFASTAMENTO']);
 export const missionScheduleStatusSchema = z.enum(['DRAFT', 'CONFIRMED', 'CANCELLED']);
@@ -78,15 +77,11 @@ export const missionInputSchema = z.object({
   planId: idSchema.optional(),
   projectId: idSchema,
   scheduleStatus: missionScheduleStatusSchema,
-  stage: missionStageSchema,
   headquartersResponsibleUserId: idSchema,
-  headquartersResponsibleName: z.string().trim().min(1).max(160),
-  headquartersResponsibleRole: z.string().trim().min(1).max(120),
-  headquartersResponsibleCollaboratorId: optionalIdSchema,
   mobilizationDate: dateOnlySchema,
   executionStartDate: dateOnlySchema,
   executionEndDate: dateOnlySchema,
-  returnDate: dateOnlySchema,
+  returnDate: dateOnlySchema.nullable().optional(),
   collaboratorIds: z.array(idSchema).max(500).refine(
     values => new Set(values).size === values.length,
     'Cada colaborador deve aparecer uma única vez na equipe.'
@@ -100,7 +95,8 @@ export const allocationInputSchema = z.object({
 
 export const stageInputSchema = z.object({
   stage: missionStageSchema,
-  order: z.coerce.number().int().min(0)
+  order: z.coerce.number().int().min(0),
+  returnDate: dateOnlySchema.nullable().optional()
 });
 
 // Contratação hipotética informada já na criação do cenário; quantidade 0 significa "sem contratação".

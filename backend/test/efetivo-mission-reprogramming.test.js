@@ -7,11 +7,7 @@ const payload = {
   planId: 'plan-1',
   projectId: 'project-1',
   scheduleStatus: 'DRAFT',
-  stage: 'STANDBY',
   headquartersResponsibleUserId: 'user-1',
-  headquartersResponsibleName: 'Coordenação',
-  headquartersResponsibleRole: 'Coordenador',
-  headquartersResponsibleCollaboratorId: null,
   mobilizationDate: '2026-09-01',
   executionStartDate: '2026-09-02',
   executionEndDate: '2026-09-09',
@@ -47,7 +43,7 @@ function fakeDatabase() {
       findFirst: async () => ({
         id: 'user-1',
         name: 'Coordenação',
-        collaborator: null
+        collaborator: { id: 'collaborator-1', name: 'Ana Líder', isActive: true, jobRole: { name: 'Coordenadora' } }
       })
     },
     jobRole: { findMany: async () => [] },
@@ -95,6 +91,7 @@ test('reprogramar projeto restaura a missão excluída sem violar unicidade', as
   assert.deepEqual(calls.allocationDelete.where, { missionId: 'mission-1', deletedAt: null });
   assert.ok(calls.allocationDelete.data.deletedAt instanceof Date);
   assert.equal(calls.update.data.deletedAt, null);
+  assert.equal(calls.update.data.stage, 'STANDBY');
   assert.deepEqual(calls.update.data.version, { increment: 1 });
   assert.equal(calls.update.data.kanbanOrder, 3);
   assert.equal(calls.audit.data.action, 'MISSION_RESTORE');

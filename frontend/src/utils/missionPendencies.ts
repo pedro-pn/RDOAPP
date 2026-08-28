@@ -6,7 +6,7 @@ export function missionPendencies(mission: PlanningMission): string[] {
   if (mission.scheduleStatus === 'CANCELLED') return [];
   const pendencies: string[] = [];
   const required = mission.demands.reduce((sum, demand) => sum + demand.requiredCount, 0);
-  if (!mission.headquartersResponsibleName) pendencies.push('Definir o responsável da sede');
+  if (!mission.headquartersResponsibleUserId || !mission.headquartersResponsibleCollaboratorId) pendencies.push('Vincular o líder');
   if (!required) pendencies.push('Selecionar a equipe');
   else if (mission.allocations.length < required) pendencies.push(`Completar a equipe (${mission.allocations.length}/${required})`);
   if (mission.scheduleStatus === 'DRAFT') pendencies.push('Confirmar a programação');
@@ -15,8 +15,8 @@ export function missionPendencies(mission: PlanningMission): string[] {
 
 // Projeto cadastrado que ainda não virou programação: todas as informações operacionais faltam.
 export const PENDING_PROJECT_PENDENCIES = [
-  'Informar mobilização, execução e retorno',
-  'Definir o responsável da sede',
+  'Informar mobilização e execução',
+  'Vincular o líder',
   'Selecionar os colaboradores da equipe'
 ];
 

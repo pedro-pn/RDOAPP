@@ -5,6 +5,7 @@ import { conflictDescriptor, conflictError, notFound } from './errors.js';
 import { normalizeMissionDemands, validateMissionChronology } from './mission-planning.js';
 import { getActiveOfficialPlan, lockOfficialPlanningState, lockPlan, resolvePlanningDatabase, runPlanningTransaction } from './plan-context.js';
 import { getPlanningOverview } from './read-model.js';
+import { missionEndDate } from './mission-period.js';
 
 function utcDate(value) {
   return new Date(`${parseDateKey(value)}T00:00:00.000Z`);
@@ -178,9 +179,9 @@ async function validateScenarioGraph(tx, scenario) {
     const counts = new Map();
     for (const allocation of mission.allocations) {
       counts.set(allocation.jobRoleId, (counts.get(allocation.jobRoleId) || 0) + 1);
-      const period = { startDate: mission.mobilizationDate, endDate: mission.returnDate };
+      const period = { startDate: mission.mobilizationDate, endDate: missionEndDate(mission) };
       if (!collaboratorIsEmployedForPeriod(allocation.collaborator, period) || (allocation.collaborator.jobRoleId && allocation.collaborator.jobRoleId !== allocation.jobRoleId)) {
-        conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: parseDateKey(mission.mobilizationDate), endDate: parseDateKey(mission.returnDate), sourceType: 'EMPLOYMENT', sourceId: mission.id, entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${mission.id}`, code: 'INVALID_COLLABORATOR' }));
+        conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: parseDateKey(mission.mobilizationDate), endDate: missionEndDate(mission), sourceType: 'EMPLOYMENT', sourceId: mission.id, entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${mission.id}`, code: 'INVALID_COLLABORATOR' }));
       }
       for (const absence of absences.filter(item => item.collaboratorId === allocation.collaboratorId)) {
         if (periodsOverlap(period, absence)) conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: parseDateKey(absence.startDate), endDate: parseDateKey(absence.endDate), sourceType: 'ABSENCE', sourceId: absence.id, entityPath: `/efetivo?section=colaboradores&colaborador=${allocation.collaboratorId}&ausencia=${absence.id}`, code: 'ABSENCE_OVERLAP' }));
@@ -194,7 +195,7 @@ async function validateScenarioGraph(tx, scenario) {
     }
     for (const [jobRoleId, count] of counts) {
       const demand = mission.demands.find(item => item.jobRoleId === jobRoleId)?.requiredCount || 0;
-      if (count > demand) conflicts.push({ code: 'DEMAND_EXCEEDED', sourceType: 'DEMAND', sourceId: mission.id, startDate: parseDateKey(mission.mobilizationDate), endDate: parseDateKey(mission.returnDate), entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${mission.id}` });
+      if (count > demand) conflicts.push({ code: 'DEMAND_EXCEEDED', sourceType: 'DEMAND', sourceId: mission.id, startDate: parseDateKey(mission.mobilizationDate), endDate: missionEndDate(mission), entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${mission.id}` });
     }
   }
   if (conflicts.length) throw conflictError('O cenário contém conflitos e não pode ser aplicado.', conflicts, 'SCENARIO_VALIDATION_FAILED');

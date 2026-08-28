@@ -309,6 +309,11 @@ paths:
               properties:
                 stage: { $ref: '#/components/schemas/MissionStage' }
                 order: { type: integer, minimum: 0 }
+                returnDate:
+                  description: Desmobilização real opcional, solicitada ao concluir a missão.
+                  oneOf:
+                    - { $ref: '#/components/schemas/DateOnly' }
+                    - { type: 'null' }
       responses:
         '200': { description: Etapa e ordem persistidas }
         '409': { $ref: '#/components/responses/ConflictResponse' }
@@ -647,6 +652,8 @@ components:
         name: { type: string }
         clientName: { type: [string, 'null'] }
         location: { type: [string, 'null'] }
+        mobilizationDate: { type: [string, 'null'], format: date-time }
+        demobilizationDate: { type: [string, 'null'], format: date-time }
     PendingMissionProject:
       type: object
       required: [id, code, name]
@@ -657,6 +664,7 @@ components:
         clientName: { type: [string, 'null'] }
         location: { type: [string, 'null'] }
         mobilizationDate: { type: [string, 'null'], format: date-time }
+        demobilizationDate: { type: [string, 'null'], format: date-time }
         startDate: { type: [string, 'null'], format: date-time }
         registrationPending: { type: boolean }
     JobRole:
@@ -725,20 +733,21 @@ components:
         requiredCount: { type: integer, minimum: 0 }
     MissionInput:
       type: object
-      required: [projectId, scheduleStatus, stage, headquartersResponsibleUserId, headquartersResponsibleName, headquartersResponsibleRole, mobilizationDate, executionStartDate, executionEndDate, returnDate, collaboratorIds]
+      description: A etapa nasce automaticamente como STANDBY; nome, cargo e colaborador do líder são derivados da conta vinculada.
+      required: [projectId, scheduleStatus, headquartersResponsibleUserId, mobilizationDate, executionStartDate, executionEndDate, collaboratorIds]
       properties:
         planId: { type: string }
         projectId: { type: string }
         scheduleStatus: { $ref: '#/components/schemas/MissionScheduleStatus' }
-        stage: { $ref: '#/components/schemas/MissionStage' }
         headquartersResponsibleUserId: { type: string }
-        headquartersResponsibleName: { type: string, minLength: 1, maxLength: 160 }
-        headquartersResponsibleRole: { type: string, minLength: 1, maxLength: 120 }
-        headquartersResponsibleCollaboratorId: { type: [string, 'null'] }
         mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
         executionStartDate: { $ref: '#/components/schemas/DateOnly' }
         executionEndDate: { $ref: '#/components/schemas/DateOnly' }
-        returnDate: { $ref: '#/components/schemas/DateOnly' }
+        returnDate:
+          description: Desmobilização real; opcional e sincronizada com o cronograma do projeto.
+          oneOf:
+            - { $ref: '#/components/schemas/DateOnly' }
+            - { type: 'null' }
         collaboratorIds:
           type: array
           maxItems: 500
@@ -761,7 +770,10 @@ components:
         mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
         executionStartDate: { $ref: '#/components/schemas/DateOnly' }
         executionEndDate: { $ref: '#/components/schemas/DateOnly' }
-        returnDate: { $ref: '#/components/schemas/DateOnly' }
+        returnDate:
+          oneOf:
+            - { $ref: '#/components/schemas/DateOnly' }
+            - { type: 'null' }
         version: { type: integer }
         kanbanOrder: { type: integer }
         project: { $ref: '#/components/schemas/ProjectOption' }
@@ -889,7 +901,10 @@ components:
                 mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
                 executionStartDate: { $ref: '#/components/schemas/DateOnly' }
                 executionEndDate: { $ref: '#/components/schemas/DateOnly' }
-                returnDate: { $ref: '#/components/schemas/DateOnly' }
+                returnDate:
+                  oneOf:
+                    - { $ref: '#/components/schemas/DateOnly' }
+                    - { type: 'null' }
             collaborators:
               type: array
               items: { $ref: '#/components/schemas/CollaboratorOption' }

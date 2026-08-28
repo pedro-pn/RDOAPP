@@ -614,6 +614,26 @@ export function assertScheduleWindowDates({
   }
 }
 
+export async function syncProjectDemobilizationToMissions(tx, projectId, demobilizationDate) {
+  const missions = await tx.efetivoMissionPlan.findMany({
+    where: { projectId, deletedAt: null },
+    select: { planId: true }
+  });
+  if (!missions.length) return;
+  await tx.efetivoMissionPlan.updateMany({
+    where: { projectId, deletedAt: null },
+    data: {
+      returnDate: demobilizationDate ? new Date(demobilizationDate) : null,
+      version: { increment: 1 }
+    }
+  });
+  const planIds = [...new Set(missions.map(mission => mission.planId))];
+  await tx.efetivoPlan.updateMany({
+    where: { id: { in: planIds } },
+    data: { revision: { increment: 1 } }
+  });
+}
+
 // Edita o cronograma: data de aprovação da proposta (no orçamento) e início real (no projeto).
 // Cada campo é opcional; passar null limpa. approvedAt exige um orçamento já escolhido.
 export async function setProjectSchedule(projectId, {
@@ -688,6 +708,9 @@ export async function setProjectSchedule(projectId, {
     }
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
+    }
+    if (demobilizationDate !== undefined) {
+      await syncProjectDemobilizationToMissions(tx, projectId, demobilizationDate);
     }
     if (
       manualProgressPct !== undefined

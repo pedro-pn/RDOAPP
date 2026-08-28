@@ -1,11 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { normalizeMissionDemands, resolveMissionResponsible, validateMissionChronology } from '../src/lib/efetivo/planning/mission-planning.js';
+import { missionMovePendencies, normalizeMissionDemands, resolveMissionResponsible, syncMissionDemobilization, validateMissionChronology } from '../src/lib/efetivo/planning/mission-planning.js';
+import { missionInputSchema } from '../src/lib/efetivo/planning/schemas.js';
 
 test('cronologia aceita limites iguais e rejeita inversão', () => {
   assert.doesNotThrow(() => validateMissionChronology({ mobilizationDate: '2026-01-01', executionStartDate: '2026-01-01', executionEndDate: '2026-01-01', returnDate: '2026-01-01' }));
   assert.throws(() => validateMissionChronology({ mobilizationDate: '2026-01-02', executionStartDate: '2026-01-01', executionEndDate: '2026-01-03', returnDate: '2026-01-04' }), /mobilização/i);
+});
+
+test('desmobilização é opcional e só é validada quando informada', () => {
+  const dates = { mobilizationDate: '2026-01-01', executionStartDate: '2026-01-02', executionEndDate: '2026-01-10' };
+  assert.doesNotThrow(() => validateMissionChronology({ ...dates, returnDate: null }));
+  assert.throws(() => validateMissionChronology({ ...dates, returnDate: '2026-01-09' }), /desmobilização/i);
+  assert.equal(missionInputSchema.parse({
+    ...dates, projectId: 'p1', scheduleStatus: 'DRAFT', headquartersResponsibleUserId: 'u1', collaboratorIds: []
+  }).returnDate, undefined);
+});
+
+test('desmobilização da missão atualiza o campo canônico do projeto', async () => {
+  let update;
+  await syncMissionDemobilization({ project: { update: async input => { update = input; } } }, {
+    id: 'p1', mobilizationDate: new Date('2026-01-01T00:00:00.000Z')
+  }, '2026-01-15');
+  assert.equal(update.where.id, 'p1');
+  assert.equal(update.data.demobilizationDate.toISOString(), '2026-01-15T00:00:00.000Z');
 });
 
 test('demanda remove zeros, recusa duplicidade e confirmação vazia', () => {
@@ -14,39 +33,41 @@ test('demanda remove zeros, recusa duplicidade e confirmação vazia', () => {
   assert.throws(() => normalizeMissionDemands([], 'CONFIRMED'), /demanda positiva/i);
 });
 
-test('responsável usa nome da conta coordenadora e cargo do colaborador vinculado', async () => {
-  const responsible = await resolveMissionResponsible({
-    user: { findFirst: async () => ({ id: 'u1', name: 'Coordenação', collaborator: { id: 'c1', jobRole: { name: 'Líder de Operações' } } }) }
-  }, {
-    headquartersResponsibleUserId: 'u1',
-    headquartersResponsibleName: 'Texto adulterado',
-    headquartersResponsibleRole: 'Texto adulterado',
-    headquartersResponsibleCollaboratorId: null
+test('input aceita somente o vínculo do líder e não recebe etapa, nome ou cargo manuais', () => {
+  const parsed = missionInputSchema.parse({
+    projectId: 'p1', scheduleStatus: 'DRAFT', headquartersResponsibleUserId: 'u1',
+    mobilizationDate: '2026-09-01', executionStartDate: '2026-09-02', executionEndDate: '2026-09-03', returnDate: '2026-09-04',
+    collaboratorIds: [], stage: 'EXECUTION', headquartersResponsibleName: 'Manual', headquartersResponsibleRole: 'Manual'
   });
-  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Líder de Operações', collaboratorId: 'c1', userId: 'u1' });
+  assert.equal(parsed.headquartersResponsibleUserId, 'u1');
+  assert.equal('stage' in parsed, false);
+  assert.equal('headquartersResponsibleName' in parsed, false);
+  assert.equal('headquartersResponsibleRole' in parsed, false);
 });
 
-test('responsável sem colaborador na conta preserva cargo livre quando não há líder', async () => {
+test('líder usa nome e cargo canônicos do colaborador vinculado à conta', async () => {
   const responsible = await resolveMissionResponsible({
+    user: { findFirst: async () => ({ id: 'u1', name: 'Conta Coordenação', collaborator: { id: 'c1', name: 'Ana Líder', isActive: true, jobRole: { name: 'Líder de Operações' } } }) }
+  }, {
+    headquartersResponsibleUserId: 'u1'
+  });
+  assert.deepEqual(responsible, { name: 'Ana Líder', role: 'Líder de Operações', collaboratorId: 'c1', userId: 'u1' });
+});
+
+test('conta sem colaborador e cargo vinculados não pode ser usada como líder', async () => {
+  await assert.rejects(resolveMissionResponsible({
     user: { findFirst: async () => ({ id: 'u1', name: 'Coordenação', collaborator: null }) }
   }, {
-    headquartersResponsibleUserId: 'u1',
-    headquartersResponsibleName: 'Coordenação',
-    headquartersResponsibleRole: 'Planejamento',
-    headquartersResponsibleCollaboratorId: null
-  });
-  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Planejamento', collaboratorId: null, userId: 'u1' });
+    headquartersResponsibleUserId: 'u1'
+  }), error => error.code === 'INVALID_MISSION_LEADER');
 });
 
-test('líder escolhido para conta sem vínculo também fornece o cargo canônico', async () => {
-  const responsible = await resolveMissionResponsible({
-    user: { findFirst: async () => ({ id: 'u1', name: 'Coordenação', collaborator: null }) },
-    collaborator: { findUnique: async () => ({ id: 'c2', jobRole: { name: 'Supervisora de Operações' } }) }
-  }, {
-    headquartersResponsibleUserId: 'u1',
-    headquartersResponsibleName: 'Coordenação',
-    headquartersResponsibleRole: 'Texto livre ignorado',
-    headquartersResponsibleCollaboratorId: 'c2'
-  });
-  assert.deepEqual(responsible, { name: 'Coordenação', role: 'Supervisora de Operações', collaboratorId: 'c2', userId: 'u1' });
+test('missão só pode mover quando líder, datas, equipe e confirmação estão completos', () => {
+  const complete = {
+    headquartersResponsibleUserId: 'u1', headquartersResponsibleName: 'Ana', headquartersResponsibleRole: 'Líder',
+    mobilizationDate: new Date(), executionStartDate: new Date(), executionEndDate: new Date(), returnDate: null,
+    scheduleStatus: 'CONFIRMED', demands: [{ requiredCount: 2 }], allocations: [{ id: 'a1' }, { id: 'a2' }]
+  };
+  assert.deepEqual(missionMovePendencies(complete), []);
+  assert.deepEqual(missionMovePendencies({ ...complete, scheduleStatus: 'DRAFT', allocations: [] }), ['completar a equipe', 'confirmar a programação']);
 });
