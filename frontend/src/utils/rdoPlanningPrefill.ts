@@ -16,18 +16,40 @@ export const rdoWorkforceJustificationSchema = z.object({
 export interface RdoPlanningPrefillInput {
   currentCollaboratorIds: string[];
   touched: boolean;
-  missionCollaboratorIds?: string[];
+  lastReportStatus: RdoLastReportStatus;
   lastReportCollaboratorIds?: string[];
 }
+
+export type RdoLastReportStatus = 'PENDING' | 'FOUND' | 'EMPTY';
 
 export function resolveRdoCollaboratorPrefill(input: RdoPlanningPrefillInput) {
   if (input.touched) return { collaboratorIds: input.currentCollaboratorIds, source: 'TOUCHED' as const };
   if (input.currentCollaboratorIds.length) return { collaboratorIds: input.currentCollaboratorIds, source: 'CURRENT' as const };
-  if (input.missionCollaboratorIds?.length) {
-    return { collaboratorIds: [...new Set(input.missionCollaboratorIds)], source: 'MISSION' as const };
+  if (input.lastReportStatus === 'PENDING') {
+    return { collaboratorIds: [], source: 'WAITING' as const };
   }
-  return {
-    collaboratorIds: [...new Set(input.lastReportCollaboratorIds || [])],
-    source: input.lastReportCollaboratorIds?.length ? 'LAST_REPORT' as const : 'EMPTY' as const
-  };
+  if (input.lastReportStatus === 'FOUND') {
+    const collaboratorIds = [...new Set(input.lastReportCollaboratorIds || [])];
+    return {
+      collaboratorIds,
+      source: collaboratorIds.length ? 'LAST_REPORT' as const : 'EMPTY' as const
+    };
+  }
+  return { collaboratorIds: [], source: 'EMPTY' as const };
+}
+
+export function resolveRdoMissionSuggestion(input: {
+  currentCollaboratorIds: string[];
+  missionCollaboratorIds: string[];
+}) {
+  const currentCollaboratorIds = new Set(input.currentCollaboratorIds);
+  return [...new Set(input.missionCollaboratorIds)]
+    .filter(collaboratorId => !currentCollaboratorIds.has(collaboratorId));
+}
+
+export function addRdoMissionSuggestions(
+  currentCollaboratorIds: string[],
+  suggestedCollaboratorIds: string[]
+) {
+  return [...new Set([...currentCollaboratorIds, ...suggestedCollaboratorIds])];
 }

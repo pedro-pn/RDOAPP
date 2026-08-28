@@ -19,8 +19,7 @@ import { useToast } from '../../components/ui/ToastContext';
 import { useNewReportBootstrap } from '../../hooks/useBootstrap';
 import { useDraftMutations, useDrafts } from '../../hooks/useDrafts';
 import { useReportMutations } from '../../hooks/useReports';
-import { useReportWorkforcePlanning } from '../../hooks/useReportWorkforcePlanning';
-import { useRdoPlanningPrefill } from '../../hooks/useRdoPlanningPrefill';
+import { useReportWorkforcePrefill } from '../../hooks/useReportWorkforcePrefill';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
 import { useRdoStore } from '../../store/rdoStore';
@@ -59,7 +58,6 @@ const TEXT = {
   start: 'Início',
   next: 'Próximo →',
   submit: 'Enviar relatório ✓',
-  team: 'Equipe diurna',
   specialConditions: 'Condições especiais',
   identification: 'Identificação',
   schedules: 'Horários',
@@ -331,19 +329,12 @@ export function NewReportPage() {
     return '';
   }
 
-  // Fetch reports of selected project for pre-fill and continuity
+  // Fetch the summarized project history for service continuity and duplicate checks.
   const lastProjectReportQuery = useQuery({
     queryKey: ['reports', 'last-project', projectId],
-    queryFn: () => listReports({ projectId: projectId! }),
+    queryFn: () => listReports({ projectId: projectId!, summary: true }),
     enabled: !!projectId,
     staleTime: 30_000
-  });
-
-  const { planningContext, absenceConflicts, serverHoliday } = useReportWorkforcePlanning({
-    projectId,
-    reportDate,
-    collaboratorIds,
-    enabled: !effectiveServiceOnly
   });
 
   const projectReports = useMemo(() => {
@@ -353,18 +344,30 @@ export function NewReportPage() {
     return reports.filter(report => (
       report.reportType === 'RDO'
       && report.projectId === projectId
+      && !report.deletedAt
       && new Date(report.reportDate || report.createdAt || 0).getTime() <= cutoffTime
     )).sort(
       (a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime()
     );
   }, [lastProjectReportQuery.data, projectId, reportDate]);
   const lastReport = projectReports[0] || null;
-  const { source: collaboratorPrefillSource, markTouched: markCollaboratorsTouched } = useRdoPlanningPrefill({
+  const {
+    planningContext,
+    absenceConflicts,
+    serverHoliday,
+    collaboratorPrefillSource,
+    missionSuggestionCollaboratorIds,
+    canApplyMissionSuggestion,
+    markCollaboratorsTouched,
+    applyMissionSuggestion,
+    dismissMissionSuggestion
+  } = useReportWorkforcePrefill({
     projectId,
     reportDate,
-    currentCollaboratorIds: collaboratorIds,
-    missionCollaboratorIds: planningContext?.collaborators.map(item => item.id) || [],
-    lastReportCollaboratorIds: (lastReport?.collaborators || []).map(link => link.collaboratorId).filter(Boolean),
+    collaboratorIds,
+    effectiveServiceOnly,
+    historicalLastReport: lastReport,
+    historyLoaded: lastProjectReportQuery.isSuccess,
     setCollaborators
   });
   const collaboratorsPrefilled = Boolean(collaboratorPrefillSource);
@@ -1351,19 +1354,16 @@ export function NewReportPage() {
 
         {/* Card 3: Equipe diurna */}
         <section className="page-card">
-          <div className="section-title">
-            {TEXT.team}
-            {collaboratorsPrefilled ? (
-              <span className="pre-badge">
-                {collaboratorPrefillSource === 'MISSION' ? 'missão oficial' : 'último RDO'}
-              </span>
-            ) : null}
-          </div>
           <ReportWorkforceNotices
             planningContext={planningContext}
+            prefilledFromLastReport={collaboratorsPrefilled}
+            missionSuggestionCollaboratorIds={missionSuggestionCollaboratorIds}
+            canApplyMissionSuggestion={canApplyMissionSuggestion}
             absenceConflictCount={absenceConflicts.length}
             workforceJustification={workforceJustification}
             invalid={invalidTarget === 'header:workforceJustification'}
+            onApplyMissionSuggestion={applyMissionSuggestion}
+            onDismissMissionSuggestion={dismissMissionSuggestion}
             onJustificationChange={setWorkforceJustification}
           />
           <div

@@ -57,6 +57,16 @@ export async function getReportPlanningContext(projectId: string, date: string) 
   })).data;
 }
 
+export interface ReportCollaboratorPrefill {
+  collaboratorIds: string[];
+}
+
+export async function getReportCollaboratorPrefill(projectId: string, date: string) {
+  return (await apiClient.get<ReportCollaboratorPrefill | null>(rdoApiPath('/reports/collaborator-prefill'), {
+    params: { projectId, date }
+  })).data;
+}
+
 export async function checkReportWorkforceAvailability(collaboratorIds: string[], date: string) {
   return (await apiClient.post<{
     calendarRevision: number;
