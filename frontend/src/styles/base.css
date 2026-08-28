@@ -2836,6 +2836,146 @@ a {
   text-align: center;
 }
 .modal-card.acp-standby-history-modal { width: min(94vw, 900px); max-width: 900px; }
+.acp-mission-reports-action {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--br);
+}
+.acp-mission-reports-trigger { width: 100%; }
+.modal-card.acp-mission-reports-modal {
+  width: min(96vw, 1040px);
+  max-width: 1040px;
+  padding: 0;
+  overflow: hidden;
+}
+.acp-mission-reports-dialog {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(100dvh - 36px);
+}
+.acp-mission-reports-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 1px solid var(--br);
+}
+.acp-mission-reports-head h2 { margin: 0; color: var(--g); font-size: 19px; }
+.acp-mission-reports-head p { margin: 4px 0 0; color: var(--mu); font-size: 13px; }
+.acp-mission-reports-body {
+  min-height: 160px;
+  padding: 16px 18px 20px;
+  overflow-y: auto;
+}
+.acp-mission-reports-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.modal-card.acp-pdf-viewer-modal {
+  width: min(98vw, 1180px);
+  height: min(94dvh, 900px);
+  max-width: 1180px;
+  padding: 0;
+  overflow: hidden;
+}
+.acp-pdf-viewer {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.acp-pdf-viewer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--br);
+}
+.acp-pdf-viewer-head h2 { margin: 0; color: var(--g); font-size: 19px; }
+.acp-pdf-viewer-head p { margin: 4px 0 0; color: var(--mu); font-size: 13px; }
+.acp-pdf-viewer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.acp-pdf-canvas-viewer {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.acp-pdf-canvas-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--br);
+  background: var(--wh);
+}
+.acp-pdf-canvas-control-group { display: flex; align-items: center; gap: 8px; }
+.acp-pdf-canvas-control-group > span {
+  min-width: 86px;
+  color: var(--mu);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.acp-pdf-canvas-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+  background: #eef1f3;
+}
+.acp-pdf-canvas { display: block; flex: 0 0 auto; background: #fff; box-shadow: 0 4px 18px rgba(0, 0, 0, .16); }
+.acp-pdf-viewer-loading,
+.acp-pdf-viewer-error {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  padding: 20px;
+  color: var(--mu);
+  text-align: center;
+}
+.acp-pdf-viewer-loading { height: 100%; }
+.acp-pdf-viewer-error { color: var(--rd); }
+.acp-pdf-rendering {
+  position: absolute;
+  z-index: 1;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, .94);
+  color: var(--mu);
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+}
+@media (max-width: 640px) {
+  .acp-mission-reports-head { padding: 14px; }
+  .acp-mission-reports-body { padding: 12px 14px 16px; }
+  .modal-card.acp-pdf-viewer-modal { width: calc(100vw - 12px); height: calc(100dvh - 12px); max-height: calc(100dvh - 12px); }
+  .acp-pdf-viewer-head { align-items: stretch; flex-direction: column; padding: 12px; }
+  .acp-pdf-viewer-actions { justify-content: stretch; }
+  .acp-pdf-viewer-actions .mini-btn { flex: 1 1 0; }
+  .acp-pdf-canvas-toolbar { justify-content: center; padding: 8px; }
+  .acp-pdf-canvas-control-group { width: 100%; justify-content: center; }
+  .acp-pdf-canvas-stage { padding: 8px; }
+}
 .acp-standby-history-project,
 .acp-standby-history-description { color: var(--mu); overflow-wrap: anywhere; }
 .acp-standby-history-project { margin-top: 3px; font-size: 13px; }

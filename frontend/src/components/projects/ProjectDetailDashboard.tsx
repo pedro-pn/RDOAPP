@@ -32,6 +32,7 @@ import { ProjectAdditionalProposalsNovelty } from './ProjectAdditionalProposalsN
 import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
 import { ProjectQualityDeviationsNovelty } from './ProjectQualityDeviationsNovelty';
 import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
+import { ProjectReportsDialog } from './ProjectReportsDialog';
 import { ProjectStandbyHistoryDialog } from './ProjectStandbyHistoryDialog';
 import { ProjectStandbyHistoryNovelty } from './ProjectStandbyHistoryNovelty';
 import { ProjectWeeklyTargetNovelty } from './ProjectWeeklyTargetNovelty';
@@ -1160,6 +1161,14 @@ export function ProjectDetailDashboard({
           <div className="page-card acp-det-block">
             <div className="acp-det-sub"><HelpTip help="Escopo vendido informado manualmente (aba Cronograma): serviços, sistemas e quantitativos, com o peso de cada serviço no avanço.">Escopo cadastrado</HelpTip></div>
             <PlannedScopeView scope={effectiveScope} />
+            {!isGroup && projectId ? (
+              <div className="acp-mission-reports-action">
+                <ProjectReportsDialog
+                  projectId={projectId}
+                  missionLabel={`Missão ${h.code} · ${h.clientName}`}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
