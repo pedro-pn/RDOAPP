@@ -87,12 +87,20 @@ function unallocatedBucket(day, knownMissionCodes, ignoredTagSet = new Set()) {
 
 function decorateDay(day, projectsById, knownMissionCodes, ignoredTagSet = new Set()) {
   const allocated = day.allocations.length > 0;
+  const appropriatedNormalHours = allocated
+    ? Math.max(0, Number(day.costNormalHours ?? day.normalHours) || 0)
+    : 0;
   return {
     date: day.date,
     normalHours: day.normalHours,
+    appropriatedNormalHours,
     he70Hours: day.he70Hours,
     he100Hours: day.he100Hours,
     totalHours: day.normalHours + day.he70Hours + day.he100Hours,
+    appropriatedTotalHours: allocated
+      ? appropriatedNormalHours + day.he70Hours + day.he100Hours
+      : 0,
+    minimumNormalHoursApplied: Boolean(day.minimumNormalHoursApplied),
     tags: day.tags,
     tagProjects: day.tagProjectIds.map(id => projectRef(projectsById, id)),
     rdoProjects: day.rdoProjects.map(item => ({ ...projectRef(projectsById, item.projectId), hours: item.hours })),
@@ -165,7 +173,7 @@ export function buildAllocationAudit({
       for (const allocation of day.allocations) {
         const current = byProject.get(allocation.projectId)
           || { ...projectRef(projectsById, allocation.projectId), normalHours: 0, he70Hours: 0, he100Hours: 0, days: 0 };
-        current.normalHours += day.normalHours * allocation.weight;
+        current.normalHours += day.appropriatedNormalHours * allocation.weight;
         current.he70Hours += day.he70Hours * allocation.weight;
         current.he100Hours += day.he100Hours * allocation.weight;
         current.days += allocation.weight;

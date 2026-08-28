@@ -21,7 +21,9 @@ const ALLOCATION_REASON_LABELS: Record<string, string> = {
   MOBILIZATION_RDO_AMBIGUOUS: 'Mobilização com vários candidatos',
   SCHEDULE_WINDOW: 'Janela do cronograma',
   SCHEDULE_WINDOW_AMBIGUOUS: 'Janelas de cronograma sobrepostas',
-  NO_PROJECT_EVIDENCE: 'Sem etiqueta e sem RDO'
+  NO_PROJECT_EVIDENCE: 'Sem etiqueta e sem RDO',
+  NO_RDO_EVIDENCE: 'Sem RDO no dia',
+  NO_POINT_HOURS: 'Sem horas no ponto'
 };
 
 export function allocationReasonLabel(reason: string): string {

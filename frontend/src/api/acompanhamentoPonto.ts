@@ -424,9 +424,12 @@ export interface AllocationProjectRef {
 export interface AllocationDay {
   date: string;
   normalHours: number;
+  appropriatedNormalHours: number;
   he70Hours: number;
   he100Hours: number;
   totalHours: number;
+  appropriatedTotalHours: number;
+  minimumNormalHoursApplied: boolean;
   tags: string[];
   tagProjects: AllocationProjectRef[];
   rdoProjects: Array<AllocationProjectRef & { hours: number }>;

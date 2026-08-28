@@ -6,8 +6,9 @@
  *
  * FOLHA (custo mensal do colaborador, por mês):
  *  - dias trabalhados = horas normais do ponto ÷ 8,8 (HORAS_POR_DIA).
- *  - em dias úteis alocados em viagem/projeto, a hora normal considerada no custo tem piso de
- *    8,8h (8h48); marcações maiores e fins de semana preservam o valor real do ponto.
+ *  - só há apropriação em projeto quando o mesmo dia tem RDO e alguma hora no ponto.
+ *  - em dias úteis apropriados, o total considerado (normal + HE) tem piso de 8,8h (8h48);
+ *    marcações maiores e fins de semana preservam o total real do ponto.
  *  - diasCliente (periculosidade) = dias COM projeto (RDO). Em projeto não-offshore, a configuração
  *    manual por colaborador define se o dia entra como diasFora (dorme fora) ou diasCasa (dorme em
  *    casa/gratificação). Dia com ponto e sem RDO não alimenta verbas variáveis.
@@ -38,11 +39,23 @@ function isWeekday(dateKey) {
   return day >= 1 && day <= 5;
 }
 
-function costNormalHoursForDay(dateKey, recordedNormalHours, hasProjectAllocation) {
+function costNormalHoursForDay(
+  dateKey,
+  recordedNormalHours,
+  recordedHe70Hours,
+  recordedHe100Hours,
+  hasProjectAllocation
+) {
   if (!hasProjectAllocation || !isWeekday(dateKey)) {
     return recordedNormalHours;
   }
-  return Math.max(HORAS_POR_DIA, recordedNormalHours);
+  const recordedOvertimeHours = recordedHe70Hours + recordedHe100Hours;
+  const recordedTotalHours = recordedNormalHours + recordedOvertimeHours;
+  if (recordedTotalHours <= 0) return 0;
+
+  // O piso substitui o total menor; ele não é somado às horas do ponto. Mantemos a HE real e
+  // completamos somente a parcela normal necessária para o total chegar a 8h48.
+  return Math.max(recordedNormalHours, HORAS_POR_DIA - recordedOvertimeHours);
 }
 
 function dateKeyUTC(value) {
@@ -821,52 +834,6 @@ function explicitMissionGroupDecision({
   };
 }
 
-function mobilizationTravelDecision({
-  projectIds,
-  missionGroupProjectsByProjectId,
-  allocationAxis
-}) {
-  const candidates = [...new Set(projectIds || [])].filter(Boolean).sort();
-  if (candidates.length === 0) return null;
-  if (candidates.length === 1) {
-    return {
-      allocations: [{ projectId: candidates[0], weight: 1, rdo: null }],
-      reason: 'MOBILIZATION_FUTURE_RDO'
-    };
-  }
-
-  const groups = candidates.map(projectId => missionGroupProjectsByProjectId.get(projectId));
-  const group = groups[0] || null;
-  const sameGroup = group && groups.every(item => item === group);
-  const members = missionGroupMembers(group);
-  if (sameGroup && members && candidates.every(projectId => members.has(projectId))) {
-    if (group.laborAllocationMode === 'CONSOLIDATE_PRIMARY' && group.primaryLaborProjectId) {
-      return {
-        allocations: [{ projectId: group.primaryLaborProjectId, weight: 1, rdo: null }],
-        reason: 'MOBILIZATION_CONSOLIDATE_PRIMARY'
-      };
-    }
-    if (group.laborAllocationMode === 'SHARED_EXECUTION') {
-      return {
-        allocations: candidates.map(projectId => ({
-          projectId,
-          weight: allocationAxis === 'ANALYTICAL' ? 1 : 1 / candidates.length,
-          rdo: null
-        })),
-        reason: allocationAxis === 'ANALYTICAL'
-          ? 'MOBILIZATION_SHARED_ANALYTICAL'
-          : 'MOBILIZATION_SHARED_ACCOUNTING'
-      };
-    }
-  }
-
-  return {
-    allocations: [],
-    candidateProjectIds: candidates,
-    reason: 'MOBILIZATION_RDO_AMBIGUOUS'
-  };
-}
-
 export function buildDailyProjectWeights({
   tags = [],
   rdoProjects = new Map(),
@@ -885,6 +852,23 @@ export function buildDailyProjectWeights({
     ...(Array.isArray(manualProjectIds) ? manualProjectIds : []),
     ...(manualProjectId ? [manualProjectId] : [])
   ].filter(Boolean))].sort();
+  const taggedProjectIds = [...new Set((tags || []).map(resolveTag).filter(Boolean))].sort();
+  // O RDO do próprio dia é a autorização para apropriar. As demais evidências ficam apenas como
+  // candidatas na auditoria, sem autorizar horas por conta própria.
+  if (rdoByProject.size === 0) {
+    return {
+      allocations: [],
+      candidateProjectIds: [...new Set([
+        ...selectedManualProjectIds,
+        ...taggedProjectIds,
+        ...(mobilizationProjectIds instanceof Set
+          ? [...mobilizationProjectIds]
+          : Array.isArray(mobilizationProjectIds) ? mobilizationProjectIds : []),
+        ...scheduleWindowProjectIds
+      ].filter(Boolean))].sort(),
+      reason: 'NO_RDO_EVIDENCE'
+    };
+  }
   if (selectedManualProjectIds.length > 0) {
     const selectedRdos = selectedManualProjectIds.map(projectId => rdoByProject.get(projectId)).filter(Boolean);
     const rdoTotal = selectedRdos.reduce((sum, item) => sum + Math.max(0, Number(item.hours) || 0), 0);
@@ -903,7 +887,6 @@ export function buildDailyProjectWeights({
       reason: selectedManualProjectIds.length === 1 ? 'MANUAL_OVERRIDE' : 'MANUAL_SHARED_OVERRIDE'
     };
   }
-  const taggedProjectIds = [...new Set((tags || []).map(resolveTag).filter(Boolean))].sort();
   const explicitGroupDecision = explicitMissionGroupDecision({
     taggedProjectIds,
     rdoByProject,
@@ -977,44 +960,9 @@ export function buildDailyProjectWeights({
       reason: 'SINGLE_RDO_FALLBACK'
     };
   }
-  let mobilizationDecision = null;
-  if (rdoByProject.size === 0 && (tags || []).some(isPontoTravelTag)) {
-    mobilizationDecision = mobilizationTravelDecision({
-      projectIds: mobilizationProjectIds instanceof Set
-        ? [...mobilizationProjectIds]
-        : mobilizationProjectIds,
-      missionGroupProjectsByProjectId,
-      allocationAxis
-    });
-    if (mobilizationDecision?.allocations.length) return mobilizationDecision;
-  }
-
-  /*
-   * Janela do cronograma — último recurso, depois de etiqueta, RDO e mobilização. Só chega aqui o
-   * dia sem etiqueta reconhecida e sem RDO nenhum: quando existe qualquer uma das duas evidências,
-   * a decisão já foi tomada acima e a janela não sobrepõe.
-   *
-   * Duas janelas cobrindo o mesmo dia viram pendência em vez de rateio: sem etiqueta e sem RDO não
-   * há como saber em qual das obras a pessoa estava, e chutar alocaria no projeto errado.
-   */
-  if (rdoByProject.size === 0 && scheduleWindowProjectIds.length > 0) {
-    if (scheduleWindowProjectIds.length === 1) {
-      return {
-        allocations: [{ projectId: scheduleWindowProjectIds[0], weight: 1, rdo: null }],
-        reason: 'SCHEDULE_WINDOW'
-      };
-    }
-    return {
-      allocations: [],
-      candidateProjectIds: [...scheduleWindowProjectIds],
-      reason: 'SCHEDULE_WINDOW_AMBIGUOUS'
-    };
-  }
-
-  if (mobilizationDecision) return mobilizationDecision;
   return {
     allocations: [],
-    reason: rdoByProject.size > 1 ? 'AMBIGUOUS_WITHOUT_TAGS' : 'NO_PROJECT_EVIDENCE'
+    reason: 'AMBIGUOUS_WITHOUT_TAGS'
   };
 }
 
@@ -1038,28 +986,32 @@ export function classifyProjectHours(
     const rdoProjects = dayProjects.get(row.date) || new Map();
     const mobilizationProjectIds = rdo?.mobilizationProjectsByDate?.get(row.date) || null;
     const manualProjectIds = manualProjectByDate.get(row.date) || null;
-    const decision = buildDailyProjectWeights({
-      tags: row.tags,
-      rdoProjects,
-      resolveTag,
-      manualProjectIds,
-      mobilizationProjectIds,
-      scheduleWindowProjectIds: scheduleWindowsForDay({
-        scheduleWindows: scheduleWindowContext?.windows,
-        eligibleByProject: scheduleWindowContext?.eligibleByProject,
-        collaboratorId: scheduleWindowContext?.collaboratorId,
-        dateKey: row.date
-      }),
-      missionGroupProjectsByProjectId,
-      allocationAxis
-    });
     const dayNormalHours = Math.max(0, Number(row.normalHours) || 0);
     const dayHe70Hours = Math.max(0, Number(row.he70Horas) || 0);
     const dayHe100Hours = Math.max(0, Number(row.he100Horas) || 0);
     const dayTotalHours = dayNormalHours + dayHe70Hours + dayHe100Hours;
+    const decision = dayTotalHours > 0
+      ? buildDailyProjectWeights({
+        tags: row.tags,
+        rdoProjects,
+        resolveTag,
+        manualProjectIds,
+        mobilizationProjectIds,
+        scheduleWindowProjectIds: scheduleWindowsForDay({
+          scheduleWindows: scheduleWindowContext?.windows,
+          eligibleByProject: scheduleWindowContext?.eligibleByProject,
+          collaboratorId: scheduleWindowContext?.collaboratorId,
+          dateKey: row.date
+        }),
+        missionGroupProjectsByProjectId,
+        allocationAxis
+      })
+      : { allocations: [], reason: 'NO_POINT_HOURS' };
     const dayCostNormalHours = costNormalHoursForDay(
       row.date,
       dayNormalHours,
+      dayHe70Hours,
+      dayHe100Hours,
       decision.allocations.length > 0
     );
     costNormalHours += dayCostNormalHours;
@@ -1615,7 +1567,7 @@ export async function computeCollaboratorRates(importId = null) {
       months: [] // detalhe por mês (para o filtro da aba Custo/hora)
     };
 
-    // A trilha também define se uma marcação zerada em dia útil deve receber o piso de projeto.
+    // A trilha também define se uma marcação positiva menor que 8h48 recebe o piso de projeto.
     // Ela fica fora do bloco de custo porque colaboradores sem perfil configurado ainda precisam
     // aparecer na auditoria e nas pendências.
     const trailDays = monthsOf(period).flatMap(mrec => splitOvertimeDays(
