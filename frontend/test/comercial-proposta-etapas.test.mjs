@@ -221,6 +221,14 @@ test('equipamentos do modelo são opções e a proposta exige uma seleção', ()
   const equipamentos = matriz.find(mod.ehLinhaDeEquipamentosDaFiltrovali);
 
   assert.ok(equipamentos, 'a matriz padrão não trouxe a linha de equipamentos');
+  assert.equal(
+    mod.ehLinhaDeEquipamentosDaFiltrovali({
+      owner: 'Filtrovali',
+      categoria: 'EQUIPAMENTOS E FERRAMENTAS'
+    }),
+    true,
+    'rascunhos antigos devem continuar reconhecendo a linha de equipamentos'
+  );
   assert.deepEqual(equipamentos.subitens, [], 'a proposta prometeu o catálogo inteiro');
   assert.ok(
     mod

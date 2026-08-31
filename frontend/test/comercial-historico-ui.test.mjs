@@ -8,6 +8,7 @@ import { createServer } from 'vite';
 
 let server;
 let historico;
+let historicoLevantamentos;
 
 test.before(async () => {
   server = await createServer({
@@ -18,6 +19,9 @@ test.before(async () => {
     appType: 'custom'
   });
   historico = await server.ssrLoadModule('/src/pages/comercial/historico/HistoricoTabela.tsx');
+  historicoLevantamentos = await server.ssrLoadModule(
+    '/src/pages/comercial/historico/HistoricoLevantamentosTabela.tsx'
+  );
 });
 
 test.after(async () => {
@@ -85,4 +89,31 @@ test('viewer não recebe coluna de valor nem link para o documento comercial', (
   assert.doesNotMatch(html, /R\$\s*10\.000,00/);
   assert.doesNotMatch(html, /Baixar comercial/);
   assert.match(html, /Baixar técnica/);
+});
+
+test('o histórico mostra levantamento salvo e permite reabri-lo', () => {
+  const levantamento = {
+    id: 'c1',
+    proposalCode: '4418',
+    revisionNumber: 0,
+    title: 'Flushing da unidade',
+    mode: 'NOVA',
+    status: 'SALVO',
+    totalCost: '8500.00',
+    salePrice: '10000.00',
+    marginPercent: '15.00',
+    updatedAt: '2026-08-31T15:00:00.000Z'
+  };
+  const html = renderToStaticMarkup(
+    createElement(historicoLevantamentos.HistoricoLevantamentosTabela, {
+      levantamentos: [levantamento],
+      onAbrir: () => {}
+    })
+  );
+
+  assert.match(html, /4418/);
+  assert.match(html, /Flushing da unidade/);
+  assert.match(html, /Salvo/);
+  assert.match(html, /R\$\s*10\.000,00/);
+  assert.match(html, /Abrir levantamento/);
 });

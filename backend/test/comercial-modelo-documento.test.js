@@ -127,7 +127,7 @@ test('toda linha da matriz tem responsável, categoria e escopo', () => {
 
 test('o catálogo de equipamentos é a origem da lista do modelo padrão', () => {
   const linha = MATRIZ_PADRAO.find(
-    item => item.categoria === 'EQUIPAMENTOS E FERRAMENTAS'
+    item => item.categoria === 'EQUIPAMENTOS E MATERIAIS'
   );
 
   assert.ok(linha, 'o modelo padrão não tem linha de equipamentos');
@@ -166,6 +166,40 @@ test('a matriz tem os dois lados, e a categoria agrupa em blocos contíguos', ()
         vistas.add(linha.categoria);
         anterior = linha.categoria;
       }
+    }
+  }
+});
+
+test('a matriz dos modelos segue a ordem contratual dos dois responsáveis', () => {
+  const esperada = {
+    Filtrovali: [
+      'MÃO DE OBRA E EQUIPE TÉCNICA',
+      'EQUIPAMENTOS E MATERIAIS',
+      'CONSUMÍVEIS E UTILIDADES',
+      'LOGÍSTICA',
+      'SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE',
+      'MEIO AMBIENTE'
+    ],
+    Contratante: [
+      'MÃO DE OBRA E EQUIPE TÉCNICA',
+      'EQUIPAMENTOS E MATERIAIS',
+      'CONSUMÍVEIS E UTILIDADES',
+      'LOGÍSTICA',
+      'SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE',
+      'ACESSIBILIDADE E APOIO DE CAMPO',
+      'MEIO AMBIENTE'
+    ]
+  };
+
+  for (const modeloAtual of ['padrao', 'hidrojateamento']) {
+    const matriz = matrizDoModelo(modeloAtual);
+    for (const responsavel of ['Filtrovali', 'Contratante']) {
+      const categorias = [...new Set(
+        matriz
+          .filter(linha => linha.responsavel === responsavel)
+          .map(linha => linha.categoria)
+      )];
+      assert.deepEqual(categorias, esperada[responsavel], `${modeloAtual}/${responsavel}`);
     }
   }
 });

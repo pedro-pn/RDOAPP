@@ -48,6 +48,13 @@ export function transporteDispensado(
   item: AnyRecord,
   confirmacoes: AnyRecord = {}
 ): boolean {
+  if (
+    confirmacoes.combinedCrewAndEquipmentTransport === true &&
+    item.requiredSlot === true &&
+    item.slotType === 'equipment'
+  ) {
+    return true;
+  }
   if (!item.requiredSlot || item.slotType !== 'crew') return false;
   if (confirmacoes.noLabor === true) return true;
   // Modo de cálculo confirmado vence a dispensa: quem escolheu como calcular
@@ -406,6 +413,7 @@ export function faltaLogistica(draft: AnyRecord, result: AnyRecord = {}): boolea
           item =>
             item.destinationId === destino.id &&
             item.included !== false &&
+            !transporteDispensado(item, confirmacoes) &&
             (item.requiredSlot ||
               item.calculationMode === 'company_crew_vehicle' ||
               item.calculationMode === 'company_truck_driver')

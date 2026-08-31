@@ -7,6 +7,10 @@ import {
   buildTechnicalReportsText,
   type TechnicalServiceSelection
 } from '../../../../../shared/comercial/dist/technical-services.js';
+import {
+  categoriaCanonicaResponsabilidade,
+  ordenarLinhasDeResponsabilidade
+} from '../../../../../shared/comercial/dist/modelo-documento.js';
 
 /**
  * Onde cada página do documento quebra (tarefa T065).
@@ -244,8 +248,9 @@ export function folhasDaMatriz(linhas: LinhaCrua[]): FolhaDaMatriz[] {
   const folhas: FolhaDaMatriz[] = [];
 
   for (const responsavel of ['Filtrovali', 'Contratante'] as const) {
-    const doLado = linhas.filter(
-      linha => linha.owner === responsavel && linha.item.trim()
+    const doLado = ordenarLinhasDeResponsabilidade(
+      linhas.filter(linha => linha.owner === responsavel && linha.item.trim()),
+      responsavel
     );
     if (!doLado.length) continue;
 
@@ -269,7 +274,10 @@ export function folhasDaMatriz(linhas: LinhaCrua[]): FolhaDaMatriz[] {
     };
 
     for (const linha of doLado) {
-      const categoria = (linha.categoria || '').trim();
+      const categoria = categoriaCanonicaResponsabilidade(
+        linha.categoria || '',
+        responsavel
+      );
       const altura = alturaDaLinhaDaMatriz(linha);
       const abreCategoria = categoria && categoria !== categoriaAberta;
       const custo = altura + (abreCategoria ? 1 : 0);

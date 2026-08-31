@@ -103,6 +103,23 @@ test('"sem mão de obra" dispensa o transporte de equipe', () => {
   assert.equal(transporteDispensado(item, { noLabor: true }), true);
 });
 
+test('mobilização conjunta dispensa o segundo card obrigatório de equipamentos', () => {
+  const equipamento = {
+    requiredSlot: true,
+    slotType: 'equipment',
+    direction: 'mobilization',
+    included: true
+  };
+  assert.equal(
+    transporteDispensado(equipamento, { combinedCrewAndEquipmentTransport: true }),
+    true
+  );
+  assert.equal(
+    transporteDispensado(equipamento, { combinedCrewAndEquipmentTransport: false }),
+    false
+  );
+});
+
 test('"equipe já na obra" dispensa a mobilização, e só ela', () => {
   const ida = { requiredSlot: true, slotType: 'crew', direction: 'mobilization' };
   const volta = { requiredSlot: true, slotType: 'crew', direction: 'demobilization' };

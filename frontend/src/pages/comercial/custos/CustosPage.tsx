@@ -363,7 +363,7 @@ export function CustosPage() {
    * para a primeira seção atingida — na ordem da tela, não na ordem em que o servidor
    * validou. O app já sabe o caminho; o que faltava era dizer.
    */
-  async function salvar() {
+  async function salvar(criarPropostaDepois: boolean) {
     if (salvando) return;
     if (levantamentoAtualId && !versaoDoRascunho) {
       setRecado('Aguarde o rascunho terminar de carregar antes de salvar.');
@@ -392,13 +392,26 @@ export function CustosPage() {
       rascunho.limparTudo();
       setMostrarConfirmacao(false);
       setSalvo(gravado.id);
-      setRecado('');
-      navigate(
-        `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}` +
-          `&proposta=${encodeURIComponent(gravado.proposalCode)}` +
-          `&modo=${modo === 'revision' ? 'revision' : 'new'}` +
-          `&revisao=${gravado.revisionNumber}&etapa=cliente&usarLevantamento=1`
-      );
+      setVersaoDoRascunho(gravado.updatedAt || '');
+
+      if (criarPropostaDepois) {
+        setRecado('');
+        navigate(
+          `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}` +
+            `&proposta=${encodeURIComponent(gravado.proposalCode)}` +
+            `&modo=${modo === 'revision' ? 'revision' : 'new'}` +
+            `&revisao=${gravado.revisionNumber}&etapa=cliente&usarLevantamento=1`
+        );
+        return;
+      }
+
+      if (!levantamentoAtualId) {
+        const proximos = new URLSearchParams(params);
+        proximos.set('id', gravado.id);
+        setParams(proximos, { replace: true });
+        atualCarregado.current = gravado.id;
+      }
+      setRecado('Levantamento salvo e disponível no histórico comercial.');
     } catch (error) {
       setMostrarConfirmacao(false);
 
@@ -419,6 +432,36 @@ export function CustosPage() {
     } finally {
       setSalvando(false);
     }
+  }
+
+  /** Valida a conclusão mantendo os rótulos finais estáveis no resumo. */
+  function concluirLevantamento(criarPropostaDepois: boolean) {
+    setTentouAvancar(true);
+    revelarErros();
+
+    if (acao.kind === 'goto') {
+      void persistirRascunho().then(idPersistido => {
+        if (idPersistido) trocarSecao(acao.target, true, idPersistido);
+      });
+      return;
+    }
+
+    if (saveBlockedByContent(guardas)) {
+      const semTitulo = !String(draft.title || '').trim();
+      setRecado(
+        semTitulo
+          ? 'Informe o nome do levantamento antes de concluir.'
+          : 'Revise a formação do preço no resumo antes de concluir o levantamento.'
+      );
+      trocarSecao(semTitulo ? 'premises' : 'summary', true);
+      return;
+    }
+
+    if (criarPropostaDepois) {
+      setMostrarConfirmacao(true);
+      return;
+    }
+    void salvar(false);
   }
 
   return (
@@ -533,7 +576,7 @@ export function CustosPage() {
               </p>
 
               <div className="com-modo-opcoes com-modo-tres">
-                <button type="button" disabled={salvando} onClick={salvar}>
+                <button type="button" disabled={salvando} onClick={() => void salvar(true)}>
                   <MarcaDeOpcao tipo="ok" />
                   <strong>{salvando ? 'Salvando...' : `Confirmar ${codigo}`}</strong>
                   <span>
@@ -661,51 +704,50 @@ export function CustosPage() {
               </div>
 
               <div className="com-rodape-acoes">
-                <button
-                  type="button"
-                  className="com-btn com-btn-fantasma"
-                  disabled={salvando || salvandoRascunho || salvo !== null}
-                  onClick={() => void persistirRascunho()}
-                >
-                  {salvandoRascunho ? 'Salvando rascunho...' : 'Salvar rascunho'}
-                </button>
+                {secao === 'summary' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="com-btn com-btn-fantasma"
+                      disabled={salvando || salvandoRascunho || salvo !== null}
+                      onClick={() => concluirLevantamento(false)}
+                    >
+                      {salvando ? 'Salvando...' : salvo ? 'Levantamento salvo' : 'Salvar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="com-btn com-btn-primario"
+                      disabled={salvando || salvandoRascunho || salvo !== null}
+                      onClick={() => concluirLevantamento(true)}
+                    >
+                      {salvando
+                        ? 'Salvando...'
+                        : salvo
+                          ? 'Levantamento salvo'
+                          : 'Salvar e criar proposta →'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="com-btn com-btn-fantasma"
+                      disabled={salvando || salvandoRascunho || salvo !== null}
+                      onClick={() => void persistirRascunho()}
+                    >
+                      {salvandoRascunho ? 'Salvando rascunho...' : 'Salvar rascunho'}
+                    </button>
 
-                <button
-                  type="button"
-                  className="com-btn com-btn-primario"
-                  /* Salvo uma vez, não salva de novo: um segundo POST criaria um
-                     segundo levantamento com o MESMO código de proposta. Reabrir
-                     para editar é `PUT`, e depende da tela de listagem. */
-                  disabled={acao.disabled || salvo !== null || salvandoRascunho}
-                  onClick={() => {
-                    // Tentar avançar é o gatilho: daqui em diante os campos
-                    // obrigatórios que faltam ficam marcados, e passam a acender
-                    // e apagar ao vivo enquanto o usuário corrige.
-                    setTentouAvancar(true);
-                    revelarErros();
-                    if (acao.kind === 'goto') {
-                      void persistirRascunho().then(idPersistido => {
-                        if (idPersistido) trocarSecao(acao.target, true, idPersistido);
-                      });
-                      return;
-                    }
-
-                    if (saveBlockedByContent(guardas)) {
-                      const semTitulo = !String(draft.title || '').trim();
-                      setRecado(
-                        semTitulo
-                          ? 'Informe o nome do levantamento antes de concluir.'
-                          : 'Revise a formação do preço no resumo antes de criar a proposta.'
-                      );
-                      trocarSecao(semTitulo ? 'premises' : 'summary', true);
-                      return;
-                    }
-
-                    setMostrarConfirmacao(true);
-                  }}
-                >
-                  {salvo ? 'Levantamento salvo' : acao.label}
-                </button>
+                    <button
+                      type="button"
+                      className="com-btn com-btn-primario"
+                      disabled={acao.disabled || salvo !== null || salvandoRascunho}
+                      onClick={() => concluirLevantamento(true)}
+                    >
+                      {salvo ? 'Levantamento salvo' : acao.label}
+                    </button>
+                  </>
+                )}
               </div>
             </footer>
           </>

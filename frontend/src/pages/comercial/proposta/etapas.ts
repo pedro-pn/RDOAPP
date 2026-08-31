@@ -13,6 +13,7 @@
  */
 
 import {
+  categoriaCanonicaResponsabilidade,
   EQUIPAMENTOS_E_FERRAMENTAS_PADRAO,
   matrizDoModelo,
   type LocalOperacao,
@@ -186,10 +187,11 @@ export function ehLinhaDeEquipamentosDaFiltrovali(linha: {
   categoria?: string;
   owner?: string;
 }): boolean {
-  return (
-    linha.owner === 'Filtrovali' &&
-    normalizarCategoria(linha.categoria || '') === 'EQUIPAMENTOS E FERRAMENTAS'
-  );
+  if (linha.owner !== 'Filtrovali') return false;
+  return categoriaCanonicaResponsabilidade(
+    linha.categoria || '',
+    'Filtrovali'
+  ) === 'EQUIPAMENTOS E MATERIAIS';
 }
 
 /** "N/A" é resposta legítima: há obrigação que não cabe a ninguém no contrato e
@@ -199,14 +201,12 @@ export const RESPONSAVEIS = ['Filtrovali', 'Contratante', 'N/A'];
 /** As categorias que os documentos usam, na ordem em que costumam aparecer. */
 export const CATEGORIAS_RESPONSABILIDADE = [
   'MÃO DE OBRA E EQUIPE TÉCNICA',
-  'EQUIPAMENTOS E FERRAMENTAS',
-  'EQUIPAMENTOS E ACESSÓRIOS',
-  'MATERIAIS E CONSUMÍVEIS E UTILIDADES',
+  'EQUIPAMENTOS E MATERIAIS',
+  'CONSUMÍVEIS E UTILIDADES',
   'LOGÍSTICA',
-  'UTILIDADES',
-  'ACESSIBILIDADE E APOIO DE CAMPO',
   'SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE',
   'SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE',
+  'ACESSIBILIDADE E APOIO DE CAMPO',
   'MEIO AMBIENTE'
 ];
 

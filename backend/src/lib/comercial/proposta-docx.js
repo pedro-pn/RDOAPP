@@ -7,7 +7,9 @@ import AdmZip from 'adm-zip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 import {
+  categoriaCanonicaResponsabilidade,
   descricaoComAberturaTecnica,
+  ordenarLinhasDeResponsabilidade,
   tabelasDePrecoDoModelo,
   textoJornada
 } from '../../../../shared/comercial/dist/modelo-documento.js';
@@ -203,9 +205,13 @@ function registrosDaMatriz(linhas, sufixo) {
   const categorias = [];
   const itens = [];
   let aberta = null;
+  const responsavel = sufixo === 'filtrovali' ? 'Filtrovali' : 'Contratante';
 
-  for (const linha of linhas) {
-    const categoria = String(linha.categoria || '').trim();
+  for (const linha of ordenarLinhasDeResponsabilidade(linhas, responsavel)) {
+    const categoria = categoriaCanonicaResponsabilidade(
+      String(linha.categoria || ''),
+      responsavel
+    );
     if (categoria && categoria !== aberta) {
       categorias.push({
         [`categoria_${sufixo}`]: categoria,

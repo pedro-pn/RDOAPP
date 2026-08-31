@@ -81,6 +81,37 @@ test('o levantamento novo não assume Pré-engenharia como fase', () => {
   assert.equal(destinoInicial.laborContextId, undefined);
 });
 
+test('mobilização conjunta cobra uma composição por sentido', () => {
+  const payload = motor.createDefaultCostEstimatePayload();
+  payload.scopeConfirmations.noInputs = true;
+  payload.scopeConfirmations.combinedCrewAndEquipmentTransport = true;
+  payload.logisticsDestinations[0].oneWayDistanceKm = 100;
+
+  for (const item of payload.logistics) {
+    item.calculationMode = 'legacy';
+    item.calculationModeConfirmed = true;
+    item.returnSetup = 'custom';
+    item.autoSyncedFromMobilization = false;
+    item.unitCost = item.slotType === 'equipment' ? 1000 : 100;
+  }
+
+  const resultado = motor.calculateEstimate(payload);
+  assert.deepEqual(
+    resultado.logisticsResults.map(item => item.slotType),
+    ['crew', 'crew']
+  );
+  assert.equal(resultado.mobilizationCost, 100);
+  assert.equal(resultado.demobilizationCost, 100);
+
+  const indicesDeEquipamento = payload.logistics
+    .map((item, indice) => item.slotType === 'equipment' ? indice : -1)
+    .filter(indice => indice >= 0);
+  const errosDeEquipamento = motor.validateCostEstimate(payload).errors.filter(issue =>
+    indicesDeEquipamento.some(indice => issue.path.startsWith(`logistics[${indice}]`))
+  );
+  assert.deepEqual(errosDeEquipamento, []);
+});
+
 test('mudar a margem muda o preço, sem tocar no custo', () => {
   // É o comportamento que justifica o editor de margem viver na faixa: o
   // orçamentista ajusta e vê o preço mexer na hora.

@@ -95,7 +95,7 @@ const DADOS = {
       note: 'Nota de débito'
     },
     {
-      categoria: 'UTILIDADES',
+      categoria: 'CONSUMÍVEIS E UTILIDADES',
       owner: 'Contratante',
       item: 'Fornecimento de água limpa.',
       note: ''
@@ -454,6 +454,51 @@ test('a matriz do contratante é independente da da Filtrovali', async () => {
   assert.equal(linhasDaTabelaCom(xml, 'Fornecimento de água limpa.'), 3);
 });
 
+test('o DOCX ordena as categorias por responsável, mesmo com linhas embaralhadas', async () => {
+  const categorias = {
+    Filtrovali: [
+      'MÃO DE OBRA E EQUIPE TÉCNICA',
+      'EQUIPAMENTOS E MATERIAIS',
+      'CONSUMÍVEIS E UTILIDADES',
+      'LOGÍSTICA',
+      'SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE',
+      'MEIO AMBIENTE'
+    ],
+    Contratante: [
+      'MÃO DE OBRA E EQUIPE TÉCNICA',
+      'EQUIPAMENTOS E MATERIAIS',
+      'CONSUMÍVEIS E UTILIDADES',
+      'LOGÍSTICA',
+      'SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE',
+      'ACESSIBILIDADE E APOIO DE CAMPO',
+      'MEIO AMBIENTE'
+    ]
+  };
+  const rows = Object.entries(categorias).flatMap(([owner, lista]) =>
+    [...lista].reverse().map((categoria, indice) => ({
+      categoria,
+      owner,
+      item: `${owner}-${indice}`,
+      note: ''
+    }))
+  );
+  const { xml } = textoDoDocx(await preencherProposta({ ...DADOS, rows }, 'commercial'));
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const tabelas = Array.from(doc.getElementsByTagName('w:tbl'));
+  const textoDe = no => Array.from(no.getElementsByTagName('w:t'))
+    .map(item => item.textContent || '')
+    .join(' ');
+
+  for (const [owner, lista] of Object.entries(categorias)) {
+    const tabela = tabelas.find(item => textoDe(item).includes(`${owner}-0`));
+    assert.ok(tabela, `tabela de ${owner} não encontrada`);
+    const texto = textoDe(tabela);
+    const posicoes = lista.map(categoria => texto.indexOf(categoria));
+    assert.ok(posicoes.every(posicao => posicao >= 0), `${owner}: faltou categoria`);
+    assert.deepEqual(posicoes, [...posicoes].sort((a, b) => a - b), `${owner}: ordem divergente`);
+  }
+});
+
 test('a tabela de preços recebe uma linha por item e o total somado', async () => {
   const { xml, texto } = textoDoDocx(await preencherProposta(DADOS, 'commercial'));
 
@@ -502,7 +547,7 @@ test('o capítulo 3 imprime somente os equipamentos escolhidos na proposta', asy
     rows: [
       ...DADOS.rows,
       {
-        categoria: 'EQUIPAMENTOS E FERRAMENTAS',
+        categoria: 'EQUIPAMENTOS E MATERIAIS',
         owner: 'Filtrovali',
         item: 'Fornecimento de equipamentos necessários à execução, incluindo:',
         note: '',

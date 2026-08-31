@@ -82,23 +82,87 @@ export const INDICE_TECNICO: readonly string[] = [
  * tipo `Row` da referência não as tem, e o `renderResponsibilityGroup` desenha
  * uma tabela plana — é o que a T071b corrige.
  *
- * A ordem aqui é a ordem de impressão. Não é alfabética nem igual entre os dois
- * lados da matriz: no lado Filtrovali a logística vem depois dos materiais, e no
- * lado Contratante ela vem primeiro. É assim no documento.
+ * A ordem de impressão é contratual e fica centralizada abaixo. Assim a prévia,
+ * o formulário e o DOCX não dependem da ordem em que as linhas foram editadas.
  */
 export type CategoriaResponsabilidade =
   | "MÃO DE OBRA E EQUIPE TÉCNICA"
-  | "EQUIPAMENTOS E FERRAMENTAS"
-  | "EQUIPAMENTOS E ACESSÓRIOS"
-  | "MATERIAIS E CONSUMÍVEIS E UTILIDADES"
+  | "EQUIPAMENTOS E MATERIAIS"
+  | "CONSUMÍVEIS E UTILIDADES"
   | "LOGÍSTICA"
   | "SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE"
   | "SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE"
-  | "UTILIDADES"
   | "ACESSIBILIDADE E APOIO DE CAMPO"
   | "MEIO AMBIENTE";
 
 export type ResponsavelMatriz = "Filtrovali" | "Contratante";
+
+export const ORDEM_CATEGORIAS_RESPONSABILIDADE = {
+  Filtrovali: [
+    "MÃO DE OBRA E EQUIPE TÉCNICA",
+    "EQUIPAMENTOS E MATERIAIS",
+    "CONSUMÍVEIS E UTILIDADES",
+    "LOGÍSTICA",
+    "SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE",
+    "MEIO AMBIENTE",
+  ],
+  Contratante: [
+    "MÃO DE OBRA E EQUIPE TÉCNICA",
+    "EQUIPAMENTOS E MATERIAIS",
+    "CONSUMÍVEIS E UTILIDADES",
+    "LOGÍSTICA",
+    "SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE",
+    "ACESSIBILIDADE E APOIO DE CAMPO",
+    "MEIO AMBIENTE",
+  ],
+} as const satisfies Record<ResponsavelMatriz, readonly CategoriaResponsabilidade[]>;
+
+/**
+ * Converte as categorias dos rascunhos anteriores para os nomes atuais. Isso
+ * mantém propostas já iniciadas na mesma ordem e impede que o DOCX volte a
+ * imprimir os títulos antigos depois da padronização.
+ */
+export function categoriaCanonicaResponsabilidade(
+  valor: string,
+  responsavel: ResponsavelMatriz,
+): string {
+  const categoria = String(valor || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("pt-BR");
+  if ([
+    "EQUIPAMENTOS E FERRAMENTAS",
+    "EQUIPAMENTOS E ACESSÓRIOS",
+  ].includes(categoria)) return "EQUIPAMENTOS E MATERIAIS";
+  if ([
+    "MATERIAIS E CONSUMÍVEIS E UTILIDADES",
+    "UTILIDADES",
+  ].includes(categoria)) return "CONSUMÍVEIS E UTILIDADES";
+  if (categoria === "SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE"
+    || categoria === "SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE") {
+    return responsavel === "Filtrovali"
+      ? "SEGURANÇA, DOCUMENTAÇÃO E FORMALIDADE"
+      : "SEGURANÇA, DOCUMENTAÇÃO E CONFORMIDADE";
+  }
+  return categoria;
+}
+
+/** Ordena de forma estável; categorias personalizadas vêm depois das oficiais. */
+export function ordenarLinhasDeResponsabilidade<T extends { categoria?: string }>(
+  linhas: readonly T[],
+  responsavel: ResponsavelMatriz,
+): T[] {
+  const ordem = new Map<string, number>(
+    ORDEM_CATEGORIAS_RESPONSABILIDADE[responsavel].map((categoria, indice) => [categoria, indice]),
+  );
+  return linhas
+    .map((linha, indice) => ({ linha, indice }))
+    .sort((a, b) => {
+      const categoriaA = categoriaCanonicaResponsabilidade(a.linha.categoria || "", responsavel);
+      const categoriaB = categoriaCanonicaResponsabilidade(b.linha.categoria || "", responsavel);
+      const posicaoA = ordem.get(categoriaA) ?? Number.MAX_SAFE_INTEGER;
+      const posicaoB = ordem.get(categoriaB) ?? Number.MAX_SAFE_INTEGER;
+      return posicaoA - posicaoB || a.indice - b.indice;
+    })
+    .map(({ linha }) => linha);
+}
 
 export type LinhaResponsabilidade = {
   categoria: CategoriaResponsabilidade;
@@ -113,7 +177,7 @@ export type LinhaResponsabilidade = {
 const NOTA_DEBITO = "Será apresentado nota de débito";
 
 /**
- * Catálogo da linha "EQUIPAMENTOS E FERRAMENTAS" do modelo padrão.
+ * Catálogo da linha "EQUIPAMENTOS E MATERIAIS" do modelo padrão.
  *
  * Ele deixou de ser uma promessa fixa do documento: na criação da proposta o
  * vendedor escolhe quais itens realmente serão mobilizados. O catálogo segue
@@ -145,14 +209,14 @@ export const MATRIZ_PADRAO: readonly LinhaResponsabilidade[] = [
     nota: "",
   },
   {
-    categoria: "EQUIPAMENTOS E FERRAMENTAS",
+    categoria: "EQUIPAMENTOS E MATERIAIS",
     responsavel: "Filtrovali",
     item: "Fornecimento de equipamentos necessários à execução, incluindo:",
     nota: "",
     subitens: EQUIPAMENTOS_E_FERRAMENTAS_PADRAO,
   },
   {
-    categoria: "MATERIAIS E CONSUMÍVEIS E UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Filtrovali",
     item: "Fornecimento de todos os insumos operacionais, incluindo filtros, produtos químicos, manômetros, mangueiras e demais consumíveis necessários à execução dos serviços;",
     nota: "",
@@ -211,6 +275,12 @@ export const MATRIZ_PADRAO: readonly LinhaResponsabilidade[] = [
     item: "Disponibilização de seguro de vida e plano de saúde com cobertura nacional para toda a equipe envolvida.",
     nota: "",
   },
+  {
+    categoria: "MEIO AMBIENTE",
+    responsavel: "Filtrovali",
+    item: "Segregação e acondicionamento temporário dos resíduos gerados durante a execução dos serviços, até sua entrega à Contratante para destinação final adequada.",
+    nota: "",
+  },
 
   {
     categoria: "LOGÍSTICA",
@@ -249,61 +319,61 @@ export const MATRIZ_PADRAO: readonly LinhaResponsabilidade[] = [
     nota: "",
   },
   {
-    categoria: "EQUIPAMENTOS E FERRAMENTAS",
+    categoria: "EQUIPAMENTOS E MATERIAIS",
     responsavel: "Contratante",
     item: "Fornecimento de materiais para montagem dos provisórios, incluindo pedaços de tubos, flanges, juntas, parafusos, porcas e válvulas;",
     nota: "",
   },
   {
-    categoria: "EQUIPAMENTOS E FERRAMENTAS",
+    categoria: "EQUIPAMENTOS E MATERIAIS",
     responsavel: "Contratante",
     item: "Disponibilização de bacias de contenção em obra para reservatórios, equipamentos e/ou materiais, quando necessário;",
     nota: "Os equipamentos possuem contenções para pequenos vazamentos",
   },
   {
-    categoria: "EQUIPAMENTOS E FERRAMENTAS",
+    categoria: "EQUIPAMENTOS E MATERIAIS",
     responsavel: "Contratante",
     item: "Disponibilização de extensões elétricas para alimentação dos equipamentos, quando necessário;",
     nota: "Os equipamentos possuem cabos com aproximadamente 20 metros",
   },
   {
-    categoria: "EQUIPAMENTOS E FERRAMENTAS",
+    categoria: "EQUIPAMENTOS E MATERIAIS",
     responsavel: "Contratante",
     item: "Disponibilização de sala e/ou contêiner próximo à frente de trabalho, com estrutura mínima para utilização como escritório/laboratório de apoio às análises e elaboração documental;",
     nota: "",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Fornecimento de água limpa, visualmente translúcida, em volume suficiente para execução dos serviços;",
     nota: "",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Fornecimento de todo o óleo necessário à execução do flushing primário, isento de água e em condições adequadas de uso;",
     nota: "O volume de óleo terá que preencher a tubulação e o reservatório da unidade hidráulica até o nível seguro para operação",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Disponibilização de iluminação adequada para execução de atividades em período noturno, quando aplicável;",
     nota: "",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Disponibilização de energia elétrica compatível com os equipamentos a serem utilizados, sendo 220V monofásico e 380V trifásico, com capacidade mínima de 110 amperes;",
     nota: "",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Fornecimento de ar comprimido limpo e seco em quantidade suficiente para execução dos serviços;",
     nota: "",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Fornecimento de diesel para equipamentos Filtrovali;",
     nota: "",
@@ -547,10 +617,16 @@ export const MATRIZ_HIDROJATEAMENTO: readonly LinhaResponsabilidade[] = [
     nota: "",
   },
   {
-    categoria: "EQUIPAMENTOS E ACESSÓRIOS",
+    categoria: "EQUIPAMENTOS E MATERIAIS",
     responsavel: "Filtrovali",
     item: "Fornecimento de equipamentos necessários à execução, incluindo 1 hidrojato 20k/40k:",
     nota: NOTA_PRESSAO_HIDROJATEAMENTO,
+  },
+  {
+    categoria: "CONSUMÍVEIS E UTILIDADES",
+    responsavel: "Filtrovali",
+    item: "Fornecimento dos consumíveis necessários à execução dos serviços de hidrojateamento;",
+    nota: "",
   },
   {
     categoria: "LOGÍSTICA",
@@ -609,6 +685,12 @@ export const MATRIZ_HIDROJATEAMENTO: readonly LinhaResponsabilidade[] = [
     item: "Disponibilização de seguro de vida e plano de saúde com cobertura nacional para toda a equipe envolvida.",
     nota: "",
   },
+  {
+    categoria: "MEIO AMBIENTE",
+    responsavel: "Filtrovali",
+    item: "Segregação e acondicionamento temporário dos resíduos gerados durante a execução dos serviços, até sua entrega à Contratante para destinação final adequada.",
+    nota: "",
+  },
 
   {
     categoria: "LOGÍSTICA",
@@ -635,31 +717,31 @@ export const MATRIZ_HIDROJATEAMENTO: readonly LinhaResponsabilidade[] = [
     nota: "",
   },
   {
-    categoria: "EQUIPAMENTOS E FERRAMENTAS",
+    categoria: "EQUIPAMENTOS E MATERIAIS",
     responsavel: "Contratante",
     item: "Disponibilização de sala e/ou contêiner próximo à frente de trabalho, com estrutura mínima para utilização como escritório/laboratório de apoio às análises e elaboração documental;",
     nota: "",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Fornecimento de água limpa filtrada ou desmineralizada, visualmente translúcida, em volume suficiente para execução dos serviços;",
     nota: "26 l/m com 40k; 76 l/m com 20k",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Disponibilização de iluminação adequada para execução de atividades em período noturno, quando aplicável;",
     nota: "",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Disponibilização de energia elétrica compatível com os equipamentos a serem utilizados, sendo 220V monofásico e 380V trifásico, com capacidade mínima de 110 amperes;",
     nota: "Para equipamentos de apoio",
   },
   {
-    categoria: "UTILIDADES",
+    categoria: "CONSUMÍVEIS E UTILIDADES",
     responsavel: "Contratante",
     item: "Fornecimento de diesel para bomba de hidrojato Filtrovali. Poderá ser fornecido pela Contratante e pago pela Filtrovali, ou descontado do contrato;",
     nota: "Se as condições previstas não forem aceitas de forma alguma durante a negociação, a Contratante deverá fornecer as regras de meio ambiente e abastecimento para a Contratada avaliar os termos.",
@@ -703,7 +785,12 @@ export const MATRIZ_HIDROJATEAMENTO: readonly LinhaResponsabilidade[] = [
 ];
 
 export function matrizDoModelo(modelo: ModeloProposta): readonly LinhaResponsabilidade[] {
-  return modelo === "hidrojateamento" ? MATRIZ_HIDROJATEAMENTO : MATRIZ_PADRAO;
+  const matriz = modelo === "hidrojateamento" ? MATRIZ_HIDROJATEAMENTO : MATRIZ_PADRAO;
+  return (["Filtrovali", "Contratante"] as const).flatMap((responsavel) =>
+    ordenarLinhasDeResponsabilidade(
+      matriz.filter((linha) => linha.responsavel === responsavel),
+      responsavel,
+    ));
 }
 
 // ---------------------------------------------------------------------------

@@ -1105,6 +1105,47 @@
   font: inherit;
 }
 
+.com-root .com-history-sections {
+  display: grid;
+  gap: 28px;
+}
+
+.com-root .com-history-section {
+  min-width: 0;
+}
+
+.com-root .com-history-section-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.com-root .com-history-section-title h2 {
+  margin: 0;
+  color: var(--com-marca-forte);
+  font-size: 18px;
+}
+
+.com-root .com-history-section-title p {
+  margin: 3px 0 0;
+  color: var(--com-texto-fraco);
+  font-size: 11px;
+}
+
+.com-root .com-history-section-title > strong {
+  display: grid;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  font-size: 12px;
+}
+
 .com-root .com-history-table-wrap {
   max-width: 100%;
   overflow-x: auto;
@@ -1142,6 +1183,11 @@
 .com-root .com-history-table td:nth-child(2) { min-width: 230px; }
 .com-root .com-history-table td:nth-child(3) { min-width: 190px; }
 .com-root .com-history-table td:nth-child(5) { min-width: 250px; }
+
+.com-root .com-history-cost-table td:nth-child(2) { min-width: 210px; }
+.com-root .com-history-cost-table td:nth-child(3) { min-width: 245px; }
+.com-root .com-history-cost-table td:nth-child(4) { min-width: 135px; }
+.com-root .com-history-cost-table td:nth-child(5) { min-width: 150px; }
 
 .com-root .com-history-table :where(strong, span, small) { display: block; }
 
@@ -1218,6 +1264,8 @@
   border-radius: var(--com-raio);
   color: var(--com-texto-fraco);
 }
+
+.com-root .com-history-empty-compact { padding: 24px; }
 
 @media (max-width: 700px) {
   .com-root .com-history-topbar { padding: 10px 18px; flex-wrap: wrap; }
@@ -1936,6 +1984,41 @@
 }
 
 /* --- Itens de logística --------------------------------------------------- */
+
+.com-root .com-logistica-conjunta {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio-sm);
+  background: var(--com-fundo-suave);
+  cursor: pointer;
+}
+
+.com-root .com-logistica-conjunta input {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: var(--com-acao);
+}
+
+.com-root .com-logistica-conjunta span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.com-root .com-logistica-conjunta strong {
+  color: var(--com-marca-forte);
+  font-size: 12px;
+}
+
+.com-root .com-logistica-conjunta small {
+  color: var(--com-texto-fraco);
+  line-height: 1.45;
+}
 
 .com-root .com-subtitulo {
   margin: 18px 0 10px;

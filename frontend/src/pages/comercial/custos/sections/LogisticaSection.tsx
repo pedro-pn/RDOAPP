@@ -98,12 +98,23 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
 
   const confirmacoes = (draft.scopeConfirmations as AnyRecord) || {};
   const semLogistica = confirmacoes.noLogistics === true;
+  const transporteConjunto = confirmacoes.combinedCrewAndEquipmentTransport === true;
   const destinos = registros(draft.logisticsDestinations);
   const itens = registros(draft.logistics);
   const fases = registros(draft.laborContexts);
 
-  const mobilizacao = itens.filter(item => item.direction === 'mobilization');
-  const desmobilizacao = itens.filter(item => item.direction === 'demobilization');
+  const visivel = (item: AnyRecord) =>
+    !(
+      transporteConjunto &&
+      item.requiredSlot === true &&
+      item.slotType === 'equipment'
+    );
+  const mobilizacao = itens.filter(
+    item => item.direction === 'mobilization' && visivel(item)
+  );
+  const desmobilizacao = itens.filter(
+    item => item.direction === 'demobilization' && visivel(item)
+  );
 
   function definirSemLogistica(valor: boolean) {
     setDraft(atual => ({
@@ -111,6 +122,17 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
       scopeConfirmations: {
         ...((atual.scopeConfirmations as AnyRecord) || {}),
         noLogistics: valor
+      }
+    }));
+  }
+
+  function definirTransporteConjunto(valor: boolean) {
+    setDraft(atual => ({
+      ...atual,
+      scopeConfirmations: {
+        ...((atual.scopeConfirmations as AnyRecord) || {}),
+        combinedCrewAndEquipmentTransport: valor,
+        noLogistics: false
       }
     }));
   }
@@ -171,6 +193,23 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
           rotulo="Confirmo que não haverá mobilização nem desmobilização"
           onChange={definirSemLogistica}
         />
+
+        {!semLogistica && (
+          <label className="com-logistica-conjunta">
+            <input
+              type="checkbox"
+              checked={transporteConjunto}
+              onChange={event => definirTransporteConjunto(event.target.checked)}
+            />
+            <span>
+              <strong>Equipe e equipamentos usam a mesma mobilização</strong>
+              <small>
+                Um único card por sentido será preenchido e cobrado. Os dados separados ficam
+                preservados caso esta opção seja desmarcada.
+              </small>
+            </span>
+          </label>
+        )}
 
         {!semLogistica && errosVisiveis && destinoSemNome && (
           <AvisoPendencia>Todo destino precisa de um nome.</AvisoPendencia>
@@ -293,7 +332,11 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
         <>
           <BlocoDirecao
             titulo="Mobilização"
-            descricao="Ida da equipe e do material para a obra."
+            descricao={
+              transporteConjunto
+                ? 'Ida conjunta da equipe e dos equipamentos para a obra.'
+                : 'Ida da equipe e do material para a obra.'
+            }
             itens={mobilizacao}
             levantamento={levantamento}
             onAdicionar={() => acrescentarItem('mobilization')}
@@ -301,7 +344,11 @@ export function LogisticaSection({ levantamento }: { levantamento: Levantamento 
 
           <BlocoDirecao
             titulo="Desmobilização"
-            descricao="Retorno. Pode espelhar a mobilização ou ser diferente."
+            descricao={
+              transporteConjunto
+                ? 'Retorno conjunto. Pode espelhar a mobilização ou ser diferente.'
+                : 'Retorno. Pode espelhar a mobilização ou ser diferente.'
+            }
             itens={desmobilizacao}
             levantamento={levantamento}
             onAdicionar={() => acrescentarItem('demobilization')}

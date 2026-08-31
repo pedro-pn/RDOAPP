@@ -204,6 +204,34 @@ test('a categoria vira subtítulo uma vez por bloco, não por linha', () => {
   );
 });
 
+test('a prévia usa a mesma ordem canônica do documento final', () => {
+  const linhas = [
+    linhaDaMatriz('Ambiente F', 'Filtrovali', 'MEIO AMBIENTE'),
+    linhaDaMatriz('Logística F', 'Filtrovali', 'LOGÍSTICA'),
+    linhaDaMatriz('Equipe F', 'Filtrovali', 'MÃO DE OBRA E EQUIPE TÉCNICA'),
+    linhaDaMatriz('Ambiente C', 'Contratante', 'MEIO AMBIENTE'),
+    linhaDaMatriz('Logística C', 'Contratante', 'LOGÍSTICA'),
+    linhaDaMatriz('Equipe C', 'Contratante', 'MÃO DE OBRA E EQUIPE TÉCNICA')
+  ];
+  const folhas = mod.folhasDaMatriz(linhas);
+  const categorias = responsavel => folhas
+    .filter(folha => folha.titulo.includes(responsavel))
+    .flatMap(folha => folha.entradas)
+    .filter(entrada => entrada.tipo === 'categoria')
+    .map(entrada => entrada.texto.replace(/ \(continuação\)$/, ''));
+
+  assert.deepEqual(categorias('Filtrovali'), [
+    'MÃO DE OBRA E EQUIPE TÉCNICA',
+    'LOGÍSTICA',
+    'MEIO AMBIENTE'
+  ]);
+  assert.deepEqual(categorias('Contratante'), [
+    'MÃO DE OBRA E EQUIPE TÉCNICA',
+    'LOGÍSTICA',
+    'MEIO AMBIENTE'
+  ]);
+});
+
 test('a numeração é contínua por lado, ignorando os subtítulos', () => {
   const folhas = mod.folhasDaMatriz([
     linhaDaMatriz('A', 'Filtrovali', 'LOGÍSTICA'),
@@ -246,7 +274,7 @@ test('a folha seguinte diz que é continuação, no bloco e na categoria', () =>
   // cabeçalho nenhum — o leitor não saberia de que grupo elas são.
   const primeira = folhas[1].entradas[0];
   assert.equal(primeira.tipo, 'categoria');
-  assert.match(primeira.texto, /^UTILIDADES \(continuação\)$/);
+  assert.match(primeira.texto, /^CONSUMÍVEIS E UTILIDADES \(continuação\)$/);
 });
 
 test('a linha com subitens ocupa mais folha do que a linha simples', () => {

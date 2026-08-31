@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 /**
@@ -152,6 +153,17 @@ test('a cadeia em texto serve ao roteiro do tutorial', () => {
     'Completar comissões e indicações →',
     'Salvar levantamento e criar proposta →'
   ]);
+});
+
+test('o resumo oferece salvar ou salvar e criar proposta', () => {
+  const pagina = readFileSync(
+    new URL('../src/pages/comercial/custos/CustosPage.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(pagina, /secao === 'summary'/);
+  assert.match(pagina, /concluirLevantamento\(false\)/);
+  assert.match(pagina, /'Salvar'/);
+  assert.match(pagina, /Salvar e criar proposta →/);
 });
 
 // ---------------------------------------------------------------------------

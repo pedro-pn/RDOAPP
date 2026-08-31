@@ -350,6 +350,7 @@ export type CostScopeConfirmations = {
   noLabor: boolean;
   noInputs: boolean;
   noLogistics: boolean;
+  combinedCrewAndEquipmentTransport: boolean;
   mobilizationCrewAlreadyOnSite: boolean;
   demobilizationCrewAlreadyOnSite: boolean;
 };
@@ -1693,6 +1694,10 @@ function normalizeScopeConfirmations(
     noLabor: booleanValue(source.noLabor, isHistorical && !hasHistoricalLabor),
     noInputs: booleanValue(source.noInputs, isHistorical && !hasHistoricalInputs),
     noLogistics: booleanValue(source.noLogistics, isHistorical && !hasHistoricalLogistics),
+    combinedCrewAndEquipmentTransport: booleanValue(
+      source.combinedCrewAndEquipmentTransport,
+      false,
+    ),
     mobilizationCrewAlreadyOnSite: booleanValue(source.mobilizationCrewAlreadyOnSite, false),
     demobilizationCrewAlreadyOnSite: booleanValue(source.demobilizationCrewAlreadyOnSite, false),
   };
@@ -2110,6 +2115,7 @@ export function createDefaultCostEstimatePayload(): CostEstimatePayloadV2 {
       noLabor: false,
       noInputs: false,
       noLogistics: false,
+      combinedCrewAndEquipmentTransport: false,
       mobilizationCrewAlreadyOnSite: false,
       demobilizationCrewAlreadyOnSite: false,
     },
@@ -3606,6 +3612,7 @@ function calculateEstimateCore(input: CostEstimatePayloadV2): CostEstimateResult
     ? []
     : payload.logistics.filter((item) =>
       item.included
+      && !isEquipmentTransportCoveredByCrew(item, payload.scopeConfirmations)
       && !isCrewTransportWaived(item, payload.scopeConfirmations))
       .map((item) => calculateLogisticsItem(
         item,
@@ -3833,6 +3840,21 @@ function isCrewTransportWaived(
   return item.direction === "mobilization"
     ? scopeConfirmations.mobilizationCrewAlreadyOnSite
     : scopeConfirmations.demobilizationCrewAlreadyOnSite;
+}
+
+/**
+ * Quando equipe e equipamentos usam o mesmo evento, o card de equipe é a
+ * composição financeira única. O slot estrutural de equipamentos permanece no
+ * payload para que a opção possa ser desfeita sem perder o que havia nele, mas
+ * não é validado nem cobrado enquanto estiver coberto pelo deslocamento conjunto.
+ */
+function isEquipmentTransportCoveredByCrew(
+  item: LogisticsItem,
+  scopeConfirmations: CostScopeConfirmations,
+): boolean {
+  return scopeConfirmations.combinedCrewAndEquipmentTransport
+    && item.requiredSlot
+    && item.slotType === "equipment";
 }
 
 export function logisticsCrewCoverage(
@@ -4145,7 +4167,9 @@ export function validateCostEstimate(value: CostEstimatePayloadV2 | unknown): Co
       );
     }
     const destinationItems = payload.logistics.filter((item) =>
-      item.destinationId === destination.id && item.included);
+      item.destinationId === destination.id
+      && item.included
+      && !isEquipmentTransportCoveredByCrew(item, payload.scopeConfirmations));
     const requiresDistance = !payload.scopeConfirmations.noLogistics
       && destinationItems.some((item) =>
         item.requiredSlot
@@ -4182,6 +4206,7 @@ export function validateCostEstimate(value: CostEstimatePayloadV2 | unknown): Co
   payload.logistics.forEach((item, index) => {
     const path = `logistics[${index}]`;
     if (payload.scopeConfirmations.noLogistics) return;
+    if (isEquipmentTransportCoveredByCrew(item, payload.scopeConfirmations)) return;
     if (isCrewTransportWaived(item, payload.scopeConfirmations)) return;
     if (item.requiredSlot && !item.included) {
       add("error", `${path}.included`, "Este item obrigatório deve ser preenchido ou a ausência de mobilização deve ser confirmada.");
