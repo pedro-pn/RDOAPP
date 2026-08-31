@@ -1,6 +1,7 @@
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor, conflictError } from './errors.js';
-import { missionEndDate, missionEndsOnOrAfter } from './mission-period.js';
+import { allocationPeriod } from './allocation-period.js';
+import { missionEndsOnOrAfter } from './mission-period.js';
 
 export async function lockCollaborator(tx, collaboratorId) {
   if (typeof tx?.$queryRawUnsafe === 'function') {
@@ -22,7 +23,9 @@ export function collectAllocationConflicts({
   period,
   absences = [],
   allocations = [],
-  ignoredMissionId = null
+  ignoredMissionId = null,
+  allowMissionOverlap = false,
+  requireCandidateMissionOverlapConfirmation = false
 }) {
   const conflicts = [];
   if (!collaboratorIsEmployedForPeriod(collaborator, period)) {
@@ -60,14 +63,15 @@ export function collectAllocationConflicts({
   for (const allocation of allocations) {
     const mission = allocation.mission;
     if (allocation.deletedAt || !mission || mission.deletedAt || mission.id === ignoredMissionId
-      || mission.scheduleStatus !== 'CONFIRMED' || !periodsOverlap(period, {
-        startDate: mission.mobilizationDate,
-        endDate: missionEndDate(mission)
-      })) continue;
+      || mission.scheduleStatus !== 'CONFIRMED') continue;
+    const otherPeriod = allocationPeriod(allocation, mission);
+    if (!periodsOverlap(period, otherPeriod)
+      || allowMissionOverlap
+      || (!requireCandidateMissionOverlapConfirmation && allocation.allowMissionOverlap)) continue;
     conflicts.push(conflictDescriptor({
       collaborator,
-      startDate: parseDateKey(mission.mobilizationDate),
-      endDate: missionEndDate(mission),
+      startDate: otherPeriod.startDate,
+      endDate: otherPeriod.endDate,
       sourceType: 'MISSION',
       sourceId: mission.id,
       entityPath: `/efetivo?section=missoes&missao=${mission.id}`,

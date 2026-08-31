@@ -1,3 +1,4 @@
+import { allocationPeriod } from '../efetivo/planning/allocation-period.js';
 import { missionEndsOnOrAfter } from '../efetivo/planning/mission-period.js';
 
 export function normalizeJobRoleKey(value) {
@@ -116,10 +117,17 @@ export async function markFutureAllocationsForReplanning(database, collaboratorI
         ...missionEndsOnOrAfter(new Date())
       }
     },
-    select: { missionId: true, mission: { select: { planId: true } } }
+    select: {
+      missionId: true,
+      mobilizationDate: true,
+      demobilizationDate: true,
+      mission: { select: { planId: true, mobilizationDate: true, executionEndDate: true, returnDate: true } }
+    }
   });
-  const missionIds = [...new Set(allocations.map(item => item.missionId))];
-  const planIds = [...new Set(allocations.map(item => item.mission.planId))];
+  const today = new Date().toISOString().slice(0, 10);
+  const futureAllocations = allocations.filter(item => allocationPeriod(item, item.mission).endDate >= today);
+  const missionIds = [...new Set(futureAllocations.map(item => item.missionId))];
+  const planIds = [...new Set(futureAllocations.map(item => item.mission.planId))];
 
   if (missionIds.length) {
     await database.efetivoMissionPlan.updateMany({

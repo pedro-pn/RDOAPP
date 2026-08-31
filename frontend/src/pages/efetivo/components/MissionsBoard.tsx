@@ -22,11 +22,12 @@ import { useToast } from '../../../components/ui/ToastContext';
 import { displayDateOnly } from '../../../utils/calendarGrid';
 import { refreshMissionPlanningQueries } from '../../../utils/efetivoPlanningQueries';
 import { missionPendencies, PENDING_PROJECT_PENDENCIES } from '../../../utils/missionPendencies';
+import { missionFinalAllocations } from '../../../utils/missionAllocationPeriod';
 import { MissionAllocationModal } from './MissionAllocationModal';
 import { MissionFormModal } from './MissionFormModal';
 import { MissionExecutionPanel } from './MissionExecutionPanel';
 
-const statusLabel = { DRAFT: 'Rascunho', CONFIRMED: 'Confirmada', CANCELLED: 'Cancelada' } as const;
+const statusLabel = { CONFIRMED: 'Confirmada', CANCELLED: 'Cancelada' } as const;
 
 type FormTarget = { mission: PlanningMission | null; project: PendingMissionProject | null };
 
@@ -91,7 +92,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
   const totalAvailable = (pending.data || []).length + (missions.data?.length || 0);
   const confirmedCount = rows.filter(mission => mission.scheduleStatus === 'CONFIRMED').length;
   const plannedPositions = rows.reduce((sum, mission) => sum + mission.demands.reduce((total, demand) => total + demand.requiredCount, 0), 0);
-  const openPositions = rows.reduce((sum, mission) => sum + Math.max(0, mission.demands.reduce((total, demand) => total + demand.requiredCount, 0) - mission.allocations.length), 0);
+  const openPositions = rows.reduce((sum, mission) => sum + Math.max(0, mission.demands.reduce((total, demand) => total + demand.requiredCount, 0) - missionFinalAllocations(mission).length), 0);
 
   return (
     <div className="efetivo-board" data-efetivo-missions>
@@ -101,7 +102,6 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
           <label htmlFor="mission-status-filter">Situação</label>
           <select id="mission-status-filter" value={status || ''} onChange={event => onStatusChange((event.target.value || undefined) as MissionScheduleStatus | undefined)}>
             <option value="">Todas</option>
-            <option value="DRAFT">Rascunho</option>
             <option value="CONFIRMED">Confirmada</option>
             <option value="CANCELLED">Cancelada</option>
           </select>
@@ -145,6 +145,7 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
               ))}
               {rows.map(mission => {
                 const required = mission.demands.reduce((sum, demand) => sum + demand.requiredCount, 0);
+                const finalAllocations = missionFinalAllocations(mission);
                 const pendencies = missionPendencies(mission);
                 return (
                   <article
@@ -155,26 +156,26 @@ export function MissionsBoard({ canManage, planId, status, search, selectedMissi
                   >
                     <header>
                       <div><span className="efetivo-eyebrow">{mission.project.code}</span><h2>{mission.project.name}</h2><p>{mission.project.clientName} · {mission.project.location}</p></div>
-                      <span className={`efetivo-status status-${mission.scheduleStatus.toLocaleLowerCase('pt-BR')}`}>{statusLabel[mission.scheduleStatus]}</span>
+                      {mission.scheduleStatus === 'DRAFT' ? null : <span className={`efetivo-status status-${mission.scheduleStatus.toLocaleLowerCase('pt-BR')}`}>{statusLabel[mission.scheduleStatus]}</span>}
                     </header>
                     <dl>
                       <div><dt>Mobilização</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div>
                       <div><dt>Execução</dt><dd>{displayDateOnly(mission.executionStartDate)}–{displayDateOnly(mission.executionEndDate)}</dd></div>
                       <div><dt>Desmobilização</dt><dd>{displayDateOnly(mission.returnDate)}</dd></div>
-                      <div><dt>Equipe</dt><dd>{mission.allocations.length}/{required}</dd></div>
+                      <div><dt>Equipe ao fim</dt><dd>{finalAllocations.length}/{required}</dd></div>
                     </dl>
                     <div className="efetivo-demand-chips">{mission.demands.map(demand => {
-                      const allocated = mission.allocations.filter(item => item.jobRoleId === demand.jobRoleId).length;
+                      const allocated = finalAllocations.filter(item => item.jobRoleId === demand.jobRoleId).length;
                       return <span className={allocated < demand.requiredCount ? 'missing' : ''} key={demand.jobRoleId}><i style={{ background: demand.jobRole?.calendarColor || 'var(--mu)' }} aria-hidden="true" />{demand.jobRole?.name}: <strong>{allocated}/{demand.requiredCount}</strong></span>;
                     })}</div>
-                    <p className={`efetivo-team-status ${required - mission.allocations.length > 0 ? 'danger' : 'success'}`}>{required - mission.allocations.length > 0 ? `${required - mission.allocations.length} vagas ainda precisam de pessoas` : 'Equipe completa e sem conflitos'}</p>
+                    <p className={`efetivo-team-status ${required - finalAllocations.length > 0 ? 'danger' : 'success'}`}>{required - finalAllocations.length > 0 ? `${required - finalAllocations.length} vagas ainda precisam de pessoas ao fim da missão` : 'Equipe completa e sem conflitos'}</p>
                     {pendencies.length ? <ul className="efetivo-pending-list">{pendencies.map(item => <li key={item}>{item}</li>)}</ul> : null}
                     {!planId && selectedMissionId === mission.id ? <MissionExecutionPanel missionId={mission.id} /> : null}
                     <footer>
                       <span>Líder: <strong>{mission.headquartersResponsibleName}</strong></span>
                       <div className="efetivo-action-row">
                         <Button variant="secondary" onClick={() => setAllocating(mission)}>Equipe</Button>
-                        {canManage && required > mission.allocations.length ? <Button variant="secondary" disabled={autoAllocate.isPending} onClick={() => autoAllocate.mutate(mission.id)}>{autoAllocate.isPending ? 'Alocando…' : 'Alocar disponíveis'}</Button> : null}
+                        {canManage && required > finalAllocations.length ? <Button variant="secondary" disabled={autoAllocate.isPending} onClick={() => autoAllocate.mutate(mission.id)}>{autoAllocate.isPending ? 'Alocando…' : 'Alocar disponíveis'}</Button> : null}
                         {canManage ? <><Button variant="mini" onClick={() => setFormTarget({ mission, project: null })}>Editar</Button><Button variant="danger" onClick={() => setDeleting(mission)}>Remover</Button></> : null}
                       </div>
                     </footer>

@@ -10,8 +10,8 @@ import {
 } from './conflicts.js';
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor, conflictError, notFound, planningError } from './errors.js';
+import { allocationPeriod } from './allocation-period.js';
 import { bumpPlanRevision, requireEditablePlan, resolvePlanningDatabase, runPlanningTransaction } from './plan-context.js';
-import { missionEndDate } from './mission-period.js';
 
 function utcDate(value) {
   return value ? new Date(`${parseDateKey(value)}T00:00:00.000Z`) : null;
@@ -38,11 +38,9 @@ export function collectCollaboratorUpdateConflicts(collaborator, allocations = [
   return allocations.flatMap(allocation => collectAllocationConflicts({
     collaborator,
     jobRoleId: allocation.jobRoleId,
-    period: {
-      startDate: allocation.mission.mobilizationDate,
-      endDate: missionEndDate(allocation.mission)
-    },
-    ignoredMissionId: allocation.mission.id
+    period: allocationPeriod(allocation, allocation.mission),
+    ignoredMissionId: allocation.mission.id,
+    allowMissionOverlap: allocation.allowMissionOverlap
   }));
 }
 

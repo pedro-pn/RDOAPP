@@ -5,6 +5,7 @@ import {
   availabilityPeriodsOverlap,
   checkWorkforceAvailability,
   createWorkforceAbsence,
+  markMissionsAffectedByAbsence,
   updateWorkforceAbsence
 } from '../src/lib/collaborators/availability-service.js';
 
@@ -33,7 +34,12 @@ test('ausência superveniente é salva e marca missão para replanejamento', asy
       findFirst: async () => null,
       create: async input => ({ id: 'a1', version: 1, ...input.data })
     },
-    efetivoMissionAllocation: { findMany: async () => [{ missionId: 'm1' }] },
+    efetivoMissionAllocation: { findMany: async () => [{
+      missionId: 'm1',
+      mobilizationDate: '2026-08-01',
+      demobilizationDate: '2026-08-20',
+      mission: { mobilizationDate: '2026-08-01', executionEndDate: '2026-08-30', returnDate: '2026-08-31' }
+    }] },
     efetivoMissionPlan: { updateMany: async input => { calls.push(input); } },
     workforceCalendarState: {
       upsert: async () => ({ id: 'global', revision: 1 }),
@@ -46,6 +52,25 @@ test('ausência superveniente é salva e marca missão para replanejamento', asy
   }, { actorUserId: 'u1' });
   assert.deepEqual(result.affectedMissionIds, ['m1']);
   assert.equal(calls[0].data.needsReplanning, true);
+});
+
+test('ausência após a desmobilização individual não reabre pendência na missão', async () => {
+  let updated = false;
+  const database = {
+    efetivoMissionAllocation: { findMany: async () => [{
+      missionId: 'm1',
+      mobilizationDate: '2026-08-01',
+      demobilizationDate: '2026-08-09',
+      mission: { mobilizationDate: '2026-08-01', executionEndDate: '2026-08-30', returnDate: '2026-08-31' }
+    }] },
+    efetivoMissionPlan: { updateMany: async () => { updated = true; } }
+  };
+  const affected = await markMissionsAffectedByAbsence(database, 'c1', {
+    startDate: '2026-08-10',
+    endDate: '2026-08-12'
+  });
+  assert.deepEqual(affected, []);
+  assert.equal(updated, false);
 });
 
 test('versão divergente impede atualização concorrente', async () => {

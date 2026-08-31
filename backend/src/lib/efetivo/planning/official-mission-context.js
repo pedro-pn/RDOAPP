@@ -1,4 +1,5 @@
 import { corporateDateKey } from '../../calendar/corporate-calendar.js';
+import { allocationCoversDate } from './allocation-period.js';
 import { resolvePlanningDatabase } from './plan-context.js';
 import { missionEndsOnOrAfter } from './mission-period.js';
 
@@ -6,8 +7,11 @@ function utcDate(value) {
   return new Date(`${corporateDateKey(value)}T00:00:00.000Z`);
 }
 
-function missionContextDto(mission, calendarRevision = 1) {
+function missionContextDto(mission, calendarRevision = 1, date = null) {
   if (!mission) return null;
+  const allocations = date
+    ? mission.allocations.filter(allocation => allocationCoversDate(allocation, mission, date))
+    : mission.allocations;
   return {
     missionId: mission.id,
     missionVersion: mission.version,
@@ -27,7 +31,7 @@ function missionContextDto(mission, calendarRevision = 1) {
       executionEndDate: corporateDateKey(mission.executionEndDate),
       returnDate: mission.returnDate ? corporateDateKey(mission.returnDate) : null
     },
-    collaborators: mission.allocations.map(allocation => ({
+    collaborators: allocations.map(allocation => ({
       id: allocation.collaborator.id,
       name: allocation.collaborator.name,
       jobRole: {
@@ -71,7 +75,7 @@ export async function getOfficialMissionContext({ projectId, date }, dependencie
     }),
     database.workforceCalendarState.findUnique({ where: { id: 'global' } })
   ]);
-  return missionContextDto(mission, calendarState?.revision || 1);
+  return missionContextDto(mission, calendarState?.revision || 1, date);
 }
 
 export { missionContextDto };

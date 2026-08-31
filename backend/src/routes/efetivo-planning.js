@@ -14,7 +14,12 @@ import {
   updatePlanningJobRole,
   updatePlanningSettings
 } from '../lib/efetivo/planning/administration.js';
-import { addMissionAllocation, listEligibleCollaborators, removeMissionAllocation } from '../lib/efetivo/planning/allocations.js';
+import {
+  addMissionAllocation,
+  listEligibleCollaborators,
+  removeMissionAllocation,
+  updateMissionAllocationPeriod
+} from '../lib/efetivo/planning/allocations.js';
 import { autoAllocateMission } from '../lib/efetivo/planning/auto-allocation.js';
 import { getPlanningCalendar } from '../lib/efetivo/planning/calendar.js';
 import {
@@ -59,6 +64,7 @@ import {
   absenceInputSchema,
   absenceUpdateSchema,
   allocationInputSchema,
+  allocationPeriodInputSchema,
   collaboratorInputSchema,
   dateOnlySchema,
   datePositionQuerySchema,
@@ -92,6 +98,14 @@ const absenceListQuerySchema = z.object({
 const scenarioCompareSchema = datePositionQuerySchema;
 const holidayListSchema = z.object({ startDate: dateOnlySchema.optional(), endDate: dateOnlySchema.optional() });
 const activitySchema = z.object({ cursor: z.string().datetime().optional(), limit: z.coerce.number().int().min(1).max(100).optional() });
+const eligibleCollaboratorsQuerySchema = z.object({
+  jobRoleId: idSchema,
+  mobilizationDate: dateOnlySchema.optional(),
+  demobilizationDate: dateOnlySchema.optional()
+}).refine(value => !value.mobilizationDate || !value.demobilizationDate || value.demobilizationDate >= value.mobilizationDate, {
+  path: ['demobilizationDate'],
+  message: 'A desmobilização individual não pode ser anterior à mobilização.'
+});
 
 function context(req) {
   return { actorUserId: req.auth?.user?.id || null, evidence: requestEvidence(req) };
@@ -181,12 +195,21 @@ router.delete('/missions/:missionId', requireEfetivoManager, asyncHandler(async 
 }));
 
 router.get('/missions/:missionId/eligible-collaborators', requireEfetivoViewer, asyncHandler(async (req, res) => {
-  const jobRoleId = idSchema.parse(req.query.jobRoleId);
-  res.json(await listEligibleCollaborators(idSchema.parse(req.params.missionId), jobRoleId));
+  const filters = eligibleCollaboratorsQuerySchema.parse(req.query);
+  res.json(await listEligibleCollaborators(idSchema.parse(req.params.missionId), filters.jobRoleId, filters));
 }));
 
 router.post('/missions/:missionId/allocations', requireEfetivoManager, asyncHandler(async (req, res) => {
   res.status(201).json(await addMissionAllocation(idSchema.parse(req.params.missionId), allocationInputSchema.parse(req.body), context(req)));
+}));
+
+router.patch('/missions/:missionId/allocations/:allocationId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updateMissionAllocationPeriod(
+    idSchema.parse(req.params.missionId),
+    idSchema.parse(req.params.allocationId),
+    allocationPeriodInputSchema.parse(req.body),
+    context(req)
+  ));
 }));
 
 router.delete('/missions/:missionId/allocations/:allocationId', requireEfetivoManager, asyncHandler(async (req, res) => {

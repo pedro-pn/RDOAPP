@@ -49,7 +49,7 @@ export function EfetivoPage() {
   const search = searchParams.get('search') || '';
   const calendarView = (['day', 'week', 'month'].includes(searchParams.get('view') || '') ? searchParams.get('view') : 'month') as 'day' | 'week' | 'month';
   const selectedDay = safeDate(searchParams.get('dia') || date);
-  const missionStatus = (['DRAFT', 'CONFIRMED', 'CANCELLED'].includes(searchParams.get('status') || '') ? searchParams.get('status') : undefined) as MissionScheduleStatus | undefined;
+  const missionStatus = (['CONFIRMED', 'CANCELLED'].includes(searchParams.get('status') || '') ? searchParams.get('status') : undefined) as MissionScheduleStatus | undefined;
   const scenarioId = searchParams.get('cenario') || undefined;
   const selectedMissionId = searchParams.get('missao') || undefined;
   const selectedCollaboratorId = searchParams.get('colaborador') || undefined;

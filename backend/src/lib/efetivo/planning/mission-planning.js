@@ -2,7 +2,14 @@ import { recordEfetivoAudit } from './audit.js';
 import { collectAllocationConflicts, ensureNoPlanningConflicts, loadCollaboratorConflictData, lockCollaborator } from './conflicts.js';
 import { parseDateKey } from './date-only.js';
 import { conflictError, notFound, planningError } from './errors.js';
+import {
+  allocationCoversDate,
+  allocationPeriod,
+  allocationPeriodWithinMission,
+  maximumConcurrentAllocationCount
+} from './allocation-period.js';
 import { resolveSelectedMissionTeam, syncSelectedMissionTeam } from './mission-team.js';
+import { missionEndDate } from './mission-period.js';
 import {
   bumpPlanRevision,
   requireEditablePlan,
@@ -157,6 +164,12 @@ export async function resolveMissionResponsible(tx, payload) {
 export function missionMovePendencies(mission) {
   const pendencies = [];
   const required = (mission.demands || []).reduce((sum, demand) => sum + Number(demand.requiredCount || 0), 0);
+  const referenceDate = mission.executionEndDate ? missionEndDate(mission) : null;
+  const finalTeamSize = referenceDate
+    ? (mission.allocations || []).filter(allocation => (
+      !allocation.deletedAt && allocationCoversDate(allocation, mission, referenceDate)
+    )).length
+    : (mission.allocations || []).filter(allocation => !allocation.deletedAt).length;
   if (!mission.headquartersResponsibleUserId || !mission.headquartersResponsibleName || !mission.headquartersResponsibleRole) {
     pendencies.push('vincular o líder');
   }
@@ -164,7 +177,7 @@ export function missionMovePendencies(mission) {
     pendencies.push('preencher as datas obrigatórias');
   }
   if (!required) pendencies.push('selecionar a equipe');
-  else if ((mission.allocations || []).length < required) pendencies.push('completar a equipe');
+  else if (finalTeamSize < required) pendencies.push('completar a equipe');
   if (mission.scheduleStatus !== 'CONFIRMED') pendencies.push('confirmar a programação');
   return pendencies;
 }
@@ -177,21 +190,32 @@ async function validateDemandRoles(tx, demands) {
 }
 
 async function validateExistingAllocations(tx, mission, payload, demands) {
-  const counts = new Map();
+  const proposedMission = { ...mission, ...payload };
+  const allocationsByRole = new Map();
   for (const allocation of mission.allocations || []) {
-    counts.set(allocation.jobRoleId, (counts.get(allocation.jobRoleId) || 0) + 1);
+    const period = allocationPeriod(allocation, proposedMission);
+    if (!allocationPeriodWithinMission(period, proposedMission)) {
+      throw conflictError(
+        'A nova programação deixa o período individual de um colaborador fora das datas da missão.',
+        [],
+        'ALLOCATION_OUTSIDE_MISSION_PERIOD'
+      );
+    }
+    const periods = allocationsByRole.get(allocation.jobRoleId) || [];
+    periods.push(period);
+    allocationsByRole.set(allocation.jobRoleId, periods);
   }
   for (const demand of demands) {
-    if ((counts.get(demand.jobRoleId) || 0) > demand.requiredCount) {
+    if (maximumConcurrentAllocationCount(allocationsByRole.get(demand.jobRoleId) || []) > demand.requiredCount) {
       throw conflictError('A nova demanda é menor que a equipe já alocada.', [], 'DEMAND_BELOW_ALLOCATION');
     }
   }
-  if ([...counts].some(([jobRoleId]) => !demands.some(item => item.jobRoleId === jobRoleId))) {
+  if ([...allocationsByRole].some(([jobRoleId]) => !demands.some(item => item.jobRoleId === jobRoleId))) {
     throw conflictError('Remova ou realoque pessoas antes de retirar a função da demanda.', [], 'ALLOCATED_ROLE_REMOVED');
   }
   if (payload.scheduleStatus !== 'CONFIRMED') return;
-  const period = { startDate: payload.mobilizationDate, endDate: payload.returnDate || payload.executionEndDate };
   for (const allocation of mission.allocations || []) {
+    const period = allocationPeriod(allocation, proposedMission);
     await lockCollaborator(tx, allocation.collaboratorId);
     const data = await loadCollaboratorConflictData(tx, allocation.collaboratorId, period, mission.planId);
     if (!data.collaborator) throw notFound('Colaborador alocado não encontrado.');
@@ -200,7 +224,8 @@ async function validateExistingAllocations(tx, mission, payload, demands) {
       collaborator: data.collaborator,
       jobRoleId: allocation.jobRoleId,
       period,
-      ignoredMissionId: mission.id
+      ignoredMissionId: mission.id,
+      allowMissionOverlap: allocation.allowMissionOverlap
     }));
   }
 }

@@ -20,6 +20,20 @@ test('DTO oficial é mínimo e preserva snapshot de cargo', () => {
   assert.equal('auditEvents' in context, false);
 });
 
+test('contexto diário inclui somente colaboradores dentro do período individual', () => {
+  const datedMission = {
+    ...mission,
+    allocations: [
+      { ...mission.allocations[0], mobilizationDate: '2026-08-05', demobilizationDate: '2026-08-08' },
+      { ...mission.allocations[0], collaborator: { id: 'c2', name: 'Bia' }, mobilizationDate: null, demobilizationDate: null }
+    ]
+  };
+  const before = missionContextDto(datedMission, 3, '2026-08-03');
+  const during = missionContextDto(datedMission, 3, '2026-08-06');
+  assert.deepEqual(before.collaborators.map(item => item.id), ['c2']);
+  assert.deepEqual(during.collaborators.map(item => item.id), ['c1', 'c2']);
+});
+
 test('lookup usa apenas plano oficial confirmado e fronteiras inclusivas', async () => {
   let where;
   const database = {

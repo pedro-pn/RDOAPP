@@ -14,7 +14,7 @@ test('desmobilização é opcional e só é validada quando informada', () => {
   assert.doesNotThrow(() => validateMissionChronology({ ...dates, returnDate: null }));
   assert.throws(() => validateMissionChronology({ ...dates, returnDate: '2026-01-09' }), /desmobilização/i);
   assert.equal(missionInputSchema.parse({
-    ...dates, projectId: 'p1', scheduleStatus: 'DRAFT', headquartersResponsibleUserId: 'u1', collaboratorIds: []
+    ...dates, projectId: 'p1', scheduleStatus: 'CANCELLED', headquartersResponsibleUserId: 'u1', collaboratorIds: []
   }).returnDate, undefined);
 });
 
@@ -35,7 +35,7 @@ test('demanda remove zeros, recusa duplicidade e confirmação vazia', () => {
 
 test('input aceita somente o vínculo do líder e não recebe etapa, nome ou cargo manuais', () => {
   const parsed = missionInputSchema.parse({
-    projectId: 'p1', scheduleStatus: 'DRAFT', headquartersResponsibleUserId: 'u1',
+    projectId: 'p1', scheduleStatus: 'CANCELLED', headquartersResponsibleUserId: 'u1',
     mobilizationDate: '2026-09-01', executionStartDate: '2026-09-02', executionEndDate: '2026-09-03', returnDate: '2026-09-04',
     collaboratorIds: [], stage: 'EXECUTION', headquartersResponsibleName: 'Manual', headquartersResponsibleRole: 'Manual'
   });
@@ -43,6 +43,23 @@ test('input aceita somente o vínculo do líder e não recebe etapa, nome ou car
   assert.equal('stage' in parsed, false);
   assert.equal('headquartersResponsibleName' in parsed, false);
   assert.equal('headquartersResponsibleRole' in parsed, false);
+});
+
+test('input não oferece mais situação de rascunho e valida períodos individuais', () => {
+  const base = {
+    projectId: 'p1', headquartersResponsibleUserId: 'u1', scheduleStatus: 'CONFIRMED',
+    mobilizationDate: '2026-09-01', executionStartDate: '2026-09-02', executionEndDate: '2026-09-29', returnDate: '2026-09-30',
+    collaboratorIds: ['c1']
+  };
+  assert.equal(missionInputSchema.safeParse({ ...base, scheduleStatus: 'DRAFT' }).success, false);
+  assert.equal(missionInputSchema.safeParse({
+    ...base,
+    allocationPeriods: [{ collaboratorId: 'c1', mobilizationDate: '2026-09-05', demobilizationDate: '2026-09-20' }]
+  }).success, true);
+  assert.equal(missionInputSchema.safeParse({
+    ...base,
+    allocationPeriods: [{ collaboratorId: 'c1', mobilizationDate: '2026-08-31', demobilizationDate: '2026-09-20' }]
+  }).success, false);
 });
 
 test('líder usa nome e cargo canônicos do colaborador vinculado à conta', async () => {

@@ -224,10 +224,18 @@ paths:
   /planning/missions/{missionId}/eligible-collaborators:
     get:
       tags: [Missions]
-      summary: Lista candidatos ativos, da função e sem conflito
+      summary: Lista candidatos ativos da função, incluindo sobreposições que exigem confirmação
       parameters:
         - $ref: '#/components/parameters/MissionId'
         - $ref: '#/components/parameters/JobRoleId'
+        - name: mobilizationDate
+          in: query
+          description: Início individual pretendido; por padrão, usa a mobilização da missão.
+          schema: { $ref: '#/components/schemas/DateOnly' }
+        - name: demobilizationDate
+          in: query
+          description: Fim individual pretendido; por padrão, usa a desmobilização da missão.
+          schema: { $ref: '#/components/schemas/DateOnly' }
       responses:
         '200':
           description: Candidatos
@@ -235,7 +243,7 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/CollaboratorOption' }
+                items: { $ref: '#/components/schemas/EligibleCollaboratorOption' }
   /planning/missions/{missionId}/allocations:
     post:
       tags: [Missions]
@@ -253,10 +261,51 @@ paths:
               properties:
                 collaboratorId: { type: string }
                 jobRoleId: { type: string }
+                mobilizationDate:
+                  description: Mobilização individual; por padrão, herda a data da missão.
+                  oneOf:
+                    - { $ref: '#/components/schemas/DateOnly' }
+                    - { type: 'null' }
+                demobilizationDate:
+                  description: Desmobilização individual; por padrão, herda a data da missão.
+                  oneOf:
+                    - { $ref: '#/components/schemas/DateOnly' }
+                    - { type: 'null' }
+                allowMissionOverlap:
+                  type: boolean
+                  default: false
+                  description: Confirmação explícita de que a pessoa pode permanecer em missões simultâneas.
       responses:
         '201': { description: Alocação criada }
         '409': { $ref: '#/components/responses/ConflictResponse' }
   /planning/missions/{missionId}/allocations/{allocationId}:
+    patch:
+      tags: [Missions]
+      summary: Atualiza mobilização e desmobilização individuais
+      x-required-role: efetivo:manager
+      parameters:
+        - $ref: '#/components/parameters/MissionId'
+        - name: allocationId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mobilizationDate, demobilizationDate]
+              properties:
+                mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
+                demobilizationDate: { $ref: '#/components/schemas/DateOnly' }
+                allowMissionOverlap:
+                  type: boolean
+                  default: false
+                  description: Confirmação explícita de sobreposição com outra missão.
+      responses:
+        '200': { description: Período individual atualizado }
+        '409': { $ref: '#/components/responses/ConflictResponse' }
     delete:
       tags: [Missions]
       summary: Remove logicamente uma alocação
@@ -637,6 +686,10 @@ components:
     MissionScheduleStatus:
       type: string
       enum: [DRAFT, CONFIRMED, CANCELLED]
+    EditableMissionScheduleStatus:
+      type: string
+      description: Situações disponíveis no preenchimento da programação; DRAFT permanece apenas para leitura de registros legados.
+      enum: [CONFIRMED, CANCELLED]
     MissionStage:
       type: string
       enum: [STANDBY, MOBILIZATION, EXECUTION, FINAL_MEASUREMENT, FINISHED]
@@ -699,6 +752,17 @@ components:
         name: { type: string }
         jobRoleId: { type: string }
         jobRoleName: { type: string }
+    EligibleCollaboratorOption:
+      allOf:
+        - $ref: '#/components/schemas/CollaboratorOption'
+        - type: object
+          required: [missionConflicts, requiresMissionOverlapConfirmation]
+          properties:
+            admissionDate: { $ref: '#/components/schemas/DateOnly' }
+            missionConflicts:
+              type: array
+              items: { $ref: '#/components/schemas/Conflict' }
+            requiresMissionOverlapConfirmation: { type: boolean }
     CollaboratorInput:
       type: object
       required: [name, jobRoleId, admissionDate]
@@ -738,7 +802,7 @@ components:
       properties:
         planId: { type: string }
         projectId: { type: string }
-        scheduleStatus: { $ref: '#/components/schemas/MissionScheduleStatus' }
+        scheduleStatus: { $ref: '#/components/schemas/EditableMissionScheduleStatus' }
         headquartersResponsibleUserId: { type: string }
         mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
         executionStartDate: { $ref: '#/components/schemas/DateOnly' }
@@ -753,6 +817,24 @@ components:
           maxItems: 500
           uniqueItems: true
           description: Colaboradores selecionados diretamente; a demanda por função é derivada dos cargos canônicos no servidor.
+          items: { type: string }
+        allocationPeriods:
+          type: array
+          maxItems: 500
+          uniqueItems: true
+          description: Mobilização e desmobilização por colaborador; datas iguais aos limites gerais continuam herdando a programação da missão.
+          items:
+            type: object
+            required: [collaboratorId, mobilizationDate, demobilizationDate]
+            properties:
+              collaboratorId: { type: string }
+              mobilizationDate: { $ref: '#/components/schemas/DateOnly' }
+              demobilizationDate: { $ref: '#/components/schemas/DateOnly' }
+        confirmedMissionOverlapCollaboratorIds:
+          type: array
+          maxItems: 500
+          uniqueItems: true
+          description: Colaboradores cuja alocação simultânea em outra missão foi confirmada pelo usuário.
           items: { type: string }
     Mission:
       type: object
@@ -790,6 +872,17 @@ components:
               id: { type: string }
               collaboratorId: { type: string }
               jobRoleId: { type: string }
+              mobilizationDate:
+                description: Data individual; nula significa herdar a mobilização da missão.
+                oneOf:
+                  - { $ref: '#/components/schemas/DateOnly' }
+                  - { type: 'null' }
+              demobilizationDate:
+                description: Data individual; nula significa herdar a desmobilização da missão.
+                oneOf:
+                  - { $ref: '#/components/schemas/DateOnly' }
+                  - { type: 'null' }
+              allowMissionOverlap: { type: boolean }
               collaborator:
                 type: object
                 properties:

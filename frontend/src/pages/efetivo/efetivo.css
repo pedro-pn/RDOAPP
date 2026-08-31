@@ -756,6 +756,7 @@
 .efetivo-team-availability-card.selected { border-color: var(--g); box-shadow: inset 3px 0 0 var(--g); }
 .efetivo-team-availability-card.unavailable:not(.selected) { opacity: .68; }
 .efetivo-team-availability-card.unavailable:not(.selected) label { cursor: not-allowed; }
+.efetivo-overlap-warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); }
 .efetivo-team-hidden-selected { background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: var(--rs); display: grid; gap: 6px; margin-bottom: 12px; padding: 10px; }
 .efetivo-team-hidden-selected > span { color: var(--mu); font-size: 12px; }
 .efetivo-team-hidden-selected > div { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
@@ -806,6 +807,40 @@
   color: var(--tx);
   margin-left: 4px;
 }
+
+.efetivo-team-period-overview {
+  background: var(--sf);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
+}
+
+.efetivo-team-period-heading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.efetivo-team-period-heading span,
+.efetivo-team-period-person span { color: var(--mu); font-size: 11px; }
+
+.efetivo-team-period-row {
+  align-items: end;
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) minmax(145px, .55fr) minmax(145px, .55fr);
+  padding: 10px;
+}
+
+.efetivo-team-period-person { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.efetivo-team-period-person strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .efetivo-team-list {
   border: 1px solid var(--br);
@@ -1075,6 +1110,22 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   margin-bottom: 14px;
 }
+
+.efetivo-allocation-add {
+  align-items: end;
+  background: var(--sf);
+  border: 1px solid var(--br);
+  border-radius: var(--r);
+  grid-template-columns: minmax(220px, 1fr) minmax(300px, 1fr);
+  padding: 12px;
+}
+.efetivo-allocation-add-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; justify-content: flex-end; }
+.efetivo-allocation-period-fields { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+.efetivo-allocation-period-list > article { align-items: center; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) auto; }
+.efetivo-allocation-period-list > article > div:first-child { min-width: 0; }
+.efetivo-allocation-row-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.efetivo-allocation-period-editor { align-items: end; display: grid; gap: 8px; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(145px, 1fr)) auto auto; width: 100%; }
+.efetivo-overlap-badge { color: var(--warning-text); display: block; font-size: 11px; font-weight: 700; margin-top: 4px; }
 
 .efetivo-holiday-form { grid-template-columns: minmax(160px, .4fr) minmax(0, 1fr) auto auto; }
 .efetivo-hire-form { grid-template-columns: minmax(0, 1fr) minmax(120px, .25fr) minmax(170px, .35fr) auto; }
@@ -1394,6 +1445,7 @@
   .efetivo-allocation-add,
   .efetivo-holiday-form,
   .efetivo-hire-form { grid-template-columns: 1fr; }
+  .efetivo-allocation-period-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 540px) {
@@ -1425,6 +1477,14 @@
   .efetivo-team-search { flex-basis: auto; }
   .efetivo-team-option { align-items: start; grid-template-columns: auto minmax(0, 1fr); }
   .efetivo-team-option em { grid-column: 2; text-align: left; }
+  .efetivo-allocation-period-fields,
+  .efetivo-allocation-period-editor { grid-template-columns: 1fr; }
+  .efetivo-team-period-row,
+  .efetivo-allocation-period-list > article { grid-template-columns: 1fr; }
+  .efetivo-allocation-row-actions,
+  .efetivo-allocation-add-actions { justify-content: stretch; }
+  .efetivo-allocation-row-actions > *,
+  .efetivo-allocation-add-actions > * { flex: 1 1 auto; }
   .efetivo-calendar-grid.view-week { display: flex; flex-direction: column; }
   .efetivo-calendar-toolbar > strong { order: -1; width: 100%; }
   .efetivo-segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
