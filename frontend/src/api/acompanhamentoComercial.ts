@@ -707,6 +707,19 @@ export interface ProjectDetailCollaborator {
   horasApropriadas: number | null;
   /** Parte das horas apropriadas registrada em dias marcados como viagem/deslocamento. */
   horasDeslocamento: number;
+  /** Trilha diária das horas do ponto que formam a apropriação deste projeto. */
+  diasApropriados: Array<{
+    data: string;
+    horas: number;
+    horasNormais: number;
+    horasExtras: number;
+    emViagem: boolean;
+    rdos: Array<{
+      numero: number | null;
+      projetoId: string | null;
+      projetoCodigo: string | null;
+    }>;
+  }>;
   sobreposicaoHoras: number;
   horasRelatoriosPorData: Array<{ data: string; horas: number }>;
   custo: number | null;

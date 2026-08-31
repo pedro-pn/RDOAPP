@@ -3548,6 +3548,45 @@ a {
 .acp-det-collab-travel { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; }
 .acp-det-collab-travel strong { color: var(--tx); font-size: 13px; }
 .acp-det-collab-travel small { color: var(--mu); font-size: 11px; }
+.acp-collaborator-hours-trigger {
+  appearance: none;
+  border: 0;
+  border-bottom: 1px dashed currentColor;
+  padding: 1px 0;
+  background: transparent;
+  color: var(--g);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.acp-collaborator-hours-trigger:hover { color: var(--g2); }
+.acp-collaborator-hours-trigger:focus-visible { outline: 2px solid var(--g); outline-offset: 3px; border-radius: 2px; }
+.modal-card.acp-collaborator-hours-dialog {
+  width: min(94vw, 900px);
+  max-width: 900px;
+  max-height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.acp-collaborator-hours-dialog .acp-manage-head p { margin: 3px 0 0; color: var(--mu); font-size: 12px; }
+.acp-collaborator-hours-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  background: var(--bg);
+  color: var(--mu);
+  font-size: 13px;
+}
+.acp-collaborator-hours-summary strong { color: var(--tx); font-size: 18px; }
+.acp-collaborator-hours-rdos { color: var(--tx); font-size: 12px; }
+.acp-collaborator-hours-no-rdo { color: var(--warning-text); font-size: 12px; font-weight: 600; }
+.acp-collaborator-hours-table td { vertical-align: middle; }
 .acp-det-collab-audit-table td:last-child { vertical-align: top; }
 .acp-det-tax-body { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
 .acp-det-tax-summary-value { float: right; color: var(--tx); font-size: 13px; letter-spacing: 0; }

@@ -18,6 +18,7 @@ import {
   type ManualProjectCost,
   type ManualProjectCostPayload,
   type PlannedScope,
+  type ProjectDetailCollaborator,
   type ProjectManagementNote,
   type ProgressHistoryPoint,
   type RequiredWeeklyProgress,
@@ -29,6 +30,7 @@ import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 import { ProjectAdditionalProposalsNovelty } from './ProjectAdditionalProposalsNovelty';
+import { ProjectCollaboratorHoursDialog } from './ProjectCollaboratorHoursDialog';
 import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
 import { ProjectQualityDeviationsNovelty } from './ProjectQualityDeviationsNovelty';
 import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
@@ -577,6 +579,7 @@ export function ProjectDetailDashboard({
   const [additionalProposalsNoveltyActive, setAdditionalProposalsNoveltyActive] = useState(true);
   const [standbyHistoryNoveltyActive, setStandbyHistoryNoveltyActive] = useState(true);
   const [standbyHistoryOpen, setStandbyHistoryOpen] = useState(false);
+  const [appropriationCollaborator, setAppropriationCollaborator] = useState<ProjectDetailCollaborator | null>(null);
   const [expandedQualityDeviationIds, setExpandedQualityDeviationIds] = useState<Set<string>>(() => new Set());
   const [manualCostFormOpen, setManualCostFormOpen] = useState(false);
   const [manualCostError, setManualCostError] = useState<string | null>(null);
@@ -1359,7 +1362,7 @@ export function ProjectDetailDashboard({
                       <th>Nome</th>
                       <th>Cargo</th>
                       <th style={{ textAlign: 'right' }}>
-                        <HelpTip help="Horas do ponto atribuídas ao projeto pelo mesmo rateio que calculou o custo. Em um grupo, soma a apropriação das missões.">Horas apropriadas</HelpTip>
+                        <HelpTip help="Horas do ponto atribuídas ao projeto pelo mesmo rateio que calculou o custo. Em um grupo, soma a apropriação das missões. Clique no valor para conferir os dias e RDOs.">Horas apropriadas</HelpTip>
                       </th>
                       <th style={{ textAlign: 'right' }}>
                         <HelpTip help="Parcela do custo total do colaborador atribuída ao projeto no período do ponto.">Custo apropriado</HelpTip>
@@ -1377,7 +1380,18 @@ export function ProjectDetailDashboard({
                       <tr key={i}>
                         <td>{c.name}</td>
                         <td data-label="Cargo">{c.role}</td>
-                        <td data-label="Horas apropriadas" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtHours(c.horasApropriadas)}</td>
+                        <td data-label="Horas apropriadas" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {c.horasApropriadas != null && c.horasApropriadas > 0 ? (
+                            <button
+                              type="button"
+                              className="acp-collaborator-hours-trigger"
+                              onClick={() => setAppropriationCollaborator(c)}
+                              title={`Conferir os dias apropriados de ${c.name}`}
+                            >
+                              {fmtHours(c.horasApropriadas)}
+                            </button>
+                          ) : fmtHours(c.horasApropriadas)}
+                        </td>
                         <td data-label="Custo apropriado" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{brl(c.custo)}</td>
                         <td data-label="Custo efetivo/h" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {c.custoHora != null ? `${brl(c.custoHora)}/h` : '—'}
@@ -1448,6 +1462,11 @@ export function ProjectDetailDashboard({
           ? { projectId, code: h.code }
           : null}
         onClose={() => setStandbyHistoryOpen(false)}
+      />
+
+      <ProjectCollaboratorHoursDialog
+        collaborator={appropriationCollaborator}
+        onClose={() => setAppropriationCollaborator(null)}
       />
 
       <Modal open={scheduleProject !== null} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">

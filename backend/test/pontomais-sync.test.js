@@ -1057,7 +1057,7 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
   assert.deepEqual(corrected.missingProjects.ambiguousDays, []);
 });
 
-test('janela do cronograma não resolve pendência sem RDO do próprio dia', () => {
+test('janela fechada resolve EM VIAGEM sem RDO apenas para colaborador elegível', () => {
   const ambiguousDay = {
     externalEmployeeId: '101',
     date: '2026-07-15',
@@ -1085,7 +1085,7 @@ test('janela do cronograma não resolve pendência sem RDO do próprio dia', () 
   });
   assert.deepEqual(emAndamento, [ambiguousDay]);
 
-  // Mesmo com a janela fechada, ela é só uma pista de projeto e não autoriza apropriação.
+  // Com janela fechada e uma única obra elegível, EM VIAGEM passa a ser evidência suficiente.
   const comJanela = filterCurrentlyResolvedAmbiguousDays({
     ambiguousDays: [ambiguousDay],
     periodLinks,
@@ -1098,7 +1098,7 @@ test('janela do cronograma não resolve pendência sem RDO do próprio dia', () 
     }],
     rdoReports: []
   });
-  assert.deepEqual(comJanela, [ambiguousDay]);
+  assert.deepEqual(comJanela, []);
 
   // Colaborador fora da equipe cadastrada não é varrido pela janela.
   const foraDaEquipe = filterCurrentlyResolvedAmbiguousDays({

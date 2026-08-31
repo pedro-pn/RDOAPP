@@ -336,10 +336,11 @@ test('dados de RDO incluem manuais e relatórios de serviço com horas sem dupla
     {
       projectId: 'projeto-rdo',
       reportType: 'RDO',
+      sequenceNumber: 17,
       reportDate: '2026-07-13T00:00:00.000Z',
       daytimeWorkedMinutes: 480,
       nighttimeWorkedMinutes: 0,
-      project: { offshore: false, laborSleepModeByCollaborator: {} },
+      project: { code: '5800', offshore: false, laborSleepModeByCollaborator: {} },
       collaborators: [{ collaboratorId: 'col-1' }],
       services: []
     },
@@ -355,6 +356,16 @@ test('dados de RDO incluem manuais e relatórios de serviço com horas sem dupla
         { startTime: '08:00', endTime: '12:00' },
         { startTime: '10:00', endTime: '14:00' }
       ]
+    },
+    {
+      projectId: 'projeto-rdo',
+      reportType: 'RTP',
+      reportDate: '2026-07-13T00:00:00.000Z',
+      daytimeWorkedMinutes: 540,
+      nighttimeWorkedMinutes: 0,
+      project: { code: '5800', offshore: false, laborSleepModeByCollaborator: {} },
+      collaborators: [{ collaboratorId: 'col-1' }],
+      services: []
     },
     {
       projectId: 'projeto-manual-rtp',
@@ -394,7 +405,9 @@ test('dados de RDO incluem manuais e relatórios de serviço com horas sem dupla
 
   const map = rdoDataByCollaboratorFromReports(reports);
 
-  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').hours, 8);
+  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').hours, 9);
+  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').rdoNumber, 17);
+  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').projectCode, '5800');
   assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-servico').hours, 6);
   assert.equal(map.get('col-2').dayProjects.get('2026-07-13').get('projeto-servico').hours, 6);
   assert.equal(map.get('col-2').dayProjects.get('2026-07-14').get('projeto-manual-rtp').hours, 4);
@@ -792,7 +805,7 @@ test('execução compartilhada conserva a folha e replica integralmente a apropr
   const analyticalHours = classifyProjectHours(rows, rdo, resolveTestTag, new Map(), new Map(), missionGroups, 'ANALYTICAL');
   assert.ok(near([...accountingHours.byProject.values()].reduce((sum, item) => sum + item.normalHours, 0), 8.8));
   assert.ok(near([...analyticalHours.byProject.values()].reduce((sum, item) => sum + item.normalHours, 0), 17.6));
-  assert.ok([...analyticalHours.byProject.values()].every(item => item.travelHours === 8.8));
+  assert.ok([...analyticalHours.byProject.values()].every(item => near(item.travelHours, 8.8 + (19 / 60))));
 });
 
 test('consolidação excepcional direciona evidência dos membros uma única vez ao projeto principal', () => {
@@ -1127,7 +1140,7 @@ test('elegibilidade inclui cadastro manual e RDO dentro da janela, e ignora RDO 
   assert.ok(!doProjeto.has('c-rdoFora'));
 });
 
-test('janela do cronograma não aloca o dia sem RDO', () => {
+test('EM VIAGEM apropria pela única janela fechada do cronograma mesmo sem RDO', () => {
   const janelas = buildScheduleWindows([{ ...JANELA_5804, laborCollaboratorIds: ['c-1'] }]);
   const elegiveis = buildScheduleWindowEligibility(janelas, new Map());
   const projetosDoDia = scheduleWindowsForDay({
@@ -1144,11 +1157,32 @@ test('janela do cronograma não aloca o dia sem RDO', () => {
     scheduleWindowProjectIds: projetosDoDia
   });
 
-  assert.equal(decisao.reason, 'NO_RDO_EVIDENCE');
-  assert.deepEqual(decisao.allocations, []);
+  assert.equal(decisao.reason, 'SCHEDULE_TRAVEL_TAG');
+  assert.deepEqual(decisao.allocations, [{ projectId: 'p-5804', weight: 1, rdo: null }]);
+  assert.equal(decisao.travelContext, true);
+
+  const classificado = classifyProjectHours([{
+    date: '2026-08-17',
+    normalHours: 7,
+    he70Horas: 1,
+    he100Horas: 0,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map([
+    ['p-5804', { offshore: false, sleepMode: 'HOME' }]
+  ]), new Map(), new Map(), 'ACCOUNTING', {
+    windows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1'
+  });
+
+  assert.deepEqual(classificado.unresolvedDays, []);
+  assert.ok(near(classificado.byProject.get('p-5804').normalHours, 7.8));
+  assert.ok(near(classificado.byProject.get('p-5804').he70Hours, 1));
+  assert.ok(near(classificado.byProject.get('p-5804').travelHours, 8.8));
+  assert.equal(classificado.dayTrail[0].minimumNormalHoursApplied, true);
 });
 
-test('RDO prevalece e etiqueta ou seleção manual sem RDO não apropriam', () => {
+test('RDO prevalece; etiqueta só apropria sem RDO quando confirma a própria janela', () => {
   const comRdo = buildDailyProjectWeights({
     tags: [],
     rdoProjects: dailyRdo([['B', 9]]),
@@ -1166,6 +1200,16 @@ test('RDO prevalece e etiqueta ou seleção manual sem RDO não apropriam', () =
   });
   assert.equal(comEtiqueta.reason, 'NO_RDO_EVIDENCE');
   assert.deepEqual(comEtiqueta.allocations, []);
+
+  const etiquetaDaJanela = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['A']
+  });
+  assert.equal(etiquetaDaJanela.reason, 'SCHEDULE_PROJECT_TAG_TRAVEL');
+  assert.deepEqual(etiquetaDaJanela.allocations, [{ projectId: 'A', weight: 1, rdo: null }]);
+  assert.equal(etiquetaDaJanela.travelContext, true);
 
   const comOverride = buildDailyProjectWeights({
     tags: [],
@@ -1188,6 +1232,15 @@ test('uma ou várias janelas sem RDO resultam na mesma ausência de evidência o
 
   assert.equal(decisao.reason, 'NO_RDO_EVIDENCE');
   assert.deepEqual(decisao.allocations, []);
+
+  const viagemAmbigua = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804', 'p-5820']
+  });
+  assert.equal(viagemAmbigua.reason, 'NO_RDO_EVIDENCE');
+  assert.deepEqual(viagemAmbigua.allocations, []);
 });
 
 test('vários RDOs sem etiqueta continuam ambíguos: a janela não desempata evidência de RDO', () => {
@@ -1202,7 +1255,7 @@ test('vários RDOs sem etiqueta continuam ambíguos: a janela não desempata evi
   assert.deepEqual(decisao.allocations, []);
 });
 
-test('janela não resolve mobilização sem RDO do próprio dia', () => {
+test('janela fechada resolve EM VIAGEM sem RDO, mas mobilização isolada não', () => {
   const semJanela = buildDailyProjectWeights({
     tags: ['EM VIAGEM'],
     rdoProjects: new Map(),
@@ -1218,8 +1271,8 @@ test('janela não resolve mobilização sem RDO do próprio dia', () => {
     mobilizationProjectIds: ['A', 'B'],
     scheduleWindowProjectIds: ['p-5804']
   });
-  assert.equal(comJanela.reason, 'NO_RDO_EVIDENCE');
-  assert.deepEqual(comJanela.allocations, []);
+  assert.equal(comJanela.reason, 'SCHEDULE_TRAVEL_TAG');
+  assert.deepEqual(comJanela.allocations, [{ projectId: 'p-5804', weight: 1, rdo: null }]);
 });
 
 test('dia fora da janela não é alocado por ela', () => {
