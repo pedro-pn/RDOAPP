@@ -276,6 +276,32 @@ export async function createMovement(client, { data, createdById, romaneioId = n
   return client.$transaction(tx => createMovementInTransaction(tx, { data, createdById, romaneioId }));
 }
 
+export async function createReturnMovementsInTransaction(tx, { data, createdById }) {
+  if (!createdById) throw appError('Usuário autenticado não identificado.', 401);
+  const parsed = estoqueSchemas.returnMovements.parse(data);
+  const results = [];
+
+  for (const item of parsed.items) {
+    results.push(await createMovementInTransaction(tx, {
+      createdById,
+      data: {
+        reason: 'DEVOLUCAO_OBRA',
+        type: 'ENTRADA',
+        projectId: parsed.projectId,
+        date: parsed.date,
+        notes: parsed.notes,
+        ...item
+      }
+    }));
+  }
+
+  return results;
+}
+
+export async function createReturnMovements(client, { data, createdById }) {
+  return client.$transaction(tx => createReturnMovementsInTransaction(tx, { data, createdById }));
+}
+
 function automaticQuantityOrThrow(item, value) {
   const text = String(value ?? '').trim().replace(',', '.');
   const [, fraction = ''] = text.split('.');

@@ -9,7 +9,11 @@ import {
   removeStockItemDocumentFiles,
   serializeStockItemDocument
 } from '../../lib/estoque/stock-attachments.js';
-import { createMovement, reverseMovement } from '../../lib/estoque/stock-movements.js';
+import {
+  createMovement,
+  createReturnMovements,
+  reverseMovement
+} from '../../lib/estoque/stock-movements.js';
 import {
   decimalBalanceString,
   getBatchBalances,
@@ -191,7 +195,10 @@ export function serializeStockMovement(movement) {
 
 export async function buildStockSummary(client, now = new Date()) {
   const items = await client.stockItem.findMany({
-    include: { batches: true },
+    include: {
+      batches: true,
+      category: { select: { id: true, name: true } }
+    },
     orderBy: [{ code: 'asc' }, { name: 'asc' }]
   });
   const itemIds = items.map(item => item.id);
@@ -200,7 +207,6 @@ export async function buildStockSummary(client, now = new Date()) {
 
   for (const item of items) {
     const balance = itemBalances.get(item.id) || new Prisma.Decimal(0);
-    if (!item.isActive && balance.lte(0)) continue;
 
     const batchBalances = await getBatchBalances(client, item.id);
     const batches = [...(item.batches || [])]
@@ -231,6 +237,15 @@ export async function buildStockSummary(client, now = new Date()) {
         type: item.type,
         unitLabel: item.unitLabel,
         minQuantity: serializedDecimal(item.minQuantity),
+        category: item.category ? { id: item.category.id, name: item.category.name } : null,
+        manufacturer: item.manufacturer || null,
+        description: item.description || null,
+        location: item.location || null,
+        filterModel: item.filterModel || null,
+        filterKind: item.filterKind || null,
+        filterMicron: item.filterMicron || null,
+        unNumber: item.unNumber || null,
+        casNumber: item.casNumber || null,
         isActive: item.isActive
       },
       balance: decimalBalanceString(balance),
@@ -247,6 +262,7 @@ export async function buildStockSummary(client, now = new Date()) {
 export function stockMovementListArgs(query) {
   const page = parsePage(query.page);
   const pageSize = parsePageSize(query.pageSize);
+  const dateOrder = String(query.dateOrder || '').trim().toLowerCase() === 'asc' ? 'asc' : 'desc';
   const from = queryDate(query.from);
   const to = queryDate(query.to, true);
   const where = {
@@ -268,7 +284,7 @@ export function stockMovementListArgs(query) {
     pageSize,
     skip: (page - 1) * pageSize,
     take: pageSize,
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }]
+    orderBy: [{ date: dateOrder }, { createdAt: dateOrder }]
   };
 }
 
@@ -622,6 +638,22 @@ router.get('/movimentacoes', asyncHandler(async (req, res) => {
 }));
 
 router.post('/movimentacoes', requireEstoqueManager, asyncHandler(async (req, res) => {
+  if (req.body?.reason === 'DEVOLUCAO_OBRA' && Array.isArray(req.body?.items)) {
+    const results = await createReturnMovements(prisma, {
+      data: req.body,
+      createdById: req.auth.user.id
+    });
+    return res.status(201).json({
+      movements: results.map(result => ({
+        ...serializeStockMovement(result.movement),
+        balances: {
+          item: decimalBalanceString(result.balances.item),
+          batch: decimalBalanceString(result.balances.batch)
+        }
+      }))
+    });
+  }
+
   let result;
   try {
     result = await createMovement(prisma, {
