@@ -7,15 +7,11 @@ import { fileURLToPath } from 'node:url';
 import AdmZip from 'adm-zip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
-import {
-  arquivoDoModelo,
-  preencherProposta
-} from '../src/lib/comercial/proposta-docx.js';
+import { arquivoDoModelo, preencherProposta } from '../src/lib/comercial/proposta-docx.js';
 
-const MODELOS = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../Modelos/definitivos/Comercial/modelos'
-);
+const MODELOS = process.env.COMERCIAL_MODELOS_DIR
+  ? process.env.COMERCIAL_MODELOS_DIR
+  : join(dirname(fileURLToPath(import.meta.url)), '../../Modelos/definitivos/Comercial/modelos');
 
 /**
  * Quantas imagens o MODELO tem.
@@ -72,7 +68,11 @@ const DADOS = {
   standbyEquipment: 'R$ 5.000,00',
   extraMobilization: 'R$ 21.900,00',
   scopeItems: [
-    { id: 'a', title: 'Limpeza química', description: 'Circulação pressurizada.' },
+    {
+      id: 'a',
+      title: 'Limpeza química',
+      description: 'Circulação pressurizada.'
+    },
     { id: 'b', title: 'Flushing primário', description: 'Regime turbulento.' }
   ],
   rows: [
@@ -125,6 +125,30 @@ function textoDoDocx(bytes) {
   const nos = doc.getElementsByTagName('w:t');
   for (let i = 0; i < nos.length; i += 1) partes.push(nos[i].textContent || '');
   return { xml, texto: partes.join(' ') };
+}
+
+function textoEntreTitulos(bytes, inicio, fim) {
+  const zip = new AdmZip(bytes);
+  const doc = new DOMParser().parseFromString(
+    zip.getEntry('word/document.xml').getData().toString('utf8'),
+    'text/xml'
+  );
+  const corpo = doc.getElementsByTagName('w:body').item(0);
+  const textoDe = no =>
+    Array.from(no.getElementsByTagName?.('w:t') || [])
+      .map(texto => texto.textContent || '')
+      .join(' ')
+      .trim();
+  const filhos = Array.from(corpo.childNodes).filter(no => no.nodeType === 1);
+  const indiceInicial = filhos.findLastIndex(no => textoDe(no).includes(inicio));
+  const indiceFinal = filhos.findIndex(
+    (no, indice) => indice > indiceInicial && textoDe(no).includes(fim)
+  );
+  return filhos
+    .slice(indiceInicial + 1, indiceFinal)
+    .map(textoDe)
+    .filter(Boolean)
+    .join('\n');
 }
 
 /** Conta as linhas de uma tabela que contém determinado texto. */
@@ -199,10 +223,135 @@ test('a data do cabeçalho sai por extenso, no dia certo', async () => {
     'a data não saiu em nenhum cabeçalho'
   );
   // "2026-01-07" lido como meia-noite UTC seria 6 de janeiro em Brasília.
-  assert.ok(
-    !partes.some(xml => /6 de janeiro de 2026/.test(xml)),
-    'a data voltou um dia'
+  assert.ok(!partes.some(xml => /6 de janeiro de 2026/.test(xml)), 'a data voltou um dia');
+});
+
+test('a capa não recebe data e o cabeçalho começa na página 2', async () => {
+  for (const modelo of ['padrao', 'hidrojateamento']) {
+    for (const tipo of ['commercial', 'technical']) {
+      const zip = new AdmZip(await preencherProposta({ ...DADOS, modelo }, tipo));
+      const doc = new DOMParser().parseFromString(
+        zip.getEntry('word/document.xml').getData().toString('utf8'),
+        'text/xml'
+      );
+      const primeiraSecao = doc.getElementsByTagName('w:sectPr').item(0);
+      assert.ok(
+        primeiraSecao.getElementsByTagName('w:titlePg').length,
+        `${modelo}/${tipo}: a primeira página não foi diferenciada`
+      );
+
+      const rels = new DOMParser().parseFromString(
+        zip.getEntry('word/_rels/document.xml.rels').getData().toString('utf8'),
+        'text/xml'
+      );
+      const alvos = new Map(
+        Array.from(rels.getElementsByTagName('Relationship')).map(relacao => [
+          relacao.getAttribute('Id'),
+          relacao.getAttribute('Target')
+        ])
+      );
+      const primeiros = Array.from(primeiraSecao.getElementsByTagName('w:headerReference')).filter(
+        referencia => referencia.getAttribute('w:type') === 'first'
+      );
+
+      for (const referencia of primeiros) {
+        const alvo = alvos.get(referencia.getAttribute('r:id'));
+        const entrada = alvo && zip.getEntry(`word/${alvo.replace(/^\.\.\//, '')}`);
+        assert.ok(entrada, `${modelo}/${tipo}: cabeçalho first não encontrado`);
+        assert.doesNotMatch(
+          entrada.getData().toString('utf8'),
+          /7 de janeiro de 2026/,
+          `${modelo}/${tipo}: a data apareceu na capa`
+        );
+      }
+
+      assert.ok(
+        cabecalhos(zip).some(xml => /7 de janeiro de 2026/.test(xml)),
+        `${modelo}/${tipo}: a data também sumiu das páginas internas`
+      );
+    }
+  }
+});
+
+test('a jornada editada na proposta substitui a jornada fixa do modelo', async () => {
+  const personalizada = 'Jornada exclusiva desta proposta\nSegunda a sábado — turno combinado';
+  const bytes = await preencherProposta({ ...DADOS, workday: personalizada }, 'commercial');
+  const jornada = textoEntreTitulos(bytes, '- Jornada de trabalho:', '- Descrição dos valores:');
+
+  assert.match(jornada, /Jornada exclusiva desta proposta/);
+  assert.match(jornada, /Segunda a sábado — turno combinado/);
+  assert.doesNotMatch(jornada, /44 horas semanais/);
+});
+
+test('a previsão de atendimento leva a unidade no valor, não no modelo', async () => {
+  const { texto } = textoDoDocx(
+    await preencherProposta({ ...DADOS, attendance: 'De imediato' }, 'commercial')
   );
+
+  assert.match(texto, /De imediato\s+após\s+o recebimento/);
+  assert.doesNotMatch(texto, /De imediato dias/);
+});
+
+test('o capítulo 7 técnico contém somente os escopos selecionados', async () => {
+  const technicalServices = [
+    {
+      instanceId: 'boroscopia-1',
+      serviceId: 'boroscopia',
+      templateVersion: 1,
+      title: 'Boroscopia selecionada',
+      text: 'Texto técnico exclusivo da boroscopia desta proposta.',
+      usesTemplate: false,
+      parameters: {},
+      reportCode: null
+    }
+  ];
+  const bytes = await preencherProposta({ ...DADOS, technicalServices }, 'technical');
+  const escopo = textoEntreTitulos(bytes, '- Escopo Técnico:', '- Relatórios:');
+
+  assert.match(escopo, /7\.1 Boroscopia selecionada/);
+  assert.match(escopo, /Texto técnico exclusivo da boroscopia desta proposta/);
+  assert.doesNotMatch(escopo, /Limpeza química|Flushing primário|Desidratação de óleo/);
+});
+
+test('sem serviço selecionado, o cardápio fixo do capítulo 7 é removido', async () => {
+  const bytes = await preencherProposta({ ...DADOS, technicalServices: [] }, 'technical');
+  assert.equal(textoEntreTitulos(bytes, '- Escopo Técnico:', '- Relatórios:'), '');
+});
+
+test('pagamento, observações e impostos editados na prévia chegam ao DOCX', async () => {
+  const { texto } = textoDoDocx(
+    await preencherProposta(
+      {
+        ...DADOS,
+        payment: 'Pagamento personalizado em parcela única.',
+        observations: 'Observação comercial exclusiva desta proposta.',
+        taxes: 'Tributação definida especificamente para esta proposta.'
+      },
+      'commercial'
+    )
+  );
+
+  assert.match(texto, /Pagamento personalizado em parcela única/);
+  assert.match(texto, /Observação comercial exclusiva desta proposta/);
+  assert.match(texto, /Tributação definida especificamente para esta proposta/);
+  assert.doesNotMatch(texto, /Medição quinzenal/);
+  assert.doesNotMatch(texto, /regime tributário do lucro presumido/);
+});
+
+test('complementos técnicos da prévia chegam às seções do DOCX', async () => {
+  const { texto } = textoDoDocx(
+    await preencherProposta(
+      {
+        ...DADOS,
+        technicalReports: 'Relatório complementar acordado com o cliente.',
+        technicalObservations: 'Observação técnica exclusiva desta proposta.'
+      },
+      'technical'
+    )
+  );
+
+  assert.match(texto, /Relatório complementar acordado com o cliente/);
+  assert.match(texto, /Observação técnica exclusiva desta proposta/);
 });
 
 test('a data é alinhada à direita por regra, não por espaços', async () => {
@@ -318,6 +467,16 @@ test('a tabela de preços recebe uma linha por item e o total somado', async () 
   assert.equal(linhasDaTabelaCom(xml, 'Serviço especializado conforme escopo'), 4);
 });
 
+test('desmarcar valor unitário remove a coluna da prévia e do DOCX', async () => {
+  const { texto } = textoDoDocx(
+    await preencherProposta({ ...DADOS, includeUnitValue: false }, 'commercial')
+  );
+
+  assert.doesNotMatch(texto, /Valor Unit/);
+  assert.match(texto, /Qtd/);
+  assert.match(texto, /Valor total/);
+});
+
 test('os itens de escopo substituem o cardápio do documento', async () => {
   // O documento entregue traz dez frases prontas — um cardápio dos serviços que
   // a empresa presta. A proposta usa duas ou três, escolhidas na etapa Escopo.
@@ -331,10 +490,7 @@ test('os itens de escopo substituem o cardápio do documento', async () => {
     texto,
     /Serviço especializado em mão de obra e execução técnica — Flushing primário — Regime turbulento\./
   );
-  assert.ok(
-    !/visita técnica/i.test(texto),
-    'sobrou frase do cardápio que a proposta não escolheu'
-  );
+  assert.ok(!/visita técnica/i.test(texto), 'sobrou frase do cardápio que a proposta não escolheu');
 
   // A ressalva fixa do escopo não é item de lista e tem de sobreviver.
   assert.match(texto, /tubulações embarcadas/);
@@ -401,7 +557,10 @@ test('proposta vazia gera documento sem marcador e sem linha fantasma', async ()
   const vazio = { ...DADOS, rows: [], prices: [], scopeItems: [] };
   const { xml, texto } = textoDoDocx(await preencherProposta(vazio, 'commercial'));
 
-  assert.deepEqual([...xml.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]), []);
+  assert.deepEqual(
+    [...xml.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]),
+    []
+  );
   assert.ok(!texto.includes('escopo_filtrovali'));
   assert.ok(!texto.includes('descricao_a'));
 });
@@ -505,7 +664,12 @@ test('a foto do escopo entra como imagem, com legenda', async () => {
 test('foto que não carrega não derruba a proposta', async () => {
   // O documento sai sem ela, e quem confere na prévia percebe a falta. Estourar
   // aqui impediria de emitir a proposta inteira por causa de um anexo.
-  const semFoto = { ...COM_BLOCOS, lerFoto: async () => { throw new Error('sumiu'); } };
+  const semFoto = {
+    ...COM_BLOCOS,
+    lerFoto: async () => {
+      throw new Error('sumiu');
+    }
+  };
   const { texto } = textoDoDocx(await preencherProposta(semFoto, 'commercial'));
   assert.match(texto, /Medições previstas/, 'a tabela também se perdeu');
   assert.ok(!texto.includes('{{escopo_blocos}}'), 'a âncora ficou impressa');

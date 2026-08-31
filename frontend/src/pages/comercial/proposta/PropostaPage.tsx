@@ -67,7 +67,8 @@ import { usePropostaFinalizacao } from './usePropostaFinalizacao';
 import { usePropostaRevision } from './usePropostaRevision';
 import {
   formatarValorDoLevantamento,
-  itemDePrecoDoLevantamento
+  itemDePrecoDoLevantamento,
+  localDaObraDoLevantamento
 } from './levantamentoVinculado';
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
@@ -99,7 +100,7 @@ import { rolarParaInicioDoFormulario } from '../navegacao';
 type AnyRecord = Record<string, unknown>;
 type ModoDaProposta = 'new' | 'revision';
 
-function formularioInicial(): AnyRecord {
+function formularioInicial(modelo: ModeloProposta = 'padrao'): AnyRecord {
   return {
     seller: '',
     date: new Date().toISOString().slice(0, 10),
@@ -115,7 +116,9 @@ function formularioInicial(): AnyRecord {
     permanence: '',
     integration: '',
     execution: '',
-    workday: '',
+    // A jornada nasce do modelo, mas é conteúdo da proposta: o vendedor pode
+    // adaptar turno, intervalo e regime antes de gerar o documento.
+    workday: jornadaEmTexto(modelo),
     technicalObservations: '',
     // Os textos nascem do documento, não em branco (desvio 12). São editáveis:
     // o vendedor ajusta a condição negociada, mas parte do que a empresa
@@ -165,7 +168,7 @@ export function PropostaPage() {
   const modelo: ModeloProposta | null =
     modeloNaUrl === 'padrao' || modeloNaUrl === 'hidrojateamento' ? modeloNaUrl : null;
 
-  const [form, setForm] = useState<AnyRecord>(formularioInicial);
+  const [form, setForm] = useState<AnyRecord>(() => formularioInicial(modelo ?? 'padrao'));
   // A proposta nasce com UM serviço. Zero serviços deixaria a etapa 2 sem nada
   // para preencher, e a trava pediria um item que não existe na tela.
   const [itensEscopo, setItensEscopo] = useState<ScopeServiceItem[]>(() => [
@@ -175,17 +178,13 @@ export function PropostaPage() {
   // A proposta nasce com a matriz do modelo, não em branco: são ~35 obrigações
   // que se repetem em toda obra, e digitá-las de novo a cada proposta é como o
   // erro entra. O vendedor apaga o que não se aplica.
-  const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(
-    () => matrizInicial(modelo ?? 'padrao')
+  const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(() =>
+    matrizInicial(modelo ?? 'padrao')
   );
   /* A lista de categorias é editável e vive junto da proposta: acrescentar uma
      categoria numa obra não pode mudar o catálogo das outras. */
-  const [categorias, setCategorias] = useState<string[]>(() => [
-    ...CATEGORIAS_RESPONSABILIDADE
-  ]);
-  const [servicosTecnicos, setServicosTecnicos] = useState<TechnicalServiceSelection[]>(
-    []
-  );
+  const [categorias, setCategorias] = useState<string[]>(() => [...CATEGORIAS_RESPONSABILIDADE]);
+  const [servicosTecnicos, setServicosTecnicos] = useState<TechnicalServiceSelection[]>([]);
   const [complementoRelatorios, setComplementoRelatorios] = useState('');
   const [precos, setPrecos] = useState<ItemDePreco[]>(() => [
     { description: '', unit: '', quantity: '1', unitValue: '', value: '' }
@@ -206,13 +205,15 @@ export function PropostaPage() {
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [podeEscolher, setPodeEscolher] = useState(false);
   const [recado, setRecado] = useState('');
-  const [levantamentoVinculado, setLevantamentoVinculado] =
-    useState<LevantamentoSalvo | null>(null);
+  const [levantamentoVinculado, setLevantamentoVinculado] = useState<LevantamentoSalvo | null>(
+    null
+  );
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [versaoCarregada, setVersaoCarregada] = useState('');
-  const [conflitoDeEdicao, setConflitoDeEdicao] =
-    useState<ComercialConcurrentWriteError | null>(null);
+  const [conflitoDeEdicao, setConflitoDeEdicao] = useState<ComercialConcurrentWriteError | null>(
+    null
+  );
   const formularioRef = useRef<HTMLDivElement>(null);
   const { aplicarSnapshot, carregarRevisao, revisaoPronta, setVinculoCrm, vinculoCrm } =
     usePropostaRevision({
@@ -266,33 +267,28 @@ export function PropostaPage() {
         if (!deveAplicar) return;
 
         levantamentoAplicado.current = levantamento.id;
+        const localDaObra = localDaObraDoLevantamento(levantamento);
         setForm(atual => ({
           ...atual,
-          title: levantamento.title || String(atual.title || '')
+          title: levantamento.title || String(atual.title || ''),
+          ...(localDaObra ? { site: localDaObra } : {})
         }));
         setPrecos([itemDePrecoDoLevantamento(levantamento)]);
         setRecado(
           `Levantamento ${levantamento.proposalCode} vinculado. ` +
-            'O preço de venda foi carregado na etapa Comercial.'
+            'O local da obra e o preço de venda foram carregados para a proposta.'
         );
       })
       .catch(error => {
         if (!vivo) return;
         setLevantamentoVinculado(null);
-        setRecado(
-          mensagemDeErro(error, 'Não foi possível carregar o levantamento vinculado.')
-        );
+        setRecado(mensagemDeErro(error, 'Não foi possível carregar o levantamento vinculado.'));
       });
 
     return () => {
       vivo = false;
     };
-  }, [
-    levantamentoId,
-    propostaId,
-    revisaoPronta,
-    usarDadosDoLevantamento
-  ]);
+  }, [levantamentoId, propostaId, revisaoPronta, usarDadosDoLevantamento]);
 
   const rascunho = useRascunhoLocal({
     conta: user?.id || '',
@@ -435,9 +431,7 @@ export function PropostaPage() {
     setParams(proximos, { replace: true });
     setTentouAvancar(false);
     if (rolar) {
-      window.requestAnimationFrame(() =>
-        rolarParaInicioDoFormulario(formularioRef.current)
-      );
+      window.requestAnimationFrame(() => rolarParaInicioDoFormulario(formularioRef.current));
     }
   }
 
@@ -478,8 +472,7 @@ export function PropostaPage() {
    */
   function escolherModelo(escolhido: ModeloProposta) {
     const anterior = modelo ?? 'padrao';
-    const intocada =
-      JSON.stringify(responsabilidades) === JSON.stringify(matrizInicial(anterior));
+    const intocada = JSON.stringify(responsabilidades) === JSON.stringify(matrizInicial(anterior));
 
     if (intocada) {
       setResponsabilidades(matrizInicial(escolhido));
@@ -670,11 +663,7 @@ export function PropostaPage() {
         <>
           {/* Não abre sozinho: quem chegou nesta tela já passou pela entrada. */}
           <TutorialDoModulo passos={ROTEIRO_DA_PROPOSTA} />
-          <button
-            type="button"
-            className="com-btn com-btn-fantasma"
-            onClick={() => window.print()}
-          >
+          <button type="button" className="com-btn com-btn-fantasma" onClick={() => window.print()}>
             Imprimir prévia
           </button>
         </>
@@ -694,30 +683,30 @@ export function PropostaPage() {
       }
       faixa={
         <>
-        <nav className="com-stepper" aria-label="Etapas da proposta">
-          {ETAPAS.map((item, i) => {
-            const alcancavel = i <= maiorVisitada;
-            return (
-              <button
-                key={item.value}
-                type="button"
-                className={
-                  i === indice ? 'is-ativa' : i < maiorVisitada ? 'is-concluida' : undefined
-                }
-                aria-current={i === indice ? 'step' : undefined}
-                /* Sem `disabled`: na referência o passo à frente fica cinza,
+          <nav className="com-stepper" aria-label="Etapas da proposta">
+            {ETAPAS.map((item, i) => {
+              const alcancavel = i <= maiorVisitada;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={
+                    i === indice ? 'is-ativa' : i < maiorVisitada ? 'is-concluida' : undefined
+                  }
+                  aria-current={i === indice ? 'step' : undefined}
+                  /* Sem `disabled`: na referência o passo à frente fica cinza,
                    não apagado. Ele informa onde se está — e um controle
                    desabilitado parece defeito, não estado. O clique é que
                    respeita a ordem. */
-                aria-disabled={!alcancavel || undefined}
-                onClick={() => alcancavel && irPara(item.value)}
-              >
-                <b aria-hidden="true">{i < maiorVisitada ? '✓' : i + 1}</b>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+                  aria-disabled={!alcancavel || undefined}
+                  onClick={() => alcancavel && irPara(item.value)}
+                >
+                  <b aria-hidden="true">{i < maiorVisitada ? '✓' : i + 1}</b>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </>
       }
     >
@@ -754,271 +743,269 @@ export function PropostaPage() {
       )}
 
       <section className="com-workspace">
-      <div ref={formularioRef} className="com-form-panel">
-      {levantamentoVinculado && modo !== null && (
-        <section className="com-vinculo-levantamento" role="status">
-          <div>
-            <small>LEVANTAMENTO VINCULADO</small>
-            <strong>
-              {levantamentoVinculado.proposalCode}
-              {levantamentoVinculado.revisionNumber > 0
-                ? ` · Rev ${levantamentoVinculado.revisionNumber}`
-                : ''}
-            </strong>
-            <span>{levantamentoVinculado.title}</span>
-          </div>
-          <div>
-            <small>PREÇO DE VENDA CARREGADO</small>
-            <strong>
-              {formatarValorDoLevantamento(levantamentoVinculado.salePrice) || 'A revisar'}
-            </strong>
-            <span>O vínculo será preservado ao salvar a proposta.</span>
-          </div>
-        </section>
-      )}
-      {rascunho.oferta && (
-        <section className="com-painel com-oferta-rascunho" role="alertdialog">
-          <div>
-            <strong>Recuperar rascunho não salvo?</strong>
-            <p>
-              Há uma proposta em andamento guardada neste navegador,{' '}
-              {rascunho.idadeDaOferta}. Ela não chegou a ser salva no servidor.
-            </p>
-          </div>
-          <div className="com-oferta-acoes">
-            <button
-              type="button"
-              className="com-btn com-btn-primario"
-              onClick={() => {
-                const dados = rascunho.recuperar() as
-                  | {
-                      form?: AnyRecord;
-                      itensEscopo?: ScopeServiceItem[];
-                      blocos?: ScopeBlock[];
-                      responsabilidades?: LinhaResponsabilidade[];
-                      categorias?: string[];
-                      servicosTecnicos?: unknown;
-                      complementoRelatorios?: string;
-                      precos?: ItemDePreco[];
-                      incluirUnitario?: boolean;
+        <div ref={formularioRef} className="com-form-panel">
+          {levantamentoVinculado && modo !== null && (
+            <section className="com-vinculo-levantamento" role="status">
+              <div>
+                <small>LEVANTAMENTO VINCULADO</small>
+                <strong>
+                  {levantamentoVinculado.proposalCode}
+                  {levantamentoVinculado.revisionNumber > 0
+                    ? ` · Rev ${levantamentoVinculado.revisionNumber}`
+                    : ''}
+                </strong>
+                <span>{levantamentoVinculado.title}</span>
+              </div>
+              <div>
+                <small>PREÇO DE VENDA CARREGADO</small>
+                <strong>
+                  {formatarValorDoLevantamento(levantamentoVinculado.salePrice) || 'A revisar'}
+                </strong>
+                <span>O vínculo será preservado ao salvar a proposta.</span>
+              </div>
+            </section>
+          )}
+          {rascunho.oferta && (
+            <section className="com-painel com-oferta-rascunho" role="alertdialog">
+              <div>
+                <strong>Recuperar rascunho não salvo?</strong>
+                <p>
+                  Há uma proposta em andamento guardada neste navegador, {rascunho.idadeDaOferta}.
+                  Ela não chegou a ser salva no servidor.
+                </p>
+              </div>
+              <div className="com-oferta-acoes">
+                <button
+                  type="button"
+                  className="com-btn com-btn-primario"
+                  onClick={() => {
+                    const dados = rascunho.recuperar() as
+                      | {
+                          form?: AnyRecord;
+                          itensEscopo?: ScopeServiceItem[];
+                          blocos?: ScopeBlock[];
+                          responsabilidades?: LinhaResponsabilidade[];
+                          categorias?: string[];
+                          servicosTecnicos?: unknown;
+                          complementoRelatorios?: string;
+                          precos?: ItemDePreco[];
+                          incluirUnitario?: boolean;
+                        }
+                      | undefined;
+                    if (!dados) return;
+                    if (dados.form) setForm(dados.form);
+                    if (dados.itensEscopo?.length) setItensEscopo(dados.itensEscopo);
+                    if (dados.blocos) setBlocos(dados.blocos);
+                    if (dados.responsabilidades?.length) {
+                      // Rascunho guardado antes da categoria existir vem sem ela, e
+                      // um `value` indefinido tornaria o campo não controlado no
+                      // meio da digitação. Sem categoria, a linha só não ganha
+                      // subtítulo — não some do documento.
+                      setResponsabilidades(
+                        dados.responsabilidades.map(linha => ({
+                          ...linha,
+                          categoria: linha.categoria ?? ''
+                        }))
+                      );
                     }
-                  | undefined;
-                if (!dados) return;
-                if (dados.form) setForm(dados.form);
-                if (dados.itensEscopo?.length) setItensEscopo(dados.itensEscopo);
-                if (dados.blocos) setBlocos(dados.blocos);
-                if (dados.responsabilidades?.length) {
-                  // Rascunho guardado antes da categoria existir vem sem ela, e
-                  // um `value` indefinido tornaria o campo não controlado no
-                  // meio da digitação. Sem categoria, a linha só não ganha
-                  // subtítulo — não some do documento.
-                  setResponsabilidades(
-                    dados.responsabilidades.map(linha => ({
-                      ...linha,
-                      categoria: linha.categoria ?? ''
-                    }))
-                  );
-                }
-                if (dados.categorias?.length) setCategorias(dados.categorias);
-                if (dados.servicosTecnicos) {
-                  // Passa pelo normalizador: o rascunho pode ter sido guardado
-                  // com uma versão anterior do catálogo, e um serviço que mudou
-                  // de forma entraria quebrado direto no estado.
-                  setServicosTecnicos(
-                    normalizeTechnicalServiceSelections(dados.servicosTecnicos)
-                  );
-                }
-                if (typeof dados.complementoRelatorios === 'string') {
-                  setComplementoRelatorios(dados.complementoRelatorios);
-                }
-                if (dados.precos?.length) setPrecos(dados.precos);
-                if (typeof dados.incluirUnitario === 'boolean') {
-                  setIncluirUnitario(dados.incluirUnitario);
-                }
+                    if (dados.categorias?.length) setCategorias(dados.categorias);
+                    if (dados.servicosTecnicos) {
+                      // Passa pelo normalizador: o rascunho pode ter sido guardado
+                      // com uma versão anterior do catálogo, e um serviço que mudou
+                      // de forma entraria quebrado direto no estado.
+                      setServicosTecnicos(
+                        normalizeTechnicalServiceSelections(dados.servicosTecnicos)
+                      );
+                    }
+                    if (typeof dados.complementoRelatorios === 'string') {
+                      setComplementoRelatorios(dados.complementoRelatorios);
+                    }
+                    if (dados.precos?.length) setPrecos(dados.precos);
+                    if (typeof dados.incluirUnitario === 'boolean') {
+                      setIncluirUnitario(dados.incluirUnitario);
+                    }
+                  }}
+                >
+                  Recuperar
+                </button>
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  onClick={rascunho.descartarOferta}
+                >
+                  Começar do zero
+                </button>
+              </div>
+            </section>
+          )}
+
+          {etapa === 'cliente' ? (
+            <ClienteStep
+              form={form}
+              editar={editar}
+              erroDe={erroDe}
+              orcamentista={user?.name || ''}
+              consultores={consultores}
+              podeEscolherConsultor={podeEscolher}
+            />
+          ) : etapa === 'escopo' ? (
+            <EscopoStep
+              titulo={String(form.title ?? '')}
+              onTitulo={valor => editar({ title: valor })}
+              itens={itensEscopo}
+              onItens={setItensEscopo}
+              blocos={blocos}
+              onBlocos={setBlocos}
+              erroDe={erroDe}
+            />
+          ) : etapa === 'responsabilidades' ? (
+            <ResponsabilidadesStep
+              linhas={responsabilidades}
+              servicos={itensEscopo}
+              categorias={categorias}
+              onCategorias={setCategorias}
+              onLinhas={setResponsabilidades}
+              mostrarErros={tentouAvancar}
+              erroDe={erroDe}
+            />
+          ) : etapa === 'prazos' ? (
+            <PrazosStep form={form} editar={editar} erroDe={erroDe} />
+          ) : etapa === 'tecnica' ? (
+            <TecnicaStep
+              selecoes={servicosTecnicos}
+              onSelecoes={setServicosTecnicos}
+              complemento={complementoRelatorios}
+              onComplemento={setComplementoRelatorios}
+              observacoes={String(form.technicalObservations ?? '')}
+              onObservacoes={valor => editar({ technicalObservations: valor })}
+              erros={errosTecnicos}
+              pendencias={pendenciasTecnicas}
+              mostrarErros={tentouAvancar}
+            />
+          ) : etapa === 'comercial' ? (
+            <ComercialStep
+              form={form}
+              editar={editar}
+              precos={precos}
+              onPrecos={setPrecos}
+              incluirUnitario={incluirUnitario}
+              onIncluirUnitario={setIncluirUnitario}
+              erroDe={erroDe}
+              mostrarErros={tentouAvancar}
+              modelo={modelo ?? 'padrao'}
+            />
+          ) : (
+            <RevisaoStep
+              form={form}
+              codigo={codigoExibido}
+              vinculoCrm={vinculoCrm}
+              funis={finalizacao.funis}
+              funisCarregando={finalizacao.funisCarregando}
+              funisMensagem={finalizacao.funisMensagem}
+              funilId={finalizacao.funilId}
+              onFunil={finalizacao.escolherFunil}
+              escolhaCard={finalizacao.escolhaCard}
+              onEscolhaCard={finalizacao.escolherCard}
+              escolha={finalizacao.escolhaDownload}
+              onEscolha={finalizacao.setEscolhaDownload}
+              pastaOneDrive={finalizacao.pastaOneDrive}
+              onPastaOneDrive={finalizacao.setPastaOneDrive}
+              anexos={finalizacao.anexos}
+              onAnexos={finalizacao.setAnexos}
+              anexosEnviados={finalizacao.anexosEnviados}
+              removendoAnexoId={finalizacao.removendoAnexoId}
+              onRemoverAnexo={id => {
+                finalizacao.removerAnexo(id).catch(() => {});
               }}
-            >
-              Recuperar
-            </button>
-            <button
-              type="button"
-              className="com-btn com-btn-fantasma"
-              onClick={rascunho.descartarOferta}
-            >
-              Começar do zero
-            </button>
-          </div>
-        </section>
-      )}
+              erroFinalizacao={finalizacao.erroFinalizacao}
+              bloqueada={finalizacao.bloqueada}
+            />
+          )}
 
+          {recado && (
+            <p className="com-recado com-recado-tela" role="status">
+              {recado}
+            </p>
+          )}
 
-      {etapa === 'cliente' ? (
-        <ClienteStep
-          form={form}
-          editar={editar}
-          erroDe={erroDe}
-          orcamentista={user?.name || ''}
-          consultores={consultores}
-          podeEscolherConsultor={podeEscolher}
-        />
-      ) : etapa === 'escopo' ? (
-        <EscopoStep
-          titulo={String(form.title ?? '')}
-          onTitulo={valor => editar({ title: valor })}
-          itens={itensEscopo}
-          onItens={setItensEscopo}
-          blocos={blocos}
-          onBlocos={setBlocos}
-          erroDe={erroDe}
-        />
-      ) : etapa === 'responsabilidades' ? (
-        <ResponsabilidadesStep
-          linhas={responsabilidades}
-          servicos={itensEscopo}
-          categorias={categorias}
-          onCategorias={setCategorias}
-          onLinhas={setResponsabilidades}
-          mostrarErros={tentouAvancar}
-          erroDe={erroDe}
-        />
-      ) : etapa === 'prazos' ? (
-        <PrazosStep form={form} editar={editar} erroDe={erroDe} />
-      ) : etapa === 'tecnica' ? (
-        <TecnicaStep
-          selecoes={servicosTecnicos}
-          onSelecoes={setServicosTecnicos}
-          complemento={complementoRelatorios}
-          onComplemento={setComplementoRelatorios}
-          observacoes={String(form.technicalObservations ?? '')}
-          onObservacoes={valor => editar({ technicalObservations: valor })}
-          erros={errosTecnicos}
-          pendencias={pendenciasTecnicas}
-          mostrarErros={tentouAvancar}
-        />
-      ) : etapa === 'comercial' ? (
-        <ComercialStep
-          form={form}
-          editar={editar}
-          precos={precos}
-          onPrecos={setPrecos}
-          incluirUnitario={incluirUnitario}
-          onIncluirUnitario={setIncluirUnitario}
-          erroDe={erroDe}
-          mostrarErros={tentouAvancar}
-          modelo={modelo ?? 'padrao'}
-        />
-      ) : (
-        <RevisaoStep
-          form={form}
-          codigo={codigoExibido}
-          vinculoCrm={vinculoCrm}
-          funis={finalizacao.funis}
-          funisCarregando={finalizacao.funisCarregando}
-          funisMensagem={finalizacao.funisMensagem}
-          funilId={finalizacao.funilId}
-          onFunil={finalizacao.escolherFunil}
-          escolhaCard={finalizacao.escolhaCard}
-          onEscolhaCard={finalizacao.escolherCard}
-          escolha={finalizacao.escolhaDownload}
-          onEscolha={finalizacao.setEscolhaDownload}
-          pastaOneDrive={finalizacao.pastaOneDrive}
-          onPastaOneDrive={finalizacao.setPastaOneDrive}
-          anexos={finalizacao.anexos}
-          onAnexos={finalizacao.setAnexos}
-          anexosEnviados={finalizacao.anexosEnviados}
-          removendoAnexoId={finalizacao.removendoAnexoId}
-          onRemoverAnexo={id => {
-            finalizacao.removerAnexo(id).catch(() => {});
-          }}
-          erroFinalizacao={finalizacao.erroFinalizacao}
-          bloqueada={finalizacao.bloqueada}
-        />
-      )}
+          {finalizacao.etapaFinalizacao >= 0 && (
+            <section className="com-painel com-progresso-finalizacao" aria-live="polite">
+              <strong>Finalização da proposta</strong>
+              <ol>
+                {ETAPAS_VISIVEIS_DA_FINALIZACAO.map((item, i) => (
+                  <li
+                    key={item.etapaTecnica}
+                    className={
+                      i < finalizacao.etapaFinalizacao
+                        ? 'is-concluida'
+                        : i === finalizacao.etapaFinalizacao
+                          ? 'is-ativa'
+                          : undefined
+                    }
+                  >
+                    <b aria-hidden="true">{i < finalizacao.etapaFinalizacao ? '✓' : i + 1}</b>
+                    <span>{item.mensagem}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
 
-      {recado && (
-        <p className="com-recado com-recado-tela" role="status">
-          {recado}
-        </p>
-      )}
+          <FinalizacaoPanel
+            documentos={finalizacao.emitidos}
+            escolha={finalizacao.escolhaDownload}
+            baixandoId={finalizacao.baixandoId}
+            onBaixar={documentos => {
+              finalizacao.baixarDocumentos(documentos).catch(() => {});
+            }}
+          />
 
-      {finalizacao.etapaFinalizacao >= 0 && (
-        <section className="com-painel com-progresso-finalizacao" aria-live="polite">
-          <strong>Finalização da proposta</strong>
-          <ol>
-            {ETAPAS_VISIVEIS_DA_FINALIZACAO.map((item, i) => (
-              <li
-                key={item.etapaTecnica}
-                className={
-                  i < finalizacao.etapaFinalizacao
-                    ? 'is-concluida'
-                    : i === finalizacao.etapaFinalizacao
-                      ? 'is-ativa'
-                      : undefined
-                }
-              >
-                <b aria-hidden="true">{i < finalizacao.etapaFinalizacao ? '✓' : i + 1}</b>
-                <span>{item.mensagem}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
+          <PropostaFooter
+            primeiraEtapa={indice === 0}
+            aviso={avisoDePendencias(pendencias)}
+            rotulo={
+              salvando
+                ? 'Salvando...'
+                : finalizacao.finalizando
+                  ? ETAPAS_VISIVEIS_DA_FINALIZACAO[Math.max(0, finalizacao.etapaFinalizacao)]
+                      .mensagem
+                  : finalizacao.finalizada
+                    ? 'Proposta finalizada'
+                    : gerandoPdf
+                      ? 'Gerando os documentos...'
+                      : rotuloDoAvanco(pendencias, ultima, proximaEtapa?.label)
+            }
+            ocupado={salvando || gerandoPdf || finalizacao.bloqueada}
+            onVoltar={() =>
+              indice === 0
+                ? navigate(moduleRoutePath('comercial', 'index'))
+                : irPara(ETAPAS[indice - 1].value)
+            }
+            onAvancar={avancar}
+          />
+        </div>
 
-      <FinalizacaoPanel
-        documentos={finalizacao.emitidos}
-        escolha={finalizacao.escolhaDownload}
-        baixandoId={finalizacao.baixandoId}
-        onBaixar={documentos => {
-          finalizacao.baixarDocumentos(documentos).catch(() => {});
-        }}
-      />
-
-      <PropostaFooter
-        primeiraEtapa={indice === 0}
-        aviso={avisoDePendencias(pendencias)}
-        rotulo={
-          salvando
-            ? 'Salvando...'
-            : finalizacao.finalizando
-              ? ETAPAS_VISIVEIS_DA_FINALIZACAO[
-                  Math.max(0, finalizacao.etapaFinalizacao)
-                ].mensagem
-              : finalizacao.finalizada
-                ? 'Proposta finalizada'
-            : gerandoPdf
-              ? 'Gerando os documentos...'
-              : rotuloDoAvanco(pendencias, ultima, proximaEtapa?.label)
-        }
-        ocupado={salvando || gerandoPdf || finalizacao.bloqueada}
-        onVoltar={() =>
-          indice === 0
-            ? navigate(moduleRoutePath('comercial', 'index'))
-            : irPara(ETAPAS[indice - 1].value)
-        }
-        onAvancar={avancar}
-      />
-      </div>
-
-      {/* A prévia é metade da tela na referência, e a razão dela é essa: o
+        {/* A prévia é metade da tela na referência, e a razão dela é essa: o
           orçamentista não preenche um cadastro, monta um documento que vai ao
           cliente. Ver o documento se formar é o que faz alguém perceber que o
           escopo saiu vazio ANTES de gerar o PDF. */}
-      <PropostaPreviewPanel
-        indice={indice}
-        documento={documentoNaPrevia}
-        onDocumento={setDocumentoNaPrevia}
-        form={{ ...form, estimator: user?.name || '' }}
-        codigo={codigoExibido}
-        itensEscopo={itensEscopo}
-        blocos={blocos}
-        responsabilidades={responsabilidades}
-        precos={precos}
-        incluirUnitario={incluirUnitario}
-        servicosTecnicos={servicosTecnicos}
-        complementoRelatorios={complementoRelatorios}
-        modelo={modelo ?? 'padrao'}
-        gerando={gerandoPdf}
-        onGerarPdf={gerarPdf}
-      />
+        <PropostaPreviewPanel
+          indice={indice}
+          documento={documentoNaPrevia}
+          onDocumento={setDocumentoNaPrevia}
+          form={{ ...form, estimator: user?.name || '' }}
+          codigo={codigoExibido}
+          itensEscopo={itensEscopo}
+          blocos={blocos}
+          responsabilidades={responsabilidades}
+          precos={precos}
+          incluirUnitario={incluirUnitario}
+          servicosTecnicos={servicosTecnicos}
+          complementoRelatorios={complementoRelatorios}
+          modelo={modelo ?? 'padrao'}
+          gerando={gerandoPdf}
+          onGerarPdf={gerarPdf}
+        />
       </section>
     </ComercialChrome>
   );

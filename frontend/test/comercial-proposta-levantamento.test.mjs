@@ -12,9 +12,7 @@ test.before(async () => {
     server: { middlewareMode: true },
     appType: 'custom'
   });
-  mod = await server.ssrLoadModule(
-    '/src/pages/comercial/proposta/levantamentoVinculado.ts'
-  );
+  mod = await server.ssrLoadModule('/src/pages/comercial/proposta/levantamentoVinculado.ts');
 });
 
 test.after(async () => {
@@ -41,4 +39,36 @@ test('o preço do levantamento entra na proposta como verba global editável', (
       value: 'R$ 38.139,33'
     }
   );
+});
+
+test('o local da obra vem do destino principal orçado no levantamento', () => {
+  assert.equal(
+    mod.localDaObraDoLevantamento({
+      payload: {
+        logisticsDestinations: [
+          { id: 'apoio', address: 'Rua do Almoxarifado, 10' },
+          {
+            id: 'obra-principal',
+            address: 'Rodovia BR-040, km 620 — Congonhas/MG'
+          }
+        ]
+      }
+    }),
+    'Rodovia BR-040, km 620 — Congonhas/MG'
+  );
+});
+
+test('levantamento antigo usa o primeiro destino com endereço', () => {
+  assert.equal(
+    mod.localDaObraDoLevantamento({
+      payload: {
+        logisticsDestinations: [
+          { id: 'sem-endereco', address: '   ' },
+          { id: 'destino-legado', address: 'Usina Industrial — Betim/MG' }
+        ]
+      }
+    }),
+    'Usina Industrial — Betim/MG'
+  );
+  assert.equal(mod.localDaObraDoLevantamento({ payload: {} }), '');
 });

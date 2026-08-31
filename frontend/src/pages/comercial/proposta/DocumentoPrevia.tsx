@@ -16,6 +16,7 @@ import {
   TEXTO_IMPOSTOS,
   TEXTO_OBSERVACOES_GERAIS,
   TEXTO_PROPRIEDADE_INTELECTUAL,
+  SERVICOS_EXTRA_ESCOPO,
   TITULO_BLOCO_STANDBY,
   descricaoComAberturaTecnica,
   fraseHoraExtra,
@@ -139,9 +140,10 @@ function formatarData(iso: string): string {
   if (!iso) return '—';
   const quando = new Date(`${iso}T12:00:00Z`);
   if (Number.isNaN(quando.getTime())) return iso;
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeZone: 'UTC' }).format(
-    quando
-  );
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'long',
+    timeZone: 'UTC'
+  }).format(quando);
 }
 
 function Pagina({
@@ -196,8 +198,7 @@ export function DocumentoPrevia({
 }) {
   const tecnico = tipo === 'technical';
   const indice = tecnico ? INDICE_TECNICO : INDICE_COMERCIAL;
-  const texto = (campo: string, padrao: string) =>
-    String(form[campo] ?? '').trim() || padrao;
+  const texto = (campo: string, padrao: string) => String(form[campo] ?? '').trim() || padrao;
 
   const data = String(form.date ?? '');
   const responsabilidadesPreenchidas = responsabilidades.filter(linha => linha.item.trim());
@@ -206,17 +207,17 @@ export function DocumentoPrevia({
      empurra tudo o que vem depois. É o mesmo cálculo que o PDF fará. */
   const folhasDoEscopo = paginasDoEscopo(blocos);
   const folhasDaResponsabilidade = folhasDaMatriz(responsabilidadesPreenchidas);
-  const folhasTecnicas = tecnico
-    ? paginasTecnicas(servicosTecnicos, complementoRelatorios)
-    : [];
+  const folhasTecnicas = tecnico ? paginasTecnicas(servicosTecnicos, complementoRelatorios) : [];
 
   /* A folha 3 é a institucional e a 4 abre com 1.3 e a seção 2 — o escopo
      começa na 5. Este número era 4 quando a institucional cabia numa folha só. */
   const PRIMEIRA_FOLHA_DE_ESCOPO = 5;
   const numeroDasResponsabilidades = PRIMEIRA_FOLHA_DE_ESCOPO + folhasDoEscopo.length;
-  const numeroDosPrazos =
-    numeroDasResponsabilidades + Math.max(1, folhasDaResponsabilidade.length);
-  const numeroDoFechamentoComercial = numeroDosPrazos + 1;
+  const numeroDosPrazos = numeroDasResponsabilidades + Math.max(1, folhasDaResponsabilidade.length);
+  // A descrição de valores e o pagamento ocupam uma folha própria. Mantê-los
+  // junto da jornada fazia o fim da página ser cortado na prévia fixa.
+  const numeroDosValores = numeroDosPrazos + 1;
+  const numeroDoFechamentoComercial = numeroDosValores + 1;
   const locaisDePreco = tabelasDePrecoDoModelo(modelo);
   const numeroDoFechamentoTecnico = numeroDosPrazos + folhasTecnicas.length + 1;
 
@@ -230,9 +231,7 @@ export function DocumentoPrevia({
       />
 
       <Pagina numero={2} data={data}>
-        <h2 className="com-doc-tipo">
-          {tecnico ? 'Proposta Técnica' : 'Proposta Comercial'}
-        </h2>
+        <h2 className="com-doc-tipo">{tecnico ? 'Proposta Técnica' : 'Proposta Comercial'}</h2>
 
         <div className="com-doc-meta">
           <p>
@@ -272,8 +271,8 @@ export function DocumentoPrevia({
       <Pagina numero={3} data={data}>
         <h3>1. Filtrovali é a escolha certa para a sua obra</h3>
         <p>
-          São 21 anos de história e entregas de soluções industriais, com excelência,
-          segurança, qualidade e eficiência.
+          São 21 anos de história e entregas de soluções industriais, com excelência, segurança,
+          qualidade e eficiência.
         </p>
 
         <Visual visual={VISUAIS.metrics} largura="100%" />
@@ -336,9 +335,7 @@ export function DocumentoPrevia({
             <>
               <h4>
                 {folha.rotulo}
-                {folha.totalDePartes > 1
-                  ? ` — parte ${folha.parte}/${folha.totalDePartes}`
-                  : ''}
+                {folha.totalDePartes > 1 ? ` — parte ${folha.parte}/${folha.totalDePartes}` : ''}
               </h4>
               <table className="com-doc-tabela">
                 <thead>
@@ -388,8 +385,8 @@ export function DocumentoPrevia({
       <Pagina numero={numeroDosPrazos} data={data}>
         <h3>4. Previsão de atendimento</h3>
         <p>
-          {texto('attendance', 'A definir')} após o recebimento do pedido de compras ou
-          assinatura do contrato.
+          {texto('attendance', 'A definir')} após o recebimento do pedido de compras ou assinatura
+          do contrato.
         </p>
         <p>{NOTA_ATENDIMENTO_MONTADORA}</p>
         <p>{NOTA_ATENDIMENTO_REVALIDACAO}</p>
@@ -408,63 +405,65 @@ export function DocumentoPrevia({
             Prazo previsto de execução dos serviços (dias trabalhados/úteis) –{' '}
             {texto('execution', 'a definir')};
           </li>
-          <li>
-            Prazo de deslocamento (Mob/desmob) – {texto('mobilization', 'a definir')}.
-          </li>
+          <li>Prazo de deslocamento (Mob/desmob) – {texto('mobilization', 'a definir')}.</li>
         </ul>
         <p className="com-doc-nota">{NOTA_PRAZO_DESLOCAMENTO}</p>
 
         <h3>6. Jornada de trabalho</h3>
         <p className="com-doc-tecnico">{texto('workday', textoJornada(modelo))}</p>
+      </Pagina>
 
-        {!tecnico && (
-          <>
-            <h3>7. Descrição dos valores</h3>
-            {/* Hidrojateamento traz DUAS tabelas, cada uma com o seu TOTAL
+      {!tecnico && (
+        <Pagina numero={numeroDosValores} data={data}>
+          <h3>7. Descrição dos valores</h3>
+          {/* Hidrojateamento traz DUAS tabelas, cada uma com o seu TOTAL
                 GERAL — são cenários alternativos de execução, não parcelas do
                 mesmo serviço. Somá-las apresentaria um total que o cliente não
                 vai pagar (T071f). */}
-            {(locaisDePreco ?? [undefined]).map(local => {
-              const daTabela = local
-                ? precos.filter(item => item.local === local)
-                : precos;
-              return (
-                <div key={local ?? 'unica'}>
-                  {local && <h4 className="com-doc-local">{local}:</h4>}
-                  <table className="com-doc-tabela">
-                    <thead>
-                      <tr>
-                        <th>ITEM</th>
-                        <th>DESCRIÇÃO</th>
-                        {incluirUnitario && <th>VALOR UNIT.</th>}
-                        <th>QTD.</th>
-                        <th>VALOR TOTAL</th>
+          {(locaisDePreco ?? [undefined]).map(local => {
+            const daTabela = local ? precos.filter(item => item.local === local) : precos;
+            return (
+              <div key={local ?? 'unica'}>
+                {local && <h4 className="com-doc-local">{local}:</h4>}
+                <table className="com-doc-tabela">
+                  <thead>
+                    <tr>
+                      <th>ITEM</th>
+                      <th>DESCRIÇÃO</th>
+                      {incluirUnitario && <th>VALOR UNIT.</th>}
+                      <th>QTD.</th>
+                      <th>VALOR TOTAL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {daTabela.map((item, i) => (
+                      <tr key={i}>
+                        <td>{i + 1}</td>
+                        <td>{item.description || 'Item'}</td>
+                        {incluirUnitario && <td>{item.unitValue || 'R$ -'}</td>}
+                        <td>{item.quantity || '1'}</td>
+                        <td>{item.value || 'R$ -'}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {daTabela.map((item, i) => (
-                        <tr key={i}>
-                          <td>{i + 1}</td>
-                          <td>{item.description || 'Item'}</td>
-                          {incluirUnitario && <td>{item.unitValue || 'R$ -'}</td>}
-                          <td>{item.quantity || '1'}</td>
-                          <td>{item.value || 'R$ -'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <p className="com-doc-total">
-                    <b>Total geral:</b> {somaDosPrecos(daTabela)}
-                  </p>
-                </div>
-              );
-            })}
+                    ))}
+                  </tbody>
+                </table>
+                <p className="com-doc-total">
+                  <b>Total geral:</b> {somaDosPrecos(daTabela)}
+                </p>
+              </div>
+            );
+          })}
 
-            <h3>8. Condições de pagamento</h3>
-            <p>{texto('payment', 'A definir')}</p>
-          </>
-        )}
-      </Pagina>
+          {SERVICOS_EXTRA_ESCOPO.map(observacao => (
+            <p className="com-doc-nota" key={observacao}>
+              {observacao}
+            </p>
+          ))}
+
+          <h3>8. Condições de pagamento</h3>
+          <p>{texto('payment', 'A definir')}</p>
+        </Pagina>
+      )}
 
       {folhasTecnicas.map((folha, i) => (
         <Pagina numero={numeroDosPrazos + i + 1} data={data} key={folha.chave}>
@@ -525,9 +524,7 @@ export function DocumentoPrevia({
           </Pagina>
 
           <Pagina numero={numeroDoFechamentoComercial + 1} data={data}>
-            <p className="com-doc-tecnico">
-              {texto('observations', TEXTO_OBSERVACOES_GERAIS)}
-            </p>
+            <p className="com-doc-tecnico">{texto('observations', TEXTO_OBSERVACOES_GERAIS)}</p>
 
             <h3>10. Impostos</h3>
             <p className="com-doc-tecnico">{texto('taxes', TEXTO_IMPOSTOS)}</p>
@@ -635,5 +632,8 @@ function somaDosPrecos(precos: ItemDePreco[]): string {
     return soma + (Number.isFinite(numero) ? numero : 0);
   }, 0);
 
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(total);
 }

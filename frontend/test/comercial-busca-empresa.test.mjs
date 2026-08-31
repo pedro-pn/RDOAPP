@@ -33,14 +33,14 @@ test.after(async () => {
 });
 
 test('com o espelho pronto, a busca não avisa nada', () => {
-  assert.equal(
-    mod.avisoDoAlcance({ porTrechoDisponivel: true, indiceEmPreparo: false }),
-    ''
-  );
+  assert.equal(mod.avisoDoAlcance({ porTrechoDisponivel: true, indiceEmPreparo: false }), '');
 });
 
 test('sem o espelho, o aviso diz o que a busca ALCANÇA — com exemplo', () => {
-  const aviso = mod.avisoDoAlcance({ porTrechoDisponivel: false, indiceEmPreparo: false });
+  const aviso = mod.avisoDoAlcance({
+    porTrechoDisponivel: false,
+    indiceEmPreparo: false
+  });
 
   assert.match(aviso, /início do nome/);
   // O exemplo não é enfeite: "a busca é por prefixo" não diz a ninguém o que
@@ -49,7 +49,10 @@ test('sem o espelho, o aviso diz o que a busca ALCANÇA — com exemplo', () => 
 });
 
 test('índice em preparo diz para tentar de novo, não que a busca é limitada', () => {
-  const aviso = mod.avisoDoAlcance({ porTrechoDisponivel: false, indiceEmPreparo: true });
+  const aviso = mod.avisoDoAlcance({
+    porTrechoDisponivel: false,
+    indiceEmPreparo: true
+  });
 
   assert.match(aviso, /tente de novo/i);
   assert.notEqual(
@@ -71,7 +74,11 @@ test('escolher a empresa grava o companyId — é ele que destrava a finalizaç�
   assert.equal(dados.companyId, '9911');
   assert.equal(dados.client, 'PETROLEO BRASILEIRO S A PETROBRAS');
   assert.equal(dados.cnpj, '33.000.167/0001-01');
-  assert.equal(dados.site, 'Av. República do Chile, 65 — Rio de Janeiro/RJ');
+  assert.equal(
+    'site' in dados,
+    false,
+    'o endereço cadastral do CRM não é o local onde o serviço será executado'
+  );
 });
 
 test('trocar de empresa APAGA o contato anterior', () => {

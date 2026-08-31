@@ -29,7 +29,9 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const ORIGEM = path.resolve(AQUI, '../../Modelos/definitivos/Comercial');
-const DESTINO = path.resolve(AQUI, '../../Modelos/definitivos/Comercial/modelos');
+const DESTINO = process.env.COMERCIAL_MODELOS_DESTINO
+  ? path.resolve(process.env.COMERCIAL_MODELOS_DESTINO)
+  : path.resolve(AQUI, '../../Modelos/definitivos/Comercial/modelos');
 
 /** As partes do pacote que podem conter campo de mala direta. */
 const PARTES = ['word/document.xml', 'word/header1.xml', 'word/footer1.xml'];
@@ -71,7 +73,7 @@ function trocarCampo(paragrafo, campo, doc) {
 
   const novo = modelo.cloneNode(true);
   // Fora o `rPr`, tudo o que sobrou do run modelo é lixo do campo antigo.
-  for (let filho = novo.firstChild; filho; ) {
+  for (let filho = novo.firstChild; filho;) {
     const proximo = filho.nextSibling;
     if (filho.nodeName !== 'w:rPr') novo.removeChild(filho);
     filho = proximo;
@@ -104,7 +106,13 @@ function camposDoParagrafo(paragrafo) {
     const tipo = tipoDeCampo(run);
 
     if (tipo === 'begin') {
-      atual = { inicio: run, fim: null, instrucao: '', resultado: [], separado: false };
+      atual = {
+        inicio: run,
+        fim: null,
+        instrucao: '',
+        resultado: [],
+        separado: false
+      };
       continue;
     }
     if (!atual) continue;
@@ -127,7 +135,6 @@ function camposDoParagrafo(paragrafo) {
 
   return campos;
 }
-
 
 // ---------------------------------------------------------------------------
 // Fase 2 — as tabelas de tamanho variável
@@ -304,7 +311,6 @@ function prepararPrecos(tabela, sufixo) {
   return true;
 }
 
-
 /**
  * A seção 2 vira um parágrafo-modelo por serviço.
  *
@@ -345,9 +351,7 @@ function prepararEscopo(doc) {
     }
   }
 
-  const itens = paragrafos
-    .slice(inicio + 1, fim)
-    .filter(p => (nivelDe(p) ?? 0) >= 1);
+  const itens = paragrafos.slice(inicio + 1, fim).filter(p => (nivelDe(p) ?? 0) >= 1);
   if (!itens.length) return 0;
 
   const modelo = itens[0];
@@ -381,6 +385,32 @@ function prepararEscopo(doc) {
   return itens.length - 1;
 }
 
+/**
+ * Retira o cardápio fixo do capítulo 7 dos MODELOS técnicos.
+ *
+ * Os textos não são perdidos: permanecem nos `.docx` originais da pasta pai e
+ * no catálogo editável de `shared/comercial/src/technical-services.ts`. O
+ * modelo usado na emissão deve trazer somente o título da seção; o gerador da
+ * proposta insere depois apenas os serviços presentes no payload.
+ */
+function prepararEscopoTecnico(doc) {
+  const corpo = doc.getElementsByTagName('w:body').item(0);
+  if (!corpo) return 0;
+
+  const filhos = Array.from(corpo.childNodes).filter(no => no.nodeType === 1);
+  const inicio = filhos.findLastIndex(
+    no => no.nodeName === 'w:p' && textoDoNo(no).includes('- Escopo Técnico:')
+  );
+  const fim = filhos.findIndex(
+    (no, indice) =>
+      indice > inicio && no.nodeName === 'w:p' && textoDoNo(no).includes('- Relatórios:')
+  );
+  if (inicio < 0 || fim < 0) return 0;
+
+  const removidos = filhos.slice(inicio + 1, fim);
+  removidos.forEach(no => corpo.removeChild(no));
+  return removidos.length;
+}
 
 /**
  * A data do cabeçalho passa a ser alinhada à direita de verdade.
@@ -453,7 +483,6 @@ function prepararTabelas(doc) {
 
   return { matrizes, precos };
 }
-
 
 // ---------------------------------------------------------------------------
 // Fase 3 — padronização tipográfica
@@ -542,28 +571,39 @@ function converterParte(xml) {
 
   const tabelas = prepararTabelas(doc);
   prepararEscopo(doc);
+  const escoposTecnicos = prepararEscopoTecnico(doc);
   alinharDataDoCabecalho(doc);
   padronizarTamanhoDasTabelas(doc);
   return {
     xml: new XMLSerializer().serializeToString(doc),
     trocados,
-    tabelas
+    tabelas,
+    escoposTecnicos
   };
 }
 
 async function converterArquivo(entrada, saida) {
   const zip = new AdmZip(await readFile(entrada));
-  const total = { campos: 0, matrizes: 0, precos: 0, estilos: 0 };
+  const total = {
+    campos: 0,
+    matrizes: 0,
+    precos: 0,
+    estilos: 0,
+    escoposTecnicos: 0
+  };
 
   for (const parte of PARTES) {
     const item = zip.getEntry(parte);
     if (!item) continue;
-    const { xml, trocados, tabelas } = converterParte(item.getData().toString('utf8'));
-    if (!trocados && !tabelas.matrizes && !tabelas.precos) continue;
+    const { xml, trocados, tabelas, escoposTecnicos } = converterParte(
+      item.getData().toString('utf8')
+    );
+    if (!trocados && !tabelas.matrizes && !tabelas.precos && !escoposTecnicos) continue;
     zip.updateFile(parte, Buffer.from(xml, 'utf8'));
     total.campos += trocados;
     total.matrizes += tabelas.matrizes;
     total.precos += tabelas.precos;
+    total.escoposTecnicos += escoposTecnicos;
   }
 
   for (const parte of PARTES_DE_ESTILO) {
@@ -597,11 +637,15 @@ async function principal() {
   await mkdir(DESTINO, { recursive: true });
 
   for (const nome of arquivos) {
-    const destino = path.join(DESTINO, nome.replace(/\s*-\s*(Preenchid[ao]|preenchido|Modelo)\.docx$/i, '.docx'));
+    const destino = path.join(
+      DESTINO,
+      nome.replace(/\s*-\s*(Preenchid[ao]|preenchido|Modelo)\.docx$/i, '.docx')
+    );
     const r = await converterArquivo(path.join(ORIGEM, nome), destino);
     console.log(
       `${nome} -> ${path.basename(destino)}  ` +
-        `(${r.campos} campos, ${r.matrizes} matrizes, ${r.precos} tabelas de preço)`
+        `(${r.campos} campos, ${r.matrizes} matrizes, ${r.precos} tabelas de preço, ` +
+        `${r.escoposTecnicos} blocos técnicos removidos)`
     );
   }
 }

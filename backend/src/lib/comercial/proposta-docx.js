@@ -8,7 +8,8 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 import {
   descricaoComAberturaTecnica,
-  tabelasDePrecoDoModelo
+  tabelasDePrecoDoModelo,
+  textoJornada
 } from '../../../../shared/comercial/dist/modelo-documento.js';
 import {
   REPORTS_NOTICE,
@@ -23,10 +24,12 @@ import {
   cloneBefore,
   elementText,
   findFirstByText,
+  preserveWordTextLineBreaks,
   removeNode,
   repetirLinha,
   repetirParagrafo,
-  replacePlaceholders
+  replacePlaceholders,
+  replaceTokenInElement
 } from '../docx/template.js';
 
 /**
@@ -44,7 +47,9 @@ import {
  */
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
-const MODELOS = path.resolve(AQUI, '../../../../Modelos/definitivos/Comercial/modelos');
+const MODELOS = process.env.COMERCIAL_MODELOS_DIR
+  ? path.resolve(process.env.COMERCIAL_MODELOS_DIR)
+  : path.resolve(AQUI, '../../../../Modelos/definitivos/Comercial/modelos');
 
 const ARQUIVOS = {
   'commercial:padrao': 'Proposta Comercial.docx',
@@ -68,13 +73,72 @@ const ARQUIVOS = {
  * vai acontecer de novo.
  */
 function partesComMarcador(zip) {
-  return zip
-    .getEntries()
-    .map(entrada => entrada.entryName)
-    .filter(nome => /^word\/(document|header\d*|footer\d*)\.xml$/.test(nome))
-    // `document.xml` primeiro: é onde estão as tabelas que clonam linhas, e
-    // manter a ordem estável torna o resultado reproduzível.
-    .sort((a, b) => (a.startsWith('word/document') ? -1 : b.startsWith('word/document') ? 1 : a.localeCompare(b)));
+  return (
+    zip
+      .getEntries()
+      .map(entrada => entrada.entryName)
+      .filter(nome => /^word\/(document|header\d*|footer\d*)\.xml$/.test(nome))
+      // `document.xml` primeiro: é onde estão as tabelas que clonam linhas, e
+      // manter a ordem estável torna o resultado reproduzível.
+      .sort((a, b) =>
+        a.startsWith('word/document') ? -1 : b.startsWith('word/document') ? 1 : a.localeCompare(b)
+      )
+  );
+}
+
+/**
+ * Faz a capa usar o cabeçalho de primeira página, que é vazio.
+ *
+ * Sem `w:titlePg`, o Word aplica o cabeçalho padrão (com `{{data_texto}}`) já
+ * na capa. Alguns modelos têm uma relação `first` pronta e outros não; nos dois
+ * casos o sinalizador é necessário. Quando a parte `first` existe, devolvemos
+ * o nome dela para impedir que a substituição escreva a data ali.
+ */
+function configurarCapaSemData(zip) {
+  const entradaDocumento = zip.getEntry('word/document.xml');
+  if (!entradaDocumento) return new Set();
+
+  const doc = new DOMParser().parseFromString(
+    entradaDocumento.getData().toString('utf8'),
+    'text/xml'
+  );
+  const primeiraSecao = doc.getElementsByTagName('w:sectPr').item(0);
+  if (!primeiraSecao) return new Set();
+
+  if (!primeiraSecao.getElementsByTagName('w:titlePg').length) {
+    const titlePg = doc.createElement('w:titlePg');
+    const docGrid = Array.from(primeiraSecao.childNodes).find(
+      no => no.nodeType === 1 && no.nodeName === 'w:docGrid'
+    );
+    primeiraSecao.insertBefore(titlePg, docGrid || null);
+    zip.updateFile(
+      'word/document.xml',
+      Buffer.from(new XMLSerializer().serializeToString(doc), 'utf8')
+    );
+  }
+
+  const idsPrimeiraPagina = new Set(
+    Array.from(primeiraSecao.getElementsByTagName('w:headerReference'))
+      .filter(referencia => referencia.getAttribute('w:type') === 'first')
+      .map(referencia => referencia.getAttribute('r:id'))
+      .filter(Boolean)
+  );
+  if (!idsPrimeiraPagina.size) return new Set();
+
+  const entradaRelacoes = zip.getEntry('word/_rels/document.xml.rels');
+  if (!entradaRelacoes) return new Set();
+  const relacoes = new DOMParser().parseFromString(
+    entradaRelacoes.getData().toString('utf8'),
+    'text/xml'
+  );
+
+  return new Set(
+    Array.from(relacoes.getElementsByTagName('Relationship')).flatMap(relacao => {
+      if (!idsPrimeiraPagina.has(relacao.getAttribute('Id'))) return [];
+      const alvo = relacao.getAttribute('Target').replace(/^\/?word\//, '');
+      return alvo ? [`word/${alvo.replace(/^\.\.\//, '')}`] : [];
+    })
+  );
 }
 
 export function arquivoDoModelo(tipo, modelo) {
@@ -86,9 +150,10 @@ function formatarData(iso) {
   if (!bruto) return '';
   const quando = new Date(`${bruto}T12:00:00Z`);
   if (Number.isNaN(quando.getTime())) return bruto;
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeZone: 'UTC' }).format(
-    quando
-  );
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'long',
+    timeZone: 'UTC'
+  }).format(quando);
 }
 
 /** Os campos simples do cabeçalho e das condições. */
@@ -142,17 +207,19 @@ function registrosDaMatriz(linhas, sufixo) {
   for (const linha of linhas) {
     const categoria = String(linha.categoria || '').trim();
     if (categoria && categoria !== aberta) {
-      categorias.push({ [`categoria_${sufixo}`]: categoria, apos: itens.length });
+      categorias.push({
+        [`categoria_${sufixo}`]: categoria,
+        apos: itens.length
+      });
       aberta = categoria;
     }
     const subitens = Array.isArray(linha.subitens)
       ? linha.subitens.map(item => String(item || '').trim()).filter(Boolean)
       : [];
     itens.push({
-      [`escopo_${sufixo}`]: [
-        linha.item || '',
-        ...subitens.map(item => `• ${item}`)
-      ].filter(Boolean).join('\n'),
+      [`escopo_${sufixo}`]: [linha.item || '', ...subitens.map(item => `• ${item}`)]
+        .filter(Boolean)
+        .join('\n'),
       [`nota_${sufixo}`]: linha.note || ''
     });
   }
@@ -177,10 +244,7 @@ function preencherMatriz(doc, linhas, sufixo) {
   let proximaCategoria = 0;
 
   itens.forEach((item, indice) => {
-    while (
-      proximaCategoria < categorias.length &&
-      categorias[proximaCategoria].apos === indice
-    ) {
+    while (proximaCategoria < categorias.length && categorias[proximaCategoria].apos === indice) {
       const clone = modeloCategoria.cloneNode(true);
       replacePlaceholders(clone, categorias[proximaCategoria]);
       clones.push(clone);
@@ -208,7 +272,6 @@ function preencherPrecos(doc, itens, sufixo) {
   repetirLinha(doc, `{{descricao_${sufixo}}}`, registros);
   return itens.reduce((soma, item) => soma + lerDinheiro(item.value), 0);
 }
-
 
 /** Largura útil da folha A4 com as margens do documento, em milímetros. */
 const LARGURA_UTIL_MM = 160;
@@ -249,7 +312,14 @@ function xmlDeTabela(bloco) {
       </w:tblBorders>
     </w:tblPr>
     ${linha(bloco.columns, true)}
-    ${bloco.rows.map(r => linha(bloco.columns.map((_, i) => r[i] || ''), false)).join('')}
+    ${bloco.rows
+      .map(r =>
+        linha(
+          bloco.columns.map((_, i) => r[i] || ''),
+          false
+        )
+      )
+      .join('')}
   </w:tbl>`;
 }
 
@@ -302,6 +372,198 @@ function paragrafoDeTexto(doc, texto, { negrito = false, tamanho = 20 } = {}) {
     }</w:rPr><w:t xml:space="preserve">${escapar(texto)}</w:t></w:r>
   </w:p>`;
   return new DOMParser().parseFromString(xml, 'text/xml').documentElement;
+}
+
+function tituloDoCorpo(doc, trecho) {
+  const corpo = doc.getElementsByTagName('w:body').item(0);
+  if (!corpo) return null;
+  return (
+    Array.from(corpo.childNodes)
+      .filter(no => no.nodeType === 1 && no.nodeName === 'w:p')
+      .filter(no => elementText(no).includes(trecho))
+      .at(-1) || null
+  );
+}
+
+/** Remove o conteúdo entre dois títulos do corpo e devolve a âncora final. */
+function limparEntreTitulos(doc, tituloInicial, tituloFinal) {
+  const inicio = tituloDoCorpo(doc, tituloInicial);
+  if (!inicio) return null;
+
+  const remover = [];
+  let atual = inicio.nextSibling;
+  while (atual) {
+    const proximo = atual.nextSibling;
+    if (
+      atual.nodeType === 1 &&
+      atual.nodeName === 'w:p' &&
+      elementText(atual).includes(tituloFinal)
+    ) {
+      remover.forEach(removeNode);
+      return atual;
+    }
+    if (atual.nodeType === 1) remover.push(atual);
+    atual = proximo;
+  }
+  return null;
+}
+
+/**
+ * O prazo já inclui a sua unidade ou condição ("10 dias", "de imediato").
+ * Retira o "dias" fixo legado dos quatro modelos antes de preencher o campo.
+ */
+function ajustarPrevisaoDeAtendimento(doc) {
+  for (const paragrafo of Array.from(doc.getElementsByTagName('w:p'))) {
+    if (!elementText(paragrafo).includes('{{prev_atende}}')) continue;
+    replaceTokenInElement(paragrafo, ' dias após', ' após');
+  }
+}
+
+/** Remove a coluna de valor unitário quando a opção foi desmarcada na prévia. */
+function ajustarColunaDeValorUnitario(doc, incluir) {
+  if (incluir !== false) return;
+  for (const tabela of Array.from(doc.getElementsByTagName('w:tbl'))) {
+    if (!/\{\{unitario_[ab]\}\}/.test(elementText(tabela))) continue;
+
+    const grade = tabela.getElementsByTagName('w:tblGrid').item(0);
+    const colunas = grade
+      ? Array.from(grade.childNodes).filter(no => no.nodeType === 1 && no.nodeName === 'w:gridCol')
+      : [];
+    if (colunas[2]) removeNode(colunas[2]);
+
+    for (const linha of Array.from(tabela.getElementsByTagName('w:tr'))) {
+      const celulas = Array.from(linha.childNodes).filter(
+        no => no.nodeType === 1 && no.nodeName === 'w:tc'
+      );
+      // A linha de total tem duas células mescladas e não representa colunas
+      // individuais; nela nada deve ser removido.
+      if (celulas.length >= 5) removeNode(celulas[2]);
+    }
+  }
+}
+
+/** A data do cabeçalho é posicionada por alinhamento, nunca por espaços. */
+function alinharDataDoCabecalho(doc) {
+  for (const paragrafo of Array.from(doc.getElementsByTagName('w:p'))) {
+    if (!elementText(paragrafo).includes('{{data_texto}}')) continue;
+    let propriedades = Array.from(paragrafo.childNodes).find(
+      no => no.nodeType === 1 && no.nodeName === 'w:pPr'
+    );
+    if (!propriedades) {
+      propriedades = doc.createElement('w:pPr');
+      paragrafo.insertBefore(propriedades, paragrafo.firstChild);
+    }
+    let alinhamento = Array.from(propriedades.childNodes).find(
+      no => no.nodeType === 1 && no.nodeName === 'w:jc'
+    );
+    if (!alinhamento) {
+      alinhamento = doc.createElement('w:jc');
+      propriedades.appendChild(alinhamento);
+    }
+    alinhamento.setAttribute('w:val', 'right');
+  }
+}
+
+/** Substitui a jornada fixa do modelo pelo texto editável desta proposta. */
+function ajustarJornada(doc, jornada, modelo) {
+  const proximoTitulo = tituloDoCorpo(doc, '- Descrição dos valores:')
+    ? '- Descrição dos valores:'
+    : '- Escopo Técnico:';
+  const ancora = limparEntreTitulos(doc, '- Jornada de trabalho:', proximoTitulo);
+  if (!ancora) return;
+
+  const paragrafo = paragrafoDeTexto(doc, jornada || textoJornada(modelo));
+  preserveWordTextLineBreaks(paragrafo);
+  ancora.parentNode.insertBefore(paragrafo, ancora);
+}
+
+/**
+ * O capítulo 7 da proposta técnica é montado apenas com os serviços escolhidos.
+ *
+ * Os modelos antigos trazem o catálogo inteiro entre "Escopo Técnico" e
+ * "Relatórios". Limpamos esse intervalo sempre; assim uma proposta vazia não
+ * promete serviço algum e a inclusão passa a depender exclusivamente dos
+ * textos versionados/editaráveis guardados na própria proposta.
+ */
+function ajustarEscopoTecnico(doc, servicos) {
+  const ancora = limparEntreTitulos(doc, '- Escopo Técnico:', '- Relatórios:');
+  if (!ancora) return;
+
+  normalizeTechnicalServiceSelections(servicos).forEach((servico, indice) => {
+    const titulo = paragrafoDeTexto(
+      doc,
+      `7.${indice + 1} ${servico.title || `Serviço ${indice + 1}`}`,
+      { negrito: true }
+    );
+    const texto = paragrafoDeTexto(doc, servico.text || '');
+    preserveWordTextLineBreaks(texto);
+    ancora.parentNode.insertBefore(titulo, ancora);
+    ancora.parentNode.insertBefore(texto, ancora);
+  });
+}
+
+function paragrafoComQuebras(doc, texto) {
+  const paragrafo = paragrafoDeTexto(doc, texto);
+  preserveWordTextLineBreaks(paragrafo);
+  return paragrafo;
+}
+
+function substituirEntreTitulos(doc, inicio, fim, texto) {
+  const valor = String(texto || '').trim();
+  if (!valor) return;
+  const ancora = limparEntreTitulos(doc, inicio, fim);
+  if (ancora) ancora.parentNode.insertBefore(paragrafoComQuebras(doc, valor), ancora);
+}
+
+/** Substitui o trecho final de uma seção sem apagar o conteúdo que vem antes. */
+function substituirCaudaAteTitulo(doc, inicioDaCauda, fim, texto) {
+  const valor = String(texto || '').trim();
+  const inicio = tituloDoCorpo(doc, inicioDaCauda);
+  const fimDaSecao = tituloDoCorpo(doc, fim);
+  if (!valor || !inicio || !fimDaSecao || inicio.parentNode !== fimDaSecao.parentNode) return;
+
+  let atual = inicio;
+  while (atual && atual !== fimDaSecao) {
+    const proximo = atual.nextSibling;
+    if (atual.nodeType === 1) removeNode(atual);
+    atual = proximo;
+  }
+  fimDaSecao.parentNode.insertBefore(paragrafoComQuebras(doc, valor), fimDaSecao);
+}
+
+/**
+ * Os campos livres mostrados na prévia também precisam vencer o texto fixo do
+ * Word. Sem isto, editar pagamento, impostos ou observações mudava apenas a
+ * tela e o PDF continuava com o texto antigo do modelo.
+ */
+function ajustarTextosEditaveis(doc, dados, tipo) {
+  if (tipo === 'commercial') {
+    substituirEntreTitulos(doc, '- Condições de pagamento:', '- Observações:', dados.payment);
+    substituirCaudaAteTitulo(
+      doc,
+      'No caso de prorrogação da data de início',
+      '- Impostos:',
+      dados.observations
+    );
+    substituirEntreTitulos(doc, '- Impostos:', '- Validade da proposta:', dados.taxes);
+    return;
+  }
+
+  const relatoriosComplementares = String(dados.technicalReports || '').trim();
+  const validade = tituloDoCorpo(doc, '- Validade da proposta:');
+  if (relatoriosComplementares && validade) {
+    validade.parentNode.insertBefore(paragrafoComQuebras(doc, relatoriosComplementares), validade);
+  }
+
+  const observacoesComplementares = String(dados.technicalObservations || '').trim();
+  if (!observacoesComplementares) return;
+  const corpo = doc.getElementsByTagName('w:body').item(0);
+  const propriedadesDaSecao =
+    corpo &&
+    Array.from(corpo.childNodes).find(no => no.nodeType === 1 && no.nodeName === 'w:sectPr');
+  if (propriedadesDaSecao) {
+    corpo.insertBefore(paragrafoComQuebras(doc, observacoesComplementares), propriedadesDaSecao);
+  }
 }
 
 /**
@@ -380,6 +642,7 @@ export async function preencherProposta(dados, tipo) {
   const modelo = dados.modelo === 'hidrojateamento' ? 'hidrojateamento' : 'padrao';
   const arquivo = arquivoDoModelo(tipo, modelo);
   const zip = new AdmZip(await readFile(path.join(MODELOS, arquivo)));
+  const cabecalhosDaCapa = configurarCapaSemData(zip);
 
   const linhas = Array.isArray(dados.rows) ? dados.rows : [];
   const precos = Array.isArray(dados.prices) ? dados.prices : [];
@@ -389,40 +652,52 @@ export async function preencherProposta(dados, tipo) {
     const item = zip.getEntry(parte);
     if (!item) continue;
 
-    const doc = new DOMParser().parseFromString(
-      item.getData().toString('utf8'),
-      'text/xml'
-    );
+    const doc = new DOMParser().parseFromString(item.getData().toString('utf8'), 'text/xml');
+
+    if (parte === 'word/document.xml') {
+      ajustarPrevisaoDeAtendimento(doc);
+      ajustarColunaDeValorUnitario(doc, dados.includeUnitValue);
+      ajustarJornada(doc, String(dados.workday || '').trim(), modelo);
+      if (tipo === 'technical') ajustarEscopoTecnico(doc, dados.technicalServices);
+      ajustarTextosEditaveis(doc, dados, tipo);
+    }
+    if (/^word\/header\d*\.xml$/.test(parte)) alinharDataDoCabecalho(doc);
 
     // Tabelas primeiro: elas clonam linhas que ainda têm marcador dentro, e o
     // preenchimento de campo simples depois alcança o que sobrou.
-    preencherMatriz(doc, linhas.filter(l => l.owner === 'Filtrovali'), 'filtrovali');
-    preencherMatriz(doc, linhas.filter(l => l.owner === 'Contratante'), 'contratante');
+    preencherMatriz(
+      doc,
+      linhas.filter(l => l.owner === 'Filtrovali'),
+      'filtrovali'
+    );
+    preencherMatriz(
+      doc,
+      linhas.filter(l => l.owner === 'Contratante'),
+      'contratante'
+    );
 
     const totais = {};
     if (locais) {
       locais.forEach((local, indice) => {
         const sufixo = indice === 0 ? 'a' : 'b';
         totais[`total_${sufixo}`] = moeda(
-          preencherPrecos(doc, precos.filter(p => p.local === local), sufixo)
+          preencherPrecos(
+            doc,
+            precos.filter(p => p.local === local),
+            sufixo
+          )
         );
       });
     } else {
       totais.total_a = moeda(preencherPrecos(doc, precos, 'a'));
     }
 
-    const servicos = (Array.isArray(dados.scopeItems) ? dados.scopeItems : []).map(
-      servico => {
-        const conteudo = [servico.title, servico.description]
-          .filter(Boolean)
-          .join(' — ');
-        return {
-          servico: tipo === 'commercial'
-            ? descricaoComAberturaTecnica(conteudo)
-            : conteudo
-        };
-      }
-    );
+    const servicos = (Array.isArray(dados.scopeItems) ? dados.scopeItems : []).map(servico => {
+      const conteudo = [servico.title, servico.description].filter(Boolean).join(' — ');
+      return {
+        servico: tipo === 'commercial' ? descricaoComAberturaTecnica(conteudo) : conteudo
+      };
+    });
     repetirParagrafo(doc, '{{servico}}', servicos);
     ajustarRelatorios(doc, dados.technicalServices);
     await preencherBlocosDoEscopo(
@@ -432,7 +707,9 @@ export async function preencherProposta(dados, tipo) {
       dados.lerFoto
     );
 
-    replacePlaceholders(doc.documentElement, { ...camposSimples(dados), ...totais });
+    const campos = { ...camposSimples(dados), ...totais };
+    if (cabecalhosDaCapa.has(parte)) campos.data_texto = '';
+    replacePlaceholders(doc.documentElement, campos);
 
     zip.updateFile(parte, Buffer.from(new XMLSerializer().serializeToString(doc), 'utf8'));
   }

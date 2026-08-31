@@ -14,8 +14,16 @@ import { Area, Field } from '../../components/Field';
 type AnyRecord = Record<string, unknown>;
 
 const CAMPOS: Array<{ campo: string; label: string; placeholder: string }> = [
-  { campo: 'attendance', label: 'Previsão de atendimento', placeholder: 'Ex.: até 10 dias' },
-  { campo: 'mobilization', label: 'Mobilização após pedido', placeholder: 'Ex.: 7 dias' },
+  {
+    campo: 'attendance',
+    label: 'Previsão de atendimento',
+    placeholder: 'Ex.: 10 dias, de imediato ou após liberação'
+  },
+  {
+    campo: 'mobilization',
+    label: 'Mobilização após pedido',
+    placeholder: 'Ex.: 7 dias'
+  },
   {
     campo: 'permanence',
     label: 'Permanência prevista em obra',
@@ -75,6 +83,9 @@ export function PrazosStep({
         error={erroDe('workday')}
         onChange={valor => editar({ workday: valor })}
       />
+      <p className="com-ajuda-campo">
+        O texto do modelo já vem preenchido e pode ser alterado para esta proposta.
+      </p>
     </section>
   );
 }

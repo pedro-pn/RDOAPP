@@ -42,7 +42,9 @@ export function dadosDaEmpresa(empresa: EmpresaCrm): Record<string, unknown> {
     companyId: empresa.id,
     client: empresa.nome,
     cnpj: empresa.cnpj,
-    site: empresa.site,
+    // `site` é o local onde o serviço será executado, não o endereço cadastral
+    // da empresa/contato no Nectar. Ele vem do destino informado no levantamento
+    // de custos e não pode ser sobrescrito ao trocar a empresa do CRM.
     contactId: '',
     contact: '',
     email: '',

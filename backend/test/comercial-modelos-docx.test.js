@@ -20,7 +20,10 @@ import { repetirLinha, replacePlaceholders } from '../src/lib/docx/template.js';
  */
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
-const MODELOS = path.resolve(AQUI, '../../Modelos/definitivos/Comercial/modelos');
+const ORIGEM = path.resolve(AQUI, '../../Modelos/definitivos/Comercial');
+const MODELOS = process.env.COMERCIAL_MODELOS_DIR
+  ? path.resolve(process.env.COMERCIAL_MODELOS_DIR)
+  : path.resolve(AQUI, '../../Modelos/definitivos/Comercial/modelos');
 
 const ARQUIVOS = {
   comercial: 'Proposta Comercial.docx',
@@ -87,6 +90,27 @@ test('nenhum modelo guarda campo de mala direta', async () => {
   }
 });
 
+test('os modelos técnicos não carregam o catálogo fixo do capítulo 7', async () => {
+  for (const arquivo of [ARQUIVOS.tecnica, ARQUIVOS.tecnicaHidro]) {
+    const { doc } = await documentoDe(arquivo);
+    const paragrafos = [...doc.getElementsByTagName('w:p')].map(paragrafo =>
+      [...paragrafo.getElementsByTagName('w:t')].map(texto => texto.textContent || '').join('')
+    );
+    const inicio = paragrafos.findIndex(texto => texto.includes('- Escopo Técnico:'));
+    const fim = paragrafos.findIndex(
+      (texto, indice) => indice > inicio && texto.includes('- Relatórios:')
+    );
+
+    assert.ok(inicio >= 0, `${arquivo}: falta o título do escopo técnico`);
+    assert.ok(fim > inicio, `${arquivo}: falta o título dos relatórios`);
+    assert.deepEqual(
+      paragrafos.slice(inicio + 1, fim).filter(texto => texto.trim()),
+      [],
+      `${arquivo}: ainda guarda serviços fixos no capítulo 7`
+    );
+  }
+});
+
 test('as duas matrizes têm as duas formas de linha', async () => {
   // A matriz tem duas formas: o subtítulo da categoria é uma célula mesclada
   // nas três colunas; o item são três células. Uma modelo só não desenharia as
@@ -136,12 +160,7 @@ test('o total deixou de ser fórmula do Word', async () => {
 
 test('a tabela de stand-by leva os quatro valores', async () => {
   const marcadores = marcadoresDe((await documentoDe(ARQUIVOS.comercial)).xml);
-  for (const campo of [
-    'valor_he',
-    'valor_standby',
-    'diaria_equipamento',
-    'valor_desmob_extra'
-  ]) {
+  for (const campo of ['valor_he', 'valor_standby', 'diaria_equipamento', 'valor_desmob_extra']) {
     assert.ok(marcadores.has(campo), `falta {{${campo}}}`);
   }
 });
@@ -201,8 +220,7 @@ test('o modelo preserva TODAS as imagens do documento original', async () => {
     'Proposta técnica.docx': 'Proposta técnica - Preenchida.docx',
     'Proposta comercial hidrojateamento.docx':
       'Proposta comercial hidrojateamento - preenchido.docx',
-    'Proposta técnica hidrojateamento.docx':
-      'Proposta técnica hidrojateamento - Modelo.docx'
+    'Proposta técnica hidrojateamento.docx': 'Proposta técnica hidrojateamento - Modelo.docx'
   };
 
   const desenhos = xml =>
@@ -220,8 +238,7 @@ test('o modelo preserva TODAS as imagens do documento original', async () => {
   const imagensVisiveis = zip =>
     zip
       .getEntries()
-      .filter(e => e.entryName.startsWith('word/media/') && !e.entryName.endsWith('.wdp'))
-      .length;
+      .filter(e => e.entryName.startsWith('word/media/') && !e.entryName.endsWith('.wdp')).length;
 
   /** Todos os cabeçalhos somados: o modelo pode ter um só ou três. */
   const desenhosNosCabecalhos = zip =>
@@ -231,9 +248,7 @@ test('o modelo preserva TODAS as imagens do documento original', async () => {
       .reduce((total, e) => total + desenhos(e.getData().toString('utf8')), 0);
 
   for (const [modelo, original] of Object.entries(ORIGINAIS)) {
-    const doOriginal = new AdmZip(
-      await readFile(path.resolve(MODELOS, '..', original))
-    );
+    const doOriginal = new AdmZip(await readFile(path.join(ORIGEM, original)));
     const doModelo = new AdmZip(await readFile(path.join(MODELOS, modelo)));
 
     assert.equal(
@@ -266,7 +281,10 @@ test('o modelo preserva TODAS as imagens do documento original', async () => {
 test('o documento preenchido não perde imagem no caminho', async () => {
   const { preencherProposta } = await import('../src/lib/comercial/proposta-docx.js');
   const zip = new AdmZip(
-    await preencherProposta({ modelo: 'padrao', rows: [], prices: [], scopeItems: [] }, 'commercial')
+    await preencherProposta(
+      { modelo: 'padrao', rows: [], prices: [], scopeItems: [] },
+      'commercial'
+    )
   );
   const arte = zip
     .getEntries()
@@ -338,11 +356,7 @@ test('o padrão do documento continua declarando uma fonte', async () => {
   for (const arquivo of Object.values(ARQUIVOS)) {
     const estilos = await parteDe(arquivo, 'word/styles.xml');
     const padrao = /<w:docDefaults>[\s\S]*?<\/w:docDefaults>/.exec(estilos)?.[0] || '';
-    assert.match(
-      padrao,
-      /w:ascii(Theme)?="/,
-      `${arquivo}: docDefaults ficou sem fonte nenhuma`
-    );
+    assert.match(padrao, /w:ascii(Theme)?="/, `${arquivo}: docDefaults ficou sem fonte nenhuma`);
   }
 });
 

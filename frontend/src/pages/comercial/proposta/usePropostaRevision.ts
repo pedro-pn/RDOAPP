@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction
+} from 'react';
 
 import {
   normalizeTechnicalServiceSelections,
@@ -8,6 +15,7 @@ import type {
   ScopeBlock,
   ScopeServiceItem
 } from '../../../../../shared/comercial/dist/scope-content.js';
+import type { ModeloProposta } from '../../../../../shared/comercial/dist/modelo-documento.js';
 import {
   mensagemDeErro,
   prepararRevisaoDaProposta,
@@ -53,7 +61,7 @@ export function usePropostaRevision({
   propostaId: string;
   params: URLSearchParams;
   setParams: SetParams;
-  formularioInicial: () => AnyRecord;
+  formularioInicial: (modelo?: ModeloProposta) => AnyRecord;
   setForm: Dispatch<SetStateAction<AnyRecord>>;
   setItensEscopo: Dispatch<SetStateAction<ScopeServiceItem[]>>;
   setBlocos: Dispatch<SetStateAction<ScopeBlock[]>>;
@@ -73,8 +81,10 @@ export function usePropostaRevision({
 
   const aplicarSnapshot = useCallback(
     (dados: AnyRecord, sellerUserId = '') => {
+      const modeloDoSnapshot: ModeloProposta =
+        dados.modelo === 'hidrojateamento' ? 'hidrojateamento' : 'padrao';
       setForm({
-        ...formularioInicial(),
+        ...formularioInicial(modeloDoSnapshot),
         ...dados,
         seller: String(dados.seller || sellerUserId || '')
       });
