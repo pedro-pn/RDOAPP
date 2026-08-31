@@ -11,6 +11,7 @@
  *    eles a finalização recusa: digitar o nome à mão nunca os produziria.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createServer } from 'vite';
 
@@ -114,4 +115,21 @@ test('o mínimo de caracteres é o mesmo que o servidor exige', () => {
   // O servidor recusa com 400 abaixo de 2. Divergir aqui produziria uma viagem
   // que só volta com erro, ou um campo que recusa o que o servidor aceitaria.
   assert.equal(mod.MINIMO_PARA_BUSCAR, 2);
+});
+
+test('selecionar uma empresa encerra a busca antes de limpar os resultados', () => {
+  const fonte = readFileSync(
+    new URL('../src/pages/comercial/proposta/BuscaDeEmpresa.tsx', import.meta.url),
+    'utf8'
+  );
+  const inicio = fonte.indexOf('async function escolherEmpresa');
+  const fim = fonte.indexOf('function escolherContato', inicio);
+  const escolha = fonte.slice(inicio, fim);
+
+  assert.ok(inicio >= 0 && fim > inicio, 'o manipulador da escolha precisa existir');
+  assert.match(escolha, /setBuscou\(false\)/);
+  assert.ok(
+    escolha.indexOf('setBuscou(false)') < escolha.indexOf('setEmpresas([])'),
+    'a lista só deve ser esvaziada depois de desativar o estado de busca concluída'
+  );
 });

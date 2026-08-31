@@ -87,6 +87,10 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
     setRecado('');
     onEscolher(dadosDaEmpresa(empresa));
     setEscolhida(empresa);
+    // Limpar a lista após uma escolha não significa que a busca voltou vazia.
+    // Sem encerrar este estado, o bloco "Nenhuma empresa encontrada" aparece
+    // junto da empresa já vinculada.
+    setBuscou(false);
     setEmpresas([]);
 
     // A busca traz contatos, mas nem sempre completos. O registro cheio é
