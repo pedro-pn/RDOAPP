@@ -800,9 +800,12 @@ export async function removeProjectAdditionalProposal(projectId, codProp) {
 
 // Dashboard de acompanhamento: projetos cuja proposta bate com propostas importadas, com o
 // previsto (orçamento/revisão) e o realizado parcial (nº de RDOs = dias trabalhados, % prazo).
-export async function listCommercialDashboard({ categoryCode = null } = {}) {
+export async function listCommercialDashboard({ categoryCode = null, includeAdminOnlyCategories = true } = {}) {
   // Salários do Omie nunca entram no realizado (serão calculados no app via ponto).
-  const categoryWhere = await buildOmieCostCategoryWhere({ categoryCode });
+  const categoryWhere = await buildOmieCostCategoryWhere({
+    categoryCode,
+    includeAdminOnly: includeAdminOnlyCategories
+  });
   const realizedWhere = {
     projectId: { not: null },
     ...categoryWhere

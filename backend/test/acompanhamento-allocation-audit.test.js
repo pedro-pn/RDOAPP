@@ -272,6 +272,28 @@ test('conflito é subconjunto dos dias sem alocação, nunca uma fila paralela',
   assert.ok(result.counts.conflictDays < result.counts.actionableDays);
 });
 
+test('dia sem RDO não vira pendência, mas reaparece quando um relatório gera conflito', () => {
+  const days = [
+    day('2026-03-31', { reason: 'NO_RDO_EVIDENCE' }),
+    day('2026-04-01', {
+      reason: 'TAG_RDO_CONFLICT',
+      rdoProjects: [{ projectId: 'p-5820', hours: 8.8 }],
+      tags: ['Missão 5804'],
+      tagProjectIds: ['p-5804']
+    })
+  ];
+  const result = groupUnallocatedDays({
+    rates: [rate(days)],
+    projectsById: PROJECTS,
+    knownMissionCodes: KNOWN_CODES,
+    cutoffDateKey: '2025-01-01'
+  });
+
+  assert.deepEqual(result.actionable.flatMap(block => block.days.map(item => item.date)), ['2026-04-01']);
+  assert.equal(result.counts.actionableDays, 1);
+  assert.equal(result.counts.conflictDays, 1);
+});
+
 // === Validação da resolução manual de dias sem alocação ===
 
 const SELECTION_CONTEXT = {

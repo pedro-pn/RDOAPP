@@ -130,8 +130,8 @@ export function lastDayStatus(lastReport, project) {
 }
 
 // Cards da aba Projetos (previsto x realizado por projeto).
-export async function listProjectCards() {
-  const rows = await listCommercialDashboard();
+export async function listProjectCards({ includeAdminOnlyCategories = true } = {}) {
+  const rows = await listCommercialDashboard({ includeAdminOnlyCategories });
   const projectIds = rows.map(r => r.projectId);
   if (projectIds.length === 0) return [];
 

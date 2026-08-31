@@ -214,8 +214,9 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const categoryCode = typeof req.query.category === 'string' && req.query.category ? req.query.category : null;
+    const includeAdminOnlyCategories = req.auth?.user?.accountType === 'ADMIN';
     const [rows, groups] = await Promise.all([
-      listCommercialDashboard({ categoryCode }),
+      listCommercialDashboard({ categoryCode, includeAdminOnlyCategories }),
       loadActiveMissionGroups()
     ]);
     res.json(groupDashboardRows(rows, groups));
@@ -227,9 +228,10 @@ router.get(
   '/projetos-cards',
   requireAuth,
   requireAcompanhamentoAccess,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const includeAdminOnlyCategories = req.auth?.user?.accountType === 'ADMIN';
     const [cards, groups] = await Promise.all([
-      listProjectCards(),
+      listProjectCards({ includeAdminOnlyCategories }),
       loadActiveMissionGroups()
     ]);
     res.json(groupProjectCards(cards, groups));
@@ -377,7 +379,11 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const includeCollaboratorCosts = canViewAcompanhamentoLaborCosts(req.auth?.user);
-      const detail = await getMissionGroupDetail(req.params.groupId, { includeCollaboratorCosts });
+      const includeAdminOnlyCategories = req.auth?.user?.accountType === 'ADMIN';
+      const detail = await getMissionGroupDetail(req.params.groupId, {
+        includeCollaboratorCosts,
+        includeAdminOnlyCategories
+      });
       res.json(detail);
     } catch (error) {
       return missionGroupErrorResponse(error, res);
@@ -409,7 +415,9 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const projectId = typeof req.query.projectId === 'string' && req.query.projectId ? req.query.projectId : null;
-    const categoryWhere = await buildOmieCostCategoryWhere();
+    const categoryWhere = await buildOmieCostCategoryWhere({
+      includeAdminOnly: req.auth?.user?.accountType === 'ADMIN'
+    });
     const where = {
       ...(projectId ? { projectId } : { projectId: { not: null } }),
       ...categoryWhere
@@ -439,7 +447,10 @@ router.get(
   requireAuth,
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
-    const data = await listSedeCosts({ range: parseSedeCostRangeQuery(req.query) });
+    const data = await listSedeCosts({
+      range: parseSedeCostRangeQuery(req.query),
+      includeAdminOnlyCategories: req.auth?.user?.accountType === 'ADMIN'
+    });
     res.json(data);
   })
 );
@@ -664,7 +675,11 @@ router.get(
   asyncHandler(async (req, res) => {
     try {
       const includeCollaboratorCosts = canViewAcompanhamentoLaborCosts(req.auth?.user);
-      const detail = await getProjectDetail(req.params.projectId, { includeCollaboratorCosts });
+      const includeAdminOnlyCategories = req.auth?.user?.accountType === 'ADMIN';
+      const detail = await getProjectDetail(req.params.projectId, {
+        includeCollaboratorCosts,
+        includeAdminOnlyCategories
+      });
       res.json(detail);
     } catch (error) {
       res.status(404).json({ error: error.message });

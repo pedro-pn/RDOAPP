@@ -121,9 +121,9 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
         Dias sem alocação ({totalDays})
       </div>
       <p className="placeholder-copy ponto-section-copy">
-        Dias com horas no Ponto Mais que não chegaram a nenhum projeto — sem etiqueta reconhecida e sem
-        RDO. Enquanto ficarem aqui, as horas contam como ociosidade e não entram no custo de missão
-        nenhuma. Dias sem horas (folga) não aparecem.
+        Dias com horas no Ponto Mais e RDO cadastrado que não chegaram a nenhum projeto por conflito
+        entre as evidências. Datas sem RDO no sistema e dias sem horas (folga) não aparecem. Enquanto
+        ficarem aqui, as horas contam como ociosidade e não entram no custo de nenhuma missão.
         {data?.cutoffDateKey ? ` Histórico considerado a partir de ${fmtDayDate(data.cutoffDateKey)}/${data.cutoffDateKey.slice(0, 4)}.` : ''}
       </p>
 
