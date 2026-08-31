@@ -63,12 +63,52 @@ test('formulário calcula disponibilidade em todo o período e ignora a própria
   assert.deepEqual(result.columns.ON_VACATION.map(item => item.collaborator.id), ['ferias']);
 });
 
+test('disponibilidade respeita mobilização e desmobilização individuais', async () => {
+  const { buildAvailabilityColumns } = await load('/src/utils/collaboratorAvailability.ts');
+  const partialMission = {
+    ...mission('parcial', 'EXECUTION', 'parcial', '2026-09-01'),
+    allocations: [{
+      collaboratorId: 'parcial',
+      mobilizationDate: '2026-09-05',
+      demobilizationDate: '2026-09-20'
+    }]
+  };
+  const person = collaborator('parcial', 'FREE');
+  assert.deepEqual(
+    buildAvailabilityColumns([person], [partialMission], [], '2026-09-04').columns.AWAITING_MOBILIZATION.map(item => item.collaborator.id),
+    ['parcial']
+  );
+  assert.deepEqual(
+    buildAvailabilityColumns([person], [partialMission], [], '2026-09-05').columns.MOBILIZED.map(item => item.collaborator.id),
+    ['parcial']
+  );
+  assert.deepEqual(
+    buildAvailabilityColumns([person], [partialMission], [], '2026-09-21').columns.AVAILABLE.map(item => item.collaborator.id),
+    ['parcial']
+  );
+});
+
 test('seleção da equipe abre diálogo kanban em vez de lista embutida', () => {
   const source = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionTeamSelector.tsx', import.meta.url), 'utf8');
   assert.match(source, /Ver colaboradores/);
   assert.match(source, /buildMissionAvailabilityColumns/);
   assert.match(source, /efetivo-team-availability-kanban/);
+  assert.match(source, /Filtrar por cargo/);
+  assert.match(source, /Confirmar sobreposição/);
   assert.doesNotMatch(source, /className="efetivo-team-list"/);
+});
+
+test('gestão direta da equipe permite editar o período individual e confirma sobreposição', () => {
+  const source = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionAllocationModal.tsx', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../src/pages/efetivo/efetivo.css', import.meta.url), 'utf8');
+  assert.match(source, /Mobilização individual/);
+  assert.match(source, /Desmobilização individual/);
+  assert.match(source, /updateMissionAllocationPeriod/);
+  assert.match(source, /Confirmar sobreposição/);
+  assert.match(source, /efetivo-allocation-add-actions/);
+  assert.match(css, /\.efetivo-allocation-add\s*\{[^}]*grid-template-columns:\s*minmax\(220px, 1fr\) minmax\(300px, 1fr\)/);
+  assert.match(css, /\.efetivo-allocation-period-list > article\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);
+  assert.match(css, /@media \(max-width: 540px\)[\s\S]*?\.efetivo-allocation-period-list > article\s*\{\s*grid-template-columns:\s*1fr;/);
 });
 
 test('status dos dois kanbans têm bolinhas com cores próprias e o módulo usa toda a largura', () => {

@@ -108,6 +108,75 @@ test('sincronização remove ausentes e restaura ou cria selecionados', async ()
   assert.deepEqual(calls.removed.where.collaboratorId.notIn, ['c1', 'c2']);
   assert.equal(calls.upserts.length, 2);
   assert.equal(calls.upserts[0].update.deletedAt, null);
+  assert.equal(calls.upserts[0].update.mobilizationDate, null);
+  assert.equal(calls.upserts[0].update.demobilizationDate, null);
   assert.equal('createdByUserId' in calls.upserts[0].update, false);
   assert.equal(calls.upserts[1].create.createdByUserId, 'u1');
+});
+
+test('resolução preserva datas individuais e aceita missão simultânea somente após confirmação', async () => {
+  const r1 = role('r1', 'Operador');
+  const person = collaborator('c1', r1);
+  const currentAllocation = {
+    id: 'current',
+    collaboratorId: 'c1',
+    jobRoleId: 'r1',
+    mobilizationDate: new Date('2026-09-05T00:00:00.000Z'),
+    demobilizationDate: new Date('2026-09-20T00:00:00.000Z'),
+    allowMissionOverlap: false,
+    mission: { id: 'current-mission', mobilizationDate: new Date('2026-09-01T00:00:00.000Z'), returnDate: new Date('2026-09-30T00:00:00.000Z') }
+  };
+  const otherAllocation = {
+    id: 'other',
+    collaboratorId: 'c1',
+    mission: { id: 'other-mission', scheduleStatus: 'CONFIRMED', mobilizationDate: '2026-09-10', returnDate: '2026-09-12' }
+  };
+  const tx = {
+    $queryRawUnsafe: async () => undefined,
+    collaborator: { findMany: async () => [person] },
+    collaboratorAbsence: { findMany: async () => [] },
+    efetivoMissionAllocation: {
+      findMany: async args => args.where.missionId ? [currentAllocation] : [otherAllocation]
+    }
+  };
+  const payload = {
+    collaboratorIds: ['c1'],
+    scheduleStatus: 'CONFIRMED',
+    mobilizationDate: '2026-09-01',
+    executionEndDate: '2026-09-29',
+    returnDate: '2026-09-30'
+  };
+
+  await assert.rejects(
+    () => resolveSelectedMissionTeam(tx, payload, 'plan-1', 'current-mission'),
+    error => error.conflicts?.[0]?.code === 'MISSION_OVERLAP'
+  );
+  const team = await resolveSelectedMissionTeam(tx, {
+    ...payload,
+    confirmedMissionOverlapCollaboratorIds: ['c1']
+  }, 'plan-1', 'current-mission');
+  assert.equal(team.allocations[0].mobilizationDate, currentAllocation.mobilizationDate);
+  assert.equal(team.allocations[0].demobilizationDate, currentAllocation.demobilizationDate);
+  assert.equal(team.allocations[0].allowMissionOverlap, true);
+});
+
+test('resolução aplica mobilização e desmobilização parciais informadas na programação', async () => {
+  const r1 = role('r1', 'Operador');
+  const tx = {
+    $queryRawUnsafe: async () => undefined,
+    collaborator: { findMany: async () => [collaborator('c1', r1)] },
+    collaboratorAbsence: { findMany: async () => [] },
+    efetivoMissionAllocation: { findMany: async () => [] }
+  };
+  const team = await resolveSelectedMissionTeam(tx, {
+    collaboratorIds: ['c1'],
+    allocationPeriods: [{ collaboratorId: 'c1', mobilizationDate: '2026-09-05', demobilizationDate: '2026-09-20' }],
+    scheduleStatus: 'CONFIRMED',
+    mobilizationDate: '2026-09-01',
+    executionEndDate: '2026-09-29',
+    returnDate: '2026-09-30'
+  }, 'plan-1');
+  assert.equal(team.allocations[0].mobilizationDate.toISOString().slice(0, 10), '2026-09-05');
+  assert.equal(team.allocations[0].demobilizationDate.toISOString().slice(0, 10), '2026-09-20');
+  assert.deepEqual(team.demands, [{ jobRoleId: 'r1', requiredCount: 1 }]);
 });

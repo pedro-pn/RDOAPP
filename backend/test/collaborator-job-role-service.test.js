@@ -69,7 +69,17 @@ test('troca canônica marca alocações futuras incompatíveis e incrementa revi
       update: async () => ({ id: 'c1', jobRoleId: 'r2', jobRole: { id: 'r2', name: 'Novo cargo' } })
     },
     efetivoMissionAllocation: {
-      findMany: async () => [{ missionId: 'm1', mission: { planId: 'p1' } }]
+      findMany: async () => [{
+        missionId: 'm1',
+        mobilizationDate: null,
+        demobilizationDate: null,
+        mission: {
+          planId: 'p1',
+          mobilizationDate: '2099-01-01',
+          executionEndDate: '2099-01-30',
+          returnDate: '2099-01-31'
+        }
+      }]
     },
     efetivoMissionPlan: { updateMany: async input => calls.push(['mission', input]) },
     efetivoPlan: { updateMany: async input => calls.push(['plan', input]) }

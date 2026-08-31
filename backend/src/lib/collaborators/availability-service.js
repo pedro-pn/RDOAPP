@@ -1,5 +1,6 @@
 import { corporateDateKey, loadCorporateCalendar } from '../calendar/corporate-calendar.js';
-import { missionEndDate, missionEndsOnOrAfter } from '../efetivo/planning/mission-period.js';
+import { allocationPeriod } from '../efetivo/planning/allocation-period.js';
+import { missionEndsOnOrAfter } from '../efetivo/planning/mission-period.js';
 
 function utcDate(value) {
   return new Date(`${corporateDateKey(value)}T00:00:00.000Z`);
@@ -50,9 +51,16 @@ export async function markMissionsAffectedByAbsence(database, collaboratorId, pe
         ...missionEndsOnOrAfter(utcDate(period.startDate))
       }
     },
-    select: { missionId: true }
+    select: {
+      missionId: true,
+      mobilizationDate: true,
+      demobilizationDate: true,
+      mission: { select: { mobilizationDate: true, executionEndDate: true, returnDate: true } }
+    }
   });
-  const missionIds = [...new Set(allocations.map(item => item.missionId))];
+  const missionIds = [...new Set(allocations
+    .filter(item => availabilityPeriodsOverlap(allocationPeriod(item, item.mission), period))
+    .map(item => item.missionId))];
   if (missionIds.length) {
     await database.efetivoMissionPlan.updateMany({
       where: { id: { in: missionIds } },
@@ -209,14 +217,18 @@ export async function checkWorkforceAvailability(database, input) {
       endDate: corporateDateKey(absence.endDate),
       policy: actual ? 'REQUIRE_JUSTIFICATION' : 'BLOCK'
     })),
-    ...(actual ? [] : allocations.map(allocation => ({
-      code: 'MISSION',
-      collaboratorId: allocation.collaboratorId,
-      sourceId: allocation.missionId,
-      startDate: corporateDateKey(allocation.mission.mobilizationDate),
-      endDate: missionEndDate(allocation.mission),
-      policy: 'BLOCK'
-    }))),
+    ...(actual ? [] : allocations.flatMap(allocation => {
+      const period = allocationPeriod(allocation, allocation.mission);
+      if (!availabilityPeriodsOverlap(period, { startDate, endDate })) return [];
+      return [{
+        code: 'MISSION',
+        collaboratorId: allocation.collaboratorId,
+        sourceId: allocation.missionId,
+        startDate: period.startDate,
+        endDate: period.endDate,
+        policy: 'BLOCK'
+      }];
+    })),
     ...(actual ? calendar.holidays.flatMap(holiday => collaboratorIds.map(collaboratorId => ({
       code: 'WORK_ON_HOLIDAY',
       collaboratorId,

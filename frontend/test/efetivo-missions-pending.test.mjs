@@ -55,6 +55,18 @@ test('aba Missões só nasce de projeto cadastrado, sem cadastro manual', () => 
   assert.doesNotMatch(form, /id="mission-project"/);
 });
 
+test('situação de rascunho não pode mais ser escolhida nem filtrada na programação', () => {
+  const board = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionsBoard.tsx', import.meta.url), 'utf8');
+  const form = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionFormModal.tsx', import.meta.url), 'utf8');
+  const api = fs.readFileSync(new URL('../src/api/efetivoPlanning.ts', import.meta.url), 'utf8');
+  const schemas = fs.readFileSync(new URL('../../backend/src/lib/efetivo/planning/schemas.js', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(board, /<option value="DRAFT">/);
+  assert.doesNotMatch(form, /<option value="DRAFT">/);
+  assert.match(api.match(/export interface MissionInput \{[\s\S]*?\n\}/)?.[0] || '', /Exclude<MissionScheduleStatus, 'DRAFT'>/);
+  assert.match(schemas, /editableMissionScheduleStatusSchema = z\.enum\(\['CONFIRMED', 'CANCELLED'\]\)/);
+});
+
 test('kanban arrasta pelo card inteiro e limpa o estado de arraste ao soltar', () => {
   const kanban = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionKanban.tsx', import.meta.url), 'utf8');
   assert.match(kanban, /draggable=\{moveAllowed\}/);

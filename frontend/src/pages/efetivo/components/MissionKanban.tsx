@@ -17,6 +17,7 @@ import {
 import { useToast } from '../../../components/ui/ToastContext';
 import { refreshMissionPlanningQueries } from '../../../utils/efetivoPlanningQueries';
 import { missionPendencies, PENDING_PROJECT_PENDENCIES } from '../../../utils/missionPendencies';
+import { missionFinalAllocations } from '../../../utils/missionAllocationPeriod';
 import { createPointerDragGhost, movePointerDragGhost, scrollReorderContainerEdge, setReorderDragImage, type PointerDragState } from '../../../utils/reorderDrag';
 import { cloneMissionColumns, MISSION_STAGES, MISSION_STAGE_DESCRIPTIONS, MISSION_STAGE_LABELS, missionStage, missionsToColumns, moveMissionInColumns, resolveKanbanDrop, type MissionColumns } from '../../../utils/missionKanban';
 import { displayDateOnly } from '../../../utils/calendarGrid';
@@ -281,6 +282,7 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
               {columns[stage].map((mission, order) => {
                 const moveAllowed = canMoveMission(mission);
                 const pendencies = missionPendencies(mission);
+                const finalAllocations = missionFinalAllocations(mission);
                 return (
                 <article
                   className={`efetivo-kanban-card ${pendencies.length ? 'efetivo-kanban-pending' : ''} ${selectedMissionId === mission.id ? 'selected' : ''} ${draggingId === mission.id ? 'drag-source' : ''} ${moveAllowed ? 'draggable' : ''}`}
@@ -315,15 +317,15 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
                   </div>
                   <h3>{mission.project.name}</h3>
                   <p>{mission.project.clientName} · {mission.project.location}</p>
-                  <dl><div><dt>{stage === 'STANDBY' ? 'Previsão de mobilização' : 'Mobilização'}</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div><div><dt>Equipe</dt><dd>{mission.allocations.length}</dd></div></dl>
+                  <dl><div><dt>{stage === 'STANDBY' ? 'Previsão de mobilização' : 'Mobilização'}</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div><div><dt>Equipe ao fim</dt><dd>{finalAllocations.length}</dd></div></dl>
                   <div className="efetivo-mission-owner">
                     <i aria-hidden="true">{initials(mission.headquartersResponsibleName)}</i>
                     <span><small>LÍDER VINCULADO</small><strong>{mission.headquartersResponsibleName || 'Líder não vinculado'}</strong><b>{mission.headquartersResponsibleRole || 'Cargo da conta não informado'}</b></span>
                   </div>
                   {expandedId === mission.id ? (
                     <div className="efetivo-kanban-details">
-                      <span>Equipe na missão · {mission.allocations.length}</span>
-                      {mission.allocations.length ? mission.allocations.map(allocation => (
+                      <span>Equipe ao fim da missão · {finalAllocations.length}</span>
+                      {finalAllocations.length ? finalAllocations.map(allocation => (
                         <div key={allocation.id}>
                           <i aria-hidden="true">{initials(allocation.collaborator?.name || '')}</i>
                           <strong>{allocation.collaborator?.name || 'Colaborador'}{allocation.collaboratorId === mission.headquartersResponsibleCollaboratorId ? <em>Líder</em> : null}</strong>
@@ -332,7 +334,7 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
                       )) : <p>Nenhum colaborador alocado ainda.</p>}
                     </div>
                   ) : null}
-                  <button className="efetivo-team-toggle" type="button" aria-expanded={expandedId === mission.id} onClick={event => { event.stopPropagation(); setExpandedId(expandedId === mission.id ? null : mission.id); }}>{expandedId === mission.id ? 'Ocultar equipe' : `Ver líder e equipe (${mission.allocations.length})`}</button>
+                  <button className="efetivo-team-toggle" type="button" aria-expanded={expandedId === mission.id} onClick={event => { event.stopPropagation(); setExpandedId(expandedId === mission.id ? null : mission.id); }}>{expandedId === mission.id ? 'Ocultar equipe' : `Ver líder e equipe (${finalAllocations.length})`}</button>
                   {moveAllowed ? <div className="field-group efetivo-kanban-move-select" onClick={event => event.stopPropagation()}><label htmlFor={`mission-stage-${mission.id}`}>Mover para</label><select id={`mission-stage-${mission.id}`} value={mission.stage} onChange={event => { const next = event.target.value as MissionStage; persist(mission.id, next, columns[next].length); if (next !== 'FINISHED' || mission.stage === 'FINISHED') onMobileStageChange(next); }}>{MISSION_STAGES.map(option => <option value={option} key={option}>{MISSION_STAGE_LABELS[option]}</option>)}</select></div> : canManage ? <button className="efetivo-complete-mission" type="button" onClick={event => { event.stopPropagation(); openMission(mission); }}>Completar dados para liberar movimentação</button> : null}
                 </article>
               );})}

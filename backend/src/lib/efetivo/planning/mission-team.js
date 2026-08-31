@@ -1,6 +1,11 @@
 import { collectAllocationConflicts, lockCollaborator } from './conflicts.js';
 import { parseDateKey } from './date-only.js';
 import { conflictError, notFound, planningError } from './errors.js';
+import {
+  allocationPeriod,
+  allocationPeriodWithinMission,
+  maximumConcurrentAllocationCount
+} from './allocation-period.js';
 import { missionEndsOnOrAfter } from './mission-period.js';
 
 function dateValue(value) {
@@ -49,7 +54,8 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
   for (const collaboratorId of lockedIds) await lockCollaborator(tx, collaboratorId);
 
   const period = { startDate: parseDateKey(payload.mobilizationDate), endDate: parseDateKey(payload.returnDate || payload.executionEndDate) };
-  const [collaborators, absences, allocations] = await Promise.all([
+  const confirmedMissionOverlapIds = new Set(payload.confirmedMissionOverlapCollaboratorIds || []);
+  const [collaborators, absences, allocations, currentAllocations] = await Promise.all([
     tx.collaborator.findMany({
       where: { id: { in: uniqueIds } },
       include: { jobRole: { select: { id: true, name: true, isActive: true, isOperational: true } } }
@@ -76,7 +82,13 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
         }
       },
       include: { mission: true }
-    })
+    }),
+    ignoredMissionId
+      ? tx.efetivoMissionAllocation.findMany({
+        where: { missionId: ignoredMissionId, collaboratorId: { in: uniqueIds }, deletedAt: null },
+        include: { mission: true }
+      })
+      : Promise.resolve([])
   ]);
   const byId = new Map(collaborators.map(collaborator => [collaborator.id, collaborator]));
   const missing = uniqueIds.find(collaboratorId => !byId.has(collaboratorId));
@@ -84,14 +96,57 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
 
   const ordered = uniqueIds.map(collaboratorId => byId.get(collaboratorId));
   const team = deriveSelectedMissionTeam(ordered, payload.scheduleStatus);
-  const conflicts = ordered.flatMap(collaborator => collectAllocationConflicts({
-    collaborator,
-    jobRoleId: collaborator.jobRoleId,
-    period,
-    absences: absences.filter(absence => absence.collaboratorId === collaborator.id),
-    allocations: allocations.filter(allocation => allocation.collaboratorId === collaborator.id),
-    ignoredMissionId
+  const proposedMission = {
+    id: ignoredMissionId,
+    mobilizationDate: payload.mobilizationDate,
+    executionEndDate: payload.executionEndDate,
+    returnDate: payload.returnDate
+  };
+  const requestedPeriodByCollaboratorId = new Map((payload.allocationPeriods || [])
+    .map(item => [item.collaboratorId, item]));
+  const existingByCollaboratorId = new Map(currentAllocations
+    .map(allocation => [allocation.collaboratorId, allocation]));
+  for (const allocation of team.allocations) {
+    const existing = existingByCollaboratorId.get(allocation.collaboratorId);
+    const requested = requestedPeriodByCollaboratorId.get(allocation.collaboratorId);
+    if (requested) {
+      allocation.mobilizationDate = parseDateKey(requested.mobilizationDate) === period.startDate
+        ? null : dateValue(requested.mobilizationDate);
+      allocation.demobilizationDate = parseDateKey(requested.demobilizationDate) === period.endDate
+        ? null : dateValue(requested.demobilizationDate);
+    } else if (existing) {
+      allocation.mobilizationDate = existing.mobilizationDate;
+      allocation.demobilizationDate = existing.demobilizationDate;
+    }
+    allocation.allowMissionOverlap = Boolean(
+      existing?.allowMissionOverlap || confirmedMissionOverlapIds.has(allocation.collaboratorId)
+    );
+  }
+  team.demands = [...new Set(team.allocations.map(item => item.jobRoleId))].map(jobRoleId => ({
+    jobRoleId,
+    requiredCount: maximumConcurrentAllocationCount(team.allocations
+      .filter(item => item.jobRoleId === jobRoleId)
+      .map(item => allocationPeriod(item, proposedMission)))
   }));
+  const conflicts = ordered.flatMap(collaborator => {
+    const teamAllocation = team.allocations.find(item => item.collaboratorId === collaborator.id);
+    const collaboratorPeriod = allocationPeriod(teamAllocation, proposedMission);
+    if (!allocationPeriodWithinMission(collaboratorPeriod, proposedMission)) {
+      throw planningError(`${collaborator.name} possui período individual fora das novas datas da missão.`, {
+        code: 'ALLOCATION_OUTSIDE_MISSION_PERIOD'
+      });
+    }
+    return collectAllocationConflicts({
+      collaborator,
+      jobRoleId: collaborator.jobRoleId,
+      period: collaboratorPeriod,
+      absences: absences.filter(absence => absence.collaboratorId === collaborator.id),
+      allocations: allocations.filter(allocation => allocation.collaboratorId === collaborator.id),
+      ignoredMissionId,
+      allowMissionOverlap: Boolean(teamAllocation?.allowMissionOverlap),
+      requireCandidateMissionOverlapConfirmation: true
+    });
+  });
   if (conflicts.length) {
     const names = [...new Set(conflicts.map(conflict => conflict.collaboratorName))];
     const label = names.length > 2 ? `${names.slice(0, 2).join(', ')} e mais ${names.length - 2}` : names.join(' e ');
@@ -124,6 +179,9 @@ export async function syncSelectedMissionTeam(tx, missionId, team, context = {})
       update: {
         jobRoleId: allocation.jobRoleId,
         jobRoleNameSnapshot: allocation.jobRoleNameSnapshot,
+        mobilizationDate: allocation.mobilizationDate || null,
+        demobilizationDate: allocation.demobilizationDate || null,
+        allowMissionOverlap: Boolean(allocation.allowMissionOverlap),
         source: 'MANUAL',
         deletedAt: null
       }

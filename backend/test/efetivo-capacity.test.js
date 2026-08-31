@@ -51,3 +51,27 @@ test('função normalizada ambígua permanece pendente sem contaminar capacidade
   assert.equal(utilization.availablePersonDays, 0);
   assert.deepEqual(utilization.byRole.map(item => item.availablePersonDays), [0, 0]);
 });
+
+test('capacidade considera somente o período individual do colaborador na missão', () => {
+  const input = {
+    jobRoles: [{ id: 'r1', name: 'Operador', isActive: true, isOperational: true }],
+    collaborators: [{ id: 'c1', name: 'Ana', jobRoleId: 'r1', admissionDate: '2025-01-01', isActive: true }],
+    absences: [],
+    missions: [{
+      id: 'm1',
+      scheduleStatus: 'CONFIRMED',
+      mobilizationDate: '2026-09-01',
+      returnDate: '2026-09-30',
+      demands: [{ jobRoleId: 'r1', requiredCount: 1 }],
+      allocations: [{
+        collaboratorId: 'c1',
+        mobilizationDate: '2026-09-05',
+        demobilizationDate: '2026-09-20'
+      }]
+    }]
+  };
+  assert.equal(calculateDailyCapacity({ ...input, date: '2026-09-04' }).statuses[0].status, 'FREE');
+  assert.equal(calculateDailyCapacity({ ...input, date: '2026-09-05' }).statuses[0].status, 'ALLOCATED');
+  assert.equal(calculateDailyCapacity({ ...input, date: '2026-09-20' }).statuses[0].status, 'ALLOCATED');
+  assert.equal(calculateDailyCapacity({ ...input, date: '2026-09-21' }).statuses[0].status, 'FREE');
+});

@@ -5592,6 +5592,10 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   -webkit-overflow-scrolling: touch;
 }
 
+.confirm-dialog-backdrop {
+  z-index: 1200;
+}
+
 .modal-card {
   width: min(100%, 420px);
   max-height: calc(100dvh - 36px);

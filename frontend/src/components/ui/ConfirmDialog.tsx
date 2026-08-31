@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Modal } from './Modal';
 
@@ -36,12 +37,13 @@ export function ConfirmDialog({
     if (!open) setTypedConfirmation('');
   }, [open]);
   const confirmationMatches = !confirmationText || typedConfirmation === confirmationText;
-  return (
+  const dialog = (
     <Modal
       open={open}
       onClose={onCancel}
       ariaLabelledBy="confirm-dialog-title"
       ariaDescribedBy="confirm-dialog-description"
+      backdropClassName="modal-backdrop confirm-dialog-backdrop"
       panelClassName="modal-card confirm-dialog"
     >
       <div className="section-title" id="confirm-dialog-title">{title}</div>
@@ -58,4 +60,5 @@ export function ConfirmDialog({
       </div>
     </Modal>
   );
+  return typeof document === 'undefined' ? null : createPortal(dialog, document.body);
 }

@@ -1,5 +1,6 @@
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor } from './errors.js';
+import { allocationPeriod } from './allocation-period.js';
 import { missionEndDate, missionEndsOnOrAfter } from './mission-period.js';
 import { resolvePlanningDatabase, getActiveOfficialPlan } from './plan-context.js';
 
@@ -80,10 +81,15 @@ function overlapWindow(left, right) {
 export function collectCalendarConflicts(missions = [], absences = []) {
   const assignments = [];
   for (const mission of missions) {
-    const period = { startDate: parseDateKey(mission.mobilizationDate), endDate: missionEndDate(mission) };
     for (const allocation of mission.allocations || []) {
       if (allocation.deletedAt || !allocation.collaborator) continue;
-      assignments.push({ mission, period, collaborator: allocation.collaborator });
+      const period = allocationPeriod(allocation, mission);
+      assignments.push({
+        mission,
+        period,
+        collaborator: allocation.collaborator,
+        allowMissionOverlap: allocation.allowMissionOverlap
+      });
     }
   }
   const conflicts = [];
@@ -106,6 +112,7 @@ export function collectCalendarConflicts(missions = [], absences = []) {
       const left = assignments[index];
       const right = assignments[other];
       if (left.collaborator.id !== right.collaborator.id || left.mission.id === right.mission.id) continue;
+      if (left.allowMissionOverlap || right.allowMissionOverlap) continue;
       if (!periodsOverlap(left.period, right.period)) continue;
       conflicts.push(conflictDescriptor({
         collaborator: left.collaborator,

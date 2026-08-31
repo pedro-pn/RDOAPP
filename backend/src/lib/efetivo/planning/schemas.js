@@ -10,6 +10,7 @@ export const idSchema = z.string().trim().min(1).max(100);
 export const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, 'Informe uma cor hexadecimal válida.');
 export const absenceTypeSchema = z.enum(['FERIAS', 'FOLGA', 'AFASTAMENTO']);
 export const missionScheduleStatusSchema = z.enum(['DRAFT', 'CONFIRMED', 'CANCELLED']);
+export const editableMissionScheduleStatusSchema = z.enum(['CONFIRMED', 'CANCELLED']);
 export const missionStageSchema = z.enum(['STANDBY', 'MOBILIZATION', 'EXECUTION', 'FINAL_MEASUREMENT', 'FINISHED']);
 
 export const datePositionQuerySchema = z.object({
@@ -73,10 +74,19 @@ export const demandInputSchema = z.object({
   requiredCount: z.coerce.number().int().min(0).max(1000)
 });
 
+export const missionAllocationPeriodInputSchema = z.object({
+  collaboratorId: idSchema,
+  mobilizationDate: dateOnlySchema,
+  demobilizationDate: dateOnlySchema
+}).refine(value => value.demobilizationDate >= value.mobilizationDate, {
+  path: ['demobilizationDate'],
+  message: 'A desmobilização individual não pode ser anterior à mobilização.'
+});
+
 export const missionInputSchema = z.object({
   planId: idSchema.optional(),
   projectId: idSchema,
-  scheduleStatus: missionScheduleStatusSchema,
+  scheduleStatus: editableMissionScheduleStatusSchema,
   headquartersResponsibleUserId: idSchema,
   mobilizationDate: dateOnlySchema,
   executionStartDate: dateOnlySchema,
@@ -85,12 +95,51 @@ export const missionInputSchema = z.object({
   collaboratorIds: z.array(idSchema).max(500).refine(
     values => new Set(values).size === values.length,
     'Cada colaborador deve aparecer uma única vez na equipe.'
-  )
+  ),
+  allocationPeriods: z.array(missionAllocationPeriodInputSchema).max(500).optional().default([]).refine(
+    values => new Set(values.map(item => item.collaboratorId)).size === values.length,
+    'Cada colaborador deve possuir somente um período individual.'
+  ),
+  confirmedMissionOverlapCollaboratorIds: z.array(idSchema).max(500).optional().default([])
+}).superRefine((value, context) => {
+  const collaboratorIds = new Set(value.collaboratorIds);
+  value.allocationPeriods.forEach((period, index) => {
+    if (!collaboratorIds.has(period.collaboratorId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['allocationPeriods', index, 'collaboratorId'],
+        message: 'O período individual pertence a um colaborador que não está na equipe.'
+      });
+    }
+    const missionEndDate = value.returnDate || value.executionEndDate;
+    if (period.mobilizationDate < value.mobilizationDate || period.demobilizationDate > missionEndDate) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['allocationPeriods', index],
+        message: 'O período individual deve estar dentro das datas da missão.'
+      });
+    }
+  });
 });
 
 export const allocationInputSchema = z.object({
   collaboratorId: idSchema,
-  jobRoleId: idSchema
+  jobRoleId: idSchema,
+  mobilizationDate: dateOnlySchema.optional(),
+  demobilizationDate: dateOnlySchema.optional(),
+  allowMissionOverlap: z.boolean().optional().default(false)
+}).refine(value => !value.mobilizationDate || !value.demobilizationDate || value.demobilizationDate >= value.mobilizationDate, {
+  path: ['demobilizationDate'],
+  message: 'A desmobilização individual não pode ser anterior à mobilização.'
+});
+
+export const allocationPeriodInputSchema = z.object({
+  mobilizationDate: dateOnlySchema,
+  demobilizationDate: dateOnlySchema,
+  allowMissionOverlap: z.boolean().optional().default(false)
+}).refine(value => value.demobilizationDate >= value.mobilizationDate, {
+  path: ['demobilizationDate'],
+  message: 'A desmobilização individual não pode ser anterior à mobilização.'
 });
 
 export const stageInputSchema = z.object({

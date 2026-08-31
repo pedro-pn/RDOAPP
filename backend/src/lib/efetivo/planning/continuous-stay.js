@@ -1,5 +1,5 @@
 import { addCalendarDays, inclusiveDayCount, parseDateKey } from './date-only.js';
-import { missionEndDate } from './mission-period.js';
+import { allocationPeriod } from './allocation-period.js';
 
 function normalizedRoleName(value) {
   return String(value || '')
@@ -56,9 +56,12 @@ export function buildContinuousStayAlerts({ missions = [], collaborators = [], j
   const position = parseDateKey(date);
   const alerts = [];
   for (const collaborator of collaborators) {
-    const intervals = missions.filter(mission => mission.scheduleStatus === 'CONFIRMED' && !mission.deletedAt
-      && (mission.allocations || []).some(item => item.collaboratorId === collaborator.id && !item.deletedAt))
-      .map(mission => ({ startDate: mission.mobilizationDate, endDate: missionEndDate(mission), missionId: mission.id }));
+    const intervals = missions.flatMap(mission => {
+      if (mission.scheduleStatus !== 'CONFIRMED' || mission.deletedAt) return [];
+      return (mission.allocations || [])
+        .filter(item => item.collaboratorId === collaborator.id && !item.deletedAt)
+        .map(item => ({ ...allocationPeriod(item, mission), missionId: mission.id }));
+    });
     const merged = splitIntervalsByRestDays(mergeContinuousMissionIntervals(intervals), absences.filter(item => item.collaboratorId === collaborator.id));
     const current = merged.find(interval => interval.startDate <= position && interval.endDate >= position)
       || merged.find(interval => interval.startDate > position);

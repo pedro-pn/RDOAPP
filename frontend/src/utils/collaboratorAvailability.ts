@@ -1,4 +1,5 @@
 import type { PlanningAbsence, PlanningCollaborator, PlanningMission } from '../api/efetivoPlanning';
+import { allocationIncludesDate, allocationOverlapsPeriod, missionAllocationPeriod } from './missionAllocationPeriod';
 
 export const AVAILABILITY_STATUSES = ['AVAILABLE', 'AWAITING_MOBILIZATION', 'MOBILIZED', 'ON_VACATION'] as const;
 export type AvailabilityStatus = typeof AVAILABILITY_STATUSES[number];
@@ -51,13 +52,16 @@ export function buildAvailabilityColumns(
     }
 
     const allocatedMissions = missions
-      .filter(mission => mission.scheduleStatus === 'CONFIRMED'
-        && mission.stage !== 'FINISHED'
-        && dateKey(mission.returnDate || mission.executionEndDate) >= date
-        && mission.allocations.some(allocation => allocation.collaboratorId === collaborator.id))
-      .sort((left, right) => dateKey(left.mobilizationDate).localeCompare(dateKey(right.mobilizationDate)));
-    const currentMission = allocatedMissions.find(mission => dateKey(mission.mobilizationDate) <= date) || null;
-    const nextMission = allocatedMissions.find(mission => dateKey(mission.mobilizationDate) > date) || null;
+      .flatMap(mission => {
+        if (mission.scheduleStatus !== 'CONFIRMED' || mission.stage === 'FINISHED') return [];
+        const allocation = mission.allocations.find(item => item.collaboratorId === collaborator.id
+          && missionAllocationPeriod(item, mission).endDate >= date);
+        return allocation ? [{ mission, allocation }] : [];
+      })
+      .sort((left, right) => missionAllocationPeriod(left.allocation, left.mission).startDate
+        .localeCompare(missionAllocationPeriod(right.allocation, right.mission).startDate));
+    const currentMission = allocatedMissions.find(item => allocationIncludesDate(item.allocation, item.mission, date))?.mission || null;
+    const nextMission = allocatedMissions.find(item => missionAllocationPeriod(item.allocation, item.mission).startDate > date)?.mission || null;
 
     if (currentMission) {
       const status: AvailabilityStatus = currentMission.stage === 'STANDBY' ? 'AWAITING_MOBILIZATION' : 'MOBILIZED';
@@ -108,8 +112,8 @@ export function buildMissionAvailabilityColumns(
     const overlappingMissions = missions.filter(mission => mission.id !== ignoredMissionId
       && mission.scheduleStatus === 'CONFIRMED'
       && mission.stage !== 'FINISHED'
-      && overlapsPeriod(mission.mobilizationDate, mission.returnDate || mission.executionEndDate, startDate, endDate)
-      && mission.allocations.some(allocation => allocation.collaboratorId === collaborator.id));
+      && mission.allocations.some(allocation => allocation.collaboratorId === collaborator.id
+        && allocationOverlapsPeriod(allocation, mission, startDate, endDate)));
     const mobilizedMission = overlappingMissions.find(mission => mission.stage !== 'STANDBY') || null;
     const waitingMission = overlappingMissions.find(mission => mission.stage === 'STANDBY') || null;
     if (mobilizedMission) {

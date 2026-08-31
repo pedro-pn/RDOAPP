@@ -1,5 +1,6 @@
 import { addCalendarDays, parseDateKey } from './date-only.js';
 import { businessDatesInclusive, holidayDateSet, isBusinessDay } from './business-days.js';
+import { allocationPeriod } from './allocation-period.js';
 import { missionEndDate } from './mission-period.js';
 
 function collaboratorRoleId(collaborator) {
@@ -34,13 +35,14 @@ function indexMissionsByCollaborator(missions) {
   const index = new Map();
   for (const mission of missions) {
     if (mission.deletedAt || mission.scheduleStatus !== 'CONFIRMED') continue;
-    const interval = {
-      record: mission,
-      startDate: parseDateKey(mission.mobilizationDate),
-      endDate: missionEndDate(mission)
-    };
     for (const allocation of mission.allocations || []) {
       if (allocation.deletedAt) continue;
+      const period = allocationPeriod(allocation, mission);
+      const interval = {
+        record: mission,
+        startDate: period.startDate,
+        endDate: period.endDate
+      };
       const periods = index.get(allocation.collaboratorId) || [];
       periods.push(interval);
       index.set(allocation.collaboratorId, periods);

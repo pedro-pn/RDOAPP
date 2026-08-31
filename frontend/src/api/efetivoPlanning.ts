@@ -75,8 +75,20 @@ export interface MissionAllocation {
   id: string;
   collaboratorId: string;
   jobRoleId: string;
+  mobilizationDate: DateOnly | null;
+  demobilizationDate: DateOnly | null;
+  allowMissionOverlap: boolean;
   collaborator?: { id: string; name: string; role: string; jobRoleId: string | null };
   jobRole?: { id: string; name: string };
+}
+
+export interface EligibleMissionCollaborator {
+  id: string;
+  name: string;
+  jobRoleId: string;
+  admissionDate: DateOnly | null;
+  missionConflicts: PlanningConflict[];
+  requiresMissionOverlapConfirmation: boolean;
 }
 
 export interface PlanningMission {
@@ -129,13 +141,19 @@ export interface MissionExecutionComparison {
 export interface MissionInput {
   planId?: string;
   projectId: string;
-  scheduleStatus: MissionScheduleStatus;
+  scheduleStatus: Exclude<MissionScheduleStatus, 'DRAFT'>;
   headquartersResponsibleUserId: string;
   mobilizationDate: DateOnly;
   executionStartDate: DateOnly;
   executionEndDate: DateOnly;
   returnDate?: DateOnly | null;
   collaboratorIds: string[];
+  allocationPeriods: Array<{
+    collaboratorId: string;
+    mobilizationDate: DateOnly;
+    demobilizationDate: DateOnly;
+  }>;
+  confirmedMissionOverlapCollaboratorIds?: string[];
 }
 
 export interface ContinuousStayAlert {
@@ -306,11 +324,14 @@ export async function updatePlanningMission(id: string, version: number, payload
 export async function deletePlanningMission(id: string) {
   await apiClient.delete(`${base}/missions/${encodeURIComponent(id)}`);
 }
-export async function listEligibleCollaborators(missionId: string, jobRoleId: string) {
-  return (await apiClient.get<Array<{ id: string; name: string; jobRoleId: string; admissionDate: DateOnly | null }>>(`${base}/missions/${encodeURIComponent(missionId)}/eligible-collaborators`, { params: { jobRoleId } })).data;
+export async function listEligibleCollaborators(missionId: string, jobRoleId: string, period: { mobilizationDate?: DateOnly; demobilizationDate?: DateOnly } = {}) {
+  return (await apiClient.get<EligibleMissionCollaborator[]>(`${base}/missions/${encodeURIComponent(missionId)}/eligible-collaborators`, { params: { jobRoleId, ...period } })).data;
 }
-export async function addMissionAllocation(missionId: string, payload: { collaboratorId: string; jobRoleId: string }) {
+export async function addMissionAllocation(missionId: string, payload: { collaboratorId: string; jobRoleId: string; mobilizationDate?: DateOnly; demobilizationDate?: DateOnly; allowMissionOverlap?: boolean }) {
   return (await apiClient.post<MissionAllocation>(`${base}/missions/${encodeURIComponent(missionId)}/allocations`, payload)).data;
+}
+export async function updateMissionAllocationPeriod(missionId: string, allocationId: string, payload: { mobilizationDate: DateOnly; demobilizationDate: DateOnly; allowMissionOverlap?: boolean }) {
+  return (await apiClient.patch<MissionAllocation>(`${base}/missions/${encodeURIComponent(missionId)}/allocations/${encodeURIComponent(allocationId)}`, payload)).data;
 }
 export async function removeMissionAllocation(missionId: string, allocationId: string) {
   await apiClient.delete(`${base}/missions/${encodeURIComponent(missionId)}/allocations/${encodeURIComponent(allocationId)}`);

@@ -27,7 +27,10 @@ export async function autoAllocateMission(missionId, context = {}, dependencies 
       const needed = Math.max(0, demand.requiredCount - already);
       const eligible = await listEligibleCollaborators(mission.id, demand.jobRoleId, { database: tx });
       const allocatedIds = new Set(mission.allocations.filter(item => !item.deletedAt).map(item => item.collaboratorId));
-      const candidates = rankAutoAllocationCandidates(eligible.filter(item => !allocatedIds.has(item.id))).slice(0, needed);
+      // A alocação automática não pode assumir uma sobreposição que exige decisão humana.
+      const candidates = rankAutoAllocationCandidates(eligible.filter(item => (
+        !allocatedIds.has(item.id) && !item.requiresMissionOverlapConfirmation
+      ))).slice(0, needed);
       for (const collaborator of candidates) {
         const allocation = await allocateCollaboratorInTransaction(tx, mission, {
           collaboratorId: collaborator.id,
