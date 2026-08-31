@@ -302,6 +302,33 @@ function stockMovementSchema(z, { itemType } = {}) {
     });
 }
 
+function stockReturnMovementsSchema(z) {
+  return z.object({
+    reason: z.literal('DEVOLUCAO_OBRA'),
+    projectId: requiredText(z, 80),
+    date: requiredText(z, 40),
+    notes: optionalText(z, 1000),
+    items: z.array(z.object({
+      itemId: requiredText(z, 80),
+      batchId: requiredText(z, 80),
+      quantity: decimalNumber(z, { positive: true, scale: 3 })
+    })).min(1, 'Adicione ao menos um produto.').max(100, 'Limite de 100 produtos por devolução.')
+  }).superRefine((data, ctx) => {
+    const batches = new Set();
+    data.items.forEach((item, index) => {
+      const key = `${item.itemId}:${item.batchId}`;
+      if (batches.has(key)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['items', index, 'batchId'],
+          message: 'Este produto e lote já foram adicionados.'
+        });
+      }
+      batches.add(key);
+    });
+  });
+}
+
 export function makeEstoqueSchemas(z) {
   if (!z?.object || !z?.discriminatedUnion) {
     throw new TypeError('A valid Zod instance is required to build estoque schemas.');
@@ -314,6 +341,7 @@ export function makeEstoqueSchemas(z) {
     itemCreate: stockItemCreateSchema(z),
     itemUpdateForType: type => stockItemUpdateSchema(z, type),
     movement: options => stockMovementSchema(z, options),
+    returnMovements: stockReturnMovementsSchema(z),
     activePatch: z.object({ isActive: z.boolean() }),
     reverseMovement: z.object({ notes: optionalText(z, 1000) })
   };

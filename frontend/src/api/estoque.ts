@@ -104,7 +104,24 @@ export interface StockBatchSummary {
 }
 
 export interface StockSummaryItem {
-  item: Pick<StockItem, 'id' | 'code' | 'name' | 'type' | 'unitLabel' | 'minQuantity' | 'isActive'>;
+  item: Pick<
+    StockItem,
+    | 'id'
+    | 'code'
+    | 'name'
+    | 'type'
+    | 'unitLabel'
+    | 'minQuantity'
+    | 'manufacturer'
+    | 'description'
+    | 'location'
+    | 'filterModel'
+    | 'filterKind'
+    | 'filterMicron'
+    | 'unNumber'
+    | 'casNumber'
+    | 'isActive'
+  > & { category: Pick<StockCategory, 'id' | 'name'> | null };
   balance: string;
   belowMin: boolean;
   batches: StockBatchSummary[];
@@ -148,6 +165,18 @@ export interface StockMovementPayload {
   confirmExpired?: boolean;
 }
 
+export interface StockReturnMovementsPayload {
+  reason: 'DEVOLUCAO_OBRA';
+  projectId: string;
+  date: string;
+  notes?: string;
+  items: Array<{
+    itemId: string;
+    batchId: string;
+    quantity: number | string;
+  }>;
+}
+
 export interface StockMovementListParams {
   itemId?: string;
   type?: StockMovementType;
@@ -155,6 +184,7 @@ export interface StockMovementListParams {
   projectId?: string;
   from?: string;
   to?: string;
+  dateOrder?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;
 }
@@ -238,6 +268,13 @@ export async function createStockMovement(payload: StockMovementPayload) {
     payload
   );
   return response.data;
+}
+
+export async function createStockReturnMovements(payload: StockReturnMovementsPayload) {
+  const response = await apiClient.post<{
+    movements: Array<StockMovement & { balances: { item: string; batch: string } }>;
+  }>(estoqueApiPath('/movimentacoes'), payload);
+  return response.data.movements;
 }
 
 export async function reverseStockMovement(id: string, notes?: string | null) {
