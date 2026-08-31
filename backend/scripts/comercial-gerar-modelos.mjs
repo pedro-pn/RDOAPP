@@ -582,7 +582,7 @@ function converterParte(xml) {
   };
 }
 
-async function converterArquivo(entrada, saida) {
+export async function converterArquivo(entrada, saida) {
   const zip = new AdmZip(await readFile(entrada));
   const total = {
     campos: 0,
@@ -650,7 +650,9 @@ async function principal() {
   }
 }
 
-principal().catch(erro => {
-  console.error(erro);
-  process.exitCode = 1;
-});
+if (path.resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {
+  principal().catch(erro => {
+    console.error(erro);
+    process.exitCode = 1;
+  });
+}

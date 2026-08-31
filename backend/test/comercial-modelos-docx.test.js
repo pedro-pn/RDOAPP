@@ -38,7 +38,19 @@ async function documentoDe(arquivo) {
   return { xml, doc: new DOMParser().parseFromString(xml, 'text/xml') };
 }
 
-const marcadoresDe = xml => new Set([...xml.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]));
+const marcadoresDe = xml => {
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const marcadores = new Set();
+  for (const paragrafo of Array.from(doc.getElementsByTagName('w:p'))) {
+    const texto = Array.from(paragrafo.getElementsByTagName('w:t'))
+      .map(no => no.textContent || '')
+      .join('');
+    for (const correspondencia of texto.matchAll(/\{\{(\w+)\}\}/g)) {
+      marcadores.add(correspondencia[1]);
+    }
+  }
+  return marcadores;
+};
 
 /** Os campos do cabeçalho, iguais nos quatro documentos. */
 const CABECALHO = [
