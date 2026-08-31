@@ -76,6 +76,10 @@ function detail(overrides = {}) {
       horasLancadas: 5,
       horasApropriadas: 3,
       horasDeslocamento: 1,
+      diasApropriados: [{
+        data: '2026-07-09', horas: 3, horasNormais: 3, horasExtras: 0, emViagem: true,
+        rdos: [{ numero: 4, projetoId: 'p1', projetoCodigo: '1001' }]
+      }],
       sobreposicaoHoras: 0,
       horasRelatoriosPorData: [{ data: '2026-07-09', horas: 5 }],
       custo: 20,
@@ -141,6 +145,13 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
             horasLancadas: 7,
             horasApropriadas: 4,
             horasDeslocamento: 2,
+            diasApropriados: [
+              {
+                data: '2026-07-09', horas: 2, horasNormais: 2, horasExtras: 0, emViagem: false,
+                rdos: [{ numero: 7, projetoId: 'p2', projetoCodigo: '1002' }]
+              },
+              { data: '2026-07-10', horas: 2, horasNormais: 1, horasExtras: 1, emViagem: true, rdos: [] }
+            ],
             sobreposicaoHoras: 0,
             horasRelatoriosPorData: [
               { data: '2026-07-09', horas: 5 },
@@ -157,6 +168,10 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
             horasLancadas: 4,
             horasApropriadas: 5,
             horasDeslocamento: 0,
+            diasApropriados: [{
+              data: '2026-07-10', horas: 5, horasNormais: 5, horasExtras: 0, emViagem: false,
+              rdos: [{ numero: 7, projetoId: 'p2', projetoCodigo: '1002' }]
+            }],
             sobreposicaoHoras: 0,
             horasRelatoriosPorData: [{ data: '2026-07-10', horas: 4 }],
             custo: 40,
@@ -228,6 +243,20 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
     { name: 'Bruno', horasSemSobreposicao: 4, horasLancadas: 4, horasApropriadas: 5, horasDeslocamento: 0, sobreposicaoHoras: 0, custo: 40, custoDeslocamento: null }
   ]);
   assert.equal(result.colaboradores[0].custoHora, 50 / 7);
+  assert.deepEqual(result.colaboradores[0].diasApropriados, [
+    {
+      data: '2026-07-09',
+      horas: 5,
+      horasNormais: 5,
+      horasExtras: 0,
+      emViagem: true,
+      rdos: [
+        { numero: 4, projetoId: 'p1', projetoCodigo: '1001' },
+        { numero: 7, projetoId: 'p2', projetoCodigo: '1002' }
+      ]
+    },
+    { data: '2026-07-10', horas: 2, horasNormais: 1, horasExtras: 1, emViagem: true, rdos: [] }
+  ]);
   assert.deepEqual(result.equipamentos.map(item => [item.name, item.days]), [['Bomba', 5], ['Filtro', 2]]);
   assert.equal(result.plannedScope.services[0].weight, 70);
   assert.equal(result.plannedScope.services[0].systems[0].quantity, 150);

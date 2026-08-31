@@ -186,6 +186,7 @@ export function buildProjectDetailCollaborator({
   role = '',
   rate = null,
   allocation = null,
+  projectId = null,
   workedMinutes = 0,
   workedMinutesByDate = new Map(),
   includeCollaboratorCosts = false
@@ -204,6 +205,9 @@ export function buildProjectDetailCollaborator({
   const horasRelatoriosPorData = [...workedMinutesByDate.entries()]
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
     .map(([data, minutes]) => ({ data, horas: minutes / 60 }));
+  const diasApropriados = projectId && rate
+    ? buildProjectAppropriationDays(rate, projectId)
+    : [];
 
   return {
     name: name || rate?.name || '—',
@@ -213,6 +217,7 @@ export function buildProjectDetailCollaborator({
     horasLancadas: Math.max(0, workedMinutes) / 60,
     horasApropriadas: allocation?.hours ?? null,
     horasDeslocamento,
+    diasApropriados,
     sobreposicaoHoras: 0,
     horasRelatoriosPorData,
     // Custo é dado sensível (salário): só para gestores.
@@ -220,6 +225,43 @@ export function buildProjectDetailCollaborator({
     custoHora: includeCollaboratorCosts ? custoHora : null,
     custoDeslocamento: includeCollaboratorCosts ? custoDeslocamento : null
   };
+}
+
+export function buildProjectAppropriationDays(rate = null, projectId = null) {
+  if (!rate || !projectId) return [];
+  const analyticalTrail = Array.isArray(rate.analyticalAllocationTrail)
+    ? rate.analyticalAllocationTrail
+    : [];
+  const trail = analyticalTrail.length > 0
+    ? analyticalTrail
+    : Array.isArray(rate.allocationTrail) ? rate.allocationTrail : [];
+
+  return trail.flatMap(day => {
+    const weight = (day.allocations || [])
+      .filter(item => item.projectId === projectId)
+      .reduce((sum, item) => sum + Math.max(0, Number(item.weight) || 0), 0);
+    if (weight <= 0) return [];
+
+    const horasNormais = Math.max(0, Number(day.costNormalHours ?? day.normalHours) || 0) * weight;
+    const horasExtras = (
+      Math.max(0, Number(day.he70Hours) || 0)
+      + Math.max(0, Number(day.he100Hours) || 0)
+    ) * weight;
+    const rdos = (day.rdoProjects || []).map(item => ({
+      numero: item.rdoNumber ?? null,
+      projetoId: item.projectId ?? null,
+      projetoCodigo: item.projectCode ? String(item.projectCode) : null
+    }));
+
+    return [{
+      data: day.date,
+      horas: horasNormais + horasExtras,
+      horasNormais,
+      horasExtras,
+      emViagem: Boolean(day.travelContext),
+      rdos
+    }];
+  }).sort((left, right) => left.data.localeCompare(right.data));
 }
 
 // Status do dia a partir do standby agregado vs jornada cheia.
@@ -404,6 +446,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       role,
       rate,
       allocation: alloc,
+      projectId,
       workedMinutes: workedMinutesByCollaborator.get(collaboratorId) || 0,
       workedMinutesByDate: workedMinutesByCollaboratorAndDate.get(collaboratorId) || new Map(),
       includeCollaboratorCosts
@@ -425,6 +468,13 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   }
   for (const collaboratorId of workedMinutesByCollaborator.keys()) {
     ensureCollaborator(collaboratorId);
+  }
+  // A exceção de viagem pode apropriar ponto pela janela do cronograma mesmo quando o colaborador
+  // não consta em nenhum RDO da obra. Esses colaboradores também precisam aparecer no dashboard.
+  for (const [collaboratorId, rate] of ratesById) {
+    if (rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId]) {
+      ensureCollaborator(collaboratorId, { name: rate.name, role: rate.role });
+    }
   }
   const colaboradores = [...collabMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 

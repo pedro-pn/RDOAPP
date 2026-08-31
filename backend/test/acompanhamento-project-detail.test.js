@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   buildOmieCostPaymentSummary,
   buildPlannedRoleCounts,
+  buildProjectAppropriationDays,
   buildProjectDetailCollaborator
 } from '../src/lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../src/lib/acompanhamento/salary.js';
@@ -108,6 +109,7 @@ test('buildProjectDetailCollaborator separa apropriação financeira da jornada 
     horasLancadas: 10.5,
     horasApropriadas: 4.25,
     horasDeslocamento: 1.5,
+    diasApropriados: [],
     sobreposicaoHoras: 0,
     horasRelatoriosPorData: [
       { data: '2026-07-16', horas: 8 },
@@ -117,6 +119,50 @@ test('buildProjectDetailCollaborator separa apropriação financeira da jornada 
     custoHora: 50,
     custoDeslocamento: 75
   });
+});
+
+test('buildProjectAppropriationDays detalha horas analíticas, viagem e número do RDO', () => {
+  const result = buildProjectAppropriationDays({
+    analyticalAllocationTrail: [
+      {
+        date: '2026-08-25',
+        costNormalHours: 8.8,
+        he70Hours: 1,
+        he100Hours: 0,
+        travelContext: false,
+        allocations: [{ projectId: 'p-5800', weight: 1 }],
+        rdoProjects: [{ projectId: 'p-5800', projectCode: '5800', rdoNumber: 12, hours: 8 }]
+      },
+      {
+        date: '2026-08-26',
+        costNormalHours: 8.8,
+        he70Hours: 0,
+        he100Hours: 0,
+        travelContext: true,
+        allocations: [{ projectId: 'p-5800', weight: 1 }],
+        rdoProjects: []
+      }
+    ]
+  }, 'p-5800');
+
+  assert.deepEqual(result, [
+    {
+      data: '2026-08-25',
+      horas: 9.8,
+      horasNormais: 8.8,
+      horasExtras: 1,
+      emViagem: false,
+      rdos: [{ numero: 12, projetoId: 'p-5800', projetoCodigo: '5800' }]
+    },
+    {
+      data: '2026-08-26',
+      horas: 8.8,
+      horasNormais: 8.8,
+      horasExtras: 0,
+      emViagem: true,
+      rdos: []
+    }
+  ]);
 });
 
 test('buildProjectDetailCollaborator oculta valores financeiros sem ocultar as horas apropriadas', () => {

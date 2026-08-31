@@ -569,7 +569,24 @@ export function rdoDataByCollaboratorFromReports(reports) {
       }
       const existing = projectsForDay.get(report.projectId);
       if (!existing || workedHours > existing.hours) {
-        projectsForDay.set(report.projectId, { projectId: report.projectId, hours: workedHours, offshore, sleepMode });
+        projectsForDay.set(report.projectId, {
+          projectId: report.projectId,
+          hours: workedHours,
+          offshore,
+          sleepMode,
+          ...(report.project?.code ? { projectCode: String(report.project.code) } : {}),
+          ...(report.reportType === 'RDO' && report.sequenceNumber != null
+            ? { rdoNumber: report.sequenceNumber }
+            : existing?.rdoNumber != null ? { rdoNumber: existing.rdoNumber } : {})
+        });
+      } else if (report.reportType === 'RDO' && report.sequenceNumber != null && existing.rdoNumber == null) {
+        // Um relatório de serviço do mesmo dia pode ter mais horas e continuar sendo a fonte da
+        // jornada, mas não deve apagar o número do RDO em que o colaborador também aparece.
+        projectsForDay.set(report.projectId, {
+          ...existing,
+          rdoNumber: report.sequenceNumber,
+          ...(report.project?.code ? { projectCode: String(report.project.code) } : {})
+        });
       }
       if (report.reportType === 'RDO' && mobilizationDate && dk > mobilizationDate) {
         let mobilizationProjects = c.mobilizationProjectsByDate.get(mobilizationDate);
@@ -599,11 +616,12 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
     },
     select: {
       reportType: true,
+      sequenceNumber: true,
       projectId: true,
       reportDate: true,
       daytimeWorkedMinutes: true,
       nighttimeWorkedMinutes: true,
-      project: { select: { offshore: true, laborSleepModeByCollaborator: true, mobilizationDate: true } },
+      project: { select: { code: true, offshore: true, laborSleepModeByCollaborator: true, mobilizationDate: true } },
       collaborators: { select: { collaboratorId: true } },
       services: { select: { startTime: true, endTime: true } }
     }
@@ -731,6 +749,7 @@ export function scheduleWindowsForDay({
 
 function projectMetaForCollaborator(projects, collaboratorId) {
   return new Map(projects.map(project => [project.id, {
+    code: project.code ? String(project.code) : null,
     offshore: Boolean(project.offshore),
     sleepMode: sleepModeFor(project, collaboratorId)
   }]));
@@ -853,9 +872,27 @@ export function buildDailyProjectWeights({
     ...(manualProjectId ? [manualProjectId] : [])
   ].filter(Boolean))].sort();
   const taggedProjectIds = [...new Set((tags || []).map(resolveTag).filter(Boolean))].sort();
+  const scheduledProjectIds = [...new Set(scheduleWindowProjectIds.filter(Boolean))].sort();
+  const taggedScheduledProjectIds = taggedProjectIds.filter(projectId => scheduledProjectIds.includes(projectId));
   // O RDO do próprio dia é a autorização para apropriar. As demais evidências ficam apenas como
-  // candidatas na auditoria, sem autorizar horas por conta própria.
+  // candidatas na auditoria. A única exceção é a viagem comprovada pelo ponto dentro de uma janela
+  // fechada do cronograma: a etiqueta da própria missão escolhe a janela correspondente; a etiqueta
+  // genérica EM VIAGEM só resolve quando existe uma única obra possível.
   if (rdoByProject.size === 0) {
+    if (taggedProjectIds.length === 1 && taggedScheduledProjectIds.length === 1) {
+      return {
+        allocations: [{ projectId: taggedScheduledProjectIds[0], weight: 1, rdo: null }],
+        reason: 'SCHEDULE_PROJECT_TAG_TRAVEL',
+        travelContext: true
+      };
+    }
+    if ((tags || []).some(isPontoTravelTag) && scheduledProjectIds.length === 1) {
+      return {
+        allocations: [{ projectId: scheduledProjectIds[0], weight: 1, rdo: null }],
+        reason: 'SCHEDULE_TRAVEL_TAG',
+        travelContext: true
+      };
+    }
     return {
       allocations: [],
       candidateProjectIds: [...new Set([
@@ -864,7 +901,7 @@ export function buildDailyProjectWeights({
         ...(mobilizationProjectIds instanceof Set
           ? [...mobilizationProjectIds]
           : Array.isArray(mobilizationProjectIds) ? mobilizationProjectIds : []),
-        ...scheduleWindowProjectIds
+        ...scheduledProjectIds
       ].filter(Boolean))].sort(),
       reason: 'NO_RDO_EVIDENCE'
     };
@@ -1027,11 +1064,14 @@ export function classifyProjectHours(
       tagProjectIds: [...new Set((row.tags || []).map(resolveTag).filter(Boolean))].sort(),
       rdoProjects: [...rdoProjects.values()].map(item => ({
         projectId: item.projectId,
-        hours: Math.max(0, Number(item.hours) || 0)
+        hours: Math.max(0, Number(item.hours) || 0),
+        ...(item.projectCode ? { projectCode: String(item.projectCode) } : {}),
+        ...(item.rdoNumber != null ? { rdoNumber: item.rdoNumber } : {})
       })),
       manualProjectIds: manualProjectIds ? [...manualProjectIds] : [],
       allocations: decision.allocations.map(item => ({ projectId: item.projectId, weight: item.weight })),
       candidateProjectIds: decision.candidateProjectIds ? [...decision.candidateProjectIds] : [],
+      travelContext: Boolean(decision.travelContext || (row.tags || []).some(isPontoTravelTag)),
       reason: decision.reason
     });
     if (decision.allocations.length === 0) {
@@ -1068,16 +1108,18 @@ export function classifyProjectHours(
         };
         byProject.set(allocation.projectId, project);
       }
-      project.normalHours += dayCostNormalHours * allocation.weight;
-      project.he70Hours += Math.max(0, Number(row.he70Horas) || 0) * allocation.weight;
-      project.he100Hours += Math.max(0, Number(row.he100Horas) || 0) * allocation.weight;
-      project.rdoWorkedHours += Math.max(0, Number(allocation.rdo?.hours) || 0);
       const allocatedNormalHours = dayCostNormalHours * allocation.weight;
-      const travelContext = (row.tags || []).some(isPontoTravelTag);
+      const allocatedHe70Hours = Math.max(0, Number(row.he70Horas) || 0) * allocation.weight;
+      const allocatedHe100Hours = Math.max(0, Number(row.he100Horas) || 0) * allocation.weight;
+      project.normalHours += allocatedNormalHours;
+      project.he70Hours += allocatedHe70Hours;
+      project.he100Hours += allocatedHe100Hours;
+      project.rdoWorkedHours += Math.max(0, Number(allocation.rdo?.hours) || 0);
+      const travelContext = Boolean(decision.travelContext || (row.tags || []).some(isPontoTravelTag));
       if (project.offshore) project.offshoreHours += allocatedNormalHours;
       else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += allocatedNormalHours;
       else project.homeHours += allocatedNormalHours;
-      if (travelContext) project.travelHours += allocatedNormalHours;
+      if (travelContext) project.travelHours += allocatedNormalHours + allocatedHe70Hours + allocatedHe100Hours;
     }
   }
 
@@ -1563,6 +1605,7 @@ export async function computeCollaboratorRates(importId = null) {
       byProject: {},
       analyticalByProject: {},
       allocationTrail: [], // decisão de alocação de cada dia (auditoria)
+      analyticalAllocationTrail: [], // mesma trilha no eixo analítico usado pelo dashboard do projeto
       unresolvedDays: [], // dias com horas que não chegaram a projeto nenhum (pendência)
       months: [] // detalhe por mês (para o filtro da aba Custo/hora)
     };
@@ -1646,6 +1689,9 @@ export async function computeCollaboratorRates(importId = null) {
             'ANALYTICAL',
             scheduleWindowContext
           );
+          // O dashboard detalha exatamente os segmentos que participaram do custo. Manter esta
+          // trilha aqui evita exibir dias fora da vigência do perfil financeiro do colaborador.
+          entry.analyticalAllocationTrail.push(...analyticalClassified.dayTrail);
           const projects = costProjectsFromClassification(classified);
           const analyticalProjects = costProjectsFromClassification(analyticalClassified);
           const examsTrainingMensal = examsTrainingAnnualCostForMonth({
@@ -1723,6 +1769,7 @@ export async function computeCollaboratorRates(importId = null) {
         });
       }
       entry.months.sort((a, b) => a.month.localeCompare(b.month));
+      entry.analyticalAllocationTrail.sort((a, b) => a.date.localeCompare(b.date));
 
       if (computedAny) {
         entry.hasCostProfile = true;

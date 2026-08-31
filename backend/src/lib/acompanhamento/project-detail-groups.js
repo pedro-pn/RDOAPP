@@ -164,6 +164,7 @@ function combineCollaborators(details) {
         horasLancadas: 0,
         horasApropriadas: null,
         horasDeslocamento: 0,
+        diasApropriados: new Map(),
         horasRelatoriosPorData: new Map(),
         custo: null,
         custoHora: null,
@@ -175,6 +176,26 @@ function combineCollaborators(details) {
         existing.horasApropriadas = (existing.horasApropriadas ?? 0) + horasApropriadas;
       }
       existing.horasDeslocamento += toNumber(item.horasDeslocamento) ?? 0;
+      for (const day of item.diasApropriados ?? []) {
+        if (!day?.data) continue;
+        const currentDay = existing.diasApropriados.get(day.data) ?? {
+          data: day.data,
+          horas: 0,
+          horasNormais: 0,
+          horasExtras: 0,
+          emViagem: false,
+          rdos: new Map()
+        };
+        currentDay.horas += toNumber(day.horas) ?? 0;
+        currentDay.horasNormais += toNumber(day.horasNormais) ?? 0;
+        currentDay.horasExtras += toNumber(day.horasExtras) ?? 0;
+        currentDay.emViagem = currentDay.emViagem || Boolean(day.emViagem);
+        for (const rdo of day.rdos ?? []) {
+          const rdoKey = `${rdo?.projetoId || ''}:${rdo?.numero ?? 'sem-numero'}`;
+          currentDay.rdos.set(rdoKey, rdo);
+        }
+        existing.diasApropriados.set(day.data, currentDay);
+      }
       for (const day of item.horasRelatoriosPorData ?? []) {
         if (!day?.data) continue;
         const horas = toNumber(day.horas) ?? 0;
@@ -197,6 +218,12 @@ function combineCollaborators(details) {
       const horasRelatoriosPorData = [...item.horasRelatoriosPorData.entries()]
         .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
         .map(([data, horas]) => ({ data, horas }));
+      const diasApropriados = [...item.diasApropriados.values()]
+        .sort((left, right) => left.data.localeCompare(right.data))
+        .map(day => ({
+          ...day,
+          rdos: [...day.rdos.values()]
+        }));
       const horasSemSobreposicao = horasRelatoriosPorData.length
         ? horasRelatoriosPorData.reduce((sum, day) => sum + day.horas, 0)
         : item.horasLancadas;
@@ -213,6 +240,7 @@ function combineCollaborators(details) {
         horasLancadas,
         horasApropriadas: item.horasApropriadas,
         horasDeslocamento: round1(item.horasDeslocamento),
+        diasApropriados,
         sobreposicaoHoras,
         horasRelatoriosPorData,
         custo: item.custo,
