@@ -1810,8 +1810,8 @@ export function createDefaultCostEstimatePayload(): CostEstimatePayloadV2 {
     assumptions: { ...DEFAULT_ASSUMPTIONS },
     laborContexts: [{
       id: "pre-engenharia",
-      name: "Pré-engenharia",
-      description: "Planejamento, visita técnica e preparação da execução.",
+      name: "",
+      description: "",
       startOffsetDays: 0,
       durationDays: 30,
       workingDays: 22,
@@ -2095,9 +2095,8 @@ export function createDefaultCostEstimatePayload(): CostEstimatePayloadV2 {
     },
     logisticsDestinations: [{
       id: "obra-principal",
-      nameSource: "labor_context",
-      laborContextId: "pre-engenharia",
-      name: "Pré-engenharia",
+      nameSource: "custom",
+      name: "Obra principal",
       address: "",
       oneWayDistanceKm: 0,
     }],

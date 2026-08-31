@@ -69,6 +69,18 @@ test('o payload padrão já vem com as bases Filtrovali', () => {
   assert.equal(a.defaultHoursPerDay, 8.8);
 });
 
+test('o levantamento novo não assume Pré-engenharia como fase', () => {
+  const payload = motor.createDefaultCostEstimatePayload();
+  const faseInicial = payload.laborContexts[0];
+  const destinoInicial = payload.logisticsDestinations[0];
+
+  assert.equal(faseInicial.name, '');
+  assert.equal(faseInicial.description, '');
+  assert.equal(destinoInicial.name, 'Obra principal');
+  assert.equal(destinoInicial.nameSource, 'custom');
+  assert.equal(destinoInicial.laborContextId, undefined);
+});
+
 test('mudar a margem muda o preço, sem tocar no custo', () => {
   // É o comportamento que justifica o editor de margem viver na faixa: o
   // orçamentista ajusta e vê o preço mexer na hora.
