@@ -463,8 +463,13 @@ export function pendenciasDaComercial(
  * marcação em cada campo (L1). Desabilitar esconderia a resposta de quem está
  * perdido, e o aviso com a contagem já diz que falta alguma coisa.
  */
-export function rotuloDoAvanco(_pendencias: PendenciaEtapa[], ultima: boolean): string {
-  return ultima ? 'Gerar e salvar técnica + comercial' : 'Salvar e continuar →';
+export function rotuloDoAvanco(
+  _pendencias: PendenciaEtapa[],
+  ultima: boolean,
+  proximaEtapa = ''
+): string {
+  if (ultima) return 'Gerar e salvar técnica + comercial';
+  return proximaEtapa ? `Salvar e ir para ${proximaEtapa} →` : 'Salvar e continuar →';
 }
 
 /** "Preencha N campo(s) obrigatório(s)" — o aviso ao lado do botão. */

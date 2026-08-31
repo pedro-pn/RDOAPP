@@ -531,6 +531,83 @@
   margin-bottom: 0;
 }
 
+.com-root .com-levantamentos-entrada {
+  display: grid;
+  gap: 12px;
+  max-height: min(390px, 45vh);
+  margin-top: 18px;
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid #d6e1d9;
+  border-radius: 11px;
+  background: #f8fbf9;
+}
+
+.com-root .com-levantamentos-entrada > p {
+  margin: 0;
+  color: var(--com-texto-fraco);
+  font-size: 13px;
+}
+
+.com-root .com-levantamentos-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.com-root .com-levantamentos-cabecalho > div {
+  display: grid;
+  gap: 2px;
+}
+
+.com-root .com-levantamentos-cabecalho span {
+  color: var(--com-texto-fraco);
+  font-size: 11px;
+}
+
+.com-root .com-levantamentos-lista {
+  display: grid;
+  gap: 8px;
+}
+
+.com-root .com-levantamentos-lista > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--com-borda);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--com-texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.com-root .com-levantamentos-lista > button:hover {
+  border-color: var(--com-acao);
+  background: #edf5ef;
+}
+
+.com-root .com-levantamentos-lista span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.com-root .com-levantamentos-lista small {
+  color: var(--com-texto-fraco);
+  overflow-wrap: anywhere;
+}
+
+.com-root .com-levantamentos-lista b {
+  flex: none;
+  color: var(--com-acao);
+  font-size: 14px;
+}
+
 /* --- Tira de seções ------------------------------------------------------ */
 
 .com-root .com-secoes {
@@ -605,6 +682,13 @@
   padding: 14px 20px;
 }
 
+.com-root .com-rodape-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .com-root .com-codigo-vinculado {
   display: flex;
   flex-direction: column;
@@ -628,6 +712,15 @@
   .com-root .com-modo-card { padding: 20px; }
 
   .com-root .com-rodape { flex-direction: column; align-items: stretch; }
+
+  .com-root .com-modo-opcoes.com-modo-tres { grid-template-columns: 1fr; }
+
+  .com-root .com-rodape-acoes,
+  .com-root .com-levantamentos-cabecalho,
+  .com-root .com-levantamentos-lista > button {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 /* ==========================================================================
@@ -2651,6 +2744,43 @@
   border-radius: 0;
   padding: 28px;
   margin: 0;
+}
+
+.com-root .com-vinculo-levantamento {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 16px 28px;
+  border-bottom: 1px solid #cfe0d3;
+  background: #eef6f0;
+}
+
+.com-root .com-vinculo-levantamento > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.com-root .com-vinculo-levantamento small {
+  color: var(--com-texto-fraco);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.com-root .com-vinculo-levantamento strong {
+  color: var(--com-marca-forte);
+  font-size: 16px;
+}
+
+.com-root .com-vinculo-levantamento span {
+  color: var(--com-texto-fraco);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .com-root .com-vinculo-levantamento { grid-template-columns: 1fr; }
 }
 
 .com-root .com-obrigatorios {

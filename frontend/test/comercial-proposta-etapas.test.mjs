@@ -286,6 +286,11 @@ test('o rótulo do botão é o da referência, e a contagem vai à parte', () =>
   // seria divergência de texto, que o aceite lado a lado compara.
   assert.equal(mod.rotuloDoAvanco([], false), 'Salvar e continuar →');
   assert.equal(
+    mod.rotuloDoAvanco([], false, 'Escopo'),
+    'Salvar e ir para Escopo →',
+    'o texto deve vir da mesma etapa usada como destino'
+  );
+  assert.equal(
     mod.rotuloDoAvanco([{ campo: 'a', mensagem: 'x' }], false),
     'Salvar e continuar →'
   );

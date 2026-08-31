@@ -17,10 +17,12 @@ import {
   criarProposta,
   listarConsultores,
   mensagemDeErro,
+  obterLevantamento,
   obterProposta,
   reservarProximoNumero,
   ComercialConcurrentWriteError,
-  type Consultor
+  type Consultor,
+  type LevantamentoSalvo
 } from '../../../api/comercial';
 import { useAuth } from '../../../auth/AuthContext';
 import { moduleRoutePath } from '../../../modules/registry';
@@ -63,6 +65,10 @@ import { PropostaPreviewPanel } from './PropostaPreviewPanel';
 import { ETAPAS_VISIVEIS_DA_FINALIZACAO } from './finalizacao';
 import { usePropostaFinalizacao } from './usePropostaFinalizacao';
 import { usePropostaRevision } from './usePropostaRevision';
+import {
+  formatarValorDoLevantamento,
+  itemDePrecoDoLevantamento
+} from './levantamentoVinculado';
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
 import { PrazosStep } from './steps/PrazosStep';
@@ -200,13 +206,15 @@ export function PropostaPage() {
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [podeEscolher, setPodeEscolher] = useState(false);
   const [recado, setRecado] = useState('');
+  const [levantamentoVinculado, setLevantamentoVinculado] =
+    useState<LevantamentoSalvo | null>(null);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [versaoCarregada, setVersaoCarregada] = useState('');
   const [conflitoDeEdicao, setConflitoDeEdicao] =
     useState<ComercialConcurrentWriteError | null>(null);
   const formularioRef = useRef<HTMLDivElement>(null);
-  const { aplicarSnapshot, carregarRevisao, setVinculoCrm, vinculoCrm } =
+  const { aplicarSnapshot, carregarRevisao, revisaoPronta, setVinculoCrm, vinculoCrm } =
     usePropostaRevision({
       modo,
       codigo,
@@ -228,6 +236,63 @@ export function PropostaPage() {
       setTentouAvancar,
       setRecado
     });
+
+  const levantamentoAplicado = useRef('');
+  const usarDadosDoLevantamento = params.get('usarLevantamento') === '1';
+
+  /**
+   * O vínculo não pode ser apenas um id escondido no POST. Quem veio do
+   * levantamento precisa ver o registro escolhido e começar com seu preço de
+   * venda na etapa comercial.
+   */
+  useEffect(() => {
+    if (!levantamentoId) {
+      setLevantamentoVinculado(null);
+      levantamentoAplicado.current = '';
+      return;
+    }
+
+    let vivo = true;
+    obterLevantamento(levantamentoId)
+      .then(levantamento => {
+        if (!vivo) return;
+        setLevantamentoVinculado(levantamento);
+
+        const deveAplicar =
+          usarDadosDoLevantamento &&
+          !propostaId &&
+          revisaoPronta &&
+          levantamentoAplicado.current !== levantamento.id;
+        if (!deveAplicar) return;
+
+        levantamentoAplicado.current = levantamento.id;
+        setForm(atual => ({
+          ...atual,
+          title: levantamento.title || String(atual.title || '')
+        }));
+        setPrecos([itemDePrecoDoLevantamento(levantamento)]);
+        setRecado(
+          `Levantamento ${levantamento.proposalCode} vinculado. ` +
+            'O preço de venda foi carregado na etapa Comercial.'
+        );
+      })
+      .catch(error => {
+        if (!vivo) return;
+        setLevantamentoVinculado(null);
+        setRecado(
+          mensagemDeErro(error, 'Não foi possível carregar o levantamento vinculado.')
+        );
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [
+    levantamentoId,
+    propostaId,
+    revisaoPronta,
+    usarDadosDoLevantamento
+  ]);
 
   const rascunho = useRascunhoLocal({
     conta: user?.id || '',
@@ -356,6 +421,7 @@ export function PropostaPage() {
   });
   const erros = indiceDePendencias(pendencias);
   const ultima = indice === ETAPAS.length - 1;
+  const proximaEtapa = ultima ? null : ETAPAS[indice + 1];
   const codigoExibido = rotuloDaProposta(codigo, revisionNumber);
 
   function irPara(destino: EtapaProposta, rolar = false) {
@@ -390,7 +456,7 @@ export function PropostaPage() {
 
     const id = await salvar();
     if (!id) return;
-    irPara(ETAPAS[indice + 1].value, true);
+    if (proximaEtapa) irPara(proximaEtapa.value, true);
   }
 
   function editar(patch: AnyRecord) {
@@ -466,6 +532,19 @@ export function PropostaPage() {
     setVersaoCarregada('');
     setConflitoDeEdicao(null);
     setRecado('');
+  }
+
+  function iniciarComLevantamento(levantamento: LevantamentoSalvo) {
+    const proximos = new URLSearchParams();
+    proximos.set('levantamento', levantamento.id);
+    proximos.set('proposta', levantamento.proposalCode);
+    proximos.set('modo', levantamento.revisionNumber > 0 ? 'revision' : 'new');
+    proximos.set('revisao', String(levantamento.revisionNumber || 0));
+    proximos.set('etapa', 'cliente');
+    proximos.set('usarLevantamento', '1');
+    setLevantamentoVinculado(levantamento);
+    setRecado('Carregando dados do levantamento...');
+    setParams(proximos, { replace: true });
   }
 
   /**
@@ -648,6 +727,7 @@ export function PropostaPage() {
       {modo === null && (
         <PropostaModeDialog
           recado={recado}
+          onLevantamento={iniciarComLevantamento}
           onNova={iniciarNovaProposta}
           onRevisao={carregarRevisao}
           onFechar={() => navigate(moduleRoutePath('comercial', 'index'))}
@@ -667,6 +747,27 @@ export function PropostaPage() {
 
       <section className="com-workspace">
       <div ref={formularioRef} className="com-form-panel">
+      {levantamentoVinculado && modo !== null && (
+        <section className="com-vinculo-levantamento" role="status">
+          <div>
+            <small>LEVANTAMENTO VINCULADO</small>
+            <strong>
+              {levantamentoVinculado.proposalCode}
+              {levantamentoVinculado.revisionNumber > 0
+                ? ` · Rev ${levantamentoVinculado.revisionNumber}`
+                : ''}
+            </strong>
+            <span>{levantamentoVinculado.title}</span>
+          </div>
+          <div>
+            <small>PREÇO DE VENDA CARREGADO</small>
+            <strong>
+              {formatarValorDoLevantamento(levantamentoVinculado.salePrice) || 'A revisar'}
+            </strong>
+            <span>O vínculo será preservado ao salvar a proposta.</span>
+          </div>
+        </section>
+      )}
       {rascunho.oferta && (
         <section className="com-painel com-oferta-rascunho" role="alertdialog">
           <div>
@@ -876,7 +977,7 @@ export function PropostaPage() {
                 ? 'Proposta finalizada'
             : gerandoPdf
               ? 'Gerando os documentos...'
-              : rotuloDoAvanco(pendencias, ultima)
+              : rotuloDoAvanco(pendencias, ultima, proximaEtapa?.label)
         }
         ocupado={salvando || gerandoPdf || finalizacao.bloqueada}
         onVoltar={() =>

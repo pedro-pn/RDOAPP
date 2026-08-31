@@ -1,25 +1,56 @@
 import { useState } from 'react';
 
+import {
+  listarLevantamentos,
+  mensagemDeErro,
+  type LevantamentoSalvo
+} from '../../../api/comercial';
 import { BotaoFecharDialogo } from '../components/FecharDialogo';
 import { LOGO_URL } from '../components/marca';
 import { MarcaDeOpcao } from '../components/MarcaDeOpcao';
+import { formatarValorDoLevantamento } from './levantamentoVinculado';
 
 /** Entrada da proposta: nova ou revisão de um número existente (PROP-CTL-001..005). */
 export function PropostaModeDialog({
   recado,
+  onLevantamento,
   onNova,
   onRevisao,
   onFechar
 }: {
   recado: string;
+  onLevantamento: (levantamento: LevantamentoSalvo) => void;
   onNova: () => void;
   onRevisao: (codigo: string) => Promise<boolean>;
   /** Fechar sem escolher volta ao menu do módulo. */
   onFechar: () => void;
 }) {
+  const [mostrarLevantamentos, setMostrarLevantamentos] = useState(false);
   const [mostrarRevisao, setMostrarRevisao] = useState(false);
   const [codigo, setCodigo] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [carregandoLevantamentos, setCarregandoLevantamentos] = useState(false);
+  const [levantamentos, setLevantamentos] = useState<LevantamentoSalvo[]>([]);
+  const [erroDosLevantamentos, setErroDosLevantamentos] = useState('');
+
+  async function abrirLevantamentos(forcar = false) {
+    setMostrarLevantamentos(true);
+    setMostrarRevisao(false);
+    if ((!forcar && levantamentos.length) || carregandoLevantamentos) return;
+
+    setCarregandoLevantamentos(true);
+    setErroDosLevantamentos('');
+    try {
+      const resposta = await listarLevantamentos();
+      setLevantamentos(resposta.items.filter(item => item.status === 'SALVO'));
+    } catch (error) {
+      setErroDosLevantamentos(
+        mensagemDeErro(error, 'Não foi possível carregar os levantamentos salvos.')
+      );
+    } finally {
+      setCarregandoLevantamentos(false);
+    }
+  }
 
   async function carregar() {
     const procurado = codigo.trim();
@@ -45,22 +76,92 @@ export function PropostaModeDialog({
         <span className="com-eyebrow">PROPOSTA TÉCNICA E COMERCIAL</span>
         <h1 id="com-proposta-modo-titulo">Como deseja começar?</h1>
         <p>
-          Crie uma proposta com numeração nova ou carregue uma existente para gerar
-          a próxima revisão.
+          Continue de um levantamento salvo para aproveitar o código e o preço já
+          calculado. Se necessário, também é possível criar uma proposta avulsa ou
+          revisar uma existente.
         </p>
 
-        <div className="com-modo-opcoes">
-          <button type="button" onClick={onNova}>
-            <MarcaDeOpcao tipo="nova" />
-            <strong>Nova proposta</strong>
-            <span>Gera o conjunto técnico e comercial com novo número.</span>
+        <div className="com-modo-opcoes com-modo-tres">
+          <button type="button" onClick={() => void abrirLevantamentos()}>
+            <MarcaDeOpcao tipo="ok" />
+            <strong>Usar levantamento salvo</strong>
+            <span>Vincula custos, código, revisão e preço de venda à proposta.</span>
           </button>
-          <button type="button" onClick={() => setMostrarRevisao(true)}>
+          <button
+            type="button"
+            onClick={() => {
+              setMostrarLevantamentos(false);
+              onNova();
+            }}
+          >
+            <MarcaDeOpcao tipo="nova" />
+            <strong>Proposta avulsa</strong>
+            <span>Cria os documentos sem levantamento de custos vinculado.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMostrarLevantamentos(false);
+              setMostrarRevisao(true);
+            }}
+          >
             <MarcaDeOpcao tipo="revisao" />
             <strong>Revisar proposta</strong>
             <span>Carrega os dados salvos e calcula a próxima revisão.</span>
           </button>
         </div>
+
+        {mostrarLevantamentos && (
+          <section className="com-levantamentos-entrada" aria-live="polite">
+            <div className="com-levantamentos-cabecalho">
+              <div>
+                <strong>Levantamentos prontos para proposta</strong>
+                <span>Mais recentes primeiro. Somente levantamentos finalizados aparecem.</span>
+              </div>
+              {!carregandoLevantamentos && (
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  onClick={() => {
+                    void abrirLevantamentos(true);
+                  }}
+                >
+                  Atualizar
+                </button>
+              )}
+            </div>
+
+            {carregandoLevantamentos ? (
+              <p>Carregando levantamentos...</p>
+            ) : erroDosLevantamentos ? (
+              <p className="com-recado">{erroDosLevantamentos}</p>
+            ) : levantamentos.length === 0 ? (
+              <p>
+                Nenhum levantamento finalizado está disponível. Salve o levantamento
+                de custos antes de iniciar a proposta.
+              </p>
+            ) : (
+              <div className="com-levantamentos-lista">
+                {levantamentos.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onLevantamento(item)}
+                  >
+                    <span>
+                      <strong>
+                        Proposta {item.proposalCode}
+                        {item.revisionNumber > 0 ? ` · Rev ${item.revisionNumber}` : ''}
+                      </strong>
+                      <small>{item.title || 'Levantamento sem título'}</small>
+                    </span>
+                    <b>{formatarValorDoLevantamento(item.salePrice) || 'Preço a revisar'}</b>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {mostrarRevisao && (
           <div className="com-revisao-entrada">

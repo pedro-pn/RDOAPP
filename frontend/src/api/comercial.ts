@@ -66,9 +66,12 @@ export interface LevantamentoSalvo {
   proposalCode: string;
   revisionNumber: number;
   title: string;
+  mode?: 'NOVA' | 'REVISAO';
+  totalCost?: string | number | null;
   salePrice?: string | number | null;
   marginPercent?: string | number | null;
   status?: string;
+  createdAt?: string;
   updatedAt: string;
 }
 
@@ -117,6 +120,22 @@ export async function atualizarLevantamento(
 export async function obterLevantamento(id: string) {
   const { data } = await apiClient.get<LevantamentoSalvo & { payload: Record<string, unknown> }>(
     `/comercial/levantamentos/${id}`
+  );
+  return data;
+}
+
+/**
+ * Levantamentos disponíveis para iniciar uma proposta.
+ *
+ * A rota já aplica autoria e permissão no servidor. O cliente não tenta
+ * reconstruir essa regra: ele apenas oferece os registros que recebeu.
+ */
+export async function listarLevantamentos(
+  filtros: { arquivados?: boolean } = {}
+) {
+  const { data } = await apiClient.get<{ items: LevantamentoSalvo[]; total: number }>(
+    '/comercial/levantamentos',
+    { params: { arquivados: filtros.arquivados ? 1 : 0 } }
   );
   return data;
 }

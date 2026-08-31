@@ -62,6 +62,24 @@ test('a ORDEM da cadeia é fixa: mão de obra vence logística', () => {
   assert.equal(acao.target, 'labor');
 });
 
+test('o texto informa quando a pendência manda voltar, em vez de fingir avanço', () => {
+  const voltando = footerAction(
+    { ...nadaPendente, labor: true },
+    podeSalvar,
+    'summary'
+  );
+  assert.equal(voltando.target, 'labor');
+  assert.equal(voltando.label, 'Voltar para Mão de obra e corrigir pendências ←');
+
+  const adiante = footerAction(
+    { ...nadaPendente, inputs: true },
+    podeSalvar,
+    'labor'
+  );
+  assert.equal(adiante.target, 'inputs');
+  assert.equal(adiante.label, 'Ir para Materiais e insumos e corrigir pendências →');
+});
+
 test('sem mão de obra pendente, insumos vêm antes de logística', () => {
   const acao = footerAction(
     { ...nadaPendente, inputs: true, logistics: true, commercial: true },
@@ -104,18 +122,19 @@ test('sem pendências, o botão vira salvar', () => {
   assert.equal(acao.disabled, false);
 });
 
-test('salvar exige título, precificação válida e preço maior que zero', () => {
+test('pendência de conteúdo mantém salvar clicável para revelar os erros', () => {
   const semTitulo = footerAction(nadaPendente, { ...podeSalvar, title: '   ' });
-  assert.equal(semTitulo.disabled, true, 'título só com espaços não vale');
+  assert.equal(semTitulo.disabled, false, 'o clique precisa conseguir revelar o título vazio');
+  assert.equal(saveBlockedByContent({ ...podeSalvar, title: '   ' }), true);
 
   const semPreco = footerAction(nadaPendente, { ...podeSalvar, salePrice: 0 });
-  assert.equal(semPreco.disabled, true, 'preço zero não pode salvar');
+  assert.equal(semPreco.disabled, false, 'o clique precisa conseguir levar ao preço inválido');
 
   const precoNegativo = footerAction(nadaPendente, { ...podeSalvar, salePrice: -1 });
-  assert.equal(precoNegativo.disabled, true);
+  assert.equal(precoNegativo.disabled, false);
 
   const precificacaoInvalida = footerAction(nadaPendente, { ...podeSalvar, validPricing: false });
-  assert.equal(precificacaoInvalida.disabled, true);
+  assert.equal(precificacaoInvalida.disabled, false);
 });
 
 test('durante o salvamento o texto muda e o botão trava', () => {

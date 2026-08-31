@@ -68,6 +68,7 @@ export function usePropostaRevision({
   setRecado: Dispatch<SetStateAction<string>>;
 }) {
   const [vinculoCrm, setVinculoCrm] = useState<VinculoCrmDaProposta | null>(null);
+  const [chaveDaRevisaoPronta, setChaveDaRevisaoPronta] = useState('');
   const revisaoCarregada = useRef('');
 
   const aplicarSnapshot = useCallback(
@@ -121,7 +122,9 @@ export function usePropostaRevision({
       setVinculoCrm(revisao.crm);
       setMaiorVisitada(0);
       setTentouAvancar(false);
-      revisaoCarregada.current = `${revisao.base_number}:${revisao.nextRevision}`;
+      const chave = `${revisao.base_number}:${revisao.nextRevision}`;
+      revisaoCarregada.current = chave;
+      setChaveDaRevisaoPronta(chave);
 
       const proximos = new URLSearchParams(params);
       proximos.set('modo', 'revision');
@@ -191,5 +194,16 @@ export function usePropostaRevision({
     [aplicarResposta, setRecado]
   );
 
-  return { aplicarSnapshot, carregarRevisao, setVinculoCrm, vinculoCrm };
+  const revisaoPronta =
+    modo !== 'revision' ||
+    Boolean(propostaId) ||
+    chaveDaRevisaoPronta === `${codigo}:${revisionNumber}`;
+
+  return {
+    aplicarSnapshot,
+    carregarRevisao,
+    revisaoPronta,
+    setVinculoCrm,
+    vinculoCrm
+  };
 }

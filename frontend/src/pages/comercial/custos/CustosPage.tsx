@@ -186,7 +186,7 @@ export function CustosPage() {
     validPricing: Boolean(result.validPricing),
     salePrice: numberValue(result.salePrice)
   };
-  const acao = footerAction(pendencias, guardas);
+  const acao = footerAction(pendencias, guardas, secao);
 
   /**
    * Último degrau da cadeia com o salvamento travado: acende o vermelho sem
@@ -397,7 +397,7 @@ export function CustosPage() {
         `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}` +
           `&proposta=${encodeURIComponent(gravado.proposalCode)}` +
           `&modo=${modo === 'revision' ? 'revision' : 'new'}` +
-          `&revisao=${gravado.revisionNumber}&etapa=cliente`
+          `&revisao=${gravado.revisionNumber}&etapa=cliente&usarLevantamento=1`
       );
     } catch (error) {
       setMostrarConfirmacao(false);
@@ -660,32 +660,53 @@ export function CustosPage() {
                 <strong>{codigo}</strong>
               </div>
 
-              <button
-                type="button"
-                className="com-btn com-btn-primario"
-                /* Salvo uma vez, não salva de novo: um segundo POST criaria um
-                   segundo levantamento com o MESMO código de proposta. Reabrir
-                   para editar é `PUT`, e depende da tela de listagem. */
-                disabled={acao.disabled || salvo !== null || salvandoRascunho}
-                onClick={() => {
-                  // Tentar avançar é o gatilho: daqui em diante os campos
-                  // obrigatórios que faltam ficam marcados, e passam a acender
-                  // e apagar ao vivo enquanto o usuário corrige.
-                  setTentouAvancar(true);
-                  revelarErros();
-                  if (acao.kind === 'goto') {
-                    void persistirRascunho().then(idPersistido => {
-                      if (idPersistido) trocarSecao(acao.target, true, idPersistido);
-                    });
-                  } else setMostrarConfirmacao(true);
-                }}
-              >
-                {salvo
-                  ? 'Levantamento salvo'
-                  : salvandoRascunho
-                    ? 'Salvando rascunho...'
-                    : acao.label}
-              </button>
+              <div className="com-rodape-acoes">
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  disabled={salvando || salvandoRascunho || salvo !== null}
+                  onClick={() => void persistirRascunho()}
+                >
+                  {salvandoRascunho ? 'Salvando rascunho...' : 'Salvar rascunho'}
+                </button>
+
+                <button
+                  type="button"
+                  className="com-btn com-btn-primario"
+                  /* Salvo uma vez, não salva de novo: um segundo POST criaria um
+                     segundo levantamento com o MESMO código de proposta. Reabrir
+                     para editar é `PUT`, e depende da tela de listagem. */
+                  disabled={acao.disabled || salvo !== null || salvandoRascunho}
+                  onClick={() => {
+                    // Tentar avançar é o gatilho: daqui em diante os campos
+                    // obrigatórios que faltam ficam marcados, e passam a acender
+                    // e apagar ao vivo enquanto o usuário corrige.
+                    setTentouAvancar(true);
+                    revelarErros();
+                    if (acao.kind === 'goto') {
+                      void persistirRascunho().then(idPersistido => {
+                        if (idPersistido) trocarSecao(acao.target, true, idPersistido);
+                      });
+                      return;
+                    }
+
+                    if (saveBlockedByContent(guardas)) {
+                      const semTitulo = !String(draft.title || '').trim();
+                      setRecado(
+                        semTitulo
+                          ? 'Informe o nome do levantamento antes de concluir.'
+                          : 'Revise a formação do preço no resumo antes de criar a proposta.'
+                      );
+                      trocarSecao(semTitulo ? 'premises' : 'summary', true);
+                      return;
+                    }
+
+                    setMostrarConfirmacao(true);
+                  }}
+                >
+                  {salvo ? 'Levantamento salvo' : acao.label}
+                </button>
+              </div>
             </footer>
           </>
         )}

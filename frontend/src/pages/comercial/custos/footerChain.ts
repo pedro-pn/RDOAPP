@@ -71,23 +71,58 @@ const CHAIN: Array<{ key: keyof PendingSections; label: string; target: CostSect
   }
 ];
 
-export function footerAction(pending: PendingSections, guards: SaveGuards): FooterAction {
+const SECTION_ORDER: CostSection[] = ['premises', 'labor', 'inputs', 'logistics', 'summary'];
+const SECTION_LABEL: Record<CostSection, string> = {
+  premises: 'Premissas',
+  labor: 'Mão de obra',
+  inputs: 'Materiais e insumos',
+  logistics: 'Mob. e desmob.',
+  summary: 'Resumo e QQP'
+};
+
+function labelDaPendencia(
+  step: (typeof CHAIN)[number],
+  secaoAtual?: CostSection
+): string {
+  if (!secaoAtual) return step.label;
+
+  const atual = SECTION_ORDER.indexOf(secaoAtual);
+  const destino = SECTION_ORDER.indexOf(step.target);
+  if (destino < atual) {
+    return `Voltar para ${SECTION_LABEL[step.target]} e corrigir pendências ←`;
+  }
+  if (destino === atual) {
+    return `Corrigir pendências de ${SECTION_LABEL[step.target]}`;
+  }
+  return `Ir para ${SECTION_LABEL[step.target]} e corrigir pendências →`;
+}
+
+export function footerAction(
+  pending: PendingSections,
+  guards: SaveGuards,
+  secaoAtual?: CostSection
+): FooterAction {
   for (const step of CHAIN) {
     if (pending[step.key]) {
       // Enquanto há seção pendente o botão NUNCA fica desabilitado: ele é um
       // atalho para resolver, não uma trava. Desabilitar aqui esconderia o
       // caminho justamente de quem está perdido.
-      return { kind: 'goto', label: step.label, target: step.target, disabled: false };
+      return {
+        kind: 'goto',
+        label: labelDaPendencia(step, secaoAtual),
+        target: step.target,
+        disabled: false
+      };
     }
   }
-
-  const blocked = guards.saving || saveBlockedByContent(guards);
 
   return {
     kind: 'save',
     label: guards.saving ? 'Salvando...' : 'Salvar levantamento e criar proposta →',
     target: null,
-    disabled: blocked
+    // Pendência de conteúdo não pode tornar o botão mudo. O clique é justamente
+    // o gatilho que revela os campos inválidos e explica para onde voltar.
+    disabled: guards.saving
   };
 }
 
