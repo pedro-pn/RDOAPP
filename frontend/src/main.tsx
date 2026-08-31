@@ -11,6 +11,8 @@ import { MaintenancePage } from './pages/MaintenancePage';
 import './styles/variables.css';
 import './styles/base.css';
 import './styles/comercial.css';
+// Depois de comercial.css: reaponta os tokens --com-* para o sistema do app.
+import './styles/comercial-bridge.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
