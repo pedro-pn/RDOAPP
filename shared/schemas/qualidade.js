@@ -144,12 +144,6 @@ function recordSchema(z, options = {}) {
         if (value) return;
         ctx.addIssue({ code: 'custom', path: [path], message: 'Campo obrigatório.' });
       });
-    } else if (recordType && !data.projectId) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['projectId'],
-        message: 'Selecione a obra/projeto.'
-      });
     }
     if (recordType === 'DESVIO' && data.disposition === 'TRATAR' && !data.definedAction) {
       ctx.addIssue({

@@ -304,7 +304,7 @@ test('qualidade schemas enforce required fields and defined action for Tratar', 
   assert.equal(schemas.recordCreate.safeParse(recordPayload({ disposition: 'TRATAR', definedAction: 'Abrir plano de ação' })).success, true);
 });
 
-test('non-deviation quality records require only dates and project', () => {
+test('non-deviation quality records allow project or internal/SGQ origin', () => {
   const schemas = makeQualidadeSchemas(z);
   const minimalPayload = {
     registeredAt: '2026-07-22',
@@ -321,13 +321,21 @@ test('non-deviation quality records require only dates and project', () => {
     assert.equal(result.data.impact, null);
     assert.equal(result.data.disposition, null);
     assert.equal(result.data.status, null);
+
+    const internalResult = schemas.recordCreate.safeParse({
+      type,
+      registeredAt: minimalPayload.registeredAt,
+      eventDate: minimalPayload.eventDate
+    });
+    assert.equal(internalResult.success, true, `${type} interno/SGQ`);
+    assert.equal(internalResult.data.projectId, null);
   }
 
   assert.equal(schemas.recordCreate.safeParse({
     type: 'MELHORIA',
     registeredAt: minimalPayload.registeredAt,
     eventDate: minimalPayload.eventDate
-  }).success, false);
+  }).success, true);
   assert.equal(schemas.recordCreate.safeParse({
     type: 'MELHORIA',
     projectId: minimalPayload.projectId,
@@ -351,7 +359,7 @@ test('non-deviation quality records require only dates and project', () => {
   assert.equal(schemas.recordUpdateForType('MELHORIA').safeParse({
     registeredAt: minimalPayload.registeredAt,
     eventDate: minimalPayload.eventDate
-  }).success, false);
+  }).success, true);
   assert.equal(schemas.recordUpdateForType('DESVIO').safeParse(minimalPayload).success, false);
 });
 
@@ -437,14 +445,14 @@ test('non-deviation quality records persist optional fields as null', async () =
   const data = schemas.recordCreate.parse({
     type: 'MELHORIA',
     registeredAt: '2026-07-22',
-    projectId: 'project-1',
     eventDate: '2026-07-20'
   });
 
   const record = await createRecord(client, { data });
 
   assert.equal(record.number, 'M-001/26');
-  assert.equal(record.projectId, 'project-1');
+  assert.equal(record.projectId, null);
+  assert.equal(record.project, null);
   assert.equal(record.origin, null);
   assert.equal(record.natureId, null);
   assert.equal(record.nature, null);
@@ -456,6 +464,7 @@ test('non-deviation quality records persist optional fields as null', async () =
   const workbook = new AdmZip(buildQualityRecordsXlsx([record]));
   const worksheet = workbook.readAsText('xl/worksheets/sheet1.xml');
   assert.match(worksheet, /M-001\/26/);
+  assert.match(worksheet, /Interno\/SGQ/);
 });
 
 test('quality record stores multiple evidence links', async () => {
