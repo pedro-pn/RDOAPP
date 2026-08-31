@@ -222,7 +222,10 @@ export function groupUnallocatedDays({
 
   for (const entry of rates) {
     const days = (entry.unresolvedDays || [])
-      .filter(day => inRange(day.date, start, to))
+      // Sem RDO do colaborador não há relatório histórico suficiente para o gestor resolver.
+      // Esses dias continuam na auditoria, mas só viram pendência quando um RDO é cadastrado e a
+      // combinação das evidências gera um conflito real (TAG_RDO_CONFLICT, ambiguidade etc.).
+      .filter(day => day.reason !== 'NO_RDO_EVIDENCE' && inRange(day.date, start, to))
       .map(day => day.date)
       .sort();
     if (!days.length) continue;

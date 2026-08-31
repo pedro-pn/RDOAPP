@@ -271,11 +271,16 @@ function dayStatus(standbyMin, journeyMin) {
   return 'TRABALHADO';
 }
 
-export async function getProjectDetail(projectId, { includeCollaboratorCosts = false } = {}) {
-  const rows = await listCommercialDashboard();
+export async function getProjectDetail(projectId, {
+  includeCollaboratorCosts = false,
+  includeAdminOnlyCategories = true
+} = {}) {
+  const rows = await listCommercialDashboard({ includeAdminOnlyCategories });
   const row = rows.find(r => r.projectId === projectId);
   if (!row) throw new Error('Projeto não encontrado no acompanhamento comercial.');
-  const categoryWhere = await buildOmieCostCategoryWhere();
+  const categoryWhere = await buildOmieCostCategoryWhere({
+    includeAdminOnly: includeAdminOnlyCategories
+  });
 
   const [
     project,

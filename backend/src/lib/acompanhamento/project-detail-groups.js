@@ -474,7 +474,10 @@ export function groupProjectDetails(group, memberDetails = []) {
   };
 }
 
-export async function getMissionGroupDetail(groupId, { includeCollaboratorCosts = false } = {}) {
+export async function getMissionGroupDetail(groupId, {
+  includeCollaboratorCosts = false,
+  includeAdminOnlyCategories = true
+} = {}) {
   const [{ getProjectDetail }, { getPlannedScope }, { computeProjectProgress }] = await Promise.all([
     import('./project-detail.js'),
     import('./planned-scope.js'),
@@ -487,7 +490,7 @@ export async function getMissionGroupDetail(groupId, { includeCollaboratorCosts 
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map(async member => {
         const [detail, plannedScope, progress] = await Promise.all([
-          getProjectDetail(member.projectId, { includeCollaboratorCosts }),
+          getProjectDetail(member.projectId, { includeCollaboratorCosts, includeAdminOnlyCategories }),
           getPlannedScope(member.projectId).catch(() => null),
           computeProjectProgress(member.projectId).catch(() => null)
         ]);

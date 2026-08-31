@@ -2510,7 +2510,10 @@ model OmieCategory {
   codigo                       String   @unique // codigo_categoria (ex.: 2.04.92)
   descricao                    String?
   includeInAcompanhamentoCosts Boolean  @default(true)
+  adminOnly                    Boolean  @default(false)
   syncedAt                     DateTime @default(now())
+
+  @@index([adminOnly])
 }
 
 // Título a pagar do Omie = gasto realizado vinculado a um projeto.
