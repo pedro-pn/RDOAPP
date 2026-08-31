@@ -216,6 +216,26 @@ test('a proposta nasce com a matriz do modelo, não em branco', () => {
   assert.notDeepEqual(mod.matrizInicial('hidrojateamento'), matriz);
 });
 
+test('equipamentos do modelo são opções e a proposta exige uma seleção', () => {
+  const matriz = mod.matrizInicial('padrao');
+  const equipamentos = matriz.find(mod.ehLinhaDeEquipamentosDaFiltrovali);
+
+  assert.ok(equipamentos, 'a matriz padrão não trouxe a linha de equipamentos');
+  assert.deepEqual(equipamentos.subitens, [], 'a proposta prometeu o catálogo inteiro');
+  assert.ok(
+    mod
+      .pendenciasDasResponsabilidades(matriz)
+      .some(pendencia => pendencia.campo === 'equipamentos')
+  );
+
+  equipamentos.subitens = ['1 unidade de flushing primário'];
+  assert.ok(
+    !mod
+      .pendenciasDasResponsabilidades(matriz)
+      .some(pendencia => pendencia.campo === 'equipamentos')
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Etapas 5, 6 e 7
 // ---------------------------------------------------------------------------

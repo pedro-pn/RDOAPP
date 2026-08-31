@@ -5,7 +5,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  ABERTURA_DESCRICAO_SERVICO,
   CONFIGURACOES_HIDROJATEAMENTO,
+  EQUIPAMENTOS_E_FERRAMENTAS_PADRAO,
   EFETIVOS_HIDROJATEAMENTO,
   INDICE_COMERCIAL,
   INDICE_TECNICO,
@@ -19,6 +21,7 @@ import {
   observacoesTecnicasDoModelo,
   tabelaStandby,
   tabelasDePrecoDoModelo,
+  descricaoComAberturaTecnica,
   textoCondicoesPagamento,
 } from '../../shared/comercial/dist/modelo-documento.js';
 import * as modelo from '../../shared/comercial/dist/modelo-documento.js';
@@ -120,6 +123,27 @@ test('toda linha da matriz tem responsável, categoria e escopo', () => {
       assert.equal(typeof linha.nota, 'string');
     }
   }
+});
+
+test('o catálogo de equipamentos é a origem da lista do modelo padrão', () => {
+  const linha = MATRIZ_PADRAO.find(
+    item => item.categoria === 'EQUIPAMENTOS E FERRAMENTAS'
+  );
+
+  assert.ok(linha, 'o modelo padrão não tem linha de equipamentos');
+  assert.deepEqual(linha.subitens, EQUIPAMENTOS_E_FERRAMENTAS_PADRAO);
+  assert.ok(EQUIPAMENTOS_E_FERRAMENTAS_PADRAO.includes('1 unidade de flushing primário'));
+});
+
+test('cada descrição comercial começa com a abertura técnica sem duplicá-la', () => {
+  const descricao = descricaoComAberturaTecnica('Circulação pressurizada.');
+  assert.equal(
+    descricao,
+    `${ABERTURA_DESCRICAO_SERVICO} — Circulação pressurizada.`
+  );
+
+  const pronta = `${ABERTURA_DESCRICAO_SERVICO} para limpeza do circuito.`;
+  assert.equal(descricaoComAberturaTecnica(pronta), pronta);
 });
 
 test('a matriz tem os dois lados, e a categoria agrupa em blocos contíguos', () => {

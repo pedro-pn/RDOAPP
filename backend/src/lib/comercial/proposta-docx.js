@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url';
 import AdmZip from 'adm-zip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
-import { tabelasDePrecoDoModelo } from '../../../../shared/comercial/dist/modelo-documento.js';
+import {
+  descricaoComAberturaTecnica,
+  tabelasDePrecoDoModelo
+} from '../../../../shared/comercial/dist/modelo-documento.js';
 import {
   REPORTS_NOTICE,
   TECHNICAL_REPORT_SENTENCES,
@@ -142,8 +145,14 @@ function registrosDaMatriz(linhas, sufixo) {
       categorias.push({ [`categoria_${sufixo}`]: categoria, apos: itens.length });
       aberta = categoria;
     }
+    const subitens = Array.isArray(linha.subitens)
+      ? linha.subitens.map(item => String(item || '').trim()).filter(Boolean)
+      : [];
     itens.push({
-      [`escopo_${sufixo}`]: linha.item || '',
+      [`escopo_${sufixo}`]: [
+        linha.item || '',
+        ...subitens.map(item => `• ${item}`)
+      ].filter(Boolean).join('\n'),
       [`nota_${sufixo}`]: linha.note || ''
     });
   }
@@ -403,9 +412,16 @@ export async function preencherProposta(dados, tipo) {
     }
 
     const servicos = (Array.isArray(dados.scopeItems) ? dados.scopeItems : []).map(
-      servico => ({
-        servico: [servico.title, servico.description].filter(Boolean).join(' — ')
-      })
+      servico => {
+        const conteudo = [servico.title, servico.description]
+          .filter(Boolean)
+          .join(' — ');
+        return {
+          servico: tipo === 'commercial'
+            ? descricaoComAberturaTecnica(conteudo)
+            : conteudo
+        };
+      }
     );
     repetirParagrafo(doc, '{{servico}}', servicos);
     ajustarRelatorios(doc, dados.technicalServices);

@@ -1,13 +1,16 @@
 import { useState } from 'react';
 
+import { EQUIPAMENTOS_E_FERRAMENTAS_PADRAO } from '../../../../../../shared/comercial/dist/modelo-documento.js';
 import { AvisoPendencia } from '../../custos/ConfirmacaoEscopo';
 import {
   RESPONSAVEIS,
   acrescentarCategoria,
+  ehLinhaDeEquipamentosDaFiltrovali,
   linhaVazia,
   removerCategoria,
   type LinhaResponsabilidade
 } from '../etapas';
+import { equipamentosSugeridosPeloEscopo } from '../equipamentosDaProposta';
 
 /**
  * Etapa 3 — Matriz de responsabilidades (`PROP-CTL-034..042`).
@@ -32,6 +35,7 @@ import {
 export function ResponsabilidadesStep({
   linhas,
   onLinhas,
+  servicos,
   categorias,
   onCategorias,
   erroDe,
@@ -39,6 +43,7 @@ export function ResponsabilidadesStep({
 }: {
   linhas: LinhaResponsabilidade[];
   onLinhas: (atualizar: (atual: LinhaResponsabilidade[]) => LinhaResponsabilidade[]) => void;
+  servicos: Array<{ title?: string; description?: string }>;
   categorias: string[];
   onCategorias: (proximas: string[]) => void;
   /**
@@ -53,8 +58,32 @@ export function ResponsabilidadesStep({
   mostrarErros: boolean;
 }) {
   const [novaCategoria, setNovaCategoria] = useState('');
+  const [novoEquipamento, setNovoEquipamento] = useState('');
   const [recado, setRecado] = useState('');
+  const [recadoEquipamentos, setRecadoEquipamentos] = useState('');
   const [gerenciando, setGerenciando] = useState(false);
+
+  const indiceDosEquipamentos = linhas.findIndex(ehLinhaDeEquipamentosDaFiltrovali);
+  const linhaDosEquipamentos = linhas[indiceDosEquipamentos];
+  const equipamentosSelecionados = (linhaDosEquipamentos?.subitens || []).filter(item =>
+    item.trim()
+  );
+  const equipamentosPersonalizados = equipamentosSelecionados.filter(
+    item => !EQUIPAMENTOS_E_FERRAMENTAS_PADRAO.includes(
+      item as (typeof EQUIPAMENTOS_E_FERRAMENTAS_PADRAO)[number]
+    )
+  );
+  const equipamentosSugeridos = equipamentosSugeridosPeloEscopo(servicos);
+  const opcoesDeEquipamento = [
+    ...equipamentosSugeridos,
+    ...EQUIPAMENTOS_E_FERRAMENTAS_PADRAO.filter(
+      equipamento => !equipamentosSugeridos.includes(equipamento)
+    ),
+    ...equipamentosPersonalizados
+  ];
+  const sugestoesNaoSelecionadas = equipamentosSugeridos.filter(
+    equipamento => !equipamentosSelecionados.includes(equipamento)
+  );
 
   type CampoDeTexto = 'item' | 'owner' | 'note' | 'categoria';
 
@@ -78,6 +107,52 @@ export function ResponsabilidadesStep({
     if (!resultado.erro) onCategorias(resultado.lista);
   }
 
+  function definirEquipamentos(proximos: string[]) {
+    if (indiceDosEquipamentos < 0) return;
+    onLinhas(atual =>
+      atual.map((linha, indice) =>
+        indice === indiceDosEquipamentos ? { ...linha, subitens: proximos } : linha
+      )
+    );
+  }
+
+  function alternarEquipamento(equipamento: string, selecionado: boolean) {
+    setRecadoEquipamentos('');
+    definirEquipamentos(
+      selecionado
+        ? [...equipamentosSelecionados, equipamento]
+        : equipamentosSelecionados.filter(item => item !== equipamento)
+    );
+  }
+
+  function adicionarEquipamento() {
+    const novo = novoEquipamento.trim();
+    if (!novo) {
+      setRecadoEquipamentos('Informe o equipamento ou ferramenta adicional.');
+      return;
+    }
+    if (
+      equipamentosSelecionados.some(
+        item => item.localeCompare(novo, 'pt-BR', { sensitivity: 'base' }) === 0
+      )
+    ) {
+      setRecadoEquipamentos('Este equipamento já está selecionado.');
+      return;
+    }
+
+    definirEquipamentos([...equipamentosSelecionados, novo]);
+    setNovoEquipamento('');
+    setRecadoEquipamentos('');
+  }
+
+  function selecionarSugestoes() {
+    definirEquipamentos([
+      ...equipamentosSelecionados,
+      ...sugestoesNaoSelecionadas
+    ]);
+    setRecadoEquipamentos('');
+  }
+
   return (
     <section className="com-painel">
       <div className="com-secao-titulo">
@@ -93,6 +168,94 @@ export function ResponsabilidadesStep({
           + Adicionar responsabilidade
         </button>
       </div>
+
+      {linhaDosEquipamentos && (
+        <section
+          className={`com-equipamentos-proposta${
+            mostrarErros && erroDe('equipamentos') ? ' is-invalid' : ''
+          }`}
+          aria-labelledby="com-equipamentos-titulo"
+        >
+          <div className="com-equipamentos-cabecalho">
+            <div>
+              <h3 id="com-equipamentos-titulo">Equipamentos e ferramentas desta proposta</h3>
+              <p>
+                Selecione somente o que será fornecido nesta obra. A relação escolhida
+                será impressa no capítulo 3.
+              </p>
+            </div>
+            <div>
+              <strong>{equipamentosSelecionados.length} selecionado(s)</strong>
+              {sugestoesNaoSelecionadas.length > 0 && (
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  onClick={selecionarSugestoes}
+                >
+                  Selecionar sugestões do escopo
+                </button>
+              )}
+            </div>
+          </div>
+
+          {equipamentosSugeridos.length > 0 && (
+            <p className="com-equipamentos-sugestao">
+              {equipamentosSugeridos.length} equipamento(s) sugerido(s) pelos serviços do
+              capítulo 2.
+            </p>
+          )}
+
+          <div className="com-equipamentos-opcoes">
+            {opcoesDeEquipamento.map(equipamento => (
+              <label
+                key={equipamento}
+                className={
+                  equipamentosSugeridos.includes(equipamento) ? 'is-sugerido' : undefined
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={equipamentosSelecionados.includes(equipamento)}
+                  onChange={evento =>
+                    alternarEquipamento(equipamento, evento.target.checked)
+                  }
+                />
+                <span>{equipamento}</span>
+                {equipamentosSugeridos.includes(equipamento) && <small>Sugerido pelo escopo</small>}
+              </label>
+            ))}
+          </div>
+
+          <div className="com-equipamentos-adicional">
+            <div className="field-group">
+              <label htmlFor="com-novo-equipamento">Outro equipamento ou ferramenta</label>
+              <input
+                id="com-novo-equipamento"
+                value={novoEquipamento}
+                placeholder="Ex.: 2 mangueiras hidráulicas de 20 m"
+                onChange={evento => setNovoEquipamento(evento.target.value)}
+                onKeyDown={evento => {
+                  if (evento.key !== 'Enter') return;
+                  evento.preventDefault();
+                  adicionarEquipamento();
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="com-btn com-btn-fantasma"
+              onClick={adicionarEquipamento}
+            >
+              Adicionar equipamento
+            </button>
+          </div>
+
+          {recadoEquipamentos && <p className="com-recado">{recadoEquipamentos}</p>}
+          {mostrarErros && erroDe('equipamentos') && (
+            <AvisoPendencia>{erroDe('equipamentos')}</AvisoPendencia>
+          )}
+        </section>
+      )}
 
       <div className="com-categorias">
         <button

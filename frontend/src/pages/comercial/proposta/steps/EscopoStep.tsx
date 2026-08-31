@@ -186,6 +186,7 @@ export function EscopoStep({
               label="Descrição completa do serviço"
               required
               value={item.description}
+              hint='Na proposta comercial, o texto começará automaticamente por "Serviço especializado em mão de obra e execução técnica".'
               error={erroDe(`escopo[${indice}].description`)}
               onChange={valor =>
                 onItens(atual =>

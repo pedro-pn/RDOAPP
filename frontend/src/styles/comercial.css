@@ -3517,6 +3517,129 @@
 }
 
 /* Editor da lista de categorias da matriz de responsabilidades. */
+.com-root .com-equipamentos-proposta {
+  display: grid;
+  gap: 14px;
+  margin: 6px 0 18px;
+  padding: 16px;
+  border: 1px solid var(--com-borda);
+  border-radius: var(--com-raio);
+  background: var(--com-superficie);
+}
+
+.com-root .com-equipamentos-proposta.is-invalid {
+  border-color: var(--com-erro);
+}
+
+.com-root .com-equipamentos-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.com-root .com-equipamentos-cabecalho h3,
+.com-root .com-equipamentos-cabecalho p {
+  margin: 0;
+}
+
+.com-root .com-equipamentos-cabecalho p {
+  margin-top: 3px;
+  color: var(--com-texto-fraco);
+  font-size: 12px;
+}
+
+.com-root .com-equipamentos-cabecalho > div:last-child {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-direction: column;
+  flex: none;
+}
+
+.com-root .com-equipamentos-cabecalho strong {
+  color: var(--com-marca-forte);
+  font-size: 12px;
+}
+
+.com-root .com-equipamentos-sugestao {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--com-acao-suave);
+  color: var(--com-marca-forte);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.com-root .com-equipamentos-opcoes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.com-root .com-equipamentos-opcoes label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 3px 8px;
+  padding: 10px;
+  border: 1px solid var(--com-borda);
+  border-radius: 8px;
+  background: var(--com-fundo);
+  color: var(--com-texto);
+  cursor: pointer;
+}
+
+.com-root .com-equipamentos-opcoes label.is-sugerido {
+  border-color: var(--com-acao);
+  background: var(--com-acao-suave);
+}
+
+.com-root .com-equipamentos-opcoes input {
+  margin-top: 2px;
+  accent-color: var(--com-acao);
+}
+
+.com-root .com-equipamentos-opcoes span {
+  overflow-wrap: anywhere;
+}
+
+.com-root .com-equipamentos-opcoes small {
+  grid-column: 2;
+  color: var(--com-acao);
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.com-root .com-equipamentos-adicional {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.com-root .com-equipamentos-adicional .field-group {
+  flex: 1;
+  margin: 0;
+}
+
+@media (max-width: 700px) {
+  .com-root .com-equipamentos-cabecalho,
+  .com-root .com-equipamentos-adicional {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .com-root .com-equipamentos-cabecalho > div:last-child {
+    align-items: stretch;
+  }
+
+  .com-root .com-equipamentos-opcoes {
+    grid-template-columns: 1fr;
+  }
+}
+
 .com-root .com-categorias {
   margin: 4px 0 14px;
 }

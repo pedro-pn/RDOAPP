@@ -323,8 +323,14 @@ test('os itens de escopo substituem o cardápio do documento', async () => {
   // a empresa presta. A proposta usa duas ou três, escolhidas na etapa Escopo.
   const { texto } = textoDoDocx(await preencherProposta(DADOS, 'commercial'));
 
-  assert.match(texto, /Limpeza química — Circulação pressurizada\./);
-  assert.match(texto, /Flushing primário — Regime turbulento\./);
+  assert.match(
+    texto,
+    /Serviço especializado em mão de obra e execução técnica — Limpeza química — Circulação pressurizada\./
+  );
+  assert.match(
+    texto,
+    /Serviço especializado em mão de obra e execução técnica — Flushing primário — Regime turbulento\./
+  );
   assert.ok(
     !/visita técnica/i.test(texto),
     'sobrou frase do cardápio que a proposta não escolheu'
@@ -332,6 +338,30 @@ test('os itens de escopo substituem o cardápio do documento', async () => {
 
   // A ressalva fixa do escopo não é item de lista e tem de sobreviver.
   assert.match(texto, /tubulações embarcadas/);
+});
+
+test('o capítulo 3 imprime somente os equipamentos escolhidos na proposta', async () => {
+  const dados = {
+    ...DADOS,
+    rows: [
+      ...DADOS.rows,
+      {
+        categoria: 'EQUIPAMENTOS E FERRAMENTAS',
+        owner: 'Filtrovali',
+        item: 'Fornecimento de equipamentos necessários à execução, incluindo:',
+        note: '',
+        subitens: ['1 unidade de flushing primário', 'Equipamento especial do cliente']
+      }
+    ]
+  };
+  const { texto } = textoDoDocx(await preencherProposta(dados, 'commercial'));
+
+  assert.match(texto, /1 unidade de flushing primário/);
+  assert.match(texto, /Equipamento especial do cliente/);
+  assert.ok(
+    !texto.includes('1 unidade de limpeza química'),
+    'um equipamento não selecionado foi impresso'
+  );
 });
 
 test('hidrojateamento preenche as DUAS tabelas, cada uma com seu total', async () => {

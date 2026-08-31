@@ -17,6 +17,7 @@ import {
   TEXTO_OBSERVACOES_GERAIS,
   TEXTO_PROPRIEDADE_INTELECTUAL,
   TITULO_BLOCO_STANDBY,
+  descricaoComAberturaTecnica,
   fraseHoraExtra,
   observacoesTecnicasDoModelo,
   tabelasDePrecoDoModelo,
@@ -313,7 +314,13 @@ export function DocumentoPrevia({
               {/* O texto de espera é instrução, não conteúdo: ele diz ONDE
                   preencher, senão o usuário vê a página vazia e não sabe de
                   qual etapa ela vem. */}
-              <p>{item.description || 'Descreva este serviço na etapa Escopo.'}</p>
+              <p>
+                {item.description
+                  ? tecnico
+                    ? item.description
+                    : descricaoComAberturaTecnica(item.description)
+                  : 'Descreva este serviço na etapa Escopo.'}
+              </p>
             </div>
           ))
         ) : (

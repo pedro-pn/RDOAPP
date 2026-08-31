@@ -13,6 +13,7 @@
  */
 
 import {
+  EQUIPAMENTOS_E_FERRAMENTAS_PADRAO,
   matrizDoModelo,
   type LocalOperacao,
   type ModeloProposta
@@ -180,6 +181,17 @@ export type LinhaResponsabilidade = {
   subitens?: string[];
 };
 
+/** A linha cujo conteúdo variável alimenta os equipamentos do capítulo 3. */
+export function ehLinhaDeEquipamentosDaFiltrovali(linha: {
+  categoria?: string;
+  owner?: string;
+}): boolean {
+  return (
+    linha.owner === 'Filtrovali' &&
+    normalizarCategoria(linha.categoria || '') === 'EQUIPAMENTOS E FERRAMENTAS'
+  );
+}
+
 /** "N/A" é resposta legítima: há obrigação que não cabe a ninguém no contrato e
  *  precisa constar assim mesmo, para não parecer esquecimento. */
 export const RESPONSAVEIS = ['Filtrovali', 'Contratante', 'N/A'];
@@ -282,13 +294,22 @@ export function removerCategoria(
  * aplica à obra dele.
  */
 export function matrizInicial(modelo: ModeloProposta): LinhaResponsabilidade[] {
-  return matrizDoModelo(modelo).map(linha => ({
-    item: linha.item,
-    owner: linha.responsavel,
-    note: linha.nota,
-    categoria: linha.categoria,
-    ...(linha.subitens ? { subitens: [...linha.subitens] } : {})
-  }));
+  return matrizDoModelo(modelo).map(linha => {
+    const inicial: LinhaResponsabilidade = {
+      item: linha.item,
+      owner: linha.responsavel,
+      note: linha.nota,
+      categoria: linha.categoria,
+      ...(linha.subitens ? { subitens: [...linha.subitens] } : {})
+    };
+
+    // O catálogo do modelo é uma lista de OPÇÕES, não uma promessa de que todos
+    // os equipamentos irão para toda obra. Novas propostas começam sem seleção.
+    if (modelo === 'padrao' && ehLinhaDeEquipamentosDaFiltrovali(inicial)) {
+      return { ...inicial, subitens: [] };
+    }
+    return inicial;
+  });
 }
 
 /**
@@ -299,17 +320,32 @@ export function matrizInicial(modelo: ModeloProposta): LinhaResponsabilidade[] {
  * ausência dela, porque parece que alguém quis dizer algo e não disse.
  */
 export function pendenciasDasResponsabilidades(
-  linhas: Array<{ item?: string }>
+  linhas: Array<{
+    item?: string;
+    owner?: string;
+    categoria?: string;
+    subitens?: string[];
+  }>
 ): PendenciaEtapa[] {
+  const pendencias: PendenciaEtapa[] = [];
   const preenchidas = linhas.filter(linha => String(linha.item || '').trim()).length;
-  return preenchidas > 0
-    ? []
-    : [
-        {
-          campo: 'responsabilidades',
-          mensagem: 'Informe ao menos uma responsabilidade com o item preenchido.'
-        }
-      ];
+  if (preenchidas === 0) {
+    pendencias.push({
+      campo: 'responsabilidades',
+      mensagem: 'Informe ao menos uma responsabilidade com o item preenchido.'
+    });
+  }
+
+  const linhaDeEquipamentos = linhas.find(ehLinhaDeEquipamentosDaFiltrovali);
+  const equipamentos = (linhaDeEquipamentos?.subitens || []).filter(item => item.trim());
+  if (linhaDeEquipamentos && equipamentos.length === 0) {
+    pendencias.push({
+      campo: 'equipamentos',
+      mensagem: `Selecione ao menos um dos ${EQUIPAMENTOS_E_FERRAMENTAS_PADRAO.length} equipamentos ou informe outro.`
+    });
+  }
+
+  return pendencias;
 }
 
 /** As pendências de **Prazos e jornada** (`PROP-CTL-043..048`). */

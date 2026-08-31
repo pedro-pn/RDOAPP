@@ -112,6 +112,30 @@ export type LinhaResponsabilidade = {
 
 const NOTA_DEBITO = "Será apresentado nota de débito";
 
+/**
+ * Catálogo da linha "EQUIPAMENTOS E FERRAMENTAS" do modelo padrão.
+ *
+ * Ele deixou de ser uma promessa fixa do documento: na criação da proposta o
+ * vendedor escolhe quais itens realmente serão mobilizados. O catálogo segue
+ * centralizado aqui para a matriz, a tela e o gerador não divergirem.
+ */
+export const EQUIPAMENTOS_E_FERRAMENTAS_PADRAO = [
+  "1 unidade de limpeza química",
+  "1 bomba pneumática",
+  "1 unidade de flushing primário",
+  "1 unidade de filtragem absoluta/transferência",
+  "1 unidade de flushing secundário",
+  "1 termovácuo",
+  "1 centrífuga",
+  "1 trafo 440/380",
+  "1 bomba de teste hidrostático",
+  "1 bomba de run out",
+  "Reservatórios para armazenamento (IBC 1000l) temporário de efluente e óleo",
+  "1 Kittiwake",
+  "1 contador eletrônico de partículas a laser",
+  "1 hidrojato 20k/40k",
+] as const;
+
 /** Matriz do modelo padrão — proposta comercial e técnica, item 3. */
 export const MATRIZ_PADRAO: readonly LinhaResponsabilidade[] = [
   {
@@ -125,22 +149,7 @@ export const MATRIZ_PADRAO: readonly LinhaResponsabilidade[] = [
     responsavel: "Filtrovali",
     item: "Fornecimento de equipamentos necessários à execução, incluindo:",
     nota: "",
-    subitens: [
-      "1 unidade de limpeza química",
-      "1 bomba pneumática",
-      "1 unidade de flushing primário",
-      "1 unidade de filtragem absoluta/transferência",
-      "1 unidade de flushing secundário",
-      "1 termovácuo",
-      "1 centrífuga",
-      "1 trafo 440/380",
-      "1 bomba de teste hidrostático",
-      "1 bomba de run out",
-      "Reservatórios para armazenamento (IBC 1000l) temporário de efluente e óleo",
-      "1 Kittiwake",
-      "1 contador eletrônico de partículas a laser",
-      "1 hidrojato 20k/40k",
-    ],
+    subitens: EQUIPAMENTOS_E_FERRAMENTAS_PADRAO,
   },
   {
     categoria: "MATERIAIS E CONSUMÍVEIS E UTILIDADES",
@@ -700,6 +709,28 @@ export function matrizDoModelo(modelo: ModeloProposta): readonly LinhaResponsabi
 // ---------------------------------------------------------------------------
 // Descrição dos serviços (item 2)
 // ---------------------------------------------------------------------------
+
+export const ABERTURA_DESCRICAO_SERVICO =
+  "Serviço especializado em mão de obra e execução técnica";
+
+/**
+ * Abertura obrigatória de cada subitem do capítulo 2 da proposta comercial.
+ *
+ * Textos antigos que já começam com a frase não são prefixados novamente. A
+ * regra fica compartilhada para a prévia e o DOCX produzirem o mesmo conteúdo.
+ */
+export function descricaoComAberturaTecnica(descricao: unknown): string {
+  const texto = String(descricao ?? "").trim();
+  if (!texto) return "";
+  if (
+    texto
+      .toLocaleLowerCase("pt-BR")
+      .startsWith(ABERTURA_DESCRICAO_SERVICO.toLocaleLowerCase("pt-BR"))
+  ) {
+    return texto;
+  }
+  return `${ABERTURA_DESCRICAO_SERVICO} — ${texto}`;
+}
 
 export const DESCRICAO_SERVICOS_HIDROJATEAMENTO = `Serviço especializado em mão de obra e execução técnica na manutenção e hidrojateamento, com objetivo de limpeza, corte, remoção de tinta, remoção de resina e remoção de Smelt em:
 

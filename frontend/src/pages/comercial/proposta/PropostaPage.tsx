@@ -425,7 +425,12 @@ export function PropostaPage() {
   const codigoExibido = rotuloDaProposta(codigo, revisionNumber);
 
   function irPara(destino: EtapaProposta, rolar = false) {
-    const proximos = new URLSearchParams(params);
+    // O salvamento anterior pode ter acabado de acrescentar `id` e `proposta`
+    // à URL. O `params` deste render ainda é o snapshot antigo; reutilizá-lo
+    // aqui apagava esses dois valores ao avançar e o passo seguinte voltava a
+    // fazer POST, criando outra proposta. A barra do navegador é a fonte atual
+    // após o `await salvar()`.
+    const proximos = new URLSearchParams(window.location.search);
     proximos.set('etapa', destino);
     setParams(proximos, { replace: true });
     setTentouAvancar(false);
@@ -515,7 +520,10 @@ export function PropostaPage() {
   }
 
   function trocarParametros(mudancas: Record<string, string>) {
-    const proximos = new URLSearchParams(params);
+    // Duas atualizações podem acontecer no mesmo salvamento (reservar número e
+    // guardar o id). Partir sempre da URL atual impede a segunda de desfazer a
+    // primeira por causa do snapshot assíncrono de `useSearchParams`.
+    const proximos = new URLSearchParams(window.location.search);
     for (const [chave, valor] of Object.entries(mudancas)) proximos.set(chave, valor);
     setParams(proximos, { replace: true });
   }
@@ -865,6 +873,7 @@ export function PropostaPage() {
       ) : etapa === 'responsabilidades' ? (
         <ResponsabilidadesStep
           linhas={responsabilidades}
+          servicos={itensEscopo}
           categorias={categorias}
           onCategorias={setCategorias}
           onLinhas={setResponsabilidades}
