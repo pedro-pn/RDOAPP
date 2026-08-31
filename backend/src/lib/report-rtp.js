@@ -497,12 +497,13 @@ function expandManometerRows(doc, manometers) {
   const templateRow = findFirstByText(doc, 'w:tr', '{{manometerscale}}');
   if (!templateRow) return;
   if (!manometers.length) {
-    replacePlaceholders(templateRow, { manometerscale: '', manometercert: '', manometercalibration: '', manometerexpiring: '' });
+    replacePlaceholders(templateRow, { manometer_tag: '', manometerscale: '', manometercert: '', manometercalibration: '', manometerexpiring: '' });
     return;
   }
   const clones = manometers.map(m => {
     const clone = templateRow.cloneNode(true);
     replacePlaceholders(clone, {
+      manometer_tag: m.code || '',
       manometerscale: m.scale || '',
       manometercert: m.certCode || '',
       manometercalibration: m.calibratedAt ? formatDatePt(m.calibratedAt) : '',

@@ -125,3 +125,24 @@ test('RTP equipment type placeholder value is uppercase', () => {
     'VASO DE PRESSÃO'
   );
 });
+
+test('RTP fills the selected manometer tag', async () => {
+  const base = reportFor('RTP');
+  const zip = new AdmZip(await buildRtpDocx({
+    ...base,
+    specialConditions: {
+      ...base.specialConditions,
+      resolvedManometers: [{
+        code: 'MAN-042',
+        scale: '0–600 bar',
+        certCode: 'CERT-042',
+        calibratedAt: '2026-01-15',
+        expiresAt: '2027-01-15'
+      }]
+    }
+  }));
+  const xml = zip.readAsText('word/document.xml');
+
+  assert.match(xml, /MAN-042/);
+  assert.doesNotMatch(xml, /\{\{manometer_tag\}\}/);
+});
