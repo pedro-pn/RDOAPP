@@ -33,6 +33,7 @@ COLABORADORES
 
 MANOMETROS
 
+{{manometer_tag}} - TAG do manômetro conforme cadastrado o manometro selecionado
 {{manometerscale}} - escala do manômetro conforme cadastrado o manometro selecionado
 {{manometercert}} - número do certificado do manômetro conforme cadastrado
 {{manometercalibration}} - data de calibração do manometro conforme cadastrado
