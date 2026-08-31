@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
@@ -294,6 +294,30 @@ function normalizeHistory(points?: ProgressHistoryPoint[]) {
 function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
   const history = normalizeHistory(points);
   const [activePoint, setActivePoint] = useState<(ProgressHistoryPoint & { time: number; x: number; y: number }) | null>(null);
+  const [chartWidth, setChartWidth] = useState(280);
+  const chartRef = useRef<SVGSVGElement>(null);
+  const hasHistory = history.length > 0;
+
+  useEffect(() => {
+    if (!hasHistory) return;
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    const updateWidth = (measuredWidth: number) => {
+      const nextWidth = Math.max(1, Math.round(measuredWidth));
+      setChartWidth(currentWidth => currentWidth === nextWidth ? currentWidth : nextWidth);
+    };
+    updateWidth(chart.getBoundingClientRect().width);
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (entry) updateWidth(entry.contentRect.width);
+    });
+    observer.observe(chart);
+    return () => observer.disconnect();
+  }, [hasHistory]);
+
   const latest = history[history.length - 1];
   if (history.length === 0) {
     return (
@@ -306,9 +330,9 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
     );
   }
 
-  const width = 280;
-  const height = 82;
-  const pad = { top: 8, right: 8, bottom: 18, left: 28 };
+  const width = chartWidth;
+  const height = 112;
+  const pad = { top: 10, right: 10, bottom: 22, left: 30 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
   const minTime = history[0].time;
@@ -348,7 +372,7 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
         <span>Histórico semanal</span>
         <strong>{fmtPct(latest?.progressPct)}</strong>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Avanço de ${fmtShortDate(history[0].date)} até ${fmtShortDate(latest?.date)}`}>
+      <svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Avanço de ${fmtShortDate(history[0].date)} até ${fmtShortDate(latest?.date)}`}>
         {[0, 50, 100].map(value => (
           <g key={value}>
             <line
@@ -1128,7 +1152,7 @@ export function ProjectDetailDashboard({
               <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas-homem de stand-by de todos os relatórios de execução do projeto, multiplicando o tempo pela equipe do turno.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
             </div>
 
-            <div className="acp-det-sub"><HelpTip help="Status dos últimos 5 dias com relatório de execução: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
+            <div className="acp-det-sub"><HelpTip help="Status dos dias mais recentes com relatório de execução: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
             <div className="acp-det-dots">
               {data.ultimosDias.length === 0 ? (
                 <span className="placeholder-copy">Sem relatórios de execução.</span>

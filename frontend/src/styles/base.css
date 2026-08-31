@@ -3053,6 +3053,13 @@ a {
 }
 .acp-pcard-equip { display: flex; flex-direction: column; gap: 3px; }
 .acp-pcard-equip-item { font-size: 12px; padding-left: 8px; }
+.acp-pcard-equip-item > span:first-child {
+  flex: 1 1 auto;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .acp-pcard-equip-item > span:last-child { white-space: nowrap; }
 .acp-pcard-status { max-width: 100%; font-weight: 600; font-size: 12px; padding: 2px 8px; border-radius: 999px; white-space: normal; overflow-wrap: anywhere; }
 .acp-pcard-status.ok { color: #1f7a3d; background: #e6f4ea; }
@@ -3331,7 +3338,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-height: 116px;
+  min-height: 148px;
 }
 .acp-progress-chart.empty { justify-content: center; min-height: 54px; }
 .acp-progress-chart-head {
@@ -3348,7 +3355,7 @@ a {
   overflow-wrap: anywhere;
 }
 .acp-progress-chart-head > strong { color: var(--tx); font-size: 13px; }
-.acp-progress-chart svg { display: block; width: 100%; height: 82px; overflow: visible; }
+.acp-progress-chart svg { display: block; width: 100%; height: 112px; overflow: visible; }
 .acp-progress-chart-grid { stroke: #d7ded7; stroke-width: 1; }
 .acp-progress-chart-line { fill: none; stroke: var(--g); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .acp-progress-chart-point { cursor: default; outline: none; }
@@ -3483,13 +3490,14 @@ a {
 .acp-det-two strong { font-size: 18px; }
 .acp-det-kpi-sub { font-size: 11px; color: var(--mu); }
 
-.acp-det-dots { position: relative; display: flex; align-items: center; gap: 22px; padding: 6px 4px; }
+.acp-det-dots { position: relative; display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .acp-det-dots::before {
   content: ''; position: absolute; left: 12px; right: 12px; top: 50%; height: 2px;
   background: var(--br); z-index: 0;
 }
 .acp-det-dot-wrap {
   position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center;
+  flex: 1 1 0; min-width: 16px;
   outline: none; cursor: default;
 }
 .acp-det-dot {
@@ -3613,9 +3621,11 @@ a {
 }
 .acp-det-equip-item > span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
   font-size: 13px;
   color: var(--tx);
 }

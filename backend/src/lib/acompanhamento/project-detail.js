@@ -271,6 +271,18 @@ function dayStatus(standbyMin, journeyMin) {
   return 'TRABALHADO';
 }
 
+export function buildRecentReportDays(byDay, project, limit = 10) {
+  return [...byDay.entries()]
+    .sort((a, b) => new Date(a[1].reportDate) - new Date(b[1].reportDate))
+    .slice(-limit)
+    .map(([key, day]) => ({
+      date: key,
+      status: dayStatus(day.statusStandbyMin, journeyMinutes(project, day.reportDate)),
+      workedMinutes: day.workedMin,
+      standbyMinutes: day.standbyMin
+    }));
+}
+
 export async function getProjectDetail(projectId, {
   includeCollaboratorCosts = false,
   includeAdminOnlyCategories = true
@@ -428,16 +440,8 @@ export async function getProjectDetail(projectId, {
 
   const workedDays = byDay.size;
 
-  // Últimos 5 dias (cronológico) com status para a régua de bolinhas.
-  const ultimosDias = [...byDay.entries()]
-    .sort((a, b) => new Date(a[1].reportDate) - new Date(b[1].reportDate))
-    .slice(-5)
-    .map(([key, d]) => ({
-      date: key,
-      status: dayStatus(d.statusStandbyMin, journeyMinutes(project, d.reportDate)),
-      workedMinutes: d.workedMin,
-      standbyMinutes: d.standbyMin
-    }));
+  // Últimos 10 dias (cronológico) com status para a régua de bolinhas.
+  const ultimosDias = buildRecentReportDays(byDay, project);
 
   // --- Colaboradores distintos (nome + cargo + custo/hora do ponto vigente) ---
   const ratesById = labor.byCollaboratorId || new Map();

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { groupProjectDetails } from '../src/lib/acompanhamento/project-detail-groups.js';
+import { combineRecentDays, groupProjectDetails } from '../src/lib/acompanhamento/project-detail-groups.js';
 
 function group() {
   return {
@@ -95,6 +95,24 @@ function detail(overrides = {}) {
     }
   };
 }
+
+test('combineRecentDays mantém até 10 dias distintos nos grupos', () => {
+  const recentDays = Array.from({ length: 12 }, (_, index) => {
+    const day = String(index + 1).padStart(2, '0');
+    return {
+      date: `2026-08-${day}`,
+      status: 'TRABALHADO',
+      workedMinutes: 480,
+      standbyMinutes: 0
+    };
+  });
+
+  const result = combineRecentDays([{ detail: { ultimosDias: recentDays } }]);
+
+  assert.equal(result.length, 10);
+  assert.equal(result[0].date, '2026-08-03');
+  assert.equal(result[9].date, '2026-08-12');
+});
 
 test('groupProjectDetails returns one consolidated project detail shape', () => {
   const result = groupProjectDetails(group(), [
