@@ -5,7 +5,8 @@ import {
   buildOmieCostPaymentSummary,
   buildPlannedRoleCounts,
   buildProjectAppropriationDays,
-  buildProjectDetailCollaborator
+  buildProjectDetailCollaborator,
+  buildRecentReportDays
 } from '../src/lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../src/lib/acompanhamento/salary.js';
 
@@ -190,4 +191,30 @@ test('buildOmieCostPaymentSummary separa pago de títulos previstos a pagar', ()
   ]);
 
   assert.deepEqual(out, { pago: 150.25, previstoPagar: 250.5 });
+});
+
+test('buildRecentReportDays preserva os 10 RDOs mais recentes em ordem cronológica', () => {
+  const byDay = new Map(Array.from({ length: 12 }, (_, index) => {
+    const day = String(index + 1).padStart(2, '0');
+    const date = `2026-08-${day}`;
+    const standbyMinutes = index === 11 ? 480 : index === 10 ? 60 : 0;
+    return [date, {
+      reportDate: `${date}T12:00:00.000Z`,
+      statusStandbyMin: standbyMinutes,
+      workedMin: standbyMinutes === 480 ? 0 : 480,
+      standbyMin: standbyMinutes
+    }];
+  }));
+
+  const result = buildRecentReportDays(byDay, { workdayHours: '08:00' });
+
+  assert.equal(result.length, 10);
+  assert.equal(result[0].date, '2026-08-03');
+  assert.equal(result[8].status, 'STANDBY');
+  assert.deepEqual(result[9], {
+    date: '2026-08-12',
+    status: 'PARADO',
+    workedMinutes: 0,
+    standbyMinutes: 480
+  });
 });

@@ -119,7 +119,7 @@ function combineTopExpenses(details) {
     .slice(0, 5);
 }
 
-function combineRecentDays(details) {
+export function combineRecentDays(details) {
   const byDate = new Map();
   for (const { detail } of details) {
     for (const item of detail.ultimosDias ?? []) {
@@ -139,7 +139,7 @@ function combineRecentDays(details) {
   }
   return Array.from(byDate.values())
     .sort((a, b) => new Date(a.date) - new Date(b.date))
-    .slice(-5);
+    .slice(-10);
 }
 
 function normalizeKey(value) {
