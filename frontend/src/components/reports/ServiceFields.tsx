@@ -712,6 +712,7 @@ function EtapasSection({ serviceType, data, onChange, disabled, invalidKey }: Pi
       </div>
       <div className="inline-add-row">
         <input
+          aria-label="Adicionar etapa personalizada"
           value={custom}
           disabled={disabled}
           placeholder="Adicionar etapa..."
