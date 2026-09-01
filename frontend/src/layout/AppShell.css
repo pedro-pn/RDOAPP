@@ -335,8 +335,8 @@
 
 .fv-topbar .fv-topbar__brand {
   width: auto;
-  max-width: calc(var(--space-16) + var(--space-8));
-  height: var(--space-6);
+  max-width: calc(var(--space-16) + var(--space-10));
+  height: calc(var(--space-6) + var(--space-1));
   flex: 0 0 auto;
 }
 
@@ -429,7 +429,22 @@
   inset: 0;
   z-index: var(--z-overlay);
   display: flex;
+  visibility: hidden;
+  pointer-events: none;
   background: var(--scrim);
+  opacity: 0;
+  transition:
+    opacity var(--duration-base) var(--ease-standard),
+    visibility var(--duration-slow) step-end;
+}
+
+.fv-navigation-drawer-layer[data-state='open'] {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+  transition:
+    opacity var(--duration-base) var(--ease-standard),
+    visibility var(--duration-slow) step-start;
 }
 
 .fv-navigation-drawer {
@@ -444,6 +459,12 @@
   overflow: hidden;
   background: var(--surface);
   box-shadow: var(--shadow-e3);
+  transform: translate3d(-100%, 0, 0);
+  transition: transform var(--duration-slow) var(--ease-standard);
+}
+
+.fv-navigation-drawer-layer[data-state='open'] .fv-navigation-drawer {
+  transform: translate3d(0, 0, 0);
 }
 
 .fv-navigation-drawer__header {

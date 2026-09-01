@@ -1056,7 +1056,7 @@ function renderProjectCard(
     const segmentLabel = project.clientSegment
       ? (options.segments || []).find(segment => segment.slug === project.clientSegment)?.label ||
         project.clientSegment
-      : 'Não informado';
+      : 'Sem categoria';
     const overviewRows: Array<[string, ReactNode]> = [
       ['Cliente', project.clientName || 'Não informado'],
       ['Segmento', segmentLabel],
@@ -1166,19 +1166,6 @@ function renderProjectCard(
                   onClick={() => options.onRemove?.(project)}
                 />
               ) : null}
-              <Button
-                className="rdo-active-project-card__details-toggle"
-                iconLeft={<AppIcon icon={DS_ICONS.chevronDown} size="sm" />}
-                variant="secondary"
-                size="sm"
-                type="button"
-                aria-label={`${options.detailsExpanded ? 'Ocultar' : 'Mostrar'} detalhes de ${title}`}
-                aria-expanded={options.detailsExpanded}
-                aria-controls={detailsRegionId}
-                onClick={() => options.onToggleDetails(project)}
-              >
-                Detalhes
-              </Button>
             </div>
           }
         >
@@ -1219,6 +1206,55 @@ function renderProjectCard(
             </Alert>
           ) : null}
 
+          <section
+            className="rdo-active-project-card__detail-panel rdo-active-project-card__quick-actions"
+            aria-labelledby={`project-actions-${project.id}-title`}
+          >
+            <h4 id={`project-actions-${project.id}-title`}>Ações rápidas</h4>
+            <div className="rdo-active-project-card__quick-action-list">
+              <Button
+                variant="secondary"
+                size="sm"
+                iconLeft={<AppIcon icon={DS_ICONS.edit} size="sm" />}
+                aria-label={`${options.editing ? 'Fechar edição' : pendingRegistration ? 'Revisar cadastro' : 'Editar projeto'}: ${title}`}
+                onClick={() => options.onEdit(project)}
+              >
+                <span className="rdo-project-action-label--full">
+                  {options.editing
+                    ? 'Fechar edição'
+                    : pendingRegistration
+                      ? 'Revisar cadastro'
+                      : 'Editar projeto'}
+                </span>
+                <span className="rdo-project-action-label--compact">
+                  {options.editing ? 'Fechar' : pendingRegistration ? 'Revisar' : 'Editar'}
+                </span>
+              </Button>
+              {options.onManageTeam ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  iconLeft={<AppIcon icon={DS_ICONS.users} size="sm" />}
+                  onClick={() => options.onManageTeam?.(project)}
+                >
+                  <span className="rdo-project-action-label--full">Gerenciar equipe</span>
+                  <span className="rdo-project-action-label--compact">Equipe</span>
+                </Button>
+              ) : null}
+              {options.onViewReports ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
+                  onClick={() => options.onViewReports?.(project)}
+                >
+                  <span className="rdo-project-action-label--full">Ver relatórios</span>
+                  <span className="rdo-project-action-label--compact">Relatórios</span>
+                </Button>
+              ) : null}
+            </div>
+          </section>
+
           {options.children ? (
             <div
               className="rdo-active-project-card__embedded-flow"
@@ -1228,13 +1264,32 @@ function renderProjectCard(
             </div>
           ) : null}
 
-          {options.detailsExpanded ? (
-            <div
-              className="rdo-archived-project-card__details rdo-active-project-card__expanded-content"
-              id={detailsRegionId}
-            >
-              <div className="rdo-active-project-card__details-grid">
-                <section
+          <div
+            className={`rdo-active-project-card__details-region ${options.detailsExpanded ? 'rdo-active-project-card__details-region--expanded' : ''}`}
+          >
+            <div className="rdo-active-project-card__details-disclosure">
+              <Button
+                className="rdo-active-project-card__details-toggle"
+                iconLeft={<AppIcon icon={DS_ICONS.chevronDown} size="sm" />}
+                variant="secondary"
+                size="sm"
+                type="button"
+                aria-label={`${options.detailsExpanded ? 'Ocultar' : 'Mostrar'} detalhes de ${title}`}
+                aria-expanded={options.detailsExpanded}
+                aria-controls={detailsRegionId}
+                onClick={() => options.onToggleDetails(project)}
+              >
+                Detalhes
+              </Button>
+            </div>
+
+            {options.detailsExpanded ? (
+              <div
+                className="rdo-archived-project-card__details rdo-active-project-card__expanded-content"
+                id={detailsRegionId}
+              >
+                <div className="rdo-active-project-card__details-grid">
+                  <section
                   className="rdo-active-project-card__detail-panel rdo-active-project-card__detail-panel--overview"
                   aria-labelledby={`project-information-${project.id}-title`}
                 >
@@ -1267,9 +1322,9 @@ function renderProjectCard(
                       <dd>{project.clientEmailPrimary || '-'}</dd>
                     </div>
                   </dl>
-                </section>
+                  </section>
 
-                <section
+                  <section
                   className="rdo-active-project-card__detail-panel"
                   aria-labelledby={`project-operation-${project.id}-title`}
                 >
@@ -1292,9 +1347,9 @@ function renderProjectCard(
                       <dd>{projectVisibilityLabel(project)}</dd>
                     </div>
                   </dl>
-                </section>
+                  </section>
 
-                <section
+                  <section
                   className="rdo-active-project-card__detail-panel"
                   aria-labelledby={`project-summary-${project.id}`}
                 >
@@ -1319,54 +1374,15 @@ function renderProjectCard(
                       </dd>
                     </div>
                   </dl>
-                </section>
+                  </section>
+                </div>
 
-                <section
-                  className="rdo-active-project-card__detail-panel rdo-active-project-card__quick-actions"
-                  aria-labelledby={`project-actions-${project.id}-title`}
-                >
-                  <h4 id={`project-actions-${project.id}-title`}>Ações rápidas</h4>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    iconLeft={<AppIcon icon={DS_ICONS.edit} size="sm" />}
-                    aria-label={`${options.editing ? 'Fechar edição' : pendingRegistration ? 'Revisar cadastro' : 'Editar projeto'}: ${title}`}
-                    onClick={() => options.onEdit(project)}
-                  >
-                    {options.editing
-                      ? 'Fechar edição'
-                      : pendingRegistration
-                        ? 'Revisar cadastro'
-                        : 'Editar projeto'}
-                  </Button>
-                  {options.onManageTeam ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      iconLeft={<AppIcon icon={DS_ICONS.users} size="sm" />}
-                      onClick={() => options.onManageTeam?.(project)}
-                    >
-                      Gerenciar equipe
-                    </Button>
-                  ) : null}
-                  {options.onViewReports ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      iconLeft={<AppIcon icon={DS_ICONS.fileText} size="sm" />}
-                      onClick={() => options.onViewReports?.(project)}
-                    >
-                      Ver relatórios
-                    </Button>
-                  ) : null}
-                </section>
+                {options.commercialPendencia ? (
+                  <ProjectRevisionPicker projectId={project.id} />
+                ) : null}
               </div>
-
-              {options.commercialPendencia ? (
-                <ProjectRevisionPicker projectId={project.id} />
-              ) : null}
+            ) : null}
             </div>
-          ) : null}
         </Card>
       );
     }
@@ -3448,7 +3464,7 @@ export function GestorPage() {
   function renderProjectReportGroups(reports: ReportSummary[]) {
     return (
       <div
-        className={`rdo-manager-listing${tab === 'aprovados' ? ' rdo-manager-listing--approved' : ''}`}
+        className="rdo-manager-listing"
         id="rdo-manager-report-results"
       >
         <GroupedReportList
@@ -4276,7 +4292,7 @@ export function GestorPage() {
             }}
           />
         ) : (
-        <form className="admin-inline-form admin-inline-grid" onSubmit={handleProjectSubmit}>
+        <form className="admin-inline-form admin-inline-grid rdo-project-edit-form" onSubmit={handleProjectSubmit}>
             <div className="field-group">
               <label htmlFor={`project-code-${project.id}`}>Número da missão</label>
               <input id={`project-code-${project.id}`} value={projectForm.code} readOnly />
@@ -6297,12 +6313,6 @@ export function GestorPage() {
         project => project.isActive !== false
       );
       const projectGroups = partitionProjectsByRegistration(activeProjects);
-      const projectsWithResponsible = projectGroups.ready.filter(
-        project => Boolean(project.operator)
-      ).length;
-      const extendedScheduleProjects = projectGroups.ready.filter(
-        project => project.includesSaturday || project.includesSunday
-      ).length;
 
       return (
         <section
@@ -6323,20 +6333,6 @@ export function GestorPage() {
             tone="warning"
             icon={<AppIcon icon={DS_ICONS.alertWarning} size="md" />}
           />
-          <MetricCard
-            label="Com responsável"
-            value={projectsWithResponsible}
-            description="Operação já atribuída"
-            tone="info"
-            icon={<AppIcon icon={DS_ICONS.user} size="md" />}
-          />
-          <MetricCard
-            label="Escala estendida"
-            value={extendedScheduleProjects}
-            description="Incluem fim de semana"
-            tone="brand"
-            icon={<AppIcon icon={DS_ICONS.calendar} size="md" />}
-          />
         </section>
       );
     }
@@ -6354,10 +6350,6 @@ export function GestorPage() {
       );
       const archivedProjectCount = archivedProjects.length;
       const archivedReportCount = reportListQuery.pagination?.total ?? archivedReports.length;
-      const projectsWithResponsible = archivedProjects.filter(project => Boolean(project.operator)).length;
-      const extendedScheduleProjects = archivedProjects.filter(
-        project => project.includesSaturday || project.includesSunday
-      ).length;
 
       return (
         <section
@@ -6377,20 +6369,6 @@ export function GestorPage() {
             description="Vinculados aos projetos arquivados"
             tone="info"
             icon={<AppIcon icon={DS_ICONS.fileText} size="md" />}
-          />
-          <MetricCard
-            label="Com responsável"
-            value={projectsWithResponsible}
-            description="Responsável mantido no cadastro"
-            tone="success"
-            icon={<AppIcon icon={DS_ICONS.user} size="md" />}
-          />
-          <MetricCard
-            label="Escala estendida"
-            value={extendedScheduleProjects}
-            description="Incluem trabalho em fim de semana"
-            tone="brand"
-            icon={<AppIcon icon={DS_ICONS.calendar} size="md" />}
           />
         </section>
       );

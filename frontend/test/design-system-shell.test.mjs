@@ -190,7 +190,7 @@ test('design-system TopBar restores the adaptive brand while the sidebar is hidd
   );
   assert.match(
     css,
-    /\.fv-topbar \.fv-topbar__brand\s*\{[\s\S]*height:\s*var\(--space-6\)/
+    /\.fv-topbar \.fv-topbar__brand\s*\{[\s\S]*max-width:\s*calc\(var\(--space-16\) \+ var\(--space-10\)\)[\s\S]*height:\s*calc\(var\(--space-6\) \+ var\(--space-1\)\)/
   );
   assert.match(
     css,
@@ -216,13 +216,24 @@ test('shell harness is isolated from application routes and simulates no permiss
 
 test('drawer preserves modal accessibility and focus behavior', () => {
   const drawer = source('src/layout/NavigationDrawer.tsx');
+  const css = source('src/layout/AppShell.css');
 
   assert.match(drawer, /aria-modal="true"/);
+  assert.match(drawer, /aria-hidden={!open}/);
+  assert.match(drawer, /data-state={open \? 'open' : 'closed'}/);
   assert.match(drawer, /event\.key === 'Escape'/);
   assert.match(drawer, /event\.key !== 'Tab'/);
   assert.match(drawer, /document\.body\.style\.overflow = 'hidden'/);
   assert.match(drawer, /previousFocusRef\.current\?\.focus\(\)/);
   assert.match(drawer, /createPortal\(/);
+  assert.match(
+    css,
+    /\.fv-navigation-drawer-layer\[data-state='open'\][\s\S]*opacity:\s*1/
+  );
+  assert.match(
+    css,
+    /\.fv-navigation-drawer-layer\[data-state='open'\] \.fv-navigation-drawer[\s\S]*transform:\s*translate3d\(0, 0, 0\)/
+  );
 });
 
 test('new AppShell is enabled by Hub and the manager RDO pilot only', () => {

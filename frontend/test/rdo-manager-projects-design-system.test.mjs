@@ -27,6 +27,11 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
     'function renderGestorSearch',
     'function renderEstatisticasTab'
   );
+  const projectMetrics = sectionBetween(
+    page,
+    'function renderProjectMetrics',
+    'function renderAdminMetrics'
+  );
 
   assert.match(page, /const projectsTab = tab === 'projetos'/);
   assert.match(page, /'rdo-manager-projects-page'/);
@@ -38,8 +43,8 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
   assert.match(page, /function renderProjectMetrics\(\)/);
   assert.match(page, /label="Projetos ativos"/);
   assert.match(page, /label="Aguardando revisão"/);
-  assert.match(page, /label="Com responsável"/);
-  assert.match(page, /label="Escala estendida"/);
+  assert.doesNotMatch(projectMetrics, /label="Com responsável"/);
+  assert.doesNotMatch(projectMetrics, /label="Escala estendida"/);
 
   assert.match(projectsTab, /id="rdo-manager-project-results"/);
   assert.match(projectsTab, /className="rdo-manager-projects rdo-ds-actions"/);
@@ -147,6 +152,21 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
     'function renderProjectsTab',
     'function renderArchivedProjectsTab'
   );
+  const headerActionsStart = projectCard.indexOf(
+    'className="rdo-active-project-card__header-actions"'
+  );
+  const detailsDisclosureStart = projectCard.indexOf(
+    'className="rdo-active-project-card__details-disclosure"'
+  );
+  const expandedContentStart = projectCard.indexOf(
+    'className="rdo-archived-project-card__details rdo-active-project-card__expanded-content"'
+  );
+  const quickActionsStart = projectCard.indexOf(
+    'className="rdo-active-project-card__detail-panel rdo-active-project-card__quick-actions"'
+  );
+  const detailsGridStart = projectCard.indexOf(
+    'className="rdo-active-project-card__details-grid"'
+  );
 
   assert.match(
     projectCard,
@@ -176,6 +196,16 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
     projectCard,
     /className="rdo-active-project-card__details-toggle"[\s\S]{0,520}?>\s*Detalhes\s*<\/Button>/
   );
+  assert.ok(headerActionsStart >= 0);
+  assert.ok(quickActionsStart > headerActionsStart);
+  assert.ok(detailsDisclosureStart > quickActionsStart);
+  assert.doesNotMatch(
+    projectCard.slice(headerActionsStart, detailsDisclosureStart),
+    /rdo-active-project-card__details-toggle/
+  );
+  assert.ok(expandedContentStart > detailsDisclosureStart);
+  assert.ok(detailsGridStart > expandedContentStart);
+  assert.match(projectCard, /rdo-project-action-label--compact/);
   assert.doesNotMatch(projectCard, /rdo-active-project-card__section-nav/);
   assert.doesNotMatch(projectCard, />Visão geral<\/a>/);
   assert.match(projectCard, /project\.authorizedUsers\?\.length/);
@@ -187,12 +217,13 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   );
   assert.match(projectCard, /options\.reportCount \?\? '—'/);
   assert.match(projectCard, /options\.editing[\s\S]*?'Fechar edição'/);
-  assert.match(projectCard, />\s*Gerenciar equipe\s*<\/Button>/);
-  assert.match(projectCard, />\s*Ver relatórios\s*<\/Button>/);
+  assert.match(projectCard, />Gerenciar equipe<\/span>/);
+  assert.match(projectCard, />Ver relatórios<\/span>/);
   assert.doesNotMatch(projectCard, />\s*Arquivar projeto\s*<\/Button>/);
   assert.doesNotMatch(projectCard, />\s*Excluir projeto\s*<\/Button>/);
   assert.match(projectCard, /\['Cliente', project\.clientName/);
   assert.match(projectCard, /\['Segmento', segmentLabel\]/);
+  assert.match(projectCard, /: 'Sem categoria';/);
   assert.match(projectCard, /\['Responsável', project\.operator\?\.name/);
   assert.match(projectCard, /\['Atualização', formatDate\(/);
   assert.match(projectCard, /label="Arquivar"/);
@@ -202,7 +233,7 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   assert.match(projectsTab, /<PendingProjectReviewForm\b/);
   assert.match(
     projectsTab,
-    /<form className="admin-inline-form admin-inline-grid"/
+    /<form className="admin-inline-form admin-inline-grid rdo-project-edit-form"/
   );
   assert.match(projectsTab, /className="rdo-manager-projects__legacy-form"/);
   assert.match(projectsTab, /onEdit: toggleProjectEdit/);
@@ -291,6 +322,16 @@ test('Projetos compartilha o layout de Arquivados com CSS escopado e responsivo'
   assert.match(block, /\.rdo-project-card__overview/);
   assert.match(block, /\.rdo-manager-projects__pending/);
   assert.match(block, /\.rdo-active-project-card__identity/);
+  assert.match(
+    block,
+    /\.rdo-active-project-card\s*> \.fv-card__header\s*> \.fv-card__actions\s*\{[\s\S]*?overflow: visible/
+  );
+  assert.match(block, /\.rdo-active-project-card__details-region/);
+  assert.match(
+    block,
+    /\.rdo-active-project-card__details-disclosure\s*\{[\s\S]*?justify-content: flex-start/
+  );
+  assert.match(block, /\.rdo-active-project-card__quick-action-list/);
   assert.match(block, /\.rdo-project-card__title-toggle:focus-visible/);
   assert.match(block, /\.rdo-archived-project-card__reports-toggle/);
   assert.match(block, /\.rdo-manager-projects__legacy-form/);
@@ -300,4 +341,21 @@ test('Projetos compartilha o layout de Arquivados com CSS escopado e responsivo'
   assert.doesNotMatch(block, /#[\da-f]{3,8}\b/i);
   assert.doesNotMatch(block, /\brgba?\(/i);
   assert.doesNotMatch(block, /!important/);
+});
+
+test('Edição de projeto usa densidade compacta e ações em uma linha no mobile', () => {
+  const css = source('src/pages/gestor/GestorPage.ds.css');
+  const compactForm = sectionBetween(
+    css,
+    'A edição acontece dentro de um card que já possui padding.',
+    ':where(.fv-ds, [data-fv-ds]) .rdo-archived-report-type'
+  );
+
+  assert.match(compactForm, /@media \(max-width: 768px\)/);
+  assert.match(compactForm, /\.rdo-project-edit-form\s*\{/);
+  assert.match(compactForm, /padding: var\(--space-2\)/);
+  assert.match(compactForm, /min-height: calc\(var\(--space-8\) \+ 2px\)/);
+  assert.match(compactForm, /\.admin-form-actions\s*\{[\s\S]*?flex-wrap: nowrap/);
+  assert.match(compactForm, /\.admin-form-actions\s+\.fv-button\s*\{[\s\S]*?flex: 1 1 0/);
+  assert.doesNotMatch(compactForm, /!important/);
 });

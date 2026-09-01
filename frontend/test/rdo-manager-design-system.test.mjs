@@ -127,7 +127,7 @@ test('manager search only references the results region while that region exists
   );
   assert.match(page, /resultsId=\{reportResultsId\}/);
   assert.match(page, /id="rdo-manager-report-results"/);
-  assert.match(page, /rdo-manager-listing--approved/);
+  assert.match(page, /className="rdo-manager-listing"/);
   assert.equal(
     page.match(/id="rdo-manager-report-results"/g)?.length,
     1,
@@ -181,10 +181,7 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
     'src/components/reports/manager/ManagerReportListing.tsx'
   );
 
-  assert.match(
-    page,
-    /tab === 'aprovados' \? ' rdo-manager-listing--approved' : ''/
-  );
+  assert.doesNotMatch(page, /rdo-manager-listing--approved/);
   assert.match(page, /rdo-approved-action-label--compact/);
 
   assert.match(
@@ -245,11 +242,11 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   );
   assert.match(
     pageCss,
-    /\.rdo-manager-listing--approved[\s\S]*?\.fv-mobile-list__actions[\s\S]*?> \.rdo-manager-listing__actions\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap/
+    /\.rdo-manager-listing[\s\S]*?\.fv-mobile-list__actions[\s\S]*?> \.rdo-manager-listing__actions\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap[\s\S]*?overflow-x:\s*auto/
   );
   assert.match(
     pageCss,
-    /\.rdo-manager-listing--approved[\s\S]*?\.fv-mobile-list__actions[\s\S]*?\.fv-button\s*\{[\s\S]*?flex:\s*1 1 0[\s\S]*?--fv-button-padding:\s*var\(--space-1\)/
+    /\.rdo-manager-listing[\s\S]*?\.fv-mobile-list__actions[\s\S]*?\.fv-button\s*\{[\s\S]*?flex:\s*1 0 auto[\s\S]*?--fv-button-padding:\s*var\(--space-1\)/
   );
   assert.match(
     statsCss,
@@ -257,6 +254,14 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   );
   assert.match(listing, /function mobileServicesLabel/);
   assert.match(listing, /\+\$\{remaining\} serviço/);
+  assert.match(
+    listing,
+    /value:\s*hasSignatureProgress[\s\S]*?actions:[\s\S]*?details:\s*hasFeedback/
+  );
+  assert.match(
+    listing,
+    /report\.status === 'RETURNED' \? 'danger' : 'info'/
+  );
   assert.match(
     listing,
     /className="rdo-manager-listing__mobile-title"[\s\S]*?\{reportLabel\(report\)\}/

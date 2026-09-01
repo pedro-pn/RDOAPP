@@ -135,6 +135,11 @@ test('DataTable and MobileList expose optional contextual row details', () => {
   assert.match(listingTypes, /details\?: ReactNode/);
   assert.match(mobileList, /hasContent\(content\.details\)/);
   assert.match(mobileList, /className="fv-mobile-list__details"/);
+  assert.ok(
+    mobileList.indexOf('className="fv-mobile-list__actions"') <
+      mobileList.indexOf('className="fv-mobile-list__details"'),
+    'os detalhes contextuais do card devem vir depois das ações'
+  );
 });
 
 test('listing CSS is DS-scoped, tokenized and uses only official breakpoints', () => {

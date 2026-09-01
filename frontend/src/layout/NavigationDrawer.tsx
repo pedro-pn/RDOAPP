@@ -92,12 +92,14 @@ export function NavigationDrawer({
     }
   };
 
-  if (!open || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div
       className="fv-ds fv-navigation-drawer-layer"
+      data-state={open ? 'open' : 'closed'}
       role="presentation"
+      aria-hidden={!open}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

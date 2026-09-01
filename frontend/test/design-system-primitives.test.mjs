@@ -59,6 +59,28 @@ test('compound fields expose one rounded focus ring owned by the control shell',
   );
 });
 
+test('card action rows stay on one line and scroll only as a narrow-screen fallback', () => {
+  const primitiveCss = source('src/components/ui/ds/styles.css');
+  const listingCss = source('src/components/ui/ds/listings/listings.css');
+
+  assert.match(
+    primitiveCss,
+    /\.fv-card__actions\s*\{[\s\S]*?flex-wrap:\s*nowrap/
+  );
+  assert.match(
+    primitiveCss,
+    /\.fv-card__footer\s*\{[\s\S]*?flex-wrap:\s*nowrap/
+  );
+  assert.match(
+    primitiveCss,
+    /@media \(max-width: 767\.98px\)[\s\S]*?:where\(\.fv-card__actions, \.fv-card__footer\)[\s\S]*?overflow-x:\s*auto/
+  );
+  assert.match(
+    listingCss,
+    /\.fv-mobile-list__actions\s*\{[\s\S]*?flex-wrap:\s*nowrap[\s\S]*?overflow-x:\s*auto/
+  );
+});
+
 test('status map covers canonical Portuguese workflow states', () => {
   const statusSource = source('src/components/ui/ds/status.ts');
   const expectedStatuses = [

@@ -366,7 +366,9 @@ function ReportFeedback({ report }: { report: ReportSummary }) {
       ) : null}
 
       {showReviewNote ? (
-        <p className="rdo-manager-listing__feedback-note rdo-manager-listing__feedback-note--info">
+        <p
+          className={`rdo-manager-listing__feedback-note rdo-manager-listing__feedback-note--${report.status === 'RETURNED' ? 'danger' : 'info'}`}
+        >
           {report.reviewNotes}
         </p>
       ) : null}
@@ -568,9 +570,10 @@ export function ManagerReportListing({
         mobile={{
           ariaLabel,
           renderItem: (report) => {
-            const hasSupplementalContent =
-              Boolean(reportSignatureProgress(report)) ||
-              hasReportFeedback(report);
+            const hasSignatureProgress = Boolean(
+              reportSignatureProgress(report)
+            );
+            const hasFeedback = hasReportFeedback(report);
 
             return {
               title: (
@@ -594,10 +597,9 @@ export function ManagerReportListing({
                   ? [{ label: 'Horário', value: workTimesLabel(report) }]
                   : [])
               ],
-              value: hasSupplementalContent ? (
+              value: hasSignatureProgress ? (
                 <div className="rdo-manager-listing__mobile-feedback">
                   <SignatureProgress report={report} />
-                  <ReportFeedback report={report} />
                 </div>
               ) : undefined,
               actions: (
@@ -608,6 +610,11 @@ export function ManagerReportListing({
                   {renderActions(report)}
                 </div>
               ),
+              details: hasFeedback ? (
+                <div className="rdo-manager-listing__mobile-feedback">
+                  <ReportFeedback report={report} />
+                </div>
+              ) : undefined,
               onClick: () => onOpenReport(report),
               accessibleLabel: `Abrir ${fullReportLabel(report, projectLabel)}`
             };

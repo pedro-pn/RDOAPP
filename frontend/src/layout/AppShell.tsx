@@ -67,6 +67,7 @@ export function AppShell({
           notifications={notifications}
           profile={profile}
           actions={topBarActions}
+          menuOpen={drawerOpen}
           onOpenMenu={() => setDrawerOpen(true)}
         />
 

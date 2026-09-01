@@ -29,6 +29,7 @@ interface DesignSystemTopBarProps {
   title: string;
   breadcrumb?: readonly TopBarBreadcrumb[];
   onOpenMenu?: () => void;
+  menuOpen?: boolean;
   search?: ReactNode;
   notifications?: ReactNode;
   profile?: NavigationProfile;
@@ -98,6 +99,7 @@ function DesignSystemTopBar({
   title,
   breadcrumb,
   onOpenMenu,
+  menuOpen = false,
   search,
   notifications,
   profile,
@@ -112,6 +114,7 @@ function DesignSystemTopBar({
             className="fv-topbar__menu"
             icon={NAVIGATION_CHROME_ICONS.menu}
             label="Abrir menu"
+            aria-expanded={menuOpen}
             onClick={onOpenMenu}
           />
         ) : null}
