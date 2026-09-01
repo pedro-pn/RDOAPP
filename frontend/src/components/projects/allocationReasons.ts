@@ -19,10 +19,18 @@ const ALLOCATION_REASON_LABELS: Record<string, string> = {
   UNCONFIRMED_MULTIPLE_TAGS: 'Várias etiquetas sem confirmação de RDO',
   AMBIGUOUS_WITHOUT_TAGS: 'Vários RDOs e nenhuma etiqueta',
   MOBILIZATION_RDO_AMBIGUOUS: 'Mobilização com vários candidatos',
-  SCHEDULE_WINDOW: 'Janela do cronograma',
-  SCHEDULE_WINDOW_AMBIGUOUS: 'Janelas de cronograma sobrepostas',
-  NO_PROJECT_EVIDENCE: 'Sem etiqueta e sem RDO',
-  NO_RDO_EVIDENCE: 'Sem RDO no dia',
+  EFFECTIVE_PROJECT_TAG_TRAVEL: 'Viagem confirmada pelo Efetivo e pela etiqueta',
+  EFFECTIVE_ALLOCATION_TRAVEL: 'Viagem confirmada pelo Efetivo',
+  EFFECTIVE_ALLOCATION_AMBIGUOUS: 'Mais de uma alocação no Efetivo',
+  EFFECTIVE_TAG_CONFLICT: 'Etiqueta diverge do Efetivo',
+  EFFECTIVE_PERIOD_MISMATCH: 'Dia fora do período individual do Efetivo',
+  RDO_PERIOD_MISMATCH: 'RDO histórico sem período compatível',
+  SCHEDULE_PROJECT_TAG_TRAVEL: 'Viagem legada confirmada pela etiqueta e pelo RDO',
+  SCHEDULE_TRAVEL_TAG: 'Viagem legada confirmada pelo RDO',
+  SCHEDULE_WINDOW: 'Janela legada do projeto',
+  SCHEDULE_WINDOW_AMBIGUOUS: 'Janelas legadas conflitantes',
+  NO_PROJECT_EVIDENCE: 'Sem RDO ou Efetivo que confirme a marcação',
+  NO_RDO_EVIDENCE: 'Sem evidência de projeto',
   NO_POINT_HOURS: 'Sem horas no ponto'
 };
 

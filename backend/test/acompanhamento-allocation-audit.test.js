@@ -15,6 +15,7 @@ const PROJECTS = new Map([
 const KNOWN_CODES = new Set(['5804', '5820']);
 
 function day(date, overrides = {}) {
+  const reason = overrides.reason || 'EFFECTIVE_PERIOD_MISMATCH';
   return {
     date,
     normalHours: 8.8,
@@ -25,8 +26,9 @@ function day(date, overrides = {}) {
     rdoProjects: [],
     manualProjectIds: [],
     allocations: [],
-    reason: 'NO_PROJECT_EVIDENCE',
-    ...overrides
+    reason,
+    ...overrides,
+    pending: overrides.pending ?? !['NO_PROJECT_EVIDENCE', 'NO_RDO_EVIDENCE', 'NO_POINT_HOURS'].includes(reason)
   };
 }
 
@@ -70,8 +72,11 @@ test('lacuna no calendário quebra o bloco', () => {
   assert.deepEqual(result.actionable.map(block => block.days.length), [2, 1]);
 });
 
-test('etiqueta citando missão não cadastrada vai para o balde de projeto não encontrado', () => {
-  const days = [day('2026-08-17', { tags: ['Missão 9999 - cliente'] })];
+test('etiqueta isolada de missão não cadastrada não vira pendência', () => {
+  const days = [day('2026-08-17', {
+    tags: ['Missão 9999 - cliente'],
+    reason: 'NO_PROJECT_EVIDENCE'
+  })];
   const result = groupUnallocatedDays({
     rates: [rate(days)],
     projectsById: PROJECTS,
@@ -80,14 +85,16 @@ test('etiqueta citando missão não cadastrada vai para o balde de projeto não 
   });
 
   assert.equal(result.actionable.length, 0);
-  assert.equal(result.missingProjects.length, 1);
-  // O contador da navegação ignora esse balde.
+  assert.equal(result.missingProjects.length, 0);
   assert.equal(result.counts.actionableDays, 0);
-  assert.equal(result.counts.missingProjectDays, 1);
+  assert.equal(result.counts.missingProjectDays, 0);
 });
 
-test('etiqueta de viagem sem código de missão continua acionável', () => {
-  const days = [day('2026-08-17', { tags: ['EM VIAGEM - 07.264.184/0001-46'] })];
+test('etiqueta de viagem sem RDO ou Efetivo não vira pendência', () => {
+  const days = [day('2026-08-17', {
+    tags: ['EM VIAGEM - 07.264.184/0001-46'],
+    reason: 'NO_PROJECT_EVIDENCE'
+  })];
   const result = groupUnallocatedDays({
     rates: [rate(days)],
     projectsById: PROJECTS,
@@ -95,11 +102,11 @@ test('etiqueta de viagem sem código de missão continua acionável', () => {
     cutoffDateKey: '2025-01-01'
   });
 
-  assert.equal(result.actionable.length, 1);
+  assert.equal(result.actionable.length, 0);
   assert.equal(result.missingProjects.length, 0);
 });
 
-test('corte do histórico descarta dias anteriores e não pode ser afrouxado pelo filtro', () => {
+test('evidência substitui o corte fixo e o filtro de período continua sendo respeitado', () => {
   const days = [day('2024-12-31'), day('2026-08-17')];
   const comCorte = groupUnallocatedDays({
     rates: [rate(days)],
@@ -107,14 +114,17 @@ test('corte do histórico descarta dias anteriores e não pode ser afrouxado pel
     knownMissionCodes: KNOWN_CODES,
     cutoffDateKey: '2025-01-01'
   });
-  assert.deepEqual(comCorte.actionable.flatMap(block => block.days.map(item => item.date)), ['2026-08-17']);
+  assert.deepEqual(comCorte.actionable.flatMap(block => block.days.map(item => item.date)), [
+    '2024-12-31',
+    '2026-08-17'
+  ]);
 
   const tentandoAfrouxar = groupUnallocatedDays({
     rates: [rate(days)],
     projectsById: PROJECTS,
     knownMissionCodes: KNOWN_CODES,
     cutoffDateKey: '2025-01-01',
-    from: '2020-01-01'
+    from: '2026-01-01'
   });
   assert.deepEqual(tentandoAfrouxar.actionable.flatMap(block => block.days.map(item => item.date)), ['2026-08-17']);
 });
@@ -258,7 +268,7 @@ test('conflito é subconjunto dos dias sem alocação, nunca uma fila paralela',
   const days = [
     day('2026-08-17', { reason: 'TAG_RDO_CONFLICT' }),
     day('2026-08-18', { reason: 'AMBIGUOUS_WITHOUT_TAGS' }),
-    day('2026-08-19', { reason: 'NO_PROJECT_EVIDENCE' })
+    day('2026-08-19', { reason: 'RDO_PERIOD_MISMATCH' })
   ];
   const result = groupUnallocatedDays({
     rates: [rate(days)],
@@ -272,9 +282,14 @@ test('conflito é subconjunto dos dias sem alocação, nunca uma fila paralela',
   assert.ok(result.counts.conflictDays < result.counts.actionableDays);
 });
 
-test('dia sem RDO não vira pendência, mas reaparece quando um relatório gera conflito', () => {
+test('marcação sem RDO/Efetivo não vira pendência, mas conflito com RDO continua acionável', () => {
   const days = [
-    day('2026-03-31', { reason: 'NO_RDO_EVIDENCE' }),
+    day('2026-03-30', { reason: 'NO_RDO_EVIDENCE' }),
+    day('2026-03-31', {
+      reason: 'NO_RDO_EVIDENCE',
+      tags: ['Missão 5804'],
+      tagProjectIds: ['p-5804']
+    }),
     day('2026-04-01', {
       reason: 'TAG_RDO_CONFLICT',
       rdoProjects: [{ projectId: 'p-5820', hours: 8.8 }],

@@ -1,6 +1,6 @@
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor, conflictError } from './errors.js';
-import { allocationPeriod } from './allocation-period.js';
+import { allocationPeriods } from './allocation-period.js';
 import { missionEndsOnOrAfter } from './mission-period.js';
 
 export async function lockCollaborator(tx, collaboratorId) {
@@ -64,19 +64,20 @@ export function collectAllocationConflicts({
     const mission = allocation.mission;
     if (allocation.deletedAt || !mission || mission.deletedAt || mission.id === ignoredMissionId
       || mission.scheduleStatus !== 'CONFIRMED') continue;
-    const otherPeriod = allocationPeriod(allocation, mission);
-    if (!periodsOverlap(period, otherPeriod)
-      || allowMissionOverlap
-      || (!requireCandidateMissionOverlapConfirmation && allocation.allowMissionOverlap)) continue;
-    conflicts.push(conflictDescriptor({
-      collaborator,
-      startDate: otherPeriod.startDate,
-      endDate: otherPeriod.endDate,
-      sourceType: 'MISSION',
-      sourceId: mission.id,
-      entityPath: `/efetivo?section=missoes&missao=${mission.id}`,
-      code: 'MISSION_OVERLAP'
-    }));
+    for (const otherPeriod of allocationPeriods(allocation, mission)) {
+      if (!periodsOverlap(period, otherPeriod)
+        || allowMissionOverlap
+        || (!requireCandidateMissionOverlapConfirmation && allocation.allowMissionOverlap)) continue;
+      conflicts.push(conflictDescriptor({
+        collaborator,
+        startDate: otherPeriod.startDate,
+        endDate: otherPeriod.endDate,
+        sourceType: 'MISSION',
+        sourceId: mission.id,
+        entityPath: `/efetivo?section=missoes&missao=${mission.id}`,
+        code: 'MISSION_OVERLAP'
+      }));
+    }
   }
   return conflicts;
 }
@@ -110,7 +111,10 @@ export async function loadCollaboratorConflictData(tx, collaboratorId, period, p
           ...missionEndsOnOrAfter(new Date(`${parseDateKey(period.startDate)}T00:00:00.000Z`))
         }
       },
-      include: { mission: true }
+      include: {
+        cycles: { orderBy: { mobilizationDate: 'asc' } },
+        mission: { include: { cycles: { orderBy: { mobilizationDate: 'asc' } } } }
+      }
     })
   ]);
   return { collaborator, absences, allocations };

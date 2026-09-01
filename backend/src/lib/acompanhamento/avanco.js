@@ -57,6 +57,20 @@ export function isRealizedSourceReport(report) {
   return !report.specialConditions?.parentRdoId;
 }
 
+// O importador histórico preencheu a equipe dos RDOs a partir da planilha de marcações do ponto,
+// não a partir dos nomes presentes no PDF. Esse vínculo é uma pista circular e não confirma, por
+// si só, que a pessoa participou da missão.
+export function isPointWorkbookDerivedRdoRoster(report) {
+  const manualUpload = report?.specialConditions?.__manualUpload;
+  return report?.reportType === 'RDO'
+    && manualUpload?.importedByScript === 'import-manual-rdo-pdfs'
+    && manualUpload?.collaboratorSource !== 'RDO_DOCUMENT';
+}
+
+export function isConfirmedReportParticipant(report, hasAllocatedHours = false) {
+  return Boolean(hasAllocatedHours || !isPointWorkbookDerivedRdoRoster(report));
+}
+
 // Mantém relatórios-fonte e seus colaboradores alinhados. A filtragem em memória é necessária
 // porque parentRdoId fica dentro de um JSON e relatórios antigos podem não ter essa chave.
 export function selectRealizedSourceReportData(reports = [], collaborators = []) {

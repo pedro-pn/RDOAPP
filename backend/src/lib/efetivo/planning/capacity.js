@@ -1,7 +1,6 @@
 import { addCalendarDays, parseDateKey } from './date-only.js';
 import { businessDatesInclusive, holidayDateSet, isBusinessDay } from './business-days.js';
-import { allocationPeriod } from './allocation-period.js';
-import { missionEndDate } from './mission-period.js';
+import { allocationPeriods, missionCoversDate } from './allocation-period.js';
 
 function collaboratorRoleId(collaborator) {
   return collaborator.jobRoleId || null;
@@ -37,14 +36,12 @@ function indexMissionsByCollaborator(missions) {
     if (mission.deletedAt || mission.scheduleStatus !== 'CONFIRMED') continue;
     for (const allocation of mission.allocations || []) {
       if (allocation.deletedAt) continue;
-      const period = allocationPeriod(allocation, mission);
-      const interval = {
+      const periods = index.get(allocation.collaboratorId) || [];
+      periods.push(...allocationPeriods(allocation, mission).map(period => ({
         record: mission,
         startDate: period.startDate,
         endDate: period.endDate
-      };
-      const periods = index.get(allocation.collaboratorId) || [];
-      periods.push(interval);
+      })));
       index.set(allocation.collaboratorId, periods);
     }
   }
@@ -60,8 +57,7 @@ function demandByRoleOn(missions, date) {
   for (const mission of missions) {
     if (mission.deletedAt
       || mission.scheduleStatus !== 'CONFIRMED'
-      || parseDateKey(mission.mobilizationDate) > date
-      || missionEndDate(mission) < date) continue;
+      || !missionCoversDate(mission, date)) continue;
     for (const demand of mission.demands || []) {
       totals.set(demand.jobRoleId, (totals.get(demand.jobRoleId) || 0) + Number(demand.requiredCount || 0));
     }

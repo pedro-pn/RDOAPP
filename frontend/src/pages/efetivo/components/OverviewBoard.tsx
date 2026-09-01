@@ -61,8 +61,7 @@ export function OverviewBoard({ date, jobRoleId, onNavigate }: {
         <section className="page-card">
           <div className="efetivo-section-heading"><div><h2>Próximas mobilizações</h2><p>Equipe prevista e vagas pendentes.</p></div><button className="efetivo-panel-link" type="button" onClick={() => onNavigate('missoes')}>Ver missões →</button></div>
           {data.upcomingMobilizations.length ? <div className="efetivo-compact-list">{data.upcomingMobilizations.map(mission => {
-            const demand = mission.demands.reduce((sum, item) => sum + item.requiredCount, 0);
-            return <button type="button" onClick={() => onNavigate('missoes', { missao: mission.id })} key={mission.id}><strong>{mission.project.code} · {mission.project.name}</strong><span>{displayDateOnly(mission.mobilizationDate)} · {missionFinalAllocations(mission).length}/{demand} pessoas ao fim</span></button>;
+            return <button type="button" onClick={() => onNavigate('missoes', { missao: mission.id })} key={`${mission.id}-${mission.mobilizationDate}`}><strong>{mission.project.code} · {mission.project.name}</strong><span>{displayDateOnly(mission.mobilizationDate)} · {missionFinalAllocations(mission).length} participante(s)</span></button>;
           })}</div> : <p className="placeholder-copy">Nenhuma mobilização confirmada na janela.</p>}
         </section>
         <section className="page-card">

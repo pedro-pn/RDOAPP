@@ -71,6 +71,12 @@ export interface MissionDemand {
   jobRole?: Pick<PlanningJobRole, 'id' | 'name' | 'calendarColor'>;
 }
 
+export interface MobilizationCycle {
+  id: string;
+  mobilizationDate: DateOnly;
+  demobilizationDate: DateOnly | null;
+}
+
 export interface MissionAllocation {
   id: string;
   collaboratorId: string;
@@ -78,6 +84,7 @@ export interface MissionAllocation {
   mobilizationDate: DateOnly | null;
   demobilizationDate: DateOnly | null;
   allowMissionOverlap: boolean;
+  cycles?: MobilizationCycle[];
   collaborator?: { id: string; name: string; role: string; jobRoleId: string | null };
   jobRole?: { id: string; name: string };
 }
@@ -108,6 +115,7 @@ export interface PlanningMission {
   returnDate: DateOnly | null;
   version: number;
   kanbanOrder: number;
+  cycles?: MobilizationCycle[];
   demands: MissionDemand[];
   allocations: MissionAllocation[];
 }
@@ -335,6 +343,24 @@ export async function updateMissionAllocationPeriod(missionId: string, allocatio
 }
 export async function removeMissionAllocation(missionId: string, allocationId: string) {
   await apiClient.delete(`${base}/missions/${encodeURIComponent(missionId)}/allocations/${encodeURIComponent(allocationId)}`);
+}
+export async function createMissionCycle(missionId: string, payload: { mobilizationDate: DateOnly; demobilizationDate?: DateOnly | null }) {
+  return (await apiClient.post<MobilizationCycle>(`${base}/missions/${encodeURIComponent(missionId)}/cycles`, payload)).data;
+}
+export async function updateMissionCycle(missionId: string, cycleId: string, payload: { mobilizationDate: DateOnly; demobilizationDate?: DateOnly | null }) {
+  return (await apiClient.patch<MobilizationCycle>(`${base}/missions/${encodeURIComponent(missionId)}/cycles/${encodeURIComponent(cycleId)}`, payload)).data;
+}
+export async function initializeMissionAllocationCycles(missionId: string, allocationId: string) {
+  return (await apiClient.post<MobilizationCycle[]>(`${base}/missions/${encodeURIComponent(missionId)}/allocations/${encodeURIComponent(allocationId)}/cycles/inherit`)).data;
+}
+export async function createMissionAllocationCycle(missionId: string, allocationId: string, payload: { mobilizationDate: DateOnly; demobilizationDate?: DateOnly | null }) {
+  return (await apiClient.post<MobilizationCycle>(`${base}/missions/${encodeURIComponent(missionId)}/allocations/${encodeURIComponent(allocationId)}/cycles`, payload)).data;
+}
+export async function updateMissionAllocationCycle(missionId: string, allocationId: string, cycleId: string, payload: { mobilizationDate: DateOnly; demobilizationDate?: DateOnly | null }) {
+  return (await apiClient.patch<MobilizationCycle>(`${base}/missions/${encodeURIComponent(missionId)}/allocations/${encodeURIComponent(allocationId)}/cycles/${encodeURIComponent(cycleId)}`, payload)).data;
+}
+export async function deleteMissionAllocationCycle(missionId: string, allocationId: string, cycleId: string) {
+  await apiClient.delete(`${base}/missions/${encodeURIComponent(missionId)}/allocations/${encodeURIComponent(allocationId)}/cycles/${encodeURIComponent(cycleId)}`);
 }
 export async function autoAllocateMission(missionId: string) {
   return (await apiClient.post<{ created: MissionAllocation[]; remainingDeficits: Array<{ jobRoleId: string; jobRoleName: string; deficit: number }> }>(`${base}/missions/${encodeURIComponent(missionId)}/auto-allocate`)).data;

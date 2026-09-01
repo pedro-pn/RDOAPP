@@ -6,12 +6,14 @@
  *
  * FOLHA (custo mensal do colaborador, por mês):
  *  - dias trabalhados = horas normais do ponto ÷ 8,8 (HORAS_POR_DIA).
- *  - só há apropriação em projeto quando o mesmo dia tem RDO e alguma hora no ponto.
+ *  - há apropriação quando o dia com ponto tem relatório nominal; sem relatório no dia, a marcação
+ *    da missão/EM VIAGEM precisa ser confirmada pela janela individual do Efetivo oficial. Projetos
+ *    legados usam janela global somente para quem aparece nominalmente em RDO do próprio projeto.
  *  - em dias úteis apropriados, o total considerado (normal + HE) tem piso de 8,8h (8h48);
  *    marcações maiores e fins de semana preservam o total real do ponto.
- *  - diasCliente (periculosidade) = dias COM projeto (RDO). Em projeto não-offshore, a configuração
+ *  - diasCliente (periculosidade) = dias COM projeto (RDO ou viagem confirmada). Em projeto não-offshore, a configuração
  *    manual por colaborador define se o dia entra como diasFora (dorme fora) ou diasCasa (dorme em
- *    casa/gratificação). Dia com ponto e sem RDO não alimenta verbas variáveis.
+ *    casa/gratificação). Dia com ponto sem nenhuma evidência de projeto não alimenta verbas variáveis.
  *  - Dia de semana sem ponto e sem alocação = folga: 8,8h zerados (só no denominador do HH).
  *  - HH = folha ÷ (horas do ponto + horas de folga).
  *
@@ -27,6 +29,7 @@ import { getAnnualCollaboratorCosts } from './settings.js';
 import { buildProjectTagResolver, isPontoTravelTag } from '../pontomais/normalize.js';
 import { checkWorkforceAvailability } from '../collaborators/availability-service.js';
 import { annotateActualRowsWithWorkforceConflicts, classifyActualWorkforceDays } from '../workforce/actual-conflicts.js';
+import { allocationPeriods } from '../efetivo/planning/allocation-period.js';
 
 export { isPontoTravelTag } from '../pontomais/normalize.js';
 
@@ -557,7 +560,13 @@ export function rdoDataByCollaboratorFromReports(reports) {
       const sleepMode = sleepModeFor(report.project, link.collaboratorId);
       let c = map.get(link.collaboratorId);
       if (!c) {
-        c = { byProject: new Map(), dayProjects: new Map(), mobilizationProjectsByDate: new Map() };
+        c = {
+          byProject: new Map(),
+          dayProjects: new Map(),
+          nominalRdoProjectsByDate: new Map(),
+          rdoProjectIds: new Set(),
+          mobilizationProjectsByDate: new Map()
+        };
         map.set(link.collaboratorId, c);
       }
       let p = c.byProject.get(report.projectId);
@@ -588,6 +597,15 @@ export function rdoDataByCollaboratorFromReports(reports) {
           ...(report.project?.code ? { projectCode: String(report.project.code) } : {})
         });
       }
+      if (report.reportType === 'RDO') {
+        c.rdoProjectIds.add(report.projectId);
+        let nominalProjects = c.nominalRdoProjectsByDate.get(dk);
+        if (!nominalProjects) {
+          nominalProjects = new Set();
+          c.nominalRdoProjectsByDate.set(dk, nominalProjects);
+        }
+        nominalProjects.add(report.projectId);
+      }
       if (report.reportType === 'RDO' && mobilizationDate && dk > mobilizationDate) {
         let mobilizationProjects = c.mobilizationProjectsByDate.get(mobilizationDate);
         if (!mobilizationProjects) {
@@ -606,12 +624,16 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
   const reports = await prisma.report.findMany({
     where: {
       deletedAt: null,
-      reportDate: { gte: periodStart, lt: periodEndExclusive },
       OR: [
         { reportType: 'RDO' },
-        { daytimeWorkedMinutes: { gt: 0 } },
-        { nighttimeWorkedMinutes: { gt: 0 } },
-        { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
+        {
+          reportDate: { gte: periodStart, lt: periodEndExclusive },
+          OR: [
+            { daytimeWorkedMinutes: { gt: 0 } },
+            { nighttimeWorkedMinutes: { gt: 0 } },
+            { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
+          ]
+        }
       ]
     },
     select: {
@@ -630,7 +652,7 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
 }
 
 async function getProjectAllocationContext() {
-  const [projects, tagAliases, missionGroups] = await Promise.all([
+  const [projects, tagAliases, missionGroups, effectiveAllocations, effectiveMissions] = await Promise.all([
     prisma.project.findMany({
       select: {
         id: true,
@@ -655,27 +677,143 @@ async function getProjectAllocationContext() {
         primaryLaborProjectId: true,
         members: { select: { projectId: true } }
       }
+    }),
+    prisma.efetivoMissionAllocation.findMany({
+      where: {
+        deletedAt: null,
+        mission: {
+          deletedAt: null,
+          scheduleStatus: 'CONFIRMED',
+          plan: { kind: 'OFFICIAL', status: 'ACTIVE' }
+        }
+      },
+      select: {
+        id: true,
+        collaboratorId: true,
+        deletedAt: true,
+        mobilizationDate: true,
+        demobilizationDate: true,
+        cycles: { select: { id: true, mobilizationDate: true, demobilizationDate: true } },
+        mission: {
+          select: {
+            id: true,
+            projectId: true,
+            scheduleStatus: true,
+            deletedAt: true,
+            mobilizationDate: true,
+            executionEndDate: true,
+            returnDate: true,
+            cycles: { select: { id: true, mobilizationDate: true, demobilizationDate: true } },
+            plan: { select: { kind: true, status: true } }
+          }
+        }
+      }
+    }),
+    prisma.efetivoMissionPlan.findMany({
+      where: {
+        deletedAt: null,
+        scheduleStatus: 'CONFIRMED',
+        plan: { kind: 'OFFICIAL', status: 'ACTIVE' }
+      },
+      select: { projectId: true }
     })
   ]);
+  const effectiveMissionProjectIds = new Set(effectiveMissions.map(mission => mission.projectId));
   return {
     projects,
     resolveTag: buildProjectTagResolver({ projects, tagAliases }),
     missionGroupProjectsByProjectId: buildMissionGroupProjectIndex(missionGroups),
-    scheduleWindows: buildScheduleWindows(projects)
+    scheduleWindows: buildScheduleWindows(projects, effectiveMissionProjectIds),
+    effectiveAllocationIndex: buildEffectiveAllocationIndex(effectiveAllocations)
   };
+}
+
+/*
+ * Efetivo oficial: ciclos individuais prevalecem sobre os ciclos gerais da missão. Quando não
+ * há personalização, o colaborador herda todos os ciclos do projeto, preservando as pausas.
+ * Cenários, missões não confirmadas e registros excluídos são filtrados na consulta.
+ */
+export function buildEffectiveAllocationIndex(allocations = []) {
+  const result = new Map();
+  for (const item of allocations || []) {
+    if (!item?.collaboratorId || !item?.mission?.projectId) continue;
+    if (item.deletedAt || item.mission.deletedAt) continue;
+    if (item.mission.scheduleStatus && item.mission.scheduleStatus !== 'CONFIRMED') continue;
+    if (item.mission.plan && (
+      item.mission.plan.kind !== 'OFFICIAL'
+      || item.mission.plan.status !== 'ACTIVE'
+    )) continue;
+    let periods;
+    try {
+      periods = allocationPeriods(item, item.mission);
+    } catch {
+      continue;
+    }
+    let context = result.get(item.collaboratorId);
+    if (!context) {
+      context = { projectIds: new Set(), windows: [] };
+      result.set(item.collaboratorId, context);
+    }
+    context.projectIds.add(item.mission.projectId);
+    for (const period of periods) {
+      if (!period?.startDate || !period?.endDate || period.startDate > period.endDate) continue;
+      context.windows.push({
+        allocationId: item.id || null,
+        cycleId: period.id || null,
+        missionId: item.mission.id || null,
+        projectId: item.mission.projectId,
+        startKey: period.startDate,
+        endKey: period.endDate
+      });
+    }
+  }
+  for (const context of result.values()) {
+    context.windows.sort((left, right) => (
+      left.startKey.localeCompare(right.startKey)
+      || left.endKey.localeCompare(right.endKey)
+      || String(left.projectId).localeCompare(String(right.projectId))
+    ));
+  }
+  return result;
+}
+
+export function effectiveProjectsForDay({
+  effectiveAllocationIndex = new Map(),
+  collaboratorId = null,
+  dateKey = null
+} = {}) {
+  if (!collaboratorId || !dateKey) return [];
+  const context = effectiveAllocationIndex.get(collaboratorId);
+  if (!context) return [];
+  return [...new Set(context.windows
+    .filter(window => dateKey >= window.startKey && dateKey <= window.endKey)
+    .map(window => window.projectId))].sort();
+}
+
+export function effectiveProjectsForCollaborator(effectiveAllocationIndex = new Map(), collaboratorId = null) {
+  return collaboratorId && effectiveAllocationIndex.get(collaboratorId)
+    ? [...effectiveAllocationIndex.get(collaboratorId).projectIds].sort()
+    : [];
 }
 
 /*
  * Janelas de cronograma: só entram projetos com mobilização E desmobilização preenchidas.
  *
- * A desmobilização é preenchida depois do fato, então é dado verdadeiro — diferente de uma
- * previsão, que quase nunca é obedecida. Enquanto ela estiver vazia, a obra está em andamento e a
- * regra segue conservadora: o dia sem etiqueta e sem RDO vai para a fila de pendências em vez de
- * ser chutado para algum projeto.
+ * A desmobilização é preenchida depois do fato, então é dado mais forte que uma previsão. Enquanto
+ * ela estiver vazia, a obra está em andamento e a janela global não é usada. Projetos presentes no
+ * Efetivo oficial também são excluídos daqui: para eles só valem as datas individuais do Efetivo.
  */
-export function buildScheduleWindows(projects = []) {
+export function buildScheduleWindows(projects = [], excludedProjectIds = new Set()) {
+  const excluded = excludedProjectIds instanceof Set
+    ? excludedProjectIds
+    : new Set(excludedProjectIds || []);
   return projects
-    .filter(project => project?.id && project.mobilizationDate && project.demobilizationDate)
+    .filter(project => (
+      project?.id
+      && !excluded.has(project.id)
+      && project.mobilizationDate
+      && project.demobilizationDate
+    ))
     .map(project => {
       const startKey = dateKeyUTC(project.mobilizationDate);
       const endKey = dateKeyUTC(project.demobilizationDate);
@@ -683,39 +821,28 @@ export function buildScheduleWindows(projects = []) {
         ? {
           projectId: project.id,
           startKey,
-          endKey,
-          manualCollaboratorIds: new Set([
-            ...(project.operatorId ? [project.operatorId] : []),
-            ...normalizeCollaboratorIdList(project.laborCollaboratorIds)
-          ])
+          endKey
         }
         : null;
     })
     .filter(Boolean);
 }
 
-function normalizeCollaboratorIdList(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map(item => String(item || '').trim()).filter(Boolean);
-}
-
 /*
- * Elegíveis da janela, por projeto: operador + cadastro manual do cronograma + quem tem ao menos um
- * RDO daquele projeto dentro da própria janela.
+ * Fallback legado: a janela global do projeto só é elegível para quem aparece nominalmente em ao
+ * menos um RDO do próprio projeto dentro dela. Operador e lista manual do Project não substituem o
+ * Efetivo individual; são campos históricos que causavam os falsos positivos desta regra.
  *
  * O recorte por janela é o que impede o vazamento histórico: quem fez um RDO do projeto em março
  * não vira elegível para a janela de julho. Quem entrou só por RDO fora da janela já está coberto
  * pela evidência do próprio RDO.
  */
 export function buildScheduleWindowEligibility(scheduleWindows = [], rdoDataByCollaborator = new Map()) {
-  const eligibleByProject = new Map(scheduleWindows.map(window => [
-    window.projectId,
-    new Set(window.manualCollaboratorIds)
-  ]));
+  const eligibleByProject = new Map(scheduleWindows.map(window => [window.projectId, new Set()]));
 
   for (const [collaboratorId, rdo] of rdoDataByCollaborator) {
-    for (const [dateKey, projectsForDay] of rdo.dayProjects || new Map()) {
-      for (const projectId of projectsForDay.keys()) {
+    for (const [dateKey, projectIds] of rdo.nominalRdoProjectsByDate || new Map()) {
+      for (const projectId of projectIds) {
         const window = scheduleWindows.find(item => item.projectId === projectId);
         if (!window || dateKey < window.startKey || dateKey > window.endKey) continue;
         eligibleByProject.get(projectId)?.add(collaboratorId);
@@ -860,6 +987,7 @@ export function buildDailyProjectWeights({
   manualProjectId = null,
   manualProjectIds = null,
   mobilizationProjectIds = null,
+  effectiveProjectIds = [],
   scheduleWindowProjectIds = [],
   missionGroupProjectsByProjectId = new Map(),
   allocationAxis = 'ACCOUNTING'
@@ -872,40 +1000,15 @@ export function buildDailyProjectWeights({
     ...(manualProjectId ? [manualProjectId] : [])
   ].filter(Boolean))].sort();
   const taggedProjectIds = [...new Set((tags || []).map(resolveTag).filter(Boolean))].sort();
+  const effectiveIds = [...new Set((effectiveProjectIds || []).filter(Boolean))].sort();
   const scheduledProjectIds = [...new Set(scheduleWindowProjectIds.filter(Boolean))].sort();
+  const taggedEffectiveProjectIds = taggedProjectIds.filter(projectId => effectiveIds.includes(projectId));
   const taggedScheduledProjectIds = taggedProjectIds.filter(projectId => scheduledProjectIds.includes(projectId));
-  // O RDO do próprio dia é a autorização para apropriar. As demais evidências ficam apenas como
-  // candidatas na auditoria. A única exceção é a viagem comprovada pelo ponto dentro de uma janela
-  // fechada do cronograma: a etiqueta da própria missão escolhe a janela correspondente; a etiqueta
-  // genérica EM VIAGEM só resolve quando existe uma única obra possível.
-  if (rdoByProject.size === 0) {
-    if (taggedProjectIds.length === 1 && taggedScheduledProjectIds.length === 1) {
-      return {
-        allocations: [{ projectId: taggedScheduledProjectIds[0], weight: 1, rdo: null }],
-        reason: 'SCHEDULE_PROJECT_TAG_TRAVEL',
-        travelContext: true
-      };
-    }
-    if ((tags || []).some(isPontoTravelTag) && scheduledProjectIds.length === 1) {
-      return {
-        allocations: [{ projectId: scheduledProjectIds[0], weight: 1, rdo: null }],
-        reason: 'SCHEDULE_TRAVEL_TAG',
-        travelContext: true
-      };
-    }
-    return {
-      allocations: [],
-      candidateProjectIds: [...new Set([
-        ...selectedManualProjectIds,
-        ...taggedProjectIds,
-        ...(mobilizationProjectIds instanceof Set
-          ? [...mobilizationProjectIds]
-          : Array.isArray(mobilizationProjectIds) ? mobilizationProjectIds : []),
-        ...scheduledProjectIds
-      ].filter(Boolean))].sort(),
-      reason: 'NO_RDO_EVIDENCE'
-    };
-  }
+  const hasTravelTag = (tags || []).some(isPontoTravelTag);
+
+  // A seleção explícita do gestor é uma resolução auditada e, por isso, vale mesmo quando o dia
+  // não possui RDO. Antes ela era lida somente depois do retorno NO_RDO_EVIDENCE, o que fazia o dia
+  // reaparecer na fila imediatamente após ser resolvido.
   if (selectedManualProjectIds.length > 0) {
     const selectedRdos = selectedManualProjectIds.map(projectId => rdoByProject.get(projectId)).filter(Boolean);
     const rdoTotal = selectedRdos.reduce((sum, item) => sum + Math.max(0, Number(item.hours) || 0), 0);
@@ -922,6 +1025,99 @@ export function buildDailyProjectWeights({
         return { projectId, weight, rdo };
       }),
       reason: selectedManualProjectIds.length === 1 ? 'MANUAL_OVERRIDE' : 'MANUAL_SHARED_OVERRIDE'
+    };
+  }
+
+  /*
+   * Sem relatório no próprio dia, o Efetivo oficial é a fonte principal, mas não substitui a
+   * marcação do ponto. A janela individual autoriza uma missão somente quando o próprio ponto
+   * identifica a missão ou registra EM VIAGEM. Sem qualquer uma dessas evidências, o dia continua
+   * fora dos projetos e também não vira pendência.
+   */
+  if (rdoByProject.size === 0) {
+    if (taggedEffectiveProjectIds.length === 1) {
+      return {
+        allocations: [{ projectId: taggedEffectiveProjectIds[0], weight: 1, rdo: null }],
+        reason: 'EFFECTIVE_PROJECT_TAG_TRAVEL',
+        travelContext: true
+      };
+    }
+    if (taggedEffectiveProjectIds.length > 1) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...effectiveIds, ...taggedProjectIds])].sort(),
+        reason: 'EFFECTIVE_ALLOCATION_AMBIGUOUS'
+      };
+    }
+    if (effectiveIds.length === 1 && taggedProjectIds.length === 0 && hasTravelTag) {
+      return {
+        allocations: [{ projectId: effectiveIds[0], weight: 1, rdo: null }],
+        reason: 'EFFECTIVE_ALLOCATION_TRAVEL',
+        travelContext: true
+      };
+    }
+    if (effectiveIds.length > 0 && (taggedProjectIds.length > 0 || hasTravelTag)) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...effectiveIds, ...taggedProjectIds])].sort(),
+        reason: effectiveIds.length > 1
+          ? 'EFFECTIVE_ALLOCATION_AMBIGUOUS'
+          : 'EFFECTIVE_TAG_CONFLICT'
+      };
+    }
+
+    // Projetos antigos podem não existir no Efetivo. Neles, uma janela global fechada só fica
+    // disponível se o colaborador aparece nominalmente em RDO daquela mesma janela.
+    if (taggedScheduledProjectIds.length === 1) {
+      return {
+        allocations: [{ projectId: taggedScheduledProjectIds[0], weight: 1, rdo: null }],
+        reason: 'SCHEDULE_PROJECT_TAG_TRAVEL',
+        travelContext: true
+      };
+    }
+    if (taggedScheduledProjectIds.length > 1) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...scheduledProjectIds, ...taggedProjectIds])].sort(),
+        reason: 'SCHEDULE_WINDOW_AMBIGUOUS'
+      };
+    }
+    if (scheduledProjectIds.length === 1 && taggedProjectIds.length === 0 && hasTravelTag) {
+      return {
+        allocations: [{ projectId: scheduledProjectIds[0], weight: 1, rdo: null }],
+        reason: 'SCHEDULE_TRAVEL_TAG',
+        travelContext: true
+      };
+    }
+    if (scheduledProjectIds.length > 0 && (taggedProjectIds.length > 0 || hasTravelTag)) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...scheduledProjectIds, ...taggedProjectIds])].sort(),
+        reason: 'SCHEDULE_WINDOW_AMBIGUOUS'
+      };
+    }
+
+    const mobilizationIds = mobilizationProjectIds instanceof Set
+      ? [...mobilizationProjectIds]
+      : Array.isArray(mobilizationProjectIds) ? mobilizationProjectIds : [];
+    // Evidência histórica de outro dia não transforma o ponto atual em pendência. Só a data de
+    // mobilização nominal, inferida de um RDO real, é uma exceção útil para projetos legados.
+    const taggedMobilizationIds = taggedProjectIds.filter(projectId => mobilizationIds.includes(projectId));
+    const nominalCandidates = [...new Set([
+      ...taggedMobilizationIds,
+      ...(hasTravelTag ? mobilizationIds : [])
+    ])].filter(Boolean).sort();
+    if (nominalCandidates.length > 0) {
+      return {
+        allocations: [],
+        candidateProjectIds: nominalCandidates,
+        reason: 'RDO_PERIOD_MISMATCH'
+      };
+    }
+    return {
+      allocations: [],
+      candidateProjectIds: taggedProjectIds,
+      reason: 'NO_PROJECT_EVIDENCE'
     };
   }
   const explicitGroupDecision = explicitMissionGroupDecision({
@@ -1003,6 +1199,20 @@ export function buildDailyProjectWeights({
   };
 }
 
+const NON_ACTIONABLE_ALLOCATION_REASONS = new Set([
+  'NO_POINT_HOURS',
+  'NO_PROJECT_EVIDENCE',
+  'NO_RDO_EVIDENCE'
+]);
+
+export function allocationDecisionRequiresAction(decision) {
+  return Boolean(
+    decision
+    && (decision.allocations || []).length === 0
+    && !NON_ACTIONABLE_ALLOCATION_REASONS.has(decision.reason)
+  );
+}
+
 export function classifyProjectHours(
   dayRows,
   rdo,
@@ -1017,10 +1227,19 @@ export function classifyProjectHours(
   const unresolvedDays = [];
   const dayTrail = [];
   const dayProjects = rdo?.dayProjects || new Map();
+  const knownEffectiveProjectIds = effectiveProjectsForCollaborator(
+    scheduleWindowContext?.effectiveAllocationIndex,
+    scheduleWindowContext?.collaboratorId
+  );
   let costNormalHours = 0;
 
   for (const row of dayRows) {
     const rdoProjects = dayProjects.get(row.date) || new Map();
+    const effectiveProjectIds = effectiveProjectsForDay({
+      effectiveAllocationIndex: scheduleWindowContext?.effectiveAllocationIndex,
+      collaboratorId: scheduleWindowContext?.collaboratorId,
+      dateKey: row.date
+    });
     const mobilizationProjectIds = rdo?.mobilizationProjectsByDate?.get(row.date) || null;
     const manualProjectIds = manualProjectByDate.get(row.date) || null;
     const dayNormalHours = Math.max(0, Number(row.normalHours) || 0);
@@ -1034,6 +1253,7 @@ export function classifyProjectHours(
         resolveTag,
         manualProjectIds,
         mobilizationProjectIds,
+        effectiveProjectIds,
         scheduleWindowProjectIds: scheduleWindowsForDay({
           scheduleWindows: scheduleWindowContext?.windows,
           eligibleByProject: scheduleWindowContext?.eligibleByProject,
@@ -1044,6 +1264,15 @@ export function classifyProjectHours(
         allocationAxis
       })
       : { allocations: [], reason: 'NO_POINT_HOURS' };
+    const pending = allocationDecisionRequiresAction(decision);
+    const effectiveProjectSet = new Set(effectiveProjectIds);
+    const planningMismatch = rdoProjects.size > 0
+      && knownEffectiveProjectIds.length > 0
+      && [...rdoProjects.keys()].some(projectId => !effectiveProjectSet.has(projectId));
+    // EM VIAGEM só complementa a ausência de RDO. Quando o colaborador consta nominalmente em um
+    // RDO do dia, o relatório é a fonte do contexto e a etiqueta do ponto não vira deslocamento.
+    const travelContext = rdoProjects.size === 0
+      && Boolean(decision.travelContext || (row.tags || []).some(isPontoTravelTag));
     const dayCostNormalHours = costNormalHoursForDay(
       row.date,
       dayNormalHours,
@@ -1069,9 +1298,13 @@ export function classifyProjectHours(
         ...(item.rdoNumber != null ? { rdoNumber: item.rdoNumber } : {})
       })),
       manualProjectIds: manualProjectIds ? [...manualProjectIds] : [],
+      effectiveProjectIds,
+      knownEffectiveProjectIds,
       allocations: decision.allocations.map(item => ({ projectId: item.projectId, weight: item.weight })),
       candidateProjectIds: decision.candidateProjectIds ? [...decision.candidateProjectIds] : [],
-      travelContext: Boolean(decision.travelContext || (row.tags || []).some(isPontoTravelTag)),
+      travelContext,
+      planningMismatch,
+      pending,
       reason: decision.reason
     });
     if (decision.allocations.length === 0) {
@@ -1080,6 +1313,7 @@ export function classifyProjectHours(
         unresolvedDays.push({
           date: row.date,
           reason: decision.reason,
+          pending,
           normalHours: dayNormalHours,
           he70Hours: dayHe70Hours,
           he100Hours: dayHe100Hours
@@ -1115,7 +1349,6 @@ export function classifyProjectHours(
       project.he70Hours += allocatedHe70Hours;
       project.he100Hours += allocatedHe100Hours;
       project.rdoWorkedHours += Math.max(0, Number(allocation.rdo?.hours) || 0);
-      const travelContext = Boolean(decision.travelContext || (row.tags || []).some(isPontoTravelTag));
       if (project.offshore) project.offshoreHours += allocatedNormalHours;
       else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += allocatedNormalHours;
       else project.homeHours += allocatedNormalHours;
@@ -1574,6 +1807,7 @@ export async function computeCollaboratorRates(importId = null) {
     const scheduleWindowContext = {
       windows: projectAllocationContext.scheduleWindows,
       eligibleByProject: scheduleWindowEligibility,
+      effectiveAllocationIndex: projectAllocationContext.effectiveAllocationIndex,
       collaboratorId: period.collaboratorId
     };
 
@@ -1887,6 +2121,7 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     {
       windows: projectAllocationContext.scheduleWindows,
       eligibleByProject: buildScheduleWindowEligibility(projectAllocationContext.scheduleWindows, rdoData),
+      effectiveAllocationIndex: projectAllocationContext.effectiveAllocationIndex,
       collaboratorId: period.collaboratorId
     }
   );

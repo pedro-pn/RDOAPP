@@ -1,6 +1,9 @@
 import prisma from '../prisma.js';
 import {
   buildDailyProjectWeights,
+  allocationDecisionRequiresAction,
+  buildEffectiveAllocationIndex,
+  effectiveProjectsForDay,
   buildScheduleWindowEligibility,
   buildScheduleWindows,
   scheduleWindowsForDay,
@@ -38,6 +41,53 @@ export class PontoSyncError extends Error {
 
 function dateFromKey(value) {
   return new Date(`${value}T00:00:00.000Z`);
+}
+
+function getOfficialEffectiveAllocations(database) {
+  if (!database.efetivoMissionAllocation?.findMany) return Promise.resolve([]);
+  return database.efetivoMissionAllocation.findMany({
+    where: {
+      deletedAt: null,
+      mission: {
+        deletedAt: null,
+        scheduleStatus: 'CONFIRMED',
+        plan: { kind: 'OFFICIAL', status: 'ACTIVE' }
+      }
+    },
+    select: {
+      id: true,
+      collaboratorId: true,
+      deletedAt: true,
+      mobilizationDate: true,
+      demobilizationDate: true,
+      cycles: { select: { id: true, mobilizationDate: true, demobilizationDate: true } },
+      mission: {
+        select: {
+          id: true,
+          projectId: true,
+          scheduleStatus: true,
+          deletedAt: true,
+          mobilizationDate: true,
+          executionEndDate: true,
+          returnDate: true,
+          cycles: { select: { id: true, mobilizationDate: true, demobilizationDate: true } },
+          plan: { select: { kind: true, status: true } }
+        }
+      }
+    }
+  });
+}
+
+function getOfficialEffectiveMissionProjectIds(database) {
+  if (!database.efetivoMissionPlan?.findMany) return Promise.resolve([]);
+  return database.efetivoMissionPlan.findMany({
+    where: {
+      deletedAt: null,
+      scheduleStatus: 'CONFIRMED',
+      plan: { kind: 'OFFICIAL', status: 'ACTIVE' }
+    },
+    select: { projectId: true }
+  }).then(missions => missions.map(mission => mission.projectId));
 }
 
 function errorDescriptor(error) {
@@ -155,14 +205,17 @@ export function buildAmbiguousDayPendencies({
   projects = [],
   tagAliases = [],
   manualDayOverrides = [],
-  missionGroups = []
+  missionGroups = [],
+  effectiveAllocations = [],
+  effectiveMissionProjectIds = []
 } = {}) {
   const rdoByCollaborator = rdoDataByCollaboratorFromReports(rdoReports);
   const resolveTag = buildProjectTagResolver({ projects, tagAliases });
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
-  // A janela do cronograma continua como pista para mostrar projetos candidatos na pendência, mas
-  // não substitui o RDO do próprio dia nem resolve a alocação sozinha.
-  const scheduleWindows = buildScheduleWindows(projects);
+  const effectiveAllocationIndex = buildEffectiveAllocationIndex(effectiveAllocations);
+  // A janela global é apenas fallback legado, condicionado a RDO nominal. O Efetivo individual é
+  // consultado antes dela pela mesma função usada no cálculo financeiro.
+  const scheduleWindows = buildScheduleWindows(projects, effectiveMissionProjectIds);
   const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
   const codeByProjectId = new Map(projects.map(project => [project.id, String(project.code || '')]).filter(([, code]) => code));
   const manualProjectsByDay = new Map();
@@ -178,12 +231,18 @@ export function buildAmbiguousDayPendencies({
     const manualProjectIds = manualProjectsByDay.get(`${period.collaboratorId}:${day.date}`) || [];
     const rdoProjects = rdo.dayProjects.get(day.date) || new Map();
     const mobilizationProjectIds = rdo.mobilizationProjectsByDate?.get(day.date) || new Set();
+    const effectiveProjectIds = effectiveProjectsForDay({
+      effectiveAllocationIndex,
+      collaboratorId: period.collaboratorId,
+      dateKey: day.date
+    });
     const decision = buildDailyProjectWeights({
       tags: day.tags,
       rdoProjects,
       resolveTag,
       manualProjectIds,
       mobilizationProjectIds,
+      effectiveProjectIds,
       scheduleWindowProjectIds: scheduleWindowsForDay({
         scheduleWindows,
         eligibleByProject: scheduleEligibility,
@@ -192,13 +251,7 @@ export function buildAmbiguousDayPendencies({
       }),
       missionGroupProjectsByProjectId
     });
-    if (![
-      'UNCONFIRMED_MULTIPLE_TAGS',
-      'AMBIGUOUS_WITHOUT_TAGS',
-      'TAG_RDO_CONFLICT',
-      'MOBILIZATION_RDO_AMBIGUOUS',
-      'NO_RDO_EVIDENCE'
-    ].includes(decision.reason)) continue;
+    if (!allocationDecisionRequiresAction(decision)) continue;
     const tagProjectIds = new Set((day.tags || []).map(resolveTag).filter(Boolean));
     const rdoProjectIds = new Set(rdoProjects.keys());
     const projectIds = new Set([
@@ -206,18 +259,13 @@ export function buildAmbiguousDayPendencies({
       ...rdoProjectIds,
       ...(decision.candidateProjectIds || [])
     ]);
-    if (decision.reason === 'NO_RDO_EVIDENCE' && projectIds.size === 0) continue;
     pending.push({
       externalEmployeeId: period.externalEmployeeId,
       date: day.date,
       projectCodes: [...projectIds].map(id => codeByProjectId.get(id)).filter(Boolean).sort(),
       tagProjectCodes: [...tagProjectIds].map(id => codeByProjectId.get(id)).filter(Boolean).sort(),
       rdoProjectCodes: [...rdoProjectIds].map(id => codeByProjectId.get(id)).filter(Boolean).sort(),
-      reason: decision.reason === 'TAG_RDO_CONFLICT'
-        ? 'TAG_RDO_CONFLICT'
-        : decision.reason === 'MOBILIZATION_RDO_AMBIGUOUS'
-          ? 'MOBILIZATION_RDO_AMBIGUOUS'
-          : 'RDO_NOT_CONFIRMED',
+      reason: decision.reason,
       ...((day.tags || []).some(isPontoTravelTag) ? { travelContext: true } : {})
     });
   }
@@ -233,7 +281,9 @@ export function filterCurrentlyResolvedAmbiguousDays({
   projects = [],
   rdoReports = [],
   manualDayOverrides = [],
-  missionGroups = []
+  missionGroups = [],
+  effectiveAllocations = [],
+  effectiveMissionProjectIds = []
 } = {}) {
   const collaboratorByExternalId = new Map();
   for (const link of periodLinks) {
@@ -247,7 +297,8 @@ export function filterCurrentlyResolvedAmbiguousDays({
     .map(project => [String(project.code).trim(), project.id]));
   const rdoByCollaborator = rdoDataByCollaboratorFromReports(rdoReports);
   const missionGroupProjectsByProjectId = buildMissionGroupProjectIndex(missionGroups);
-  const scheduleWindows = buildScheduleWindows(projects);
+  const effectiveAllocationIndex = buildEffectiveAllocationIndex(effectiveAllocations);
+  const scheduleWindows = buildScheduleWindows(projects, effectiveMissionProjectIds);
   const scheduleEligibility = buildScheduleWindowEligibility(scheduleWindows, rdoByCollaborator);
   const manualProjectsByDay = new Map();
   for (const item of manualDayOverrides) {
@@ -263,6 +314,11 @@ export function filterCurrentlyResolvedAmbiguousDays({
     const collaboratorRdo = rdoByCollaborator.get(collaboratorId);
     const rdoProjects = collaboratorRdo?.dayProjects?.get(item.date) || new Map();
     const mobilizationProjectIds = collaboratorRdo?.mobilizationProjectsByDate?.get(item.date) || new Set();
+    const effectiveProjectIds = effectiveProjectsForDay({
+      effectiveAllocationIndex,
+      collaboratorId,
+      dateKey: item.date
+    });
     const decision = buildDailyProjectWeights({
       tags: item.travelContext
         ? ['EM VIAGEM', ...(item.tagProjectCodes || [])]
@@ -271,6 +327,7 @@ export function filterCurrentlyResolvedAmbiguousDays({
       resolveTag: code => projectIdByCode.get(String(code).trim()) || null,
       manualProjectIds,
       mobilizationProjectIds,
+      effectiveProjectIds,
       scheduleWindowProjectIds: scheduleWindowsForDay({
         scheduleWindows,
         eligibleByProject: scheduleEligibility,
@@ -279,7 +336,7 @@ export function filterCurrentlyResolvedAmbiguousDays({
       }),
       missionGroupProjectsByProjectId
     });
-    return decision.allocations.length === 0;
+    return allocationDecisionRequiresAction(decision);
   });
 }
 
@@ -455,7 +512,17 @@ export function createPontoMaisSyncService({
       const ignoredExternalEmployeeIds = await refreshExternalEmployeeDirectory(employees, startedAt);
       const workDays = await client.listWorkDays(startDate, endDate);
       const timeCards = await client.listTimeCards(startDate, endDate);
-      const [collaborators, externalLinks, projects, tagAliases, rdoReports, manualDayOverrides, missionGroups] = await Promise.all([
+      const [
+        collaborators,
+        externalLinks,
+        projects,
+        tagAliases,
+        rdoReports,
+        manualDayOverrides,
+        missionGroups,
+        effectiveAllocations,
+        effectiveMissionProjectIds
+      ] = await Promise.all([
         db.collaborator.findMany({
           select: { id: true, name: true, cpf: true, registrationNumber: true }
         }),
@@ -474,12 +541,16 @@ export function createPontoMaisSyncService({
         db.report.findMany({
           where: {
             deletedAt: null,
-            reportDate: { gte: dateFromKey(startDate), lt: new Date(dateFromKey(endDate).getTime() + 86400000) },
             OR: [
               { reportType: 'RDO' },
-              { daytimeWorkedMinutes: { gt: 0 } },
-              { nighttimeWorkedMinutes: { gt: 0 } },
-              { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
+              {
+                reportDate: { gte: dateFromKey(startDate), lt: new Date(dateFromKey(endDate).getTime() + 86400000) },
+                OR: [
+                  { daytimeWorkedMinutes: { gt: 0 } },
+                  { nighttimeWorkedMinutes: { gt: 0 } },
+                  { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
+                ]
+              }
             ]
           },
           select: {
@@ -512,7 +583,9 @@ export function createPontoMaisSyncService({
               members: { select: { projectId: true } }
             }
           })
-          : Promise.resolve([])
+          : Promise.resolve([]),
+        getOfficialEffectiveAllocations(db),
+        getOfficialEffectiveMissionProjectIds(db)
       ]);
 
       const normalized = normalizePontoMaisSnapshot({
@@ -533,7 +606,9 @@ export function createPontoMaisSyncService({
         projects,
         tagAliases,
         manualDayOverrides,
-        missionGroups
+        missionGroups,
+        effectiveAllocations,
+        effectiveMissionProjectIds
       });
       const pendingCount = normalized.pending.employees.length
         + normalized.pending.projectTags.length
@@ -723,7 +798,17 @@ export function createPontoMaisSyncService({
         || left.externalEmployeeId.localeCompare(right.externalEmployeeId)
       ))
     };
-    const [employeeLinks, tagAliases, ignoredEmployees, ignoredTags, storedPeriods, projects, missionGroups] = await Promise.all([
+    const [
+      employeeLinks,
+      tagAliases,
+      ignoredEmployees,
+      ignoredTags,
+      storedPeriods,
+      projects,
+      missionGroups,
+      effectiveAllocations,
+      effectiveMissionProjectIds
+    ] = await Promise.all([
       db.pontoExternalEmployeeLink.findMany({
         where: { externalEmployeeId: { in: pending.employees.map(item => item.externalEmployeeId) } },
         select: { externalEmployeeId: true }
@@ -768,7 +853,9 @@ export function createPontoMaisSyncService({
             members: { select: { projectId: true } }
           }
         })
-        : Promise.resolve([])
+        : Promise.resolve([]),
+      getOfficialEffectiveAllocations(db),
+      getOfficialEffectiveMissionProjectIds(db)
     ]);
     const linkedEmployees = new Set(employeeLinks.map(item => String(item.externalEmployeeId)));
     const linkedTags = new Set(tagAliases.map(item => normalizeProjectTag(item.normalizedTag)));
@@ -780,15 +867,6 @@ export function createPontoMaisSyncService({
     ])].sort();
     const reportDates = allDateKeys.map(dateFromKey);
     const collaboratorIds = [...new Set(storedPeriods.map(item => item.collaboratorId).filter(Boolean))];
-    const relevantMobilizationProjects = projects.filter(project => {
-      if (!project?.mobilizationDate) return false;
-      const mobilizationDate = new Date(project.mobilizationDate);
-      return !Number.isNaN(mobilizationDate.getTime())
-        && allDateKeys.includes(mobilizationDate.toISOString().slice(0, 10));
-    });
-    const earliestMobilizationDate = relevantMobilizationProjects.length
-      ? new Date(Math.min(...relevantMobilizationProjects.map(project => new Date(project.mobilizationDate).getTime())))
-      : null;
     const reportScope = [{
       reportDate: { in: reportDates },
       OR: [
@@ -798,11 +876,13 @@ export function createPontoMaisSyncService({
         { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
       ]
     }];
-    if (earliestMobilizationDate && collaboratorIds.length) {
+    if (allDateKeys.length && collaboratorIds.length) {
       reportScope.push({
         reportType: 'RDO',
-        projectId: { in: relevantMobilizationProjects.map(project => project.id) },
-        reportDate: { gt: earliestMobilizationDate, lte: now() },
+        // O fallback legado precisa saber se o colaborador aparece nominalmente em algum RDO do
+        // período, não apenas no dia pendente. Relatórios independentes continuam restritos aos
+        // dias exatos acima; este escopo ampliado é exclusivo para RDO.
+        reportDate: { lte: now() },
         collaborators: { some: { collaboratorId: { in: collaboratorIds } } }
       });
     }
@@ -844,7 +924,9 @@ export function createPontoMaisSyncService({
       projects,
       tagAliases,
       manualDayOverrides,
-      missionGroups
+      missionGroups,
+      effectiveAllocations,
+      effectiveMissionProjectIds
     })) {
       currentAmbiguousByDay.set(`${item.externalEmployeeId}:${item.date}`, item);
     }
@@ -861,7 +943,9 @@ export function createPontoMaisSyncService({
         projects,
         rdoReports,
         manualDayOverrides,
-        missionGroups
+        missionGroups,
+        effectiveAllocations,
+        effectiveMissionProjectIds
       });
     }
     const externalDirectory = ambiguousDays.length

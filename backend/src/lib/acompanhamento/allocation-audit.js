@@ -9,7 +9,6 @@
 
 import prisma from '../prisma.js';
 import { computeCollaboratorRates } from './labor-cost.js';
-import { getPontoPendencyCutoffDateKey } from './settings.js';
 import { extractMissionCode, normalizeProjectTag } from '../pontomais/normalize.js';
 
 // O cálculo completo é caro (mescla todos os imports + relatórios do período). O painel usa
@@ -18,14 +17,28 @@ import { extractMissionCode, normalizeProjectTag } from '../pontomais/normalize.
 let cache = { fingerprint: null, value: null };
 
 async function currentFingerprint() {
-  const [imports, reports, reportCollaborators, overrides, aliases, projects, ignoredTags] = await Promise.all([
+  const [
+    imports,
+    reports,
+    reportCollaborators,
+    overrides,
+    aliases,
+    projects,
+    ignoredTags,
+    effectivePlans,
+    effectiveMissions,
+    effectiveAllocations
+  ] = await Promise.all([
     prisma.pontoImport.aggregate({ _count: { _all: true }, _max: { createdAt: true } }),
     prisma.report.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
     prisma.reportCollaborator.count(),
     prisma.pontoDayProjectOverride.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
     prisma.pontoProjectTagAlias.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
     prisma.project.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
-    prisma.pontoIgnoredProjectTag.aggregate({ _count: { _all: true }, _max: { updatedAt: true } })
+    prisma.pontoIgnoredProjectTag.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
+    prisma.efetivoPlan.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
+    prisma.efetivoMissionPlan.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
+    prisma.efetivoMissionAllocation.aggregate({ _count: { _all: true }, _max: { updatedAt: true } })
   ]);
   return JSON.stringify([
     imports._count._all, imports._max.createdAt,
@@ -34,7 +47,10 @@ async function currentFingerprint() {
     overrides._count._all, overrides._max.updatedAt,
     aliases._count._all, aliases._max.updatedAt,
     projects._count._all, projects._max.updatedAt,
-    ignoredTags._count._all, ignoredTags._max.updatedAt
+    ignoredTags._count._all, ignoredTags._max.updatedAt,
+    effectivePlans._count._all, effectivePlans._max.updatedAt,
+    effectiveMissions._count._all, effectiveMissions._max.updatedAt,
+    effectiveAllocations._count._all, effectiveAllocations._max.updatedAt
   ]);
 }
 
@@ -46,11 +62,10 @@ async function loadTrails() {
   const fingerprint = await currentFingerprint();
   if (cache.fingerprint === fingerprint && cache.value) return cache.value;
 
-  const [{ rates }, projects, ignoredTags, cutoffDateKey] = await Promise.all([
+  const [{ rates }, projects, ignoredTags] = await Promise.all([
     computeCollaboratorRates(),
     prisma.project.findMany({ select: { id: true, code: true, name: true } }),
-    prisma.pontoIgnoredProjectTag.findMany({ select: { normalizedTag: true } }),
-    getPontoPendencyCutoffDateKey()
+    prisma.pontoIgnoredProjectTag.findMany({ select: { normalizedTag: true } })
   ]);
   const projectsById = new Map(projects.map(project => [project.id, project]));
   const knownMissionCodes = new Set(projects.map(project => String(project.code || '').trim()).filter(Boolean));
@@ -59,7 +74,9 @@ async function loadTrails() {
     projectsById,
     knownMissionCodes,
     ignoredTagSet: new Set(ignoredTags.map(item => normalizeProjectTag(item.normalizedTag))),
-    cutoffDateKey
+    // A elegibilidade por RDO/Efetivo substitui o corte fixo: um projeto antigo que receba RDO
+    // passa a ser recalculado, enquanto um ponto antigo sem evidência continua fora da pendência.
+    cutoffDateKey: null
   };
   cache = { fingerprint, value };
   return value;
@@ -105,7 +122,11 @@ function decorateDay(day, projectsById, knownMissionCodes, ignoredTagSet = new S
     tagProjects: day.tagProjectIds.map(id => projectRef(projectsById, id)),
     rdoProjects: day.rdoProjects.map(item => ({ ...projectRef(projectsById, item.projectId), hours: item.hours })),
     manualProjects: day.manualProjectIds.map(id => projectRef(projectsById, id)),
+    effectiveProjects: (day.effectiveProjectIds || []).map(id => projectRef(projectsById, id)),
+    candidateProjects: (day.candidateProjectIds || []).map(id => projectRef(projectsById, id)),
     allocations: day.allocations.map(item => ({ ...projectRef(projectsById, item.projectId), weight: item.weight })),
+    planningMismatch: Boolean(day.planningMismatch),
+    pending: Boolean(day.pending),
     reason: day.reason,
     allocated,
     bucket: allocated ? null : unallocatedBucket(day, knownMissionCodes, ignoredTagSet)
@@ -118,6 +139,8 @@ const CONFLICT_REASONS = new Set([
   'UNCONFIRMED_MULTIPLE_TAGS',
   'AMBIGUOUS_WITHOUT_TAGS',
   'MOBILIZATION_RDO_AMBIGUOUS',
+  'EFFECTIVE_ALLOCATION_AMBIGUOUS',
+  'EFFECTIVE_TAG_CONFLICT',
   'SCHEDULE_WINDOW_AMBIGUOUS'
 ]);
 
@@ -199,9 +222,9 @@ export function buildAllocationAudit({
 }
 
 /*
- * Pendências de dia sem alocação. Só entram dias com horas (dia zerado é folga) e a partir da data
- * de corte configurada. Dias contíguos do mesmo colaborador viram um bloco só — é como eles
- * aparecem na prática e evita uma lista de centenas de itens equivalentes.
+ * Pendências de dia sem alocação. Só entram dias com horas e evidência operacional real que exija
+ * decisão (RDO conflitante, Efetivo ambíguo ou período divergente). Uma etiqueta isolada continua
+ * na auditoria, mas não vira pendência. Dias contíguos equivalentes são agrupados.
  */
 export async function getUnallocatedDays({ from = null, to = null } = {}) {
   const { rates, projectsById, knownMissionCodes, ignoredTagSet, cutoffDateKey } = await loadTrails();
@@ -213,24 +236,23 @@ export function groupUnallocatedDays({
   projectsById = new Map(),
   knownMissionCodes = new Set(),
   ignoredTagSet = new Set(),
-  cutoffDateKey = '0000-00-00',
+  cutoffDateKey = null,
   from = null,
   to = null
 } = {}) {
-  const start = from && from > cutoffDateKey ? from : cutoffDateKey;
   const items = [];
 
   for (const entry of rates) {
+    const trailByDate = new Map((entry.allocationTrail || []).map(day => [day.date, day]));
     const days = (entry.unresolvedDays || [])
-      // Sem RDO do colaborador não há relatório histórico suficiente para o gestor resolver.
-      // Esses dias continuam na auditoria, mas só viram pendência quando um RDO é cadastrado e a
-      // combinação das evidências gera um conflito real (TAG_RDO_CONFLICT, ambiguidade etc.).
-      .filter(day => day.reason !== 'NO_RDO_EVIDENCE' && inRange(day.date, start, to))
+      .filter(day => {
+        if (!inRange(day.date, from, to)) return false;
+        return trailByDate.get(day.date)?.pending === true;
+      })
       .map(day => day.date)
       .sort();
     if (!days.length) continue;
 
-    const trailByDate = new Map((entry.allocationTrail || []).map(day => [day.date, day]));
     let block = null;
     const flush = () => { if (block) items.push(block); block = null; };
 

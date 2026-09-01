@@ -1,15 +1,50 @@
 import { addCalendarDays, parseDateKey } from './date-only.js';
 import { missionPeriod } from './mission-period.js';
 
-export function allocationPeriod(allocation, mission = allocation?.mission) {
-  const fallback = missionPeriod(mission);
+function normalizedCycle(cycle, fallbackEndDate) {
+  const startDate = parseDateKey(cycle.mobilizationDate);
+  const isOpen = !cycle.demobilizationDate;
   return {
-    startDate: allocation?.mobilizationDate
-      ? parseDateKey(allocation.mobilizationDate)
-      : fallback.startDate,
-    endDate: allocation?.demobilizationDate
-      ? parseDateKey(allocation.demobilizationDate)
-      : fallback.endDate
+    id: cycle.id || null,
+    startDate,
+    endDate: isOpen ? (fallbackEndDate < startDate ? startDate : fallbackEndDate) : parseDateKey(cycle.demobilizationDate),
+    isOpen
+  };
+}
+
+export function missionCycles(mission) {
+  const fallback = missionPeriod(mission);
+  if (Array.isArray(mission?.cycles) && mission.cycles.length) {
+    return mission.cycles
+      .map(cycle => normalizedCycle(cycle, fallback.endDate))
+      .sort((left, right) => left.startDate.localeCompare(right.startDate));
+  }
+  return [{ id: null, ...fallback, isOpen: false }];
+}
+
+export function allocationPeriods(allocation, mission = allocation?.mission) {
+  const fallback = missionPeriod(mission);
+  if (Array.isArray(allocation?.cycles) && allocation.cycles.length) {
+    return allocation.cycles
+      .map(cycle => normalizedCycle(cycle, fallback.endDate))
+      .sort((left, right) => left.startDate.localeCompare(right.startDate));
+  }
+  if (allocation?.mobilizationDate || allocation?.demobilizationDate) {
+    return [{
+      id: null,
+      startDate: allocation?.mobilizationDate ? parseDateKey(allocation.mobilizationDate) : fallback.startDate,
+      endDate: allocation?.demobilizationDate ? parseDateKey(allocation.demobilizationDate) : fallback.endDate,
+      isOpen: false
+    }];
+  }
+  return missionCycles(mission);
+}
+
+export function allocationPeriod(allocation, mission = allocation?.mission) {
+  const periods = allocationPeriods(allocation, mission);
+  return {
+    startDate: periods[0].startDate,
+    endDate: periods.reduce((latest, period) => period.endDate > latest ? period.endDate : latest, periods[0].endDate)
   };
 }
 
@@ -22,8 +57,16 @@ export function allocationPeriodWithinMission(period, mission) {
 
 export function allocationCoversDate(allocation, mission, value) {
   const date = parseDateKey(value);
-  const period = allocationPeriod(allocation, mission);
-  return period.startDate <= date && period.endDate >= date;
+  return allocationPeriods(allocation, mission).some(period => (
+    period.startDate <= date && period.endDate >= date
+  ));
+}
+
+export function missionCoversDate(mission, value) {
+  const date = parseDateKey(value);
+  return missionCycles(mission).some(period => (
+    period.startDate <= date && period.endDate >= date
+  ));
 }
 
 export function maximumConcurrentAllocationCount(periods = []) {

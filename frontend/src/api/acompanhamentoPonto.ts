@@ -434,7 +434,11 @@ export interface AllocationDay {
   tagProjects: AllocationProjectRef[];
   rdoProjects: Array<AllocationProjectRef & { hours: number }>;
   manualProjects: AllocationProjectRef[];
+  effectiveProjects: AllocationProjectRef[];
+  candidateProjects: AllocationProjectRef[];
   allocations: Array<AllocationProjectRef & { weight: number }>;
+  planningMismatch: boolean;
+  pending: boolean;
   reason: string;
   allocated: boolean;
   bucket: 'ACTIONABLE' | 'MISSING_PROJECT' | null;
@@ -468,7 +472,7 @@ export interface UnallocatedBlock {
 }
 
 export interface UnallocatedDays {
-  cutoffDateKey: string;
+  cutoffDateKey: string | null;
   actionable: UnallocatedBlock[];
   missingProjects: UnallocatedBlock[];
   counts: {
