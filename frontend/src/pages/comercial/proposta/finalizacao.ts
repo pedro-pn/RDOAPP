@@ -17,6 +17,21 @@ export type DadosParaValidarFinalizacao = {
   contactId: string;
   cardChoice: EscolhaDeCard;
   existingOpportunityId: string;
+  /** Sem CRM disponível, os PDFs e o SharePoint continuam sendo processados. */
+  exigirIntegracao?: boolean;
+};
+
+export type PendenciaDaFinalizacao = {
+  mensagem: string;
+  etapa: 'cliente' | 'revisao';
+  campo:
+    | 'email'
+    | 'cnpj'
+    | 'department'
+    | 'seller'
+    | 'empresaCrm'
+    | 'pipeline'
+    | 'card';
 };
 
 /**
@@ -48,30 +63,76 @@ export const ETAPAS_VISIVEIS_DA_FINALIZACAO: ReadonlyArray<{
 ];
 
 /** A primeira pendência, na ordem exata aplicada antes de começar a gerar. */
-export function validarFinalizacao(dados: DadosParaValidarFinalizacao): string {
+export function primeiraPendenciaDaFinalizacao(
+  dados: DadosParaValidarFinalizacao
+): PendenciaDaFinalizacao | null {
   if (!emailValido(dados.email)) {
-    return 'Informe um e-mail válido, como nome@empresa.com ou nome@empresa.com.br.';
+    return {
+      mensagem:
+        'Informe um e-mail válido, como nome@empresa.com ou nome@empresa.com.br.',
+      etapa: 'cliente',
+      campo: 'email'
+    };
   }
   if (!cnpjValido(dados.cnpj)) {
-    return 'Informe um CNPJ válido com 14 dígitos.';
+    return {
+      mensagem: 'Informe um CNPJ válido com 14 dígitos.',
+      etapa: 'cliente',
+      campo: 'cnpj'
+    };
   }
   if (dados.department.trim() === '0') {
-    return 'Informe o departamento correto ou deixe o campo em branco.';
+    return {
+      mensagem: 'Informe o departamento correto ou deixe o campo em branco.',
+      etapa: 'cliente',
+      campo: 'department'
+    };
   }
   if (!dados.seller.trim() || !dados.estimator.trim()) {
-    return 'Selecione o consultor de vendas e o orçamentista.';
+    return {
+      mensagem: 'Selecione o consultor de vendas e o orçamentista.',
+      etapa: 'cliente',
+      campo: 'seller'
+    };
   }
-  if (!dados.pipelineId.trim()) return 'Selecione o funil do Nectar.';
+  if (dados.exigirIntegracao === false) return null;
+  if (!dados.pipelineId.trim()) {
+    return {
+      mensagem: 'Selecione o funil do Nectar.',
+      etapa: 'revisao',
+      campo: 'pipeline'
+    };
+  }
   if (!dados.companyId.trim() || !dados.contactId.trim()) {
-    return 'Selecione a empresa e o contato diretamente pelo Nectar antes de finalizar.';
+    return {
+      mensagem:
+        'Selecione a empresa e o contato diretamente pelo Nectar antes de finalizar.',
+      etapa: 'cliente',
+      campo: 'empresaCrm'
+    };
   }
   if (!dados.cardChoice) {
-    return 'Escolha se deseja usar um card existente ou criar um card novo no Nectar.';
+    return {
+      mensagem:
+        'Escolha se deseja usar um card existente ou criar um card novo no Nectar.',
+      etapa: 'revisao',
+      campo: 'card'
+    };
   }
   if (dados.cardChoice === 'existing' && !dados.existingOpportunityId.trim()) {
-    return 'Localize e selecione o card existente do Nectar antes de finalizar.';
+    return {
+      mensagem:
+        'Localize e selecione o card existente do Nectar antes de finalizar.',
+      etapa: 'revisao',
+      campo: 'card'
+    };
   }
-  return '';
+  return null;
+}
+
+/** Compatibilidade do contrato puro já usado pelos testes e demais consumidores. */
+export function validarFinalizacao(dados: DadosParaValidarFinalizacao): string {
+  return primeiraPendenciaDaFinalizacao(dados)?.mensagem || '';
 }
 
 /** Filtra uma cópia — a lista guardada continua contendo sempre o par emitido. */

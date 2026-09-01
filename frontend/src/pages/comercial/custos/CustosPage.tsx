@@ -122,11 +122,12 @@ export function CustosPage() {
 
   /** Reabre o rascunho persistido pela conta quando o id está no endereço. */
   useEffect(() => {
-    if (!levantamentoAtualId || atualCarregado.current === levantamentoAtualId) return;
+    if (!levantamentoAtualId || atualCarregado.current === levantamentoAtualId)
+      return;
 
     let vivo = true;
     obterLevantamento(levantamentoAtualId)
-      .then(atual => {
+      .then((atual) => {
         if (!vivo || !atual.payload) return;
         // No StrictMode, o primeiro efeito é desmontado e executado de novo.
         // Marcar antes da resposta bloqueava a segunda leitura e descartava a
@@ -138,9 +139,14 @@ export function CustosPage() {
         });
         setVersaoDoRascunho(atual.updatedAt || '');
       })
-      .catch(error => {
+      .catch((error) => {
         if (vivo) {
-          setRecado(mensagemDeErro(error, 'Não foi possível recarregar o rascunho salvo.'));
+          setRecado(
+            mensagemDeErro(
+              error,
+              'Não foi possível recarregar o rascunho salvo.'
+            )
+          );
         }
       });
 
@@ -162,7 +168,7 @@ export function CustosPage() {
 
     let vivo = true;
     obterLevantamento(levantamentoOrigemId)
-      .then(anterior => {
+      .then((anterior) => {
         if (!vivo || !anterior.payload) return;
         origemCarregada.current = levantamentoOrigemId;
         setDraft({
@@ -170,11 +176,14 @@ export function CustosPage() {
           estimatorName: user?.name || anterior.payload.estimatorName || ''
         });
       })
-      .catch(error => {
+      .catch((error) => {
         if (vivo) {
           origemCarregada.current = '';
           setRecado(
-            mensagemDeErro(error, 'Não foi possível recarregar o levantamento anterior.')
+            mensagemDeErro(
+              error,
+              'Não foi possível recarregar o levantamento anterior.'
+            )
           );
         }
       });
@@ -258,7 +267,7 @@ export function CustosPage() {
       proposalCode: base,
       revisionNumber: modo === 'revision' ? revisionNumber : 0,
       title: String(draft.title || 'Rascunho de levantamento'),
-      mode: modo === 'revision' ? 'REVISAO' as const : 'NOVA' as const,
+      mode: modo === 'revision' ? ('REVISAO' as const) : ('NOVA' as const),
       status: 'RASCUNHO' as const,
       payload: draft
     };
@@ -346,7 +355,8 @@ export function CustosPage() {
       proximos.set('base', String(revisao.base_number));
       proximos.set('revisao', String(revisao.nextRevision));
       proximos.set('secao', 'premises');
-      if (revisao.costEstimateId) proximos.set('origem', revisao.costEstimateId);
+      if (revisao.costEstimateId)
+        proximos.set('origem', revisao.costEstimateId);
       setParams(proximos, { replace: true });
 
       setMostrarRevisao(false);
@@ -404,7 +414,10 @@ export function CustosPage() {
       try {
         gravado = await persistir('SALVO');
       } catch (error) {
-        if (!criarPropostaDepois || !(error instanceof ComercialValidationError)) {
+        if (
+          !criarPropostaDepois ||
+          !(error instanceof ComercialValidationError)
+        ) {
           throw error;
         }
 
@@ -427,7 +440,8 @@ export function CustosPage() {
 
       if (criarPropostaDepois) {
         setRecado('');
-        const parametrosDaProposta = parametrosDaPropostaComLevantamento(gravado);
+        const parametrosDaProposta =
+          parametrosDaPropostaComLevantamento(gravado);
         navigate(
           `${moduleRoutePath('comercial', 'propostas')}?${parametrosDaProposta.toString()}`
         );
@@ -446,7 +460,7 @@ export function CustosPage() {
 
       if (error instanceof ComercialValidationError) {
         const destino = primeiraSecaoPendente(
-          error.issues.map(item => item.path || '').filter(Boolean)
+          error.issues.map((item) => item.path || '').filter(Boolean)
         );
         aplicarIssuesDoServidor(error.issues, destino || secao);
         if (destino) {
@@ -472,6 +486,26 @@ export function CustosPage() {
     }
   }
 
+  async function abrirPropostaDoLevantamentoSalvo(id: string) {
+    if (salvando) return;
+    setSalvando(true);
+    setRecado('Abrindo a criação da proposta...');
+    try {
+      const levantamentoSalvo = await obterLevantamento(id);
+      const parametrosDaProposta =
+        parametrosDaPropostaComLevantamento(levantamentoSalvo);
+      navigate(
+        `${moduleRoutePath('comercial', 'propostas')}?${parametrosDaProposta.toString()}`
+      );
+    } catch (error) {
+      setRecado(
+        mensagemDeErro(error, 'Não foi possível abrir a criação da proposta.')
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   /** Valida a conclusão mantendo os rótulos finais estáveis no resumo. */
   function concluirLevantamento(criarPropostaDepois: boolean) {
     if (deveRevelarErrosAoAcionar(acao, secao, criarPropostaDepois)) {
@@ -479,7 +513,7 @@ export function CustosPage() {
     }
 
     if (acao.kind === 'goto') {
-      void persistirRascunho().then(idPersistido => {
+      void persistirRascunho().then((idPersistido) => {
         if (!idPersistido) return;
         trocarSecao(acao.target, !criarPropostaDepois, idPersistido);
         if (criarPropostaDepois) {
@@ -498,7 +532,7 @@ export function CustosPage() {
       revelarErros(destino);
 
       if (criarPropostaDepois) {
-        void persistirRascunho().then(idPersistido => {
+        void persistirRascunho().then((idPersistido) => {
           if (!idPersistido) return;
           trocarSecao(destino, false, idPersistido);
           setRecado(
@@ -537,282 +571,304 @@ export function CustosPage() {
         modo !== null ? (
           <FaixaIndicadores
             levantamento={levantamento}
-            modoLabel={modo === 'revision' ? `Revisão de ${base}` : 'Levantamento novo'}
+            modoLabel={
+              modo === 'revision' ? `Revisão de ${base}` : 'Levantamento novo'
+            }
           />
         ) : undefined
       }
     >
-        {/* O diálogo só aparece quando NÃO há modo no endereço (FR-044): ele
+      {/* O diálogo só aparece quando NÃO há modo no endereço (FR-044): ele
             serve para escolher o modo, não para confirmá-lo. Recarregar com
             `?modo=` já definido volta direto ao trabalho. */}
-        {modo === null && (
-          <div className="com-overlay" role="dialog" aria-modal="true" aria-labelledby="com-modo-titulo">
-            <section className="com-painel com-modo-card">
-              <BotaoFecharDialogo fechar={() => navigate(moduleRoutePath('comercial', 'index'))} />
-              <img
-                className="com-modo-logo"
-                src={LOGO_URL}
-                alt="Filtrovali"
-              />
-              <span className="com-eyebrow">LEVANTAMENTO DE CUSTOS</span>
-              <h1 id="com-modo-titulo">Como deseja começar?</h1>
-              <p>
-                O levantamento será vinculado à proposta técnica e comercial com a mesma
-                numeração.
-              </p>
+      {modo === null && (
+        <div
+          className="com-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="com-modo-titulo"
+        >
+          <section className="com-painel com-modo-card">
+            <BotaoFecharDialogo
+              fechar={() => navigate(moduleRoutePath('comercial', 'index'))}
+            />
+            <img className="com-modo-logo" src={LOGO_URL} alt="Filtrovali" />
+            <span className="com-eyebrow">LEVANTAMENTO DE CUSTOS</span>
+            <h1 id="com-modo-titulo">Como deseja começar?</h1>
+            <p>
+              O levantamento será vinculado à proposta técnica e comercial com a
+              mesma numeração.
+            </p>
 
-              <div className="com-modo-opcoes">
-                <button type="button" disabled={reservando} onClick={iniciarNova}>
-                  <MarcaDeOpcao tipo="nova" />
-                  <strong>Nova proposta</strong>
-                  <span>
-                    Reserva o próximo número e inicia um levantamento por fases.
-                  </span>
-                </button>
+            <div className="com-modo-opcoes">
+              <button type="button" disabled={reservando} onClick={iniciarNova}>
+                <MarcaDeOpcao tipo="nova" />
+                <strong>Nova proposta</strong>
+                <span>
+                  Reserva o próximo número e inicia um levantamento por fases.
+                </span>
+              </button>
 
+              <button type="button" onClick={() => setMostrarRevisao(true)}>
+                <MarcaDeOpcao tipo="revisao" />
+                <strong>Revisar proposta</strong>
+                <span>
+                  Carrega o último levantamento e preserva toda a composição.
+                </span>
+              </button>
+            </div>
+
+            {recado && <p className="com-recado">{recado}</p>}
+
+            {mostrarRevisao && (
+              <div className="com-revisao-entrada">
+                <div className="field-group">
+                  <label htmlFor="com-base-proposta">
+                    Número da proposta existente
+                  </label>
+                  <input
+                    id="com-base-proposta"
+                    autoFocus
+                    value={baseDigitada}
+                    placeholder="Ex.: 4418"
+                    onChange={(event) =>
+                      setBaseDigitada(event.target.value.replace(/\D/g, ''))
+                    }
+                  />
+                </div>
                 <button
                   type="button"
-                  onClick={() => setMostrarRevisao(true)}
+                  className="com-btn com-btn-fantasma"
+                  disabled={carregandoRevisao || !baseDigitada}
+                  onClick={iniciarRevisao}
                 >
-                  <MarcaDeOpcao tipo="revisao" />
-                  <strong>Revisar proposta</strong>
-                  <span>
-                    Carrega o último levantamento e preserva toda a composição.
-                  </span>
+                  {carregandoRevisao ? 'Carregando...' : 'Carregar revisão'}
                 </button>
               </div>
+            )}
+          </section>
+        </div>
+      )}
 
-              {recado && <p className="com-recado">{recado}</p>}
+      {mostrarConfirmacao && (
+        <div
+          className="com-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="com-confirmar-titulo"
+        >
+          <section className="com-painel com-modo-card">
+            {/* Aqui fechar volta ao levantamento, não ao menu: este diálogo
+                  interrompe um trabalho em andamento, e o trabalho continua. */}
+            <BotaoFecharDialogo
+              fechar={() => setMostrarConfirmacao(false)}
+              rotulo="Fechar e voltar ao levantamento"
+            />
+            <img className="com-modo-logo" src={LOGO_URL} alt="Filtrovali" />
+            <span className="com-eyebrow">VINCULAR LEVANTAMENTO</span>
+            <h1 id="com-confirmar-titulo">Confirme a proposta</h1>
+            <p>
+              O levantamento, a proposta técnica e a comercial usarão o código{' '}
+              <strong>{codigo}</strong>.
+            </p>
 
-              {mostrarRevisao && (
-                <div className="com-revisao-entrada">
-                  <div className="field-group">
-                    <label htmlFor="com-base-proposta">Número da proposta existente</label>
-                    <input
-                      id="com-base-proposta"
-                      autoFocus
-                      value={baseDigitada}
-                      placeholder="Ex.: 4418"
-                      onChange={event => setBaseDigitada(event.target.value.replace(/\D/g, ''))}
-                    />
-                  </div>
+            <div className="com-modo-opcoes com-modo-tres">
+              <button
+                type="button"
+                disabled={salvando}
+                onClick={() => void salvar(true)}
+              >
+                <MarcaDeOpcao tipo="ok" />
+                <strong>
+                  {salvando ? 'Salvando...' : `Confirmar ${codigo}`}
+                </strong>
+                <span>Salvar e abrir a criação das propostas.</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={salvando || reservando}
+                onClick={() => {
+                  setMostrarConfirmacao(false);
+                  iniciarNova();
+                }}
+              >
+                <MarcaDeOpcao tipo="nova" />
+                <strong>Trocar para nova</strong>
+                <span>Reservar outra numeração.</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarConfirmacao(false);
+                  setParams(new URLSearchParams(), { replace: true });
+                  setMostrarRevisao(true);
+                }}
+              >
+                <MarcaDeOpcao tipo="revisao" />
+                <strong>Trocar para revisão</strong>
+                <span>Selecionar uma proposta existente.</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {modo !== null && (
+        <>
+          {/* L3 — a recuperação é OFERECIDA, nunca aplicada em silêncio.
+                Restaurar sem perguntar é pior do que perder: o usuário abre a
+                tela achando que começou do zero e digita por cima. */}
+          {rascunho.oferta && (
+            <section
+              className="com-painel com-oferta-rascunho"
+              role="alertdialog"
+            >
+              <div>
+                <strong>Recuperar rascunho não salvo?</strong>
+                <p>
+                  Há trabalho deste levantamento guardado neste navegador,{' '}
+                  {rascunho.idadeDaOferta}. Ele não chegou a ser salvo no
+                  servidor.
+                </p>
+              </div>
+              <div className="com-oferta-acoes">
+                <button
+                  type="button"
+                  className="com-btn com-btn-primario"
+                  onClick={() => {
+                    const dados = rascunho.recuperar();
+                    if (dados) setDraft(dados as Record<string, unknown>);
+                  }}
+                >
+                  Recuperar
+                </button>
+                <button
+                  type="button"
+                  className="com-btn com-btn-fantasma"
+                  onClick={rascunho.descartarOferta}
+                >
+                  Começar do zero
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* Tira de seções. As abas são LIVRES: dá para pular para qualquer
+                uma a qualquer momento. A cadeia do rodapé guia, não prende. */}
+          <nav
+            ref={formularioRef}
+            className="com-workflow-nav"
+            aria-label="Etapas do levantamento"
+          >
+            {SECOES.map((item, indice) => (
+              <button
+                key={item.value}
+                type="button"
+                className={secao === item.value ? 'is-ativa' : undefined}
+                aria-current={secao === item.value ? 'step' : undefined}
+                onClick={() => trocarSecao(item.value)}
+              >
+                <b aria-hidden="true">{indice + 1}</b>
+                <span className="com-quebrar">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {secao === 'premises' ? (
+            <PremissasSection levantamento={levantamento} />
+          ) : secao === 'labor' ? (
+            <MaoDeObraSection levantamento={levantamento} />
+          ) : secao === 'inputs' ? (
+            <InsumosSection levantamento={levantamento} />
+          ) : secao === 'logistics' ? (
+            <LogisticaSection levantamento={levantamento} />
+          ) : (
+            <ResumoSection levantamento={levantamento} />
+          )}
+
+          {recado && (
+            <p className="com-recado com-recado-tela" role="status">
+              {recado}
+            </p>
+          )}
+
+          <footer className="com-rodape">
+            <button
+              type="button"
+              className="com-btn com-btn-fantasma"
+              onClick={() => navigate(moduleRoutePath('comercial', 'index'))}
+            >
+              Cancelar e voltar
+            </button>
+
+            <div className="com-codigo-vinculado">
+              <small>LEVANTAMENTO E PROPOSTA</small>
+              <strong>{codigo}</strong>
+            </div>
+
+            <div className="com-rodape-acoes">
+              {secao === 'summary' ? (
+                <>
                   <button
                     type="button"
                     className="com-btn com-btn-fantasma"
-                    disabled={carregandoRevisao || !baseDigitada}
-                    onClick={iniciarRevisao}
+                    disabled={salvando || salvandoRascunho || salvo !== null}
+                    onClick={() => concluirLevantamento(false)}
                   >
-                    {carregandoRevisao ? 'Carregando...' : 'Carregar revisão'}
+                    {salvando
+                      ? 'Salvando...'
+                      : salvo
+                        ? 'Levantamento salvo'
+                        : 'Salvar'}
                   </button>
-                </div>
-              )}
-            </section>
-          </div>
-        )}
-
-        {mostrarConfirmacao && (
-          <div
-            className="com-overlay"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="com-confirmar-titulo"
-          >
-            <section className="com-painel com-modo-card">
-              {/* Aqui fechar volta ao levantamento, não ao menu: este diálogo
-                  interrompe um trabalho em andamento, e o trabalho continua. */}
-              <BotaoFecharDialogo
-                fechar={() => setMostrarConfirmacao(false)}
-                rotulo="Fechar e voltar ao levantamento"
-              />
-              <img
-                className="com-modo-logo"
-                src={LOGO_URL}
-                alt="Filtrovali"
-              />
-              <span className="com-eyebrow">VINCULAR LEVANTAMENTO</span>
-              <h1 id="com-confirmar-titulo">Confirme a proposta</h1>
-              <p>
-                O levantamento, a proposta técnica e a comercial usarão o código{' '}
-                <strong>{codigo}</strong>.
-              </p>
-
-              <div className="com-modo-opcoes com-modo-tres">
-                <button type="button" disabled={salvando} onClick={() => void salvar(true)}>
-                  <MarcaDeOpcao tipo="ok" />
-                  <strong>{salvando ? 'Salvando...' : `Confirmar ${codigo}`}</strong>
-                  <span>
-                    Salvar e abrir a criação das propostas.
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={salvando || reservando}
-                  onClick={() => {
-                    setMostrarConfirmacao(false);
-                    iniciarNova();
-                  }}
-                >
-                  <MarcaDeOpcao tipo="nova" />
-                  <strong>Trocar para nova</strong>
-                  <span>Reservar outra numeração.</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMostrarConfirmacao(false);
-                    setParams(new URLSearchParams(), { replace: true });
-                    setMostrarRevisao(true);
-                  }}
-                >
-                  <MarcaDeOpcao tipo="revisao" />
-                  <strong>Trocar para revisão</strong>
-                  <span>Selecionar uma proposta existente.</span>
-                </button>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {modo !== null && (
-          <>
-            {/* L3 — a recuperação é OFERECIDA, nunca aplicada em silêncio.
-                Restaurar sem perguntar é pior do que perder: o usuário abre a
-                tela achando que começou do zero e digita por cima. */}
-            {rascunho.oferta && (
-              <section className="com-painel com-oferta-rascunho" role="alertdialog">
-                <div>
-                  <strong>Recuperar rascunho não salvo?</strong>
-                  <p>
-                    Há trabalho deste levantamento guardado neste navegador,{' '}
-                    {rascunho.idadeDaOferta}. Ele não chegou a ser salvo no servidor.
-                  </p>
-                </div>
-                <div className="com-oferta-acoes">
                   <button
                     type="button"
                     className="com-btn com-btn-primario"
-                    onClick={() => {
-                      const dados = rascunho.recuperar();
-                      if (dados) setDraft(dados as Record<string, unknown>);
-                    }}
+                    disabled={salvando || salvandoRascunho}
+                    onClick={() =>
+                      salvo
+                        ? void abrirPropostaDoLevantamentoSalvo(salvo)
+                        : concluirLevantamento(true)
+                    }
                   >
-                    Recuperar
+                    {salvando
+                      ? 'Salvando...'
+                      : salvo
+                        ? 'Criar proposta com este levantamento'
+                        : 'Finalizar e criar proposta'}
                   </button>
+                </>
+              ) : (
+                <>
                   <button
                     type="button"
                     className="com-btn com-btn-fantasma"
-                    onClick={rascunho.descartarOferta}
+                    disabled={salvando || salvandoRascunho || salvo !== null}
+                    onClick={() => void persistirRascunho()}
                   >
-                    Começar do zero
+                    {salvandoRascunho
+                      ? 'Salvando rascunho...'
+                      : 'Salvar rascunho'}
                   </button>
-                </div>
-              </section>
-            )}
 
-            {/* Tira de seções. As abas são LIVRES: dá para pular para qualquer
-                uma a qualquer momento. A cadeia do rodapé guia, não prende. */}
-            <nav
-              ref={formularioRef}
-              className="com-workflow-nav"
-              aria-label="Etapas do levantamento"
-            >
-              {SECOES.map((item, indice) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  className={secao === item.value ? 'is-ativa' : undefined}
-                  aria-current={secao === item.value ? 'step' : undefined}
-                  onClick={() => trocarSecao(item.value)}
-                >
-                  <b aria-hidden="true">{indice + 1}</b>
-                  <span className="com-quebrar">{item.label}</span>
-                </button>
-              ))}
-            </nav>
-
-            {secao === 'premises' ? (
-              <PremissasSection levantamento={levantamento} />
-            ) : secao === 'labor' ? (
-              <MaoDeObraSection levantamento={levantamento} />
-            ) : secao === 'inputs' ? (
-              <InsumosSection levantamento={levantamento} />
-            ) : secao === 'logistics' ? (
-              <LogisticaSection levantamento={levantamento} />
-            ) : (
-              <ResumoSection levantamento={levantamento} />
-            )}
-
-            {recado && (
-              <p className="com-recado com-recado-tela" role="status">
-                {recado}
-              </p>
-            )}
-
-            <footer className="com-rodape">
-              <button
-                type="button"
-                className="com-btn com-btn-fantasma"
-                onClick={() => navigate(moduleRoutePath('comercial', 'index'))}
-              >
-                Cancelar e voltar
-              </button>
-
-              <div className="com-codigo-vinculado">
-                <small>LEVANTAMENTO E PROPOSTA</small>
-                <strong>{codigo}</strong>
-              </div>
-
-              <div className="com-rodape-acoes">
-                {secao === 'summary' ? (
-                  <>
-                    <button
-                      type="button"
-                      className="com-btn com-btn-fantasma"
-                      disabled={salvando || salvandoRascunho || salvo !== null}
-                      onClick={() => concluirLevantamento(false)}
-                    >
-                      {salvando ? 'Salvando...' : salvo ? 'Levantamento salvo' : 'Salvar'}
-                    </button>
-                    <button
-                      type="button"
-                      className="com-btn com-btn-primario"
-                      disabled={salvando || salvandoRascunho || salvo !== null}
-                      onClick={() => concluirLevantamento(true)}
-                    >
-                      {salvando
-                        ? 'Salvando...'
-                        : salvo
-                          ? 'Levantamento salvo'
-                          : 'Finalizar e criar proposta'}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="com-btn com-btn-fantasma"
-                      disabled={salvando || salvandoRascunho || salvo !== null}
-                      onClick={() => void persistirRascunho()}
-                    >
-                      {salvandoRascunho ? 'Salvando rascunho...' : 'Salvar rascunho'}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="com-btn com-btn-primario"
-                      disabled={acao.disabled || salvo !== null || salvandoRascunho}
-                      onClick={() => concluirLevantamento(true)}
-                    >
-                      {salvo ? 'Levantamento salvo' : acao.label}
-                    </button>
-                  </>
-                )}
-              </div>
-            </footer>
-          </>
-        )}
+                  <button
+                    type="button"
+                    className="com-btn com-btn-primario"
+                    disabled={
+                      acao.disabled || salvo !== null || salvandoRascunho
+                    }
+                    onClick={() => concluirLevantamento(true)}
+                  >
+                    {salvo ? 'Levantamento salvo' : acao.label}
+                  </button>
+                </>
+              )}
+            </div>
+          </footer>
+        </>
+      )}
     </ComercialChrome>
   );
 }

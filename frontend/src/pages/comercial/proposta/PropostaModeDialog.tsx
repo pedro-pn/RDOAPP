@@ -14,12 +14,14 @@ import { formatarValorDoLevantamento } from './levantamentoVinculado';
 export function PropostaModeDialog({
   recado,
   onLevantamento,
+  onPropostaExistente,
   onNova,
   onRevisao,
   onFechar
 }: {
   recado: string;
   onLevantamento: (levantamento: LevantamentoSalvo) => void;
+  onPropostaExistente: (levantamento: LevantamentoSalvo) => void;
   onNova: () => void;
   onRevisao: (codigo: string) => Promise<boolean>;
   /** Fechar sem escolher volta ao menu do módulo. */
@@ -41,11 +43,22 @@ export function PropostaModeDialog({
     setCarregandoLevantamentos(true);
     setErroDosLevantamentos('');
     try {
-      const resposta = await listarLevantamentos();
-      setLevantamentos(resposta.items);
+      const resposta = await listarLevantamentos({
+        status: 'SALVO',
+        pageSize: 100
+      });
+      // A regra também existe no servidor. O filtro local mantém a tela segura
+      // durante atualização gradual, caso ela converse por alguns minutos com
+      // uma instância antiga da API que ainda ignore o parâmetro `status`.
+      setLevantamentos(
+        resposta.items.filter((item) => item.status === 'SALVO')
+      );
     } catch (error) {
       setErroDosLevantamentos(
-        mensagemDeErro(error, 'Não foi possível carregar os levantamentos salvos.')
+        mensagemDeErro(
+          error,
+          'Não foi possível carregar os levantamentos salvos.'
+        )
       );
     } finally {
       setCarregandoLevantamentos(false);
@@ -76,16 +89,18 @@ export function PropostaModeDialog({
         <span className="com-eyebrow">PROPOSTA TÉCNICA E COMERCIAL</span>
         <h1 id="com-proposta-modo-titulo">Como deseja começar?</h1>
         <p>
-          Continue de um levantamento salvo para aproveitar o código e o preço já
-          calculado. Se necessário, também é possível criar uma proposta avulsa ou
-          revisar uma existente.
+          Continue de um levantamento salvo para aproveitar o código e o preço
+          já calculado. Se necessário, também é possível criar uma proposta
+          avulsa ou revisar uma existente.
         </p>
 
         <div className="com-modo-opcoes com-modo-tres">
           <button type="button" onClick={() => void abrirLevantamentos()}>
             <MarcaDeOpcao tipo="ok" />
             <strong>Usar levantamento salvo</strong>
-            <span>Vincula custos, código, revisão e preço de venda à proposta.</span>
+            <span>
+              Vincula custos, código, revisão e preço de venda à proposta.
+            </span>
           </button>
           <button
             type="button"
@@ -96,7 +111,9 @@ export function PropostaModeDialog({
           >
             <MarcaDeOpcao tipo="nova" />
             <strong>Proposta avulsa</strong>
-            <span>Cria os documentos sem levantamento de custos vinculado.</span>
+            <span>
+              Cria os documentos sem levantamento de custos vinculado.
+            </span>
           </button>
           <button
             type="button"
@@ -116,7 +133,10 @@ export function PropostaModeDialog({
             <div className="com-levantamentos-cabecalho">
               <div>
                 <strong>Levantamentos salvos</strong>
-                <span>Mais recentes primeiro. Rascunhos e finalizados podem ser usados.</span>
+                <span>
+                  Somente levantamentos concluídos. Se já houver proposta, você
+                  continuará nela.
+                </span>
               </div>
               {!carregandoLevantamentos && (
                 <button
@@ -137,30 +157,58 @@ export function PropostaModeDialog({
               <p className="com-recado">{erroDosLevantamentos}</p>
             ) : levantamentos.length === 0 ? (
               <p>
-                Nenhum levantamento salvo está disponível. Salve o levantamento de
-                custos antes de iniciar a proposta.
+                Nenhum levantamento salvo está disponível. Salve o levantamento
+                de custos antes de iniciar a proposta.
               </p>
             ) : (
               <div className="com-levantamentos-lista">
-                {levantamentos.map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => onLevantamento(item)}
-                  >
-                    <span>
-                      <strong>
-                        Proposta {item.proposalCode}
-                        {item.revisionNumber > 0 ? ` · Rev ${item.revisionNumber}` : ''}
-                      </strong>
-                      <small>
-                        {item.status === 'RASCUNHO' ? 'Rascunho salvo' : 'Finalizado'} ·{' '}
-                        {item.title || 'Levantamento sem título'}
-                      </small>
-                    </span>
-                    <b>{formatarValorDoLevantamento(item.salePrice) || 'Preço a revisar'}</b>
-                  </button>
-                ))}
+                {levantamentos.map((item) => {
+                  const proposta = item.propostaVinculada;
+                  const emProcessamento = proposta?.status === 'FINALIZANDO';
+                  const rotulo =
+                    proposta?.status === 'RASCUNHO'
+                      ? 'Continuar proposta'
+                      : proposta?.status === 'FALHA_INTEGRACAO'
+                        ? 'Tentar integrações novamente'
+                        : proposta?.status === 'FINALIZADA'
+                          ? 'Criar revisão'
+                          : emProcessamento
+                            ? 'Finalização em andamento'
+                            : '';
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={emProcessamento}
+                      onClick={() => {
+                        if (!proposta) return onLevantamento(item);
+                        if (proposta.status === 'FINALIZADA') {
+                          void onRevisao(proposta.proposalCode);
+                          return;
+                        }
+                        onPropostaExistente(item);
+                      }}
+                    >
+                      <span>
+                        <strong>
+                          Proposta {item.proposalCode}
+                          {item.revisionNumber > 0
+                            ? ` · Rev ${item.revisionNumber}`
+                            : ''}
+                        </strong>
+                        <small>
+                          Levantamento concluído ·{' '}
+                          {item.title || 'Levantamento sem título'}
+                          {rotulo ? ` · ${rotulo}` : ''}
+                        </small>
+                      </span>
+                      <b>
+                        {formatarValorDoLevantamento(item.salePrice) ||
+                          'Preço a revisar'}
+                      </b>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -169,15 +217,19 @@ export function PropostaModeDialog({
         {mostrarRevisao && (
           <div className="com-revisao-entrada">
             <div className="field-group">
-              <label htmlFor="com-proposta-revisao">Número da proposta existente</label>
+              <label htmlFor="com-proposta-revisao">
+                Número da proposta existente
+              </label>
               <input
                 id="com-proposta-revisao"
                 autoFocus
                 inputMode="numeric"
                 value={codigo}
                 placeholder="Ex.: 4418"
-                onChange={evento => setCodigo(evento.target.value.replace(/\D/g, ''))}
-                onKeyDown={evento => {
+                onChange={(evento) =>
+                  setCodigo(evento.target.value.replace(/\D/g, ''))
+                }
+                onKeyDown={(evento) => {
                   if (evento.key === 'Enter') carregar();
                 }}
               />

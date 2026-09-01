@@ -1,11 +1,15 @@
-import { actorLabel, canFinalize, denialReason } from './access.js';
-import { arquivosAnexados, exigirLimiteAgregado } from './anexos.js';
-import { planilhaDeCustos } from './cost-csv.js';
-import { ComercialError } from './cost-estimates.js';
-import { documentosAtuais, emitirDocumentos } from './documentos.js';
-import * as nectar from './nectar.js';
-import * as sharepoint from './sharepoint.js';
-import { lerArquivo } from './storage.js';
+import { actorLabel, canFinalize, denialReason } from "./access.js";
+import { arquivosAnexados, exigirLimiteAgregado } from "./anexos.js";
+import { planilhaDeCustos } from "./cost-csv.js";
+import { ComercialError } from "./cost-estimates.js";
+import {
+  descreverDocumentos,
+  documentosAtuais,
+  emitirDocumentos,
+} from "./documentos.js";
+import * as nectar from "./nectar.js";
+import * as sharepoint from "./sharepoint.js";
+import { lerArquivo } from "./storage.js";
 
 /**
  * Finalização da proposta (tarefas T076, T077, T078, T079a e T080).
@@ -25,8 +29,8 @@ import { lerArquivo } from './storage.js';
  */
 
 /** Estados que impedem uma nova finalização. */
-const EM_ANDAMENTO = 'FINALIZANDO';
-const CONCLUIDA = 'FINALIZADA';
+const EM_ANDAMENTO = "FINALIZANDO";
+const CONCLUIDA = "FINALIZADA";
 
 /**
  * `crm` entra por parâmetro pelo mesmo motivo que `gerarPdf`: é o mundo de
@@ -37,22 +41,27 @@ const CONCLUIDA = 'FINALIZADA';
  */
 export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
   const {
-    pipelineId = '',
-    pastaExistente = '',
+    pipelineId = "",
+    pastaExistente = "",
     gerarPdf,
     crm = nectar,
-    arquivos: destinoDeArquivos = sharepoint
+    arquivos: destinoDeArquivos = sharepoint,
   } = opcoes;
 
-  const proposta = await prisma.proposal.findUnique({ where: { id: proposalId } });
-  if (!proposta) throw new ComercialError('Proposta não encontrada.', 404);
+  const proposta = await prisma.proposal.findUnique({
+    where: { id: proposalId },
+  });
+  if (!proposta) throw new ComercialError("Proposta não encontrada.", 404);
 
   // O autor finaliza a sua; o gestor finaliza qualquer uma; consulta nunca.
   if (!canFinalize(user, proposta)) {
     throw new ComercialError(denialReason(user, proposta), 403);
   }
   if (proposta.archivedAt) {
-    throw new ComercialError('Proposta arquivada. Desarquive antes de finalizar.', 409);
+    throw new ComercialError(
+      "Proposta arquivada. Desarquive antes de finalizar.",
+      409,
+    );
   }
 
   exigirNaoFinalizada(proposta);
@@ -78,23 +87,44 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
         // e quando. Se falhar, são limpos; no sucesso recebem a data de conclusão.
         finalizedAt: new Date(),
         finalizedByUserId: user.id,
-        finalizedByLabel: actorLabel(user)
-      }
+        finalizedByLabel: actorLabel(user),
+      },
     });
   } catch (error) {
-    if (error?.code !== 'P2025') throw error;
-    const atual = await prisma.proposal.findUnique({ where: { id: proposalId } });
-    if (!atual) throw new ComercialError('Proposta não encontrada.', 404);
+    if (error?.code !== "P2025") throw error;
+    const atual = await prisma.proposal.findUnique({
+      where: { id: proposalId },
+    });
+    if (!atual) throw new ComercialError("Proposta não encontrada.", 404);
     if (atual.archivedAt) {
-      throw new ComercialError('Proposta arquivada. Desarquive antes de finalizar.', 409);
+      throw new ComercialError(
+        "Proposta arquivada. Desarquive antes de finalizar.",
+        409,
+      );
     }
     exigirNaoFinalizada(atual);
-    throw new ComercialError('A proposta mudou antes de iniciar a finalização. Tente novamente.', 409);
+    throw new ComercialError(
+      "A proposta mudou antes de iniciar a finalização. Tente novamente.",
+      409,
+    );
   }
 
   let documentos;
   try {
-    ({ documentos } = await emitirDocumentos(prisma, user, proposalId, { gerarPdf }));
+    const anteriores =
+      estadoAnterior === "FALHA_INTEGRACAO"
+        ? await documentosAtuais(prisma, proposalId)
+        : [];
+    const tiposAnteriores = new Set(
+      anteriores.map((documento) => documento.kind),
+    );
+    if (tiposAnteriores.has("COMERCIAL") && tiposAnteriores.has("TECNICA")) {
+      documentos = descreverDocumentos(proposta, anteriores);
+    } else {
+      ({ documentos } = await emitirDocumentos(prisma, user, proposalId, {
+        gerarPdf,
+      }));
+    }
   } catch (error) {
     // Falhou antes de existir documento: devolve a proposta ao estado anterior,
     // senão ela fica presa em FINALIZANDO e ninguém consegue tentar de novo.
@@ -105,8 +135,8 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
         integrationError: null,
         finalizedAt: null,
         finalizedByUserId: null,
-        finalizedByLabel: null
-      }
+        finalizedByLabel: null,
+      },
     });
     throw error;
   }
@@ -114,7 +144,11 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
   // Os arquivos são montados UMA vez e vão para os dois destinos. Ler o disco
   // duas vezes abriria a porta para o CRM e o SharePoint receberem versões
   // diferentes do mesmo documento.
-  const { arquivos, impedimento } = await arquivosDaProposta(prisma, proposta, documentos);
+  const { arquivos, impedimento } = await arquivosDaProposta(
+    prisma,
+    proposta,
+    documentos,
+  );
 
   // **Os dois destinos são tentados, e a falha de um não impede o outro.** Se o
   // SharePoint estiver fora do ar, o card ainda entra no CRM com os anexos — e o
@@ -125,13 +159,24 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
   // pasta do SharePoint sem os mesmos arquivos, que é o que ninguém quer
   // descobrir depois.
   const integracao = impedimento
-    ? { status: 'ERRO', mensagem: impedimento, opportunityId: '', pipelineId: '', pipelineName: '' }
+    ? {
+        status: "ERRO",
+        mensagem: impedimento,
+        opportunityId: "",
+        pipelineId: "",
+        pipelineName: "",
+      }
     : await enviarAoNectar(proposta, pipelineId, arquivos, crm);
   const pasta = impedimento
-    ? { status: 'ERRO', mensagem: '', pasta: '' }
-    : await enviarAoSharePoint(proposta, arquivos, pastaExistente, destinoDeArquivos);
+    ? { status: "ERRO", mensagem: "", pasta: "" }
+    : await enviarAoSharePoint(
+        proposta,
+        arquivos,
+        pastaExistente || proposta.sharepointFolder || "",
+        destinoDeArquivos,
+      );
 
-  const sucesso = integracao.status === 'SUCESSO' && pasta.status === 'SUCESSO';
+  const sucesso = integracao.status === "SUCESSO" && pasta.status === "SUCESSO";
   const erros = [integracao.mensagem, pasta.mensagem].filter(Boolean);
 
   const atualizada = await prisma.proposal.update({
@@ -139,23 +184,32 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
     data: {
       // FALHA_INTEGRACAO **não** é um beco sem saída: é o estado que permite
       // tentar de novo. Só `FINALIZADA` fecha a proposta.
-      status: sucesso ? CONCLUIDA : 'FALHA_INTEGRACAO',
+      status: sucesso ? CONCLUIDA : "FALHA_INTEGRACAO",
       finalizedAt: sucesso ? new Date() : null,
       finalizedByUserId: sucesso ? user.id : null,
       finalizedByLabel: sucesso ? actorLabel(user) : null,
       nectarStatus: integracao.status,
-      nectarOpportunityId: integracao.opportunityId || proposta.nectarOpportunityId,
+      nectarOpportunityId:
+        integracao.opportunityId || proposta.nectarOpportunityId,
       nectarPipelineId: integracao.pipelineId || proposta.nectarPipelineId,
-      nectarPipelineName: integracao.pipelineName || proposta.nectarPipelineName,
+      nectarPipelineName:
+        integracao.pipelineName || proposta.nectarPipelineName,
       sharepointStatus: pasta.status,
       sharepointFolder: pasta.pasta || proposta.sharepointFolder,
       // Os dois erros juntos, porque os dois podem falhar por motivos
       // diferentes — e a pessoa precisa saber dos dois, não do primeiro.
-      integrationError: erros.join(' · ') || null
-    }
+      integrationError: erros.join(" · ") || null,
+    },
   });
 
-  await registrarAuditoria(prisma, user, proposalId, sucesso, integracao, pasta);
+  await registrarAuditoria(
+    prisma,
+    user,
+    proposalId,
+    sucesso,
+    integracao,
+    pasta,
+  );
 
   return {
     ok: sucesso,
@@ -163,8 +217,8 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
     // Os documentos vão na resposta **dos dois jeitos**. É o FR-034: quem
     // recebe o erro precisa dos links, não de um pedido para tentar de novo.
     documentos,
-    integracao: { ...integracao, mensagem: erros.join(' · ') },
-    sharepoint: pasta
+    integracao: { ...integracao, mensagem: erros.join(" · ") },
+    sharepoint: pasta,
   };
 }
 
@@ -177,33 +231,37 @@ export async function finalizarProposta(prisma, user, proposalId, opcoes = {}) {
 export function exigirNaoFinalizada(proposta) {
   if (proposta.status === CONCLUIDA) {
     const quando = proposta.finalizedAt
-      ? new Date(proposta.finalizedAt).toLocaleString('pt-BR')
-      : 'anteriormente';
+      ? new Date(proposta.finalizedAt).toLocaleString("pt-BR")
+      : "anteriormente";
     const porQuem =
-      String(proposta.finalizedByLabel || '').trim() ||
-      (proposta.finalizedByUserId ? `usuário ${proposta.finalizedByUserId}` : 'outro usuário');
+      String(proposta.finalizedByLabel || "").trim() ||
+      (proposta.finalizedByUserId
+        ? `usuário ${proposta.finalizedByUserId}`
+        : "outro usuário");
     throw new ComercialError(
       `Esta proposta já foi finalizada por ${porQuem} em ${quando}. ` +
-        'Crie uma revisão para emitir de novo.',
+        "Crie uma revisão para emitir de novo.",
       409,
       {
         finalizedAt: proposta.finalizedAt,
         finalizedByUserId: proposta.finalizedByUserId,
-        finalizedByLabel: proposta.finalizedByLabel || null
-      }
+        finalizedByLabel: proposta.finalizedByLabel || null,
+      },
     );
   }
 
   if (proposta.status === EM_ANDAMENTO) {
     const quando = proposta.finalizedAt
-      ? new Date(proposta.finalizedAt).toLocaleString('pt-BR')
-      : 'agora';
+      ? new Date(proposta.finalizedAt).toLocaleString("pt-BR")
+      : "agora";
     const porQuem =
-      String(proposta.finalizedByLabel || '').trim() ||
-      (proposta.finalizedByUserId ? `usuário ${proposta.finalizedByUserId}` : 'outro usuário');
+      String(proposta.finalizedByLabel || "").trim() ||
+      (proposta.finalizedByUserId
+        ? `usuário ${proposta.finalizedByUserId}`
+        : "outro usuário");
     throw new ComercialError(
       `Esta proposta está sendo finalizada por ${porQuem} desde ${quando}. Aguarde o término.`,
-      409
+      409,
     );
   }
 }
@@ -218,7 +276,13 @@ export function exigirNaoFinalizada(proposta) {
 async function enviarAoNectar(proposta, pipelineId, arquivos, crm) {
   const impedimento = crm.indisponivel();
   if (impedimento) {
-    return { status: 'ERRO', mensagem: impedimento, opportunityId: '', pipelineId: '', pipelineName: '' };
+    return {
+      status: "ERRO",
+      mensagem: impedimento,
+      opportunityId: "",
+      pipelineId: "",
+      pipelineName: "",
+    };
   }
 
   try {
@@ -234,19 +298,19 @@ async function enviarAoNectar(proposta, pipelineId, arquivos, crm) {
     await crm.anexarDocumentos(oportunidade.id, arquivos, dados, funil);
 
     return {
-      status: 'SUCESSO',
-      mensagem: '',
+      status: "SUCESSO",
+      mensagem: "",
       opportunityId: oportunidade.id,
       pipelineId: funil.id,
-      pipelineName: funil.nome
+      pipelineName: funil.nome,
     };
   } catch (error) {
     return {
-      status: 'ERRO',
-      mensagem: error?.message || 'Falha ao enviar a proposta ao Nectar.',
-      opportunityId: '',
-      pipelineId: '',
-      pipelineName: ''
+      status: "ERRO",
+      mensagem: error?.message || "Falha ao enviar a proposta ao Nectar.",
+      opportunityId: "",
+      pipelineId: "",
+      pipelineName: "",
     };
   }
 }
@@ -260,23 +324,27 @@ async function enviarAoNectar(proposta, pipelineId, arquivos, crm) {
  */
 async function enviarAoSharePoint(proposta, arquivos, pastaExistente, destino) {
   const impedimento = destino.indisponivel();
-  if (impedimento) return { status: 'ERRO', mensagem: impedimento, pasta: '' };
+  if (impedimento) return { status: "ERRO", mensagem: impedimento, pasta: "" };
 
   try {
-    const payload = proposta.payload && typeof proposta.payload === 'object' ? proposta.payload : {};
+    const payload =
+      proposta.payload && typeof proposta.payload === "object"
+        ? proposta.payload
+        : {};
     const { pasta } = await destino.gravarArquivos(arquivos, {
       nomeDaPasta: [proposta.proposalCode, proposta.clientName, payload.title]
         .filter(Boolean)
-        .join(' - '),
-      pastaExistente
+        .join(" - "),
+      pastaExistente,
     });
 
-    return { status: 'SUCESSO', mensagem: '', pasta };
+    return { status: "SUCESSO", mensagem: "", pasta };
   } catch (error) {
     return {
-      status: 'ERRO',
-      mensagem: error?.message || 'Falha ao gravar os documentos no SharePoint.',
-      pasta: ''
+      status: "ERRO",
+      mensagem:
+        error?.message || "Falha ao gravar os documentos no SharePoint.",
+      pasta: "",
     };
   }
 }
@@ -311,28 +379,33 @@ async function arquivosDaProposta(prisma, proposta, documentos) {
     return { arquivos, impedimento: error.message };
   }
 
-  return { arquivos, impedimento: '' };
+  return { arquivos, impedimento: "" };
 }
 
 function dadosParaOCrm(proposta, funil) {
-  const payload = proposta.payload && typeof proposta.payload === 'object' ? proposta.payload : {};
+  const payload =
+    proposta.payload && typeof proposta.payload === "object"
+      ? proposta.payload
+      : {};
 
   return {
     proposalCode: proposta.proposalCode,
     clientName: proposta.clientName,
-    title: String(payload.title || ''),
+    title: String(payload.title || ""),
     site: proposta.site,
     contactName: proposta.contact,
     contactEmail: proposta.email,
     // Empresa e contato são **selecionados** no CRM, não criados aqui: o
     // cadastro do Nectar não é povoado pelo app.
-    companyId: payload.companyId || '',
-    contactId: payload.contactId || '',
+    companyId: payload.companyId || "",
+    contactId: payload.contactId || "",
     totalValue: Number(proposta.totalValue) || 0,
     // O funil exige produto, e o produto é o SERVIÇO vendido. Ele vem do payload
     // porque é a etapa Técnica da proposta que o escolhe.
-    technicalServices: Array.isArray(payload.technicalServices) ? payload.technicalServices : [],
-    pipelineName: funil.nome
+    technicalServices: Array.isArray(payload.technicalServices)
+      ? payload.technicalServices
+      : [],
+    pipelineName: funil.nome,
   };
 }
 
@@ -354,7 +427,7 @@ async function planilhaDaProposta(prisma, proposta) {
   if (!proposta.costEstimateId) return null;
 
   const estimate = await prisma.costEstimate.findUnique({
-    where: { id: proposta.costEstimateId }
+    where: { id: proposta.costEstimateId },
   });
   if (!estimate) return null;
 
@@ -362,8 +435,8 @@ async function planilhaDaProposta(prisma, proposta) {
     proposalCode: proposta.proposalCode,
     sellerName: proposta.sellerName,
     estimatorName: proposta.estimatorName,
-    pipelineName: proposta.nectarPipelineName || '',
-    pipelineId: proposta.nectarPipelineId || ''
+    pipelineName: proposta.nectarPipelineName || "",
+    pipelineId: proposta.nectarPipelineId || "",
   });
 
   return { fileName, bytes };
@@ -371,13 +444,16 @@ async function planilhaDaProposta(prisma, proposta) {
 
 async function bytesDosDocumentos(prisma, proposalId, documentos) {
   const registros = await documentosAtuais(prisma, proposalId);
-  const porId = new Map(registros.map(item => [item.id, item]));
+  const porId = new Map(registros.map((item) => [item.id, item]));
 
   const arquivos = [];
   for (const documento of documentos) {
     const registro = porId.get(documento.id);
     if (!registro) continue;
-    arquivos.push({ fileName: documento.fileName, bytes: await lerArquivo(registro.storagePath) });
+    arquivos.push({
+      fileName: documento.fileName,
+      bytes: await lerArquivo(registro.storagePath),
+    });
   }
   return arquivos;
 }
@@ -389,28 +465,35 @@ async function bytesDosDocumentos(prisma, proposalId, documentos) {
  * proposta não chegou ao CRM" é a pergunta que se faz semanas depois, quando o
  * recado da tela já sumiu.
  */
-async function registrarAuditoria(prisma, user, proposalId, sucesso, integracao, pasta) {
+async function registrarAuditoria(
+  prisma,
+  user,
+  proposalId,
+  sucesso,
+  integracao,
+  pasta,
+) {
   const registros = [
     {
       proposalId,
-      action: 'FINALIZADA',
+      action: "FINALIZADA",
       actorUserId: user.id,
       // Os DOIS estados, porque os dois destinos falham independentemente e a
       // pergunta de semanas depois é "qual dos dois não foi".
-      detail: { nectar: integracao.status, sharepoint: pasta.status }
+      detail: { nectar: integracao.status, sharepoint: pasta.status },
     },
     {
       proposalId,
-      action: sucesso ? 'INTEGRACAO_ENVIADA' : 'INTEGRACAO_FALHOU',
+      action: sucesso ? "INTEGRACAO_ENVIADA" : "INTEGRACAO_FALHOU",
       actorUserId: user.id,
       detail: {
         opportunityId: integracao.opportunityId || null,
         pipelineName: integracao.pipelineName || null,
         sharepointFolder: pasta.pasta || null,
         erroNectar: integracao.mensagem || null,
-        erroSharepoint: pasta.mensagem || null
-      }
-    }
+        erroSharepoint: pasta.mensagem || null,
+      },
+    },
   ];
 
   for (const data of registros) {

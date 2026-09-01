@@ -35,9 +35,10 @@ import {
 type Props = {
   /** Recebe os dados da empresa e, havendo, do contato escolhido. */
   onEscolher: (patch: Record<string, unknown>) => void;
+  erro?: string;
 };
 
-export function BuscaDeEmpresa({ onEscolher }: Props) {
+export function BuscaDeEmpresa({ onEscolher, erro }: Props) {
   const [termo, setTermo] = useState('');
   const [empresas, setEmpresas] = useState<EmpresaCrm[]>([]);
   const [escolhida, setEscolhida] = useState<EmpresaCrm | null>(null);
@@ -53,7 +54,9 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
   async function buscar() {
     const consulta = termo.trim();
     if (consulta.length < MINIMO_PARA_BUSCAR) {
-      setRecado(`Digite ao menos ${MINIMO_PARA_BUSCAR} caracteres para buscar.`);
+      setRecado(
+        `Digite ao menos ${MINIMO_PARA_BUSCAR} caracteres para buscar.`
+      );
       return;
     }
 
@@ -99,7 +102,12 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
       setEscolhida(await obterEmpresaCrm(empresa.id));
     } catch (error) {
       // A empresa já foi preenchida; o que falha aqui é a lista de contatos.
-      setRecado(mensagemDeErro(error, 'Não foi possível carregar os contatos desta empresa.'));
+      setRecado(
+        mensagemDeErro(
+          error,
+          'Não foi possível carregar os contatos desta empresa.'
+        )
+      );
     }
   }
 
@@ -112,10 +120,11 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
       <div className="com-crm-busca">
         <input
           aria-label="Buscar empresa no Nectar"
+          aria-invalid={Boolean(erro) || undefined}
           placeholder="Buscar empresa no Nectar..."
           value={termo}
-          onChange={evento => setTermo(evento.target.value)}
-          onKeyDown={evento => {
+          onChange={(evento) => setTermo(evento.target.value)}
+          onKeyDown={(evento) => {
             if (evento.key !== 'Enter') return;
             // Enter num input solto submeteria o formulário da etapa.
             evento.preventDefault();
@@ -127,6 +136,12 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
         </button>
       </div>
 
+      {erro && (
+        <p className="com-recado com-recado-erro" role="alert">
+          {erro}
+        </p>
+      )}
+
       {recado && (
         <p className="com-recado com-recado-erro" role="alert">
           {recado}
@@ -136,14 +151,18 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
 
       {empresas.length > 0 && (
         <ul className="com-crm-resultados">
-          {empresas.map(empresa => (
+          {empresas.map((empresa) => (
             <li key={empresa.id}>
-              <button type="button" onClick={() => void escolherEmpresa(empresa)}>
+              <button
+                type="button"
+                onClick={() => void escolherEmpresa(empresa)}
+              >
                 <strong className="com-quebrar">{empresa.nome}</strong>
                 {/* O CNPJ distingue matriz de filial, que costumam ter o mesmo
                     nome — é ele que evita vincular a proposta à unidade errada. */}
                 <span className="com-quebrar">
-                  {[empresa.cnpj, empresa.site].filter(Boolean).join(' — ') || 'Sem endereço no CRM'}
+                  {[empresa.cnpj, empresa.site].filter(Boolean).join(' — ') ||
+                    'Sem endereço no CRM'}
                 </span>
               </button>
             </li>
@@ -163,13 +182,17 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
 
           {escolhida.contatos.length > 0 ? (
             <ul className="com-crm-resultados">
-              {escolhida.contatos.map(contato => (
+              {escolhida.contatos.map((contato) => (
                 <li key={contato.id}>
-                  <button type="button" onClick={() => escolherContato(contato)}>
+                  <button
+                    type="button"
+                    onClick={() => escolherContato(contato)}
+                  >
                     <strong className="com-quebrar">{contato.nome}</strong>
                     <span className="com-quebrar">
-                      {[contato.departamento, contato.email].filter(Boolean).join(' — ') ||
-                        'Sem e-mail no CRM'}
+                      {[contato.departamento, contato.email]
+                        .filter(Boolean)
+                        .join(' — ') || 'Sem e-mail no CRM'}
                     </span>
                   </button>
                 </li>
@@ -177,8 +200,8 @@ export function BuscaDeEmpresa({ onEscolher }: Props) {
             </ul>
           ) : (
             <p className="com-nota">
-              Esta empresa não tem contato cadastrado no CRM. Preencha o contato e o e-mail
-              abaixo — a finalização vai pedir um contato do Nectar.
+              Esta empresa não tem contato cadastrado no CRM. Preencha o contato
+              e o e-mail abaixo — a finalização vai pedir um contato do Nectar.
             </p>
           )}
         </div>

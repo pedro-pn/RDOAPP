@@ -13,7 +13,9 @@ test.before(async () => {
     server: { middlewareMode: true },
     appType: 'custom'
   });
-  mod = await server.ssrLoadModule('/src/pages/comercial/proposta/levantamentoVinculado.ts');
+  mod = await server.ssrLoadModule(
+    '/src/pages/comercial/proposta/levantamentoVinculado.ts'
+  );
 });
 
 test.after(async () => {
@@ -43,15 +45,23 @@ test('finalização e escolha manual usam o mesmo endereço de importação', ()
   });
 });
 
-test('a escolha manual oferece também os rascunhos persistidos', () => {
+test('a escolha manual pede apenas levantamentos concluídos ao servidor', () => {
   const dialogo = readFileSync(
-    new URL('../src/pages/comercial/proposta/PropostaModeDialog.tsx', import.meta.url),
+    new URL(
+      '../src/pages/comercial/proposta/PropostaModeDialog.tsx',
+      import.meta.url
+    ),
     'utf8'
   );
 
-  assert.match(dialogo, /setLevantamentos\(resposta\.items\)/);
-  assert.doesNotMatch(dialogo, /items\.filter\([^)]*status === 'SALVO'/);
-  assert.match(dialogo, /Rascunho salvo/);
+  assert.match(dialogo, /status: 'SALVO'/);
+  assert.match(
+    dialogo,
+    /resposta\.items\.filter\(\(?item\)? => item\.status === 'SALVO'\)/
+  );
+  assert.doesNotMatch(dialogo, /Rascunho salvo/);
+  assert.match(dialogo, /Continuar proposta/);
+  assert.match(dialogo, /Tentar integrações novamente/);
 });
 
 test('uma validação pendente salva o rascunho e não segue para a proposta', () => {
@@ -62,19 +72,31 @@ test('uma validação pendente salva o rascunho e não segue para a proposta', (
 
   assert.match(paginaDeCustos, /gravado = await persistir\('SALVO'\)/);
   assert.match(paginaDeCustos, /error instanceof ComercialValidationError/);
-  assert.match(paginaDeCustos, /rascunhoGravado = await persistir\('RASCUNHO'\)/);
+  assert.match(
+    paginaDeCustos,
+    /rascunhoGravado = await persistir\('RASCUNHO'\)/
+  );
   assert.match(paginaDeCustos, /setFocarPendencia\(true\)/);
 
   const inicioDaContingencia = paginaDeCustos.indexOf(
     "const rascunhoGravado = await persistir('RASCUNHO')"
   );
-  const devolucaoParaValidacao = paginaDeCustos.indexOf('throw error;', inicioDaContingencia);
+  const devolucaoParaValidacao = paginaDeCustos.indexOf(
+    'throw error;',
+    inicioDaContingencia
+  );
   const trechoDaContingencia = paginaDeCustos.slice(
     inicioDaContingencia,
     devolucaoParaValidacao
   );
-  assert.doesNotMatch(trechoDaContingencia, /parametrosDaPropostaComLevantamento/);
-  assert.match(paginaDeCustos, /parametrosDaPropostaComLevantamento\(gravado\)/);
+  assert.doesNotMatch(
+    trechoDaContingencia,
+    /parametrosDaPropostaComLevantamento/
+  );
+  assert.match(
+    paginaDeCustos,
+    /parametrosDaPropostaComLevantamento\(gravado\)/
+  );
 });
 
 test('o preço do levantamento entra na proposta como verba global editável', () => {

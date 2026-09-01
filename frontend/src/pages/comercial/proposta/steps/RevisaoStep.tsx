@@ -5,7 +5,11 @@ import type {
   VinculoCrmDaProposta
 } from '../../../../api/comercial';
 import { ETAPAS } from '../etapas';
-import type { EscolhaDeCard, EscolhaDeDownload } from '../finalizacao';
+import type {
+  EscolhaDeCard,
+  EscolhaDeDownload,
+  PendenciaDaFinalizacao
+} from '../finalizacao';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -36,6 +40,7 @@ export function RevisaoStep({
   removendoAnexoId,
   onRemoverAnexo,
   erroFinalizacao,
+  campoComErro,
   bloqueada
 }: {
   form: AnyRecord;
@@ -58,23 +63,33 @@ export function RevisaoStep({
   removendoAnexoId: string;
   onRemoverAnexo: (id: string) => void;
   erroFinalizacao: string;
+  campoComErro?: PendenciaDaFinalizacao['campo'];
   bloqueada: boolean;
 }) {
   const cliente = String(form.client || '').trim() || 'CLIENTE';
   const companyId = String(form.companyId || '').trim();
   const contactId = String(form.contactId || '').trim();
   const cardEfetivo: EscolhaDeCard = vinculoCrm ? 'existing' : escolhaCard;
+  const integracaoDisponivel = Boolean(funis.length || vinculoCrm?.pipelineId);
 
   return (
     <section className="com-painel">
       <div className="com-secao-titulo">
         <div>
           <h2>Revisão e integração</h2>
-          <p>Confira os dois documentos e defina o destino no Nectar.</p>
+          <p>
+            Confira os dois documentos e, quando disponível, defina o destino no
+            Nectar.
+          </p>
         </div>
       </div>
 
-      <section className="com-funil" aria-label="Funil do Nectar">
+      <section
+        className="com-funil"
+        aria-label="Funil do Nectar"
+        aria-invalid={campoComErro === 'pipeline' || undefined}
+        tabIndex={campoComErro === 'pipeline' ? -1 : undefined}
+      >
         <div className="com-funil-titulo">
           <div>
             <strong>Funil do Nectar *</strong>
@@ -99,17 +114,28 @@ export function RevisaoStep({
             ))}
           </div>
         ) : (
-          <p className="com-recado com-recado-erro">
-            {funisMensagem || 'Os funis autorizados não estão disponíveis.'}
+          <p className="com-recado">
+            {funisMensagem || 'Os funis autorizados não estão disponíveis.'} Os
+            documentos e o envio ao SharePoint continuarão normalmente; o Nectar
+            poderá ser tentado novamente pelo histórico.
           </p>
         )}
       </section>
 
-      <div className="com-nota-regra">
+      <div
+        className="com-nota-regra"
+        aria-invalid={campoComErro === 'card' || undefined}
+        tabIndex={campoComErro === 'card' ? -1 : undefined}
+      >
         <strong>
           {vinculoCrm ? 'Card existente do Nectar' : 'Destino no Nectar *'}
         </strong>
-        {vinculoCrm ? (
+        {!integracaoDisponivel ? (
+          <p>
+            O destino no Nectar será definido em uma nova tentativa, quando ele
+            voltar.
+          </p>
+        ) : vinculoCrm ? (
           <p>
             O card <b>{vinculoCrm.opportunityId}</b> será reutilizado no funil{' '}
             <b>{vinculoCrm.pipelineName || vinculoCrm.pipelineId}</b>. A revisão
@@ -149,16 +175,18 @@ export function RevisaoStep({
 
       <div
         className={
-          companyId && contactId
+          !integracaoDisponivel || (companyId && contactId)
             ? 'com-nota-regra'
             : 'com-nota-regra com-nota-alerta'
         }
       >
         <strong>Empresa e contato do Nectar</strong>
         <p>
-          {companyId && contactId
-            ? 'Empresa e contato estão vinculados à proposta.'
-            : 'Volte à etapa Cliente e selecione a empresa e o contato no Nectar antes de finalizar.'}
+          {!integracaoDisponivel
+            ? 'Não são obrigatórios enquanto o Nectar estiver indisponível.'
+            : companyId && contactId
+              ? 'Empresa e contato estão vinculados à proposta.'
+              : 'Volte à etapa Cliente e selecione a empresa e o contato no Nectar antes de finalizar.'}
         </p>
       </div>
 

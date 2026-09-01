@@ -1,15 +1,15 @@
-import { randomUUID } from 'node:crypto';
-import path from 'node:path';
+import { randomUUID } from "node:crypto";
+import path from "node:path";
 
 import {
   canDownloadDocument,
   canRead,
   canWrite,
   denialReason,
-  isEstimator
-} from './access.js';
-import { ComercialError } from './cost-estimates.js';
-import { gravarArquivo, lerArquivo, pastaDaEmissao } from './storage.js';
+  isEstimator,
+} from "./access.js";
+import { ComercialError } from "./cost-estimates.js";
+import { gravarArquivo, lerArquivo, pastaDaEmissao } from "./storage.js";
 
 /**
  * Emissão dos dois documentos da proposta (tarefa T075).
@@ -28,8 +28,12 @@ import { gravarArquivo, lerArquivo, pastaDaEmissao } from './storage.js';
  */
 
 const KINDS = {
-  COMERCIAL: { tipo: 'commercial', arquivo: 'commercial.pdf', rotulo: 'Comercial' },
-  TECNICA: { tipo: 'technical', arquivo: 'technical.pdf', rotulo: 'Técnica' }
+  COMERCIAL: {
+    tipo: "commercial",
+    arquivo: "commercial.pdf",
+    rotulo: "Comercial",
+  },
+  TECNICA: { tipo: "technical", arquivo: "technical.pdf", rotulo: "Técnica" },
 };
 
 /**
@@ -50,6 +54,20 @@ export function nomeDoArquivo(kind, proposalCode, revisionNumber) {
   return `Proposta ${rotulo} - ${rotuloDaProposta(proposalCode, revisionNumber)}.pdf`;
 }
 
+/** Contrato público dos documentos, sem expor o caminho interno do arquivo. */
+export function descreverDocumentos(proposal, documentos) {
+  return documentos.map((documento) => ({
+    id: documento.id,
+    kind: documento.kind,
+    fileName: nomeDoArquivo(
+      documento.kind,
+      proposal.proposalCode,
+      proposal.revisionNumber,
+    ),
+    byteSize: documento.byteSize,
+  }));
+}
+
 /**
  * Os dados que o gerador espera, montados do registro — não do corpo da
  * requisição.
@@ -60,14 +78,17 @@ export function nomeDoArquivo(kind, proposalCode, revisionNumber) {
  * trocar o consultor, imprima o nome errado no documento que vai ao cliente.
  */
 export function dadosDoDocumento(proposal) {
-  const payload = proposal.payload && typeof proposal.payload === 'object' ? proposal.payload : {};
+  const payload =
+    proposal.payload && typeof proposal.payload === "object"
+      ? proposal.payload
+      : {};
 
   return {
     ...payload,
     proposalCode: proposal.proposalCode,
-    revision: proposal.revisionNumber ? String(proposal.revisionNumber) : '',
+    revision: proposal.revisionNumber ? String(proposal.revisionNumber) : "",
     seller: proposal.sellerName,
-    estimator: proposal.estimatorName
+    estimator: proposal.estimatorName,
   };
 }
 
@@ -76,27 +97,37 @@ export function dadosDoDocumento(proposal) {
  *
  * `gerarPdf(dados, tipo)` devolve os bytes; é `gerarPropostaEmPdf` na rota.
  */
-export async function emitirDocumentos(prisma, user, proposalId, { gerarPdf } = {}) {
-  if (typeof gerarPdf !== 'function') {
-    throw new TypeError('emitirDocumentos precisa do gerador de PDF.');
+export async function emitirDocumentos(
+  prisma,
+  user,
+  proposalId,
+  { gerarPdf } = {},
+) {
+  if (typeof gerarPdf !== "function") {
+    throw new TypeError("emitirDocumentos precisa do gerador de PDF.");
   }
 
-  const proposal = await prisma.proposal.findUnique({ where: { id: proposalId } });
-  if (!proposal) throw new ComercialError('Proposta não encontrada.', 404);
+  const proposal = await prisma.proposal.findUnique({
+    where: { id: proposalId },
+  });
+  if (!proposal) throw new ComercialError("Proposta não encontrada.", 404);
   if (!canWrite(user, proposal)) {
     throw new ComercialError(denialReason(user, proposal), 403);
   }
   if (proposal.archivedAt) {
-    throw new ComercialError('Proposta arquivada. Desarquive antes de emitir.', 409);
+    throw new ComercialError(
+      "Proposta arquivada. Desarquive antes de emitir.",
+      409,
+    );
   }
   // Já finalizada não reemite: os dois PDFs foram para o cliente e para o CRM,
   // e um par novo com conteúdo diferente circularia com o mesmo número. O
   // caminho é revisar. O estado FINALIZANDO passa, porque é a própria
   // finalização chamando aqui.
-  if (proposal.status === 'FINALIZADA') {
+  if (proposal.status === "FINALIZADA") {
     throw new ComercialError(
-      'Proposta já finalizada. Crie uma revisão para emitir de novo.',
-      409
+      "Proposta já finalizada. Crie uma revisão para emitir de novo.",
+      409,
     );
   }
 
@@ -104,12 +135,15 @@ export async function emitirDocumentos(prisma, user, proposalId, { gerarPdf } = 
   const pasta = pastaDaEmissao(proposal.proposalCode, randomUUID());
 
   const gravados = [];
-  for (const kind of ['COMERCIAL', 'TECNICA']) {
+  for (const kind of ["COMERCIAL", "TECNICA"]) {
     const { tipo, arquivo } = KINDS[kind];
     const bytes = await gerarPdf(dados, tipo);
 
     if (!bytes?.length) {
-      throw new ComercialError(`A proposta ${KINDS[kind].rotulo} saiu vazia.`, 500);
+      throw new ComercialError(
+        `A proposta ${KINDS[kind].rotulo} saiu vazia.`,
+        500,
+      );
     }
 
     // Disco primeiro, banco depois. Na ordem inversa, uma falha na gravação
@@ -117,33 +151,28 @@ export async function emitirDocumentos(prisma, user, proposalId, { gerarPdf } = 
     // pareceria bom até alguém clicar. Arquivo sem registro é só espaço ocupado.
     const { storagePath, byteSize } = await gravarArquivo(
       path.posix.join(pasta, arquivo),
-      bytes
+      bytes,
     );
     gravados.push({ kind, storagePath, byteSize });
   }
 
   const documentos = await prisma.$transaction(
-    gravados.map(item =>
+    gravados.map((item) =>
       prisma.proposalDocument.create({
         data: {
           proposalId: proposal.id,
           kind: item.kind,
           storagePath: item.storagePath,
-          byteSize: item.byteSize
-        }
-      })
-    )
+          byteSize: item.byteSize,
+        },
+      }),
+    ),
   );
 
   return {
     proposalId: proposal.id,
     proposalCode: proposal.proposalCode,
-    documentos: documentos.map(documento => ({
-      id: documento.id,
-      kind: documento.kind,
-      fileName: nomeDoArquivo(documento.kind, proposal.proposalCode, proposal.revisionNumber),
-      byteSize: documento.byteSize
-    }))
+    documentos: descreverDocumentos(proposal, documentos),
   };
 }
 
@@ -157,7 +186,7 @@ export async function emitirDocumentos(prisma, user, proposalId, { gerarPdf } = 
 export async function documentosAtuais(prisma, proposalId) {
   const todos = await prisma.proposalDocument.findMany({
     where: { proposalId },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: "desc" },
   });
 
   const porTipo = new Map();
@@ -188,9 +217,9 @@ export async function documentosAtuais(prisma, proposalId) {
 export async function baixarDocumento(prisma, user, documentId) {
   const documento = await prisma.proposalDocument.findUnique({
     where: { id: documentId },
-    include: { proposal: true }
+    include: { proposal: true },
   });
-  if (!documento) throw new ComercialError('Documento não encontrado.', 404);
+  if (!documento) throw new ComercialError("Documento não encontrado.", 404);
 
   const proposal = documento.proposal;
 
@@ -200,8 +229,8 @@ export async function baixarDocumento(prisma, user, documentId) {
     }
   } else if (!canDownloadDocument(user, documento)) {
     throw new ComercialError(
-      'A proposta comercial traz valores. Você tem acesso apenas à proposta técnica.',
-      403
+      "A proposta comercial traz valores. Você tem acesso apenas à proposta técnica.",
+      403,
     );
   }
 
@@ -209,6 +238,10 @@ export async function baixarDocumento(prisma, user, documentId) {
     documento,
     proposal,
     bytes: await lerArquivo(documento.storagePath),
-    fileName: nomeDoArquivo(documento.kind, proposal.proposalCode, proposal.revisionNumber)
+    fileName: nomeDoArquivo(
+      documento.kind,
+      proposal.proposalCode,
+      proposal.revisionNumber,
+    ),
   };
 }

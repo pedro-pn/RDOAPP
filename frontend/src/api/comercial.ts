@@ -73,6 +73,13 @@ export interface LevantamentoSalvo {
   status?: 'RASCUNHO' | 'SALVO';
   createdAt?: string;
   updatedAt: string;
+  propostaVinculada?: {
+    id: string;
+    status: 'RASCUNHO' | 'FINALIZANDO' | 'FINALIZADA' | 'FALHA_INTEGRACAO';
+    proposalCode: string;
+    revisionNumber: number;
+    updatedAt?: string;
+  } | null;
 }
 
 export interface LevantamentoEntrada {
@@ -118,9 +125,9 @@ export async function atualizarLevantamento(
 }
 
 export async function obterLevantamento(id: string) {
-  const { data } = await apiClient.get<LevantamentoSalvo & { payload: Record<string, unknown> }>(
-    `/comercial/levantamentos/${id}`
-  );
+  const { data } = await apiClient.get<
+    LevantamentoSalvo & { payload: Record<string, unknown> }
+  >(`/comercial/levantamentos/${id}`);
   return data;
 }
 
@@ -131,21 +138,39 @@ export async function obterLevantamento(id: string) {
  * reconstruir essa regra: ele apenas oferece os registros que recebeu.
  */
 export async function listarLevantamentos(
-  filtros: { arquivados?: boolean } = {}
+  filtros: {
+    arquivados?: boolean;
+    busca?: string;
+    status?: 'RASCUNHO' | 'SALVO';
+    page?: number;
+    pageSize?: number;
+  } = {}
 ) {
-  const { data } = await apiClient.get<{ items: LevantamentoSalvo[]; total: number }>(
-    '/comercial/levantamentos',
-    { params: { arquivados: filtros.arquivados ? 1 : 0 } }
-  );
+  const { data } = await apiClient.get<{
+    items: LevantamentoSalvo[];
+    total: number;
+  }>('/comercial/levantamentos', {
+    params: {
+      arquivados: filtros.arquivados ? 1 : 0,
+      busca: filtros.busca || '',
+      status: filtros.status,
+      page: filtros.page || 1,
+      pageSize: filtros.pageSize || 25
+    }
+  });
   return data;
 }
 
 function traduzirErro(error: unknown): unknown {
   const conflito = interpretarConflitoDeEdicao(error);
   if (conflito) return conflito;
-  if (!axios.isAxiosError(error) || error.response?.status !== 422) return error;
+  if (!axios.isAxiosError(error) || error.response?.status !== 422)
+    return error;
 
-  const corpo = error.response.data as { issues?: ComercialIssue[]; message?: string };
+  const corpo = error.response.data as {
+    issues?: ComercialIssue[];
+    message?: string;
+  };
   const issues = Array.isArray(corpo?.issues) ? corpo.issues : [];
 
   // Sem `issues` não há o que endereçar — deixa o erro original subir em vez de
@@ -203,9 +228,10 @@ export interface Consultor {
  * apenas reflete o que chegou.
  */
 export async function listarConsultores() {
-  const { data } = await apiClient.get<{ items: Consultor[]; podeEscolher: boolean }>(
-    '/comercial/consultores'
-  );
+  const { data } = await apiClient.get<{
+    items: Consultor[];
+    podeEscolher: boolean;
+  }>('/comercial/consultores');
   return data;
 }
 
@@ -225,12 +251,16 @@ export interface FotoDoEscopo {
  * assinatura de bytes, porque a otimização daqui pode ser contornada.
  */
 export async function enviarFotoDoEscopo(blob: Blob, fileName: string) {
-  const { data } = await apiClient.post<FotoDoEscopo>('/comercial/escopo/fotos', blob, {
-    headers: {
-      'Content-Type': blob.type,
-      'x-file-name': encodeURIComponent(fileName)
+  const { data } = await apiClient.post<FotoDoEscopo>(
+    '/comercial/escopo/fotos',
+    blob,
+    {
+      headers: {
+        'Content-Type': blob.type,
+        'x-file-name': encodeURIComponent(fileName)
+      }
     }
-  });
+  );
   return data;
 }
 
@@ -242,8 +272,9 @@ export async function enviarFotoDoEscopo(blob: Blob, fileName: string) {
  * texto genérico da tela joga fora justamente o que diz o que fazer a seguir.
  */
 export function mensagemDeErro(error: unknown, padrao: string): string {
-  const resposta = (error as { response?: { status?: number; data?: { error?: string } } })
-    ?.response;
+  const resposta = (
+    error as { response?: { status?: number; data?: { error?: string } } }
+  )?.response;
   if (resposta?.data?.error) return resposta.data.error;
   if (error instanceof Error && error.message) return error.message;
   return padrao;
@@ -326,7 +357,10 @@ export interface ProximaRevisaoDaProposta {
  * permitiria que o histórico e o CRM dissessem um número que o PDF não confirma.
  */
 export async function criarProposta(entrada: PropostaEntrada) {
-  const { data } = await apiClient.post<PropostaSalva>('/comercial/propostas', entrada);
+  const { data } = await apiClient.post<PropostaSalva>(
+    '/comercial/propostas',
+    entrada
+  );
   return data;
 }
 
@@ -336,10 +370,13 @@ export async function atualizarProposta(
   concorrencia: OpcoesDeConcorrencia
 ) {
   try {
-    const { data } = await apiClient.put<PropostaSalva>(`/comercial/propostas/${id}`, {
-      ...entrada,
-      ...concorrencia
-    });
+    const { data } = await apiClient.put<PropostaSalva>(
+      `/comercial/propostas/${id}`,
+      {
+        ...entrada,
+        ...concorrencia
+      }
+    );
     return data;
   } catch (error) {
     throw interpretarConflitoDeEdicao(error) || error;
@@ -347,7 +384,9 @@ export async function atualizarProposta(
 }
 
 export async function obterProposta(id: string) {
-  const { data } = await apiClient.get<PropostaSalva>(`/comercial/propostas/${id}`);
+  const { data } = await apiClient.get<PropostaSalva>(
+    `/comercial/propostas/${id}`
+  );
   return data;
 }
 
@@ -363,11 +402,25 @@ export async function prepararRevisaoDaProposta(codigo: string) {
   return data;
 }
 
-export async function listarPropostas(filtros: { busca?: string; arquivados?: boolean } = {}) {
-  const { data } = await apiClient.get<{ items: PropostaSalva[]; total: number }>(
-    '/comercial/propostas',
-    { params: { busca: filtros.busca || '', arquivados: filtros.arquivados ? 1 : 0 } }
-  );
+export async function listarPropostas(
+  filtros: {
+    busca?: string;
+    arquivados?: boolean;
+    page?: number;
+    pageSize?: number;
+  } = {}
+) {
+  const { data } = await apiClient.get<{
+    items: PropostaSalva[];
+    total: number;
+  }>('/comercial/propostas', {
+    params: {
+      busca: filtros.busca || '',
+      arquivados: filtros.arquivados ? 1 : 0,
+      page: filtros.page || 1,
+      pageSize: filtros.pageSize || 25
+    }
+  });
   return data;
 }
 
@@ -436,7 +489,10 @@ export async function finalizarProposta(
   const resposta = await apiClient.post<Partial<ResultadoDaFinalizacao>>(
     '/comercial/propostas/finalizar',
     { proposalId, pipelineId, pastaExistente },
-    { validateStatus: status => (status >= 200 && status < 300) || status === 502 }
+    {
+      validateStatus: (status) =>
+        (status >= 200 && status < 300) || status === 502
+    }
   );
   return interpretarRespostaDaFinalizacao(resposta.status, resposta.data);
 }
@@ -452,9 +508,15 @@ export function interpretarRespostaDaFinalizacao(
     Boolean(data.sharepoint);
   if (status !== 502) {
     if (completa) return data as ResultadoDaFinalizacao;
-    throw new Error('O servidor devolveu uma resposta inválida ao finalizar a proposta.');
+    throw new Error(
+      'O servidor devolveu uma resposta inválida ao finalizar a proposta.'
+    );
   }
-  if (!Array.isArray(data?.documentos) || !data.integracao || !data.sharepoint) {
+  if (
+    !Array.isArray(data?.documentos) ||
+    !data.integracao ||
+    !data.sharepoint
+  ) {
     throw new Error(data?.error || 'Não foi possível concluir as integrações.');
   }
   return {
@@ -491,7 +553,10 @@ export async function listarAnexosDaProposta(proposalId: string) {
   return data;
 }
 
-export async function removerAnexoDaProposta(proposalId: string, anexoId: string) {
+export async function removerAnexoDaProposta(
+  proposalId: string,
+  anexoId: string
+) {
   const { data } = await apiClient.delete<{ id: string; originalName: string }>(
     `/comercial/propostas/${proposalId}/anexos/${anexoId}`
   );
@@ -560,7 +625,10 @@ export interface EnderecoLocalizado {
  * motivo — porque o campo continua editável e digitar é o caminho de sempre. Um
  * erro aqui faria a tela parecer quebrada com o trabalho podendo seguir.
  */
-export async function calcularDistancia(endereco: string, signal?: AbortSignal) {
+export async function calcularDistancia(
+  endereco: string,
+  signal?: AbortSignal
+) {
   const { data } = await apiClient.get<{
     km: number | null;
     enderecoEncontrado: string;
@@ -591,10 +659,10 @@ export interface SugestaoDeEndereco {
  * Nunca rejeita por endereço ruim — vem `items: []` e o motivo em `aviso`.
  */
 export async function sugerirEnderecos(termo: string, signal?: AbortSignal) {
-  const { data } = await apiClient.get<{ items: SugestaoDeEndereco[]; aviso: string }>(
-    '/comercial/enderecos/sugestoes',
-    { params: { termo }, signal }
-  );
+  const { data } = await apiClient.get<{
+    items: SugestaoDeEndereco[];
+    aviso: string;
+  }>('/comercial/enderecos/sugestoes', { params: { termo }, signal });
   return data;
 }
 
@@ -636,10 +704,13 @@ export type BuscaDeEmpresas = {
  * o usuário já apagou.
  */
 export async function buscarEmpresasCrm(busca: string, signal?: AbortSignal) {
-  const { data } = await apiClient.get<BuscaDeEmpresas>('/comercial/crm/empresas', {
-    params: { busca },
-    signal
-  });
+  const { data } = await apiClient.get<BuscaDeEmpresas>(
+    '/comercial/crm/empresas',
+    {
+      params: { busca },
+      signal
+    }
+  );
   return data;
 }
 
@@ -664,7 +735,9 @@ export async function obterEmpresaCrm(id: string) {
  * veria o tutorial — e o mesmo usuário o veria de novo em outro computador.
  */
 export async function tutorialComercialVisto() {
-  const { data } = await apiClient.get<{ visto: boolean }>('/comercial/tutorial');
+  const { data } = await apiClient.get<{ visto: boolean }>(
+    '/comercial/tutorial'
+  );
   return data.visto;
 }
 
@@ -674,7 +747,9 @@ export async function marcarTutorialComercialVisto() {
 }
 
 export async function obterConfiguracaoComercial() {
-  const { data } = await apiClient.get<ComercialConfiguracao>('/comercial/configuracao');
+  const { data } = await apiClient.get<ComercialConfiguracao>(
+    '/comercial/configuracao'
+  );
   return data;
 }
 
@@ -685,11 +760,13 @@ export async function obterConfiguracaoComercial() {
  * localizar é caminho normal — com o Maps desligado, que é o padrão, é o único
  * caminho — e a tela precisa mostrar as duas coisas ao mesmo tempo.
  */
-export async function salvarSedeComercial(sedeEndereco: string, sedePlaceId = '') {
-  const { data } = await apiClient.put<ComercialConfiguracao & { aviso: string; confianca: string }>(
-    '/comercial/configuracao/sede',
-    { sedeEndereco, sedePlaceId }
-  );
+export async function salvarSedeComercial(
+  sedeEndereco: string,
+  sedePlaceId = ''
+) {
+  const { data } = await apiClient.put<
+    ComercialConfiguracao & { aviso: string; confianca: string }
+  >('/comercial/configuracao/sede', { sedeEndereco, sedePlaceId });
   return data;
 }
 

@@ -19,7 +19,8 @@ import {
 } from '../../../api/comercial';
 import {
   ETAPAS_VISIVEIS_DA_FINALIZACAO,
-  validarFinalizacao,
+  primeiraPendenciaDaFinalizacao,
+  type PendenciaDaFinalizacao,
   type EscolhaDeCard,
   type EscolhaDeDownload
 } from './finalizacao';
@@ -35,22 +36,29 @@ type AnyRecord = Record<string, unknown>;
  */
 export function usePropostaFinalizacao({
   propostaId,
+  statusProposta,
   form,
   orcamentista,
   salvar,
   setRecado,
   vinculoCrm,
-  setVinculoCrm
+  setVinculoCrm,
+  onPendencia,
+  onStatus
 }: {
   propostaId: string;
+  statusProposta: string;
   form: AnyRecord;
   orcamentista: string;
   salvar: () => Promise<string | null>;
   setRecado: Dispatch<SetStateAction<string>>;
   vinculoCrm: VinculoCrmDaProposta | null;
   setVinculoCrm: Dispatch<SetStateAction<VinculoCrmDaProposta | null>>;
+  onPendencia: (pendencia: PendenciaDaFinalizacao) => void;
+  onStatus: (status: string) => void;
 }) {
-  const [escolhaDownload, setEscolhaDownload] = useState<EscolhaDeDownload>('both');
+  const [escolhaDownload, setEscolhaDownload] =
+    useState<EscolhaDeDownload>('both');
   const [escolhaCard, setEscolhaCard] = useState<EscolhaDeCard>('');
   const [funis, setFunis] = useState<FunilNectar[]>([]);
   const [funisCarregando, setFunisCarregando] = useState(true);
@@ -72,16 +80,19 @@ export function usePropostaFinalizacao({
     let vivo = true;
     setFunisCarregando(true);
     listarFunisNectar()
-      .then(resposta => {
+      .then((resposta) => {
         if (!vivo) return;
         setFunis(resposta.items);
         setFunisMensagem(resposta.motivoIndisponivel);
       })
-      .catch(error => {
+      .catch((error) => {
         if (!vivo) return;
         setFunis([]);
         setFunisMensagem(
-          mensagemDeErro(error, 'Não foi possível consultar os funis do Nectar.')
+          mensagemDeErro(
+            error,
+            'Não foi possível consultar os funis do Nectar.'
+          )
         );
       })
       .finally(() => {
@@ -100,7 +111,7 @@ export function usePropostaFinalizacao({
       return;
     }
     setFunilId('');
-    setEscolhaCard(atual => (atual === 'existing' ? '' : atual));
+    setEscolhaCard((atual) => (atual === 'existing' ? '' : atual));
   }, [vinculoCrm]);
 
   /** Anexo já enviado sobrevive a F5 e não pode ser reenviado em duplicidade. */
@@ -112,11 +123,14 @@ export function usePropostaFinalizacao({
 
     let vivo = true;
     listarAnexosDaProposta(propostaId)
-      .then(resposta => {
+      .then((resposta) => {
         if (vivo) setAnexosEnviados(resposta.items);
       })
-      .catch(error => {
-        if (vivo) setRecado(mensagemDeErro(error, 'Não foi possível carregar os anexos.'));
+      .catch((error) => {
+        if (vivo)
+          setRecado(
+            mensagemDeErro(error, 'Não foi possível carregar os anexos.')
+          );
       });
     return () => {
       vivo = false;
@@ -142,7 +156,10 @@ export function usePropostaFinalizacao({
 
     const pipelineId = funilId || vinculoCrm?.pipelineId || '';
     const cardChoice: EscolhaDeCard = vinculoCrm ? 'existing' : escolhaCard;
-    const pendencia = validarFinalizacao({
+    const integracaoDisponivel = Boolean(
+      funisCarregando || funis.length || vinculoCrm?.pipelineId
+    );
+    const pendencia = primeiraPendenciaDaFinalizacao({
       email: String(form.email || ''),
       cnpj: String(form.cnpj || ''),
       department: String(form.department || ''),
@@ -152,11 +169,13 @@ export function usePropostaFinalizacao({
       companyId: String(form.companyId || ''),
       contactId: String(form.contactId || ''),
       cardChoice,
-      existingOpportunityId: vinculoCrm?.opportunityId || ''
+      existingOpportunityId: vinculoCrm?.opportunityId || '',
+      exigirIntegracao: integracaoDisponivel
     });
-    setErroFinalizacao(pendencia);
+    setErroFinalizacao(pendencia?.mensagem || '');
     if (pendencia) {
-      setRecado(pendencia);
+      setRecado(pendencia.mensagem);
+      onPendencia(pendencia);
       return;
     }
 
@@ -168,7 +187,12 @@ export function usePropostaFinalizacao({
       ETAPAS_VISIVEIS_DA_FINALIZACAO[0].etapaTecnica;
 
     try {
-      const id = await salvar();
+      // Depois de uma falha os documentos já existem e o registro é imutável.
+      // Repetir começa direto nas integrações; tentar salvar antes receberia 409.
+      const id =
+        statusProposta === 'FALHA_INTEGRACAO' && propostaId
+          ? propostaId
+          : await salvar();
       if (!id) return;
 
       setEtapaFinalizacao(1);
@@ -176,20 +200,25 @@ export function usePropostaFinalizacao({
       setRecado(ETAPAS_VISIVEIS_DA_FINALIZACAO[1].mensagem);
       for (const arquivo of [...anexos]) {
         const enviado = await enviarAnexoDaProposta(id, arquivo);
-        setAnexosEnviados(atuais => [...atuais, enviado]);
-        setAnexos(atuais => atuais.filter(item => item !== arquivo));
+        setAnexosEnviados((atuais) => [...atuais, enviado]);
+        setAnexos((atuais) => atuais.filter((item) => item !== arquivo));
       }
 
       setEtapaFinalizacao(2);
       etapaTecnica = ETAPAS_VISIVEIS_DA_FINALIZACAO[2].etapaTecnica;
       setRecado(ETAPAS_VISIVEIS_DA_FINALIZACAO[2].mensagem);
-      const resultado = await finalizarProposta(id, pipelineId, pastaOneDrive.trim());
+      const resultado = await finalizarProposta(
+        id,
+        pipelineId,
+        pastaOneDrive.trim()
+      );
 
       setEmitidos(resultado.documentos);
       setEtapaFinalizacao(3);
       etapaTecnica = ETAPAS_VISIVEIS_DA_FINALIZACAO[3].etapaTecnica;
       if (resultado.ok) {
         setFinalizada(true);
+        onStatus('FINALIZADA');
         setRecado(ETAPAS_VISIVEIS_DA_FINALIZACAO[3].mensagem);
         if (resultado.integracao.opportunityId) {
           setVinculoCrm({
@@ -199,15 +228,20 @@ export function usePropostaFinalizacao({
           });
         }
       } else {
+        onStatus('FALHA_INTEGRACAO');
         const mensagem =
-          resultado.error || resultado.integracao.mensagem || resultado.sharepoint.mensagem;
+          resultado.error ||
+          resultado.integracao.mensagem ||
+          resultado.sharepoint.mensagem;
         setRecado(
           `${mensagem || 'Não foi possível concluir as integrações.'} ` +
             'As duas propostas foram geradas e continuam disponíveis para download.'
         );
       }
     } catch (error) {
-      const causa = new Error(mensagemDeErro(error, 'Não foi possível concluir a proposta.'));
+      const causa = new Error(
+        mensagemDeErro(error, 'Não foi possível concluir a proposta.')
+      );
       const mensagem = describeFinalizationError(causa, etapaTecnica);
       setErroFinalizacao(mensagem);
       setRecado(mensagem);
@@ -222,9 +256,11 @@ export function usePropostaFinalizacao({
     setErroFinalizacao('');
     try {
       await removerAnexoDaProposta(propostaId, id);
-      setAnexosEnviados(atuais => atuais.filter(anexo => anexo.id !== id));
+      setAnexosEnviados((atuais) => atuais.filter((anexo) => anexo.id !== id));
     } catch (error) {
-      setErroFinalizacao(mensagemDeErro(error, 'Não foi possível remover o anexo.'));
+      setErroFinalizacao(
+        mensagemDeErro(error, 'Não foi possível remover o anexo.')
+      );
     } finally {
       setRemovendoAnexoId('');
     }
@@ -235,7 +271,7 @@ export function usePropostaFinalizacao({
     setBaixandoId(documentos.length === 1 ? documentos[0].id : 'varios');
     try {
       const arquivos = await Promise.all(
-        documentos.map(async documento => ({
+        documentos.map(async (documento) => ({
           documento,
           blob: await baixarDocumento(documento.id)
         }))
@@ -284,8 +320,10 @@ export function usePropostaFinalizacao({
     funis,
     funisCarregando,
     funisMensagem,
+    integracaoDisponivel: Boolean(funis.length || vinculoCrm?.pipelineId),
     emitidos,
     marcarFinalizada: setFinalizada,
+    limparErroFinalizacao: () => setErroFinalizacao(''),
     pastaOneDrive,
     reiniciarFinalizacao,
     removerAnexo,

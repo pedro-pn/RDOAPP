@@ -138,6 +138,33 @@ test('card existente exige o id do card; vínculo herdado satisfaz a regra', () 
   );
 });
 
+test('Nectar indisponível não bloqueia a emissão dos documentos', () => {
+  assert.equal(
+    fluxo.validarFinalizacao(
+      entrada({
+        exigirIntegracao: false,
+        pipelineId: '',
+        companyId: '',
+        contactId: '',
+        cardChoice: ''
+      })
+    ),
+    ''
+  );
+});
+
+test('a pendência informa a etapa e o campo exatos para navegação', () => {
+  assert.deepEqual(
+    fluxo.primeiraPendenciaDaFinalizacao(entrada({ contactId: '' })),
+    {
+      mensagem:
+        'Selecione a empresa e o contato diretamente pelo Nectar antes de finalizar.',
+      etapa: 'cliente',
+      campo: 'empresaCrm'
+    }
+  );
+});
+
 const documentos = [
   { id: 'dc', kind: 'COMERCIAL', fileName: 'Comercial.pdf', byteSize: 10 },
   { id: 'dt', kind: 'TECNICA', fileName: 'Tecnica.pdf', byteSize: 20 }
@@ -209,6 +236,43 @@ test('a etapa de revisão mostra funil, destino e a pendência pré-finalizaçã
   assert.match(html, /Gestão Comercial/);
   assert.match(html, /Criar card novo/);
   assert.match(html, /Selecione a empresa e o contato diretamente pelo Nectar/);
+});
+
+test('a etapa de revisão explica a emissão sem Nectar', () => {
+  const html = renderToStaticMarkup(
+    createElement(revisao.RevisaoStep, {
+      form: { client: 'Petrobras', companyId: '', contactId: '' },
+      codigo: '4418',
+      vinculoCrm: null,
+      funis: [],
+      funisCarregando: false,
+      funisMensagem: 'Nectar desligado neste ambiente.',
+      funilId: '',
+      onFunil: () => {},
+      escolhaCard: '',
+      onEscolhaCard: () => {},
+      escolha: 'both',
+      onEscolha: () => {},
+      pastaOneDrive: '',
+      onPastaOneDrive: () => {},
+      anexos: [],
+      onAnexos: () => {},
+      anexosEnviados: [],
+      removendoAnexoId: '',
+      onRemoverAnexo: () => {},
+      erroFinalizacao: '',
+      bloqueada: false
+    })
+  );
+
+  assert.match(
+    html,
+    /documentos e o envio ao SharePoint continuarão normalmente/i
+  );
+  assert.match(
+    html,
+    /Não são obrigatórios enquanto o Nectar estiver indisponível/
+  );
 });
 
 test('o 502 útil conserva os documentos e o motivo das integrações', () => {

@@ -26,7 +26,8 @@ export function ClienteStep({
   erroDe,
   orcamentista,
   consultores,
-  podeEscolherConsultor
+  podeEscolherConsultor,
+  erroCrm
 }: {
   form: AnyRecord;
   editar: (patch: AnyRecord) => void;
@@ -34,6 +35,7 @@ export function ClienteStep({
   orcamentista: string;
   consultores: Array<{ id: string; nome: string }>;
   podeEscolherConsultor: boolean;
+  erroCrm?: string;
 }) {
   const valor = (campo: string) => String(form[campo] ?? '');
 
@@ -51,28 +53,40 @@ export function ClienteStep({
           esteve desabilitado enquanto a integração não existia; agora ela existe,
           e é por aqui que `companyId` e `contactId` entram — sem eles a
           finalização recusa, e digitar o nome à mão nunca os produziria. */}
-      <BuscaDeEmpresa onEscolher={editar} />
+      <BuscaDeEmpresa onEscolher={editar} erro={erroCrm} />
 
       <div className="com-form-grid">
         <SelectField
           label="Consultor de Vendas"
           required
           value={valor('seller')}
-          emptyLabel={podeEscolherConsultor ? 'Selecione o consultor' : undefined}
-          options={consultores.map(item => ({ value: item.id, label: item.nome }))}
+          emptyLabel={
+            podeEscolherConsultor ? 'Selecione o consultor' : undefined
+          }
+          options={consultores.map((item) => ({
+            value: item.id,
+            label: item.nome
+          }))}
           /* Vendedor vê só o próprio nome, já escolhido: ele não emite em nome de
              outro, e a restrição vem da API, não daqui. */
           disabled={!podeEscolherConsultor}
           error={erroDe('seller')}
-          onChange={novo => editar({ seller: novo })}
+          onChange={(novo) => editar({ seller: novo })}
         />
 
         <div className="field-group">
           <label htmlFor="com-orcamentista">
             Orçamentista<span className="survey-required-marker">*</span>
           </label>
-          <input id="com-orcamentista" value={orcamentista} readOnly aria-readonly="true" />
-          <small className="field-hint">Preenchido automaticamente pelo seu login.</small>
+          <input
+            id="com-orcamentista"
+            value={orcamentista}
+            readOnly
+            aria-readonly="true"
+          />
+          <small className="field-hint">
+            Preenchido automaticamente pelo seu login.
+          </small>
         </div>
 
         <Field
@@ -81,7 +95,7 @@ export function ClienteStep({
           required
           value={valor('date')}
           error={erroDe('date')}
-          onChange={novo => editar({ date: novo })}
+          onChange={(novo) => editar({ date: novo })}
         />
       </div>
 
@@ -91,7 +105,7 @@ export function ClienteStep({
           required
           value={valor('client')}
           error={erroDe('client')}
-          onChange={novo => editar({ client: novo })}
+          onChange={(novo) => editar({ client: novo })}
         />
 
         <Field
@@ -101,7 +115,7 @@ export function ClienteStep({
           inputMode="numeric"
           value={valor('cnpj')}
           error={erroDe('cnpj')}
-          onChange={novo => editar({ cnpj: formatarCnpj(novo) })}
+          onChange={(novo) => editar({ cnpj: formatarCnpj(novo) })}
         />
       </div>
 
@@ -111,7 +125,7 @@ export function ClienteStep({
           required
           value={valor('contact')}
           error={erroDe('contact')}
-          onChange={novo => editar({ contact: novo })}
+          onChange={(novo) => editar({ contact: novo })}
         />
 
         <Field
@@ -121,13 +135,14 @@ export function ClienteStep({
           inputMode="email"
           value={valor('email')}
           error={erroDe('email')}
-          onChange={novo => editar({ email: novo.trim() })}
+          onChange={(novo) => editar({ email: novo.trim() })}
         />
 
         <Field
           label="Departamento"
           value={valor('department')}
-          onChange={novo => editar({ department: novo })}
+          error={erroDe('department')}
+          onChange={(novo) => editar({ department: novo })}
         />
       </div>
 
@@ -137,7 +152,7 @@ export function ClienteStep({
         value={valor('site')}
         placeholder="Ex.: Rua, número, cidade/UF ou unidade industrial"
         error={erroDe('site')}
-        onChange={novo => editar({ site: novo })}
+        onChange={(novo) => editar({ site: novo })}
       />
     </section>
   );

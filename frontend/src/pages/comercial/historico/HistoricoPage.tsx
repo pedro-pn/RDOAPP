@@ -16,49 +16,62 @@ import { LOGO_URL } from '../components/marca';
 import { HistoricoTabela } from './HistoricoTabela';
 import { HistoricoLevantamentosTabela } from './HistoricoLevantamentosTabela';
 
+const REGISTROS_POR_PAGINA = 25;
+
 export function HistoricoPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [busca, setBusca] = useState('');
   const [propostas, setPropostas] = useState<PropostaSalva[]>([]);
   const [levantamentos, setLevantamentos] = useState<LevantamentoSalvo[]>([]);
+  const [totalPropostas, setTotalPropostas] = useState(0);
+  const [totalLevantamentos, setTotalLevantamentos] = useState(0);
+  const [paginaPropostas, setPaginaPropostas] = useState(1);
+  const [paginaLevantamentos, setPaginaLevantamentos] = useState(1);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [baixandoDocumentoId, setBaixandoDocumentoId] = useState('');
 
   const podeVerValores = Boolean(
-    user?.moduleRoles?.some(role =>
+    user?.moduleRoles?.some((role) =>
       ['comercial:manager', 'comercial:seller'].includes(role)
     )
   );
   const podeVerLevantamentos = podeVerValores;
 
-  const carregar = useCallback(async (termo = '') => {
-    setCarregando(true);
-    setErro('');
-    try {
-      const [respostaPropostas, respostaLevantamentos] = await Promise.all([
-        listarPropostas({ busca: termo }),
-        podeVerLevantamentos
-          ? listarLevantamentos()
-          : Promise.resolve({ items: [] as LevantamentoSalvo[], total: 0 })
-      ]);
-      const chave = termo.trim().toLocaleLowerCase('pt-BR');
-      setPropostas(respostaPropostas.items);
-      setLevantamentos(
-        chave
-          ? respostaLevantamentos.items.filter(item =>
-              [item.proposalCode, item.title, item.mode, item.status]
-                .some(valor => String(valor || '').toLocaleLowerCase('pt-BR').includes(chave))
-            )
-          : respostaLevantamentos.items
-      );
-    } catch (error) {
-      setErro(mensagemDeErro(error, 'Falha ao consultar o histórico.'));
-    } finally {
-      setCarregando(false);
-    }
-  }, [podeVerLevantamentos]);
+  const carregar = useCallback(
+    async (termo = '', paginaDasPropostas = 1, paginaDosLevantamentos = 1) => {
+      setCarregando(true);
+      setErro('');
+      try {
+        const [respostaPropostas, respostaLevantamentos] = await Promise.all([
+          listarPropostas({
+            busca: termo,
+            page: paginaDasPropostas,
+            pageSize: REGISTROS_POR_PAGINA
+          }),
+          podeVerLevantamentos
+            ? listarLevantamentos({
+                busca: termo,
+                page: paginaDosLevantamentos,
+                pageSize: REGISTROS_POR_PAGINA
+              })
+            : Promise.resolve({ items: [] as LevantamentoSalvo[], total: 0 })
+        ]);
+        setPropostas(respostaPropostas.items);
+        setLevantamentos(respostaLevantamentos.items);
+        setTotalPropostas(respostaPropostas.total);
+        setTotalLevantamentos(respostaLevantamentos.total);
+        setPaginaPropostas(paginaDasPropostas);
+        setPaginaLevantamentos(paginaDosLevantamentos);
+      } catch (error) {
+        setErro(mensagemDeErro(error, 'Falha ao consultar o histórico.'));
+      } finally {
+        setCarregando(false);
+      }
+    },
+    [podeVerLevantamentos]
+  );
 
   function abrirLevantamento(levantamento: LevantamentoSalvo) {
     const parametros = new URLSearchParams({
@@ -68,7 +81,35 @@ export function HistoricoPage() {
       id: levantamento.id,
       secao: 'summary'
     });
-    navigate(`${moduleRoutePath('comercial', 'custos')}?${parametros.toString()}`);
+    navigate(
+      `${moduleRoutePath('comercial', 'custos')}?${parametros.toString()}`
+    );
+  }
+
+  function abrirProposta(proposta: PropostaSalva) {
+    const parametros = new URLSearchParams({
+      id: proposta.id,
+      proposta: proposta.proposalCode,
+      revisao: String(proposta.revisionNumber || 0),
+      modo: proposta.revisionNumber > 0 ? 'revision' : 'new',
+      etapa: proposta.status === 'FALHA_INTEGRACAO' ? 'revisao' : 'cliente'
+    });
+    if (proposta.costEstimateId)
+      parametros.set('levantamento', proposta.costEstimateId);
+    navigate(
+      `${moduleRoutePath('comercial', 'propostas')}?${parametros.toString()}`
+    );
+  }
+
+  function criarRevisao(proposta: PropostaSalva) {
+    const parametros = new URLSearchParams({
+      modo: 'revision',
+      proposta: proposta.proposalCode,
+      etapa: 'cliente'
+    });
+    navigate(
+      `${moduleRoutePath('comercial', 'propostas')}?${parametros.toString()}`
+    );
   }
 
   useEffect(() => {
@@ -126,7 +167,11 @@ export function HistoricoPage() {
           >
             ← Voltar
           </button>
-          <button type="button" className="com-btn com-btn-fantasma" onClick={() => void sair()}>
+          <button
+            type="button"
+            className="com-btn com-btn-fantasma"
+            onClick={() => void sair()}
+          >
             Sair
           </button>
         </div>
@@ -136,10 +181,13 @@ export function HistoricoPage() {
         <div>
           <span className="com-eyebrow">COMERCIAL / PROPOSTAS</span>
           <h1>Histórico comercial</h1>
-          <p>Consulte levantamentos salvos, propostas geradas, integrações e documentos.</p>
+          <p>
+            Consulte levantamentos salvos, propostas geradas, integrações e
+            documentos.
+          </p>
         </div>
         <div className="com-history-count">
-          <strong>{propostas.length + levantamentos.length}</strong>
+          <strong>{totalPropostas + totalLevantamentos}</strong>
           <span>registros encontrados</span>
         </div>
       </section>
@@ -147,14 +195,14 @@ export function HistoricoPage() {
       <section className="com-history-content">
         <form
           className="com-history-search"
-          onSubmit={event => {
+          onSubmit={(event) => {
             event.preventDefault();
-            void carregar(busca);
+            void carregar(busca, 1, 1);
           }}
         >
           <input
             value={busca}
-            onChange={event => setBusca(event.target.value)}
+            onChange={(event) => setBusca(event.target.value)}
             placeholder="Buscar por número, cliente, documento, responsável ou funil..."
             aria-label="Buscar no histórico"
           />
@@ -167,7 +215,7 @@ export function HistoricoPage() {
               className="com-btn com-btn-fantasma"
               onClick={() => {
                 setBusca('');
-                void carregar();
+                void carregar('', 1, 1);
               }}
             >
               Limpar
@@ -191,13 +239,19 @@ export function HistoricoPage() {
         ) : (
           <div className="com-history-sections">
             {podeVerLevantamentos && (
-              <section className="com-history-section" aria-labelledby="historico-levantamentos">
+              <section
+                className="com-history-section"
+                aria-labelledby="historico-levantamentos"
+              >
                 <div className="com-history-section-title">
                   <div>
                     <h2 id="historico-levantamentos">Levantamentos de custo</h2>
-                    <p>Rascunhos e levantamentos concluídos, com acesso para continuar o trabalho.</p>
+                    <p>
+                      Rascunhos e levantamentos concluídos, com acesso para
+                      continuar o trabalho.
+                    </p>
                   </div>
-                  <strong>{levantamentos.length}</strong>
+                  <strong>{totalLevantamentos}</strong>
                 </div>
                 {levantamentos.length ? (
                   <HistoricoLevantamentosTabela
@@ -209,27 +263,117 @@ export function HistoricoPage() {
                     Nenhum levantamento encontrado.
                   </div>
                 )}
+                {totalLevantamentos > REGISTROS_POR_PAGINA && (
+                  <div
+                    className="com-oferta-acoes"
+                    aria-label="Paginação dos levantamentos"
+                  >
+                    <button
+                      type="button"
+                      className="com-btn com-btn-fantasma"
+                      disabled={paginaLevantamentos <= 1}
+                      onClick={() =>
+                        void carregar(
+                          busca,
+                          paginaPropostas,
+                          paginaLevantamentos - 1
+                        )
+                      }
+                    >
+                      ← Anterior
+                    </button>
+                    <span>
+                      Página {paginaLevantamentos} de{' '}
+                      {Math.ceil(totalLevantamentos / REGISTROS_POR_PAGINA)}
+                    </span>
+                    <button
+                      type="button"
+                      className="com-btn com-btn-fantasma"
+                      disabled={
+                        paginaLevantamentos * REGISTROS_POR_PAGINA >=
+                        totalLevantamentos
+                      }
+                      onClick={() =>
+                        void carregar(
+                          busca,
+                          paginaPropostas,
+                          paginaLevantamentos + 1
+                        )
+                      }
+                    >
+                      Próxima →
+                    </button>
+                  </div>
+                )}
               </section>
             )}
 
-            <section className="com-history-section" aria-labelledby="historico-propostas">
+            <section
+              className="com-history-section"
+              aria-labelledby="historico-propostas"
+            >
               <div className="com-history-section-title">
                 <div>
                   <h2 id="historico-propostas">Propostas</h2>
-                  <p>Documentos finalizados e situação das integrações.</p>
+                  <p>
+                    Rascunhos, documentos emitidos e situação das integrações.
+                  </p>
                 </div>
-                <strong>{propostas.length}</strong>
+                <strong>{totalPropostas}</strong>
               </div>
               {propostas.length ? (
                 <HistoricoTabela
                   propostas={propostas}
                   podeVerValores={podeVerValores}
                   baixandoDocumentoId={baixandoDocumentoId}
-                  onBaixarDocumento={documento => void baixar(documento)}
+                  onBaixarDocumento={(documento) => void baixar(documento)}
+                  onAbrirProposta={podeVerValores ? abrirProposta : undefined}
+                  onCriarRevisao={podeVerValores ? criarRevisao : undefined}
                 />
               ) : (
                 <div className="com-history-empty com-history-empty-compact">
                   Nenhuma proposta encontrada.
+                </div>
+              )}
+              {totalPropostas > REGISTROS_POR_PAGINA && (
+                <div
+                  className="com-oferta-acoes"
+                  aria-label="Paginação das propostas"
+                >
+                  <button
+                    type="button"
+                    className="com-btn com-btn-fantasma"
+                    disabled={paginaPropostas <= 1}
+                    onClick={() =>
+                      void carregar(
+                        busca,
+                        paginaPropostas - 1,
+                        paginaLevantamentos
+                      )
+                    }
+                  >
+                    ← Anterior
+                  </button>
+                  <span>
+                    Página {paginaPropostas} de{' '}
+                    {Math.ceil(totalPropostas / REGISTROS_POR_PAGINA)}
+                  </span>
+                  <button
+                    type="button"
+                    className="com-btn com-btn-fantasma"
+                    disabled={
+                      paginaPropostas * REGISTROS_POR_PAGINA >= totalPropostas
+                    }
+                    onClick={() =>
+                      void carregar(
+                        busca,
+                        paginaPropostas + 1,
+                        paginaLevantamentos
+                      )
+                    }
+                  >
+                    Próxima →
+                  </button>
                 </div>
               )}
             </section>

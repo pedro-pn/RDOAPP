@@ -1,24 +1,27 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
-process.env.COMERCIAL_DIR = await mkdtemp(path.join(tmpdir(), 'comercial-final-'));
+process.env.COMERCIAL_DIR = await mkdtemp(
+  path.join(tmpdir(), "comercial-final-"),
+);
 // `fake` responde como se o CRM tivesse aceitado, sem tocar na rede. Sem ele não
 // haveria como testar a finalização: o Nectar não tem sandbox, e o modo `real`
 // escreveria no CRM da empresa.
-process.env.NECTAR_MODE = 'fake';
-process.env.NECTAR_PIPELINE_IDS = '100,200';
+process.env.NECTAR_MODE = "fake";
+process.env.NECTAR_PIPELINE_IDS = "100,200";
 // O SharePoint nasce `off` pela mesma razão do Nectar: o destino é a biblioteca
 // real da empresa. Sem ligar o `fake` aqui, toda finalização deste arquivo
 // falharia — e falharia CERTO.
-process.env.SHAREPOINT_MODE = 'fake';
-process.env.SHAREPOINT_BASE_FOLDER = 'ZZ - Testes';
+process.env.SHAREPOINT_MODE = "fake";
+process.env.SHAREPOINT_BASE_FOLDER = "ZZ - Testes";
 
-const { finalizarProposta, exigirNaoFinalizada } = await import('../src/lib/comercial/jobs.js');
-const { documentosAtuais } = await import('../src/lib/comercial/documentos.js');
-const nectar = await import('../src/lib/comercial/nectar.js');
+const { finalizarProposta, exigirNaoFinalizada } =
+  await import("../src/lib/comercial/jobs.js");
+const { documentosAtuais } = await import("../src/lib/comercial/documentos.js");
+const nectar = await import("../src/lib/comercial/nectar.js");
 
 /**
  * Finalização da proposta (T076, T077, T078, T079a, T080).
@@ -37,35 +40,51 @@ test.after(async () => {
   await rm(raiz, { recursive: true, force: true });
 });
 
-const vendedorA = { id: 'u-vend-a', name: 'Vendedor A', moduleRoles: ['comercial:seller'] };
-const vendedorB = { id: 'u-vend-b', name: 'Vendedor B', moduleRoles: ['comercial:seller'] };
-const gestor = { id: 'u-gestor', name: 'Gestora', moduleRoles: ['comercial:manager'] };
-const consulta = { id: 'u-consulta', name: 'Consulta', moduleRoles: ['comercial:viewer'] };
+const vendedorA = {
+  id: "u-vend-a",
+  name: "Vendedor A",
+  moduleRoles: ["comercial:seller"],
+};
+const vendedorB = {
+  id: "u-vend-b",
+  name: "Vendedor B",
+  moduleRoles: ["comercial:seller"],
+};
+const gestor = {
+  id: "u-gestor",
+  name: "Gestora",
+  moduleRoles: ["comercial:manager"],
+};
+const consulta = {
+  id: "u-consulta",
+  name: "Consulta",
+  moduleRoles: ["comercial:viewer"],
+};
 
 function propostaBase(extra = {}) {
   return {
-    id: 'p1',
-    proposalCode: '4418',
+    id: "p1",
+    proposalCode: "4418",
     revisionNumber: 0,
-    status: 'RASCUNHO',
+    status: "RASCUNHO",
     archivedAt: null,
-    createdByUserId: 'u-vend-a',
-    sellerName: 'Vendedor A',
-    estimatorName: 'Orçamentista',
-    clientName: 'Petrobras',
-    contact: 'Fulano',
-    email: 'fulano@cliente.com',
-    site: 'Macaé',
+    createdByUserId: "u-vend-a",
+    sellerName: "Vendedor A",
+    estimatorName: "Orçamentista",
+    clientName: "Petrobras",
+    contact: "Fulano",
+    email: "fulano@cliente.com",
+    site: "Macaé",
     totalValue: 14750.5,
     finalizedAt: null,
     finalizedByUserId: null,
-    nectarStatus: 'PENDENTE',
+    nectarStatus: "PENDENTE",
     nectarOpportunityId: null,
     nectarPipelineId: null,
     nectarPipelineName: null,
     integrationError: null,
-    payload: { title: 'Filtragem', companyId: '9', contactId: '7', prices: [] },
-    ...extra
+    payload: { title: "Filtragem", companyId: "9", contactId: "7", prices: [] },
+    ...extra,
   };
 }
 
@@ -76,185 +95,236 @@ function fakePrisma(propostas = [], levantamentos = []) {
     documentos: [],
     anexos: [],
     auditoria: [],
-    atualizacoes: []
+    atualizacoes: [],
   };
   let sequencia = 0;
 
   const proposalDocument = {
     create: ({ data }) => {
-      const row = { id: `d${++sequencia}`, createdAt: new Date(Date.now() + sequencia), ...data };
+      const row = {
+        id: `d${++sequencia}`,
+        createdAt: new Date(Date.now() + sequencia),
+        ...data,
+      };
       store.documentos.push(row);
       return Promise.resolve(row);
     },
     findMany: async ({ where, orderBy }) => {
-      const items = store.documentos.filter(d => d.proposalId === where.proposalId);
-      if (orderBy?.createdAt === 'desc') items.sort((a, b) => b.createdAt - a.createdAt);
+      const items = store.documentos.filter(
+        (d) => d.proposalId === where.proposalId,
+      );
+      if (orderBy?.createdAt === "desc")
+        items.sort((a, b) => b.createdAt - a.createdAt);
       return items;
     },
-    findUnique: async ({ where }) => store.documentos.find(d => d.id === where.id) || null
+    findUnique: async ({ where }) =>
+      store.documentos.find((d) => d.id === where.id) || null,
   };
 
   return {
     store,
     costEstimate: {
       findUnique: async ({ where }) =>
-        store.levantamentos.find(item => item.id === where.id) || null
+        store.levantamentos.find((item) => item.id === where.id) || null,
     },
     proposal: {
       // Devolve CÓPIA, como o Prisma de verdade. Compartilhar a referência com o
       // store faria uma escrita posterior alterar o objeto já carregado — e foi
       // exatamente assim que o retorno ao estado anterior passou despercebido.
       findUnique: async ({ where }) => {
-        const row = store.propostas.find(p => p.id === where.id);
+        const row = store.propostas.find((p) => p.id === where.id);
         return row ? { ...row } : null;
       },
       update: async ({ where, data }) => {
-        const row = store.propostas.find(p => p.id === where.id);
+        const row = store.propostas.find((p) => p.id === where.id);
         store.atualizacoes.push({ ...data });
         Object.assign(row, data);
         return row;
-      }
+      },
     },
     proposalDocument,
     proposalAttachment: {
       findMany: async ({ where }) =>
-        store.anexos.filter(item => item.proposalId === where.proposalId),
+        store.anexos.filter((item) => item.proposalId === where.proposalId),
       create: async ({ data }) => {
-        const row = { id: `a${store.anexos.length + 1}`, createdAt: new Date(), ...data };
+        const row = {
+          id: `a${store.anexos.length + 1}`,
+          createdAt: new Date(),
+          ...data,
+        };
         store.anexos.push(row);
         return row;
-      }
+      },
     },
     proposalAuditLog: {
       create: async ({ data }) => {
         store.auditoria.push(data);
         return data;
-      }
+      },
     },
-    $transaction: async operacoes => Promise.all(operacoes)
+    $transaction: async (operacoes) => Promise.all(operacoes),
   };
 }
 
-const gerarPdf = async (dados, tipo) => Buffer.from(`%PDF-${tipo}-${dados.proposalCode}`);
+const gerarPdf = async (dados, tipo) =>
+  Buffer.from(`%PDF-${tipo}-${dados.proposalCode}`);
 
 // ---------------------------------------------------------------------------
 // Exclusividade — antes de gerar qualquer coisa
 // ---------------------------------------------------------------------------
 
-test('proposta já finalizada é 409, e a recusa diz QUANDO e POR QUEM', () => {
+test("proposta já finalizada é 409, e a recusa diz QUANDO e POR QUEM", () => {
   // "Já finalizada" sozinho manda a pessoa procurar quem foi — e normalmente é o
   // colega ao lado.
-  const quando = new Date('2026-08-10T14:30:00Z');
+  const quando = new Date("2026-08-10T14:30:00Z");
 
   assert.throws(
     () =>
       exigirNaoFinalizada(
         propostaBase({
-          status: 'FINALIZADA',
+          status: "FINALIZADA",
           finalizedAt: quando,
-          finalizedByUserId: 'u-vend-a',
-          finalizedByLabel: 'Vendedor A'
-        })
+          finalizedByUserId: "u-vend-a",
+          finalizedByLabel: "Vendedor A",
+        }),
       ),
-    error => {
+    (error) => {
       assert.equal(error.statusCode, 409);
       assert.match(error.message, /2026|10\/08/);
       assert.match(error.message, /Vendedor A/);
       assert.equal(error.finalizedAt, quando);
       return true;
-    }
+    },
   );
 });
 
-test('proposta em finalização é 409 com autor — dois cliques não geram dois pares', async () => {
+test("proposta em finalização é 409 com autor — dois cliques não geram dois pares", async () => {
   const prisma = fakePrisma([
     propostaBase({
-      status: 'FINALIZANDO',
-      finalizedAt: new Date('2026-08-10T14:30:00Z'),
-      finalizedByUserId: 'u-vend-b',
-      finalizedByLabel: 'Vendedor B'
-    })
+      status: "FINALIZANDO",
+      finalizedAt: new Date("2026-08-10T14:30:00Z"),
+      finalizedByUserId: "u-vend-b",
+      finalizedByLabel: "Vendedor B",
+    }),
   ]);
 
   await assert.rejects(
-    () => finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf }),
-    error => error.statusCode === 409 && /Vendedor B/.test(error.message)
+    () =>
+      finalizarProposta(prisma, vendedorA, "p1", {
+        pipelineId: "100",
+        gerarPdf,
+      }),
+    (error) => error.statusCode === 409 && /Vendedor B/.test(error.message),
   );
 
-  assert.equal(prisma.store.documentos.length, 0, 'gerou documento de uma segunda finalização');
+  assert.equal(
+    prisma.store.documentos.length,
+    0,
+    "gerou documento de uma segunda finalização",
+  );
 });
 
-test('a exclusividade é conferida ANTES de gerar', async () => {
-  const prisma = fakePrisma([propostaBase({ status: 'FINALIZADA', finalizedAt: new Date() })]);
+test("a exclusividade é conferida ANTES de gerar", async () => {
+  const prisma = fakePrisma([
+    propostaBase({ status: "FINALIZADA", finalizedAt: new Date() }),
+  ]);
   let gerou = false;
 
   await assert.rejects(() =>
-    finalizarProposta(prisma, vendedorA, 'p1', {
-      pipelineId: '100',
+    finalizarProposta(prisma, vendedorA, "p1", {
+      pipelineId: "100",
       gerarPdf: async () => {
         gerou = true;
-        return Buffer.from('%PDF');
-      }
-    })
+        return Buffer.from("%PDF");
+      },
+    }),
   );
 
-  assert.equal(gerou, false, 'gerou PDF antes de conferir se podia finalizar');
+  assert.equal(gerou, false, "gerou PDF antes de conferir se podia finalizar");
 });
 
-test('o estado vira FINALIZANDO antes da geração', async () => {
+test("o estado vira FINALIZANDO antes da geração", async () => {
   const prisma = fakePrisma([propostaBase()]);
   const estadosDurante = [];
 
-  await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
     gerarPdf: async (dados, tipo) => {
       estadosDurante.push(prisma.store.propostas[0].status);
       return Buffer.from(`%PDF-${tipo}`);
-    }
+    },
   });
 
   // É o que faz o segundo clique encontrar FINALIZANDO em vez de RASCUNHO.
-  assert.deepEqual(estadosDurante, ['FINALIZANDO', 'FINALIZANDO']);
+  assert.deepEqual(estadosDurante, ["FINALIZANDO", "FINALIZANDO"]);
 });
 
 // ---------------------------------------------------------------------------
 // Permissão (T078)
 // ---------------------------------------------------------------------------
 
-test('o autor finaliza a sua e o gestor finaliza qualquer uma', async () => {
+test("o autor finaliza a sua e o gestor finaliza qualquer uma", async () => {
   const doAutor = fakePrisma([propostaBase()]);
-  assert.equal((await finalizarProposta(doAutor, vendedorA, 'p1', { pipelineId: '100', gerarPdf })).ok, true);
+  assert.equal(
+    (
+      await finalizarProposta(doAutor, vendedorA, "p1", {
+        pipelineId: "100",
+        gerarPdf,
+      })
+    ).ok,
+    true,
+  );
 
   const doGestor = fakePrisma([propostaBase()]);
-  assert.equal((await finalizarProposta(doGestor, gestor, 'p1', { pipelineId: '100', gerarPdf })).ok, true);
+  assert.equal(
+    (
+      await finalizarProposta(doGestor, gestor, "p1", {
+        pipelineId: "100",
+        gerarPdf,
+      })
+    ).ok,
+    true,
+  );
 });
 
-test('vendedor não finaliza proposta de outro autor', async () => {
+test("vendedor não finaliza proposta de outro autor", async () => {
   const prisma = fakePrisma([propostaBase()]);
 
   await assert.rejects(
-    () => finalizarProposta(prisma, vendedorB, 'p1', { pipelineId: '100', gerarPdf }),
-    error => error.statusCode === 403
+    () =>
+      finalizarProposta(prisma, vendedorB, "p1", {
+        pipelineId: "100",
+        gerarPdf,
+      }),
+    (error) => error.statusCode === 403,
   );
 
   assert.equal(prisma.store.documentos.length, 0);
 });
 
-test('o papel de consulta nunca finaliza', async () => {
+test("o papel de consulta nunca finaliza", async () => {
   const prisma = fakePrisma([propostaBase()]);
 
   await assert.rejects(
-    () => finalizarProposta(prisma, consulta, 'p1', { pipelineId: '100', gerarPdf }),
-    error => error.statusCode === 403
+    () =>
+      finalizarProposta(prisma, consulta, "p1", {
+        pipelineId: "100",
+        gerarPdf,
+      }),
+    (error) => error.statusCode === 403,
   );
 });
 
-test('proposta arquivada não finaliza', async () => {
+test("proposta arquivada não finaliza", async () => {
   const prisma = fakePrisma([propostaBase({ archivedAt: new Date() })]);
 
   await assert.rejects(
-    () => finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf }),
-    error => error.statusCode === 409
+    () =>
+      finalizarProposta(prisma, vendedorA, "p1", {
+        pipelineId: "100",
+        gerarPdf,
+      }),
+    (error) => error.statusCode === 409,
   );
 });
 
@@ -262,12 +332,12 @@ test('proposta arquivada não finaliza', async () => {
 // O caminho feliz
 // ---------------------------------------------------------------------------
 
-test('finaliza: dois documentos gravados, card no CRM e estado FINALIZADA', async () => {
+test("finaliza: dois documentos gravados, card no CRM e estado FINALIZADA", async () => {
   const prisma = fakePrisma([propostaBase()]);
 
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
-    gerarPdf
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    gerarPdf,
   });
 
   assert.equal(resultado.ok, true);
@@ -275,98 +345,141 @@ test('finaliza: dois documentos gravados, card no CRM e estado FINALIZADA', asyn
   assert.equal(prisma.store.documentos.length, 2);
 
   const proposta = prisma.store.propostas[0];
-  assert.equal(proposta.status, 'FINALIZADA');
-  assert.equal(proposta.nectarStatus, 'SUCESSO');
-  assert.equal(proposta.finalizedByUserId, 'u-vend-a');
+  assert.equal(proposta.status, "FINALIZADA");
+  assert.equal(proposta.nectarStatus, "SUCESSO");
+  assert.equal(proposta.finalizedByUserId, "u-vend-a");
   assert.ok(proposta.finalizedAt);
-  assert.equal(proposta.nectarOpportunityId, 'fake-op-4418');
-  assert.equal(proposta.nectarPipelineId, '100');
+  assert.equal(proposta.nectarOpportunityId, "fake-op-4418");
+  assert.equal(proposta.nectarPipelineId, "100");
 });
 
-test('o funil fica gravado pelo NOME do momento da emissão', async () => {
+test("o funil fica gravado pelo NOME do momento da emissão", async () => {
   // Renomear o funil no CRM depois não pode reescrever o que a proposta
   // registrou — mesma regra do sellerName.
   const prisma = fakePrisma([propostaBase()]);
-  await finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '200', gerarPdf });
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "200",
+    gerarPdf,
+  });
 
-  assert.equal(prisma.store.propostas[0].nectarPipelineName, 'Funil de teste 200');
+  assert.equal(
+    prisma.store.propostas[0].nectarPipelineName,
+    "Funil de teste 200",
+  );
 });
 
-test('as duas ações irreversíveis viram auditoria', async () => {
+test("as duas ações irreversíveis viram auditoria", async () => {
   const prisma = fakePrisma([propostaBase()]);
-  await finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf });
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    gerarPdf,
+  });
 
   assert.deepEqual(
-    prisma.store.auditoria.map(item => item.action),
-    ['FINALIZADA', 'INTEGRACAO_ENVIADA']
+    prisma.store.auditoria.map((item) => item.action),
+    ["FINALIZADA", "INTEGRACAO_ENVIADA"],
   );
-  assert.equal(prisma.store.auditoria[0].actorUserId, 'u-vend-a');
+  assert.equal(prisma.store.auditoria[0].actorUserId, "u-vend-a");
 });
 
 // ---------------------------------------------------------------------------
 // O CONTRATO DE FALHA (FR-034) — o teste que a T085 pede
 // ---------------------------------------------------------------------------
 
-test('O CASO CRÍTICO: integração falha DEPOIS dos PDFs prontos, e eles continuam baixáveis', async () => {
+test("O CASO CRÍTICO: integração falha DEPOIS dos PDFs prontos, e eles continuam baixáveis", async () => {
   // Funil fora da lista branca: a integração recusa, mas os dois documentos já
   // foram gerados e gravados. O trabalho não pode se perder por causa disso.
   const prisma = fakePrisma([propostaBase()]);
 
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '999',
-    gerarPdf
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "999",
+    gerarPdf,
   });
 
   assert.equal(resultado.ok, false);
-  assert.equal(resultado.documentos.length, 2, 'os documentos precisam vir na resposta de erro');
-  assert.equal(prisma.store.documentos.length, 2, 'e precisam estar gravados');
+  assert.equal(
+    resultado.documentos.length,
+    2,
+    "os documentos precisam vir na resposta de erro",
+  );
+  assert.equal(prisma.store.documentos.length, 2, "e precisam estar gravados");
 
-  const atuais = await documentosAtuais(prisma, 'p1');
-  assert.equal(atuais.length, 2, 'e precisam continuar baixáveis');
+  const atuais = await documentosAtuais(prisma, "p1");
+  assert.equal(atuais.length, 2, "e precisam continuar baixáveis");
 
   const proposta = prisma.store.propostas[0];
-  assert.equal(proposta.status, 'FALHA_INTEGRACAO');
-  assert.equal(proposta.nectarStatus, 'ERRO');
+  assert.equal(proposta.status, "FALHA_INTEGRACAO");
+  assert.equal(proposta.nectarStatus, "ERRO");
   assert.match(proposta.integrationError, /autorizada/i);
-  assert.equal(proposta.finalizedAt, null, 'não finalizou de verdade');
+  assert.equal(proposta.finalizedAt, null, "não finalizou de verdade");
 });
 
-test('falha de integração é registrada na auditoria, com o motivo', async () => {
+test("falha de integração é registrada na auditoria, com o motivo", async () => {
   // "Por que esta proposta não chegou ao CRM" é a pergunta que se faz semanas
   // depois, quando o recado da tela já sumiu.
   const prisma = fakePrisma([propostaBase()]);
-  await finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '999', gerarPdf });
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "999",
+    gerarPdf,
+  });
 
-  const falha = prisma.store.auditoria.find(item => item.action === 'INTEGRACAO_FALHOU');
-  assert.ok(falha, 'a falha precisa deixar rastro');
+  const falha = prisma.store.auditoria.find(
+    (item) => item.action === "INTEGRACAO_FALHOU",
+  );
+  assert.ok(falha, "a falha precisa deixar rastro");
   // O erro é registrado POR DESTINO: "a integração falhou" não diz qual.
   assert.match(falha.detail.erroNectar, /autorizada/i);
 });
 
-test('FALHA_INTEGRACAO permite tentar de novo — não é beco sem saída', async () => {
-  const prisma = fakePrisma([propostaBase({ status: 'FALHA_INTEGRACAO' })]);
+test("FALHA_INTEGRACAO permite tentar de novo — não é beco sem saída", async () => {
+  const prisma = fakePrisma([propostaBase({ status: "FALHA_INTEGRACAO" })]);
 
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
-    gerarPdf
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    gerarPdf,
   });
 
   assert.equal(resultado.ok, true);
-  assert.equal(prisma.store.propostas[0].status, 'FINALIZADA');
+  assert.equal(prisma.store.propostas[0].status, "FINALIZADA");
 });
 
-test('geração que falha devolve a proposta ao estado anterior', async () => {
+test("a nova tentativa reutiliza os PDFs já emitidos em vez de duplicá-los", async () => {
+  const prisma = fakePrisma([propostaBase()]);
+  let geracoes = 0;
+  const gerarContado = async (dados, tipo) => {
+    geracoes += 1;
+    return gerarPdf(dados, tipo);
+  };
+
+  const falha = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "999",
+    gerarPdf: gerarContado,
+  });
+  assert.equal(falha.ok, false);
+  assert.equal(geracoes, 2);
+
+  const sucesso = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    gerarPdf: gerarContado,
+  });
+
+  assert.equal(sucesso.ok, true);
+  assert.equal(geracoes, 2, "a repetição não pode gerar outro par de PDFs");
+  assert.equal(prisma.store.documentos.length, 2);
+});
+
+test("geração que falha devolve a proposta ao estado anterior", async () => {
   // Sem isso ela fica presa em FINALIZANDO e ninguém consegue tentar de novo.
   const prisma = fakePrisma([propostaBase()]);
 
   await assert.rejects(() =>
-    finalizarProposta(prisma, vendedorA, 'p1', {
-      pipelineId: '100',
-      gerarPdf: async () => Buffer.alloc(0)
-    })
+    finalizarProposta(prisma, vendedorA, "p1", {
+      pipelineId: "100",
+      gerarPdf: async () => Buffer.alloc(0),
+    }),
   );
 
-  assert.equal(prisma.store.propostas[0].status, 'RASCUNHO');
+  assert.equal(prisma.store.propostas[0].status, "RASCUNHO");
 });
 
 // ---------------------------------------------------------------------------
@@ -391,56 +504,73 @@ function crmEspiao() {
     anexarDocumentos: async (id, arquivos, ...resto) => {
       capturado.arquivos = arquivos;
       return nectar.anexarDocumentos(id, arquivos, ...resto);
-    }
+    },
   };
 }
 
-test('com levantamento vinculado, vão TRÊS arquivos ao CRM, não dois', async () => {
+test("com levantamento vinculado, vão TRÊS arquivos ao CRM, não dois", async () => {
   // As duas propostas e a planilha de custos. Sem ela o card mostra o preço e
   // não mostra de onde ele veio.
   const prisma = fakePrisma(
-    [propostaBase({ costEstimateId: 'e1' })],
-    [{ id: 'e1', proposalCode: '4418', title: 'Levantamento', payload: { schemaVersion: 2, laborContexts: [] }, totalCost: 1, salePrice: 2, marginPercent: 15 }]
+    [propostaBase({ costEstimateId: "e1" })],
+    [
+      {
+        id: "e1",
+        proposalCode: "4418",
+        title: "Levantamento",
+        payload: { schemaVersion: 2, laborContexts: [] },
+        totalCost: 1,
+        salePrice: 2,
+        marginPercent: 15,
+      },
+    ],
   );
 
   const crm = crmEspiao();
-  await finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf, crm });
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    gerarPdf,
+    crm,
+  });
 
   assert.equal(crm.capturado.arquivos.length, 3);
-  assert.deepEqual(crm.capturado.arquivos.map(a => a.fileName), [
-    'Proposta Comercial - 4418.pdf',
-    'Proposta Técnica - 4418.pdf',
-    'Levantamento de Custos - 4418.csv'
-  ]);
+  assert.deepEqual(
+    crm.capturado.arquivos.map((a) => a.fileName),
+    [
+      "Proposta Comercial - 4418.pdf",
+      "Proposta Técnica - 4418.pdf",
+      "Levantamento de Custos - 4418.csv",
+    ],
+  );
   // E a planilha vai com o BOM, senão o Excel do comercial quebra os acentos.
   const planilha = crm.capturado.arquivos[2];
   assert.deepEqual([...planilha.bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
 });
 
-test('proposta SEM levantamento envia os dois PDFs, e isso é caminho normal', async () => {
+test("proposta SEM levantamento envia os dois PDFs, e isso é caminho normal", async () => {
   // A proposta avulsa existe. Exigir a planilha aqui faria o vínculo opcional
   // virar obrigatório por acidente.
   const prisma = fakePrisma([propostaBase({ costEstimateId: null })]);
 
   const crm = crmEspiao();
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
     gerarPdf,
-    crm
+    crm,
   });
 
   assert.equal(resultado.ok, true);
   assert.equal(crm.capturado.arquivos.length, 2);
 });
 
-test('levantamento vinculado que sumiu não derruba a finalização', async () => {
-  const prisma = fakePrisma([propostaBase({ costEstimateId: 'e-fantasma' })]);
+test("levantamento vinculado que sumiu não derruba a finalização", async () => {
+  const prisma = fakePrisma([propostaBase({ costEstimateId: "e-fantasma" })]);
 
   const crm = crmEspiao();
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
     gerarPdf,
-    crm
+    crm,
   });
 
   assert.equal(resultado.ok, true);
@@ -456,119 +586,148 @@ function arquivosEspiao({ falhar = false } = {}) {
   const capturado = { arquivos: [], opcoes: null };
   return {
     capturado,
-    indisponivel: () => '',
+    indisponivel: () => "",
     gravarArquivos: async (arquivos, opcoes) => {
       capturado.arquivos = arquivos;
       capturado.opcoes = opcoes;
-      if (falhar) throw new Error('O site não foi localizado no SharePoint.');
-      return { pasta: `ZZ - Testes/${opcoes.pastaExistente || opcoes.nomeDaPasta}`, arquivos: arquivos.length };
-    }
+      if (falhar) throw new Error("O site não foi localizado no SharePoint.");
+      return {
+        pasta: `ZZ - Testes/${opcoes.pastaExistente || opcoes.nomeDaPasta}`,
+        arquivos: arquivos.length,
+      };
+    },
   };
 }
 
-test('os mesmos três arquivos vão para os DOIS destinos', async () => {
+test("os mesmos três arquivos vão para os DOIS destinos", async () => {
   // Montá-los duas vezes abriria a porta para o CRM e o SharePoint receberem
   // versões diferentes do mesmo documento.
   const prisma = fakePrisma(
-    [propostaBase({ costEstimateId: 'e1' })],
-    [{ id: 'e1', proposalCode: '4418', title: 'L', payload: { schemaVersion: 2, laborContexts: [] }, totalCost: 1, salePrice: 2, marginPercent: 15 }]
+    [propostaBase({ costEstimateId: "e1" })],
+    [
+      {
+        id: "e1",
+        proposalCode: "4418",
+        title: "L",
+        payload: { schemaVersion: 2, laborContexts: [] },
+        totalCost: 1,
+        salePrice: 2,
+        marginPercent: 15,
+      },
+    ],
   );
 
   const crm = crmEspiao();
   const arquivos = arquivosEspiao();
-  await finalizarProposta(prisma, vendedorA, 'p1', { pipelineId: '100', gerarPdf, crm, arquivos });
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    gerarPdf,
+    crm,
+    arquivos,
+  });
 
   assert.equal(crm.capturado.arquivos.length, 3);
   assert.equal(arquivos.capturado.arquivos.length, 3);
   assert.deepEqual(
-    crm.capturado.arquivos.map(a => a.fileName),
-    arquivos.capturado.arquivos.map(a => a.fileName)
+    crm.capturado.arquivos.map((a) => a.fileName),
+    arquivos.capturado.arquivos.map((a) => a.fileName),
   );
 });
 
-test('a pasta leva número, cliente e título da proposta', async () => {
+test("a pasta leva número, cliente e título da proposta", async () => {
   const prisma = fakePrisma([propostaBase()]);
   const arquivos = arquivosEspiao();
 
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
     gerarPdf,
     crm: crmEspiao(),
-    arquivos
+    arquivos,
   });
 
-  assert.equal(arquivos.capturado.opcoes.nomeDaPasta, '4418 - Petrobras - Filtragem');
-  assert.equal(prisma.store.propostas[0].sharepointStatus, 'SUCESSO');
+  assert.equal(
+    arquivos.capturado.opcoes.nomeDaPasta,
+    "4418 - Petrobras - Filtragem",
+  );
+  assert.equal(prisma.store.propostas[0].sharepointStatus, "SUCESSO");
   assert.match(resultado.sharepoint.pasta, /4418 - Petrobras/);
 });
 
-test('pasta existente do OneDrive tem precedência sobre criar uma nova (T076f)', async () => {
+test("pasta existente do OneDrive tem precedência sobre criar uma nova (T076f)", async () => {
   // A obra já tem pasta. Criar outra ao lado espalharia os documentos da mesma
   // negociação por dois lugares.
   const prisma = fakePrisma([propostaBase()]);
   const arquivos = arquivosEspiao();
 
-  await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
-    pastaExistente: 'Obra Macaé 2026',
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    pastaExistente: "Obra Macaé 2026",
     gerarPdf,
     crm: crmEspiao(),
-    arquivos
+    arquivos,
   });
 
-  assert.equal(arquivos.capturado.opcoes.pastaExistente, 'Obra Macaé 2026');
+  assert.equal(arquivos.capturado.opcoes.pastaExistente, "Obra Macaé 2026");
 });
 
-test('O CASO QUE IMPORTA: SharePoint falha e o card AINDA entra no CRM', async () => {
+test("O CASO QUE IMPORTA: SharePoint falha e o card AINDA entra no CRM", async () => {
   // Encadear os dois destinos faria uma indisponibilidade da Microsoft apagar o
   // trabalho no Nectar.
   const prisma = fakePrisma([propostaBase()]);
   const crm = crmEspiao();
 
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
     gerarPdf,
     crm,
-    arquivos: arquivosEspiao({ falhar: true })
+    arquivos: arquivosEspiao({ falhar: true }),
   });
 
   assert.equal(resultado.ok, false);
-  assert.equal(crm.capturado.arquivos.length, 2, 'o CRM precisa ter recebido mesmo assim');
+  assert.equal(
+    crm.capturado.arquivos.length,
+    2,
+    "o CRM precisa ter recebido mesmo assim",
+  );
 
   const proposta = prisma.store.propostas[0];
-  assert.equal(proposta.nectarStatus, 'SUCESSO');
-  assert.equal(proposta.sharepointStatus, 'ERRO');
+  assert.equal(proposta.nectarStatus, "SUCESSO");
+  assert.equal(proposta.sharepointStatus, "ERRO");
   assert.match(proposta.integrationError, /SharePoint/i);
   // E os documentos continuam baixáveis (FR-034).
   assert.equal(resultado.documentos.length, 2);
 });
 
-test('o inverso também: Nectar falha e a pasta AINDA é gravada', async () => {
+test("o inverso também: Nectar falha e a pasta AINDA é gravada", async () => {
   const prisma = fakePrisma([propostaBase()]);
   const arquivos = arquivosEspiao();
 
-  await finalizarProposta(prisma, vendedorA, 'p1', {
+  await finalizarProposta(prisma, vendedorA, "p1", {
     // Funil fora da lista branca derruba só o Nectar.
-    pipelineId: '999',
+    pipelineId: "999",
     gerarPdf,
     crm: crmEspiao(),
-    arquivos
+    arquivos,
   });
 
-  assert.equal(arquivos.capturado.arquivos.length, 2, 'a pasta precisa ter sido gravada');
-  assert.equal(prisma.store.propostas[0].nectarStatus, 'ERRO');
-  assert.equal(prisma.store.propostas[0].sharepointStatus, 'SUCESSO');
+  assert.equal(
+    arquivos.capturado.arquivos.length,
+    2,
+    "a pasta precisa ter sido gravada",
+  );
+  assert.equal(prisma.store.propostas[0].nectarStatus, "ERRO");
+  assert.equal(prisma.store.propostas[0].sharepointStatus, "SUCESSO");
 });
 
-test('os dois falhando, a mensagem traz os DOIS motivos', async () => {
+test("os dois falhando, a mensagem traz os DOIS motivos", async () => {
   // A pessoa precisa saber dos dois, não do primeiro.
   const prisma = fakePrisma([propostaBase()]);
 
-  await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '999',
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "999",
     gerarPdf,
     crm: crmEspiao(),
-    arquivos: arquivosEspiao({ falhar: true })
+    arquivos: arquivosEspiao({ falhar: true }),
   });
 
   const erro = prisma.store.propostas[0].integrationError;
@@ -576,20 +735,27 @@ test('os dois falhando, a mensagem traz os DOIS motivos', async () => {
   assert.match(erro, /SharePoint/i);
 });
 
-test('a auditoria registra o estado dos DOIS destinos', async () => {
+test("a auditoria registra o estado dos DOIS destinos", async () => {
   const prisma = fakePrisma([propostaBase()]);
 
-  await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
+  await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
     gerarPdf,
     crm: crmEspiao(),
-    arquivos: arquivosEspiao({ falhar: true })
+    arquivos: arquivosEspiao({ falhar: true }),
   });
 
-  const finalizada = prisma.store.auditoria.find(item => item.action === 'FINALIZADA');
-  assert.deepEqual(finalizada.detail, { nectar: 'SUCESSO', sharepoint: 'ERRO' });
+  const finalizada = prisma.store.auditoria.find(
+    (item) => item.action === "FINALIZADA",
+  );
+  assert.deepEqual(finalizada.detail, {
+    nectar: "SUCESSO",
+    sharepoint: "ERRO",
+  });
 
-  const falha = prisma.store.auditoria.find(item => item.action === 'INTEGRACAO_FALHOU');
+  const falha = prisma.store.auditoria.find(
+    (item) => item.action === "INTEGRACAO_FALHOU",
+  );
   assert.equal(falha.erroNectar, undefined);
   assert.match(falha.detail.erroSharepoint, /SharePoint/i);
 });
@@ -598,16 +764,19 @@ test('a auditoria registra o estado dos DOIS destinos', async () => {
 // Revisão reaproveita o card (FR-066)
 // ---------------------------------------------------------------------------
 
-test('havendo card salvo, a finalização REUTILIZA em vez de abrir outro', async () => {
+test("havendo card salvo, a finalização REUTILIZA em vez de abrir outro", async () => {
   const prisma = fakePrisma([
-    propostaBase({ status: 'FALHA_INTEGRACAO', nectarOpportunityId: 'op-existente' })
+    propostaBase({
+      status: "FALHA_INTEGRACAO",
+      nectarOpportunityId: "op-existente",
+    }),
   ]);
 
-  const resultado = await finalizarProposta(prisma, vendedorA, 'p1', {
-    pipelineId: '100',
-    gerarPdf
+  const resultado = await finalizarProposta(prisma, vendedorA, "p1", {
+    pipelineId: "100",
+    gerarPdf,
   });
 
-  assert.equal(resultado.integracao.opportunityId, 'op-existente');
-  assert.equal(prisma.store.propostas[0].nectarOpportunityId, 'op-existente');
+  assert.equal(resultado.integracao.opportunityId, "op-existente");
+  assert.equal(prisma.store.propostas[0].nectarOpportunityId, "op-existente");
 });

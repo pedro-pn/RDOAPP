@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
+import { createHash } from "node:crypto";
 
 import {
   calculateEstimate,
   normalizeCostEstimatePayload,
-  validateCostEstimate
-} from '../../../../shared/comercial/dist/cost-model.js';
+  validateCostEstimate,
+} from "../../../../shared/comercial/dist/cost-model.js";
 
 import {
   ConcurrentWriteError,
@@ -13,8 +13,8 @@ import {
   authorshipFilter,
   canRead,
   canWrite,
-  denialReason
-} from './access.js';
+  denialReason,
+} from "./access.js";
 
 /**
  * Levantamentos de custos — regra de negócio.
@@ -27,7 +27,7 @@ import {
 export class ComercialError extends Error {
   constructor(message, statusCode = 400, extra = {}) {
     super(message);
-    this.name = 'ComercialError';
+    this.name = "ComercialError";
     this.statusCode = statusCode;
     Object.assign(this, extra);
   }
@@ -36,8 +36,8 @@ export class ComercialError extends Error {
 /** Erro de validação do levantamento, com as pendências item a item. */
 export class CostEstimateValidationError extends ComercialError {
   constructor(issues) {
-    super('O levantamento tem pendências.', 422, { issues });
-    this.name = 'CostEstimateValidationError';
+    super("O levantamento tem pendências.", 422, { issues });
+    this.name = "CostEstimateValidationError";
   }
 }
 
@@ -53,17 +53,17 @@ export function toFieldIssues(validation) {
   const issues = [];
 
   for (const item of validation.errors || []) {
-    issues.push(normalizeIssue(item, 'error'));
+    issues.push(normalizeIssue(item, "error"));
   }
   for (const item of validation.warnings || []) {
-    issues.push(normalizeIssue(item, 'warning'));
+    issues.push(normalizeIssue(item, "warning"));
   }
 
   return issues;
 }
 
 function normalizeIssue(item, severityFallback) {
-  if (typeof item === 'string') {
+  if (typeof item === "string") {
     // Sem `path`, a pendência vira banner e não vira endereço. Preservamos a
     // mensagem, mas registramos que ela não tem campo — quem consumir sabe
     // que precisa mostrá-la no resumo, não ao lado de um controle.
@@ -72,12 +72,12 @@ function normalizeIssue(item, severityFallback) {
   return {
     path: item.path ?? null,
     message: item.message ?? String(item),
-    severity: item.severity ?? severityFallback
+    severity: item.severity ?? severityFallback,
   };
 }
 
 export function payloadHash(payload) {
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
 /**
@@ -98,7 +98,7 @@ export function computeTotals(payload) {
     totalCost: numberOrZero(result.totalCost),
     salePrice: numberOrZero(result.salePrice),
     // O motor devolve a margem como fração (0,15); o banco guarda percentual.
-    marginPercent: numberOrZero(result.margin) * 100
+    marginPercent: numberOrZero(result.margin) * 100,
   };
 }
 
@@ -114,13 +114,40 @@ function numberOrZero(value) {
  * preferência, é a restrição. Proteger só a rota de item deixaria o índice
  * devolvendo tudo, que é o vazamento mais provável e o menos visível.
  */
-export async function listCostEstimates(prisma, user, { arquivados = false } = {}) {
+export async function listCostEstimates(
+  prisma,
+  user,
+  { arquivados = false, busca = "", status, page = 1, pageSize = 25 } = {},
+) {
+  const termo = String(busca || "").trim();
+  const pagina = Math.max(1, Number(page) || 1);
+  const porPagina = Math.min(100, Math.max(1, Number(pageSize) || 25));
+  const where = {
+    ...authorshipFilter(user),
+    archivedAt: arquivados ? { not: null } : null,
+    ...(status ? { status } : {}),
+    ...(termo
+      ? {
+          OR: [
+            { proposalCode: { contains: termo, mode: "insensitive" } },
+            { title: { contains: termo, mode: "insensitive" } },
+            ...(["NOVA", "REVISAO"].includes(termo.toUpperCase())
+              ? [{ mode: termo.toUpperCase() }]
+              : []),
+            ...(["RASCUNHO", "SALVO"].includes(termo.toUpperCase())
+              ? [{ status: termo.toUpperCase() }]
+              : []),
+          ],
+        }
+      : {}),
+  };
+
+  const total = await prisma.costEstimate.count({ where });
   const items = await prisma.costEstimate.findMany({
-    where: {
-      ...authorshipFilter(user),
-      archivedAt: arquivados ? { not: null } : null
-    },
-    orderBy: { createdAt: 'desc' },
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (pagina - 1) * porPagina,
+    take: porPagina,
     select: {
       id: true,
       proposalCode: true,
@@ -134,16 +161,36 @@ export async function listCostEstimates(prisma, user, { arquivados = false } = {
       createdByUserId: true,
       archivedAt: true,
       createdAt: true,
-      updatedAt: true
-    }
+      updatedAt: true,
+      proposals: {
+        where: { archivedAt: null },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          status: true,
+          proposalCode: true,
+          revisionNumber: true,
+          updatedAt: true,
+        },
+      },
+    },
   });
 
-  return { items, total: items.length };
+  return {
+    items: items.map(({ proposals = [], ...item }) => ({
+      ...item,
+      propostaVinculada: proposals[0] || null,
+    })),
+    total,
+    page: pagina,
+    pageSize: porPagina,
+  };
 }
 
 export async function getCostEstimate(prisma, user, id) {
   const estimate = await prisma.costEstimate.findUnique({ where: { id } });
-  if (!estimate) throw new ComercialError('Levantamento não encontrado.', 404);
+  if (!estimate) throw new ComercialError("Levantamento não encontrado.", 404);
 
   // Vendedor pedindo levantamento de outro autor recebe 403, não 404 genérico
   // nem tela vazia: um 404 mentiria sobre a existência do registro.
@@ -155,17 +202,19 @@ export async function getCostEstimate(prisma, user, id) {
 }
 
 export async function createCostEstimate(prisma, user, data) {
-  const status = data.status === 'RASCUNHO' ? 'RASCUNHO' : 'SALVO';
-  if (status === 'SALVO') {
+  const status = data.status === "RASCUNHO" ? "RASCUNHO" : "SALVO";
+  if (status === "SALVO") {
     const validation = validateCostEstimate(data.payload);
     if (!validation.valid) {
       throw new CostEstimateValidationError(toFieldIssues(validation));
     }
   }
 
-  const { normalized, totalCost, salePrice, marginPercent } = computeTotals(data.payload);
+  const { normalized, totalCost, salePrice, marginPercent } = computeTotals(
+    data.payload,
+  );
 
-  return prisma.$transaction(async tx => {
+  return prisma.$transaction(async (tx) => {
     const estimate = await tx.costEstimate.create({
       data: {
         proposalCode: data.proposalCode,
@@ -177,20 +226,20 @@ export async function createCostEstimate(prisma, user, data) {
         totalCost,
         salePrice,
         marginPercent,
-        createdByUserId: user.id
-      }
+        createdByUserId: user.id,
+      },
     });
 
     // Rascunho é mutável e pode ser salvo a cada avanço. A trilha imutável
     // começa quando ele vira SALVO; caso contrário cada etapa produziria uma
     // falsa "versão final" de um formulário ainda incompleto.
-    if (status === 'SALVO') {
+    if (status === "SALVO") {
       await tx.costEstimateVersion.create({
         data: {
           costEstimateId: estimate.id,
           payloadHash: payloadHash(normalized),
-          snapshot: normalized
-        }
+          snapshot: normalized,
+        },
       });
     }
 
@@ -200,29 +249,33 @@ export async function createCostEstimate(prisma, user, data) {
 
 export async function updateCostEstimate(prisma, user, id, data) {
   const existing = await prisma.costEstimate.findUnique({ where: { id } });
-  if (!existing) throw new ComercialError('Levantamento não encontrado.', 404);
+  if (!existing) throw new ComercialError("Levantamento não encontrado.", 404);
   if (!canWrite(user, existing)) {
     throw new ComercialError(denialReason(user, existing), 403);
   }
   if (existing.archivedAt) {
-    throw new ComercialError('Levantamento arquivado. Desarquive antes de editar.', 409);
+    throw new ComercialError(
+      "Levantamento arquivado. Desarquive antes de editar.",
+      409,
+    );
   }
   const protegerVersao = assertNoConcurrentWrite(existing, data);
 
   const payload = data.payload ?? existing.payload;
-  const status = data.status ?? existing.status ?? 'SALVO';
-  if (status === 'SALVO') {
+  const status = data.status ?? existing.status ?? "SALVO";
+  if (status === "SALVO") {
     const validation = validateCostEstimate(payload);
     if (!validation.valid) {
       throw new CostEstimateValidationError(toFieldIssues(validation));
     }
   }
 
-  const { normalized, totalCost, salePrice, marginPercent } = computeTotals(payload);
+  const { normalized, totalCost, salePrice, marginPercent } =
+    computeTotals(payload);
   const hash = payloadHash(normalized);
 
   try {
-    return await prisma.$transaction(async tx => {
+    return await prisma.$transaction(async (tx) => {
       const estimate = await tx.costEstimate.update({
         // O `updatedAt` fecha atomicamente a janela entre a leitura e a escrita.
         where: protegerVersao ? { id, updatedAt: existing.updatedAt } : { id },
@@ -234,22 +287,26 @@ export async function updateCostEstimate(prisma, user, id, data) {
           salePrice,
           marginPercent,
           updatedByUserId: user.id,
-          updatedByLabel: actorLabel(user)
-        }
+          updatedByLabel: actorLabel(user),
+        },
       });
 
       // Versão nova só quando o conteúdo mudou de verdade. Gravar uma versão por
       // salvamento encheria a tabela de cópias idênticas e tiraria o sentido do hash.
-      if (status === 'SALVO') {
+      if (status === "SALVO") {
         const last = await tx.costEstimateVersion.findFirst({
           where: { costEstimateId: id },
-          orderBy: { createdAt: 'desc' },
-          select: { payloadHash: true }
+          orderBy: { createdAt: "desc" },
+          select: { payloadHash: true },
         });
 
         if (!last || last.payloadHash !== hash) {
           await tx.costEstimateVersion.create({
-            data: { costEstimateId: id, payloadHash: hash, snapshot: normalized }
+            data: {
+              costEstimateId: id,
+              payloadHash: hash,
+              snapshot: normalized,
+            },
           });
         }
       }
@@ -257,18 +314,23 @@ export async function updateCostEstimate(prisma, user, id, data) {
       return estimate;
     });
   } catch (error) {
-    if (protegerVersao && error?.code === 'P2025') {
+    if (protegerVersao && error?.code === "P2025") {
       const atual = await prisma.costEstimate.findUnique({ where: { id } });
       if (atual) throw new ConcurrentWriteError(atual);
-      throw new ComercialError('Levantamento não encontrado.', 404);
+      throw new ComercialError("Levantamento não encontrado.", 404);
     }
     throw error;
   }
 }
 
-export async function archiveCostEstimate(prisma, user, id, { archive = true } = {}) {
+export async function archiveCostEstimate(
+  prisma,
+  user,
+  id,
+  { archive = true } = {},
+) {
   const existing = await prisma.costEstimate.findUnique({ where: { id } });
-  if (!existing) throw new ComercialError('Levantamento não encontrado.', 404);
+  if (!existing) throw new ComercialError("Levantamento não encontrado.", 404);
   if (!canWrite(user, existing)) {
     throw new ComercialError(denialReason(user, existing), 403);
   }
@@ -278,15 +340,15 @@ export async function archiveCostEstimate(prisma, user, id, { archive = true } =
     where: { id },
     data: {
       archivedAt: archive ? new Date() : null,
-      archivedByUserId: archive ? user.id : null
-    }
+      archivedByUserId: archive ? user.id : null,
+    },
   });
 }
 
 export async function findByProposalCode(prisma, user, proposalCode) {
   const items = await prisma.costEstimate.findMany({
     where: { proposalCode, ...authorshipFilter(user) },
-    orderBy: { revisionNumber: 'desc' }
+    orderBy: { revisionNumber: "desc" },
   });
   return items;
 }

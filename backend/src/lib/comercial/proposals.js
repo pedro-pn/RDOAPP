@@ -5,12 +5,12 @@ import {
   canRead,
   canWrite,
   denialReason,
-  proposalScopeFilter
-} from './access.js';
-import { resolverConsultor } from './consultores.js';
-import { ComercialError } from './cost-estimates.js';
-import { lerDinheiro } from './dinheiro.js';
-import { nomeDoArquivo } from './documentos.js';
+  proposalScopeFilter,
+} from "./access.js";
+import { resolverConsultor } from "./consultores.js";
+import { ComercialError } from "./cost-estimates.js";
+import { lerDinheiro } from "./dinheiro.js";
+import { nomeDoArquivo } from "./documentos.js";
 
 /**
  * Propostas — histórico, revisões e vínculo com o levantamento (tarefa T051).
@@ -34,7 +34,7 @@ import { nomeDoArquivo } from './documentos.js';
 export { ComercialError };
 
 /** Estados em que a proposta ainda aceita edição. */
-const EDITAVEL = 'RASCUNHO';
+const EDITAVEL = "RASCUNHO";
 
 /**
  * O número base do código da proposta.
@@ -44,7 +44,7 @@ const EDITAVEL = 'RASCUNHO';
  * agrupamento por proposta precisam do número.
  */
 export function numeroBase(proposalCode) {
-  return Number(String(proposalCode ?? '').match(/^\d+/)?.[0] || 0);
+  return Number(String(proposalCode ?? "").match(/^\d+/)?.[0] || 0);
 }
 
 /**
@@ -75,14 +75,16 @@ export function calcularTotal(payload) {
 
   const porLocal = new Map();
   for (const item of precos) {
-    const chave = item?.local || '';
+    const chave = item?.local || "";
     porLocal.set(chave, (porLocal.get(chave) || 0) + lerDinheiro(item?.value));
   }
 
   // Uma tabela só (modelo padrão): o total é a soma dela.
   if (porLocal.size <= 1) return [...porLocal.values()][0] || 0;
 
-  const escolhido = String(payload?.priceScenario || '').trim().toUpperCase();
+  const escolhido = String(payload?.priceScenario || "")
+    .trim()
+    .toUpperCase();
   // Só vale se **existir entre as tabelas**: um cenário que não corresponde a
   // nenhuma delas viraria total zero, e zero passa despercebido.
   if (escolhido && porLocal.has(escolhido)) return porLocal.get(escolhido);
@@ -101,37 +103,46 @@ export function calcularTotal(payload) {
  * que existem aqui. Nome de documento contém o próprio código da proposta, por
  * isso a busca por documento é atendida por `proposalCode` sem carregar arquivo.
  */
-export async function listProposals(prisma, user, { arquivados = false, busca = '' } = {}) {
-  const termo = String(busca || '').trim();
-  const contains = { contains: termo, mode: 'insensitive' };
+export async function listProposals(
+  prisma,
+  user,
+  { arquivados = false, busca = "", page = 1, pageSize = 25 } = {},
+) {
+  const termo = String(busca || "").trim();
+  const contains = { contains: termo, mode: "insensitive" };
+  const pagina = Math.max(1, Number(page) || 1);
+  const porPagina = Math.min(100, Math.max(1, Number(pageSize) || 25));
+  const where = {
+    ...proposalScopeFilter(user),
+    archivedAt: arquivados ? { not: null } : null,
+    ...(termo
+      ? {
+          OR: [
+            { proposalCode: contains },
+            { clientName: contains },
+            { contact: contains },
+            { email: contains },
+            { site: contains },
+            { sellerName: contains },
+            { estimatorName: contains },
+            { nectarPipelineName: contains },
+          ],
+        }
+      : {}),
+  };
 
+  const total = await prisma.proposal.count({ where });
   const items = await prisma.proposal.findMany({
-    where: {
-      ...proposalScopeFilter(user),
-      archivedAt: arquivados ? { not: null } : null,
-      ...(termo
-        ? {
-            OR: [
-              { proposalCode: contains },
-              { clientName: contains },
-              { contact: contains },
-              { email: contains },
-              { site: contains },
-              { sellerName: contains },
-              { estimatorName: contains },
-              { nectarPipelineName: contains }
-            ]
-          }
-        : {})
-    },
+    where,
     // A referência ordenava por `base_number DESC, revision DESC`, com o número
     // base numa coluna inteira. Aqui o código é texto, e ordenar texto no banco
     // poria "999" à frente de "4418" no dia em que a numeração passar de quatro
     // dígitos. Então o banco recorta a janela por data — que é a mesma ordem, já
     // que número maior é sempre emitido depois — e a ordenação por número e
     // revisão é aplicada sobre a janela, onde dá para converter.
-    orderBy: [{ createdAt: 'desc' }],
-    take: 250,
+    orderBy: [{ createdAt: "desc" }],
+    skip: (pagina - 1) * porPagina,
+    take: porPagina,
     select: {
       id: true,
       proposalCode: true,
@@ -140,8 +151,8 @@ export async function listProposals(prisma, user, { arquivados = false, busca = 
       costEstimate: {
         select: {
           totalCost: true,
-          marginPercent: true
-        }
+          marginPercent: true,
+        },
       },
       clientName: true,
       contact: true,
@@ -168,25 +179,25 @@ export async function listProposals(prisma, user, { arquivados = false, busca = 
       // por `propostaParaHistorico` antes da resposta; só o título atravessa.
       payload: true,
       documents: {
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           kind: true,
           byteSize: true,
-          createdAt: true
-        }
-      }
-    }
+          createdAt: true,
+        },
+      },
+    },
   });
 
   items.sort(
     (a, b) =>
       numeroBase(b.proposalCode) - numeroBase(a.proposalCode) ||
-      (b.revisionNumber ?? 0) - (a.revisionNumber ?? 0)
+      (b.revisionNumber ?? 0) - (a.revisionNumber ?? 0),
   );
 
   const historico = items.map(propostaParaHistorico);
-  return { items: historico, total: historico.length };
+  return { items: historico, total, page: pagina, pageSize: porPagina };
 }
 
 /**
@@ -206,25 +217,31 @@ export function propostaParaHistorico(item) {
     vistos.add(document.kind);
     documentosAtuais.push({
       ...document,
-      fileName: nomeDoArquivo(document.kind, item.proposalCode, item.revisionNumber)
+      fileName: nomeDoArquivo(
+        document.kind,
+        item.proposalCode,
+        item.revisionNumber,
+      ),
     });
   }
 
   return {
     ...proposal,
     title:
-      payload && typeof payload === 'object' && typeof payload.title === 'string'
+      payload &&
+      typeof payload === "object" &&
+      typeof payload.title === "string"
         ? payload.title
-        : '',
+        : "",
     totalCost: costEstimate?.totalCost ?? null,
     marginPercent: costEstimate?.marginPercent ?? null,
-    documents: documentosAtuais
+    documents: documentosAtuais,
   };
 }
 
 export async function getProposal(prisma, user, id) {
   const proposal = await prisma.proposal.findUnique({ where: { id } });
-  if (!proposal) throw new ComercialError('Proposta não encontrada.', 404);
+  if (!proposal) throw new ComercialError("Proposta não encontrada.", 404);
 
   // Vendedor pedindo proposta de outro autor recebe 403, não 404: esconder que
   // o registro existe não é a política deste módulo.
@@ -247,19 +264,45 @@ export async function getProposal(prisma, user, id) {
  *    está apontando para a proposta errada, e o erro só apareceria na planilha
  *    de custos anexada na finalização, semanas depois.
  */
-async function vincularLevantamento(prisma, user, costEstimateId, proposalCode) {
+async function vincularLevantamento(
+  prisma,
+  user,
+  costEstimateId,
+  proposalCode,
+) {
   if (!costEstimateId) return null;
 
   const estimate = await prisma.costEstimate.findUnique({
     where: { id: costEstimateId },
-    select: { id: true, proposalCode: true, createdByUserId: true }
+    select: {
+      id: true,
+      proposalCode: true,
+      createdByUserId: true,
+      status: true,
+      archivedAt: true,
+    },
   });
 
   if (!estimate) {
-    throw new ComercialError('O levantamento vinculado não foi encontrado.', 422);
+    throw new ComercialError(
+      "O levantamento vinculado não foi encontrado.",
+      422,
+    );
   }
   if (!canRead(user, estimate)) {
-    throw new ComercialError('Este levantamento pertence a outro orçamentista.', 403);
+    throw new ComercialError(
+      "Este levantamento pertence a outro orçamentista.",
+      403,
+    );
+  }
+  if (estimate.archivedAt) {
+    throw new ComercialError("O levantamento vinculado está arquivado.", 422);
+  }
+  if (estimate.status !== "SALVO") {
+    throw new ComercialError(
+      "Finalize e salve o levantamento de custos antes de criar a proposta.",
+      422,
+    );
   }
   if (
     proposalCode &&
@@ -268,7 +311,7 @@ async function vincularLevantamento(prisma, user, costEstimateId, proposalCode) 
   ) {
     throw new ComercialError(
       `O levantamento vinculado é da proposta ${estimate.proposalCode}, não da ${proposalCode}.`,
-      422
+      422,
     );
   }
 
@@ -278,13 +321,15 @@ async function vincularLevantamento(prisma, user, costEstimateId, proposalCode) 
 export async function createProposal(prisma, user, data) {
   const revisionNumber = data.revisionNumber ?? 0;
   const contextoDaRevisao =
-    revisionNumber > 0 ? await proximaRevisao(prisma, user, data.proposalCode) : null;
+    revisionNumber > 0
+      ? await proximaRevisao(prisma, user, data.proposalCode)
+      : null;
 
   if (contextoDaRevisao && revisionNumber !== contextoDaRevisao.nextRevision) {
     throw new ComercialError(
       `A próxima revisão da proposta ${data.proposalCode} é ${contextoDaRevisao.nextRevision}, ` +
         `não ${revisionNumber}. Recarregue a proposta antes de salvar.`,
-      409
+      409,
     );
   }
 
@@ -292,7 +337,7 @@ export async function createProposal(prisma, user, data) {
     prisma,
     user,
     data.costEstimateId,
-    data.proposalCode
+    data.proposalCode,
   );
 
   // O nome do vendedor é gravado junto com o id, e é o do momento da emissão
@@ -301,7 +346,7 @@ export async function createProposal(prisma, user, data) {
   const { sellerUserId, sellerName } = await resolverConsultor(
     prisma,
     user,
-    data.sellerUserId
+    data.sellerUserId,
   );
 
   const payload = data.payload ?? {};
@@ -320,7 +365,7 @@ export async function createProposal(prisma, user, data) {
         department: data.department ?? null,
         sellerUserId,
         sellerName,
-        estimatorName: user.name || user.username || '',
+        estimatorName: user.name || user.username || "",
         payload,
         totalValue: calcularTotal(payload),
         // Vem do histórico, nunca do corpo. Além de impedir que o cliente
@@ -329,8 +374,8 @@ export async function createProposal(prisma, user, data) {
         nectarOpportunityId: contextoDaRevisao?.crm?.opportunityId ?? null,
         nectarPipelineId: contextoDaRevisao?.crm?.pipelineId ?? null,
         nectarPipelineName: contextoDaRevisao?.crm?.pipelineName ?? null,
-        createdByUserId: user.id
-      }
+        createdByUserId: user.id,
+      },
     });
   } catch (error) {
     throw traduzirColisao(error, data);
@@ -343,10 +388,10 @@ export async function createProposal(prisma, user, data) {
  * tempo é situação real, e "já existe" é o que a pessoa precisa ler.
  */
 function traduzirColisao(error, data) {
-  if (error?.code === 'P2002') {
+  if (error?.code === "P2002") {
     return new ComercialError(
       `Já existe a revisão ${data.revisionNumber ?? 0} da proposta ${data.proposalCode}.`,
-      409
+      409,
     );
   }
   return error;
@@ -354,12 +399,15 @@ function traduzirColisao(error, data) {
 
 export async function updateProposal(prisma, user, id, data) {
   const existing = await prisma.proposal.findUnique({ where: { id } });
-  if (!existing) throw new ComercialError('Proposta não encontrada.', 404);
+  if (!existing) throw new ComercialError("Proposta não encontrada.", 404);
   if (!canWrite(user, existing)) {
     throw new ComercialError(denialReason(user, existing), 403);
   }
   if (existing.archivedAt) {
-    throw new ComercialError('Proposta arquivada. Desarquive antes de editar.', 409);
+    throw new ComercialError(
+      "Proposta arquivada. Desarquive antes de editar.",
+      409,
+    );
   }
   // Proposta finalizada não volta a ser editável. Os dois PDFs já foram gerados
   // e podem já estar com o cliente; deixar o registro mudar por baixo faria o
@@ -367,8 +415,8 @@ export async function updateProposal(prisma, user, id, data) {
   // mudar proposta emitida é **revisar** — que gera código novo.
   if (existing.status !== EDITAVEL) {
     throw new ComercialError(
-      'Proposta já finalizada. Crie uma revisão para alterá-la.',
-      409
+      "Proposta já finalizada. Crie uma revisão para alterá-la.",
+      409,
     );
   }
   const protegerVersao = assertNoConcurrentWrite(existing, data);
@@ -376,7 +424,12 @@ export async function updateProposal(prisma, user, id, data) {
   const costEstimateId =
     data.costEstimateId === undefined
       ? existing.costEstimateId
-      : await vincularLevantamento(prisma, user, data.costEstimateId, existing.proposalCode);
+      : await vincularLevantamento(
+          prisma,
+          user,
+          data.costEstimateId,
+          existing.proposalCode,
+        );
 
   // O consultor só é reavaliado quando o corpo o menciona — e aí passa pela
   // mesma regra da criação: vendedor não emite em nome de outro.
@@ -402,28 +455,34 @@ export async function updateProposal(prisma, user, id, data) {
         contact: data.contact ?? existing.contact,
         email: data.email ?? existing.email,
         site: data.site ?? existing.site,
-        department: data.department === undefined ? existing.department : data.department,
+        department:
+          data.department === undefined ? existing.department : data.department,
         sellerUserId: consultor.sellerUserId,
         sellerName: consultor.sellerName,
         payload,
         totalValue: calcularTotal(payload),
         updatedByUserId: user.id,
-        updatedByLabel: actorLabel(user)
-      }
+        updatedByLabel: actorLabel(user),
+      },
     });
   } catch (error) {
-    if (protegerVersao && error?.code === 'P2025') {
+    if (protegerVersao && error?.code === "P2025") {
       const atual = await prisma.proposal.findUnique({ where: { id } });
       if (atual) throw new ConcurrentWriteError(atual);
-      throw new ComercialError('Proposta não encontrada.', 404);
+      throw new ComercialError("Proposta não encontrada.", 404);
     }
     throw error;
   }
 }
 
-export async function archiveProposal(prisma, user, id, { archive = true } = {}) {
+export async function archiveProposal(
+  prisma,
+  user,
+  id,
+  { archive = true } = {},
+) {
   const existing = await prisma.proposal.findUnique({ where: { id } });
-  if (!existing) throw new ComercialError('Proposta não encontrada.', 404);
+  if (!existing) throw new ComercialError("Proposta não encontrada.", 404);
   if (!canWrite(user, existing)) {
     throw new ComercialError(denialReason(user, existing), 403);
   }
@@ -433,8 +492,8 @@ export async function archiveProposal(prisma, user, id, { archive = true } = {})
     where: { id },
     data: {
       archivedAt: archive ? new Date() : null,
-      archivedByUserId: archive ? user.id : null
-    }
+      archivedByUserId: archive ? user.id : null,
+    },
   });
 }
 
@@ -453,23 +512,25 @@ export async function proximaRevisao(prisma, user, proposalCode) {
 
   const revisoes = await prisma.proposal.findMany({
     where: { proposalCode, ...proposalScopeFilter(user) },
-    orderBy: [{ revisionNumber: 'desc' }, { updatedAt: 'desc' }]
+    orderBy: [{ revisionNumber: "desc" }, { updatedAt: "desc" }],
   });
 
   if (!revisoes.length) {
     throw new ComercialError(
       `A proposta ${proposalCode} não foi encontrada no histórico.`,
-      404
+      404,
     );
   }
 
   const ultima = revisoes[0];
-  const comSnapshot = revisoes.find(item => temConteudo(item.payload));
+  const comSnapshot = revisoes.find((item) => temConteudo(item.payload));
   // O vínculo pode estar numa revisão anterior. Isto acontece com dados
   // importados e também com um rascunho antigo criado antes de o reuso existir.
   // Procurar para trás evita abrir um segundo card para a mesma proposta.
-  const comVinculoCrm = revisoes.find(item => item.nectarOpportunityId);
-  const snapshot = comSnapshot ? comSnapshot.payload : snapshotDoHistorico(ultima);
+  const comVinculoCrm = revisoes.find((item) => item.nectarOpportunityId);
+  const snapshot = comSnapshot
+    ? comSnapshot.payload
+    : snapshotDoHistorico(ultima);
 
   return {
     // `base_number` é o nome do contrato congelado; `baseNumber` permanece por
@@ -477,22 +538,23 @@ export async function proximaRevisao(prisma, user, proposalCode) {
     base_number: base,
     baseNumber: base,
     proposalCode: ultima.proposalCode,
-    nextRevision: Math.max(...revisoes.map(item => Number(item.revisionNumber) || 0)) + 1,
+    nextRevision:
+      Math.max(...revisoes.map((item) => Number(item.revisionNumber) || 0)) + 1,
     snapshot,
     snapshotAvailable: Boolean(comSnapshot),
     message: comSnapshot
-      ? 'Proposta anterior carregada por completo.'
-      : 'Dados disponíveis no histórico carregados.',
+      ? "Proposta anterior carregada por completo."
+      : "Dados disponíveis no histórico carregados.",
     costEstimateId: ultima.costEstimateId,
     sellerUserId: ultima.sellerUserId,
     sellerName: ultima.sellerName,
     crm: comVinculoCrm
       ? {
           opportunityId: comVinculoCrm.nectarOpportunityId,
-          pipelineId: comVinculoCrm.nectarPipelineId || '',
-          pipelineName: comVinculoCrm.nectarPipelineName || ''
+          pipelineId: comVinculoCrm.nectarPipelineId || "",
+          pipelineName: comVinculoCrm.nectarPipelineName || "",
         }
-      : null
+      : null,
   };
 }
 
@@ -503,16 +565,20 @@ export async function proximaRevisao(prisma, user, proposalCode) {
  */
 function snapshotDoHistorico(proposal) {
   return {
-    client: proposal.clientName || '',
-    cnpj: proposal.cnpj || '',
-    contact: proposal.contact || '',
-    email: proposal.email || '',
-    site: proposal.site || '',
-    department: proposal.department || '',
-    seller: proposal.sellerUserId || ''
+    client: proposal.clientName || "",
+    cnpj: proposal.cnpj || "",
+    contact: proposal.contact || "",
+    email: proposal.email || "",
+    site: proposal.site || "",
+    department: proposal.department || "",
+    seller: proposal.sellerUserId || "",
   };
 }
 
 function temConteudo(payload) {
-  return Boolean(payload) && typeof payload === 'object' && Object.keys(payload).length > 0;
+  return (
+    Boolean(payload) &&
+    typeof payload === "object" &&
+    Object.keys(payload).length > 0
+  );
 }

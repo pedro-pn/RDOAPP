@@ -11,6 +11,7 @@ import {
 import { ComercialChrome } from '../components/ComercialChrome';
 import { EnderecoField } from '../components/EnderecoField';
 import { moduleRoutePath } from '../../../modules/registry';
+import { configuracaoDaSedeMudou, placeIdDaLocalizacao } from './configuracao';
 
 /**
  * Configurações do módulo Comercial — só gestor (T131).
@@ -65,16 +66,21 @@ export function ConfiguracoesPage() {
     let vivo = true;
 
     obterConfiguracaoComercial()
-      .then(dados => {
+      .then((dados) => {
         if (!vivo) return;
         setConfig(dados);
         setEndereco(dados.sedeEndereco);
         setPlaceId(dados.sedePlaceId);
         setEstado('pronto');
       })
-      .catch(error => {
+      .catch((error) => {
         if (!vivo) return;
-        setErro(mensagemDeErro(error, 'Não foi possível ler a configuração do módulo.'));
+        setErro(
+          mensagemDeErro(
+            error,
+            'Não foi possível ler a configuração do módulo.'
+          )
+        );
         setEstado('erro');
       });
 
@@ -97,7 +103,10 @@ export function ConfiguracoesPage() {
     setErro('');
     setRecado('');
     try {
-      setLocal(await localizarSedeComercial(endereco));
+      const encontrado = await localizarSedeComercial(endereco);
+      setLocal(encontrado);
+      const localizado = placeIdDaLocalizacao(encontrado);
+      if (localizado) setPlaceId(localizado);
     } catch (error) {
       setErro(mensagemDeErro(error, 'Não foi possível localizar o endereço.'));
     } finally {
@@ -123,15 +132,21 @@ export function ConfiguracoesPage() {
             }
           : null
       );
-      setRecado(salvo.aviso ? `Endereço salvo. ${salvo.aviso}` : 'Endereço da sede salvo.');
+      setRecado(
+        salvo.aviso
+          ? `Endereço salvo. ${salvo.aviso}`
+          : 'Endereço da sede salvo.'
+      );
     } catch (error) {
-      setErro(mensagemDeErro(error, 'Não foi possível salvar o endereço da sede.'));
+      setErro(
+        mensagemDeErro(error, 'Não foi possível salvar o endereço da sede.')
+      );
     } finally {
       setOcupado(false);
     }
   }
 
-  const mudou = config !== null && endereco.trim() !== config.sedeEndereco;
+  const mudou = configuracaoDaSedeMudou(config, endereco, placeId);
 
   return (
     <ComercialChrome
@@ -143,8 +158,8 @@ export function ConfiguracoesPage() {
       <section className="com-painel">
         <h2>Endereço da sede</h2>
         <p className="com-recado">
-          É a origem de todas as distâncias calculadas nos levantamentos. Sem ele, a distância
-          até a obra continua sendo digitada à mão.
+          É a origem de todas as distâncias calculadas nos levantamentos. Sem
+          ele, a distância até a obra continua sendo digitada à mão.
         </p>
 
         {estado === 'carregando' && <p>Carregando…</p>}
@@ -189,10 +204,13 @@ export function ConfiguracoesPage() {
             </div>
 
             {local && (
-              <p className={`com-recado${local.confianca === 'exata' ? '' : ' com-recado-erro'}`}>
+              <p
+                className={`com-recado${local.confianca === 'exata' ? '' : ' com-recado-erro'}`}
+              >
                 {local.enderecoEncontrado ? (
                   <>
-                    Encontrado: <b className="com-quebrar">{local.enderecoEncontrado}</b>
+                    Encontrado:{' '}
+                    <b className="com-quebrar">{local.enderecoEncontrado}</b>
                     {local.aviso && <> — {local.aviso}</>}
                   </>
                 ) : (

@@ -28,6 +28,7 @@ let server;
 let render;
 let EnderecoField;
 let EnderecoInput;
+let configuracao;
 
 test.before(async () => {
   server = await createServer({
@@ -41,8 +42,12 @@ test.before(async () => {
     '/src/pages/comercial/components/EnderecoField.tsx'
   );
 
-  render = (Componente, props) => renderToStaticMarkup(createElement(Componente, props));
+  render = (Componente, props) =>
+    renderToStaticMarkup(createElement(Componente, props));
   ({ EnderecoField, EnderecoInput } = componentes);
+  configuracao = await server.ssrLoadModule(
+    '/src/pages/comercial/configuracoes/configuracao.ts'
+  );
 });
 
 test.after(async () => {
@@ -60,7 +65,10 @@ test('o campo se anuncia como combobox de lista', () => {
 });
 
 test('sem sugestões não existe lista no documento', () => {
-  const html = render(EnderecoInput, { value: 'Rua Rosa Orsi', onChange: () => {} });
+  const html = render(EnderecoInput, {
+    value: 'Rua Rosa Orsi',
+    onChange: () => {}
+  });
   assert.doesNotMatch(html, /role="listbox"/);
 });
 
@@ -88,7 +96,12 @@ test('a forma de formulário traz rótulo ligado ao campo', () => {
   assert.match(html, /field-group/);
   const idDoLabel = /<label for="([^"]+)"/.exec(html)?.[1];
   assert.ok(idDoLabel, 'o rótulo não aponta para campo nenhum');
-  assert.match(html, new RegExp(`id="${idDoLabel}"[^>]*role="combobox"|role="combobox"[^>]*id="${idDoLabel}"`));
+  assert.match(
+    html,
+    new RegExp(
+      `id="${idDoLabel}"[^>]*role="combobox"|role="combobox"[^>]*id="${idDoLabel}"`
+    )
+  );
   assert.match(html, /Ainda não configurado neste ambiente\./);
 });
 
@@ -115,4 +128,32 @@ test('o autocomplete do NAVEGADOR fica desligado', () => {
   // minúscula em nome de atributo.
   const html = render(EnderecoInput, { value: '', onChange: () => {} });
   assert.match(html, /autocomplete="off"/i);
+});
+
+test('a configuração considera endereço normalizado e placeId no estado alterado', () => {
+  const atual = { sedeEndereco: 'Rua A, 10', sedePlaceId: 'place-antigo' };
+  assert.equal(
+    configuracao.configuracaoDaSedeMudou(
+      atual,
+      '  Rua A,   10 ',
+      'place-antigo'
+    ),
+    false
+  );
+  assert.equal(
+    configuracao.configuracaoDaSedeMudou(atual, 'Rua A, 10', 'place-novo'),
+    true
+  );
+});
+
+test('a localização conferida fornece o placeId usado no salvamento', () => {
+  assert.equal(
+    configuracao.placeIdDaLocalizacao({
+      enderecoEncontrado: 'Rua A, 10',
+      placeId: 'place-localizado',
+      confianca: 'exata',
+      aviso: ''
+    }),
+    'place-localizado'
+  );
 });

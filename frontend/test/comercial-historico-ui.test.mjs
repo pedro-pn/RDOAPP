@@ -18,7 +18,9 @@ test.before(async () => {
     server: { middlewareMode: true },
     appType: 'custom'
   });
-  historico = await server.ssrLoadModule('/src/pages/comercial/historico/HistoricoTabela.tsx');
+  historico = await server.ssrLoadModule(
+    '/src/pages/comercial/historico/HistoricoTabela.tsx'
+  );
   historicoLevantamentos = await server.ssrLoadModule(
     '/src/pages/comercial/historico/HistoricoLevantamentosTabela.tsx'
   );
@@ -54,8 +56,18 @@ const proposta = {
   finalizedAt: '2026-08-13T10:00:00.000Z',
   updatedAt: '2026-08-13T10:00:00.000Z',
   documents: [
-    { id: 'dc', kind: 'COMERCIAL', fileName: 'Proposta Comercial.pdf', byteSize: 10 },
-    { id: 'dt', kind: 'TECNICA', fileName: 'Proposta Técnica.pdf', byteSize: 20 }
+    {
+      id: 'dc',
+      kind: 'COMERCIAL',
+      fileName: 'Proposta Comercial.pdf',
+      byteSize: 10
+    },
+    {
+      id: 'dt',
+      kind: 'TECNICA',
+      fileName: 'Proposta Técnica.pdf',
+      byteSize: 20
+    }
   ]
 };
 
@@ -79,7 +91,14 @@ test('orçamentista vê revisão, valores, integrações e os dois arquivos', ()
 test('viewer não recebe coluna de valor nem link para o documento comercial', () => {
   const html = renderToStaticMarkup(
     createElement(historico.HistoricoTabela, {
-      propostas: [{ ...proposta, totalValue: undefined, totalCost: undefined, marginPercent: undefined }],
+      propostas: [
+        {
+          ...proposta,
+          totalValue: undefined,
+          totalCost: undefined,
+          marginPercent: undefined
+        }
+      ],
       podeVerValores: false,
       onBaixarDocumento: () => {}
     })
@@ -116,4 +135,22 @@ test('o histórico mostra levantamento salvo e permite reabri-lo', () => {
   assert.match(html, /Salvo/);
   assert.match(html, /R\$\s*10\.000,00/);
   assert.match(html, /Abrir levantamento/);
+});
+
+test('rascunho e falha de integração oferecem retomada no histórico', () => {
+  const html = renderToStaticMarkup(
+    createElement(historico.HistoricoTabela, {
+      propostas: [
+        { ...proposta, id: 'rascunho', status: 'RASCUNHO' },
+        { ...proposta, id: 'falha', status: 'FALHA_INTEGRACAO' }
+      ],
+      podeVerValores: true,
+      onBaixarDocumento: () => {},
+      onAbrirProposta: () => {},
+      onCriarRevisao: () => {}
+    })
+  );
+
+  assert.match(html, /Continuar proposta/);
+  assert.match(html, /Tentar integrações novamente/);
 });

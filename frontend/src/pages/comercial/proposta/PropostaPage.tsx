@@ -63,7 +63,10 @@ import { PropostaFooter } from './PropostaFooter';
 import { PropostaModeDialog } from './PropostaModeDialog';
 import { PropostaModeloDialog } from './PropostaModeloDialog';
 import { PropostaPreviewPanel } from './PropostaPreviewPanel';
-import { ETAPAS_VISIVEIS_DA_FINALIZACAO } from './finalizacao';
+import {
+  ETAPAS_VISIVEIS_DA_FINALIZACAO,
+  type PendenciaDaFinalizacao
+} from './finalizacao';
 import { usePropostaFinalizacao } from './usePropostaFinalizacao';
 import { usePropostaRevision } from './usePropostaRevision';
 import {
@@ -81,7 +84,10 @@ import { RevisaoStep } from './steps/RevisaoStep';
 import { TecnicaStep } from './steps/TecnicaStep';
 import { TutorialDoModulo } from '../TutorialDoModulo';
 import { ROTEIRO_DA_PROPOSTA } from '../roteiroDoTutorial';
-import { rolarParaInicioDoFormulario } from '../navegacao';
+import {
+  focarPrimeiroCampoInvalido,
+  rolarParaInicioDoFormulario
+} from '../navegacao';
 
 /**
  * Montagem da proposta — container das 7 etapas (`PROP-CTL-001..010`, `PROP-H-001..003`).
@@ -168,9 +174,13 @@ export function PropostaPage() {
      perguntar de novo, e o diálogo serve para ESCOLHER, não para confirmar. */
   const modeloNaUrl = params.get('modelo');
   const modelo: ModeloProposta | null =
-    modeloNaUrl === 'padrao' || modeloNaUrl === 'hidrojateamento' ? modeloNaUrl : null;
+    modeloNaUrl === 'padrao' || modeloNaUrl === 'hidrojateamento'
+      ? modeloNaUrl
+      : null;
 
-  const [form, setForm] = useState<AnyRecord>(() => formularioInicial(modelo ?? 'padrao'));
+  const [form, setForm] = useState<AnyRecord>(() =>
+    formularioInicial(modelo ?? 'padrao')
+  );
   // A proposta nasce com UM serviço. Zero serviços deixaria a etapa 2 sem nada
   // para preencher, e a trava pediria um item que não existe na tela.
   const [itensEscopo, setItensEscopo] = useState<ScopeServiceItem[]>(() => [
@@ -180,19 +190,24 @@ export function PropostaPage() {
   // A proposta nasce com a matriz do modelo, não em branco: são ~35 obrigações
   // que se repetem em toda obra, e digitá-las de novo a cada proposta é como o
   // erro entra. O vendedor apaga o que não se aplica.
-  const [responsabilidades, setResponsabilidades] = useState<LinhaResponsabilidade[]>(() =>
-    matrizInicial(modelo ?? 'padrao')
-  );
+  const [responsabilidades, setResponsabilidades] = useState<
+    LinhaResponsabilidade[]
+  >(() => matrizInicial(modelo ?? 'padrao'));
   /* A lista de categorias é editável e vive junto da proposta: acrescentar uma
      categoria numa obra não pode mudar o catálogo das outras. */
-  const [categorias, setCategorias] = useState<string[]>(() => [...CATEGORIAS_RESPONSABILIDADE]);
-  const [servicosTecnicos, setServicosTecnicos] = useState<TechnicalServiceSelection[]>([]);
+  const [categorias, setCategorias] = useState<string[]>(() => [
+    ...CATEGORIAS_RESPONSABILIDADE
+  ]);
+  const [servicosTecnicos, setServicosTecnicos] = useState<
+    TechnicalServiceSelection[]
+  >([]);
   const [complementoRelatorios, setComplementoRelatorios] = useState('');
   const [precos, setPrecos] = useState<ItemDePreco[]>(() => [
     { description: '', unit: '', quantity: '1', unitValue: '', value: '' }
   ]);
   const [incluirUnitario, setIncluirUnitario] = useState(true);
-  const [documentoNaPrevia, setDocumentoNaPrevia] = useState<TipoDeDocumento>('commercial');
+  const [documentoNaPrevia, setDocumentoNaPrevia] =
+    useState<TipoDeDocumento>('commercial');
 
   // A validação técnica inteira vem de `shared/comercial` — é regra de
   // engenharia, e reescrevê-la aqui criaria a segunda verdade que o módulo
@@ -201,44 +216,64 @@ export function PropostaPage() {
   // etapa e o aviso do topo; as pendências com endereço acendem o campo exato
   // dentro do cartão do serviço (T067).
   const pendenciasTecnicas = validateTechnicalServiceIssues(servicosTecnicos);
-  const errosTecnicos = pendenciasTecnicas.map(pendencia => pendencia.message);
+  const errosTecnicos = pendenciasTecnicas.map(
+    (pendencia) => pendencia.message
+  );
   const [maiorVisitada, setMaiorVisitada] = useState(indice);
   const [tentouAvancar, setTentouAvancar] = useState(false);
   const [consultores, setConsultores] = useState<Consultor[]>([]);
   const [podeEscolher, setPodeEscolher] = useState(false);
   const [recado, setRecado] = useState('');
-  const [levantamentoVinculado, setLevantamentoVinculado] = useState<LevantamentoSalvo | null>(
-    null
-  );
+  const [levantamentoVinculado, setLevantamentoVinculado] =
+    useState<LevantamentoSalvo | null>(null);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [versaoCarregada, setVersaoCarregada] = useState('');
-  const [conflitoDeEdicao, setConflitoDeEdicao] = useState<ComercialConcurrentWriteError | null>(
-    null
-  );
+  const [statusProposta, setStatusProposta] = useState('RASCUNHO');
+  const [pendenciaFinalizacao, setPendenciaFinalizacao] =
+    useState<PendenciaDaFinalizacao | null>(null);
+  const [focarPendencia, setFocarPendencia] = useState(false);
+  const [conflitoDeEdicao, setConflitoDeEdicao] =
+    useState<ComercialConcurrentWriteError | null>(null);
   const formularioRef = useRef<HTMLDivElement>(null);
-  const { aplicarSnapshot, carregarRevisao, revisaoPronta, setVinculoCrm, vinculoCrm } =
-    usePropostaRevision({
-      modo,
-      codigo,
-      revisionNumber,
-      propostaId,
-      params,
-      setParams,
-      formularioInicial,
-      setForm,
-      setItensEscopo,
-      setBlocos,
-      setResponsabilidades,
-      setCategorias,
-      setServicosTecnicos,
-      setComplementoRelatorios,
-      setPrecos,
-      setIncluirUnitario,
-      setMaiorVisitada,
-      setTentouAvancar,
-      setRecado
-    });
+
+  function encaminharPendenciaDaFinalizacao(pendencia: PendenciaDaFinalizacao) {
+    setPendenciaFinalizacao(pendencia);
+    setTentouAvancar(true);
+    setFocarPendencia(true);
+    if (etapa === pendencia.etapa) return;
+
+    const proximos = new URLSearchParams(window.location.search);
+    proximos.set('etapa', pendencia.etapa);
+    setParams(proximos, { replace: true });
+  }
+  const {
+    aplicarSnapshot,
+    carregarRevisao,
+    revisaoPronta,
+    setVinculoCrm,
+    vinculoCrm
+  } = usePropostaRevision({
+    modo,
+    codigo,
+    revisionNumber,
+    propostaId,
+    params,
+    setParams,
+    formularioInicial,
+    setForm,
+    setItensEscopo,
+    setBlocos,
+    setResponsabilidades,
+    setCategorias,
+    setServicosTecnicos,
+    setComplementoRelatorios,
+    setPrecos,
+    setIncluirUnitario,
+    setMaiorVisitada,
+    setTentouAvancar,
+    setRecado
+  });
 
   const levantamentoAplicado = useRef('');
   const usarDadosDoLevantamento = params.get('usarLevantamento') === '1';
@@ -257,7 +292,7 @@ export function PropostaPage() {
 
     let vivo = true;
     obterLevantamento(levantamentoId)
-      .then(levantamento => {
+      .then((levantamento) => {
         if (!vivo) return;
         setLevantamentoVinculado(levantamento);
 
@@ -270,7 +305,7 @@ export function PropostaPage() {
 
         levantamentoAplicado.current = levantamento.id;
         const localDaObra = localDaObraDoLevantamento(levantamento);
-        setForm(atual => ({
+        setForm((atual) => ({
           ...atual,
           title: levantamento.title || String(atual.title || ''),
           ...(localDaObra ? { site: localDaObra } : {})
@@ -281,10 +316,15 @@ export function PropostaPage() {
             'O local da obra e o preço de venda foram carregados para a proposta.'
         );
       })
-      .catch(error => {
+      .catch((error) => {
         if (!vivo) return;
         setLevantamentoVinculado(null);
-        setRecado(mensagemDeErro(error, 'Não foi possível carregar o levantamento vinculado.'));
+        setRecado(
+          mensagemDeErro(
+            error,
+            'Não foi possível carregar o levantamento vinculado.'
+          )
+        );
       });
 
     return () => {
@@ -312,6 +352,7 @@ export function PropostaPage() {
     // base inicial, não edições. O rascunho só começa a observar depois delas.
     ativo:
       (!propostaId || Boolean(versaoCarregada)) &&
+      statusProposta === 'RASCUNHO' &&
       revisaoPronta &&
       (!levantamentoId || Boolean(levantamentoVinculado)),
     rotulo: 'Proposta'
@@ -319,12 +360,15 @@ export function PropostaPage() {
 
   const finalizacao = usePropostaFinalizacao({
     propostaId,
+    statusProposta,
     form,
     orcamentista: user?.name || '',
     salvar,
     setRecado,
     vinculoCrm,
-    setVinculoCrm
+    setVinculoCrm,
+    onPendencia: encaminharPendenciaDaFinalizacao,
+    onStatus: setStatusProposta
   });
 
   /**
@@ -336,17 +380,18 @@ export function PropostaPage() {
   useEffect(() => {
     let vivo = true;
     listarConsultores()
-      .then(resposta => {
+      .then((resposta) => {
         if (!vivo) return;
         setConsultores(resposta.items);
         setPodeEscolher(resposta.podeEscolher);
         // Um único consultor não é uma escolha: pré-seleciona.
         if (!resposta.podeEscolher && resposta.items.length === 1) {
-          setForm(atual => ({ ...atual, seller: resposta.items[0].id }));
+          setForm((atual) => ({ ...atual, seller: resposta.items[0].id }));
         }
       })
       .catch(() => {
-        if (vivo) setRecado('Não foi possível carregar os consultores de vendas.');
+        if (vivo)
+          setRecado('Não foi possível carregar os consultores de vendas.');
       });
     return () => {
       vivo = false;
@@ -370,7 +415,7 @@ export function PropostaPage() {
 
     let vivo = true;
     obterProposta(propostaId)
-      .then(proposta => {
+      .then((proposta) => {
         if (!vivo) return;
         // Só conclui a trava depois de uma resposta ativa. O primeiro efeito
         // do StrictMode é desmontado; travar antes deixava a segunda execução
@@ -379,7 +424,14 @@ export function PropostaPage() {
         const dados = snapshotDaPropostaSalva(proposta);
         aplicarSnapshot(dados, proposta.sellerUserId);
         setVersaoCarregada(proposta.updatedAt || '');
+        setStatusProposta(proposta.status || 'RASCUNHO');
         finalizacao.marcarFinalizada(proposta.status === 'FINALIZADA');
+        if (proposta.status === 'FALHA_INTEGRACAO') {
+          setRecado(
+            `${proposta.integrationError || 'As integrações não foram concluídas.'} ` +
+              'Os documentos já emitidos serão reutilizados na nova tentativa.'
+          );
+        }
         setVinculoCrm(
           proposta.nectarOpportunityId
             ? {
@@ -394,7 +446,8 @@ export function PropostaPage() {
         // escolha por cima de uma proposta que já escolheu.
         const salvo = dados.modelo;
         trocarParametros({
-          ...(!modeloNaUrl && (salvo === 'padrao' || salvo === 'hidrojateamento')
+          ...(!modeloNaUrl &&
+          (salvo === 'padrao' || salvo === 'hidrojateamento')
             ? { modelo: salvo }
             : {}),
           modo: proposta.revisionNumber > 0 ? 'revision' : 'new',
@@ -405,10 +458,12 @@ export function PropostaPage() {
         // continuam alcançáveis pelo stepper.
         setMaiorVisitada(ETAPAS.length - 1);
       })
-      .catch(error => {
+      .catch((error) => {
         if (vivo) {
           idCarregado.current = '';
-          setRecado(mensagemDeErro(error, 'Não foi possível carregar a proposta.'));
+          setRecado(
+            mensagemDeErro(error, 'Não foi possível carregar a proposta.')
+          );
         }
       });
 
@@ -419,7 +474,7 @@ export function PropostaPage() {
   }, [aplicarSnapshot, propostaId]);
 
   useEffect(() => {
-    setMaiorVisitada(atual => Math.max(atual, indice));
+    setMaiorVisitada((atual) => Math.max(atual, indice));
   }, [indice]);
 
   const pendencias = pendenciasDaEtapa(etapa, form, {
@@ -433,6 +488,15 @@ export function PropostaPage() {
   const proximaEtapa = ultima ? null : ETAPAS[indice + 1];
   const codigoExibido = rotuloDaProposta(codigo, revisionNumber);
 
+  useEffect(() => {
+    if (!focarPendencia) return;
+    const quadro = window.requestAnimationFrame(() => {
+      focarPrimeiroCampoInvalido(formularioRef.current);
+      setFocarPendencia(false);
+    });
+    return () => window.cancelAnimationFrame(quadro);
+  }, [etapa, focarPendencia, pendenciaFinalizacao, tentouAvancar]);
+
   function irPara(destino: EtapaProposta, rolar = false) {
     // O salvamento anterior pode ter acabado de acrescentar `id` e `proposta`
     // à URL. O `params` deste render ainda é o snapshot antigo; reutilizá-lo
@@ -444,7 +508,9 @@ export function PropostaPage() {
     setParams(proximos, { replace: true });
     setTentouAvancar(false);
     if (rolar) {
-      window.requestAnimationFrame(() => rolarParaInicioDoFormulario(formularioRef.current));
+      window.requestAnimationFrame(() =>
+        rolarParaInicioDoFormulario(formularioRef.current)
+      );
     }
   }
 
@@ -456,10 +522,20 @@ export function PropostaPage() {
    * uma falha esconderia a falha atrás de uma etapa nova.
    */
   async function avancar() {
+    if (statusProposta !== 'RASCUNHO' && etapa !== 'revisao') {
+      setRecado(
+        'Esta proposta já foi emitida e não aceita edição. Tente novamente pela revisão.'
+      );
+      irPara('revisao', true);
+      return;
+    }
     // Mesma regra do vermelho na tela de custos: a marcação aparece quando o
     // usuário tenta avançar, não antes.
     setTentouAvancar(true);
-    if (pendencias.length > 0) return;
+    if (pendencias.length > 0) {
+      setFocarPendencia(true);
+      return;
+    }
 
     if (ultima) {
       await finalizacao.concluirFinalizacao();
@@ -472,7 +548,16 @@ export function PropostaPage() {
   }
 
   function editar(patch: AnyRecord) {
-    setForm(atual => ({ ...atual, ...patch }));
+    setForm((atual) => ({ ...atual, ...patch }));
+    if (
+      pendenciaFinalizacao &&
+      (pendenciaFinalizacao.campo in patch ||
+        (pendenciaFinalizacao.campo === 'empresaCrm' &&
+          ('companyId' in patch || 'contactId' in patch)))
+    ) {
+      setPendenciaFinalizacao(null);
+      finalizacao.limparErroFinalizacao();
+    }
   }
 
   /**
@@ -485,7 +570,9 @@ export function PropostaPage() {
    */
   function escolherModelo(escolhido: ModeloProposta) {
     const anterior = modelo ?? 'padrao';
-    const intocada = JSON.stringify(responsabilidades) === JSON.stringify(matrizInicial(anterior));
+    const intocada =
+      JSON.stringify(responsabilidades) ===
+      JSON.stringify(matrizInicial(anterior));
 
     if (intocada) {
       setResponsabilidades(matrizInicial(escolhido));
@@ -504,7 +591,13 @@ export function PropostaPage() {
     setParams(proximos, { replace: true });
   }
 
-  const erroDe = (campo: string) => (tentouAvancar ? erros.get(campo) : undefined);
+  const erroDe = (campo: string) =>
+    tentouAvancar
+      ? erros.get(campo) ||
+        (pendenciaFinalizacao?.campo === campo
+          ? pendenciaFinalizacao.mensagem
+          : undefined)
+      : undefined;
 
   /** O estado da tela no formato que `salvamento.ts` consome. */
   function conteudo(codigoAtual = codigo): ConteudoDaProposta {
@@ -530,7 +623,8 @@ export function PropostaPage() {
     // guardar o id). Partir sempre da URL atual impede a segunda de desfazer a
     // primeira por causa do snapshot assíncrono de `useSearchParams`.
     const proximos = new URLSearchParams(window.location.search);
-    for (const [chave, valor] of Object.entries(mudancas)) proximos.set(chave, valor);
+    for (const [chave, valor] of Object.entries(mudancas))
+      proximos.set(chave, valor);
     setParams(proximos, { replace: true });
   }
 
@@ -543,6 +637,8 @@ export function PropostaPage() {
     setParams(proximos, { replace: true });
     setVinculoCrm(null);
     finalizacao.reiniciarFinalizacao();
+    setStatusProposta('RASCUNHO');
+    setPendenciaFinalizacao(null);
     setVersaoCarregada('');
     setConflitoDeEdicao(null);
     setRecado('');
@@ -552,6 +648,21 @@ export function PropostaPage() {
     const proximos = parametrosDaPropostaComLevantamento(levantamento);
     setLevantamentoVinculado(levantamento);
     setRecado('Carregando dados do levantamento...');
+    setParams(proximos, { replace: true });
+  }
+
+  function continuarPropostaDoLevantamento(levantamento: LevantamentoSalvo) {
+    const proposta = levantamento.propostaVinculada;
+    if (!proposta) return iniciarComLevantamento(levantamento);
+
+    const proximos = new URLSearchParams({
+      id: proposta.id,
+      levantamento: levantamento.id,
+      proposta: proposta.proposalCode,
+      revisao: String(proposta.revisionNumber || 0),
+      modo: proposta.revisionNumber > 0 ? 'revision' : 'new',
+      etapa: proposta.status === 'FALHA_INTEGRACAO' ? 'revisao' : 'cliente'
+    });
     setParams(proximos, { replace: true });
   }
 
@@ -596,6 +707,7 @@ export function PropostaPage() {
       rascunho.limparTudo();
       if (!propostaId) trocarParametros({ id: salva.id });
       if (salva.updatedAt) setVersaoCarregada(salva.updatedAt);
+      setStatusProposta(salva.status || 'RASCUNHO');
       setConflitoDeEdicao(null);
       setRecado('');
       return salva.id;
@@ -624,7 +736,10 @@ export function PropostaPage() {
     setGerandoPdf(true);
     setRecado('');
     try {
-      const blob = await baixarPreviaEmPdf(documentoNaPrevia, dadosDaProposta(conteudo()));
+      const blob = await baixarPreviaEmPdf(
+        documentoNaPrevia,
+        dadosDaProposta(conteudo())
+      );
 
       const url = URL.createObjectURL(blob);
       const nome = `Proposta ${documentoNaPrevia === 'technical' ? 'Técnica' : 'Comercial'} - ${codigoExibido}.pdf`;
@@ -657,7 +772,11 @@ export function PropostaPage() {
               faltando, que é exatamente o que a palavra sugere. A referência
               pergunta `pipelines.length` (`app/page.tsx:835`), e é isso: o CRM
               respondeu com os funis. Corrigido em 14/08. */}
-          <span className={finalizacao.funis.length ? 'com-chip is-conectado' : 'com-chip'}>
+          <span
+            className={
+              finalizacao.funis.length ? 'com-chip is-conectado' : 'com-chip'
+            }
+          >
             <i aria-hidden="true" />{' '}
             {finalizacao.funis.length ? 'Nectar conectado' : 'Nectar pendente'}
           </span>
@@ -670,14 +789,22 @@ export function PropostaPage() {
         <>
           {/* Não abre sozinho: quem chegou nesta tela já passou pela entrada. */}
           <TutorialDoModulo passos={ROTEIRO_DA_PROPOSTA} />
-          <button type="button" className="com-btn com-btn-fantasma" onClick={() => window.print()}>
+          <button
+            type="button"
+            className="com-btn com-btn-fantasma"
+            onClick={() => window.print()}
+          >
             Imprimir prévia
           </button>
         </>
       }
       heroExtra={
         <div className="com-sequencia">
-          <small>{modo === 'revision' ? 'REVISÃO AUTOMÁTICA' : 'NUMERAÇÃO AUTOMÁTICA'}</small>
+          <small>
+            {modo === 'revision'
+              ? 'REVISÃO AUTOMÁTICA'
+              : 'NUMERAÇÃO AUTOMÁTICA'}
+          </small>
           <strong>{codigoExibido}</strong>
           <span>
             {vinculoCrm
@@ -692,13 +819,20 @@ export function PropostaPage() {
         <>
           <nav className="com-stepper" aria-label="Etapas da proposta">
             {ETAPAS.map((item, i) => {
-              const alcancavel = i <= maiorVisitada;
+              const somenteIntegracao = statusProposta !== 'RASCUNHO';
+              const alcancavel =
+                i <= maiorVisitada &&
+                (!somenteIntegracao || item.value === 'revisao');
               return (
                 <button
                   key={item.value}
                   type="button"
                   className={
-                    i === indice ? 'is-ativa' : i < maiorVisitada ? 'is-concluida' : undefined
+                    i === indice
+                      ? 'is-ativa'
+                      : i < maiorVisitada
+                        ? 'is-concluida'
+                        : undefined
                   }
                   aria-current={i === indice ? 'step' : undefined}
                   /* Sem `disabled`: na referência o passo à frente fica cinza,
@@ -732,6 +866,7 @@ export function PropostaPage() {
         <PropostaModeDialog
           recado={recado}
           onLevantamento={iniciarComLevantamento}
+          onPropostaExistente={continuarPropostaDoLevantamento}
           onNova={iniciarNovaProposta}
           onRevisao={carregarRevisao}
           onFechar={() => navigate(moduleRoutePath('comercial', 'index'))}
@@ -741,13 +876,15 @@ export function PropostaPage() {
       {/* Mesmo padrão do diálogo de custos: só aparece quando NÃO há modelo no
           endereço. Recarregar com `?modelo=` já definido volta direto ao
           trabalho — o diálogo serve para escolher, não para confirmar. */}
-      {modo !== null && modelo === null && (
-        <PropostaModeloDialog
-          revisao={modo === 'revision'}
-          onEscolher={escolherModelo}
-          onFechar={() => navigate(moduleRoutePath('comercial', 'index'))}
-        />
-      )}
+      {modo !== null &&
+        modelo === null &&
+        (!propostaId || Boolean(versaoCarregada)) && (
+          <PropostaModeloDialog
+            revisao={modo === 'revision'}
+            onEscolher={escolherModelo}
+            onFechar={() => navigate(moduleRoutePath('comercial', 'index'))}
+          />
+        )}
 
       <section className="com-workspace">
         <div ref={formularioRef} className="com-form-panel">
@@ -766,19 +903,25 @@ export function PropostaPage() {
               <div>
                 <small>PREÇO DE VENDA CARREGADO</small>
                 <strong>
-                  {formatarValorDoLevantamento(levantamentoVinculado.salePrice) || 'A revisar'}
+                  {formatarValorDoLevantamento(
+                    levantamentoVinculado.salePrice
+                  ) || 'A revisar'}
                 </strong>
                 <span>O vínculo será preservado ao salvar a proposta.</span>
               </div>
             </section>
           )}
           {rascunho.oferta && (
-            <section className="com-painel com-oferta-rascunho" role="alertdialog">
+            <section
+              className="com-painel com-oferta-rascunho"
+              role="alertdialog"
+            >
               <div>
                 <strong>Recuperar rascunho não salvo?</strong>
                 <p>
-                  Há uma proposta em andamento guardada neste navegador, {rascunho.idadeDaOferta}.
-                  Ela não chegou a ser salva no servidor.
+                  Há uma proposta em andamento guardada neste navegador,{' '}
+                  {rascunho.idadeDaOferta}. Ela não chegou a ser salva no
+                  servidor.
                 </p>
               </div>
               <div className="com-oferta-acoes">
@@ -801,7 +944,8 @@ export function PropostaPage() {
                       | undefined;
                     if (!dados) return;
                     if (dados.form) setForm(dados.form);
-                    if (dados.itensEscopo?.length) setItensEscopo(dados.itensEscopo);
+                    if (dados.itensEscopo?.length)
+                      setItensEscopo(dados.itensEscopo);
                     if (dados.blocos) setBlocos(dados.blocos);
                     if (dados.responsabilidades?.length) {
                       // Rascunho guardado antes da categoria existir vem sem ela, e
@@ -809,19 +953,22 @@ export function PropostaPage() {
                       // meio da digitação. Sem categoria, a linha só não ganha
                       // subtítulo — não some do documento.
                       setResponsabilidades(
-                        dados.responsabilidades.map(linha => ({
+                        dados.responsabilidades.map((linha) => ({
                           ...linha,
                           categoria: linha.categoria ?? ''
                         }))
                       );
                     }
-                    if (dados.categorias?.length) setCategorias(dados.categorias);
+                    if (dados.categorias?.length)
+                      setCategorias(dados.categorias);
                     if (dados.servicosTecnicos) {
                       // Passa pelo normalizador: o rascunho pode ter sido guardado
                       // com uma versão anterior do catálogo, e um serviço que mudou
                       // de forma entraria quebrado direto no estado.
                       setServicosTecnicos(
-                        normalizeTechnicalServiceSelections(dados.servicosTecnicos)
+                        normalizeTechnicalServiceSelections(
+                          dados.servicosTecnicos
+                        )
                       );
                     }
                     if (typeof dados.complementoRelatorios === 'string') {
@@ -854,11 +1001,16 @@ export function PropostaPage() {
               orcamentista={user?.name || ''}
               consultores={consultores}
               podeEscolherConsultor={podeEscolher}
+              erroCrm={
+                pendenciaFinalizacao?.campo === 'empresaCrm'
+                  ? pendenciaFinalizacao.mensagem
+                  : undefined
+              }
             />
           ) : etapa === 'escopo' ? (
             <EscopoStep
               titulo={String(form.title ?? '')}
-              onTitulo={valor => editar({ title: valor })}
+              onTitulo={(valor) => editar({ title: valor })}
               itens={itensEscopo}
               onItens={setItensEscopo}
               blocos={blocos}
@@ -884,7 +1036,9 @@ export function PropostaPage() {
               complemento={complementoRelatorios}
               onComplemento={setComplementoRelatorios}
               observacoes={String(form.technicalObservations ?? '')}
-              onObservacoes={valor => editar({ technicalObservations: valor })}
+              onObservacoes={(valor) =>
+                editar({ technicalObservations: valor })
+              }
               erros={errosTecnicos}
               pendencias={pendenciasTecnicas}
               mostrarErros={tentouAvancar}
@@ -921,10 +1075,11 @@ export function PropostaPage() {
               onAnexos={finalizacao.setAnexos}
               anexosEnviados={finalizacao.anexosEnviados}
               removendoAnexoId={finalizacao.removendoAnexoId}
-              onRemoverAnexo={id => {
+              onRemoverAnexo={(id) => {
                 finalizacao.removerAnexo(id).catch(() => {});
               }}
               erroFinalizacao={finalizacao.erroFinalizacao}
+              campoComErro={pendenciaFinalizacao?.campo}
               bloqueada={finalizacao.bloqueada}
             />
           )}
@@ -936,7 +1091,10 @@ export function PropostaPage() {
           )}
 
           {finalizacao.etapaFinalizacao >= 0 && (
-            <section className="com-painel com-progresso-finalizacao" aria-live="polite">
+            <section
+              className="com-painel com-progresso-finalizacao"
+              aria-live="polite"
+            >
               <strong>Finalização da proposta</strong>
               <ol>
                 {ETAPAS_VISIVEIS_DA_FINALIZACAO.map((item, i) => (
@@ -950,7 +1108,9 @@ export function PropostaPage() {
                           : undefined
                     }
                   >
-                    <b aria-hidden="true">{i < finalizacao.etapaFinalizacao ? '✓' : i + 1}</b>
+                    <b aria-hidden="true">
+                      {i < finalizacao.etapaFinalizacao ? '✓' : i + 1}
+                    </b>
                     <span>{item.mensagem}</span>
                   </li>
                 ))}
@@ -962,7 +1122,7 @@ export function PropostaPage() {
             documentos={finalizacao.emitidos}
             escolha={finalizacao.escolhaDownload}
             baixandoId={finalizacao.baixandoId}
-            onBaixar={documentos => {
+            onBaixar={(documentos) => {
               finalizacao.baixarDocumentos(documentos).catch(() => {});
             }}
           />
@@ -974,19 +1134,30 @@ export function PropostaPage() {
               salvando
                 ? 'Salvando...'
                 : finalizacao.finalizando
-                  ? ETAPAS_VISIVEIS_DA_FINALIZACAO[Math.max(0, finalizacao.etapaFinalizacao)]
-                      .mensagem
+                  ? ETAPAS_VISIVEIS_DA_FINALIZACAO[
+                      Math.max(0, finalizacao.etapaFinalizacao)
+                    ].mensagem
                   : finalizacao.finalizada
                     ? 'Proposta finalizada'
-                    : gerandoPdf
-                      ? 'Gerando os documentos...'
-                      : rotuloDoAvanco(pendencias, ultima, proximaEtapa?.label)
+                    : statusProposta === 'FALHA_INTEGRACAO'
+                      ? 'Tentar integrações novamente'
+                      : ultima && !finalizacao.integracaoDisponivel
+                        ? 'Gerar documentos sem Nectar'
+                        : gerandoPdf
+                          ? 'Gerando os documentos...'
+                          : rotuloDoAvanco(
+                              pendencias,
+                              ultima,
+                              proximaEtapa?.label
+                            )
             }
             ocupado={salvando || gerandoPdf || finalizacao.bloqueada}
             onVoltar={() =>
-              indice === 0
-                ? navigate(moduleRoutePath('comercial', 'index'))
-                : irPara(ETAPAS[indice - 1].value)
+              statusProposta !== 'RASCUNHO'
+                ? navigate(moduleRoutePath('comercial', 'historico'))
+                : indice === 0
+                  ? navigate(moduleRoutePath('comercial', 'index'))
+                  : irPara(ETAPAS[indice - 1].value)
             }
             onAvancar={avancar}
           />
