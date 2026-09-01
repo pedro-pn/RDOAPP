@@ -133,6 +133,12 @@ export function makeComercialSchemas(z) {
   }
 
   const id = z.string().trim().min(1);
+  const queryBoolean = z.preprocess(value => {
+    if (value === undefined) return false;
+    if (value === true || value === 1 || value === '1' || value === 'true') return true;
+    if (value === false || value === 0 || value === '0' || value === 'false') return false;
+    return value;
+  }, z.boolean());
 
   /**
    * O payload do levantamento é validado como objeto com `schemaVersion`.
@@ -243,7 +249,7 @@ export function makeComercialSchemas(z) {
 
     /** Listagem: o filtro de arquivados é explícito, nunca implícito. */
     listQuery: z.object({
-      arquivados: z.coerce.boolean().default(false)
+      arquivados: queryBoolean
     }),
 
     /**
@@ -275,7 +281,7 @@ export function makeComercialSchemas(z) {
 
     /** A listagem de propostas aceita busca livre, como o histórico da referência. */
     proposalListQuery: z.object({
-      arquivados: z.coerce.boolean().default(false),
+      arquivados: queryBoolean,
       busca: z.string().trim().max(200).default('')
     }),
 

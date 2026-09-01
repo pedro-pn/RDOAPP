@@ -20,7 +20,7 @@ let server;
 let footerAction;
 let chainSummary;
 let saveBlockedByContent;
-let deveRevelarErrosAutomaticamente;
+let deveRevelarErrosAoAcionar;
 
 test.before(async () => {
   server = await createServer({
@@ -33,7 +33,7 @@ test.before(async () => {
     footerAction,
     chainSummary,
     saveBlockedByContent,
-    deveRevelarErrosAutomaticamente
+    deveRevelarErrosAoAcionar
   } = await server.ssrLoadModule(
     '/src/pages/comercial/custos/footerChain.ts'
   ));
@@ -119,7 +119,7 @@ test('o botão de atalho NUNCA fica desabilitado', () => {
 test('sem pendências, o botão vira salvar', () => {
   const acao = footerAction(nadaPendente, podeSalvar);
   assert.equal(acao.kind, 'save');
-  assert.equal(acao.label, 'Salvar levantamento e criar proposta →');
+  assert.equal(acao.label, 'Finalizar e criar proposta');
   assert.equal(acao.disabled, false);
 });
 
@@ -151,7 +151,7 @@ test('a cadeia em texto serve ao roteiro do tutorial', () => {
     'Revisar materiais e insumos →',
     'Preencher mobilização e desmobilização →',
     'Completar comissões e indicações →',
-    'Salvar levantamento e criar proposta →'
+    'Finalizar e criar proposta'
   ]);
 });
 
@@ -163,7 +163,11 @@ test('o resumo oferece salvar ou salvar e criar proposta', () => {
   assert.match(pagina, /secao === 'summary'/);
   assert.match(pagina, /concluirLevantamento\(false\)/);
   assert.match(pagina, /'Salvar'/);
-  assert.match(pagina, /Salvar e criar proposta →/);
+  assert.match(pagina, /Finalizar e criar proposta/);
+  assert.doesNotMatch(
+    pagina.match(/secao === 'summary'[\s\S]*?<\/footer>/)?.[0] || '',
+    /mobiliza[cç][aã]o e desmobiliza[cç][aã]o/i
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -195,10 +199,15 @@ test('um levantamento recém-aberto não acende nada sozinho', () => {
   assert.notEqual(acao.kind, 'save');
 });
 
-test('trava de conteúdo só revela erros automaticamente depois de chegar ao resumo', () => {
-  assert.equal(deveRevelarErrosAutomaticamente('premises', true, true), false);
-  assert.equal(deveRevelarErrosAutomaticamente('labor', true, true), false);
-  assert.equal(deveRevelarErrosAutomaticamente('summary', true, false), false);
-  assert.equal(deveRevelarErrosAutomaticamente('summary', true, true), true);
-  assert.equal(deveRevelarErrosAutomaticamente('summary', false, true), false);
+test('abrir a próxima seção não revela erros antes de tentar preenchê-la', () => {
+  const irParaMaoDeObra = footerAction(
+    { ...nadaPendente, labor: true },
+    podeSalvar,
+    'premises'
+  );
+  assert.equal(deveRevelarErrosAoAcionar(irParaMaoDeObra, 'premises'), false);
+  assert.equal(deveRevelarErrosAoAcionar(irParaMaoDeObra, 'labor'), true);
+
+  const salvar = footerAction(nadaPendente, podeSalvar, 'summary');
+  assert.equal(deveRevelarErrosAoAcionar(salvar, 'summary'), true);
 });

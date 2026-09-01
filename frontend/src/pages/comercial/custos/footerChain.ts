@@ -118,7 +118,7 @@ export function footerAction(
 
   return {
     kind: 'save',
-    label: guards.saving ? 'Salvando...' : 'Salvar levantamento e criar proposta →',
+    label: guards.saving ? 'Salvando...' : 'Finalizar e criar proposta',
     target: null,
     // Pendência de conteúdo não pode tornar o botão mudo. O clique é justamente
     // o gatilho que revela os campos inválidos e explica para onde voltar.
@@ -141,20 +141,20 @@ export function saveBlockedByContent(guards: SaveGuards): boolean {
 }
 
 /**
- * A trava final só pode acender campos automaticamente quando o usuário já
- * chegou ao resumo **depois de uma tentativa de avanço**. Na abertura, o
- * levantamento estar incompleto é o estado normal — vermelho ali significaria
- * uma tentativa que nunca aconteceu.
+ * Abrir uma seção não é uma tentativa de preenchê-la.
+ *
+ * O vermelho só aparece quando a ação já está na própria seção pendente, ou
+ * quando a pessoa tenta concluir. Navegar para uma seção ainda não visitada
+ * mantém os campos neutros.
  */
-export function deveRevelarErrosAutomaticamente(
-  secao: CostSection,
-  salvarTravadoPorConteudo: boolean,
-  houveTentativaDeAvanco: boolean
+export function deveRevelarErrosAoAcionar(
+  acao: FooterAction,
+  secaoAtual: CostSection
 ): boolean {
-  return houveTentativaDeAvanco && secao === 'summary' && salvarTravadoPorConteudo;
+  return acao.kind === 'save' || acao.target === secaoAtual;
 }
 
 /** A cadeia em texto, para o roteiro do tutorial de primeiro acesso (L4). */
 export function chainSummary(): string[] {
-  return [...CHAIN.map(step => step.label), 'Salvar levantamento e criar proposta →'];
+  return [...CHAIN.map(step => step.label), 'Finalizar e criar proposta'];
 }

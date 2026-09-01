@@ -1924,6 +1924,36 @@
   cursor: not-allowed;
 }
 
+/* A tabela de produtos tem 13 colunas editáveis. Com width:100% o navegador
+   espremia todas até cortar valor, unidade e texto selecionado. Ela conserva
+   uma largura útil e rola dentro do painel, sem alargar a página. */
+.com-root .com-table-wrap-produtos-volume {
+  scrollbar-gutter: stable;
+  overscroll-behavior-x: contain;
+}
+
+.com-root .com-tabela-produtos-volume {
+  min-width: 1520px;
+}
+
+.com-root .com-tabela-produtos-volume td:nth-child(1) { min-width: 180px; }
+.com-root .com-tabela-produtos-volume td:nth-child(2) { min-width: 160px; }
+.com-root .com-tabela-produtos-volume td:nth-child(3) { min-width: 150px; }
+.com-root .com-tabela-produtos-volume td:nth-child(4),
+.com-root .com-tabela-produtos-volume td:nth-child(6),
+.com-root .com-tabela-produtos-volume td:nth-child(8),
+.com-root .com-tabela-produtos-volume td:nth-child(9),
+.com-root .com-tabela-produtos-volume td:nth-child(10) {
+  min-width: 110px;
+}
+.com-root .com-tabela-produtos-volume td:nth-child(5),
+.com-root .com-tabela-produtos-volume td:nth-child(7),
+.com-root .com-tabela-produtos-volume td:nth-child(11) {
+  min-width: 76px;
+}
+.com-root .com-tabela-produtos-volume td:nth-child(12) { min-width: 165px; }
+.com-root .com-tabela-produtos-volume td input[type='number'] { max-width: none; }
+
 .com-root .com-calculado {
   color: var(--com-marca-forte);
   font-variant-numeric: tabular-nums;

@@ -52,7 +52,7 @@ async function main() {
     { code: 'TV-01', category: 'DESIDRATACAO' },
     { code: 'UTH-01', category: 'UTH' },
     { code: 'UTH-02', category: 'UTH' }
-  ];
+  ].map(unit => ({ ...unit, name: `Unidade ${unit.code}` }));
 
   for (const unit of units) {
     await prisma.unit.upsert({
@@ -159,7 +159,8 @@ async function main() {
       role: UserRole.MANAGER,
       collaboratorId: null,
       email: 'gestor@example.com',
-      password: 'gestor123'
+      password: 'gestor123',
+      moduleRoles: ['rdo:manager', 'comercial:manager']
     },
     {
       username: 'colaborador1',
@@ -198,7 +199,7 @@ async function main() {
   for (const user of users) {
     const passwordHash = await hashPassword(user.password);
     const accountType = accountTypeForLegacyRole(user.role);
-    const moduleRoles = defaultPublicModuleRolesForLegacyRole(user.role);
+    const moduleRoles = user.moduleRoles || defaultPublicModuleRolesForLegacyRole(user.role);
     await prisma.user.upsert({
       where: { username: user.username },
       update: {

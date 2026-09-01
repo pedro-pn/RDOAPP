@@ -32,6 +32,44 @@ export type ConteudoDaProposta = {
   complementoRelatorios: string;
 };
 
+type PropostaPersistidaParaFormulario = {
+  payload?: unknown;
+  clientName?: string | null;
+  cnpj?: string | null;
+  contact?: string | null;
+  email?: string | null;
+  site?: string | null;
+  department?: string | null;
+  sellerUserId?: string | null;
+};
+
+/**
+ * Recompõe o formulário a partir de uma proposta salva.
+ *
+ * Os campos de identificação existem também em colunas próprias do banco para
+ * busca e histórico. Registros antigos podem não tê-los duplicados dentro de
+ * `payload`; aplicar apenas o JSON fazia a proposta aparecer vazia no F5 mesmo
+ * com Cliente, CNPJ e contato corretamente persistidos nas colunas canônicas.
+ */
+export function snapshotDaPropostaSalva(
+  proposta: PropostaPersistidaParaFormulario
+): AnyRecord {
+  const payload = proposta.payload && typeof proposta.payload === 'object'
+    ? (proposta.payload as AnyRecord)
+    : {};
+
+  return {
+    ...payload,
+    client: proposta.clientName ?? payload.client ?? '',
+    cnpj: proposta.cnpj ?? payload.cnpj ?? '',
+    contact: proposta.contact ?? payload.contact ?? '',
+    email: proposta.email ?? payload.email ?? '',
+    site: proposta.site ?? payload.site ?? '',
+    department: proposta.department ?? payload.department ?? '',
+    seller: proposta.sellerUserId ?? payload.seller ?? ''
+  };
+}
+
 /**
  * O conteúdo da proposta, num lugar só.
  *

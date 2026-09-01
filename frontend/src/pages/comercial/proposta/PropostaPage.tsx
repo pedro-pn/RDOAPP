@@ -54,6 +54,7 @@ import {
   entradaDaProposta,
   precisaDeNumero,
   rotuloDaProposta,
+  snapshotDaPropostaSalva,
   type ConteudoDaProposta
 } from './salvamento';
 import type { TipoDeDocumento } from './DocumentoPrevia';
@@ -306,7 +307,12 @@ export function PropostaPage() {
       precos,
       incluirUnitario
     },
-    ativo: true,
+    // A hidratação do servidor e a aplicação do levantamento vinculado são a
+    // base inicial, não edições. O rascunho só começa a observar depois delas.
+    ativo:
+      (!propostaId || Boolean(versaoCarregada)) &&
+      revisaoPronta &&
+      (!levantamentoId || Boolean(levantamentoVinculado)),
     rotulo: 'Proposta'
   });
 
@@ -360,13 +366,16 @@ export function PropostaPage() {
   const idCarregado = useRef('');
   useEffect(() => {
     if (!propostaId || idCarregado.current === propostaId) return;
-    idCarregado.current = propostaId;
 
     let vivo = true;
     obterProposta(propostaId)
       .then(proposta => {
         if (!vivo) return;
-        const dados = (proposta.payload ?? {}) as AnyRecord;
+        // Só conclui a trava depois de uma resposta ativa. O primeiro efeito
+        // do StrictMode é desmontado; travar antes deixava a segunda execução
+        // sem buscar e a proposta reaparecia vazia no F5.
+        idCarregado.current = propostaId;
+        const dados = snapshotDaPropostaSalva(proposta);
         aplicarSnapshot(dados, proposta.sellerUserId);
         setVersaoCarregada(proposta.updatedAt || '');
         finalizacao.marcarFinalizada(proposta.status === 'FINALIZADA');
@@ -396,7 +405,10 @@ export function PropostaPage() {
         setMaiorVisitada(ETAPAS.length - 1);
       })
       .catch(error => {
-        if (vivo) setRecado(mensagemDeErro(error, 'Não foi possível carregar a proposta.'));
+        if (vivo) {
+          idCarregado.current = '';
+          setRecado(mensagemDeErro(error, 'Não foi possível carregar a proposta.'));
+        }
       });
 
     return () => {

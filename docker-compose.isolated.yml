@@ -1,0 +1,78 @@
+name: newrdo-isolated
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: filtrovali
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55432:5432"
+    volumes:
+      - newrdo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d filtrovali"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/filtrovali?schema=public
+      ASSETS_DIR: /workspace/backend/assets
+      REPORTS_DIR: /data/relatorios
+      APP_URL: http://localhost:5180
+      ALLOWED_ORIGIN: http://localhost:5180,http://127.0.0.1:5180
+      TRUST_PROXY: "false"
+      SURVEY_TOKEN_SECRET: newrdo-isolated-survey-token-secret
+      SIGNATURE_TOKEN_SECRET: newrdo-isolated-signature-token-secret
+      SEND_CLIENT_EMAILS: "false"
+      DATA_RETENTION_JOB_ENABLED: "false"
+      OPERATIONS_ALERT_JOB_ENABLED: "false"
+      OMIE_SYNC_ENABLED: "false"
+      NECTAR_MODE: "off"
+      SHAREPOINT_MODE: "off"
+      GOOGLE_MAPS_MODE: "off"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4100:4000"
+    volumes:
+      - ./backend/src:/workspace/backend/src
+      - ./backend/prisma:/workspace/backend/prisma
+      - ./backend/scripts:/workspace/backend/scripts
+      - ./backend/assets:/workspace/backend/assets
+      - ./shared:/workspace/shared:ro
+      - ./Modelos:/workspace/Modelos
+      - ./equipamentos:/workspace/equipamentos:ro
+      - newrdo_relatorios:/data/relatorios
+
+  frontend:
+    image: node:22-bookworm-slim
+    restart: unless-stopped
+    working_dir: /workspace/frontend
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:4000
+    depends_on:
+      - backend
+    ports:
+      - "5180:5173"
+    volumes:
+      - ./frontend:/workspace/frontend
+      - ./shared:/workspace/shared:ro
+      - newrdo_frontend_node_modules:/workspace/frontend/node_modules
+
+volumes:
+  newrdo_pgdata:
+  newrdo_relatorios:
+  newrdo_frontend_node_modules:

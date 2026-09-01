@@ -172,7 +172,6 @@ export function usePropostaRevision({
     if (modo !== 'revision' || propostaId || !codigo || codigo === '—') return;
     const chave = `${codigo}:${revisionNumber}`;
     if (revisaoCarregada.current === chave) return;
-    revisaoCarregada.current = chave;
 
     let vivo = true;
     prepararRevisaoDaProposta(codigo)

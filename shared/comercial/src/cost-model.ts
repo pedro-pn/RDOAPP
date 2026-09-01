@@ -401,6 +401,8 @@ export type CostEstimatePayloadV2 = {
   logisticsStructureVersion: 0 | 1;
   title: string;
   proposalCode?: string;
+  /** Data-base ISO usada pela tela para apresentar os offsets das fases como datas. */
+  scheduleStartDate?: string;
   assumptions: CostEstimateAssumptions;
   laborContexts: LaborContext[];
   indirectCosts: IndirectCost[];
@@ -888,6 +890,18 @@ function textValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.trim() : fallback;
 }
 
+function isoDateValue(value: unknown): string | undefined {
+  const text = textValue(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return undefined;
+  const [year, month, day] = text.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day
+    ? text
+    : undefined;
+}
+
 function booleanValue(value: unknown, fallback = false): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -1070,13 +1084,25 @@ function normalizeExpense(value: unknown, index: number): ContextExpense {
       included: true,
     };
   }
-  const calendarDayCode = textValue(source.code) === LODGING_CALENDAR_DAY_EXPENSE_CODE
-    || normalizedName === "hospedagem"
-    ? LODGING_CALENDAR_DAY_EXPENSE_CODE
-    : textValue(source.code) === MEAL_CALENDAR_DAY_EXPENSE_CODE
-      || normalizedName === "alimentacao"
-      ? MEAL_CALENDAR_DAY_EXPENSE_CODE
-      : "";
+  /**
+   * Os presets nascem por pessoa × dia corrido, mas a tela deixa a base
+   * editável. Antes, reconhecer o código/nome do preset restaurava essa base
+   * silenciosamente no cálculo: selecionar "Fixo / evento", quantidade 4 e
+   * R$ 200 ainda produzia 4 × 200 × 30 dias = R$ 24.000.
+   *
+   * Só tratamos como preset canônico enquanto a base continuar sendo a do
+   * preset. Ao escolher outra base, o item segue pelo normalizador genérico e
+   * a opção que o usuário vê é exatamente a opção que o motor calcula.
+   */
+  const calendarDayCode = basis === "per_person_calendar_day"
+    ? textValue(source.code) === LODGING_CALENDAR_DAY_EXPENSE_CODE
+      || normalizedName === "hospedagem"
+      ? LODGING_CALENDAR_DAY_EXPENSE_CODE
+      : textValue(source.code) === MEAL_CALENDAR_DAY_EXPENSE_CODE
+        || normalizedName === "alimentacao"
+        ? MEAL_CALENDAR_DAY_EXPENSE_CODE
+        : ""
+    : "";
   if (calendarDayCode) {
     return {
       id,
@@ -2220,6 +2246,7 @@ export function normalizeCostEstimatePayload(value: unknown): CostEstimatePayloa
       : 0,
     title: textValue(source.title, "Levantamento de custos Filtrovali"),
     proposalCode: textValue(source.proposalCode) || undefined,
+    scheduleStartDate: isoDateValue(source.scheduleStartDate),
     assumptions,
     laborContexts: contexts,
     indirectCosts: arrayValue(legacyIndirects).map((item, index) => {

@@ -2,7 +2,11 @@ import {
   LEC_CONTEXT_EXPENSES,
   offshoreWorkSchedule
 } from '../../../../../../shared/comercial/dist/cost-model.js';
-import { NumberField, SelectField } from '../../components/Field';
+import { Field, NumberField, SelectField } from '../../components/Field';
+import {
+  atualizarDataDeInicioDaFase,
+  dataDeInicioDaFase
+} from '../datasDaFase';
 import { numberValue } from '../formato';
 import type { Levantamento } from '../useLevantamento';
 import { AlocacoesTabela } from './AlocacoesTabela';
@@ -49,7 +53,7 @@ export function FaseCard({
   total: number;
   levantamento: Levantamento;
 }) {
-  const { updateCollection, removeCollection, erroSe } = levantamento;
+  const { draft, setDraft, updateCollection, removeCollection, erroSe } = levantamento;
   const id = String(fase.id);
   const emViagem = fase.workCondition === 'travel';
   const semVeiculo = fase.vehicleType === 'none';
@@ -200,11 +204,13 @@ export function FaseCard({
           </header>
 
           <div className="com-form-grid">
-            <NumberField
-              label="Início (dia do projeto)"
-              value={fase.startOffsetDays}
-              min={0}
-              onChange={valor => editar({ startOffsetDays: valor })}
+            <Field
+              label="Início"
+              type="date"
+              value={dataDeInicioDaFase(draft, fase)}
+              onChange={valor =>
+                setDraft(atual => atualizarDataDeInicioDaFase(atual, id, valor))
+              }
             />
             <NumberField
               label="Dias corridos"

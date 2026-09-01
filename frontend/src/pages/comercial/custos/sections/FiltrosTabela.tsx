@@ -182,7 +182,10 @@ export function FiltrosTabela({ levantamento }: { levantamento: Levantamento }) 
               para o filtro que o catálogo não tem. */}
           <datalist id="com-catalogo-filtros">
             {catalogo.map(filtro => (
-              <option key={String(filtro.filterName)} value={String(filtro.filterName)} />
+              <option
+                key={`${String(filtro.filterName)}-${String(filtro.micronRating)}`}
+                value={String(filtro.filterName)}
+              />
             ))}
           </datalist>
         </div>

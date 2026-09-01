@@ -15,7 +15,7 @@ import { ComercialChrome } from '../components/ComercialChrome';
 import { useAuth } from '../../../auth/AuthContext';
 import { FaixaIndicadores } from './FaixaIndicadores';
 import {
-  deveRevelarErrosAutomaticamente,
+  deveRevelarErrosAoAcionar,
   footerAction,
   saveBlockedByContent,
   type CostSection
@@ -91,11 +91,10 @@ export function CustosPage() {
   const [salvando, setSalvando] = useState(false);
   const [salvandoRascunho, setSalvandoRascunho] = useState(false);
   const [versaoDoRascunho, setVersaoDoRascunho] = useState('');
-  const [tentouAvancar, setTentouAvancar] = useState(false);
   const [recado, setRecado] = useState('');
   const [salvo, setSalvo] = useState<string | null>(null);
 
-  const levantamento = useLevantamento(user?.name || '');
+  const levantamento = useLevantamento(user?.name || '', secao);
   const { draft, setDraft, result, revelarErros, aplicarIssuesDoServidor } = levantamento;
   const origemCarregada = useRef('');
   const atualCarregado = useRef('');
@@ -104,12 +103,15 @@ export function CustosPage() {
   /** Reabre o rascunho persistido pela conta quando o id está no endereço. */
   useEffect(() => {
     if (!levantamentoAtualId || atualCarregado.current === levantamentoAtualId) return;
-    atualCarregado.current = levantamentoAtualId;
 
     let vivo = true;
     obterLevantamento(levantamentoAtualId)
       .then(atual => {
         if (!vivo || !atual.payload) return;
+        // No StrictMode, o primeiro efeito é desmontado e executado de novo.
+        // Marcar antes da resposta bloqueava a segunda leitura e descartava a
+        // única resposta que ainda poderia hidratar a tela.
+        atualCarregado.current = levantamentoAtualId;
         setDraft({
           ...atual.payload,
           estimatorName: user?.name || atual.payload.estimatorName || ''
@@ -138,11 +140,11 @@ export function CustosPage() {
       return;
     }
 
-    origemCarregada.current = levantamentoOrigemId;
     let vivo = true;
     obterLevantamento(levantamentoOrigemId)
       .then(anterior => {
         if (!vivo || !anterior.payload) return;
+        origemCarregada.current = levantamentoOrigemId;
         setDraft({
           ...anterior.payload,
           estimatorName: user?.name || anterior.payload.estimatorName || ''
@@ -150,6 +152,7 @@ export function CustosPage() {
       })
       .catch(error => {
         if (vivo) {
+          origemCarregada.current = '';
           setRecado(
             mensagemDeErro(error, 'Não foi possível recarregar o levantamento anterior.')
           );
@@ -174,7 +177,16 @@ export function CustosPage() {
     modo,
     codigo: base,
     dados: draft,
-    ativo: modo !== null,
+    // Um registro com id ainda começa com o payload padrão enquanto o GET está
+    // em voo. Ativar o rascunho antes da hidratação transformava a resposta do
+    // servidor em falsa "alteração não salva".
+    ativo:
+      modo !== null &&
+      (levantamentoAtualId
+        ? Boolean(versaoDoRascunho)
+        : modo !== 'revision' ||
+          !levantamentoOrigemId ||
+          origemCarregada.current === levantamentoOrigemId),
     rotulo: `Custos ${base || '—'}`
   });
 
@@ -187,28 +199,6 @@ export function CustosPage() {
     salePrice: numberValue(result.salePrice)
   };
   const acao = footerAction(pendencias, guardas, secao);
-
-  /**
-   * Último degrau da cadeia com o salvamento travado: acende o vermelho sem
-   * esperar clique.
-   *
-   * O botão desabilitado não tem para onde levar e não explica nada. Aqui o
-   * usuário já percorreu as quatro seções — o que resta são campos, e é
-   * exatamente o momento em que apontá-los ajuda.
-   */
-  const salvarTravadoPorConteudo = acao.kind === 'save' && saveBlockedByContent(guardas);
-
-  useEffect(() => {
-    if (
-      deveRevelarErrosAutomaticamente(
-        secao,
-        salvarTravadoPorConteudo,
-        tentouAvancar
-      )
-    ) {
-      revelarErros();
-    }
-  }, [salvarTravadoPorConteudo, secao, tentouAvancar, revelarErros]);
 
   const codigo = base || '—';
 
@@ -416,10 +406,10 @@ export function CustosPage() {
       setMostrarConfirmacao(false);
 
       if (error instanceof ComercialValidationError) {
-        aplicarIssuesDoServidor(error.issues);
         const destino = primeiraSecaoPendente(
           error.issues.map(item => item.path || '').filter(Boolean)
         );
+        aplicarIssuesDoServidor(error.issues, destino || secao);
         if (destino) trocarSecao(destino);
         setRecado(
           error.issues.length === 1
@@ -436,8 +426,9 @@ export function CustosPage() {
 
   /** Valida a conclusão mantendo os rótulos finais estáveis no resumo. */
   function concluirLevantamento(criarPropostaDepois: boolean) {
-    setTentouAvancar(true);
-    revelarErros();
+    if (deveRevelarErrosAoAcionar(acao, secao)) {
+      revelarErros(secao);
+    }
 
     if (acao.kind === 'goto') {
       void persistirRascunho().then(idPersistido => {
@@ -724,7 +715,7 @@ export function CustosPage() {
                         ? 'Salvando...'
                         : salvo
                           ? 'Levantamento salvo'
-                          : 'Salvar e criar proposta →'}
+                          : 'Finalizar e criar proposta'}
                     </button>
                   </>
                 ) : (

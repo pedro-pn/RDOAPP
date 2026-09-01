@@ -41,6 +41,14 @@
   --com-superficie: var(--surface, #fff);
   --com-erro: var(--danger, #b2251a);
 
+  /* --- Cabeçalho -------------------------------------------------------
+     As duas faixas têm papéis distintos: navegação clara e identidade verde. */
+  --com-topbar-fundo: #fff;
+  --com-topbar-texto: #2e332f;
+  --com-topbar-texto-fraco: #606c64;
+  --com-topbar-linha: #dce6df;
+  --com-topbar-hover: #edf5ef;
+
   /* --- Forma ------------------------------------------------------------- */
   --com-raio: var(--radius-lg, 0.75rem);
   --com-raio-controle: var(--radius-sm, 0.375rem);
@@ -48,15 +56,20 @@
 
 /* ==========================================================================
    CROMO
-   A barra do módulo passa a ser a mesma faixa da marca usada no filtroAPP,
-   com a variante branca do logotipo.
+   A primeira barra é uma superfície branca e recebe a marca colorida. Os
+   valores são sRGB explícitos para Chrome e Firefox renderizarem a mesma
+   hierarquia, sem depender de tokens opcionais do navegador/tema.
    ========================================================================== */
 .com-root .com-topbar,
 .com-root .com-history-topbar {
-  background: var(--topbar-bg, #30503a);
-  color: var(--topbar-fg, #fff);
-  border-bottom: 1px solid var(--topbar-line, rgba(255, 255, 255, 0.16));
-  box-shadow: none;
+  background-color: var(--com-topbar-fundo);
+  background-image: none;
+  color: var(--com-topbar-texto);
+  border-bottom: 1px solid var(--com-topbar-linha);
+}
+
+.com-root .com-topbar {
+  box-shadow: 0 4px 18px #1838250a;
 }
 
 /* O Histórico não usa o ComercialChrome: monta um header próprio com 72px,
@@ -70,9 +83,9 @@
 
 .com-root .com-topbar .com-usuario,
 .com-root .com-history-topbar .com-usuario {
-  background: var(--topbar-hover, rgba(255, 255, 255, 0.15));
-  border-color: var(--topbar-line, rgba(255, 255, 255, 0.16));
-  color: var(--topbar-fg-muted, rgba(255, 255, 255, 0.72));
+  background: #f7faf8;
+  border-color: #cbd9cf;
+  color: var(--com-topbar-texto-fraco);
 }
 
 /* O fundo fica só no contêiner: aplicá-lo também no <b> pintava a mesma cor
@@ -80,124 +93,28 @@
 .com-root .com-topbar .com-usuario b,
 .com-root .com-history-topbar .com-usuario b {
   background: none;
-  color: var(--topbar-fg, #fff);
+  color: var(--com-topbar-texto);
 }
 
 .com-root .com-topbar .com-btn-fantasma,
 .com-root .com-history-topbar .com-btn-fantasma {
-  color: var(--topbar-fg-muted, rgba(255, 255, 255, 0.72));
-  border-color: var(--topbar-line, rgba(255, 255, 255, 0.16));
+  color: var(--com-marca-forte);
+  border-color: #cbd9cf;
   background: transparent;
 }
 
 .com-root .com-topbar .com-btn-fantasma:hover:not(:disabled),
 .com-root .com-history-topbar .com-btn-fantasma:hover:not(:disabled) {
-  background: var(--topbar-hover, rgba(255, 255, 255, 0.15));
-  color: var(--topbar-fg, #fff);
+  background: var(--com-topbar-hover);
+  color: var(--com-marca-forte);
 }
 
 /* ==========================================================================
    FAIXA DE CABEÇALHO (HERO)
-   Neutra: com a barra já no verde institucional, dois verdes empilhados
-   pesavam. Só o cromo carrega a marca; o título vive sobre a superfície do
-   conteúdo.
+   A segunda faixa carrega a identidade verde do módulo. O comercial.css
+   define o gradiente, a tipografia clara, os indicadores translúcidos e os
+   elementos decorativos; a ponte não deve neutralizar nenhum deles.
    ========================================================================== */
-.com-root .com-hero,
-.com-root .com-history-hero {
-  background: var(--surface, #fff);
-  color: var(--fg, #2e332f);
-  border-bottom: 1px solid var(--border, #d9dddb);
-}
-
-/* A faixa de três cores sob o cabeçalho sai: sobre fundo neutro ela ficava
-   solta, e a identidade já é carregada pela barra verde e pelo logotipo. */
-.com-root .com-hero::after,
-.com-root .com-hero-custos::after,
-.com-root .com-history-hero::after {
-  content: none;
-}
-
-/* Treze regras de texto usavam tons claros (#fff, #c8dbce, #b9d6c3) porque
-   assumiam fundo verde escuro. Sobre fundo neutro elas sumiam. */
-.com-root .com-hero .com-eyebrow,
-.com-root .com-history-hero .com-eyebrow,
-.com-root .com-hero p,
-.com-root .com-history-hero p,
-.com-root .com-resumo-titulo small {
-  color: var(--fg-muted, #606c64);
-}
-
-.com-root .com-hero h1,
-.com-root .com-history-hero h1,
-.com-root .com-history-hero strong {
-  color: var(--fg, #2e332f);
-}
-
-.com-root .com-hero-proposta h1 em {
-  color: var(--fg-muted, #606c64);
-  font-style: normal;
-}
-
-/* ==========================================================================
-   INDICADORES
-   ========================================================================== */
-/* Os cartões usavam branco a 7% (#ffffff12) com borda a 14% — visíveis apenas
-   sobre o hero verde escuro. Sobre fundo neutro viravam texto solto.
-   Superfície normal e não a rebaixada: sobre a rebaixada o rótulo secundário
-   caía para 4.05:1, logo abaixo do mínimo de AA.
-   `:not(.com-kpi-final)` é essencial — aquele cartão é preenchido com a cor
-   da marca, e uma regra genérica apagaria o fundo dele. */
-.com-root .com-kpi:not(.com-kpi-final) {
-  background: var(--surface, #fff);
-  border-color: var(--border, #d9dddb);
-}
-
-.com-root .com-kpi > span {
-  color: var(--fg-muted, #606c64);
-}
-
-.com-root .com-kpi > strong {
-  color: var(--fg, #2e332f);
-}
-
-/* Positivo e negativo seguem distintos: é leitura de margem, não decoração. */
-.com-root .com-kpi-positivo {
-  background: var(--success-subtle, #f4fbf8);
-}
-
-.com-root .com-kpi-positivo > strong {
-  color: var(--success, #0c734f);
-}
-
-.com-root .com-kpi-negativo {
-  background: var(--danger-subtle, #faf5f4);
-}
-
-.com-root .com-kpi-negativo > strong {
-  color: var(--danger, #b2251a);
-}
-
-/* O cartão "Valor da proposta" é preenchido com a cor da marca. Especificidade
-   elevada de propósito: as regras genéricas acima têm a mesma especificidade e
-   viriam depois, apagando estas. */
-.com-root .com-kpis .com-kpi-final > strong {
-  color: var(--fg-on-brand, #fff);
-}
-
-.com-root .com-kpis .com-kpi-final > span {
-  color: color-mix(in oklab, var(--fg-on-brand, #fff) 75%, transparent);
-}
-
-.com-root .com-kpi-margem {
-  color: var(--fg, #2e332f);
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #d9dddb);
-}
-
-.com-root .com-kpi-margem small,
-.com-root .com-kpi-margem > span {
-  color: var(--fg-muted, #606c64);
-}
 
 /* ==========================================================================
    TEXTO SOBRE A COR DE AÇÃO

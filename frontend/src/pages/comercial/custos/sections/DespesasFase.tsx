@@ -49,6 +49,20 @@ function novaDespesa(): AnyRecord {
   };
 }
 
+export function encontrarDespesaCalculada(
+  calculadas: AnyRecord[],
+  despesa: AnyRecord
+): AnyRecord {
+  const id = String(despesa.id || '');
+  const code = String(despesa.code || '');
+  return (
+    calculadas.find(calculada =>
+      (id && String(calculada.id || '') === id) ||
+      (code && String(calculada.code || '') === code)
+    ) || {}
+  );
+}
+
 export function DespesasFase({
   fase,
   levantamento
@@ -96,7 +110,7 @@ export function DespesasFase({
             <tbody>
               {despesas.map(despesa => {
                 const id = String(despesa.id);
-                const calculada = calculadas.find(c => c.code === despesa.code || c.id === id) || {};
+                const calculada = encontrarDespesaCalculada(calculadas, despesa);
 
                 /**
                  * O combustível hotel ↔ obra é gerido pela própria fase: a

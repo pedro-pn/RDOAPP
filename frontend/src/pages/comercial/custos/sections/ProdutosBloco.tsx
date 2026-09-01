@@ -100,8 +100,8 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
       </div>
 
       {produtos.length > 0 ? (
-        <div className="com-table-wrap">
-          <table>
+        <div className="com-table-wrap com-table-wrap-produtos-volume">
+          <table className="com-tabela-produtos-volume">
             <thead>
               <tr>
                 <th scope="col">Produto</th>

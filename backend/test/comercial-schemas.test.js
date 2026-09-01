@@ -110,6 +110,18 @@ test('levantamento aceita rascunho explícito e mantém SALVO como padrão compa
   );
 });
 
+test('o filtro de arquivados interpreta 0 e false como falso', () => {
+  for (const arquivados of [undefined, false, 0, '0', 'false']) {
+    assert.equal(schemas.listQuery.parse({ arquivados }).arquivados, false);
+    assert.equal(schemas.proposalListQuery.parse({ arquivados }).arquivados, false);
+  }
+
+  for (const arquivados of [true, 1, '1', 'true']) {
+    assert.equal(schemas.listQuery.parse({ arquivados }).arquivados, true);
+    assert.equal(schemas.proposalListQuery.parse({ arquivados }).arquivados, true);
+  }
+});
+
 test('os dois PUTs exigem a versão carregada e aceitam sobrescrita confirmada', () => {
   const esperado = '2026-08-13T12:00:00.000Z';
   assert.equal(schemas.proposalUpdate.safeParse({ clientName: 'X' }).success, false);

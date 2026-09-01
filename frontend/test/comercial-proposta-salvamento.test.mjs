@@ -77,6 +77,28 @@ test('cada campo do formulário cai no campo certo da API', () => {
   assert.equal(entrada.costEstimateId, 'e1');
 });
 
+test('reabertura usa as colunas canônicas quando o payload antigo não tem o cliente', () => {
+  const snapshot = mod.snapshotDaPropostaSalva({
+    clientName: 'Cliente persistido',
+    cnpj: '00.000.000/0001-00',
+    contact: 'Contato persistido',
+    email: 'contato@example.com',
+    site: 'Unidade Sul',
+    department: 'Manutenção',
+    sellerUserId: 'u-vend-a',
+    payload: { prices: [{ description: 'Serviço', value: 'R$ 800,00' }] }
+  });
+
+  assert.equal(snapshot.client, 'Cliente persistido');
+  assert.equal(snapshot.cnpj, '00.000.000/0001-00');
+  assert.equal(snapshot.contact, 'Contato persistido');
+  assert.equal(snapshot.email, 'contato@example.com');
+  assert.equal(snapshot.site, 'Unidade Sul');
+  assert.equal(snapshot.department, 'Manutenção');
+  assert.equal(snapshot.seller, 'u-vend-a');
+  assert.equal(snapshot.prices[0].value, 'R$ 800,00');
+});
+
 test('o totalValue NÃO é enviado — quem soma é o servidor', () => {
   // Mandá-lo daqui permitiria que o histórico e o CRM dissessem um número que o
   // PDF não confirma.

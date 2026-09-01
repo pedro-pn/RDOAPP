@@ -8,6 +8,7 @@ import {
   normalizeCostEstimatePayload,
   validateCostEstimate
 } from '../../../../../shared/comercial/dist/cost-model.js';
+import { comDataBaseDoCronograma } from './datasDaFase';
 
 /**
  * Estado do levantamento de custos.
@@ -27,12 +28,14 @@ type AnyRecord = Record<string, unknown>;
 
 export type Levantamento = ReturnType<typeof useLevantamento>;
 
-export function useLevantamento(estimatorName: string) {
+export function useLevantamento(estimatorName: string, secaoAtual = 'premises') {
   const [draft, setDraftBruto] = useState<AnyRecord>(() =>
-    normalizeCostEstimatePayload({
-      ...(createDefaultCostEstimatePayload() as AnyRecord),
-      estimatorName
-    })
+    comDataBaseDoCronograma(
+      normalizeCostEstimatePayload({
+        ...(createDefaultCostEstimatePayload() as AnyRecord),
+        estimatorName
+      }) as AnyRecord
+    )
   );
 
   /**
@@ -58,7 +61,10 @@ export function useLevantamento(estimatorName: string) {
    * cliente.
    */
   const setDraft = useCallback<typeof setDraftBruto>(valor => {
-    setDraftBruto(valor);
+    setDraftBruto(atual => {
+      const proximo = typeof valor === 'function' ? valor(atual) : valor;
+      return comDataBaseDoCronograma(proximo);
+    });
     setIssuesDoServidor(atual => (atual.length ? [] : atual));
   }, []);
 
@@ -93,15 +99,23 @@ export function useLevantamento(estimatorName: string) {
    * quando o erro for real.
    *
    * Então: **o erro existe desde sempre, mas só aparece depois que o usuário
-   * tenta avançar.** Uma vez revelado, continua revelado — a partir daí o
-   * campo acende e apaga ao vivo enquanto ele corrige, que é o retorno que
-   * ele quer justamente nesse momento.
+   * tenta corrigir ou concluir a seção onde está.** A visibilidade é guardada
+   * por seção; abrir Mão de obra ou Mob./Desmob. pela primeira vez não herda
+   * o vermelho de um clique feito em Premissas.
    *
    * O rodapé-guia continua dizendo o que falta desde o início. Ele orienta
    * sem acusar; é o vermelho no campo que acusa.
    */
-  const [errosVisiveis, setErrosVisiveis] = useState(false);
-  const revelarErros = useCallback(() => setErrosVisiveis(true), []);
+  const [secoesComErrosVisiveis, setSecoesComErrosVisiveis] = useState<Set<string>>(
+    () => new Set()
+  );
+  const errosVisiveis = secoesComErrosVisiveis.has(secaoAtual);
+  const revelarErros = useCallback((secao = secaoAtual) => {
+    setSecoesComErrosVisiveis(atuais => {
+      if (atuais.has(secao)) return atuais;
+      return new Set([...atuais, secao]);
+    });
+  }, [secaoAtual]);
 
   /**
    * Índice `caminho do campo` → mensagem, para a lacuna L1.
@@ -265,9 +279,9 @@ export function useLevantamento(estimatorName: string) {
      * Recebe as pendências do `422` e já as revela: se o servidor recusou, o
      * usuário tentou avançar por definição.
      */
-    aplicarIssuesDoServidor: (issues: ComercialIssue[]) => {
+    aplicarIssuesDoServidor: (issues: ComercialIssue[], secao = secaoAtual) => {
       setIssuesDoServidor(issues);
-      setErrosVisiveis(true);
+      revelarErros(secao);
     },
     limparIssuesDoServidor: () => setIssuesDoServidor([]),
     issuesDoServidor,

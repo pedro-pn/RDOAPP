@@ -24,6 +24,14 @@ import {
 
 const DEBOUNCE_MS = 800;
 
+function assinaturaDosDados(dados: unknown) {
+  try {
+    return JSON.stringify(dados);
+  } catch {
+    return '';
+  }
+}
+
 export function useRascunhoLocal({
   conta,
   tela,
@@ -57,6 +65,7 @@ export function useRascunhoLocal({
    */
   const liberado = useRef(false);
   const chaveLida = useRef<string | null>(null);
+  const assinaturaBase = useRef('');
 
   // Leitura inicial — uma vez por chave.
   useEffect(() => {
@@ -70,13 +79,20 @@ export function useRascunhoLocal({
     if (encontrado) {
       setOferta(encontrado);
     } else {
+      // Abrir um registro salvo (ou um formulário novo ainda intocado) não é
+      // uma alteração. Esta assinatura impede que a hidratação inicial do
+      // servidor seja regravada como "rascunho não salvo" 800 ms depois.
+      assinaturaBase.current = assinaturaDosDados(dados);
+      setAlterado(false);
       liberado.current = true;
     }
-  }, [storage, chave, ativo]);
+  }, [storage, chave, ativo, dados]);
 
   // Autossalvamento com debounce.
   useEffect(() => {
     if (!storage || !chave || !ativo || !liberado.current) return;
+    const assinaturaAtual = assinaturaDosDados(dados);
+    if (assinaturaAtual === assinaturaBase.current) return;
 
     const timer = window.setTimeout(() => {
       guardarRascunho(storage, chave, dados, rotulo);
@@ -116,21 +132,25 @@ export function useRascunhoLocal({
   const descartarOferta = useCallback(() => {
     if (storage && chave) descartarRascunho(storage, chave);
     setOferta(null);
+    assinaturaBase.current = assinaturaDosDados(dados);
+    setAlterado(false);
     liberado.current = true;
-  }, [storage, chave]);
+  }, [storage, chave, dados]);
 
   /** Depois de gravar no servidor o rascunho não pode sobrar (T091). */
   const limparTudo = useCallback(() => {
     if (!storage) return;
     descartarRascunhosDaTela(storage, conta, tela);
+    assinaturaBase.current = assinaturaDosDados(dados);
     setAlterado(false);
-  }, [storage, conta, tela]);
+  }, [storage, conta, tela, dados]);
 
   /** Remove só o rascunho corrente depois de persistir este trabalho no servidor. */
   const limparAtual = useCallback(() => {
     if (storage && chave) descartarRascunho(storage, chave);
+    assinaturaBase.current = assinaturaDosDados(dados);
     setAlterado(false);
-  }, [storage, chave]);
+  }, [storage, chave, dados]);
 
   return {
     oferta,
