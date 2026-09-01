@@ -70,7 +70,7 @@ export interface LevantamentoSalvo {
   totalCost?: string | number | null;
   salePrice?: string | number | null;
   marginPercent?: string | number | null;
-  status?: string;
+  status?: 'RASCUNHO' | 'SALVO';
   createdAt?: string;
   updatedAt: string;
 }

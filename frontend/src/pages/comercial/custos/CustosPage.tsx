@@ -36,10 +36,11 @@ import { ROTEIRO_DOS_CUSTOS } from '../roteiroDoTutorial';
 import { BotaoFecharDialogo } from '../components/FecharDialogo';
 import { MarcaDeOpcao } from '../components/MarcaDeOpcao';
 import {
+  focarPrimeiroCampoInvalido,
   parametrosDoLevantamentoAposAvanco,
   rolarParaInicioDoFormulario
 } from '../navegacao';
-
+import { parametrosDaPropostaComLevantamento } from '../proposta/levantamentoVinculado';
 
 /**
  * Levantamento de custos — container das cinco seções.
@@ -93,12 +94,31 @@ export function CustosPage() {
   const [versaoDoRascunho, setVersaoDoRascunho] = useState('');
   const [recado, setRecado] = useState('');
   const [salvo, setSalvo] = useState<string | null>(null);
+  const [focarPendencia, setFocarPendencia] = useState(false);
 
   const levantamento = useLevantamento(user?.name || '', secao);
-  const { draft, setDraft, result, revelarErros, aplicarIssuesDoServidor } = levantamento;
+  const {
+    draft,
+    setDraft,
+    result,
+    revelarErros,
+    aplicarIssuesDoServidor,
+    issuesDoServidor
+  } = levantamento;
   const origemCarregada = useRef('');
   const atualCarregado = useRef('');
   const formularioRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!focarPendencia) return;
+
+    const quadro = window.requestAnimationFrame(() => {
+      focarPrimeiroCampoInvalido(formularioRef.current?.parentElement ?? null);
+      setFocarPendencia(false);
+    });
+
+    return () => window.cancelAnimationFrame(quadro);
+  }, [focarPendencia, issuesDoServidor, secao]);
 
   /** Reabre o rascunho persistido pela conta quando o id está no endereço. */
   useEffect(() => {
@@ -361,21 +381,42 @@ export function CustosPage() {
     }
     setSalvando(true);
     setRecado('Validando e salvando o levantamento...');
+    let rascunhoSalvoId = '';
 
     try {
-      const entrada = {
-        proposalCode: base,
-        revisionNumber: modo === 'revision' ? revisionNumber : 0,
-        title: String(draft.title || ''),
-        mode: modo === 'revision' ? 'REVISAO' : 'NOVA',
-        status: 'SALVO' as const,
-        payload: draft
-      } as const;
-      const gravado = levantamentoAtualId
-        ? await atualizarLevantamento(levantamentoAtualId, entrada, {
-            expectedUpdatedAt: versaoDoRascunho
-          })
-        : await criarLevantamento(entrada);
+      const persistir = (status: 'RASCUNHO' | 'SALVO') => {
+        const entrada = {
+          proposalCode: base,
+          revisionNumber: modo === 'revision' ? revisionNumber : 0,
+          title: String(draft.title || ''),
+          mode: modo === 'revision' ? 'REVISAO' : 'NOVA',
+          status,
+          payload: draft
+        } as const;
+        return levantamentoAtualId
+          ? atualizarLevantamento(levantamentoAtualId, entrada, {
+              expectedUpdatedAt: versaoDoRascunho
+            })
+          : criarLevantamento(entrada);
+      };
+
+      let gravado: Awaited<ReturnType<typeof persistir>>;
+      try {
+        gravado = await persistir('SALVO');
+      } catch (error) {
+        if (!criarPropostaDepois || !(error instanceof ComercialValidationError)) {
+          throw error;
+        }
+
+        // A tentativa de criar a proposta não perde o trabalho, mas também não
+        // contorna a validação: persiste o rascunho e devolve o usuário ao campo.
+        const rascunhoGravado = await persistir('RASCUNHO');
+        rascunhoSalvoId = rascunhoGravado.id;
+        rascunho.limparTudo();
+        setVersaoDoRascunho(rascunhoGravado.updatedAt || '');
+        if (!levantamentoAtualId) atualCarregado.current = rascunhoGravado.id;
+        throw error;
+      }
 
       // T091: gravado no servidor, o rascunho local não pode sobrar para
       // reaparecer depois como se fosse trabalho não salvo.
@@ -386,11 +427,9 @@ export function CustosPage() {
 
       if (criarPropostaDepois) {
         setRecado('');
+        const parametrosDaProposta = parametrosDaPropostaComLevantamento(gravado);
         navigate(
-          `${moduleRoutePath('comercial', 'propostas')}?levantamento=${gravado.id}` +
-            `&proposta=${encodeURIComponent(gravado.proposalCode)}` +
-            `&modo=${modo === 'revision' ? 'revision' : 'new'}` +
-            `&revisao=${gravado.revisionNumber}&etapa=cliente&usarLevantamento=1`
+          `${moduleRoutePath('comercial', 'propostas')}?${parametrosDaProposta.toString()}`
         );
         return;
       }
@@ -410,11 +449,20 @@ export function CustosPage() {
           error.issues.map(item => item.path || '').filter(Boolean)
         );
         aplicarIssuesDoServidor(error.issues, destino || secao);
-        if (destino) trocarSecao(destino);
+        if (destino) {
+          trocarSecao(destino, false, rascunhoSalvoId || levantamentoAtualId);
+          setFocarPendencia(true);
+        } else if (rascunhoSalvoId && !levantamentoAtualId) {
+          const proximos = new URLSearchParams(params);
+          proximos.set('id', rascunhoSalvoId);
+          setParams(proximos, { replace: true });
+        }
+        const prefixo = rascunhoSalvoId ? 'Rascunho salvo. ' : '';
         setRecado(
-          error.issues.length === 1
-            ? 'Há 1 pendência. Ela está marcada no campo.'
-            : `Há ${error.issues.length} pendências. Elas estão marcadas nos campos.`
+          prefixo +
+            (error.issues.length === 1
+              ? 'Há 1 pendência. Ela está marcada no campo.'
+              : `Há ${error.issues.length} pendências. Elas estão marcadas nos campos.`)
         );
       } else {
         setRecado(mensagemDeErro(error, 'Falha ao salvar o levantamento.'));
@@ -426,25 +474,47 @@ export function CustosPage() {
 
   /** Valida a conclusão mantendo os rótulos finais estáveis no resumo. */
   function concluirLevantamento(criarPropostaDepois: boolean) {
-    if (deveRevelarErrosAoAcionar(acao, secao)) {
-      revelarErros(secao);
+    if (deveRevelarErrosAoAcionar(acao, secao, criarPropostaDepois)) {
+      revelarErros(acao.kind === 'goto' ? acao.target : secao);
     }
 
     if (acao.kind === 'goto') {
       void persistirRascunho().then(idPersistido => {
-        if (idPersistido) trocarSecao(acao.target, true, idPersistido);
+        if (!idPersistido) return;
+        trocarSecao(acao.target, !criarPropostaDepois, idPersistido);
+        if (criarPropostaDepois) {
+          setRecado(
+            'Rascunho salvo. Corrija o primeiro campo destacado antes de criar a proposta.'
+          );
+          setFocarPendencia(true);
+        }
       });
       return;
     }
 
     if (saveBlockedByContent(guardas)) {
       const semTitulo = !String(draft.title || '').trim();
+      const destino = semTitulo ? 'premises' : 'summary';
+      revelarErros(destino);
+
+      if (criarPropostaDepois) {
+        void persistirRascunho().then(idPersistido => {
+          if (!idPersistido) return;
+          trocarSecao(destino, false, idPersistido);
+          setRecado(
+            'Rascunho salvo. Corrija o primeiro campo destacado antes de criar a proposta.'
+          );
+          setFocarPendencia(true);
+        });
+        return;
+      }
+
       setRecado(
         semTitulo
           ? 'Informe o nome do levantamento antes de concluir.'
           : 'Revise a formação do preço no resumo antes de concluir o levantamento.'
       );
-      trocarSecao(semTitulo ? 'premises' : 'summary', true);
+      trocarSecao(destino, true);
       return;
     }
 

@@ -2,8 +2,9 @@
  * O rodapé-guia do levantamento de custos.
  *
  * Esta é a peça mais interessante da tela, e a que quase ninguém nota: o botão
- * primário do rodapé **muda de texto E de destino** conforme o que falta,
- * seguindo uma cadeia de prioridade fixa. Clicar leva direto à seção pendente.
+ * primário do rodapé **muda de texto E de destino** conforme a seção atual.
+ * Durante o preenchimento, ele avança uma etapa por vez; no resumo, eventuais
+ * pendências levam de volta ao primeiro ponto que ainda precisa de correção.
  *
  *   mão de obra → materiais e insumos → mob./desmob. → comissões → salvar
  *
@@ -80,6 +81,21 @@ const SECTION_LABEL: Record<CostSection, string> = {
   summary: 'Resumo e QQP'
 };
 
+const NEXT_SECTION: Record<Exclude<CostSection, 'summary'>, CostSection> = {
+  premises: 'labor',
+  labor: 'inputs',
+  inputs: 'logistics',
+  logistics: 'summary'
+};
+
+const CURRENT_PENDING_KEY: Partial<
+  Record<Exclude<CostSection, 'summary'>, keyof PendingSections>
+> = {
+  labor: 'labor',
+  inputs: 'inputs',
+  logistics: 'logistics'
+};
+
 function labelDaPendencia(
   step: (typeof CHAIN)[number],
   secaoAtual?: CostSection
@@ -102,6 +118,27 @@ export function footerAction(
   guards: SaveGuards,
   secaoAtual?: CostSection
 ): FooterAction {
+  if (secaoAtual && secaoAtual !== 'summary') {
+    const pendingKey = CURRENT_PENDING_KEY[secaoAtual];
+    const currentStep = CHAIN.find(step => step.key === pendingKey);
+    if (pendingKey && pending[pendingKey] && currentStep) {
+      return {
+        kind: 'goto',
+        label: labelDaPendencia(currentStep, secaoAtual),
+        target: currentStep.target,
+        disabled: false
+      };
+    }
+
+    const target = NEXT_SECTION[secaoAtual];
+    return {
+      kind: 'goto',
+      label: `Salvar e ir para ${SECTION_LABEL[target]} →`,
+      target,
+      disabled: false
+    };
+  }
+
   for (const step of CHAIN) {
     if (pending[step.key]) {
       // Enquanto há seção pendente o botão NUNCA fica desabilitado: ele é um
@@ -143,15 +180,20 @@ export function saveBlockedByContent(guards: SaveGuards): boolean {
 /**
  * Abrir uma seção não é uma tentativa de preenchê-la.
  *
- * O vermelho só aparece quando a ação já está na própria seção pendente, ou
- * quando a pessoa tenta concluir. Navegar para uma seção ainda não visitada
- * mantém os campos neutros.
+ * O vermelho só aparece quando a ação já está na própria seção pendente ou
+ * quando a pessoa tenta criar a proposta. Navegar normalmente para uma seção
+ * ainda não visitada mantém os campos neutros.
  */
 export function deveRevelarErrosAoAcionar(
   acao: FooterAction,
-  secaoAtual: CostSection
+  secaoAtual: CostSection,
+  tentandoCriarProposta = false
 ): boolean {
-  return acao.kind === 'save' || acao.target === secaoAtual;
+  return (
+    acao.kind === 'save' ||
+    acao.target === secaoAtual ||
+    (tentandoCriarProposta && acao.kind === 'goto')
+  );
 }
 
 /** A cadeia em texto, para o roteiro do tutorial de primeiro acesso (L4). */

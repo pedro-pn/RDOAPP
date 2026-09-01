@@ -6,10 +6,10 @@ import { createServer } from 'vite';
 /**
  * O rodapé-guia do levantamento (tarefa T044).
  *
- * O que precisa ser verificável: a CADEIA e a ORDEM. O botão muda de texto e
- * de destino conforme o que falta, e a ordem não é arbitrária — com mão de
- * obra e logística pendentes ao mesmo tempo, mandar para logística primeiro
- * faria o usuário refazer o trabalho, porque a logística depende da equipe
+ * O que precisa ser verificável: o avanço acompanha a etapa atual e, no
+ * resumo, a CADEIA de correção mantém uma ordem fixa. Com mão de obra e
+ * logística pendentes ao mesmo tempo, mandar para logística primeiro faria o
+ * usuário refazer o trabalho, porque a logística depende da equipe
  * dimensionada.
  *
  * As mensagens são as da referência ao pé da letra. Mudá-las é divergência,
@@ -63,6 +63,28 @@ test('a ORDEM da cadeia é fixa: mão de obra vence logística', () => {
   assert.equal(acao.target, 'labor');
 });
 
+test('durante o levantamento, texto e destino indicam sempre a próxima etapa', () => {
+  const logisticaPendente = { ...nadaPendente, logistics: true, commercial: true };
+  const casos = [
+    ['premises', 'labor', 'Salvar e ir para Mão de obra →', logisticaPendente],
+    ['labor', 'inputs', 'Salvar e ir para Materiais e insumos →', logisticaPendente],
+    ['inputs', 'logistics', 'Salvar e ir para Mob. e desmob. →', logisticaPendente],
+    ['logistics', 'summary', 'Salvar e ir para Resumo e QQP →', nadaPendente]
+  ];
+
+  for (const [atual, target, label, pendencias] of casos) {
+    const acao = footerAction(pendencias, podeSalvar, atual);
+    assert.equal(acao.target, target, atual);
+    assert.equal(acao.label, label, atual);
+  }
+});
+
+test('a pendência da etapa atual precisa ser corrigida antes do avanço', () => {
+  const acao = footerAction({ ...nadaPendente, labor: true }, podeSalvar, 'labor');
+  assert.equal(acao.target, 'labor');
+  assert.equal(acao.label, 'Corrigir pendências de Mão de obra');
+});
+
 test('o texto informa quando a pendência manda voltar, em vez de fingir avanço', () => {
   const voltando = footerAction(
     { ...nadaPendente, labor: true },
@@ -78,7 +100,7 @@ test('o texto informa quando a pendência manda voltar, em vez de fingir avanço
     'labor'
   );
   assert.equal(adiante.target, 'inputs');
-  assert.equal(adiante.label, 'Ir para Materiais e insumos e corrigir pendências →');
+  assert.equal(adiante.label, 'Salvar e ir para Materiais e insumos →');
 });
 
 test('sem mão de obra pendente, insumos vêm antes de logística', () => {
@@ -207,6 +229,7 @@ test('abrir a próxima seção não revela erros antes de tentar preenchê-la', 
   );
   assert.equal(deveRevelarErrosAoAcionar(irParaMaoDeObra, 'premises'), false);
   assert.equal(deveRevelarErrosAoAcionar(irParaMaoDeObra, 'labor'), true);
+  assert.equal(deveRevelarErrosAoAcionar(irParaMaoDeObra, 'summary', true), true);
 
   const salvar = footerAction(nadaPendente, podeSalvar, 'summary');
   assert.equal(deveRevelarErrosAoAcionar(salvar, 'summary'), true);

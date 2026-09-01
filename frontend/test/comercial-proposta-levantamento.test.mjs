@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 let server;
@@ -23,6 +24,57 @@ test('o Decimal da API vira moeda brasileira sem ganhar ou perder centavos', () 
   assert.equal(mod.formatarValorDoLevantamento('38139.33'), 'R$ 38.139,33');
   assert.equal(mod.formatarValorDoLevantamento(100), 'R$ 100,00');
   assert.equal(mod.formatarValorDoLevantamento(null), '');
+});
+
+test('finalização e escolha manual usam o mesmo endereço de importação', () => {
+  const parametros = mod.parametrosDaPropostaComLevantamento({
+    id: 'levantamento-1',
+    proposalCode: '4418',
+    revisionNumber: 2
+  });
+
+  assert.deepEqual(Object.fromEntries(parametros), {
+    levantamento: 'levantamento-1',
+    proposta: '4418',
+    modo: 'revision',
+    revisao: '2',
+    etapa: 'cliente',
+    usarLevantamento: '1'
+  });
+});
+
+test('a escolha manual oferece também os rascunhos persistidos', () => {
+  const dialogo = readFileSync(
+    new URL('../src/pages/comercial/proposta/PropostaModeDialog.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(dialogo, /setLevantamentos\(resposta\.items\)/);
+  assert.doesNotMatch(dialogo, /items\.filter\([^)]*status === 'SALVO'/);
+  assert.match(dialogo, /Rascunho salvo/);
+});
+
+test('uma validação pendente salva o rascunho e não segue para a proposta', () => {
+  const paginaDeCustos = readFileSync(
+    new URL('../src/pages/comercial/custos/CustosPage.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(paginaDeCustos, /gravado = await persistir\('SALVO'\)/);
+  assert.match(paginaDeCustos, /error instanceof ComercialValidationError/);
+  assert.match(paginaDeCustos, /rascunhoGravado = await persistir\('RASCUNHO'\)/);
+  assert.match(paginaDeCustos, /setFocarPendencia\(true\)/);
+
+  const inicioDaContingencia = paginaDeCustos.indexOf(
+    "const rascunhoGravado = await persistir('RASCUNHO')"
+  );
+  const devolucaoParaValidacao = paginaDeCustos.indexOf('throw error;', inicioDaContingencia);
+  const trechoDaContingencia = paginaDeCustos.slice(
+    inicioDaContingencia,
+    devolucaoParaValidacao
+  );
+  assert.doesNotMatch(trechoDaContingencia, /parametrosDaPropostaComLevantamento/);
+  assert.match(paginaDeCustos, /parametrosDaPropostaComLevantamento\(gravado\)/);
 });
 
 test('o preço do levantamento entra na proposta como verba global editável', () => {

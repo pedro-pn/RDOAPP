@@ -5,6 +5,7 @@ import { createServer } from 'vite';
 let server;
 let rolarParaInicioDoFormulario;
 let parametrosDoLevantamentoAposAvanco;
+let focarPrimeiroCampoInvalido;
 
 test.before(async () => {
   server = await createServer({
@@ -13,9 +14,11 @@ test.before(async () => {
     server: { middlewareMode: true },
     appType: 'custom'
   });
-  ({ rolarParaInicioDoFormulario, parametrosDoLevantamentoAposAvanco } = await server.ssrLoadModule(
-    '/src/pages/comercial/navegacao.ts'
-  ));
+  ({
+    rolarParaInicioDoFormulario,
+    parametrosDoLevantamentoAposAvanco,
+    focarPrimeiroCampoInvalido
+  } = await server.ssrLoadModule('/src/pages/comercial/navegacao.ts'));
 });
 
 test.after(async () => {
@@ -35,6 +38,31 @@ test('avançar leva o início do formulário para a área visível', () => {
 
 test('navegação não quebra quando o formulário ainda não montou', () => {
   assert.doesNotThrow(() => rolarParaInicioDoFormulario(null));
+});
+
+test('uma invalidação foca o primeiro controle pendente e o mantém visível', () => {
+  const chamadas = [];
+  const controle = {
+    focus: opcoes => chamadas.push(['focus', opcoes])
+  };
+  const grupoInvalido = {
+    matches: () => false,
+    querySelector: () => controle,
+    scrollIntoView: opcoes => chamadas.push(['scroll', opcoes])
+  };
+  const raiz = {
+    querySelector: () => grupoInvalido
+  };
+
+  assert.equal(focarPrimeiroCampoInvalido(raiz), true);
+  assert.deepEqual(chamadas, [
+    ['focus', { preventScroll: true }],
+    ['scroll', { behavior: 'smooth', block: 'center' }]
+  ]);
+});
+
+test('não tenta focar quando a seção não tem campo inválido', () => {
+  assert.equal(focarPrimeiroCampoInvalido({ querySelector: () => null }), false);
 });
 
 test('o primeiro avanço preserva no endereço o id do rascunho recém-criado', () => {

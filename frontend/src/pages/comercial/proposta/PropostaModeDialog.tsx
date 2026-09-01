@@ -42,7 +42,7 @@ export function PropostaModeDialog({
     setErroDosLevantamentos('');
     try {
       const resposta = await listarLevantamentos();
-      setLevantamentos(resposta.items.filter(item => item.status === 'SALVO'));
+      setLevantamentos(resposta.items);
     } catch (error) {
       setErroDosLevantamentos(
         mensagemDeErro(error, 'Não foi possível carregar os levantamentos salvos.')
@@ -115,8 +115,8 @@ export function PropostaModeDialog({
           <section className="com-levantamentos-entrada" aria-live="polite">
             <div className="com-levantamentos-cabecalho">
               <div>
-                <strong>Levantamentos prontos para proposta</strong>
-                <span>Mais recentes primeiro. Somente levantamentos finalizados aparecem.</span>
+                <strong>Levantamentos salvos</strong>
+                <span>Mais recentes primeiro. Rascunhos e finalizados podem ser usados.</span>
               </div>
               {!carregandoLevantamentos && (
                 <button
@@ -137,8 +137,8 @@ export function PropostaModeDialog({
               <p className="com-recado">{erroDosLevantamentos}</p>
             ) : levantamentos.length === 0 ? (
               <p>
-                Nenhum levantamento finalizado está disponível. Salve o levantamento
-                de custos antes de iniciar a proposta.
+                Nenhum levantamento salvo está disponível. Salve o levantamento de
+                custos antes de iniciar a proposta.
               </p>
             ) : (
               <div className="com-levantamentos-lista">
@@ -153,7 +153,10 @@ export function PropostaModeDialog({
                         Proposta {item.proposalCode}
                         {item.revisionNumber > 0 ? ` · Rev ${item.revisionNumber}` : ''}
                       </strong>
-                      <small>{item.title || 'Levantamento sem título'}</small>
+                      <small>
+                        {item.status === 'RASCUNHO' ? 'Rascunho salvo' : 'Finalizado'} ·{' '}
+                        {item.title || 'Levantamento sem título'}
+                      </small>
                     </span>
                     <b>{formatarValorDoLevantamento(item.salePrice) || 'Preço a revisar'}</b>
                   </button>

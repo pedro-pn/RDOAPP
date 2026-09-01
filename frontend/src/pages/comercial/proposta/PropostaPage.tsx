@@ -69,7 +69,8 @@ import { usePropostaRevision } from './usePropostaRevision';
 import {
   formatarValorDoLevantamento,
   itemDePrecoDoLevantamento,
-  localDaObraDoLevantamento
+  localDaObraDoLevantamento,
+  parametrosDaPropostaComLevantamento
 } from './levantamentoVinculado';
 import { ClienteStep } from './steps/ClienteStep';
 import { EscopoStep } from './steps/EscopoStep';
@@ -548,13 +549,7 @@ export function PropostaPage() {
   }
 
   function iniciarComLevantamento(levantamento: LevantamentoSalvo) {
-    const proximos = new URLSearchParams();
-    proximos.set('levantamento', levantamento.id);
-    proximos.set('proposta', levantamento.proposalCode);
-    proximos.set('modo', levantamento.revisionNumber > 0 ? 'revision' : 'new');
-    proximos.set('revisao', String(levantamento.revisionNumber || 0));
-    proximos.set('etapa', 'cliente');
-    proximos.set('usarLevantamento', '1');
+    const proximos = parametrosDaPropostaComLevantamento(levantamento);
     setLevantamentoVinculado(levantamento);
     setRecado('Carregando dados do levantamento...');
     setParams(proximos, { replace: true });

@@ -7,6 +7,26 @@ type LevantamentoComPayload = Pick<LevantamentoSalvo, 'title' | 'salePrice'> & {
 };
 
 /**
+ * Parâmetros canônicos para abrir uma proposta a partir de um levantamento.
+ *
+ * A finalização da tela de custos e a escolha manual precisam produzir o mesmo
+ * endereço. Se cada entrada montar a URL por conta própria, uma delas pode
+ * vincular apenas o id sem aplicar título, local da obra e preço de venda.
+ */
+export function parametrosDaPropostaComLevantamento(
+  levantamento: Pick<LevantamentoSalvo, 'id' | 'proposalCode' | 'revisionNumber'>
+): URLSearchParams {
+  const parametros = new URLSearchParams();
+  parametros.set('levantamento', levantamento.id);
+  parametros.set('proposta', levantamento.proposalCode);
+  parametros.set('modo', levantamento.revisionNumber > 0 ? 'revision' : 'new');
+  parametros.set('revisao', String(levantamento.revisionNumber || 0));
+  parametros.set('etapa', 'cliente');
+  parametros.set('usarLevantamento', '1');
+  return parametros;
+}
+
+/**
  * O endereço de execução da proposta é o destino orçado no levantamento.
  *
  * `obra-principal` é a chave criada pela tela de logística. Levantamentos
