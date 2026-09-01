@@ -870,6 +870,7 @@ model EfetivoMissionPlan {
   headquartersResponsibleUser           User                         @relation("EfetivoMissionResponsibleUser", fields: [headquartersResponsibleUserId], references: [id], onDelete: Restrict)
   demands                               EfetivoMissionDemand[]
   allocations                           EfetivoMissionAllocation[]
+  cycles                                EfetivoMissionCycle[]
   reports                               Report[]                     @relation("ReportEfetivoMission")
 
   @@unique([planId, projectId])
@@ -879,6 +880,20 @@ model EfetivoMissionPlan {
   @@index([headquartersResponsibleCollaboratorId])
   @@index([headquartersResponsibleUserId])
   @@index([planId, projectId, scheduleStatus, mobilizationDate, returnDate])
+}
+
+model EfetivoMissionCycle {
+  id                 String             @id @default(cuid())
+  missionId          String
+  mobilizationDate   DateTime           @db.Date
+  demobilizationDate DateTime?          @db.Date
+  createdByUserId    String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  mission            EfetivoMissionPlan @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([missionId, mobilizationDate])
+  @@index([missionId, mobilizationDate, demobilizationDate])
 }
 
 model EfetivoMissionDemand {
@@ -896,27 +911,42 @@ model EfetivoMissionDemand {
 }
 
 model EfetivoMissionAllocation {
-  id                  String                  @id @default(cuid())
+  id                  String                   @id @default(cuid())
   missionId           String
   collaboratorId      String
   jobRoleId           String
   jobRoleNameSnapshot String
-  mobilizationDate    DateTime?               @db.Date
-  demobilizationDate  DateTime?               @db.Date
-  allowMissionOverlap Boolean                 @default(false)
-  source              EfetivoAllocationSource @default(MANUAL)
+  mobilizationDate    DateTime?                @db.Date
+  demobilizationDate  DateTime?                @db.Date
+  allowMissionOverlap Boolean                  @default(false)
+  source              EfetivoAllocationSource  @default(MANUAL)
   createdByUserId     String?
   deletedAt           DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  mission             EfetivoMissionPlan      @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  collaborator        Collaborator            @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
-  jobRole             JobRole                 @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  mission             EfetivoMissionPlan       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  collaborator        Collaborator             @relation(fields: [collaboratorId], references: [id], onDelete: Restrict)
+  jobRole             JobRole                  @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+  cycles              EfetivoAllocationCycle[]
 
   @@unique([missionId, collaboratorId])
   @@index([collaboratorId, deletedAt])
   @@index([collaboratorId, mobilizationDate, demobilizationDate, deletedAt], map: "EfetivoMissionAllocation_collaboratorId_mobilizationDat_idx")
   @@index([missionId, jobRoleId, deletedAt])
+}
+
+model EfetivoAllocationCycle {
+  id                 String                   @id @default(cuid())
+  allocationId       String
+  mobilizationDate   DateTime                 @db.Date
+  demobilizationDate DateTime?                @db.Date
+  createdByUserId    String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  allocation         EfetivoMissionAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+
+  @@unique([allocationId, mobilizationDate])
+  @@index([allocationId, mobilizationDate, demobilizationDate])
 }
 
 model EfetivoPlannedHire {

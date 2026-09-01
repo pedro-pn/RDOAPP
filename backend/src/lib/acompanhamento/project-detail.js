@@ -20,6 +20,7 @@ import {
   buildRequiredWeeklyProgress,
   computeProgressHistoryForProjects,
   computeProjectProgress,
+  isConfirmedReportParticipant,
   selectRealizedSourceReportData
 } from './avanco.js';
 import {
@@ -445,11 +446,32 @@ export async function getProjectDetail(projectId, {
 
   // --- Colaboradores distintos (nome + cargo + custo/hora do ponto vigente) ---
   const ratesById = labor.byCollaboratorId || new Map();
+  const reportById = new Map(reports.map(report => [report.id, report]));
+  const projectAllocation = collaboratorId => {
+    const rate = ratesById.get(collaboratorId) || null;
+    return rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId] || null;
+  };
+  const hasAllocatedHours = collaboratorId => (
+    Math.max(0, toNum(projectAllocation(collaboratorId)?.hours) ?? 0) > 0
+  );
+  const confirmedReportParticipantIds = new Set();
+  for (const item of collaborators) {
+    if (isConfirmedReportParticipant(reportById.get(item.reportId), hasAllocatedHours(item.collaboratorId))) {
+      confirmedReportParticipantIds.add(item.collaboratorId);
+    }
+  }
+  for (const report of reports) {
+    for (const collaboratorId of nightCollaboratorIdsFromReport(report)) {
+      if (isConfirmedReportParticipant(report, hasAllocatedHours(collaboratorId))) {
+        confirmedReportParticipantIds.add(collaboratorId);
+      }
+    }
+  }
   const collabMap = new Map();
   const ensureCollaborator = (collaboratorId, { name = '', role = '' } = {}) => {
     if (!collaboratorId || collabMap.has(collaboratorId)) return;
     const rate = ratesById.get(collaboratorId) || null;
-    const alloc = rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId] || null;
+    const alloc = projectAllocation(collaboratorId);
     collabMap.set(collaboratorId, buildProjectDetailCollaborator({
       name,
       role,
@@ -485,7 +507,13 @@ export async function getProjectDetail(projectId, {
       ensureCollaborator(collaboratorId, { name: rate.name, role: rate.role });
     }
   }
-  const colaboradores = [...collabMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const colaboradores = [...collabMap.entries()]
+    .filter(([collaboratorId]) => (
+      confirmedReportParticipantIds.has(collaboratorId)
+      || hasAllocatedHours(collaboratorId)
+    ))
+    .map(([, item]) => item)
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   // --- Prazos / dias ---
   const plannedDays = toNum(row.plannedDays);

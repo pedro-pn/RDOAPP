@@ -151,7 +151,7 @@ test('colaborador externo ignorado não entra no snapshot nem gera pendência', 
   assert.equal(normalized.collaboratorsMatched, 0);
 });
 
-test('pendência ambígua histórica é ocultada somente quando os RDOs atuais resolvem o dia', () => {
+test('pendência histórica sem RDO/Efetivo atual é descartada em vez de perpetuada', () => {
   const ambiguousDays = [
     { externalEmployeeId: '101', date: '2026-08-01', projectCodes: ['5761', '5794'], reason: 'RDO_NOT_CONFIRMED' },
     { externalEmployeeId: '102', date: '2026-08-02', projectCodes: ['5761', '5794'], reason: 'RDO_NOT_CONFIRMED' }
@@ -178,7 +178,7 @@ test('pendência ambígua histórica é ocultada somente quando os RDOs atuais r
     }]
   });
 
-  assert.deepEqual(unresolved, [ambiguousDays[1]]);
+  assert.deepEqual(unresolved, []);
 });
 
 test('dia sem etiqueta e com dois RDOs atuais continua visível para seleção manual', () => {
@@ -240,7 +240,7 @@ test('separa somente dias cujos projetos candidatos não existem no cadastro', (
   });
 });
 
-test('resumo sinaliza dia ambíguo sem copiar nome, matrícula ou CPF', () => {
+test('várias etiquetas sem RDO/Efetivo não geram pendência nem expõem dados pessoais', () => {
   const normalized = normalizePontoMaisSnapshot(fixture({
     timeCards: [
       { date: 'Sáb, 01/08/2026', time: '08:00', registration_number: '000-42', tag_manager: 'Missão 5745' },
@@ -260,15 +260,55 @@ test('resumo sinaliza dia ambíguo sem copiar nome, matrícula ou CPF', () => {
     rdoReports: []
   });
 
-  assert.deepEqual(pending, [{
+  assert.deepEqual(pending, []);
+  assert.doesNotMatch(JSON.stringify(pending), /Pessoa Externa|000-42|000\.000/);
+});
+
+test('pendência do sync usa a mesma janela individual do Efetivo do cálculo financeiro', () => {
+  const projects = [
+    { id: 'project-a', code: '5745' },
+    { id: 'project-b', code: '5752' }
+  ];
+  const normalized = normalizePontoMaisSnapshot(fixture({
+    projects,
+    timeCards: [
+      { date: 'Sáb, 01/08/2026', time: '08:00', registration_number: '000-42', tag_manager: 'EM VIAGEM' },
+      { date: 'Sáb, 01/08/2026', time: '17:00', registration_number: '000-42', tag_manager: 'EM VIAGEM' }
+    ]
+  }));
+  const allocation = projectId => ({
+    id: `allocation-${projectId}`,
+    collaboratorId: 'collaborator-1',
+    mobilizationDate: new Date('2026-08-01T00:00:00.000Z'),
+    demobilizationDate: new Date('2026-08-10T00:00:00.000Z'),
+    mission: {
+      id: `mission-${projectId}`,
+      projectId,
+      mobilizationDate: new Date('2026-07-20T00:00:00.000Z'),
+      executionEndDate: new Date('2026-08-15T00:00:00.000Z'),
+      returnDate: new Date('2026-08-15T00:00:00.000Z')
+    }
+  });
+
+  assert.deepEqual(buildAmbiguousDayPendencies({
+    periods: normalized.periods,
+    projects,
+    effectiveAllocations: [allocation('project-a')]
+  }), []);
+
+  assert.deepEqual(buildAmbiguousDayPendencies({
+    periods: normalized.periods,
+    projects,
+    effectiveAllocations: [allocation('project-a'), allocation('project-b')]
+  }), [{
     externalEmployeeId: '101',
     date: '2026-08-01',
     projectCodes: ['5745', '5752'],
-    tagProjectCodes: ['5745', '5752'],
+    tagProjectCodes: [],
     rdoProjectCodes: [],
-    reason: 'RDO_NOT_CONFIRMED'
+    reason: 'EFFECTIVE_ALLOCATION_AMBIGUOUS',
+    travelContext: true
   }]);
-  assert.doesNotMatch(JSON.stringify(pending), /Pessoa Externa|000-42|000\.000/);
 });
 
 test('pendência usa o mesmo fallback de missão mesclada do cálculo financeiro', () => {
@@ -356,7 +396,7 @@ test('RDO posterior sugere o projeto, mas não substitui o RDO do próprio dia',
     projectCodes: ['5810'],
     tagProjectCodes: [],
     rdoProjectCodes: [],
-    reason: 'RDO_NOT_CONFIRMED',
+    reason: 'RDO_PERIOD_MISMATCH',
     travelContext: true
   }]);
 
@@ -371,7 +411,7 @@ test('RDO posterior sugere o projeto, mas não substitui o RDO do próprio dia',
     projectCodes: ['5810', '5813'],
     tagProjectCodes: [],
     rdoProjectCodes: [],
-    reason: 'RDO_NOT_CONFIRMED',
+    reason: 'RDO_PERIOD_MISMATCH',
     travelContext: true
   }]);
 
@@ -1057,7 +1097,7 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
   assert.deepEqual(corrected.missingProjects.ambiguousDays, []);
 });
 
-test('janela fechada resolve EM VIAGEM sem RDO apenas para colaborador elegível', () => {
+test('Efetivo individual resolve viagem; fora do período não perpetua pendência histórica', () => {
   const ambiguousDay = {
     externalEmployeeId: '101',
     date: '2026-07-15',
@@ -1068,52 +1108,46 @@ test('janela fechada resolve EM VIAGEM sem RDO apenas para colaborador elegível
     travelContext: true
   };
   const periodLinks = [{ externalEmployeeId: '101', collaboratorId: 'collaborator-1' }];
+  const effective = ({ mobilizationDate, demobilizationDate }) => ({
+    id: 'allocation-1',
+    collaboratorId: 'collaborator-1',
+    mobilizationDate: new Date(`${mobilizationDate}T00:00:00.000Z`),
+    demobilizationDate: new Date(`${demobilizationDate}T00:00:00.000Z`),
+    mission: {
+      id: 'mission-5804',
+      projectId: 'project-5804',
+      mobilizationDate: new Date('2026-07-01T00:00:00.000Z'),
+      executionEndDate: new Date('2026-08-31T00:00:00.000Z'),
+      returnDate: new Date('2026-08-31T00:00:00.000Z')
+    }
+  });
 
-  // Sem desmobilização preenchida a obra está em andamento: a regra segue conservadora e o dia
-  // continua pendente para alguém resolver à mão.
-  const emAndamento = filterCurrentlyResolvedAmbiguousDays({
+  // Sem nenhuma evidência atual, a pendência congelada do snapshot é descartada.
+  const semEvidencia = filterCurrentlyResolvedAmbiguousDays({
     ambiguousDays: [ambiguousDay],
     periodLinks,
-    projects: [{
-      id: 'project-5804',
-      code: '5804',
-      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
-      demobilizationDate: null,
-      laborCollaboratorIds: ['collaborator-1']
-    }],
+    projects: [{ id: 'project-5804', code: '5804' }],
     rdoReports: []
   });
-  assert.deepEqual(emAndamento, [ambiguousDay]);
+  assert.deepEqual(semEvidencia, []);
 
-  // Com janela fechada e uma única obra elegível, EM VIAGEM passa a ser evidência suficiente.
-  const comJanela = filterCurrentlyResolvedAmbiguousDays({
+  const dentroDoEfetivo = filterCurrentlyResolvedAmbiguousDays({
     ambiguousDays: [ambiguousDay],
     periodLinks,
-    projects: [{
-      id: 'project-5804',
-      code: '5804',
-      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
-      demobilizationDate: new Date('2026-08-31T00:00:00.000Z'),
-      laborCollaboratorIds: ['collaborator-1']
-    }],
-    rdoReports: []
+    projects: [{ id: 'project-5804', code: '5804' }],
+    rdoReports: [],
+    effectiveAllocations: [effective({ mobilizationDate: '2026-07-14', demobilizationDate: '2026-08-31' })]
   });
-  assert.deepEqual(comJanela, []);
+  assert.deepEqual(dentroDoEfetivo, []);
 
-  // Colaborador fora da equipe cadastrada não é varrido pela janela.
-  const foraDaEquipe = filterCurrentlyResolvedAmbiguousDays({
+  const foraDoPeriodoIndividual = filterCurrentlyResolvedAmbiguousDays({
     ambiguousDays: [ambiguousDay],
     periodLinks,
-    projects: [{
-      id: 'project-5804',
-      code: '5804',
-      mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
-      demobilizationDate: new Date('2026-08-31T00:00:00.000Z'),
-      laborCollaboratorIds: []
-    }],
-    rdoReports: []
+    projects: [{ id: 'project-5804', code: '5804' }],
+    rdoReports: [],
+    effectiveAllocations: [effective({ mobilizationDate: '2026-07-16', demobilizationDate: '2026-08-31' })]
   });
-  assert.deepEqual(foraDaEquipe, [ambiguousDay]);
+  assert.deepEqual(foraDoPeriodoIndividual, []);
 });
 
 test('ignorar etiqueta guarda a forma normalizada e recusa etiqueta já vinculada', async () => {

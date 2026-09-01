@@ -157,7 +157,10 @@ export function MissionTeamSelector({ mission, planId, roles, selectedIds, alloc
         </div>
         {!validPeriod ? <span className="field-hint">Preencha a mobilização e o fim da execução para consultar os colaboradores.</span> : null}
         {roleSummary.length ? <div className="efetivo-team-summary" aria-label="Resumo da equipe por cargo">{roleSummary.map(([role, count]) => <span key={role}>{role} <strong>{count}</strong></span>)}</div> : null}
-        {selectedIds.length ? <div className="efetivo-team-period-overview" aria-label="Mobilização e desmobilização por colaborador">
+        {selectedIds.length && mission ? <div className="efetivo-team-period-overview" aria-label="Ciclos de mobilização da equipe">
+          <div className="efetivo-team-period-heading"><strong>Ciclos de mobilização</strong><span>Salve a programação e use “Gerenciar equipe” na missão para adicionar pausas, retornos e datas individuais.</span></div>
+        </div> : null}
+        {selectedIds.length && !mission ? <div className="efetivo-team-period-overview" aria-label="Mobilização e desmobilização por colaborador">
           <div className="efetivo-team-period-heading"><strong>Datas individuais da equipe</strong><span>As datas gerais são usadas como padrão. Ajuste somente quem entra ou sai em outro dia.</span></div>
           {selectedIds.map(collaboratorId => {
             const collaborator = options.find(item => item.id === collaboratorId);

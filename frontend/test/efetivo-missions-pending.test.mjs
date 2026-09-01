@@ -109,6 +109,9 @@ test('paridade de campos com o exemplo de referência', () => {
   }
   const stages = read('../src/utils/missionKanban.ts');
   assert.match(stages, /MISSION_STAGE_DESCRIPTIONS/);
+  const css = read('../src/pages/efetivo/efetivo.css');
+  assert.match(missionsBoard, /efetivo-action-row efetivo-mission-card-actions/);
+  assert.match(css, /\.efetivo-mission-card-actions\s*\{[^}]*flex-wrap:\s*nowrap/);
   const calendar = read('../src/pages/efetivo/components/OperationalCalendar.tsx');
   assert.match(calendar, /'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'/);
 });

@@ -21,6 +21,7 @@ import { missionFinalAllocations } from '../../../utils/missionAllocationPeriod'
 import { createPointerDragGhost, movePointerDragGhost, scrollReorderContainerEdge, setReorderDragImage, type PointerDragState } from '../../../utils/reorderDrag';
 import { cloneMissionColumns, MISSION_STAGES, MISSION_STAGE_DESCRIPTIONS, MISSION_STAGE_LABELS, missionStage, missionsToColumns, moveMissionInColumns, resolveKanbanDrop, type MissionColumns } from '../../../utils/missionKanban';
 import { displayDateOnly } from '../../../utils/calendarGrid';
+import { MissionAllocationModal } from './MissionAllocationModal';
 import { MissionCompletionModal } from './MissionCompletionModal';
 import { MissionFormModal } from './MissionFormModal';
 
@@ -55,6 +56,7 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
   const [dropTarget, setDropTarget] = useState<{ stage: MissionStage; order: number } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null);
+  const [allocating, setAllocating] = useState<PlanningMission | null>(null);
   const [completionTarget, setCompletionTarget] = useState<CompletionTarget | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
   const dragRef = useRef<DragState | null>(null);
@@ -63,6 +65,11 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
   const interactiveMouseRef = useRef(false);
   const dropTargetRef = useRef<{ stage: MissionStage; order: number } | null>(null);
   useEffect(() => { if (query.data) setColumns(missionsToColumns(query.data.filter(mission => mission.scheduleStatus !== 'CANCELLED'))); }, [query.data]);
+  useEffect(() => {
+    if (!allocating || !query.data) return;
+    const refreshed = query.data.find(mission => mission.id === allocating.id);
+    if (refreshed && refreshed !== allocating) setAllocating(refreshed);
+  }, [allocating, query.data]);
 
   function clearPendingTouch() {
     if (pendingTouchRef.current) window.clearTimeout(pendingTouchRef.current.timer);
@@ -317,14 +324,14 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
                   </div>
                   <h3>{mission.project.name}</h3>
                   <p>{mission.project.clientName} · {mission.project.location}</p>
-                  <dl><div><dt>{stage === 'STANDBY' ? 'Previsão de mobilização' : 'Mobilização'}</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div><div><dt>Equipe ao fim</dt><dd>{finalAllocations.length}</dd></div></dl>
+                  <dl><div><dt>{stage === 'STANDBY' ? 'Previsão de mobilização' : 'Mobilização'}</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div><div><dt>Participantes</dt><dd>{finalAllocations.length}</dd></div></dl>
                   <div className="efetivo-mission-owner">
                     <i aria-hidden="true">{initials(mission.headquartersResponsibleName)}</i>
                     <span><small>LÍDER VINCULADO</small><strong>{mission.headquartersResponsibleName || 'Líder não vinculado'}</strong><b>{mission.headquartersResponsibleRole || 'Cargo da conta não informado'}</b></span>
                   </div>
                   {expandedId === mission.id ? (
                     <div className="efetivo-kanban-details">
-                      <span>Equipe ao fim da missão · {finalAllocations.length}</span>
+                      <span>Participantes da missão · {finalAllocations.length}</span>
                       {finalAllocations.length ? finalAllocations.map(allocation => (
                         <div key={allocation.id}>
                           <i aria-hidden="true">{initials(allocation.collaborator?.name || '')}</i>
@@ -334,7 +341,10 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
                       )) : <p>Nenhum colaborador alocado ainda.</p>}
                     </div>
                   ) : null}
-                  <button className="efetivo-team-toggle" type="button" aria-expanded={expandedId === mission.id} onClick={event => { event.stopPropagation(); setExpandedId(expandedId === mission.id ? null : mission.id); }}>{expandedId === mission.id ? 'Ocultar equipe' : `Ver líder e equipe (${finalAllocations.length})`}</button>
+                  <div className="efetivo-kanban-team-actions">
+                    <button className="efetivo-team-toggle" type="button" aria-expanded={expandedId === mission.id} onClick={event => { event.stopPropagation(); setExpandedId(expandedId === mission.id ? null : mission.id); }}>{expandedId === mission.id ? 'Ocultar equipe' : `Ver líder e equipe (${finalAllocations.length})`}</button>
+                    <button className="efetivo-kanban-team-manage" type="button" onClick={event => { event.stopPropagation(); setAllocating(mission); }}>Equipe e ciclos</button>
+                  </div>
                   {moveAllowed ? <div className="field-group efetivo-kanban-move-select" onClick={event => event.stopPropagation()}><label htmlFor={`mission-stage-${mission.id}`}>Mover para</label><select id={`mission-stage-${mission.id}`} value={mission.stage} onChange={event => { const next = event.target.value as MissionStage; persist(mission.id, next, columns[next].length); if (next !== 'FINISHED' || mission.stage === 'FINISHED') onMobileStageChange(next); }}>{MISSION_STAGES.map(option => <option value={option} key={option}>{MISSION_STAGE_LABELS[option]}</option>)}</select></div> : canManage ? <button className="efetivo-complete-mission" type="button" onClick={event => { event.stopPropagation(); openMission(mission); }}>Completar dados para liberar movimentação</button> : null}
                 </article>
               );})}
@@ -344,10 +354,11 @@ export function MissionKanban({ canManage, mobileStage, selectedMissionId, onMob
         {showCancelled ? <div className="efetivo-kanban-column efetivo-cancelled-column cancelled-visible" data-kanban-status="CANCELLED">
           <header><div><strong><span className="efetivo-stage-dot" aria-hidden="true" />Canceladas</strong><span>{cancelledMissions.length}</span></div><small>Programações canceladas</small></header>
           <div className="efetivo-kanban-list">
-            {cancelledMissions.length ? cancelledMissions.map(mission => <article className="efetivo-kanban-card efetivo-cancelled-card" data-mission-id={mission.id} key={mission.id} onClick={() => openMission(mission)}><div className="efetivo-kanban-card-head"><span className="efetivo-eyebrow">{mission.project.code}</span></div><h3>{mission.project.name}</h3><p>{mission.project.clientName || 'Sem cliente'} · {mission.project.location || 'Sem local'}</p><dl><div><dt>Mobilização</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div><div><dt>Equipe</dt><dd>{mission.allocations.length}</dd></div></dl><span className="efetivo-status status-cancelled">Programação cancelada</span></article>) : <p className="efetivo-kanban-empty">Nenhuma missão cancelada</p>}
+            {cancelledMissions.length ? cancelledMissions.map(mission => <article className="efetivo-kanban-card efetivo-cancelled-card" data-mission-id={mission.id} key={mission.id} onClick={() => openMission(mission)}><div className="efetivo-kanban-card-head"><span className="efetivo-eyebrow">{mission.project.code}</span></div><h3>{mission.project.name}</h3><p>{mission.project.clientName || 'Sem cliente'} · {mission.project.location || 'Sem local'}</p><dl><div><dt>Mobilização</dt><dd>{displayDateOnly(mission.mobilizationDate)}</dd></div><div><dt>Equipe</dt><dd>{mission.allocations.length}</dd></div></dl><span className="efetivo-status status-cancelled">Programação cancelada</span><button className="efetivo-kanban-team-manage" type="button" onClick={event => { event.stopPropagation(); setAllocating(mission); }}>Equipe e ciclos</button></article>) : <p className="efetivo-kanban-empty">Nenhuma missão cancelada</p>}
           </div>
         </div> : null}
       </section>
+      <MissionAllocationModal mission={allocating} open={Boolean(allocating)} onClose={() => setAllocating(null)} />
       <MissionCompletionModal mission={completionTarget?.mission || null} open={Boolean(completionTarget)} saving={mutation.isPending} onClose={() => { if (!mutation.isPending) setCompletionTarget(null); }} onConfirm={returnDate => { if (completionTarget) mutation.mutate({ mission: completionTarget.mission, stage: 'FINISHED', order: completionTarget.order, returnDate }); }} />
       {canManage ? <MissionFormModal open={Boolean(formTarget)} mission={formTarget?.mission || null} project={formTarget?.project || null} roles={roles.data || []} rolesLoading={roles.isLoading} coordinators={coordinators.data || []} coordinatorsLoading={coordinators.isLoading} saving={save.isPending} onClose={() => setFormTarget(null)} onSubmit={payload => save.mutate(payload)} /> : null}
     </div>

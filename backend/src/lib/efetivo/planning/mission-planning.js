@@ -3,10 +3,10 @@ import { collectAllocationConflicts, ensureNoPlanningConflicts, loadCollaborator
 import { parseDateKey } from './date-only.js';
 import { conflictError, notFound, planningError } from './errors.js';
 import {
-  allocationCoversDate,
-  allocationPeriod,
+  allocationPeriods,
   allocationPeriodWithinMission,
-  maximumConcurrentAllocationCount
+  maximumConcurrentAllocationCount,
+  missionCycles
 } from './allocation-period.js';
 import { resolveSelectedMissionTeam, syncSelectedMissionTeam } from './mission-team.js';
 import { missionEndDate } from './mission-period.js';
@@ -19,12 +19,14 @@ import {
 
 export const missionInclude = {
   project: { select: { id: true, code: true, name: true, clientName: true, location: true, mobilizationDate: true, demobilizationDate: true } },
+  cycles: { orderBy: { mobilizationDate: 'asc' } },
   demands: { include: { jobRole: { select: { id: true, name: true, calendarColor: true } } }, orderBy: { jobRole: { order: 'asc' } } },
   allocations: {
     where: { deletedAt: null },
     include: {
       collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } },
-      jobRole: { select: { id: true, name: true } }
+      jobRole: { select: { id: true, name: true } },
+      cycles: { orderBy: { mobilizationDate: 'asc' } }
     },
     orderBy: { createdAt: 'asc' }
   }
@@ -164,12 +166,12 @@ export async function resolveMissionResponsible(tx, payload) {
 export function missionMovePendencies(mission) {
   const pendencies = [];
   const required = (mission.demands || []).reduce((sum, demand) => sum + Number(demand.requiredCount || 0), 0);
-  const referenceDate = mission.executionEndDate ? missionEndDate(mission) : null;
-  const finalTeamSize = referenceDate
-    ? (mission.allocations || []).filter(allocation => (
-      !allocation.deletedAt && allocationCoversDate(allocation, mission, referenceDate)
-    )).length
-    : (mission.allocations || []).filter(allocation => !allocation.deletedAt).length;
+  const covered = (mission.demands || []).reduce((sum, demand) => {
+    const rolePeriods = (mission.allocations || [])
+      .filter(allocation => !allocation.deletedAt && allocation.jobRoleId === demand.jobRoleId)
+      .flatMap(allocation => allocationPeriods(allocation, mission));
+    return sum + Math.min(Number(demand.requiredCount || 0), maximumConcurrentAllocationCount(rolePeriods));
+  }, 0);
   if (!mission.headquartersResponsibleUserId || !mission.headquartersResponsibleName || !mission.headquartersResponsibleRole) {
     pendencies.push('vincular o líder');
   }
@@ -177,7 +179,7 @@ export function missionMovePendencies(mission) {
     pendencies.push('preencher as datas obrigatórias');
   }
   if (!required) pendencies.push('selecionar a equipe');
-  else if (finalTeamSize < required) pendencies.push('completar a equipe');
+  else if (covered < required) pendencies.push('completar a equipe');
   if (mission.scheduleStatus !== 'CONFIRMED') pendencies.push('confirmar a programação');
   return pendencies;
 }
@@ -191,18 +193,25 @@ async function validateDemandRoles(tx, demands) {
 
 async function validateExistingAllocations(tx, mission, payload, demands) {
   const proposedMission = { ...mission, ...payload };
+  for (const cycle of missionCycles(proposedMission)) {
+    if (!allocationPeriodWithinMission(cycle, proposedMission)) {
+      throw conflictError('A nova programação deixa um ciclo do projeto fora das datas gerais da missão.', [], 'MISSION_CYCLE_OUTSIDE_MISSION_PERIOD');
+    }
+  }
   const allocationsByRole = new Map();
   for (const allocation of mission.allocations || []) {
-    const period = allocationPeriod(allocation, proposedMission);
-    if (!allocationPeriodWithinMission(period, proposedMission)) {
-      throw conflictError(
-        'A nova programação deixa o período individual de um colaborador fora das datas da missão.',
-        [],
-        'ALLOCATION_OUTSIDE_MISSION_PERIOD'
-      );
+    const allocationCyclePeriods = allocationPeriods(allocation, proposedMission);
+    for (const period of allocationCyclePeriods) {
+      if (!allocationPeriodWithinMission(period, proposedMission)) {
+        throw conflictError(
+          'A nova programação deixa um ciclo individual fora das datas da missão.',
+          [],
+          'ALLOCATION_OUTSIDE_MISSION_PERIOD'
+        );
+      }
     }
     const periods = allocationsByRole.get(allocation.jobRoleId) || [];
-    periods.push(period);
+    periods.push(...allocationCyclePeriods);
     allocationsByRole.set(allocation.jobRoleId, periods);
   }
   for (const demand of demands) {
@@ -215,18 +224,19 @@ async function validateExistingAllocations(tx, mission, payload, demands) {
   }
   if (payload.scheduleStatus !== 'CONFIRMED') return;
   for (const allocation of mission.allocations || []) {
-    const period = allocationPeriod(allocation, proposedMission);
-    await lockCollaborator(tx, allocation.collaboratorId);
-    const data = await loadCollaboratorConflictData(tx, allocation.collaboratorId, period, mission.planId);
-    if (!data.collaborator) throw notFound('Colaborador alocado não encontrado.');
-    ensureNoPlanningConflicts(collectAllocationConflicts({
-      ...data,
-      collaborator: data.collaborator,
-      jobRoleId: allocation.jobRoleId,
-      period,
-      ignoredMissionId: mission.id,
-      allowMissionOverlap: allocation.allowMissionOverlap
-    }));
+    for (const period of allocationPeriods(allocation, proposedMission)) {
+      await lockCollaborator(tx, allocation.collaboratorId);
+      const data = await loadCollaboratorConflictData(tx, allocation.collaboratorId, period, mission.planId);
+      if (!data.collaborator) throw notFound('Colaborador alocado não encontrado.');
+      ensureNoPlanningConflicts(collectAllocationConflicts({
+        ...data,
+        collaborator: data.collaborator,
+        jobRoleId: allocation.jobRoleId,
+        period,
+        ignoredMissionId: mission.id,
+        allowMissionOverlap: allocation.allowMissionOverlap
+      }));
+    }
   }
 }
 
@@ -284,6 +294,7 @@ export async function createMission(payload, context = {}, dependencies = {}) {
       const removedAt = new Date();
       await Promise.all([
         tx.efetivoMissionDemand.deleteMany({ where: { missionId: existing.id } }),
+        ...(tx.efetivoMissionCycle ? [tx.efetivoMissionCycle.deleteMany({ where: { missionId: existing.id } })] : []),
         tx.efetivoMissionAllocation.updateMany({
           where: { missionId: existing.id, deletedAt: null },
           data: { deletedAt: removedAt }
@@ -310,8 +321,20 @@ export async function createMission(payload, context = {}, dependencies = {}) {
         include: missionInclude
       });
     }
+    if (tx.efetivoMissionCycle) {
+      await tx.efetivoMissionCycle.create({
+        data: {
+          missionId: mission.id,
+          mobilizationDate: dateValue(payload.mobilizationDate),
+          demobilizationDate: dateValue(payload.returnDate || payload.executionEndDate),
+          createdByUserId: context.actorUserId || null
+        }
+      });
+    }
     if (team) {
       await syncSelectedMissionTeam(tx, mission.id, team, context);
+    }
+    if (team || tx.efetivoMissionCycle) {
       mission = await tx.efetivoMissionPlan.findUnique({ where: { id: mission.id }, include: missionInclude });
     }
     await bumpPlanRevision(tx, plan);
@@ -348,7 +371,23 @@ export async function updateMission(missionId, payload, context = {}, dependenci
       : null;
     const demands = team?.demands || normalizeMissionDemands(payload.demands, payload.scheduleStatus);
     await validateDemandRoles(tx, demands);
-    if (!team) await validateExistingAllocations(tx, existing, payload, demands);
+    const existingBounds = {
+      startDate: parseDateKey(existing.mobilizationDate),
+      endDate: missionEndDate(existing)
+    };
+    const defaultCycle = existing.cycles?.length === 1
+      && parseDateKey(existing.cycles[0].mobilizationDate) === existingBounds.startDate
+      && parseDateKey(existing.cycles[0].demobilizationDate || existingBounds.endDate) === existingBounds.endDate;
+    const missionForValidation = defaultCycle ? { ...existing, cycles: [] } : existing;
+    if (!defaultCycle) {
+      const proposedMission = { ...existing, ...payload };
+      for (const cycle of missionCycles(proposedMission)) {
+        if (!allocationPeriodWithinMission(cycle, proposedMission)) {
+          throw conflictError('A nova programação deixa um ciclo do projeto fora das datas gerais da missão.', [], 'MISSION_CYCLE_OUTSIDE_MISSION_PERIOD');
+        }
+      }
+    }
+    if (!team) await validateExistingAllocations(tx, missionForValidation, payload, demands);
     await tx.efetivoMissionDemand.deleteMany({ where: { missionId } });
     let updated = await tx.efetivoMissionPlan.update({
       where: { id: missionId },
@@ -358,10 +397,19 @@ export async function updateMission(missionId, payload, context = {}, dependenci
       },
       include: missionInclude
     });
+    if (defaultCycle) {
+      await tx.efetivoMissionCycle.update({
+        where: { id: existing.cycles[0].id },
+        data: {
+          mobilizationDate: dateValue(payload.mobilizationDate),
+          demobilizationDate: dateValue(payload.returnDate || payload.executionEndDate)
+        }
+      });
+    }
     if (team) {
       await syncSelectedMissionTeam(tx, missionId, team, context);
-      updated = await tx.efetivoMissionPlan.findUnique({ where: { id: missionId }, include: missionInclude });
     }
+    updated = await tx.efetivoMissionPlan.findUnique({ where: { id: missionId }, include: missionInclude });
     await bumpPlanRevision(tx, plan);
     await recordEfetivoAudit(tx, {
       planId: plan.id,

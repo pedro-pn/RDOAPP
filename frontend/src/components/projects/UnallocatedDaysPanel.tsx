@@ -32,25 +32,25 @@ function blockPeriod(block: UnallocatedBlock): string {
 }
 
 /*
- * Candidatos do bloco: projetos que a etiqueta do Ponto Mais ou o RDO citaram naquele dia sem que a
- * regra conseguisse decidir. É o contexto que o painel antigo de conflitos dava e que aqui evita o
- * gestor ter de adivinhar entre todas as missões.
+ * Candidatos do bloco: projetos citados pela etiqueta, RDO, Efetivo ou pela própria decisão. Isso é
+ * especialmente importante nas sobreposições do Efetivo, em que pode não existir etiqueta nem RDO
+ * no dia para alimentar os dois primeiros grupos.
  */
 function blockCandidates(block: UnallocatedBlock): Array<{ projectId: string; label: string; origin: string }> {
   const byProject = new Map<string, { projectId: string; label: string; origins: Set<string> }>();
+  const add = (ref: { projectId: string; code: string | null }, origin: string, onlyWhenMissing = false) => {
+    const existing = byProject.get(ref.projectId);
+    if (onlyWhenMissing && existing) return;
+    const entry = existing
+      ?? { projectId: ref.projectId, label: ref.code ?? ref.projectId, origins: new Set<string>() };
+    entry.origins.add(origin);
+    byProject.set(ref.projectId, entry);
+  };
   for (const day of block.days) {
-    for (const ref of day.tagProjects) {
-      const entry = byProject.get(ref.projectId)
-        ?? { projectId: ref.projectId, label: ref.code ?? ref.projectId, origins: new Set<string>() };
-      entry.origins.add('etiqueta');
-      byProject.set(ref.projectId, entry);
-    }
-    for (const ref of day.rdoProjects) {
-      const entry = byProject.get(ref.projectId)
-        ?? { projectId: ref.projectId, label: ref.code ?? ref.projectId, origins: new Set<string>() };
-      entry.origins.add('RDO');
-      byProject.set(ref.projectId, entry);
-    }
+    for (const ref of day.tagProjects) add(ref, 'etiqueta');
+    for (const ref of day.rdoProjects) add(ref, 'RDO');
+    for (const ref of day.effectiveProjects ?? []) add(ref, 'Efetivo');
+    for (const ref of day.candidateProjects ?? []) add(ref, 'candidato', true);
   }
   return [...byProject.values()]
     .map(entry => ({ projectId: entry.projectId, label: entry.label, origin: [...entry.origins].join(' + ') }))
@@ -121,10 +121,10 @@ export function UnallocatedDaysPanel({ projects, enabled }: { projects: ProjectO
         Dias sem alocação ({totalDays})
       </div>
       <p className="placeholder-copy ponto-section-copy">
-        Dias com horas no Ponto Mais e RDO cadastrado que não chegaram a nenhum projeto por conflito
-        entre as evidências. Datas sem RDO no sistema e dias sem horas (folga) não aparecem. Enquanto
+        Dias com horas no Ponto Mais que possuem RDO ou alocação no Efetivo, mas ficaram sem projeto
+        por conflito, sobreposição ou divergência de período. Uma marcação isolada, sem qualquer
+        RDO do colaborador e sem Efetivo, permanece apenas na auditoria e não gera pendência. Enquanto
         ficarem aqui, as horas contam como ociosidade e não entram no custo de nenhuma missão.
-        {data?.cutoffDateKey ? ` Histórico considerado a partir de ${fmtDayDate(data.cutoffDateKey)}/${data.cutoffDateKey.slice(0, 4)}.` : ''}
       </p>
 
       <div className="ponto-filter-row">

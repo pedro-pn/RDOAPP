@@ -2,7 +2,7 @@ import { collectAllocationConflicts, lockCollaborator } from './conflicts.js';
 import { parseDateKey } from './date-only.js';
 import { conflictError, notFound, planningError } from './errors.js';
 import {
-  allocationPeriod,
+  allocationPeriods,
   allocationPeriodWithinMission,
   maximumConcurrentAllocationCount
 } from './allocation-period.js';
@@ -81,12 +81,18 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
           ...missionEndsOnOrAfter(dateValue(period.startDate))
         }
       },
-      include: { mission: true }
+      include: {
+        cycles: { orderBy: { mobilizationDate: 'asc' } },
+        mission: { include: { cycles: { orderBy: { mobilizationDate: 'asc' } } } }
+      }
     }),
     ignoredMissionId
       ? tx.efetivoMissionAllocation.findMany({
         where: { missionId: ignoredMissionId, collaboratorId: { in: uniqueIds }, deletedAt: null },
-        include: { mission: true }
+        include: {
+          cycles: { orderBy: { mobilizationDate: 'asc' } },
+          mission: { include: { cycles: { orderBy: { mobilizationDate: 'asc' } } } }
+        }
       })
       : Promise.resolve([])
   ]);
@@ -100,7 +106,8 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
     id: ignoredMissionId,
     mobilizationDate: payload.mobilizationDate,
     executionEndDate: payload.executionEndDate,
-    returnDate: payload.returnDate
+    returnDate: payload.returnDate,
+    cycles: currentAllocations[0]?.mission?.cycles || []
   };
   const requestedPeriodByCollaboratorId = new Map((payload.allocationPeriods || [])
     .map(item => [item.collaboratorId, item]));
@@ -109,6 +116,7 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
   for (const allocation of team.allocations) {
     const existing = existingByCollaboratorId.get(allocation.collaboratorId);
     const requested = requestedPeriodByCollaboratorId.get(allocation.collaboratorId);
+    allocation.cycles = existing?.cycles || [];
     if (requested) {
       allocation.mobilizationDate = parseDateKey(requested.mobilizationDate) === period.startDate
         ? null : dateValue(requested.mobilizationDate);
@@ -126,25 +134,26 @@ export async function resolveSelectedMissionTeam(tx, payload, planId, ignoredMis
     jobRoleId,
     requiredCount: maximumConcurrentAllocationCount(team.allocations
       .filter(item => item.jobRoleId === jobRoleId)
-      .map(item => allocationPeriod(item, proposedMission)))
+      .flatMap(item => allocationPeriods(item, proposedMission)))
   }));
   const conflicts = ordered.flatMap(collaborator => {
     const teamAllocation = team.allocations.find(item => item.collaboratorId === collaborator.id);
-    const collaboratorPeriod = allocationPeriod(teamAllocation, proposedMission);
-    if (!allocationPeriodWithinMission(collaboratorPeriod, proposedMission)) {
-      throw planningError(`${collaborator.name} possui período individual fora das novas datas da missão.`, {
-        code: 'ALLOCATION_OUTSIDE_MISSION_PERIOD'
+    return allocationPeriods(teamAllocation, proposedMission).flatMap(collaboratorPeriod => {
+      if (!allocationPeriodWithinMission(collaboratorPeriod, proposedMission)) {
+        throw planningError(`${collaborator.name} possui ciclo individual fora das novas datas da missão.`, {
+          code: 'ALLOCATION_OUTSIDE_MISSION_PERIOD'
+        });
+      }
+      return collectAllocationConflicts({
+        collaborator,
+        jobRoleId: collaborator.jobRoleId,
+        period: collaboratorPeriod,
+        absences: absences.filter(absence => absence.collaboratorId === collaborator.id),
+        allocations: allocations.filter(allocation => allocation.collaboratorId === collaborator.id),
+        ignoredMissionId,
+        allowMissionOverlap: Boolean(teamAllocation?.allowMissionOverlap),
+        requireCandidateMissionOverlapConfirmation: true
       });
-    }
-    return collectAllocationConflicts({
-      collaborator,
-      jobRoleId: collaborator.jobRoleId,
-      period: collaboratorPeriod,
-      absences: absences.filter(absence => absence.collaboratorId === collaborator.id),
-      allocations: allocations.filter(allocation => allocation.collaboratorId === collaborator.id),
-      ignoredMissionId,
-      allowMissionOverlap: Boolean(teamAllocation?.allowMissionOverlap),
-      requireCandidateMissionOverlapConfirmation: true
     });
   });
   if (conflicts.length) {
@@ -166,13 +175,20 @@ export async function syncSelectedMissionTeam(tx, missionId, team, context = {})
     data: { deletedAt: new Date() }
   });
 
+  const missionBounds = tx.efetivoMissionPlan
+    ? await tx.efetivoMissionPlan.findUnique({
+      where: { id: missionId },
+      select: { mobilizationDate: true, executionEndDate: true, returnDate: true }
+    })
+    : null;
   const stored = [];
   for (const allocation of team.allocations) {
-    stored.push(await tx.efetivoMissionAllocation.upsert({
+    const { cycles: _cycles, ...allocationData } = allocation;
+    const saved = await tx.efetivoMissionAllocation.upsert({
       where: { missionId_collaboratorId: { missionId, collaboratorId: allocation.collaboratorId } },
       create: {
         missionId,
-        ...allocation,
+        ...allocationData,
         source: 'MANUAL',
         createdByUserId: context.actorUserId || null
       },
@@ -185,7 +201,21 @@ export async function syncSelectedMissionTeam(tx, missionId, team, context = {})
         source: 'MANUAL',
         deletedAt: null
       }
-    }));
+    });
+    stored.push(saved);
+    if (tx.efetivoAllocationCycle && (allocation.mobilizationDate || allocation.demobilizationDate)) {
+      const existingCycle = await tx.efetivoAllocationCycle.findFirst({ where: { allocationId: saved.id } });
+      if (!existingCycle) {
+        await tx.efetivoAllocationCycle.create({
+          data: {
+            allocationId: saved.id,
+            mobilizationDate: allocation.mobilizationDate || missionBounds?.mobilizationDate,
+            demobilizationDate: allocation.demobilizationDate || missionBounds?.returnDate || missionBounds?.executionEndDate,
+            createdByUserId: context.actorUserId || null
+          }
+        });
+      }
+    }
   }
   return stored;
 }

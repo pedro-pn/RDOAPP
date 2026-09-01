@@ -142,6 +142,14 @@ export const allocationPeriodInputSchema = z.object({
   message: 'A desmobilização individual não pode ser anterior à mobilização.'
 });
 
+export const mobilizationCycleInputSchema = z.object({
+  mobilizationDate: dateOnlySchema,
+  demobilizationDate: dateOnlySchema.nullable().optional()
+}).refine(value => !value.demobilizationDate || value.demobilizationDate >= value.mobilizationDate, {
+  path: ['demobilizationDate'],
+  message: 'A desmobilização não pode ser anterior à mobilização.'
+});
+
 export const stageInputSchema = z.object({
   stage: missionStageSchema,
   order: z.coerce.number().int().min(0),

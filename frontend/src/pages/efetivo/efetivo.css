@@ -576,12 +576,18 @@
 }
 
 .efetivo-role-grid,
-.efetivo-mission-grid,
 .efetivo-scenario-grid,
 .efetivo-user-grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  margin-top: 14px;
+}
+
+.efetivo-mission-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
   margin-top: 14px;
 }
 
@@ -958,6 +964,15 @@
   gap: 7px;
 }
 
+.efetivo-mission-card footer { align-items: stretch; flex-direction: column; }
+.efetivo-mission-card-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.efetivo-mission-card-actions > button { flex: 0 0 auto; white-space: nowrap; }
+
 .efetivo-mission-card {
   display: flex;
   flex-direction: column;
@@ -1126,6 +1141,57 @@
 .efetivo-allocation-row-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .efetivo-allocation-period-editor { align-items: end; display: grid; gap: 8px; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(145px, 1fr)) auto auto; width: 100%; }
 .efetivo-overlap-badge { color: var(--warning-text); display: block; font-size: 11px; font-weight: 700; margin-top: 4px; }
+.efetivo-cycle-section {
+  background: color-mix(in srgb, var(--g) 5%, var(--wh));
+  border: 1px solid color-mix(in srgb, var(--g) 25%, var(--br));
+  border-radius: var(--r);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+}
+.efetivo-cycle-section > header,
+.efetivo-person-cycle-panel > header { align-items: center; display: flex; justify-content: space-between; gap: 12px; }
+.efetivo-cycle-section > header > div { display: flex; flex-direction: column; gap: 3px; }
+.efetivo-cycle-section > header span,
+.efetivo-person-cycle-panel > header span { color: var(--mu); font-size: 11px; }
+.efetivo-cycle-list { display: flex; flex-direction: column; gap: 7px; }
+.efetivo-cycle-list > article {
+  align-items: center;
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 9px 10px;
+}
+.efetivo-cycle-list > article > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.efetivo-cycle-list > article span { color: var(--mu); font-size: 12px; }
+.efetivo-cycle-add,
+.efetivo-cycle-editor { align-items: end; display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(145px, 1fr)) auto auto; }
+.efetivo-cycle-editor { grid-column: 1 / -1; }
+.efetivo-cycle-warning {
+  background: var(--warning-bg);
+  border-radius: 8px;
+  color: var(--warning-text);
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0;
+  padding: 8px 10px;
+}
+.efetivo-allocation-cycle-card { align-items: start !important; }
+.efetivo-person-cycle-panel {
+  background: var(--sf);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  grid-column: 1 / -1;
+  padding: 10px;
+}
+.efetivo-cycle-actions { align-items: center; display: flex; flex-direction: row !important; flex-wrap: wrap; gap: 6px !important; }
 
 .efetivo-holiday-form { grid-template-columns: minmax(160px, .4fr) minmax(0, 1fr) auto auto; }
 .efetivo-hire-form { grid-template-columns: minmax(0, 1fr) minmax(120px, .25fr) minmax(170px, .35fr) auto; }
@@ -1446,6 +1512,8 @@
   .efetivo-holiday-form,
   .efetivo-hire-form { grid-template-columns: 1fr; }
   .efetivo-allocation-period-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .efetivo-cycle-add,
+  .efetivo-cycle-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 540px) {
@@ -1478,7 +1546,9 @@
   .efetivo-team-option { align-items: start; grid-template-columns: auto minmax(0, 1fr); }
   .efetivo-team-option em { grid-column: 2; text-align: left; }
   .efetivo-allocation-period-fields,
-  .efetivo-allocation-period-editor { grid-template-columns: 1fr; }
+  .efetivo-allocation-period-editor,
+  .efetivo-cycle-add,
+  .efetivo-cycle-editor { grid-template-columns: 1fr; }
   .efetivo-team-period-row,
   .efetivo-allocation-period-list > article { grid-template-columns: 1fr; }
   .efetivo-allocation-row-actions,
@@ -1608,6 +1678,19 @@
   font-weight: 600;
   padding: 2px 0;
   text-align: left;
+}
+
+.efetivo-kanban-team-actions { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.efetivo-kanban-team-manage {
+  background: var(--wh);
+  border: 1px solid var(--br);
+  border-radius: var(--rs);
+  color: var(--tx);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 8px;
 }
 
 /* Cabeçalho de dias da semana no calendário mensal. */

@@ -21,6 +21,14 @@ import {
   updateMissionAllocationPeriod
 } from '../lib/efetivo/planning/allocations.js';
 import { autoAllocateMission } from '../lib/efetivo/planning/auto-allocation.js';
+import {
+  createAllocationCycle,
+  createMissionCycle,
+  deleteAllocationCycle,
+  initializeAllocationCycles,
+  updateAllocationCycle,
+  updateMissionCycle
+} from '../lib/efetivo/planning/cycles.js';
 import { getPlanningCalendar } from '../lib/efetivo/planning/calendar.js';
 import {
   createPlanningCollaborator,
@@ -73,6 +81,7 @@ import {
   intervalQuerySchema,
   jobRolePlanningInputSchema,
   missionInputSchema,
+  mobilizationCycleInputSchema,
   missionScheduleStatusSchema,
   missionStageSchema,
   plannedHireInputSchema,
@@ -194,6 +203,23 @@ router.delete('/missions/:missionId', requireEfetivoManager, asyncHandler(async 
   res.status(204).end();
 }));
 
+router.post('/missions/:missionId/cycles', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await createMissionCycle(
+    idSchema.parse(req.params.missionId),
+    mobilizationCycleInputSchema.parse(req.body),
+    context(req)
+  ));
+}));
+
+router.patch('/missions/:missionId/cycles/:cycleId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updateMissionCycle(
+    idSchema.parse(req.params.missionId),
+    idSchema.parse(req.params.cycleId),
+    mobilizationCycleInputSchema.parse(req.body),
+    context(req)
+  ));
+}));
+
 router.get('/missions/:missionId/eligible-collaborators', requireEfetivoViewer, asyncHandler(async (req, res) => {
   const filters = eligibleCollaboratorsQuerySchema.parse(req.query);
   res.json(await listEligibleCollaborators(idSchema.parse(req.params.missionId), filters.jobRoleId, filters));
@@ -210,6 +236,43 @@ router.patch('/missions/:missionId/allocations/:allocationId', requireEfetivoMan
     allocationPeriodInputSchema.parse(req.body),
     context(req)
   ));
+}));
+
+router.post('/missions/:missionId/allocations/:allocationId/cycles', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await createAllocationCycle(
+    idSchema.parse(req.params.missionId),
+    idSchema.parse(req.params.allocationId),
+    mobilizationCycleInputSchema.parse(req.body),
+    context(req)
+  ));
+}));
+
+router.post('/missions/:missionId/allocations/:allocationId/cycles/inherit', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.status(201).json(await initializeAllocationCycles(
+    idSchema.parse(req.params.missionId),
+    idSchema.parse(req.params.allocationId),
+    context(req)
+  ));
+}));
+
+router.patch('/missions/:missionId/allocations/:allocationId/cycles/:cycleId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  res.json(await updateAllocationCycle(
+    idSchema.parse(req.params.missionId),
+    idSchema.parse(req.params.allocationId),
+    idSchema.parse(req.params.cycleId),
+    mobilizationCycleInputSchema.parse(req.body),
+    context(req)
+  ));
+}));
+
+router.delete('/missions/:missionId/allocations/:allocationId/cycles/:cycleId', requireEfetivoManager, asyncHandler(async (req, res) => {
+  await deleteAllocationCycle(
+    idSchema.parse(req.params.missionId),
+    idSchema.parse(req.params.allocationId),
+    idSchema.parse(req.params.cycleId),
+    context(req)
+  );
+  res.status(204).end();
 }));
 
 router.delete('/missions/:missionId/allocations/:allocationId', requireEfetivoManager, asyncHandler(async (req, res) => {

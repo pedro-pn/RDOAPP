@@ -1,5 +1,5 @@
 import { addCalendarDays, inclusiveDayCount, parseDateKey } from './date-only.js';
-import { allocationPeriod } from './allocation-period.js';
+import { allocationPeriods } from './allocation-period.js';
 
 function normalizedRoleName(value) {
   return String(value || '')
@@ -60,7 +60,8 @@ export function buildContinuousStayAlerts({ missions = [], collaborators = [], j
       if (mission.scheduleStatus !== 'CONFIRMED' || mission.deletedAt) return [];
       return (mission.allocations || [])
         .filter(item => item.collaboratorId === collaborator.id && !item.deletedAt)
-        .map(item => ({ ...allocationPeriod(item, mission), missionId: mission.id }));
+        .flatMap(item => allocationPeriods(item, mission)
+          .map(period => ({ ...period, missionId: mission.id })));
     });
     const merged = splitIntervalsByRestDays(mergeContinuousMissionIntervals(intervals), absences.filter(item => item.collaboratorId === collaborator.id));
     const current = merged.find(interval => interval.startDate <= position && interval.endDate >= position)

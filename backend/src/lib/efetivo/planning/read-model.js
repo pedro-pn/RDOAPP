@@ -6,13 +6,18 @@ import { getActiveOfficialPlan, resolvePlanningDatabase } from './plan-context.j
 import { buildVacationAlert } from './vacation-alerts.js';
 import { loadCorporateCalendar } from '../../calendar/corporate-calendar.js';
 import { missionEndsOnOrAfter } from './mission-period.js';
+import { missionCycles } from './allocation-period.js';
 
 const missionReadInclude = {
   project: { select: { id: true, code: true, name: true, clientName: true, location: true, mobilizationDate: true, demobilizationDate: true } },
+  cycles: { orderBy: { mobilizationDate: 'asc' } },
   demands: { include: { jobRole: { select: { id: true, name: true, calendarColor: true } } } },
   allocations: {
     where: { deletedAt: null },
-    include: { collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } } }
+    include: {
+      collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } },
+      cycles: { orderBy: { mobilizationDate: 'asc' } }
+    }
   }
 };
 
@@ -151,8 +156,16 @@ export async function getPlanningOverview(filters, dependencies = {}) {
   })
     .filter(item => !filters.jobRoleId || item.jobRoleId === filters.jobRoleId);
   const statusById = new Map(daily.statuses.map(item => [item.collaborator.id, item]));
-  const upcomingMobilizations = projection.missions.filter(mission => mission.scheduleStatus === 'CONFIRMED'
-    && parseDateKey(mission.mobilizationDate) >= date)
+  const upcomingMobilizations = projection.missions
+    .filter(mission => mission.scheduleStatus === 'CONFIRMED')
+    .flatMap(mission => missionCycles(mission)
+      .filter(cycle => cycle.startDate >= date)
+      .map(cycle => ({
+        ...mission,
+        mobilizationDate: cycle.startDate,
+        returnDate: cycle.isOpen ? null : cycle.endDate,
+        upcomingCycleId: cycle.id
+      })))
     .sort((left, right) => parseDateKey(left.mobilizationDate).localeCompare(parseDateKey(right.mobilizationDate)))
     .slice(0, 8);
   return {

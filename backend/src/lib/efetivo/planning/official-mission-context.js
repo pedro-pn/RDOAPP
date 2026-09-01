@@ -1,5 +1,5 @@
 import { corporateDateKey } from '../../calendar/corporate-calendar.js';
-import { allocationCoversDate } from './allocation-period.js';
+import { allocationCoversDate, missionCoversDate } from './allocation-period.js';
 import { resolvePlanningDatabase } from './plan-context.js';
 import { missionEndsOnOrAfter } from './mission-period.js';
 
@@ -63,11 +63,13 @@ export async function getOfficialMissionContext({ projectId, date }, dependencie
       },
       include: {
         plan: { select: { id: true, revision: true } },
+        cycles: { orderBy: { mobilizationDate: 'asc' } },
         allocations: {
           where: { deletedAt: null },
           include: {
             collaborator: { select: { id: true, name: true } },
-            jobRole: { select: { id: true, name: true, isActive: true } }
+            jobRole: { select: { id: true, name: true, isActive: true } },
+            cycles: { orderBy: { mobilizationDate: 'asc' } }
           }
         },
         demands: { include: { jobRole: { select: { id: true, name: true } } } }
@@ -75,7 +77,9 @@ export async function getOfficialMissionContext({ projectId, date }, dependencie
     }),
     database.workforceCalendarState.findUnique({ where: { id: 'global' } })
   ]);
-  return missionContextDto(mission, calendarState?.revision || 1, date);
+  return mission && missionCoversDate(mission, date)
+    ? missionContextDto(mission, calendarState?.revision || 1, date)
+    : null;
 }
 
 export { missionContextDto };

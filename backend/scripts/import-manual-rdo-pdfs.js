@@ -991,6 +991,7 @@ async function applyReports({ prisma, options, project, user, prepared, reportsD
             originalFileName: report.fileName,
             uploadedAt: now.toISOString(),
             uploadedByUserId: user.id,
+            collaboratorSource: 'POINT_WORKBOOK',
             signedOnUpload: false,
             requiresSignature: false,
             allowsOptionalSignature: true,

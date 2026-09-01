@@ -15,7 +15,12 @@ export async function autoAllocateMission(missionId, context = {}, dependencies 
   return runPlanningTransaction(database, async tx => {
     const mission = await tx.efetivoMissionPlan.findUnique({
       where: { id: missionId },
-      include: { plan: true, demands: { include: { jobRole: true } }, allocations: { where: { deletedAt: null } } }
+      include: {
+        plan: true,
+        cycles: { orderBy: { mobilizationDate: 'asc' } },
+        demands: { include: { jobRole: true } },
+        allocations: { where: { deletedAt: null }, include: { cycles: { orderBy: { mobilizationDate: 'asc' } } } }
+      }
     });
     if (!mission || mission.deletedAt) throw notFound('Missão operacional não encontrada.');
     const plan = await requireEditablePlan(tx, mission.planId, { actorUserId: context.actorUserId });

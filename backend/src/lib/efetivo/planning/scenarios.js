@@ -2,7 +2,7 @@ import { recordEfetivoAudit } from './audit.js';
 import { collaboratorIsEmployedForPeriod } from './conflicts.js';
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor, conflictError, notFound } from './errors.js';
-import { allocationPeriod, maximumConcurrentAllocationCount } from './allocation-period.js';
+import { allocationPeriods, maximumConcurrentAllocationCount } from './allocation-period.js';
 import { normalizeMissionDemands, validateMissionChronology } from './mission-planning.js';
 import { getActiveOfficialPlan, lockOfficialPlanningState, lockPlan, resolvePlanningDatabase, runPlanningTransaction } from './plan-context.js';
 import { getPlanningOverview } from './read-model.js';
@@ -18,7 +18,11 @@ async function clonePlanGraph(tx, sourcePlanId, planData) {
     include: {
       missions: {
         where: { deletedAt: null },
-        include: { demands: true, allocations: { where: { deletedAt: null } } }
+        include: {
+          cycles: true,
+          demands: true,
+          allocations: { where: { deletedAt: null }, include: { cycles: true } }
+        }
       },
       plannedHires: true
     }
@@ -44,6 +48,13 @@ async function clonePlanGraph(tx, sourcePlanId, planData) {
         kanbanOrder: mission.kanbanOrder,
         createdByUserId: planData.createdByUserId || mission.createdByUserId,
         updatedByUserId: planData.createdByUserId || mission.updatedByUserId,
+        cycles: {
+          create: (mission.cycles || []).map(item => ({
+            mobilizationDate: item.mobilizationDate,
+            demobilizationDate: item.demobilizationDate,
+            createdByUserId: planData.createdByUserId || item.createdByUserId
+          }))
+        },
         demands: { create: mission.demands.map(item => ({ jobRoleId: item.jobRoleId, requiredCount: item.requiredCount })) },
         allocations: {
           create: mission.allocations.map(item => ({
@@ -54,7 +65,14 @@ async function clonePlanGraph(tx, sourcePlanId, planData) {
             demobilizationDate: item.demobilizationDate,
             allowMissionOverlap: item.allowMissionOverlap,
             source: 'SCENARIO_COPY',
-            createdByUserId: planData.createdByUserId || item.createdByUserId
+            createdByUserId: planData.createdByUserId || item.createdByUserId,
+            cycles: {
+              create: (item.cycles || []).map(cycle => ({
+                mobilizationDate: cycle.mobilizationDate,
+                demobilizationDate: cycle.demobilizationDate,
+                createdByUserId: planData.createdByUserId || cycle.createdByUserId
+              }))
+            }
           }))
         }
       }
@@ -171,7 +189,14 @@ export function plannedHireCapacityOn(plannedHires = [], date) {
 async function validateScenarioGraph(tx, scenario) {
   const missions = await tx.efetivoMissionPlan.findMany({
     where: { planId: scenario.id, deletedAt: null },
-    include: { demands: true, allocations: { where: { deletedAt: null }, include: { collaborator: true } } }
+    include: {
+      cycles: true,
+      demands: true,
+      allocations: {
+        where: { deletedAt: null },
+        include: { collaborator: true, cycles: true }
+      }
+    }
   });
   const absences = await tx.collaboratorAbsence.findMany({ where: { deletedAt: null } });
   const byCollaborator = new Map();
@@ -182,24 +207,25 @@ async function validateScenarioGraph(tx, scenario) {
     if (mission.scheduleStatus !== 'CONFIRMED') continue;
     const periodsByRole = new Map();
     for (const allocation of mission.allocations) {
-      const period = allocationPeriod(allocation, mission);
-      const rolePeriods = periodsByRole.get(allocation.jobRoleId) || [];
-      rolePeriods.push(period);
-      periodsByRole.set(allocation.jobRoleId, rolePeriods);
-      if (!collaboratorIsEmployedForPeriod(allocation.collaborator, period) || (allocation.collaborator.jobRoleId && allocation.collaborator.jobRoleId !== allocation.jobRoleId)) {
-        conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: period.startDate, endDate: period.endDate, sourceType: 'EMPLOYMENT', sourceId: mission.id, entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${mission.id}`, code: 'INVALID_COLLABORATOR' }));
-      }
-      for (const absence of absences.filter(item => item.collaboratorId === allocation.collaboratorId)) {
-        if (periodsOverlap(period, absence)) conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: parseDateKey(absence.startDate), endDate: parseDateKey(absence.endDate), sourceType: 'ABSENCE', sourceId: absence.id, entityPath: `/efetivo?section=colaboradores&colaborador=${allocation.collaboratorId}&ausencia=${absence.id}`, code: 'ABSENCE_OVERLAP' }));
-      }
-      const intervals = byCollaborator.get(allocation.collaboratorId) || [];
-      for (const other of intervals) {
-        if (periodsOverlap(period, other.period) && !allocation.allowMissionOverlap && !other.allowMissionOverlap) {
-          conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: parseDateKey(other.period.startDate), endDate: parseDateKey(other.period.endDate), sourceType: 'MISSION', sourceId: other.missionId, entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${other.missionId}`, code: 'MISSION_OVERLAP' }));
+      for (const period of allocationPeriods(allocation, mission)) {
+        const rolePeriods = periodsByRole.get(allocation.jobRoleId) || [];
+        rolePeriods.push(period);
+        periodsByRole.set(allocation.jobRoleId, rolePeriods);
+        if (!collaboratorIsEmployedForPeriod(allocation.collaborator, period) || (allocation.collaborator.jobRoleId && allocation.collaborator.jobRoleId !== allocation.jobRoleId)) {
+          conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: period.startDate, endDate: period.endDate, sourceType: 'EMPLOYMENT', sourceId: mission.id, entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${mission.id}`, code: 'INVALID_COLLABORATOR' }));
         }
+        for (const absence of absences.filter(item => item.collaboratorId === allocation.collaboratorId)) {
+          if (periodsOverlap(period, absence)) conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: parseDateKey(absence.startDate), endDate: parseDateKey(absence.endDate), sourceType: 'ABSENCE', sourceId: absence.id, entityPath: `/efetivo?section=colaboradores&colaborador=${allocation.collaboratorId}&ausencia=${absence.id}`, code: 'ABSENCE_OVERLAP' }));
+        }
+        const intervals = byCollaborator.get(allocation.collaboratorId) || [];
+        for (const other of intervals) {
+          if (periodsOverlap(period, other.period) && !allocation.allowMissionOverlap && !other.allowMissionOverlap) {
+            conflicts.push(conflictDescriptor({ collaborator: allocation.collaborator, startDate: parseDateKey(other.period.startDate), endDate: parseDateKey(other.period.endDate), sourceType: 'MISSION', sourceId: other.missionId, entityPath: `/efetivo?section=simulacoes&cenario=${scenario.id}&missao=${other.missionId}`, code: 'MISSION_OVERLAP' }));
+          }
+        }
+        intervals.push({ missionId: mission.id, period, allowMissionOverlap: allocation.allowMissionOverlap });
+        byCollaborator.set(allocation.collaboratorId, intervals);
       }
-      intervals.push({ missionId: mission.id, period, allowMissionOverlap: allocation.allowMissionOverlap });
-      byCollaborator.set(allocation.collaboratorId, intervals);
     }
     for (const [jobRoleId, periods] of periodsByRole) {
       const demand = mission.demands.find(item => item.jobRoleId === jobRoleId)?.requiredCount || 0;

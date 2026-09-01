@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   allocationCoversDate,
   allocationPeriod,
+  allocationPeriods,
   allocationPeriodWithinMission,
   maximumConcurrentAllocationCount
 } from '../src/lib/efetivo/planning/allocation-period.js';
@@ -32,6 +33,33 @@ test('mobilização e desmobilização individuais limitam os dias da alocação
   assert.equal(allocationCoversDate(allocation, mission, '2026-09-05'), true);
   assert.equal(allocationCoversDate(allocation, mission, '2026-09-20'), true);
   assert.equal(allocationCoversDate(allocation, mission, '2026-09-21'), false);
+});
+
+test('ciclos repetidos preservam a pausa e o colaborador herda os ciclos do projeto', () => {
+  const missionWithPause = {
+    ...mission,
+    cycles: [
+      { id: 'mc1', mobilizationDate: '2026-09-01', demobilizationDate: '2026-09-10' },
+      { id: 'mc2', mobilizationDate: '2026-09-20', demobilizationDate: '2026-09-30' }
+    ]
+  };
+  assert.deepEqual(allocationPeriods({}, missionWithPause).map(({ startDate, endDate }) => ({ startDate, endDate })), [
+    { startDate: '2026-09-01', endDate: '2026-09-10' },
+    { startDate: '2026-09-20', endDate: '2026-09-30' }
+  ]);
+  assert.equal(allocationCoversDate({}, missionWithPause, '2026-09-15'), false);
+  assert.equal(allocationCoversDate({}, missionWithPause, '2026-09-20'), true);
+});
+
+test('ciclos individuais substituem a herança geral sem preencher as pausas', () => {
+  const allocation = {
+    cycles: [
+      { id: 'ac1', mobilizationDate: '2026-09-03', demobilizationDate: '2026-09-07' },
+      { id: 'ac2', mobilizationDate: '2026-09-22', demobilizationDate: null }
+    ]
+  };
+  assert.equal(allocationCoversDate(allocation, mission, '2026-09-08'), false);
+  assert.equal(allocationCoversDate(allocation, mission, '2026-09-29'), true);
 });
 
 test('período individual precisa ficar dentro das datas da missão', () => {

@@ -10,7 +10,7 @@ import {
 } from './conflicts.js';
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor, conflictError, notFound, planningError } from './errors.js';
-import { allocationPeriod } from './allocation-period.js';
+import { allocationPeriods } from './allocation-period.js';
 import { bumpPlanRevision, requireEditablePlan, resolvePlanningDatabase, runPlanningTransaction } from './plan-context.js';
 
 function utcDate(value) {
@@ -35,13 +35,14 @@ function collaboratorData(payload, role) {
 }
 
 export function collectCollaboratorUpdateConflicts(collaborator, allocations = []) {
-  return allocations.flatMap(allocation => collectAllocationConflicts({
-    collaborator,
-    jobRoleId: allocation.jobRoleId,
-    period: allocationPeriod(allocation, allocation.mission),
-    ignoredMissionId: allocation.mission.id,
-    allowMissionOverlap: allocation.allowMissionOverlap
-  }));
+  return allocations.flatMap(allocation => allocationPeriods(allocation, allocation.mission)
+    .flatMap(period => collectAllocationConflicts({
+      collaborator,
+      jobRoleId: allocation.jobRoleId,
+      period,
+      ignoredMissionId: allocation.mission.id,
+      allowMissionOverlap: allocation.allowMissionOverlap
+    })));
 }
 
 export async function createPlanningCollaborator(payload, context = {}, dependencies = {}) {

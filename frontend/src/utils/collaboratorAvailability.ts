@@ -1,5 +1,5 @@
 import type { PlanningAbsence, PlanningCollaborator, PlanningMission } from '../api/efetivoPlanning';
-import { allocationIncludesDate, allocationOverlapsPeriod, missionAllocationPeriod } from './missionAllocationPeriod';
+import { allocationIncludesDate, allocationOverlapsPeriod, missionAllocationPeriods } from './missionAllocationPeriod';
 
 export const AVAILABILITY_STATUSES = ['AVAILABLE', 'AWAITING_MOBILIZATION', 'MOBILIZED', 'ON_VACATION'] as const;
 export type AvailabilityStatus = typeof AVAILABILITY_STATUSES[number];
@@ -55,13 +55,14 @@ export function buildAvailabilityColumns(
       .flatMap(mission => {
         if (mission.scheduleStatus !== 'CONFIRMED' || mission.stage === 'FINISHED') return [];
         const allocation = mission.allocations.find(item => item.collaboratorId === collaborator.id
-          && missionAllocationPeriod(item, mission).endDate >= date);
+          && missionAllocationPeriods(item, mission).some(period => period.endDate >= date));
         return allocation ? [{ mission, allocation }] : [];
       })
-      .sort((left, right) => missionAllocationPeriod(left.allocation, left.mission).startDate
-        .localeCompare(missionAllocationPeriod(right.allocation, right.mission).startDate));
+      .sort((left, right) => missionAllocationPeriods(left.allocation, left.mission)[0].startDate
+        .localeCompare(missionAllocationPeriods(right.allocation, right.mission)[0].startDate));
     const currentMission = allocatedMissions.find(item => allocationIncludesDate(item.allocation, item.mission, date))?.mission || null;
-    const nextMission = allocatedMissions.find(item => missionAllocationPeriod(item.allocation, item.mission).startDate > date)?.mission || null;
+    const nextMission = allocatedMissions.find(item => missionAllocationPeriods(item.allocation, item.mission)
+      .some(period => period.startDate > date))?.mission || null;
 
     if (currentMission) {
       const status: AvailabilityStatus = currentMission.stage === 'STANDBY' ? 'AWAITING_MOBILIZATION' : 'MOBILIZED';

@@ -1,7 +1,7 @@
 import { parseDateKey, periodsOverlap } from './date-only.js';
 import { conflictDescriptor } from './errors.js';
-import { allocationPeriod } from './allocation-period.js';
-import { missionEndDate, missionEndsOnOrAfter } from './mission-period.js';
+import { allocationPeriods, missionCycles } from './allocation-period.js';
+import { missionEndsOnOrAfter } from './mission-period.js';
 import { resolvePlanningDatabase, getActiveOfficialPlan } from './plan-context.js';
 
 function utcDate(value) {
@@ -25,8 +25,15 @@ export async function getPlanningCalendar(filters, dependencies = {}) {
       },
       include: {
         project: { select: { id: true, code: true, name: true, clientName: true, location: true } },
+        cycles: { orderBy: { mobilizationDate: 'asc' } },
         demands: true,
-        allocations: { where: { deletedAt: null }, include: { collaborator: { select: { id: true, name: true } } } }
+        allocations: {
+          where: { deletedAt: null },
+          include: {
+            collaborator: { select: { id: true, name: true } },
+            cycles: { orderBy: { mobilizationDate: 'asc' } }
+          }
+        }
       }
     }),
     database.collaboratorAbsence.findMany({
@@ -40,19 +47,22 @@ export async function getPlanningCalendar(filters, dependencies = {}) {
       include: { collaborator: { select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } } } } }
     })
   ]);
-  const missionEvents = missions.map(mission => ({
-    id: mission.id,
+  const missionEvents = missions.flatMap(mission => missionCycles(mission).map((cycle, index) => ({
+    id: cycle.id || `${mission.id}-cycle-${index}`,
+    missionId: mission.id,
     type: 'MISSION',
     title: `${mission.project.code} · ${mission.project.name}`,
-    startDate: parseDateKey(mission.mobilizationDate),
-    endDate: missionEndDate(mission),
+    startDate: cycle.startDate,
+    endDate: cycle.endDate,
     jobRoleIds: mission.demands.map(item => item.jobRoleId),
     entityPath: `/efetivo?section=missoes&missao=${mission.id}`,
     project: mission.project,
     demand: mission.demands.reduce((sum, item) => sum + item.requiredCount, 0),
-    allocated: mission.allocations.length,
-    people: mission.allocations.map(item => item.collaborator)
-  }));
+    allocated: mission.allocations.filter(item => allocationPeriods(item, mission)
+      .some(period => periodsOverlap(period, cycle))).length,
+    people: mission.allocations.filter(item => allocationPeriods(item, mission)
+      .some(period => periodsOverlap(period, cycle))).map(item => item.collaborator)
+  })));
   const absenceEvents = absences.map(absence => ({
     id: absence.id,
     type: absence.type,
@@ -83,13 +93,12 @@ export function collectCalendarConflicts(missions = [], absences = []) {
   for (const mission of missions) {
     for (const allocation of mission.allocations || []) {
       if (allocation.deletedAt || !allocation.collaborator) continue;
-      const period = allocationPeriod(allocation, mission);
-      assignments.push({
+      assignments.push(...allocationPeriods(allocation, mission).map(period => ({
         mission,
         period,
         collaborator: allocation.collaborator,
         allowMissionOverlap: allocation.allowMissionOverlap
-      });
+      })));
     }
   }
   const conflicts = [];

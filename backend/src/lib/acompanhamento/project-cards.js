@@ -9,7 +9,7 @@
 
 import { listCommercialDashboard } from './access-import.js';
 import { computeAlerts } from './alerts.js';
-import { selectRealizedSourceReportData } from './avanco.js';
+import { isConfirmedReportParticipant, selectRealizedSourceReportData } from './avanco.js';
 import { laborCostByProject } from './labor-cost.js';
 import { getEquipmentUsageByProject } from './equipment-usage.js';
 import { reportAllCollaboratorIds, reportPersonTimeMetrics } from './report-time.js';
@@ -173,6 +173,11 @@ export async function listProjectCards({ includeAdminOnlyCategories = true } = {
   ]);
   const { reports, collaborators } = selectRealizedSourceReportData(queriedReports, queriedCollaborators);
   const laborByProject = labor.byProjectId;
+  const hasAllocatedHours = (collaboratorId, projectId) => {
+    const rate = labor.byCollaboratorId?.get(collaboratorId) || null;
+    const allocation = rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId] || null;
+    return Math.max(0, toNum(allocation?.hours) ?? 0) > 0;
+  };
   const equipmentByProject = await getEquipmentUsageByProject(projectIds);
   const now = new Date();
 
@@ -206,7 +211,9 @@ export async function listProjectCards({ includeAdminOnlyCategories = true } = {
     a.overtimeWorkedMinutes += metrics.overtimeWorkedMinutes;
     a.normalWorkedMinutes += metrics.normalWorkedMinutes;
     for (const collaboratorId of reportAllCollaboratorIds(r, dayCollaboratorIds)) {
-      a.collabs.add(collaboratorId);
+      if (isConfirmedReportParticipant(r, hasAllocatedHours(collaboratorId, r.projectId))) {
+        a.collabs.add(collaboratorId);
+      }
     }
   }
 

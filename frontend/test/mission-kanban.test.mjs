@@ -89,3 +89,12 @@ test('canceladas ficam em coluna própria oculta por toggle', async () => {
   assert.match(source, /showCancelled \? <div className="efetivo-kanban-column efetivo-cancelled-column/);
   assert.match(source, /data-kanban-status="CANCELLED"/);
 });
+
+test('cards do kanban abrem a gestão da equipe e dos ciclos', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../src/pages/efetivo/components/MissionKanban.tsx', import.meta.url), 'utf8');
+  assert.match(source, /import \{ MissionAllocationModal \}/);
+  assert.match(source, /const \[allocating, setAllocating\] = useState<PlanningMission \| null>\(null\)/);
+  assert.match(source, /setAllocating\(mission\); \}\}>Equipe e ciclos<\/button>/);
+  assert.match(source, /<MissionAllocationModal mission=\{allocating\}/);
+});
