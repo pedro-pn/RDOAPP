@@ -11,6 +11,7 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import env from '../config/env.js';
 import { formatCnpj } from './cnpj.js';
 import { addPdfAnnotationsToHyperlinkText } from './pdf-link-annotations.js';
+import { buildReportCollaboratorRows } from './report-collaborators.js';
 import { convertDocxToPdf } from './report-pdf-from-docx.js';
 import { buildReportFileName } from './report-filename.js';
 import { readStoredImageAsset } from './stored-image.js';
@@ -482,11 +483,7 @@ function expandRtpCollaborators(doc, collaborators) {
   }
   const clones = collaborators.map(c => {
     const clone = templateRow.cloneNode(true);
-    replacePlaceholders(clone, {
-      collaboratorname: c.name || '',
-      collaboratorposition: c.role || '',
-      collaboratorshift: c.shift || 'Diurno'
-    });
+    replacePlaceholders(clone, c);
     return clone;
   });
   cloneBefore(templateRow, clones);
@@ -554,7 +551,7 @@ try {
 export async function buildRtpDocx(report) {
   const sc = report.specialConditions || {};
   const sd = sc.serviceData || {};
-  const collabs = sc.resolvedCollaborators || [];
+  const collabs = buildReportCollaboratorRows(report);
   const manos = sc.resolvedManometers || [];
 
   const baseData = buildRtpBaseDataResolved(report);
