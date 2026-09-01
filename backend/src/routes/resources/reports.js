@@ -59,7 +59,7 @@ import {
 } from '../../lib/internal-report-signatures.js';
 import { calculateReportOvertime } from '../../lib/overtime.js';
 import { loadCorporateCalendar } from '../../lib/calendar/corporate-calendar.js';
-import { reportCollaboratorCreateManyData } from '../../lib/report-collaborators.js';
+import { reportCollaboratorCreateManyData, resolveCollaboratorsByShift } from '../../lib/report-collaborators.js';
 import { buildReportSnapshot, stripAuthoritativeExecutionContext, stripInternalEditState } from '../../lib/reports/edit-snapshot.js';
 import {
   reportCollaboratorPrefillHandler,
@@ -3820,22 +3820,6 @@ export async function restoreReportFromSnapshot(tx, reportId, originalSnapshot) 
   return restored;
 }
 
-function resolveCollaboratorsByShift(report, collaborators) {
-  const daytimeIds = new Set((report.collaborators || []).map(link => link.collaboratorId).filter(Boolean));
-  const nighttimeIds = new Set(
-    (((report.specialConditions || {}).noturnoDetails || {}).collaboratorIds || []).filter(Boolean)
-  );
-
-  return collaborators.flatMap(c => {
-    const inDay = daytimeIds.has(c.id);
-    const inNight = nighttimeIds.has(c.id);
-    const role = c.jobRole?.name || '';
-    if (!inDay && !inNight) return [{ id: c.id, name: c.name, role, shift: 'Diurno' }];
-    const shift = inDay && inNight ? 'Diurno e Noturno' : (inNight ? 'Noturno' : 'Diurno');
-    return [{ id: c.id, name: c.name, role, shift }];
-  });
-}
-
 function safePathLocal(value) {
   return String(value ?? '').replace(/[<>:"/\\|?*\n\r]/g, '_').trim();
 }
@@ -4259,7 +4243,7 @@ async function syncApprovedRtpReports(tx, report) {
       : (uthField && typeof uthField === 'string' ? [uthField] : []);
 
     const [collaborators, manometers, uthUnits] = await Promise.all([
-      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } } }) : Promise.resolve([]),
+      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } }) : Promise.resolve([]),
       resolveReportManometers(tx, manoIds),
       resolveReportUnits(tx, uthIds)
     ]);
@@ -4445,7 +4429,7 @@ async function syncApprovedRlqReports(tx, report) {
       : (ulqField && typeof ulqField === 'string' ? [ulqField] : []);
 
     const [collaborators, ulqUnits] = await Promise.all([
-      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } } }) : Promise.resolve([]),
+      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } }) : Promise.resolve([]),
       resolveReportUnits(tx, ulqIds)
     ]);
 
@@ -5055,7 +5039,7 @@ async function syncApprovedRcpReports(tx, report) {
       : (counterRaw?.id || null);
 
     const [collaborators, units, thermoUnits, counter] = await Promise.all([
-      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } } }) : Promise.resolve([]),
+      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } }) : Promise.resolve([]),
       resolveReportUnits(tx, unitIds),
       resolveReportUnits(tx, thermoIds),
       resolveReportCounter(tx, counterId)
@@ -5235,7 +5219,7 @@ async function syncApprovedRlmReports(tx, report) {
     const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, collabIds);
 
     const collaborators = collabIds.length
-      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } } })
+      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } })
       : [];
 
     const resolvedCollaborators = resolveCollaboratorsByShift(report, collaborators);
@@ -5389,7 +5373,7 @@ async function syncApprovedInhibitionReports(tx, report, targetReportType) {
     const collabIds = uniqueIds((report.collaborators || []).map(link => link.collaboratorId).filter(Boolean));
     const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, collabIds);
     const collaborators = collabIds.length
-      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } } })
+      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } })
       : [];
     const resolvedCollaborators = resolveCollaboratorsByShift(report, collaborators);
 
@@ -5561,7 +5545,7 @@ async function buildIndependentSpecialConditions(tx, reportType, sourceReport, s
   const fields = expandUploadGroupsInServiceData(service.extraData || {}, service.extraData || {});
   const collabIds = serviceCollaboratorIds(service, (sourceReport.collaborators || []).map(link => link.collaboratorId));
   const collaborators = collabIds.length
-    ? await tx.collaborator.findMany({ where: { id: { in: collabIds } } })
+    ? await tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } })
     : [];
   const resolvedCollaborators = resolveCollaboratorsByShift(sourceReport, collaborators);
   const serviceLinkKey = serviceHistoryKey(service) || String(service.id || '').trim();

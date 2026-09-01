@@ -69,6 +69,36 @@ test('service report docx builders preserve observation line breaks', async () =
   }
 });
 
+test('service report templates with a collaborator table render the saved role', async () => {
+  const buildersWithCollaboratorTable = builders.filter(([type]) => (
+    ['RTP', 'RLQ', 'RCPU', 'RLM'].includes(type)
+  ));
+
+  for (const [type, buildDocx] of buildersWithCollaboratorTable) {
+    const report = reportFor(type);
+    report.collaborators = [{
+      collaboratorId: 'collaborator-1',
+      roleNameSnapshot: 'Inspetor N2',
+      collaborator: {
+        name: 'Ana da Silva',
+        jobRole: { name: 'Supervisor atual' }
+      }
+    }];
+    report.specialConditions.resolvedCollaborators = [{
+      id: 'collaborator-1',
+      name: 'Ana da Silva',
+      role: '',
+      shift: 'Noturno'
+    }];
+
+    const zip = new AdmZip(await buildDocx(report));
+    const xml = zip.readAsText('word/document.xml');
+
+    assert.match(xml, /Ana da Silva/, `${type} should render the collaborator name`);
+    assert.match(xml, /Inspetor N2/, `${type} should render the saved collaborator role`);
+  }
+});
+
 test('RLQ uses sodium carbonate in neutralizing and sequestering phases', async () => {
   const base = reportFor('RLQ');
   const zip = new AdmZip(await buildRlqDocx({

@@ -44,6 +44,33 @@ export async function reportCollaboratorCreateManyData(database, collaboratorIds
   return uniqueIds.map(id => reportCollaboratorCreateData(byId.get(id)));
 }
 
+export function resolveCollaboratorsByShift(report, collaborators = []) {
+  const collaboratorLinks = Array.isArray(report?.collaborators) ? report.collaborators : [];
+  const linkByCollaboratorId = new Map(
+    collaboratorLinks
+      .filter(link => link?.collaboratorId)
+      .map(link => [link.collaboratorId, link])
+  );
+  const daytimeIds = new Set(collaboratorLinks.map(link => link?.collaboratorId).filter(Boolean));
+  const nighttimeIds = new Set(
+    (asRecord(asRecord(report?.specialConditions).noturnoDetails).collaboratorIds || []).filter(Boolean)
+  );
+
+  return collaborators.flatMap(collaborator => {
+    const link = linkByCollaboratorId.get(collaborator?.id);
+    const inDay = daytimeIds.has(collaborator?.id);
+    const inNight = nighttimeIds.has(collaborator?.id);
+    const role = stringValue(link?.roleNameSnapshot)
+      || stringValue(link?.collaborator?.jobRole?.name)
+      || stringValue(collaborator?.jobRole?.name);
+    if (!inDay && !inNight) {
+      return [{ id: collaborator.id, name: collaborator.name, role, shift: 'Diurno' }];
+    }
+    const shift = inDay && inNight ? 'Diurno e Noturno' : (inNight ? 'Noturno' : 'Diurno');
+    return [{ id: collaborator.id, name: collaborator.name, role, shift }];
+  });
+}
+
 export function buildReportCollaboratorRows(report) {
   const rows = new Map();
   const keyByName = new Map();
@@ -80,17 +107,43 @@ export function buildReportCollaboratorRows(report) {
   }
 
   const collaboratorById = new Map();
-  (report.collaborators || []).forEach(link => {
+  const collaboratorLinks = (report.collaborators || []).map(link => {
     const entry = {
       id: link.collaboratorId,
       name: link.collaborator?.name,
       role: link.roleNameSnapshot || link.collaborator?.jobRole?.name
     };
     if (entry.id) collaboratorById.set(entry.id, entry);
+    return entry;
+  });
+
+  const resolvedCollaborators = Array.isArray(asRecord(report.specialConditions).resolvedCollaborators)
+    ? report.specialConditions.resolvedCollaborators
+    : [];
+  const resolvedIds = new Set();
+  const resolvedNames = new Set();
+
+  resolvedCollaborators.forEach(value => {
+    const resolved = asRecord(value);
+    const linked = collaboratorById.get(stringValue(resolved.id)) || {};
+    const entry = {
+      id: stringValue(resolved.id) || linked.id,
+      name: stringValue(resolved.name) || linked.name,
+      role: linked.role || stringValue(resolved.role)
+    };
+    if (entry.id) resolvedIds.add(entry.id);
+    if (entry.name) resolvedNames.add(entry.name);
+    upsert(entry, stringValue(resolved.shift) || 'Diurno');
+  });
+
+  collaboratorLinks.forEach(entry => {
+    if (resolvedIds.has(entry.id) || resolvedNames.has(entry.name)) return;
     upsert(entry, 'Diurno');
   });
 
-  const nightDetails = asRecord(asRecord(report.specialConditions).noturnoDetails);
+  const nightDetails = resolvedCollaborators.length
+    ? {}
+    : asRecord(asRecord(report.specialConditions).noturnoDetails);
   const nightIds = Array.isArray(nightDetails.collaboratorIds)
     ? nightDetails.collaboratorIds.filter(id => typeof id === 'string' && id.trim())
     : [];
