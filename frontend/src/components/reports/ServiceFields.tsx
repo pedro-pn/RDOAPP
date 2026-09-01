@@ -1319,6 +1319,7 @@ export function ServiceFields({
             <input
               id={fieldId(groupKey, 'startTime')}
               type="time"
+              required
               value={getString(data.startTime)}
               disabled={disabled}
               onChange={event => onChange({ startTime: event.target.value })}
@@ -1329,6 +1330,7 @@ export function ServiceFields({
             <input
               id={fieldId(groupKey, 'endTime')}
               type="time"
+              required
               value={getString(data.endTime)}
               disabled={disabled}
               onChange={event => onChange({ endTime: event.target.value })}

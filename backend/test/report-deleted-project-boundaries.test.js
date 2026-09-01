@@ -167,6 +167,8 @@ function reportPayload(overrides = {}) {
     collaboratorIds: [],
     services: [{
       serviceType: 'mecanica',
+      startTime: '08:00',
+      endTime: '12:00',
       finalized: false,
       extraData: {}
     }],
@@ -182,6 +184,8 @@ function serviceOnlyPayload(overrides = {}) {
     collaboratorIds: [],
     services: [{
       serviceType: 'mecanica',
+      startTime: '08:00',
+      endTime: '12:00',
       extraData: {}
     }],
     ...overrides
