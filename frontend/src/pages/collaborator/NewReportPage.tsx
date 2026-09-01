@@ -1515,6 +1515,7 @@ export function NewReportPage() {
                         <label>Hora de início <span style={{ color: 'var(--rd)' }}>*</span></label>
                         <input
                           type="time"
+                          required
                           value={typeof service.data.startTime === 'string' ? service.data.startTime : ''}
                           onChange={event => updateService(service.id, { startTime: event.target.value })}
                         />
@@ -1523,6 +1524,7 @@ export function NewReportPage() {
                         <label>Hora de término/pausa <span style={{ color: 'var(--rd)' }}>*</span></label>
                         <input
                           type="time"
+                          required
                           value={typeof service.data.endTime === 'string' ? service.data.endTime : ''}
                           onChange={event => updateService(service.id, { endTime: event.target.value })}
                         />

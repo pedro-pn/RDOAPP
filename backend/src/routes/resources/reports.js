@@ -3508,13 +3508,13 @@ function assertProjectAllowsInhibition(project, services) {
   throw error;
 }
 
-const serviceSchema = z.object({
+export const serviceSchema = z.object({
   serviceType: z.string().min(1),
   equipmentId: z.string().nullable().optional(),
   system: z.string().nullable().optional(),
   material: z.string().nullable().optional(),
-  startTime: z.string().nullable().optional(),
-  endTime: z.string().nullable().optional(),
+  startTime: z.string().trim().min(1, 'Informe a hora de início.'),
+  endTime: z.string().trim().min(1, 'Informe a hora de término/pausa.'),
   finalized: z.boolean(),
   extraData: z.any().optional()
 });

@@ -38,6 +38,7 @@ import { downloadBlob } from '../utils/download';
 import { sortProjects } from '../utils/projectSort';
 import { reportDownloadFileName } from '../utils/reportFileName';
 import { buildReportServicePayload, normalizeServiceType } from '../utils/reportServicePayload';
+import { firstMissingRequiredServiceTime } from '../utils/reportServiceTimes';
 import { loadUploadAssetUrl, normalizeLocalUploadUrl } from '../utils/uploadAssetUrl';
 import { reportEditorOperationalMode } from './reportEditorOperationalMode';
 import { REPORT_DETAIL_TEXT as TEXT } from './reportDetailText';
@@ -874,6 +875,12 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
   async function handleSave(options: { navigateAfter?: boolean; showSuccess?: boolean } = {}) {
     if (readOnly) return false;
     if (manualReport) return handleManualInlineSave(options);
+    const missingServiceTime = firstMissingRequiredServiceTime(form.services);
+    if (missingServiceTime) {
+      const label = missingServiceTime.field === 'startTime' ? 'hora de início' : 'hora de término/pausa';
+      showToast(`Informe a ${label} do serviço ${missingServiceTime.serviceIndex + 1}.`, 'error');
+      return false;
+    }
     if (!validateSequence()) return false;
     if (showDdsFields) {
       if (form.ddsDay && (!form.ddsDayStart.trim() || !form.ddsDayEnd.trim())) {
@@ -1137,18 +1144,20 @@ function ManagerRdoEditor({ report }: { report: ReportSummary }) {
                   {normalizeServiceType(service.type) !== 'inibicao' ? (
                   <div className="fg-r2 service-time-grid">
                     <div className="field-group">
-                      <label>Hora de início</label>
+                      <label>Hora de início <span style={{ color: 'var(--rd)' }}>*</span></label>
                       <input
                         type="time"
+                        required
                         value={getString(service.data.startTime)}
                         disabled={readOnly || manualReport}
                         onChange={event => updateService(service.id, { data: { startTime: event.target.value } })}
                       />
                     </div>
                     <div className="field-group">
-                      <label>Hora de término/pausa</label>
+                      <label>Hora de término/pausa <span style={{ color: 'var(--rd)' }}>*</span></label>
                       <input
                         type="time"
+                        required
                         value={getString(service.data.endTime)}
                         disabled={readOnly || manualReport}
                         onChange={event => updateService(service.id, { data: { endTime: event.target.value } })}
