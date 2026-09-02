@@ -1050,6 +1050,88 @@
   outline-offset: var(--focus-ring-offset);
 }
 
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]).rdo-manager-project-team-dialog-backdrop {
+    align-items: center;
+    padding: var(--space-4);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-team-dialog {
+    width: min(100%, var(--fv-modal-width));
+    height: auto;
+    max-height: calc(100dvh - var(--space-16));
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog
+    :where(.fv-modal__header, .fv-modal__body, .fv-modal__footer) {
+    padding: var(--space-3);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog
+    .fv-modal__title {
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog
+    #project-team-dialog-description,
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog__form
+    :where(label, .cc-email, .form-hint) {
+    font-size: var(--text-xs);
+    line-height: var(--leading-xs);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog__form
+    .fv-select-shell {
+    height: calc(var(--space-8) + var(--space-1));
+    --fv-control-height: calc(var(--space-8) + var(--space-1));
+    --fv-control-padding: var(--space-2);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog__form
+    .fv-select {
+    font-size: var(--text-sm);
+    line-height: var(--leading-sm);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-project-team-dialog__form {
+    gap: var(--space-3);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog
+    .fv-modal__footer {
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog
+    .fv-modal__footer
+    .fv-button {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-project-team-dialog
+    :where(.fv-modal__body, .fv-modal__footer)
+    .fv-button {
+    min-height: calc(var(--space-8) + var(--space-1));
+    --fv-button-height: calc(var(--space-8) + var(--space-1));
+    --fv-button-padding: var(--space-2);
+  }
+}
+
 /* ── Projetos arquivados ────────────────────────────────────────────────────
    A aba usa os mesmos primitives e a mesma densidade das listagens do Gestor,
    preservando paginação, agrupamento, downloads e mutations existentes. */
@@ -3426,6 +3508,47 @@
     .rdo-manager-metrics
     .fv-metric-card__description {
     display: none;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-metrics.rdo-manager-metrics--approved {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-1);
+    overflow-x: visible;
+    scroll-padding-inline: 0;
+    scroll-snap-type: none;
+    scrollbar-width: auto;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-metrics.rdo-manager-metrics--approved
+    .fv-metric-card {
+    display: grid;
+    min-width: 0;
+    min-height: calc(var(--space-16) + var(--space-2));
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    justify-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-1);
+    text-align: center;
+    scroll-snap-align: none;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-metrics.rdo-manager-metrics--approved
+    .fv-metric-card__icon {
+    width: var(--space-6);
+    height: var(--space-6);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-metrics.rdo-manager-metrics--approved
+    .fv-metric-card__copy {
+    width: 100%;
+    justify-items: center;
   }
 
   :where(.fv-ds, [data-fv-ds])

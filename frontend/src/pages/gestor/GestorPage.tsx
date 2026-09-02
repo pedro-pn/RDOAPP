@@ -6264,7 +6264,7 @@ export function GestorPage() {
 
     return (
       <section
-        className="rdo-manager-metrics"
+        className={`rdo-manager-metrics${tab === 'aprovados' ? ' rdo-manager-metrics--approved' : ''}`}
         aria-label={`Resumo de ${tab === 'pendentes' ? 'relatórios pendentes' : 'relatórios aprovados'}`}
       >
         {tab === 'pendentes' ? (
@@ -6765,7 +6765,9 @@ export function GestorPage() {
         onClose={closeProjectTeamDialog}
         appearance="design-system"
         size="md"
+        backdropClassName="rdo-manager-project-team-dialog-backdrop"
         panelClassName="rdo-manager-project-team-dialog rdo-ds-actions"
+        fullscreenOnMobile={false}
         ariaLabelledBy="project-team-dialog-title"
         ariaDescribedBy="project-team-dialog-description"
         initialFocusRef={projectTeamOperatorRef}
@@ -6778,7 +6780,7 @@ export function GestorPage() {
           <>
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               type="button"
               disabled={projectMutations.updateProject.isPending}
               onClick={closeProjectTeamDialog}
@@ -6787,7 +6789,7 @@ export function GestorPage() {
             </Button>
             <Button
               variant="primary"
-              size="md"
+              size="sm"
               type="submit"
               form="project-team-form"
               loading={projectMutations.updateProject.isPending}

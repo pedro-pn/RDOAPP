@@ -73,6 +73,44 @@ test('Projetos migra a superfície principal com opt-in explícito no DS', () =>
   );
 });
 
+test('diálogo de equipe permanece uma caixa compacta no mobile', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+  const pageCss = source('src/pages/gestor/GestorPage.ds.css');
+
+  assert.match(
+    page,
+    /backdropClassName="rdo-manager-project-team-dialog-backdrop"[\s\S]*?panelClassName="rdo-manager-project-team-dialog rdo-ds-actions"[\s\S]*?fullscreenOnMobile=\{false\}/
+  );
+  assert.match(
+    pageCss,
+    /@media \(max-width: 768px\)[\s\S]*?\.rdo-manager-project-team-dialog-backdrop\s*\{[\s\S]*?align-items:\s*center[\s\S]*?padding:\s*var\(--space-4\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-project-team-dialog\s*\{[\s\S]*?height:\s*auto[\s\S]*?max-height:\s*calc\(100dvh - var\(--space-16\)\)[\s\S]*?border-radius:\s*var\(--radius-lg\)/
+  );
+  assert.match(
+    page,
+    /id="project-team-dialog-title"[\s\S]*?<Button[\s\S]*?variant="secondary"[\s\S]*?size="sm"[\s\S]*?Cancelar[\s\S]*?<Button[\s\S]*?variant="primary"[\s\S]*?size="sm"[\s\S]*?Salvar equipe/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-project-team-dialog[\s\S]*?\.fv-modal__title\s*\{[\s\S]*?font-size:\s*var\(--text-base\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-project-team-dialog[\s\S]*?:where\(\.fv-modal__body, \.fv-modal__footer\)[\s\S]*?\.fv-button\s*\{[\s\S]*?min-height:\s*calc\(var\(--space-8\) \+ var\(--space-1\)\)[\s\S]*?--fv-button-padding:\s*var\(--space-2\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-project-team-dialog__form[\s\S]*?\.fv-select-shell\s*\{[\s\S]*?height:\s*calc\(var\(--space-8\) \+ var\(--space-1\)\)[\s\S]*?--fv-control-padding:\s*var\(--space-2\)/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-project-team-dialog__form[\s\S]*?\.fv-select\s*\{[\s\S]*?font-size:\s*var\(--text-sm\)/
+  );
+});
+
 test('Projetos preserva bootstrap, busca, ordenação e contratos CRUD', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
   const reportsHook = source('src/hooks/useReports.ts');

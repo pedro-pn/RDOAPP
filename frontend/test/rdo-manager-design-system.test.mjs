@@ -173,7 +173,7 @@ test('manager pending and approved pages compose actions, search and real metric
   assert.match(page, /label="Assinados"[\s\S]*?value=\{signedCount\}/);
 });
 
-test('manager mobile composition keeps metrics in one row and removes redundant list detail', () => {
+test('manager mobile composition keeps metrics in one row, fits approved metrics, and removes redundant list detail', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
   const pageCss = source('src/pages/gestor/GestorPage.ds.css');
   const statsCss = source('src/components/stats/StatsDashboard.ds.css');
@@ -187,6 +187,18 @@ test('manager mobile composition keeps metrics in one row and removes redundant 
   assert.match(
     pageCss,
     /@media \(max-width: 768px\)[\s\S]*?\.rdo-manager-metrics\s*\{[\s\S]*?display:\s*flex[\s\S]*?overflow-x:\s*auto/
+  );
+  assert.match(
+    page,
+    /className=\{`rdo-manager-metrics\$\{tab === 'aprovados' \? ' rdo-manager-metrics--approved' : ''\}`\}/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-metrics\.rdo-manager-metrics--approved\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)[\s\S]*?overflow-x:\s*visible/
+  );
+  assert.match(
+    pageCss,
+    /\.rdo-manager-metrics\.rdo-manager-metrics--approved[\s\S]*?\.fv-metric-card\s*\{[\s\S]*?min-width:\s*0[\s\S]*?flex:\s*none/
   );
   assert.match(
     pageCss,
