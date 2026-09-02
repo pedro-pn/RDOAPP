@@ -26,3 +26,18 @@ test('função operacional fica apenas nos formulários de criação e edição 
   assert.match(manager, /setEditing\(\{ \.\.\.editing, isOperational: event\.target\.checked \}\)/);
   assert.match(api, /createJobRole\(payload: \{ name: string; isOperational\?: boolean \}\)/);
 });
+
+test('histórico de cargos edita registros existentes sem duplicar a inclusão de mudança', () => {
+  const editor = read('../src/pages/gestor/CollaboratorJobRoleHistoryEditor.tsx');
+  const manager = read('../src/pages/gestor/GestorPage.tsx');
+  const css = read('../src/styles/base.css');
+
+  assert.doesNotMatch(editor, /Adicionar mudança/);
+  assert.doesNotMatch(manager, /onCreate=\{payload => collaboratorMutations\.createJobRoleHistory/);
+  assert.match(editor, /history\.map\(entry/);
+  assert.match(editor, /onClick=\{\(\) => startEdit\(entry\)\}>Editar/);
+  assert.match(editor, /await onUpdate\(editing\.id, payload\)/);
+  assert.match(css, /\.collaborator-role-history\s*\{[^}]*max-width:\s*100%[^}]*overflow:\s*hidden/s);
+  assert.match(css, /\.admin-inline-grid\.collaborator-role-history-form\s*\{[^}]*minmax\(0, 1fr\)/s);
+  assert.match(css, /\.collaborator-role-history-form select,[\s\S]*?max-width:\s*100%/);
+});

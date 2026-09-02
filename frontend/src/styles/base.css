@@ -5499,6 +5499,80 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   padding: 12px;
 }
 
+.collaborator-role-history {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d8e2ef;
+  border-radius: var(--rs);
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.collaborator-role-history .admin-toolbar {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.collaborator-role-history .form-hint {
+  margin: 4px 0 0;
+}
+
+.admin-inline-grid.collaborator-role-history-form {
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+  border-top: 1px solid #d8e2ef;
+  border-bottom: 1px solid #d8e2ef;
+  padding: 12px 0;
+  margin-bottom: 12px;
+}
+
+.collaborator-role-history-form > .field-group {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.collaborator-role-history-form > .field-group:nth-child(3),
+.collaborator-role-history-form > .admin-form-actions {
+  grid-column: 1 / -1;
+}
+
+.collaborator-role-history-form select,
+.collaborator-role-history-form input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.collaborator-role-history .efetivo-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.collaborator-role-history-table {
+  width: 100%;
+  max-width: 100%;
+  min-width: 560px;
+  table-layout: fixed;
+}
+
+.collaborator-role-history-table th,
+.collaborator-role-history-table td {
+  overflow-wrap: anywhere;
+}
+
+.collaborator-role-history-table th:first-child {
+  width: 110px;
+}
+
+.collaborator-role-history-table th:last-child {
+  width: 150px;
+}
+
 .collaborator-signature-field {
   gap: 8px;
 }

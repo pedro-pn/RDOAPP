@@ -212,6 +212,7 @@ export interface PlanningCollaborator {
 export interface CollaboratorInput {
   name: string;
   jobRoleId: string;
+  jobRoleEffectiveDate?: DateOnly;
   admissionDate: DateOnly;
   terminationDate?: DateOnly | null;
   note?: string | null;

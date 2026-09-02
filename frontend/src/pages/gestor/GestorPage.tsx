@@ -52,6 +52,7 @@ import {
 } from './manualReportCollaboratorReplication';
 import { ManualReportUploadFileCard } from './ManualReportUploadFileCard';
 import { CollaboratorForm, type CollaboratorFormState } from './CollaboratorForm';
+import { CollaboratorJobRoleHistoryEditor } from './CollaboratorJobRoleHistoryEditor';
 import {
   manualReportFileId,
   manualReportUploadListLabel,
@@ -314,6 +315,7 @@ const emptyManualReportForm: ManualReportFormState = {
 const emptyCollaboratorForm: CollaboratorFormState = {
   name: '',
   jobRoleId: '',
+  jobRoleEffectiveDate: new Date().toISOString().slice(0, 10),
   email: '',
   terminationDate: '',
   signatureImage: '',
@@ -916,6 +918,7 @@ function collaboratorToForm(collaborator: Collaborator): CollaboratorFormState {
   return {
     name: collaborator.name,
     jobRoleId: collaborator.jobRoleId,
+    jobRoleEffectiveDate: new Date().toISOString().slice(0, 10),
     email: collaborator.email || '',
     terminationDate: collaborator.terminationDate?.slice(0, 10) || '',
     signatureImage: normalizeSignatureImage(collaborator.signatureImage),
@@ -1893,6 +1896,7 @@ export function GestorPage() {
     const payload = {
       name: collaboratorForm.name.trim(),
       jobRoleId: collaboratorForm.jobRoleId,
+      jobRoleEffectiveDate: collaboratorForm.jobRoleEffectiveDate,
       email: collaboratorForm.email.trim() || null,
       terminationDate: collaboratorForm.terminationDate || null,
       signatureImage,
@@ -3484,6 +3488,7 @@ export function GestorPage() {
                     </div>
                   </div>
                   {collaboratorEditingId === collaborator.id ? (
+                    <>
                     <CollaboratorForm
                       idSuffix={collaborator.id}
                       title="Editar colaborador"
@@ -3495,6 +3500,14 @@ export function GestorPage() {
                       onCancel={resetCollaboratorForm}
                       onSubmit={handleCollaboratorSubmit}
                     />
+	                  <CollaboratorJobRoleHistoryEditor
+	                    collaborator={collaborator}
+	                    jobRoles={jobRolesQuery.data || []}
+	                    isPending={collaboratorMutations.updateJobRoleHistory.isPending || collaboratorMutations.removeJobRoleHistory.isPending}
+	                    onUpdate={(historyId, payload) => collaboratorMutations.updateJobRoleHistory.mutateAsync({ id: collaborator.id, historyId, payload })}
+	                    onRemove={historyId => collaboratorMutations.removeJobRoleHistory.mutateAsync({ id: collaborator.id, historyId })}
+	                  />
+	                  </>
 	                  ) : null}
                 </article>
               ))}

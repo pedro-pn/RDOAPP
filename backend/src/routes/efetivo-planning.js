@@ -41,6 +41,7 @@ import {
   updateWorkforceAbsence
 } from '../lib/collaborators/availability-service.js';
 import prisma from '../lib/prisma.js';
+import { collaboratorsCache } from '../lib/resource-list-cache.js';
 import {
   createMission,
   deleteMission,
@@ -145,11 +146,15 @@ router.get('/collaborators', requireEfetivoViewer, asyncHandler(async (req, res)
 }));
 
 router.post('/collaborators', requireEfetivoManager, asyncHandler(async (req, res) => {
-  res.status(201).json(await createPlanningCollaborator(collaboratorInputSchema.parse(req.body), context(req)));
+  const collaborator = await createPlanningCollaborator(collaboratorInputSchema.parse(req.body), context(req));
+  collaboratorsCache.clear();
+  res.status(201).json(collaborator);
 }));
 
 router.patch('/collaborators/:collaboratorId', requireEfetivoManager, asyncHandler(async (req, res) => {
-  res.json(await updatePlanningCollaborator(idSchema.parse(req.params.collaboratorId), collaboratorInputSchema.parse(req.body), context(req)));
+  const collaborator = await updatePlanningCollaborator(idSchema.parse(req.params.collaboratorId), collaboratorInputSchema.parse(req.body), context(req));
+  collaboratorsCache.clear();
+  res.json(collaborator);
 }));
 
 router.get('/absences', requireEfetivoViewer, asyncHandler(async (req, res) => {
