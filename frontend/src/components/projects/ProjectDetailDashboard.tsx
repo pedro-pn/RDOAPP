@@ -1386,7 +1386,7 @@ export function ProjectDetailDashboard({
                       <th>Nome</th>
                       <th>Cargo</th>
                       <th style={{ textAlign: 'right' }}>
-                        <HelpTip help="Horas do ponto atribuídas ao projeto pelo mesmo rateio que calculou o custo. Em um grupo, soma a apropriação das missões. Clique no valor para conferir os dias e RDOs.">Horas apropriadas</HelpTip>
+                        <HelpTip help="Horas do ponto atribuídas ao projeto pelo mesmo rateio que calculou o custo. Quando não houver apropriação do Ponto Mais, a jornada dos relatórios aparece em azul como referência e não entra no custo. Em um grupo, soma a apropriação das missões.">Horas apropriadas</HelpTip>
                       </th>
                       <th style={{ textAlign: 'right' }}>
                         <HelpTip help="Parcela do custo total do colaborador atribuída ao projeto no período do ponto.">Custo apropriado</HelpTip>
@@ -1414,6 +1414,17 @@ export function ProjectDetailDashboard({
                             >
                               {fmtHours(c.horasApropriadas)}
                             </button>
+                          ) : c.horas > 0 ? (
+                            <PortalTip
+                              triggerClassName="acp-report-hours-fallback-tip"
+                              content="Estas horas vêm dos relatórios de execução (RDOs), pois não há horas do Ponto Mais apropriadas para este colaborador. Elas são exibidas como referência de jornada e não entram no custo apropriado."
+                              ariaLabel={`${fmtHours(c.horas)} provenientes dos relatórios de execução; não entram no custo apropriado`}
+                            >
+                              <span className="acp-report-hours-fallback-value">
+                                {fmtHours(c.horas)}
+                                <small>RDO</small>
+                              </span>
+                            </PortalTip>
                           ) : fmtHours(c.horasApropriadas)}
                         </td>
                         <td data-label="Custo apropriado" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{brl(c.custo)}</td>
