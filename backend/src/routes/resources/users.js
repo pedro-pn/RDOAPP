@@ -4,6 +4,11 @@ import { z } from 'zod';
 
 import asyncHandler from '../../lib/async-handler.js';
 import env from '../../config/env.js';
+import {
+  ACCOUNT_PASSWORD_SETUP_EXPIRES_LABEL,
+  createPendingPasswordHash,
+  issueAccountPasswordSetup
+} from '../../lib/account-password-setup.js';
 import { createPasswordResetToken, publicUser } from '../../lib/auth.js';
 import { missingClientAccessResetConfig, sendClientAccessResetEmail } from '../../lib/client-access-reset.js';
 import { projectHasClientSignerEmail } from '../../lib/client-project-access.js';
@@ -27,11 +32,11 @@ import { userDeletionImpact } from '../../lib/assinaturas/service.js';
 import { requireAuth, requireHubAdmin } from '../../middleware/auth.js';
 
 const router = Router();
-const INTERNAL_ACCOUNT_ROLES = new Set([UserRole.MANAGER, UserRole.COLLABORATOR, UserRole.COORDINATOR]);
-const INTERNAL_ROLE_LABELS = {
+const ACCOUNT_ROLE_LABELS = {
   [UserRole.MANAGER]: 'gestor',
   [UserRole.COLLABORATOR]: 'colaborador',
-  [UserRole.COORDINATOR]: 'coordenador'
+  [UserRole.COORDINATOR]: 'coordenador',
+  [UserRole.CLIENT]: 'cliente'
 };
 
 const schema = z.object({
@@ -204,24 +209,33 @@ export function resolveAccountPayload(data, existingUser = null) {
   };
 }
 
-function queueInternalAccountMail(message, meta) {
+function queueAccountSetupMail(user, message, meta) {
+  if (!clientEmailsEnabled()) return false;
+
   const missingMailerConfig = getMissingMailerConfig();
-  if (missingMailerConfig.length) {
-    console.warn('Notificação de conta interna não enviada por falta de configuração SMTP.', {
+  const missingConfig = [
+    ...missingMailerConfig.map(item => `SMTP ${item}`),
+    ...(!env.appUrl ? ['APP_URL'] : [])
+  ];
+  if (missingConfig.length) {
+    console.warn('Convite para definição de senha não enviado por falta de configuração.', {
+      missingConfig,
       missingMailerConfig,
       meta
     });
-    return;
+    return false;
   }
 
   setImmediate(() => {
-    sendMail(message).catch(error => {
-      console.error('Falha ao enviar notificação da conta interna.', {
+    const mailer = user.role === UserRole.CLIENT ? sendClientMail : sendMail;
+    mailer(message).catch(error => {
+      console.error('Falha ao enviar convite para definição de senha.', {
         meta,
         error: error?.message || error
       });
     });
   });
+  return true;
 }
 
 router.use(requireAuth, requireHubAdmin);
@@ -322,52 +336,67 @@ router.get('/', asyncHandler(async (req, res) => {
 
 router.post('/', asyncHandler(async (req, res) => {
   const data = schema.parse(req.body);
-  if (!data.password) {
-    return res.status(400).json({ error: 'Senha obrigatória para novo usuário.' });
-  }
 
   const accountPayload = resolveAccountPayload(data);
   await assertAccountEmailAvailable(data.email);
   await assertAccountEmailAvailable(data.username);
-  const passwordHash = await hashPassword(data.password);
-  const user = await prisma.user.create({
-    data: {
-      username: data.username,
-      name: data.name,
-      email: data.email || null,
-      emailVerifiedAt: data.email ? new Date() : null,
-      passwordHash,
-      role: accountPayload.role,
-      accountType: accountPayload.accountType,
-      clientCnpj: clientCnpjForAccount(data.username, accountPayload.accountType),
-      isActive: data.isActive ?? true,
-      collaboratorId: accountPayload.collaboratorId || null,
-      moduleRoles: {
-        create: moduleRoleRows('', accountPayload.moduleRoles).map(({ module, role }) => ({ module, role }))
-      }
-    },
-    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
+  const passwordHash = await createPendingPasswordHash();
+  const { user, passwordSetup } = await prisma.$transaction(async tx => {
+    const createdUser = await tx.user.create({
+      data: {
+        username: data.username,
+        name: data.name,
+        email: data.email || null,
+        emailVerifiedAt: data.email ? new Date() : null,
+        passwordHash,
+        role: accountPayload.role,
+        accountType: accountPayload.accountType,
+        clientCnpj: clientCnpjForAccount(data.username, accountPayload.accountType),
+        isActive: data.isActive ?? true,
+        collaboratorId: accountPayload.collaboratorId || null,
+        moduleRoles: {
+          create: moduleRoleRows('', accountPayload.moduleRoles).map(({ module, role }) => ({ module, role }))
+        }
+      },
+      include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
+    });
+    const setup = await issueAccountPasswordSetup({
+      userId: createdUser.id,
+      prismaClient: tx,
+      envConfig: env,
+      createToken: createPasswordResetToken
+    });
+    return { user: createdUser, passwordSetup: setup };
   });
 
-  if (user.email && INTERNAL_ACCOUNT_ROLES.has(user.role)) {
+  let delivery = 'manual';
+  if (user.email) {
     const template = buildInternalUserWelcomeEmailTemplate({
       userName: user.name,
       username: user.username,
-      password: data.password,
-      roleLabel: INTERNAL_ROLE_LABELS[user.role],
-      appUrl: env.appUrl
+      setupUrl: passwordSetup.url,
+      expiresLabel: ACCOUNT_PASSWORD_SETUP_EXPIRES_LABEL,
+      roleLabel: ACCOUNT_ROLE_LABELS[user.role] || 'usuário'
     });
-    queueInternalAccountMail({
+    const scheduled = queueAccountSetupMail(user, {
       to: user.email,
       ...template
     }, {
-      type: 'internal-account-welcome',
+      type: 'account-password-setup',
       userId: user.id,
       role: user.role
     });
+    if (scheduled) delivery = 'email';
   }
 
-  res.status(201).json(publicUser(user));
+  res.status(201).json({
+    ...publicUser(user),
+    passwordSetup: {
+      url: delivery === 'manual' ? passwordSetup.url : null,
+      expiresAt: passwordSetup.expiresAt,
+      delivery
+    }
+  });
 }));
 
 router.put('/:id', asyncHandler(async (req, res) => {
