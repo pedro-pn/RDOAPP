@@ -248,6 +248,11 @@ interface UserFormState {
   isActive: boolean;
 }
 
+interface ManualPasswordSetup {
+  username: string;
+  url: string;
+}
+
 const internalRoles: Array<Exclude<UserRole, 'CLIENT'>> = ['COLLABORATOR', 'COORDINATOR', 'MANAGER'];
 type ProjectVisibilityMode = 'manager-coordinator' | 'all-authorized' | 'manager-only';
 const projectReportTypes: ReportType[] = ['RDO', 'RTP', 'RLQ', 'RCPU', 'RLM', 'RLI', 'RLF'];
@@ -345,6 +350,10 @@ function asString(value: unknown, fallback = '') {
 
 function asBoolean(value: unknown) {
   return typeof value === 'boolean' ? value : false;
+}
+
+function absolutePasswordSetupUrl(url: string) {
+  return new URL(url, window.location.origin).href;
 }
 
 function hasActiveClientRejection(report: ReportSummary) {
@@ -1140,6 +1149,7 @@ export function GestorPage() {
   const [userEditingId, setUserEditingId] = useState<string | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [userAdminGroup, setUserAdminGroup] = useState<'internal' | 'client'>('internal');
+  const [manualPasswordSetup, setManualPasswordSetup] = useState<ManualPasswordSetup | null>(null);
 
   const [returnReport, setReturnReport] = useState<ReportSummary | null>(null);
   const [sequenceEditReport, setSequenceEditReport] = useState<ReportSummary | null>(null);
@@ -1535,6 +1545,7 @@ export function GestorPage() {
     setUserForm(emptyUserForm);
     setUserEditingId(null);
     setShowUserForm(true);
+    setManualPasswordSetup(null);
   }
 
   function handleCollaboratorSignatureFile(file: File | null) {
@@ -1954,15 +1965,31 @@ export function GestorPage() {
         });
         showToast('Usuário atualizado.', 'success');
       } else {
-        await userMutations.createUser.mutateAsync({
-          ...basePayload,
-          password: userForm.password.trim()
-        });
-        showToast('Usuário criado.', 'success');
+        const createdUser = await userMutations.createUser.mutateAsync(basePayload);
+        if (createdUser.passwordSetup.delivery === 'email') {
+          setManualPasswordSetup(null);
+          showToast(`Usuário criado. Enviamos para ${createdUser.email} o link para criar a senha.`, 'success');
+        } else {
+          setManualPasswordSetup({
+            username: createdUser.username,
+            url: absolutePasswordSetupUrl(createdUser.passwordSetup.url)
+          });
+          showToast('Usuário criado. Compartilhe o link para criação da senha.', 'success');
+        }
       }
       resetUserForm();
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Não foi possível salvar o usuário.', 'error');
+    }
+  }
+
+  async function copyManualPasswordSetup() {
+    if (!manualPasswordSetup) return;
+    try {
+      await navigator.clipboard.writeText(manualPasswordSetup.url);
+      showToast('Link copiado.', 'success');
+    } catch {
+      showToast('Não foi possível copiar automaticamente. Selecione o link e copie manualmente.', 'error');
     }
   }
 
@@ -3576,6 +3603,23 @@ export function GestorPage() {
               </button>
           ) : null}
           </div>
+          {manualPasswordSetup ? (
+            <section className="page-card">
+              <div className="section-title">Link para criar a senha</div>
+              <p className="placeholder-copy">
+                Usuário: <strong>{manualPasswordSetup.username}</strong>. O link é de uso único e expira em 7 dias.
+              </p>
+              <div className="field-group">
+                <label htmlFor="gestor-password-setup-link">Link para compartilhar</label>
+                <input id="gestor-password-setup-link" value={manualPasswordSetup.url} readOnly onFocus={event => event.currentTarget.select()} />
+              </div>
+              <div className="admin-actions">
+                <button className="mini-btn" type="button" onClick={() => void copyManualPasswordSetup()}>
+                  Copiar link
+                </button>
+              </div>
+            </section>
+          ) : null}
           {showUserForm && !userEditingId ? (
 	          <form className="admin-inline-form" onSubmit={handleUserSubmit} autoComplete="off">
 	            <div className="admin-toolbar full">
@@ -3659,15 +3703,9 @@ export function GestorPage() {
 	                </select>
 	              </div>
 	              <div className="field-group field-group-wide">
-	                <label htmlFor="user-password">Senha</label>
-	                <input
-	                  id="user-password"
-	                  type="password"
-	                  value={userForm.password}
-	                  autoComplete="new-password"
-	                  onChange={event => setUserForm(current => ({ ...current, password: event.target.value }))}
-	                  required
-	                />
+	                <div className="form-hint">
+	                  A senha será criada pelo próprio usuário por um link único. Com e-mail, o link será enviado automaticamente.
+	                </div>
 	              </div>
 	              <div className="admin-form-actions">
 	                <button

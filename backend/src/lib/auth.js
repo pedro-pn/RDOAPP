@@ -32,12 +32,17 @@ export async function createSession(userId, options = {}) {
   return { token, expiresAt };
 }
 
-export async function createPasswordResetToken(userId) {
-  const token = randomBytes(32).toString('hex');
+export async function createPasswordResetToken(userId, prismaClient = prisma, options = {}) {
+  const tokenPrefix = String(options.tokenPrefix || '');
+  const token = `${tokenPrefix}${randomBytes(32).toString('hex')}`;
   const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + PASSWORD_RESET_HOURS * 60 * 60 * 1000);
+  const requestedHours = Number(options.expiresInHours);
+  const expiresInHours = Number.isFinite(requestedHours) && requestedHours > 0
+    ? requestedHours
+    : PASSWORD_RESET_HOURS;
+  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
-  await prisma.passwordResetToken.create({
+  await prismaClient.passwordResetToken.create({
     data: {
       tokenHash,
       userId,

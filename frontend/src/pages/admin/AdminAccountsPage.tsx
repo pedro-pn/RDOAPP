@@ -36,6 +36,11 @@ interface AccountFormState {
   moduleRoles: ModuleRole[];
 }
 
+interface ManualPasswordSetup {
+  username: string;
+  url: string;
+}
+
 const emptyForm: AccountFormState = {
   accountType: 'INTERNAL',
   username: '',
@@ -107,6 +112,10 @@ function linkedProjectsLabel(user: InternalUserSummary) {
     .join(', ');
 }
 
+function absolutePasswordSetupUrl(url: string) {
+  return new URL(url, window.location.origin).href;
+}
+
 export function AdminAccountsPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -124,6 +133,7 @@ export function AdminAccountsPage() {
   const [error, setError] = useState('');
   const [deletingUser, setDeletingUser] = useState<InternalUserSummary | null>(null);
   const [deletionImpact, setDeletionImpact] = useState<UserDeletionImpact | null>(null);
+  const [manualPasswordSetup, setManualPasswordSetup] = useState<ManualPasswordSetup | null>(null);
 
   const visibleUsers = useMemo(() => {
     return (usersQuery.data || [])
@@ -153,6 +163,7 @@ export function AdminAccountsPage() {
     setShowForm(true);
     setMessage('');
     setError('');
+    setManualPasswordSetup(null);
   }
 
   function openEditForm(user: InternalUserSummary) {
@@ -161,6 +172,7 @@ export function AdminAccountsPage() {
     setShowForm(true);
     setMessage('');
     setError('');
+    setManualPasswordSetup(null);
   }
 
   function updateAccountType(accountType: AccountType) {
@@ -201,13 +213,13 @@ export function AdminAccountsPage() {
       ? {
           name: form.name.trim(),
           email: form.email.trim() || null,
-          password: form.password || undefined
+          ...(editingUser && form.password ? { password: form.password } : {})
         }
       : {
           username: form.username.trim(),
           name: form.name.trim(),
           email: form.email.trim() || null,
-          password: form.password || undefined,
+          ...(editingUser && form.password ? { password: form.password } : {}),
           role: legacyRoleForForm(form),
           accountType: form.accountType,
           moduleRoles: rolesForAccountType(form.accountType, form.moduleRoles),
@@ -220,16 +232,31 @@ export function AdminAccountsPage() {
         await userMutations.updateUser.mutateAsync({ id: editingUser.id, payload });
         setMessage('Conta atualizada.');
       } else {
-        if (!payload.password) {
-          setError('Senha obrigatória para nova conta.');
-          return;
+        const createdUser = await userMutations.createUser.mutateAsync(payload as UserPayload);
+        if (createdUser.passwordSetup.delivery === 'email') {
+          setMessage(`Conta criada. Enviamos para ${createdUser.email} o link para criar a senha.`);
+          setManualPasswordSetup(null);
+        } else {
+          setMessage('Conta criada. Compartilhe o link abaixo com o usuário.');
+          setManualPasswordSetup({
+            username: createdUser.username,
+            url: absolutePasswordSetupUrl(createdUser.passwordSetup.url)
+          });
         }
-        await userMutations.createUser.mutateAsync(payload as UserPayload);
-        setMessage('Conta criada.');
       }
       resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar conta.');
+    }
+  }
+
+  async function copyManualPasswordSetup() {
+    if (!manualPasswordSetup) return;
+    try {
+      await navigator.clipboard.writeText(manualPasswordSetup.url);
+      setMessage('Link copiado. Compartilhe-o somente com o usuário da conta.');
+    } catch {
+      setError('Não foi possível copiar automaticamente. Selecione o link e copie manualmente.');
     }
   }
 
@@ -289,17 +316,24 @@ export function AdminAccountsPage() {
               </select>
             </div>
           ) : null}
-          <div className="field-group">
-            <label htmlFor="account-password">{editingUser ? 'Senha nova' : 'Senha'}</label>
-            <input
-              id="account-password"
-              type="password"
-              value={form.password}
-              autoComplete="new-password"
-              onChange={event => setForm(current => ({ ...current, password: event.target.value }))}
-              required={!editingUser}
-            />
-          </div>
+          {editingUser ? (
+            <div className="field-group">
+              <label htmlFor="account-password">Senha nova (opcional)</label>
+              <input
+                id="account-password"
+                type="password"
+                value={form.password}
+                autoComplete="new-password"
+                onChange={event => setForm(current => ({ ...current, password: event.target.value }))}
+              />
+            </div>
+          ) : (
+            <div className="field-group field-group-wide">
+              <div className="form-hint">
+                A senha será criada pelo próprio usuário por um link único. Com e-mail, o link será enviado automaticamente.
+              </div>
+            </div>
+          )}
           {!isEditingClient ? (
             <div className="field-group field-group-wide">
               <label>Módulos da conta</label>
@@ -446,6 +480,23 @@ export function AdminAccountsPage() {
 
         {message ? <div className="inline-success">{message}</div> : null}
         {error ? <div className="inline-error">{error}</div> : null}
+        {manualPasswordSetup ? (
+          <section className="page-card">
+            <div className="section-title">Link para criar a senha</div>
+            <p className="placeholder-copy">
+              Usuário: <strong>{manualPasswordSetup.username}</strong>. O link é de uso único e expira em 7 dias.
+            </p>
+            <div className="field-group">
+              <label htmlFor="manual-password-setup-link">Link para compartilhar</label>
+              <input id="manual-password-setup-link" value={manualPasswordSetup.url} readOnly onFocus={event => event.currentTarget.select()} />
+            </div>
+            <div className="admin-actions">
+              <button className="mini-btn" type="button" onClick={() => void copyManualPasswordSetup()}>
+                Copiar link
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         {showForm && !editingUser ? renderAccountForm() : null}
 
