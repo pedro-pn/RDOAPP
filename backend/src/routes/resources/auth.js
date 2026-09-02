@@ -408,7 +408,7 @@ async function findLoginCandidates(identifier) {
         { email: { equals: rawIdentifier.toLowerCase(), mode: 'insensitive' } }
       ]
     },
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 
   const exactUsername = user => usernameCandidates.some(candidate => (
@@ -615,14 +615,14 @@ router.put('/account', requireAuth, asyncHandler(async (req, res) => {
   const data = accountSchema.parse(req.body);
   let currentUser = await prisma.user.findUniqueOrThrow({
     where: { id: req.auth.user.id },
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 
   if (data.notificationPreferences) {
     currentUser = await prisma.user.update({
       where: { id: currentUser.id },
       data: notificationPreferenceData(data.notificationPreferences),
-      include: { collaborator: true, moduleRoles: true }
+      include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
     });
     if (data.email === undefined) {
       return res.json({ user: publicUser(currentUser) });
@@ -769,7 +769,7 @@ router.post('/confirm-email-change', asyncHandler(async (req, res) => {
           email: nextEmail,
           emailVerifiedAt: confirmedAt
         },
-        include: { collaborator: true, moduleRoles: true }
+        include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
       });
     });
   } catch (error) {
@@ -794,7 +794,7 @@ router.post('/client-privacy-consent', requireAuth, asyncHandler(async (req, res
       privacyPolicyAcceptedAt: new Date(),
       privacyPolicyVersion: data.privacyNoticeVersion
     },
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 
   res.json({ user: publicUser(user) });

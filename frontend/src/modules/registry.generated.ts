@@ -530,6 +530,104 @@ export const moduleRegistry = [
         ]
       }
     ]
+  },
+  {
+    "id": "efetivo",
+    "prismaModule": "EFETIVO",
+    "badge": "EFET",
+    "title": "Efetivo Operacional",
+    "copy": "Produtividade, improdutividade e férias do efetivo operacional.",
+    "hub": {
+      "enabled": true,
+      "roles": [
+        "efetivo:manager",
+        "efetivo:viewer"
+      ],
+      "path": "/efetivo"
+    },
+    "pathPrefixes": [
+      "/efetivo"
+    ],
+    "routes": {
+      "root": "/efetivo"
+    },
+    "routeGroups": {
+      "default": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "efetivo:manager",
+          "efetivo:viewer"
+        ]
+      }
+    },
+    "roles": [
+      {
+        "code": "EFETIVO_MANAGER",
+        "public": "efetivo:manager",
+        "label": "Efetivo Operacional - Gestor",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      },
+      {
+        "code": "EFETIVO_VIEWER",
+        "public": "efetivo:viewer",
+        "label": "Efetivo Operacional - Visualizador",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "assinaturas",
+    "prismaModule": "ASSINATURAS",
+    "badge": "ASS",
+    "title": "Assinaturas",
+    "copy": "Envio de PDF avulso, coleta de assinaturas e trilha de auditoria.",
+    "hub": {
+      "enabled": true,
+      "roles": [
+        "assinaturas:user"
+      ],
+      "path": "/assinaturas"
+    },
+    "pathPrefixes": [
+      "/assinaturas"
+    ],
+    "pathExclusions": [
+      "/assinaturas/assinar"
+    ],
+    "routes": {
+      "index": "/assinaturas"
+    },
+    "routeGroups": {
+      "default": {
+        "allowedAccountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ],
+        "allowedModuleRoles": [
+          "assinaturas:user"
+        ]
+      }
+    },
+    "roles": [
+      {
+        "code": "ASSINATURAS_USER",
+        "public": "assinaturas:user",
+        "label": "Assinaturas - Usuário",
+        "accountTypes": [
+          "ADMIN",
+          "INTERNAL"
+        ]
+      }
+    ]
   }
 ] as const;
 

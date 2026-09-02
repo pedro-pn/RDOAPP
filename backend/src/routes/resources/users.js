@@ -22,6 +22,8 @@ import {
 } from '../../lib/module-roles.js';
 import { hashPassword } from '../../lib/password.js';
 import prisma from '../../lib/prisma.js';
+import { deleteUserWithSignatureDocuments } from '../../lib/assinaturas/file-quarantine.js';
+import { userDeletionImpact } from '../../lib/assinaturas/service.js';
 import { requireAuth, requireHubAdmin } from '../../middleware/auth.js';
 
 const router = Router();
@@ -235,7 +237,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const users = await prisma.user.findMany({
     where,
-    include: { collaborator: true, moduleRoles: true },
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true },
     orderBy: [{ role: 'asc' }, { name: 'asc' }]
   });
 
@@ -344,7 +346,7 @@ router.post('/', asyncHandler(async (req, res) => {
         create: moduleRoleRows('', accountPayload.moduleRoles).map(({ module, role }) => ({ module, role }))
       }
     },
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 
   if (user.email && INTERNAL_ACCOUNT_ROLES.has(user.role)) {
@@ -407,14 +409,22 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const user = await prisma.user.update({
     where: { id: req.params.id },
     data: payload,
-    include: { collaborator: true, moduleRoles: true }
+    include: { collaborator: { include: { jobRole: true } }, moduleRoles: true }
   });
 
   res.json(publicUser(user));
 }));
 
+router.get('/:id/impacto', asyncHandler(async (req, res) => {
+  await prisma.user.findUniqueOrThrow({ where: { id: req.params.id }, select: { id: true } });
+  const assinaturas = await userDeletionImpact(prisma, req.params.id);
+  res.json({ assinaturas });
+}));
+
 router.delete('/:id', asyncHandler(async (req, res) => {
-  await prisma.user.delete({ where: { id: req.params.id } });
+  await deleteUserWithSignatureDocuments(prisma, req.params.id, {
+    actorUserId: req.user?.id || null
+  });
   res.status(204).end();
 }));
 

@@ -135,6 +135,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const [approvalEdit, setApprovalEdit] = useState<string | null>(null);
   const [startEdit, setStartEdit] = useState<string | null>(null);
   const [mobEdit, setMobEdit] = useState<string | null>(null);
+  const [demobEdit, setDemobEdit] = useState<string | null>(null);
   const [manualEdit, setManualEdit] = useState<string | null>(null);
   const [offshoreEdit, setOffshoreEdit] = useState<boolean | null>(null);
   const [sleepModeEdit, setSleepModeEdit] = useState<Record<string, LaborSleepMode> | null>(null);
@@ -150,6 +151,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       setApprovalEdit(null);
       setStartEdit(null);
       setMobEdit(null);
+      setDemobEdit(null);
       setManualEdit(null);
       setOffshoreEdit(null);
       setSleepModeEdit(null);
@@ -161,6 +163,8 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
       queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] });
       queryClient.invalidateQueries({ queryKey: ['mission-group-detail'] });
       queryClient.invalidateQueries({ queryKey: ['ponto-colaboradores'] });
+      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-missions'] });
+      queryClient.invalidateQueries({ queryKey: ['efetivo-planning-missions-pending'] });
     },
     onError: () => showToast('Não foi possível atualizar o cronograma.')
   });
@@ -169,6 +173,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const approvalValue = approvalEdit ?? toDateInput(data?.approvedAt);
   const startValue = startEdit ?? toDateInput(data?.startDate);
   const mobValue = mobEdit ?? toDateInput(data?.mobilizationDate);
+  const demobValue = demobEdit ?? toDateInput(data?.demobilizationDate);
   const baseManual = data?.manualProgressPct == null ? '' : String(data.manualProgressPct);
   const manualValue = manualEdit ?? baseManual;
   const baseOffshore = data?.offshore ?? false;
@@ -180,6 +185,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
   const scheduleDirty = approvalValue !== toDateInput(data?.approvedAt)
     || startValue !== toDateInput(data?.startDate)
     || mobValue !== toDateInput(data?.mobilizationDate)
+    || demobValue !== toDateInput(data?.demobilizationDate)
     || manualValue !== baseManual
     || offshoreValue !== baseOffshore
     || sleepModeMapKey(sleepModeValue) !== sleepModeMapKey(baseSleepModeMap)
@@ -215,6 +221,7 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
         approvedAt: isoOrNull(approvalValue),
         startDate: isoOrNull(startValue),
         mobilizationDate: isoOrNull(mobValue),
+        demobilizationDate: isoOrNull(demobValue),
         manualProgressPct: manualNum != null && Number.isFinite(manualNum) ? Math.min(100, Math.max(0, manualNum)) : null,
         offshore: offshoreValue,
         laborSleepModeByCollaborator: normalizeSleepModeMap(sleepModeValue),
@@ -377,6 +384,16 @@ export const ProjectScheduleEditor = forwardRef<ScheduleEditorHandle, {
         <div className="field-group">
           <label htmlFor={`acp-mob-${projectId}`}>Mobilização <HelpTip icon help="Data em que a equipe/equipamento foram mobilizados para a obra. Exibida no rodapé do dashboard do projeto." /></label>
           <input id={`acp-mob-${projectId}`} type="date" value={mobValue} onChange={e => setMobEdit(e.target.value)} />
+        </div>
+        <div className="field-group">
+          <label htmlFor={`acp-desmob-${projectId}`}>Desmobilização <HelpTip icon help="Data em que a equipe deixou a obra. Preencha só depois do fato. Com mobilização e desmobilização preenchidas, os dias de ponto da equipe que não têm etiqueta do Ponto Mais nem RDO passam a ser alocados automaticamente nesta missão. Enquanto ficar vazia, esses dias continuam indo para as pendências." /></label>
+          <input
+            id={`acp-desmob-${projectId}`}
+            type="date"
+            value={demobValue}
+            min={mobValue || undefined}
+            onChange={e => setDemobEdit(e.target.value)}
+          />
         </div>
         <div className="field-group">
           <label htmlFor={`acp-inicio-${projectId}`}>Início real <HelpTip icon help="Data em que a execução começou de fato. Ponto de partida dos dias corridos e da previsão de término." /></label>

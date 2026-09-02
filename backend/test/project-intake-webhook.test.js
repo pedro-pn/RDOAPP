@@ -159,12 +159,19 @@ test('project intake schema normalizes fields and formats the proposal with its 
   assert.equal(parsed.revision, 2);
 });
 
+test('project intake schema treats revision -1 as an unformatted proposal and commercial revision zero', () => {
+  const parsed = projectIntakeSchema.parse({ ...validPayload, revision: -1 });
+
+  assert.equal(parsed.contractCode, '3088');
+  assert.equal(parsed.revision, 0);
+});
+
 test('project intake schema rejects missing, extra, invalid CNPJ and invalid revision fields', () => {
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, location: '' }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, clientCnpj: '1234567890123' }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, clientCnpj: '123456789012345' }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: undefined }));
-  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: -1 }));
+  assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: -2 }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: 1.5 }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, revision: '2' }));
   assert.throws(() => projectIntakeSchema.parse({ ...validPayload, proposalCode: 'sem-numero' }));
@@ -253,6 +260,47 @@ test('selectProjectIntakeCommercialRevision selects the matching primary proposa
   ]);
   assert.equal(calls.some(([name]) => name === 'budgetUpsert'), true);
   assert.equal(calls.some(([name]) => name === 'projectUpdate'), true);
+});
+
+test('selectProjectIntakeCommercialRevision selects revision zero when the webhook sends -1', async () => {
+  const intake = projectIntakeSchema.parse({ ...validPayload, revision: -1 });
+  const project = projectFromPayload({ ...validPayload, revision: -1 });
+  const proposal = {
+    codBd: 9900,
+    codProp: 3088,
+    nRev: 0,
+    parentCodProp: null,
+    isComplete: false
+  };
+  let lookupWhere = null;
+  const client = {
+    commercialProposal: {
+      async findFirst(args) {
+        lookupWhere = args.where;
+        return { codBd: proposal.codBd };
+      },
+      async findUnique() { return proposal; }
+    },
+    projectBudget: {
+      async findUnique() { return null; },
+      async upsert() { return { sourceProposalCodBd: proposal.codBd }; }
+    },
+    project: {
+      async findUnique() { return project; },
+      async update() { return project; }
+    },
+    async $transaction(callback) { return callback(client); }
+  };
+
+  const result = await selectProjectIntakeCommercialRevision(project, intake, client);
+
+  assert.deepEqual(lookupWhere, { codProp: 3088, nRev: 0, parentCodProp: null });
+  assert.deepEqual(result, {
+    status: 'selected',
+    proposalCode: '3088',
+    revision: 0,
+    selectedCodBd: 9900
+  });
 });
 
 test('selectProjectIntakeCommercialRevision preserves an existing manual selection', async () => {
@@ -360,18 +408,38 @@ test('POST /api/webhooks/projects creates and returns a normalized pending proje
   assert.equal(createCall[1].data.registrationPending, true);
 });
 
+test('POST /api/webhooks/projects accepts revision -1 without persisting it in the proposal text', async t => {
+  configureToken(t, 'secret-token');
+  const payload = { ...validPayload, revision: -1 };
+  const calls = stubProjectClient(t, { created: projectFromPayload(payload) });
+  const response = await dispatchApp('POST', '/api/webhooks/projects', payload, {
+    authorization: 'Bearer secret-token'
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.json.project.proposalCode, '3088');
+  assert.equal(response.json.commercialRevision.revision, 0);
+  const createCall = calls.find(([name]) => name === 'create');
+  assert.equal(createCall[1].data.contractCode, '3088');
+  assert.equal('revision' in createCall[1].data, false);
+  const proposalLookup = calls.find(([name]) => name === 'proposalFindFirst');
+  assert.equal(proposalLookup[1].where.nRev, 0);
+});
+
 test('receiveProjectIntake treats an identical pending or reviewed project as idempotent without mutation', async () => {
-  for (const registrationPending of [true, false]) {
-    let createCount = 0;
-    const existing = projectFromPayload(validPayload, { registrationPending });
-    const result = await receiveProjectIntake(validPayload, intakeClient({
-      async findUnique() { return existing; },
-      async create() { createCount += 1; }
-    }));
-    assert.equal(result.status, 'already_exists');
-    assert.equal(result.project.registrationPending, registrationPending);
-    assert.equal(result.commercialRevision.status, 'not_found');
-    assert.equal(createCount, 0);
+  for (const payload of [validPayload, { ...validPayload, revision: -1 }]) {
+    for (const registrationPending of [true, false]) {
+      let createCount = 0;
+      const existing = projectFromPayload(payload, { registrationPending });
+      const result = await receiveProjectIntake(payload, intakeClient({
+        async findUnique() { return existing; },
+        async create() { createCount += 1; }
+      }));
+      assert.equal(result.status, 'already_exists');
+      assert.equal(result.project.registrationPending, registrationPending);
+      assert.equal(result.commercialRevision.status, 'not_found');
+      assert.equal(createCount, 0);
+    }
   }
 });
 

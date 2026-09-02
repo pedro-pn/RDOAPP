@@ -167,6 +167,8 @@ function reportPayload(overrides = {}) {
     collaboratorIds: [],
     services: [{
       serviceType: 'mecanica',
+      startTime: '08:00',
+      endTime: '12:00',
       finalized: false,
       extraData: {}
     }],
@@ -182,6 +184,8 @@ function serviceOnlyPayload(overrides = {}) {
     collaboratorIds: [],
     services: [{
       serviceType: 'mecanica',
+      startTime: '08:00',
+      endTime: '12:00',
       extraData: {}
     }],
     ...overrides
@@ -1206,7 +1210,11 @@ test('PUT report persists rejected overtime so downloads omit it', async t => {
     },
     reportService: {
       deleteMany: async () => ({ count: 0 })
-    }
+    },
+    collaborator: { findMany: async () => [] },
+    workforceHoliday: { findMany: async () => [] },
+    workforceCalendarState: { findUnique: async () => ({ id: 'global', revision: 1 }) },
+    efetivoMissionPlan: { findFirst: async () => null }
   });
   t.after(() => {
     prisma.report.findUnique = originals.reportFindUnique;

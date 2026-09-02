@@ -1,20 +1,25 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 
 import {
+  createProjectManagementNote,
   createManualProjectCost,
   deleteManualProjectCost,
   getMissionGroupDetail,
   getPlannedScope,
+  getProjectPlanningContext,
   getProjectDetail,
+  listProjectManagementNotes,
   type BudgetBreakdownSlice,
   type DayStatus,
   type ManualProjectCost,
   type ManualProjectCostPayload,
   type PlannedScope,
+  type ProjectDetailCollaborator,
+  type ProjectManagementNote,
   type ProgressHistoryPoint,
   type RequiredWeeklyProgress,
   type RequiredWeeklyProgressStatus
@@ -25,9 +30,13 @@ import { Modal } from '../ui/Modal';
 import { PortalTip } from '../ui/PortalTip';
 import { ProjectScheduleEditor, type ScheduleEditorHandle } from './ProjectScheduleEditor';
 import { ProjectAdditionalProposalsNovelty } from './ProjectAdditionalProposalsNovelty';
+import { ProjectCollaboratorHoursDialog } from './ProjectCollaboratorHoursDialog';
 import { ProjectManualCostNovelty } from './ProjectManualCostNovelty';
 import { ProjectQualityDeviationsNovelty } from './ProjectQualityDeviationsNovelty';
 import { ProjectProgressHistoryNovelty } from './ProjectProgressHistoryNovelty';
+import { ProjectReportsDialog } from './ProjectReportsDialog';
+import { ProjectStandbyHistoryDialog } from './ProjectStandbyHistoryDialog';
+import { ProjectStandbyHistoryNovelty } from './ProjectStandbyHistoryNovelty';
 import { ProjectWeeklyTargetNovelty } from './ProjectWeeklyTargetNovelty';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
 import type { AuthUser } from '../../types/auth';
@@ -156,6 +165,18 @@ function fmtDate(iso?: string | null) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
 }
+function fmtDateTime(iso?: string | null) {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
 function fmtShortDate(iso?: string | null) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -273,6 +294,30 @@ function normalizeHistory(points?: ProgressHistoryPoint[]) {
 function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
   const history = normalizeHistory(points);
   const [activePoint, setActivePoint] = useState<(ProgressHistoryPoint & { time: number; x: number; y: number }) | null>(null);
+  const [chartWidth, setChartWidth] = useState(280);
+  const chartRef = useRef<SVGSVGElement>(null);
+  const hasHistory = history.length > 0;
+
+  useEffect(() => {
+    if (!hasHistory) return;
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    const updateWidth = (measuredWidth: number) => {
+      const nextWidth = Math.max(1, Math.round(measuredWidth));
+      setChartWidth(currentWidth => currentWidth === nextWidth ? currentWidth : nextWidth);
+    };
+    updateWidth(chart.getBoundingClientRect().width);
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (entry) updateWidth(entry.contentRect.width);
+    });
+    observer.observe(chart);
+    return () => observer.disconnect();
+  }, [hasHistory]);
+
   const latest = history[history.length - 1];
   if (history.length === 0) {
     return (
@@ -285,9 +330,9 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
     );
   }
 
-  const width = 280;
-  const height = 82;
-  const pad = { top: 8, right: 8, bottom: 18, left: 28 };
+  const width = chartWidth;
+  const height = 112;
+  const pad = { top: 10, right: 10, bottom: 22, left: 30 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
   const minTime = history[0].time;
@@ -327,7 +372,7 @@ function ProgressHistoryChart({ points }: { points?: ProgressHistoryPoint[] }) {
         <span>Histórico semanal</span>
         <strong>{fmtPct(latest?.progressPct)}</strong>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Avanço de ${fmtShortDate(history[0].date)} até ${fmtShortDate(latest?.date)}`}>
+      <svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Avanço de ${fmtShortDate(history[0].date)} até ${fmtShortDate(latest?.date)}`}>
         {[0, 50, 100].map(value => (
           <g key={value}>
             <line
@@ -536,6 +581,7 @@ export function ProjectDetailDashboard({
   groupId,
   canManage = false,
   canManageManualCosts = false,
+  canManageProjectNotes = false,
   progressHistoryNoveltyUser = null,
   onBack
 }: {
@@ -543,6 +589,7 @@ export function ProjectDetailDashboard({
   groupId?: string;
   canManage?: boolean;
   canManageManualCosts?: boolean;
+  canManageProjectNotes?: boolean;
   progressHistoryNoveltyUser?: Pick<AuthUser, 'id'> | null;
   onBack: () => void;
 }) {
@@ -554,10 +601,15 @@ export function ProjectDetailDashboard({
   const [manualCostNoveltyActive, setManualCostNoveltyActive] = useState(true);
   const [qualityDeviationsNoveltyActive, setQualityDeviationsNoveltyActive] = useState(true);
   const [additionalProposalsNoveltyActive, setAdditionalProposalsNoveltyActive] = useState(true);
+  const [standbyHistoryNoveltyActive, setStandbyHistoryNoveltyActive] = useState(true);
+  const [standbyHistoryOpen, setStandbyHistoryOpen] = useState(false);
+  const [appropriationCollaborator, setAppropriationCollaborator] = useState<ProjectDetailCollaborator | null>(null);
   const [expandedQualityDeviationIds, setExpandedQualityDeviationIds] = useState<Set<string>>(() => new Set());
   const [manualCostFormOpen, setManualCostFormOpen] = useState(false);
   const [manualCostError, setManualCostError] = useState<string | null>(null);
   const [deletingManualCostId, setDeletingManualCostId] = useState<string | null>(null);
+  const [projectNoteContent, setProjectNoteContent] = useState('');
+  const [projectNoteError, setProjectNoteError] = useState<string | null>(null);
   const { control, register, handleSubmit, reset, formState: { errors } } = useForm<ManualCostFormValues>({
     defaultValues: manualCostFormDefaultValues,
     resolver: manualCostFormResolver
@@ -570,10 +622,26 @@ export function ProjectDetailDashboard({
     queryFn: () => isGroup ? getMissionGroupDetail(groupId!) : getProjectDetail(projectId!),
     ...acompanhamentoRefreshQueryOptions
   });
+  const projectNotesKey = ['project-management-notes', projectId] as const;
+  const {
+    data: projectNotes = [],
+    isLoading: projectNotesLoading,
+    isError: projectNotesLoadError
+  } = useQuery<ProjectManagementNote[]>({
+    queryKey: projectNotesKey,
+    queryFn: () => listProjectManagementNotes(projectId!),
+    enabled: !isGroup && Boolean(projectId)
+  });
   const { data: scope } = useQuery({
     queryKey: ['planned-scope', projectId],
     queryFn: () => getPlannedScope(projectId!),
     enabled: !isGroup && Boolean(projectId)
+  });
+  const planningReferenceDate = data?.header.lastRdoDate?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const { data: planningContext, isLoading: planningContextLoading } = useQuery({
+    queryKey: ['acompanhamento-planning-context', projectId, planningReferenceDate],
+    queryFn: () => getProjectPlanningContext(projectId!, planningReferenceDate),
+    enabled: !isGroup && Boolean(projectId && data)
   });
   const { data: qualityDeviations = [], isLoading: qualityDeviationsLoading } = useQuery<ProjectDeviation[]>({
     queryKey: ['qualidade', 'project-deviations', projectId],
@@ -626,11 +694,33 @@ export function ProjectDetailDashboard({
     },
     onSettled: () => setDeletingManualCostId(null)
   });
+  const createProjectNoteMutation = useMutation({
+    mutationFn: (content: string) => {
+      if (!projectId) throw new Error('Abra uma missão individual para adicionar a nota.');
+      return createProjectManagementNote(projectId, content);
+    },
+    onSuccess: (note) => {
+      queryClient.setQueryData<ProjectManagementNote[]>(projectNotesKey, current => [note, ...(current ?? [])]);
+      setProjectNoteContent('');
+      setProjectNoteError(null);
+    },
+    onError: (error: unknown) => {
+      setProjectNoteError(mutationErrorMessage(error, 'Não foi possível adicionar a nota.'));
+    }
+  });
   const submitManualCost = handleSubmit(values => {
     if (!canManageManualCosts || isGroup || createManualCostMutation.isPending) return;
     setManualCostError(null);
     createManualCostMutation.mutate(manualCostFormValuesToPayload(values));
   });
+
+  function submitProjectNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const content = projectNoteContent.trim();
+    if (!canManageProjectNotes || isGroup || !content || createProjectNoteMutation.isPending) return;
+    setProjectNoteError(null);
+    createProjectNoteMutation.mutate(content);
+  }
 
   function closeSchedule() {
     setScheduleProject(null);
@@ -728,6 +818,32 @@ export function ProjectDetailDashboard({
           </div>
         ) : null}
       </div>
+
+      {!isGroup ? (
+        <div className="page-card acp-det-planning" data-acp-planning-context>
+          <div>
+            <span className="acp-det-sub">Planejamento do Efetivo</span>
+            {planningContextLoading ? <p className="placeholder-copy">Carregando missão oficial…</p>
+              : planningContext ? (
+                <>
+                  <strong>{planningContext.collaborators.length} colaborador(es) planejado(s)</strong>
+                  <p>
+                    Execução de {fmtDate(planningContext.dates.executionStartDate)} a {fmtDate(planningContext.dates.executionEndDate)}
+                    {' · '}plano rev. {planningContext.planRevision}
+                  </p>
+                </>
+              ) : <p className="placeholder-copy">Sem missão oficial vigente na data de referência.</p>}
+          </div>
+          {planningContext ? (
+            <div className="acp-det-planning-team">
+              {planningContext.collaborators.map(collaborator => (
+                <span key={collaborator.id}>{collaborator.name}<small>{collaborator.jobRole.name}</small></span>
+              ))}
+              {planningContext.needsReplanning ? <em>Replanejamento necessário{planningContext.replanningReason ? `: ${planningContext.replanningReason}` : ''}</em> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="acp-det-cols">
         {/* Coluna 1 */}
@@ -1017,11 +1133,26 @@ export function ProjectDetailDashboard({
             <ProgressHistoryChart points={data.progressHistory} />
 
             <div className="acp-det-two">
-              <div><span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos relatórios de execução.">Standby</HelpTip></span><strong>{data.standby.count}</strong><span className="acp-det-kpi-sub">dia(s)</span></div>
+              <div className="acp-det-standby-kpi">
+                <span className="acp-det-kpi-label"><HelpTip help="Número de dias com parada (standby) registrada nos relatórios de execução.">Standby</HelpTip></span>
+                <strong>{data.standby.count}</strong>
+                <span className="acp-det-kpi-sub">dia(s)</span>
+                {!isGroup ? (
+                  <button
+                    type="button"
+                    className="mini-btn alt acp-standby-history-trigger"
+                    aria-haspopup="dialog"
+                    data-acp-standby-history-trigger
+                    onClick={() => setStandbyHistoryOpen(true)}
+                  >
+                    Ver histórico
+                  </button>
+                ) : null}
+              </div>
               <div><span className="acp-det-kpi-label"><HelpTip help="Soma das horas-homem de stand-by de todos os relatórios de execução do projeto, multiplicando o tempo pela equipe do turno.">Hora total parada</HelpTip></span><strong>{fmtHM(data.standby.minutes)}</strong></div>
             </div>
 
-            <div className="acp-det-sub"><HelpTip help="Status dos últimos 5 dias com relatório de execução: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
+            <div className="acp-det-sub"><HelpTip help="Status dos dias mais recentes com relatório de execução: verde = trabalhado, amarelo = trabalhado com standby, vermelho = totalmente parado (standby cobrindo a jornada). Passe o mouse para ver as horas.">Últimos dias</HelpTip></div>
             <div className="acp-det-dots">
               {data.ultimosDias.length === 0 ? (
                 <span className="placeholder-copy">Sem relatórios de execução.</span>
@@ -1057,6 +1188,14 @@ export function ProjectDetailDashboard({
           <div className="page-card acp-det-block">
             <div className="acp-det-sub"><HelpTip help="Escopo vendido informado manualmente (aba Cronograma): serviços, sistemas e quantitativos, com o peso de cada serviço no avanço.">Escopo cadastrado</HelpTip></div>
             <PlannedScopeView scope={effectiveScope} />
+            {!isGroup && projectId ? (
+              <div className="acp-mission-reports-action">
+                <ProjectReportsDialog
+                  projectId={projectId}
+                  missionLabel={`Missão ${h.code} · ${h.clientName}`}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1150,6 +1289,60 @@ export function ProjectDetailDashboard({
         </div>
       ) : null}
 
+      {!isGroup ? (
+        <section className="page-card acp-project-notes" data-acp-project-notes aria-labelledby="acp-project-notes-title">
+          <div className="acp-project-notes-head">
+            <h3 id="acp-project-notes-title">Notas da gestão</h3>
+            <span>{projectNotes.length} {projectNotes.length === 1 ? 'nota' : 'notas'}</span>
+          </div>
+
+          {canManageProjectNotes ? (
+            <form className="acp-project-note-form" onSubmit={submitProjectNote}>
+              <div className="field-group acp-project-note-field">
+                <label className="sr-only" htmlFor="acp-project-note-content">Nova nota</label>
+                <textarea
+                  id="acp-project-note-content"
+                  value={projectNoteContent}
+                  onChange={event => setProjectNoteContent(event.target.value)}
+                  maxLength={2000}
+                  rows={2}
+                  placeholder="Adicionar uma nota…"
+                  disabled={createProjectNoteMutation.isPending}
+                />
+              </div>
+              <button
+                type="submit"
+                className="mini-btn"
+                disabled={!projectNoteContent.trim() || createProjectNoteMutation.isPending}
+              >
+                {createProjectNoteMutation.isPending ? 'Adicionando…' : 'Adicionar'}
+              </button>
+            </form>
+          ) : null}
+
+          {projectNoteError ? <div className="form-error" role="alert">{projectNoteError}</div> : null}
+          {projectNotesLoadError ? (
+            <div className="form-error" role="alert">Não foi possível carregar as notas.</div>
+          ) : projectNotesLoading ? (
+            <div className="placeholder-copy">Carregando notas…</div>
+          ) : projectNotes.length === 0 ? (
+            <div className="placeholder-copy">Nenhuma nota adicionada.</div>
+          ) : (
+            <ol className="acp-project-note-list">
+              {projectNotes.map(note => (
+                <li key={note.id}>
+                  <div className="acp-project-note-meta">
+                    <strong>{note.author.name}</strong>
+                    <time dateTime={note.createdAt}>{fmtDateTime(note.createdAt)}</time>
+                  </div>
+                  <p>{note.content}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      ) : null}
+
       <div className="page-card acp-det-block">
         <details className="acp-det-equips-details" open>
           <summary className="acp-det-collabs-summary">
@@ -1183,7 +1376,7 @@ export function ProjectDetailDashboard({
             <div className="acp-det-collab-body">
               <div className="acp-det-collab-context" role="note">
                 <strong>Base da apropriação: ponto de {fmtDate(data.maoDeObra.periodStart)} a {fmtDate(data.maoDeObra.periodEnd)}</strong>
-                <span>As horas, o custo e o custo/hora abaixo usam o mesmo rateio financeiro.</span>
+                <span>O deslocamento já está incluído nas horas e no custo total; aparece separado apenas para detalhamento.</span>
               </div>
 
               <div className="acp-table-wrap">
@@ -1193,13 +1386,16 @@ export function ProjectDetailDashboard({
                       <th>Nome</th>
                       <th>Cargo</th>
                       <th style={{ textAlign: 'right' }}>
-                        <HelpTip help="Horas do ponto atribuídas ao projeto pelo mesmo rateio que calculou o custo. Em um grupo, soma a apropriação das missões.">Horas apropriadas</HelpTip>
+                        <HelpTip help="Horas do ponto atribuídas ao projeto pelo mesmo rateio que calculou o custo. Em um grupo, soma a apropriação das missões. Clique no valor para conferir os dias e RDOs.">Horas apropriadas</HelpTip>
                       </th>
                       <th style={{ textAlign: 'right' }}>
                         <HelpTip help="Parcela do custo total do colaborador atribuída ao projeto no período do ponto.">Custo apropriado</HelpTip>
                       </th>
                       <th style={{ textAlign: 'right' }}>
                         <HelpTip help="Custo apropriado dividido pelas horas apropriadas. Por isso este valor pode variar entre colaboradores com salários-base próximos.">Custo efetivo/h</HelpTip>
+                      </th>
+                      <th style={{ textAlign: 'right' }}>
+                        <HelpTip help="Horas apropriadas em dias marcados como viagem. O valor abaixo é a parcela proporcional do custo apropriado e não representa um custo adicional.">Deslocamento</HelpTip>
                       </th>
                     </tr>
                   </thead>
@@ -1208,10 +1404,29 @@ export function ProjectDetailDashboard({
                       <tr key={i}>
                         <td>{c.name}</td>
                         <td data-label="Cargo">{c.role}</td>
-                        <td data-label="Horas apropriadas" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtHours(c.horasApropriadas)}</td>
+                        <td data-label="Horas apropriadas" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {c.horasApropriadas != null && c.horasApropriadas > 0 ? (
+                            <button
+                              type="button"
+                              className="acp-collaborator-hours-trigger"
+                              onClick={() => setAppropriationCollaborator(c)}
+                              title={`Conferir os dias apropriados de ${c.name}`}
+                            >
+                              {fmtHours(c.horasApropriadas)}
+                            </button>
+                          ) : fmtHours(c.horasApropriadas)}
+                        </td>
                         <td data-label="Custo apropriado" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{brl(c.custo)}</td>
                         <td data-label="Custo efetivo/h" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {c.custoHora != null ? `${brl(c.custoHora)}/h` : '—'}
+                        </td>
+                        <td data-label="Deslocamento" style={{ textAlign: 'right' }}>
+                          {c.horasDeslocamento > 0 ? (
+                            <span className="acp-det-collab-travel">
+                              <strong>{fmtHours(c.horasDeslocamento)}</strong>
+                              {c.custoDeslocamento != null ? <small>{brl(c.custoDeslocamento)} do custo</small> : null}
+                            </span>
+                          ) : '—'}
                         </td>
                       </tr>
                     ))}
@@ -1266,6 +1481,18 @@ export function ProjectDetailDashboard({
         <div><span><HelpTip help="Estimativa realista: projeta o término pela velocidade de avanço acumulada até a data de referência dos dias corridos.">Previsão pelo ritmo</HelpTip></span><strong>{fmtDate(data.footer.projectedEndByPace)}</strong></div>
       </div>
 
+      <ProjectStandbyHistoryDialog
+        project={standbyHistoryOpen && !isGroup && projectId
+          ? { projectId, code: h.code }
+          : null}
+        onClose={() => setStandbyHistoryOpen(false)}
+      />
+
+      <ProjectCollaboratorHoursDialog
+        collaborator={appropriationCollaborator}
+        onClose={() => setAppropriationCollaborator(null)}
+      />
+
       <Modal open={scheduleProject !== null} onClose={closeSchedule} ariaLabelledBy="acp-detail-schedule-title" panelClassName="modal-card acp-manage-card">
         <div className="acp-manage">
           <div className="acp-manage-head">
@@ -1313,6 +1540,11 @@ export function ProjectDetailDashboard({
         user={progressHistoryNoveltyUser}
         enabled={additionalProposalsNoveltyActive && hasAdditionalProposalContribution}
         onSeen={() => setAdditionalProposalsNoveltyActive(false)}
+      />
+      <ProjectStandbyHistoryNovelty
+        user={progressHistoryNoveltyUser}
+        enabled={standbyHistoryNoveltyActive && !isGroup && Boolean(projectId)}
+        onSeen={() => setStandbyHistoryNoveltyActive(false)}
       />
     </div>
   );

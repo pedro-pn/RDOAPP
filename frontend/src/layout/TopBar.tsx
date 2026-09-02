@@ -45,7 +45,7 @@ function LegacyTopBar({
   actions,
   step,
   leading,
-  showLogo = false
+  showLogo = true
 }: LegacyTopBarProps) {
   const { user } = useAuth();
   const location = useLocation();

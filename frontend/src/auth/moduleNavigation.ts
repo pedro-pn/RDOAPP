@@ -6,6 +6,8 @@ const LAST_MODULE_KEY_PREFIX = 'filtrovali:last-module:';
 const HUB_FIRST_LOGIN_TUTORIAL_KEY_PREFIX = 'filtrovali:hub-first-login-tutorial:';
 const ACOMPANHAMENTO_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-novelty:';
 const QUALIDADE_NOVELTY_KEY_PREFIX = 'filtrovali:qualidade-novelty:v1:';
+const EFETIVO_HUB_NOVELTY_KEY_PREFIX = 'filtrovali:efetivo-hub-novelty:v1:';
+const EFETIVO_CONTROL_NOVELTY_KEY_PREFIX = 'filtrovali:efetivo-control-novelty:v1:';
 const ACOMPANHAMENTO_GROUPING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-grouping-novelty:v1:';
 const ACOMPANHAMENTO_GROUP_RENAME_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-group-rename-novelty:v1:';
 const ACOMPANHAMENTO_PROGRESS_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-progress-history-novelty:v1:';
@@ -13,6 +15,7 @@ const ACOMPANHAMENTO_WEEKLY_TARGET_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamen
 const ACOMPANHAMENTO_MANUAL_COST_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-manual-cost-novelty:v1:';
 const ACOMPANHAMENTO_PROJECT_DEVIATIONS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-project-deviations-novelty:v1:';
 const ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-additional-proposals-novelty:v1:';
+const ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-standby-history-novelty:v1:';
 // v2: a v1 podia ser marcada como vista antes de o driver realmente abrir.
 const ACOMPANHAMENTO_TRACKING_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-tracking-novelty:v2:';
 const ACOMPANHAMENTO_FINALIZED_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-finalized-novelty:v2:';
@@ -23,6 +26,7 @@ const RDO_DDS_NOVELTY_KEY_PREFIX = 'filtrovali:rdo-dds-novelty:v2:';
 const PROJECT_INTAKE_NOVELTY_KEY_PREFIX = 'filtrovali:project-intake-novelty:v1:';
 const PONTOMAIS_SYNC_NOVELTY_KEY_PREFIX = 'filtrovali:pontomais-sync-novelty:v1:';
 const ACOMPANHAMENTO_LABOR_POLICY_NOVELTY_KEY_PREFIX = 'filtrovali:acompanhamento-labor-policy-novelty:v1:';
+const ROMANEIO_QR_NOVELTY_KEY_PREFIX = 'filtrovali:romaneio-qr-novelty:v1:';
 
 function storageKey(user: Pick<AuthUser, 'id'>) {
   return `${LAST_MODULE_KEY_PREFIX}${user.id}`;
@@ -38,6 +42,47 @@ function acompanhamentoNoveltyStorageKey(user: Pick<AuthUser, 'id'>) {
 
 function qualidadeNoveltyStorageKey(user: Pick<AuthUser, 'id'>) {
   return `${QUALIDADE_NOVELTY_KEY_PREFIX}${user.id}`;
+}
+
+// Campanhas do Efetivo implantadas em 21/08/2026 e válidas por 10 dias corridos.
+export const EFETIVO_NOVELTY_IMPLEMENTED_AT = '2026-08-21';
+const EFETIVO_NOVELTY_EXPIRES_AT = new Date('2026-08-31T23:59:59-03:00');
+
+export type EfetivoControlNoveltyId = 'operational-role' | 'termination-date';
+
+export function userHasEfetivoModule(user: AuthUser | null | undefined) {
+  return availableHubModulesForUser(user).some(module => module.id === 'efetivo');
+}
+
+export function shouldShowEfetivoHubNovelty(user: AuthUser | null | undefined) {
+  if (!user || !userHasEfetivoModule(user) || Date.now() > EFETIVO_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${EFETIVO_HUB_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markEfetivoHubNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (user) safeLocalStorageSet(`${EFETIVO_HUB_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
+export function shouldShowEfetivoControlNovelty(user: Pick<AuthUser, 'id'> | null | undefined, control: EfetivoControlNoveltyId) {
+  if (!user || Date.now() > EFETIVO_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${EFETIVO_CONTROL_NOVELTY_KEY_PREFIX}${control}:${user.id}`) !== '1';
+}
+
+export function markEfetivoControlNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined, control: EfetivoControlNoveltyId) {
+  if (user) safeLocalStorageSet(`${EFETIVO_CONTROL_NOVELTY_KEY_PREFIX}${control}:${user.id}`, '1');
+}
+
+// Campanha do QR code no romaneio implantada em 27/08/2026 e válida por 10 dias corridos.
+export const ROMANEIO_QR_NOVELTY_IMPLEMENTED_AT = '2026-08-27';
+const ROMANEIO_QR_NOVELTY_EXPIRES_AT = new Date('2026-09-06T23:59:59-03:00');
+
+export function shouldShowRomaneioQrNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user || Date.now() > ROMANEIO_QR_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ROMANEIO_QR_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markRomaneioQrNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (user) safeLocalStorageSet(`${ROMANEIO_QR_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
 function safeLocalStorageGet(key: string) {
@@ -239,6 +284,21 @@ export function markAcompanhamentoAdditionalProposalsNoveltySeen(user: Pick<Auth
   safeLocalStorageSet(`${ACOMPANHAMENTO_ADDITIONAL_PROPOSALS_NOVELTY_KEY_PREFIX}${user.id}`, '1');
 }
 
+// Novidade do histórico de standby nos cards de projeto.
+// Validade global de 10 dias corridos após a implantação (25/08/2026 a 04/09/2026).
+const ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_EXPIRES_AT = new Date('2026-09-04T23:59:59-03:00');
+
+export function shouldShowAcompanhamentoStandbyHistoryNovelty(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return false;
+  if (Date.now() > ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_EXPIRES_AT.getTime()) return false;
+  return safeLocalStorageGet(`${ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_KEY_PREFIX}${user.id}`) !== '1';
+}
+
+export function markAcompanhamentoStandbyHistoryNoveltySeen(user: Pick<AuthUser, 'id'> | null | undefined) {
+  if (!user) return;
+  safeLocalStorageSet(`${ACOMPANHAMENTO_STANDBY_HISTORY_NOVELTY_KEY_PREFIX}${user.id}`, '1');
+}
+
 // Campanhas das novas ações de arquivamento/conferência e do aviso de missão finalizada.
 // Validade global de 10 dias corridos após a implantação (06/08/2026 a 16/08/2026).
 const ACOMPANHAMENTO_TRACKING_NOVELTY_EXPIRES_AT = new Date('2026-08-16T23:59:59-03:00');
@@ -373,6 +433,7 @@ export function preferredEntryPath(user: AuthUser | null | undefined) {
   if (!user) return '/login';
   if (isClientAccount(user)) return '/rdo/cliente';
   if (shouldShowQualidadeNovelty(user)) return '/modulos';
+  if (shouldShowEfetivoHubNovelty(user)) return '/modulos';
   if (shouldOpenHubOnFirstLogin(user)) return '/modulos';
   const remembered = rememberedModulePath(user);
   if (remembered) return remembered;

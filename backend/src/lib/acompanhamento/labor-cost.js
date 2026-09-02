@@ -6,10 +6,15 @@
  *
  * FOLHA (custo mensal do colaborador, por mês):
  *  - dias trabalhados = horas normais do ponto ÷ 8,8 (HORAS_POR_DIA).
- *  - diasCliente (periculosidade) = dias COM projeto (RDO). Em projeto não-offshore, a configuração
+ *  - há apropriação quando o dia com ponto tem relatório nominal; sem relatório no dia, a marcação
+ *    da missão/EM VIAGEM precisa ser confirmada pela janela individual do Efetivo oficial. Projetos
+ *    legados usam janela global somente para quem aparece nominalmente em RDO do próprio projeto.
+ *  - em dias úteis apropriados, o total considerado (normal + HE) tem piso de 8,8h (8h48);
+ *    marcações maiores e fins de semana preservam o total real do ponto.
+ *  - diasCliente (periculosidade) = dias COM projeto (RDO ou viagem confirmada). Em projeto não-offshore, a configuração
  *    manual por colaborador define se o dia entra como diasFora (dorme fora) ou diasCasa (dorme em
- *    casa/gratificação). Dia com ponto e sem RDO não alimenta verbas variáveis.
- *  - Dia de semana sem ponto = folga: 8,8h zerados (só no denominador do HH).
+ *    casa/gratificação). Dia com ponto sem nenhuma evidência de projeto não alimenta verbas variáveis.
+ *  - Dia de semana sem ponto e sem alocação = folga: 8,8h zerados (só no denominador do HH).
  *  - HH = folha ÷ (horas do ponto + horas de folga).
  *
  * CUSTO POR PROJETO: recalcula o motor com as horas de RDO do projeto para os adicionais/HE
@@ -22,10 +27,40 @@ import prisma from '../prisma.js';
 import { computeMonthlyCost } from './cost-engine.js';
 import { getAnnualCollaboratorCosts } from './settings.js';
 import { buildProjectTagResolver, isPontoTravelTag } from '../pontomais/normalize.js';
+import { checkWorkforceAvailability } from '../collaborators/availability-service.js';
+import { collaboratorRoleAtDate, collaboratorRoleSegments } from '../collaborators/job-role-history.js';
+import { annotateActualRowsWithWorkforceConflicts, classifyActualWorkforceDays } from '../workforce/actual-conflicts.js';
+import { allocationPeriods } from '../efetivo/planning/allocation-period.js';
 
 export { isPontoTravelTag } from '../pontomais/normalize.js';
 
 const HORAS_POR_DIA = 8.8;
+
+function isWeekday(dateKey) {
+  const date = dateFromYmd(dateKey);
+  if (Number.isNaN(date.getTime())) return false;
+  const day = date.getUTCDay();
+  return day >= 1 && day <= 5;
+}
+
+function costNormalHoursForDay(
+  dateKey,
+  recordedNormalHours,
+  recordedHe70Hours,
+  recordedHe100Hours,
+  hasProjectAllocation
+) {
+  if (!hasProjectAllocation || !isWeekday(dateKey)) {
+    return recordedNormalHours;
+  }
+  const recordedOvertimeHours = recordedHe70Hours + recordedHe100Hours;
+  const recordedTotalHours = recordedNormalHours + recordedOvertimeHours;
+  if (recordedTotalHours <= 0) return 0;
+
+  // O piso substitui o total menor; ele não é somado às horas do ponto. Mantemos a HE real e
+  // completamos somente a parcela normal necessária para o total chegar a 8h48.
+  return Math.max(recordedNormalHours, HORAS_POR_DIA - recordedOvertimeHours);
+}
 
 function dateKeyUTC(value) {
   return new Date(value).toISOString().slice(0, 10);
@@ -424,7 +459,7 @@ export function filterIgnoredPontoPeriods(periods = [], ignoredExternalEmployeeI
   ));
 }
 
-// Cargo (JobRole.name = Collaborator.role) -> parâmetros efetivos por data. O cargo herda do modelo
+// Cargo canônico (Collaborator.jobRoleId -> JobRole) -> parâmetros efetivos por data. O cargo herda do modelo
 // que estava vigente na data calculada e sobrescreve o salário base. A insalubridade vem do salário
 // mínimo no motor novo.
 export function buildRoleParamsResolver({ roles = [], models = [] } = {}) {
@@ -492,6 +527,18 @@ export function buildRoleParamsResolver({ roles = [], models = [] } = {}) {
   return { paramsFor, segmentsFor, hasProfile };
 }
 
+export function buildCollaboratorRoleCostSegments({ collaborator, roleParams, startKey, endKey }) {
+  return collaboratorRoleSegments(collaborator, startKey, endKey).flatMap(roleSegment => (
+    roleParams.segmentsFor(roleSegment.roleName, roleSegment.startKey, roleSegment.endKey)
+      .map(parameterSegment => ({
+        ...parameterSegment,
+        jobRoleId: roleSegment.jobRoleId,
+        roleName: roleSegment.roleName,
+        roleEffectiveDate: roleSegment.effectiveDate
+      }))
+  ));
+}
+
 async function getRoleParamsResolver() {
   const [roles, models] = await Promise.all([
     prisma.jobRole.findMany({
@@ -526,7 +573,13 @@ export function rdoDataByCollaboratorFromReports(reports) {
       const sleepMode = sleepModeFor(report.project, link.collaboratorId);
       let c = map.get(link.collaboratorId);
       if (!c) {
-        c = { byProject: new Map(), dayProjects: new Map(), mobilizationProjectsByDate: new Map() };
+        c = {
+          byProject: new Map(),
+          dayProjects: new Map(),
+          nominalRdoProjectsByDate: new Map(),
+          rdoProjectIds: new Set(),
+          mobilizationProjectsByDate: new Map()
+        };
         map.set(link.collaboratorId, c);
       }
       let p = c.byProject.get(report.projectId);
@@ -538,7 +591,33 @@ export function rdoDataByCollaboratorFromReports(reports) {
       }
       const existing = projectsForDay.get(report.projectId);
       if (!existing || workedHours > existing.hours) {
-        projectsForDay.set(report.projectId, { projectId: report.projectId, hours: workedHours, offshore, sleepMode });
+        projectsForDay.set(report.projectId, {
+          projectId: report.projectId,
+          hours: workedHours,
+          offshore,
+          sleepMode,
+          ...(report.project?.code ? { projectCode: String(report.project.code) } : {}),
+          ...(report.reportType === 'RDO' && report.sequenceNumber != null
+            ? { rdoNumber: report.sequenceNumber }
+            : existing?.rdoNumber != null ? { rdoNumber: existing.rdoNumber } : {})
+        });
+      } else if (report.reportType === 'RDO' && report.sequenceNumber != null && existing.rdoNumber == null) {
+        // Um relatório de serviço do mesmo dia pode ter mais horas e continuar sendo a fonte da
+        // jornada, mas não deve apagar o número do RDO em que o colaborador também aparece.
+        projectsForDay.set(report.projectId, {
+          ...existing,
+          rdoNumber: report.sequenceNumber,
+          ...(report.project?.code ? { projectCode: String(report.project.code) } : {})
+        });
+      }
+      if (report.reportType === 'RDO') {
+        c.rdoProjectIds.add(report.projectId);
+        let nominalProjects = c.nominalRdoProjectsByDate.get(dk);
+        if (!nominalProjects) {
+          nominalProjects = new Set();
+          c.nominalRdoProjectsByDate.set(dk, nominalProjects);
+        }
+        nominalProjects.add(report.projectId);
       }
       if (report.reportType === 'RDO' && mobilizationDate && dk > mobilizationDate) {
         let mobilizationProjects = c.mobilizationProjectsByDate.get(mobilizationDate);
@@ -558,21 +637,26 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
   const reports = await prisma.report.findMany({
     where: {
       deletedAt: null,
-      reportDate: { gte: periodStart, lt: periodEndExclusive },
       OR: [
         { reportType: 'RDO' },
-        { daytimeWorkedMinutes: { gt: 0 } },
-        { nighttimeWorkedMinutes: { gt: 0 } },
-        { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
+        {
+          reportDate: { gte: periodStart, lt: periodEndExclusive },
+          OR: [
+            { daytimeWorkedMinutes: { gt: 0 } },
+            { nighttimeWorkedMinutes: { gt: 0 } },
+            { services: { some: { startTime: { not: null }, endTime: { not: null } } } }
+          ]
+        }
       ]
     },
     select: {
       reportType: true,
+      sequenceNumber: true,
       projectId: true,
       reportDate: true,
       daytimeWorkedMinutes: true,
       nighttimeWorkedMinutes: true,
-      project: { select: { offshore: true, laborSleepModeByCollaborator: true, mobilizationDate: true } },
+      project: { select: { code: true, offshore: true, laborSleepModeByCollaborator: true, mobilizationDate: true } },
       collaborators: { select: { collaboratorId: true } },
       services: { select: { startTime: true, endTime: true } }
     }
@@ -581,13 +665,17 @@ async function getRdoDataByCollaborator(periodStart, periodEndExclusive) {
 }
 
 async function getProjectAllocationContext() {
-  const [projects, tagAliases, missionGroups] = await Promise.all([
+  const [projects, tagAliases, missionGroups, effectiveAllocations, effectiveMissions] = await Promise.all([
     prisma.project.findMany({
       select: {
         id: true,
         code: true,
         offshore: true,
         laborSleepModeByCollaborator: true,
+        laborCollaboratorIds: true,
+        operatorId: true,
+        mobilizationDate: true,
+        demobilizationDate: true,
         deletedAt: true
       }
     }),
@@ -602,17 +690,206 @@ async function getProjectAllocationContext() {
         primaryLaborProjectId: true,
         members: { select: { projectId: true } }
       }
+    }),
+    prisma.efetivoMissionAllocation.findMany({
+      where: {
+        deletedAt: null,
+        mission: {
+          deletedAt: null,
+          scheduleStatus: 'CONFIRMED',
+          plan: { kind: 'OFFICIAL', status: 'ACTIVE' }
+        }
+      },
+      select: {
+        id: true,
+        collaboratorId: true,
+        deletedAt: true,
+        mobilizationDate: true,
+        demobilizationDate: true,
+        cycles: { select: { id: true, mobilizationDate: true, demobilizationDate: true } },
+        mission: {
+          select: {
+            id: true,
+            projectId: true,
+            scheduleStatus: true,
+            deletedAt: true,
+            mobilizationDate: true,
+            executionEndDate: true,
+            returnDate: true,
+            cycles: { select: { id: true, mobilizationDate: true, demobilizationDate: true } },
+            plan: { select: { kind: true, status: true } }
+          }
+        }
+      }
+    }),
+    prisma.efetivoMissionPlan.findMany({
+      where: {
+        deletedAt: null,
+        scheduleStatus: 'CONFIRMED',
+        plan: { kind: 'OFFICIAL', status: 'ACTIVE' }
+      },
+      select: { projectId: true }
     })
   ]);
+  const effectiveMissionProjectIds = new Set(effectiveMissions.map(mission => mission.projectId));
   return {
     projects,
     resolveTag: buildProjectTagResolver({ projects, tagAliases }),
-    missionGroupProjectsByProjectId: buildMissionGroupProjectIndex(missionGroups)
+    missionGroupProjectsByProjectId: buildMissionGroupProjectIndex(missionGroups),
+    scheduleWindows: buildScheduleWindows(projects, effectiveMissionProjectIds),
+    effectiveAllocationIndex: buildEffectiveAllocationIndex(effectiveAllocations)
   };
+}
+
+/*
+ * Efetivo oficial: ciclos individuais prevalecem sobre os ciclos gerais da missão. Quando não
+ * há personalização, o colaborador herda todos os ciclos do projeto, preservando as pausas.
+ * Cenários, missões não confirmadas e registros excluídos são filtrados na consulta.
+ */
+export function buildEffectiveAllocationIndex(allocations = []) {
+  const result = new Map();
+  for (const item of allocations || []) {
+    if (!item?.collaboratorId || !item?.mission?.projectId) continue;
+    if (item.deletedAt || item.mission.deletedAt) continue;
+    if (item.mission.scheduleStatus && item.mission.scheduleStatus !== 'CONFIRMED') continue;
+    if (item.mission.plan && (
+      item.mission.plan.kind !== 'OFFICIAL'
+      || item.mission.plan.status !== 'ACTIVE'
+    )) continue;
+    let periods;
+    try {
+      periods = allocationPeriods(item, item.mission);
+    } catch {
+      continue;
+    }
+    let context = result.get(item.collaboratorId);
+    if (!context) {
+      context = { projectIds: new Set(), windows: [] };
+      result.set(item.collaboratorId, context);
+    }
+    context.projectIds.add(item.mission.projectId);
+    for (const period of periods) {
+      if (!period?.startDate || !period?.endDate || period.startDate > period.endDate) continue;
+      context.windows.push({
+        allocationId: item.id || null,
+        cycleId: period.id || null,
+        missionId: item.mission.id || null,
+        projectId: item.mission.projectId,
+        startKey: period.startDate,
+        endKey: period.endDate
+      });
+    }
+  }
+  for (const context of result.values()) {
+    context.windows.sort((left, right) => (
+      left.startKey.localeCompare(right.startKey)
+      || left.endKey.localeCompare(right.endKey)
+      || String(left.projectId).localeCompare(String(right.projectId))
+    ));
+  }
+  return result;
+}
+
+export function effectiveProjectsForDay({
+  effectiveAllocationIndex = new Map(),
+  collaboratorId = null,
+  dateKey = null
+} = {}) {
+  if (!collaboratorId || !dateKey) return [];
+  const context = effectiveAllocationIndex.get(collaboratorId);
+  if (!context) return [];
+  return [...new Set(context.windows
+    .filter(window => dateKey >= window.startKey && dateKey <= window.endKey)
+    .map(window => window.projectId))].sort();
+}
+
+export function effectiveProjectsForCollaborator(effectiveAllocationIndex = new Map(), collaboratorId = null) {
+  return collaboratorId && effectiveAllocationIndex.get(collaboratorId)
+    ? [...effectiveAllocationIndex.get(collaboratorId).projectIds].sort()
+    : [];
+}
+
+/*
+ * Janelas de cronograma: só entram projetos com mobilização E desmobilização preenchidas.
+ *
+ * A desmobilização é preenchida depois do fato, então é dado mais forte que uma previsão. Enquanto
+ * ela estiver vazia, a obra está em andamento e a janela global não é usada. Projetos presentes no
+ * Efetivo oficial também são excluídos daqui: para eles só valem as datas individuais do Efetivo.
+ */
+export function buildScheduleWindows(projects = [], excludedProjectIds = new Set()) {
+  const excluded = excludedProjectIds instanceof Set
+    ? excludedProjectIds
+    : new Set(excludedProjectIds || []);
+  return projects
+    .filter(project => (
+      project?.id
+      && !excluded.has(project.id)
+      && project.mobilizationDate
+      && project.demobilizationDate
+    ))
+    .map(project => {
+      const startKey = dateKeyUTC(project.mobilizationDate);
+      const endKey = dateKeyUTC(project.demobilizationDate);
+      return startKey && endKey && startKey <= endKey
+        ? {
+          projectId: project.id,
+          startKey,
+          endKey
+        }
+        : null;
+    })
+    .filter(Boolean);
+}
+
+/*
+ * Fallback legado: a janela global do projeto só é elegível para quem aparece nominalmente em ao
+ * menos um RDO do próprio projeto dentro dela. Operador e lista manual do Project não substituem o
+ * Efetivo individual; são campos históricos que causavam os falsos positivos desta regra.
+ *
+ * O recorte por janela é o que impede o vazamento histórico: quem fez um RDO do projeto em março
+ * não vira elegível para a janela de julho. Quem entrou só por RDO fora da janela já está coberto
+ * pela evidência do próprio RDO.
+ */
+export function buildScheduleWindowEligibility(scheduleWindows = [], rdoDataByCollaborator = new Map()) {
+  const eligibleByProject = new Map(scheduleWindows.map(window => [window.projectId, new Set()]));
+
+  for (const [collaboratorId, rdo] of rdoDataByCollaborator) {
+    for (const [dateKey, projectIds] of rdo.nominalRdoProjectsByDate || new Map()) {
+      for (const projectId of projectIds) {
+        const window = scheduleWindows.find(item => item.projectId === projectId);
+        if (!window || dateKey < window.startKey || dateKey > window.endKey) continue;
+        eligibleByProject.get(projectId)?.add(collaboratorId);
+      }
+    }
+  }
+  return eligibleByProject;
+}
+
+/*
+ * Janelas que cobrem um dia e para as quais o colaborador é elegível. Duas ou mais são devolvidas
+ * na íntegra de propósito: a decisão é do chamador, que transforma o empate em pendência em vez de
+ * chutar um projeto.
+ */
+export function scheduleWindowsForDay({
+  scheduleWindows = [],
+  eligibleByProject = new Map(),
+  collaboratorId = null,
+  dateKey = null
+} = {}) {
+  if (!collaboratorId || !dateKey) return [];
+  return scheduleWindows
+    .filter(window => (
+      dateKey >= window.startKey
+      && dateKey <= window.endKey
+      && eligibleByProject.get(window.projectId)?.has(collaboratorId)
+    ))
+    .map(window => window.projectId)
+    .sort();
 }
 
 function projectMetaForCollaborator(projects, collaboratorId) {
   return new Map(projects.map(project => [project.id, {
+    code: project.code ? String(project.code) : null,
     offshore: Boolean(project.offshore),
     sleepMode: sleepModeFor(project, collaboratorId)
   }]));
@@ -716,52 +993,6 @@ function explicitMissionGroupDecision({
   };
 }
 
-function mobilizationTravelDecision({
-  projectIds,
-  missionGroupProjectsByProjectId,
-  allocationAxis
-}) {
-  const candidates = [...new Set(projectIds || [])].filter(Boolean).sort();
-  if (candidates.length === 0) return null;
-  if (candidates.length === 1) {
-    return {
-      allocations: [{ projectId: candidates[0], weight: 1, rdo: null }],
-      reason: 'MOBILIZATION_FUTURE_RDO'
-    };
-  }
-
-  const groups = candidates.map(projectId => missionGroupProjectsByProjectId.get(projectId));
-  const group = groups[0] || null;
-  const sameGroup = group && groups.every(item => item === group);
-  const members = missionGroupMembers(group);
-  if (sameGroup && members && candidates.every(projectId => members.has(projectId))) {
-    if (group.laborAllocationMode === 'CONSOLIDATE_PRIMARY' && group.primaryLaborProjectId) {
-      return {
-        allocations: [{ projectId: group.primaryLaborProjectId, weight: 1, rdo: null }],
-        reason: 'MOBILIZATION_CONSOLIDATE_PRIMARY'
-      };
-    }
-    if (group.laborAllocationMode === 'SHARED_EXECUTION') {
-      return {
-        allocations: candidates.map(projectId => ({
-          projectId,
-          weight: allocationAxis === 'ANALYTICAL' ? 1 : 1 / candidates.length,
-          rdo: null
-        })),
-        reason: allocationAxis === 'ANALYTICAL'
-          ? 'MOBILIZATION_SHARED_ANALYTICAL'
-          : 'MOBILIZATION_SHARED_ACCOUNTING'
-      };
-    }
-  }
-
-  return {
-    allocations: [],
-    candidateProjectIds: candidates,
-    reason: 'MOBILIZATION_RDO_AMBIGUOUS'
-  };
-}
-
 export function buildDailyProjectWeights({
   tags = [],
   rdoProjects = new Map(),
@@ -769,6 +1000,8 @@ export function buildDailyProjectWeights({
   manualProjectId = null,
   manualProjectIds = null,
   mobilizationProjectIds = null,
+  effectiveProjectIds = [],
+  scheduleWindowProjectIds = [],
   missionGroupProjectsByProjectId = new Map(),
   allocationAxis = 'ACCOUNTING'
 } = {}) {
@@ -779,6 +1012,16 @@ export function buildDailyProjectWeights({
     ...(Array.isArray(manualProjectIds) ? manualProjectIds : []),
     ...(manualProjectId ? [manualProjectId] : [])
   ].filter(Boolean))].sort();
+  const taggedProjectIds = [...new Set((tags || []).map(resolveTag).filter(Boolean))].sort();
+  const effectiveIds = [...new Set((effectiveProjectIds || []).filter(Boolean))].sort();
+  const scheduledProjectIds = [...new Set(scheduleWindowProjectIds.filter(Boolean))].sort();
+  const taggedEffectiveProjectIds = taggedProjectIds.filter(projectId => effectiveIds.includes(projectId));
+  const taggedScheduledProjectIds = taggedProjectIds.filter(projectId => scheduledProjectIds.includes(projectId));
+  const hasTravelTag = (tags || []).some(isPontoTravelTag);
+
+  // A seleção explícita do gestor é uma resolução auditada e, por isso, vale mesmo quando o dia
+  // não possui RDO. Antes ela era lida somente depois do retorno NO_RDO_EVIDENCE, o que fazia o dia
+  // reaparecer na fila imediatamente após ser resolvido.
   if (selectedManualProjectIds.length > 0) {
     const selectedRdos = selectedManualProjectIds.map(projectId => rdoByProject.get(projectId)).filter(Boolean);
     const rdoTotal = selectedRdos.reduce((sum, item) => sum + Math.max(0, Number(item.hours) || 0), 0);
@@ -797,7 +1040,99 @@ export function buildDailyProjectWeights({
       reason: selectedManualProjectIds.length === 1 ? 'MANUAL_OVERRIDE' : 'MANUAL_SHARED_OVERRIDE'
     };
   }
-  const taggedProjectIds = [...new Set((tags || []).map(resolveTag).filter(Boolean))].sort();
+
+  /*
+   * Sem relatório no próprio dia, o Efetivo oficial é a fonte principal, mas não substitui a
+   * marcação do ponto. A janela individual autoriza uma missão somente quando o próprio ponto
+   * identifica a missão ou registra EM VIAGEM. Sem qualquer uma dessas evidências, o dia continua
+   * fora dos projetos e também não vira pendência.
+   */
+  if (rdoByProject.size === 0) {
+    if (taggedEffectiveProjectIds.length === 1) {
+      return {
+        allocations: [{ projectId: taggedEffectiveProjectIds[0], weight: 1, rdo: null }],
+        reason: 'EFFECTIVE_PROJECT_TAG_TRAVEL',
+        travelContext: true
+      };
+    }
+    if (taggedEffectiveProjectIds.length > 1) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...effectiveIds, ...taggedProjectIds])].sort(),
+        reason: 'EFFECTIVE_ALLOCATION_AMBIGUOUS'
+      };
+    }
+    if (effectiveIds.length === 1 && taggedProjectIds.length === 0 && hasTravelTag) {
+      return {
+        allocations: [{ projectId: effectiveIds[0], weight: 1, rdo: null }],
+        reason: 'EFFECTIVE_ALLOCATION_TRAVEL',
+        travelContext: true
+      };
+    }
+    if (effectiveIds.length > 0 && (taggedProjectIds.length > 0 || hasTravelTag)) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...effectiveIds, ...taggedProjectIds])].sort(),
+        reason: effectiveIds.length > 1
+          ? 'EFFECTIVE_ALLOCATION_AMBIGUOUS'
+          : 'EFFECTIVE_TAG_CONFLICT'
+      };
+    }
+
+    // Projetos antigos podem não existir no Efetivo. Neles, uma janela global fechada só fica
+    // disponível se o colaborador aparece nominalmente em RDO daquela mesma janela.
+    if (taggedScheduledProjectIds.length === 1) {
+      return {
+        allocations: [{ projectId: taggedScheduledProjectIds[0], weight: 1, rdo: null }],
+        reason: 'SCHEDULE_PROJECT_TAG_TRAVEL',
+        travelContext: true
+      };
+    }
+    if (taggedScheduledProjectIds.length > 1) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...scheduledProjectIds, ...taggedProjectIds])].sort(),
+        reason: 'SCHEDULE_WINDOW_AMBIGUOUS'
+      };
+    }
+    if (scheduledProjectIds.length === 1 && taggedProjectIds.length === 0 && hasTravelTag) {
+      return {
+        allocations: [{ projectId: scheduledProjectIds[0], weight: 1, rdo: null }],
+        reason: 'SCHEDULE_TRAVEL_TAG',
+        travelContext: true
+      };
+    }
+    if (scheduledProjectIds.length > 0 && (taggedProjectIds.length > 0 || hasTravelTag)) {
+      return {
+        allocations: [],
+        candidateProjectIds: [...new Set([...scheduledProjectIds, ...taggedProjectIds])].sort(),
+        reason: 'SCHEDULE_WINDOW_AMBIGUOUS'
+      };
+    }
+
+    const mobilizationIds = mobilizationProjectIds instanceof Set
+      ? [...mobilizationProjectIds]
+      : Array.isArray(mobilizationProjectIds) ? mobilizationProjectIds : [];
+    // Evidência histórica de outro dia não transforma o ponto atual em pendência. Só a data de
+    // mobilização nominal, inferida de um RDO real, é uma exceção útil para projetos legados.
+    const taggedMobilizationIds = taggedProjectIds.filter(projectId => mobilizationIds.includes(projectId));
+    const nominalCandidates = [...new Set([
+      ...taggedMobilizationIds,
+      ...(hasTravelTag ? mobilizationIds : [])
+    ])].filter(Boolean).sort();
+    if (nominalCandidates.length > 0) {
+      return {
+        allocations: [],
+        candidateProjectIds: nominalCandidates,
+        reason: 'RDO_PERIOD_MISMATCH'
+      };
+    }
+    return {
+      allocations: [],
+      candidateProjectIds: taggedProjectIds,
+      reason: 'NO_PROJECT_EVIDENCE'
+    };
+  }
   const explicitGroupDecision = explicitMissionGroupDecision({
     taggedProjectIds,
     rdoByProject,
@@ -871,20 +1206,24 @@ export function buildDailyProjectWeights({
       reason: 'SINGLE_RDO_FALLBACK'
     };
   }
-  if (rdoByProject.size === 0 && (tags || []).some(isPontoTravelTag)) {
-    const mobilizationDecision = mobilizationTravelDecision({
-      projectIds: mobilizationProjectIds instanceof Set
-        ? [...mobilizationProjectIds]
-        : mobilizationProjectIds,
-      missionGroupProjectsByProjectId,
-      allocationAxis
-    });
-    if (mobilizationDecision) return mobilizationDecision;
-  }
   return {
     allocations: [],
-    reason: rdoByProject.size > 1 ? 'AMBIGUOUS_WITHOUT_TAGS' : 'NO_PROJECT_EVIDENCE'
+    reason: 'AMBIGUOUS_WITHOUT_TAGS'
   };
+}
+
+const NON_ACTIONABLE_ALLOCATION_REASONS = new Set([
+  'NO_POINT_HOURS',
+  'NO_PROJECT_EVIDENCE',
+  'NO_RDO_EVIDENCE'
+]);
+
+export function allocationDecisionRequiresAction(decision) {
+  return Boolean(
+    decision
+    && (decision.allocations || []).length === 0
+    && !NON_ACTIONABLE_ALLOCATION_REASONS.has(decision.reason)
+  );
 }
 
 export function classifyProjectHours(
@@ -894,26 +1233,105 @@ export function classifyProjectHours(
   projectMetaById = new Map(),
   manualProjectByDate = new Map(),
   missionGroupProjectsByProjectId = new Map(),
-  allocationAxis = 'ACCOUNTING'
+  allocationAxis = 'ACCOUNTING',
+  scheduleWindowContext = null
 ) {
   const byProject = new Map();
   const unresolvedDays = [];
+  const dayTrail = [];
   const dayProjects = rdo?.dayProjects || new Map();
+  const knownEffectiveProjectIds = effectiveProjectsForCollaborator(
+    scheduleWindowContext?.effectiveAllocationIndex,
+    scheduleWindowContext?.collaboratorId
+  );
+  let costNormalHours = 0;
 
   for (const row of dayRows) {
     const rdoProjects = dayProjects.get(row.date) || new Map();
+    const effectiveProjectIds = effectiveProjectsForDay({
+      effectiveAllocationIndex: scheduleWindowContext?.effectiveAllocationIndex,
+      collaboratorId: scheduleWindowContext?.collaboratorId,
+      dateKey: row.date
+    });
     const mobilizationProjectIds = rdo?.mobilizationProjectsByDate?.get(row.date) || null;
-    const decision = buildDailyProjectWeights({
-      tags: row.tags,
-      rdoProjects,
-      resolveTag,
-      manualProjectIds: manualProjectByDate.get(row.date) || null,
-      mobilizationProjectIds,
-      missionGroupProjectsByProjectId,
-      allocationAxis
+    const manualProjectIds = manualProjectByDate.get(row.date) || null;
+    const dayNormalHours = Math.max(0, Number(row.normalHours) || 0);
+    const dayHe70Hours = Math.max(0, Number(row.he70Horas) || 0);
+    const dayHe100Hours = Math.max(0, Number(row.he100Horas) || 0);
+    const dayTotalHours = dayNormalHours + dayHe70Hours + dayHe100Hours;
+    const decision = dayTotalHours > 0
+      ? buildDailyProjectWeights({
+        tags: row.tags,
+        rdoProjects,
+        resolveTag,
+        manualProjectIds,
+        mobilizationProjectIds,
+        effectiveProjectIds,
+        scheduleWindowProjectIds: scheduleWindowsForDay({
+          scheduleWindows: scheduleWindowContext?.windows,
+          eligibleByProject: scheduleWindowContext?.eligibleByProject,
+          collaboratorId: scheduleWindowContext?.collaboratorId,
+          dateKey: row.date
+        }),
+        missionGroupProjectsByProjectId,
+        allocationAxis
+      })
+      : { allocations: [], reason: 'NO_POINT_HOURS' };
+    const pending = allocationDecisionRequiresAction(decision);
+    const effectiveProjectSet = new Set(effectiveProjectIds);
+    const planningMismatch = rdoProjects.size > 0
+      && knownEffectiveProjectIds.length > 0
+      && [...rdoProjects.keys()].some(projectId => !effectiveProjectSet.has(projectId));
+    // EM VIAGEM só complementa a ausência de RDO. Quando o colaborador consta nominalmente em um
+    // RDO do dia, o relatório é a fonte do contexto e a etiqueta do ponto não vira deslocamento.
+    const travelContext = rdoProjects.size === 0
+      && Boolean(decision.travelContext || (row.tags || []).some(isPontoTravelTag));
+    const dayCostNormalHours = costNormalHoursForDay(
+      row.date,
+      dayNormalHours,
+      dayHe70Hours,
+      dayHe100Hours,
+      decision.allocations.length > 0
+    );
+    costNormalHours += dayCostNormalHours;
+    // Trilha da decisão de cada dia: base única do painel de auditoria e das pendências.
+    dayTrail.push({
+      date: row.date,
+      normalHours: dayNormalHours,
+      costNormalHours: dayCostNormalHours,
+      minimumNormalHoursApplied: dayCostNormalHours > dayNormalHours,
+      he70Hours: dayHe70Hours,
+      he100Hours: dayHe100Hours,
+      tags: uniqueStrings(row.tags),
+      tagProjectIds: [...new Set((row.tags || []).map(resolveTag).filter(Boolean))].sort(),
+      rdoProjects: [...rdoProjects.values()].map(item => ({
+        projectId: item.projectId,
+        hours: Math.max(0, Number(item.hours) || 0),
+        ...(item.projectCode ? { projectCode: String(item.projectCode) } : {}),
+        ...(item.rdoNumber != null ? { rdoNumber: item.rdoNumber } : {})
+      })),
+      manualProjectIds: manualProjectIds ? [...manualProjectIds] : [],
+      effectiveProjectIds,
+      knownEffectiveProjectIds,
+      allocations: decision.allocations.map(item => ({ projectId: item.projectId, weight: item.weight })),
+      candidateProjectIds: decision.candidateProjectIds ? [...decision.candidateProjectIds] : [],
+      travelContext,
+      planningMismatch,
+      pending,
+      reason: decision.reason
     });
     if (decision.allocations.length === 0) {
-      if (decision.reason !== 'NO_PROJECT_EVIDENCE') unresolvedDays.push({ date: row.date, reason: decision.reason });
+      // Dia sem hora nenhuma é folga, não pendência — nunca vira item para o gestor resolver.
+      if (dayTotalHours > 0) {
+        unresolvedDays.push({
+          date: row.date,
+          reason: decision.reason,
+          pending,
+          normalHours: dayNormalHours,
+          he70Hours: dayHe70Hours,
+          he100Hours: dayHe100Hours
+        });
+      }
       continue;
     }
 
@@ -937,20 +1355,21 @@ export function classifyProjectHours(
         };
         byProject.set(allocation.projectId, project);
       }
-      project.normalHours += Math.max(0, Number(row.normalHours) || 0) * allocation.weight;
-      project.he70Hours += Math.max(0, Number(row.he70Horas) || 0) * allocation.weight;
-      project.he100Hours += Math.max(0, Number(row.he100Horas) || 0) * allocation.weight;
+      const allocatedNormalHours = dayCostNormalHours * allocation.weight;
+      const allocatedHe70Hours = Math.max(0, Number(row.he70Horas) || 0) * allocation.weight;
+      const allocatedHe100Hours = Math.max(0, Number(row.he100Horas) || 0) * allocation.weight;
+      project.normalHours += allocatedNormalHours;
+      project.he70Hours += allocatedHe70Hours;
+      project.he100Hours += allocatedHe100Hours;
       project.rdoWorkedHours += Math.max(0, Number(allocation.rdo?.hours) || 0);
-      const normalHours = Math.max(0, Number(row.normalHours) || 0) * allocation.weight;
-      const travelContext = (row.tags || []).some(isPontoTravelTag);
-      if (project.offshore) project.offshoreHours += normalHours;
-      else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += normalHours;
-      else project.homeHours += normalHours;
-      if (travelContext) project.travelHours += normalHours;
+      if (project.offshore) project.offshoreHours += allocatedNormalHours;
+      else if (travelContext || project.sleepMode !== 'HOME') project.awayHours += allocatedNormalHours;
+      else project.homeHours += allocatedNormalHours;
+      if (travelContext) project.travelHours += allocatedNormalHours + allocatedHe70Hours + allocatedHe100Hours;
     }
   }
 
-  return { byProject, unresolvedDays };
+  return { byProject, unresolvedDays, dayTrail, costNormalHours };
 }
 
 // Fração do mês coberta pelo arquivo (para proporcionalizar o fixo no mês parcial).
@@ -1234,7 +1653,12 @@ export function computeCollaboratorCost({ params, epiMensal = 0, examsTrainingMe
     const variavelPBase = computeMonthlyCost(params, { ...inputsP, diasFora: (hours.awayHours + hours.offshoreHours) / dpd, offshoreDays: 0 }).totalMensal - zeroNoEpi;
     const hoursForProration = projectHoursTotal + he70P + he100P;
     const fixoP = totalHours > 0 ? fixedBase * (hoursForProration / totalHours) : 0;
-    byProject[p.pid] = { cost: fixoP + variavelP, costBase: fixoP + variavelPBase, hours: hoursForProration };
+    byProject[p.pid] = {
+      cost: fixoP + variavelP,
+      costBase: fixoP + variavelPBase,
+      hours: hoursForProration,
+      travelHours: Math.min(hoursForProration, Math.max(0, Number(p.travelHours) || 0))
+    };
     sumCost += fixoP + variavelP;
     sumCostBase += fixoP + variavelPBase;
     sumProjectHours += hoursForProration;
@@ -1301,7 +1725,8 @@ export function computeAnalyticalProjectCosts({ params, fixedBase = 0, totalHour
     result[project.pid] = {
       cost: Math.round((fixedProject + variableProject) * 100) / 100,
       costBase: Math.round((fixedProject + variableProjectBase) * 100) / 100,
-      hours: hoursForProration
+      hours: hoursForProration,
+      travelHours: Math.min(hoursForProration, Math.max(0, Number(project.travelHours) || 0))
     };
   }
   return result;
@@ -1315,6 +1740,7 @@ function costProjectsFromClassification(classified) {
     homeDaysHours: project.homeHours,
     offshoreDaysHours: project.offshoreHours,
     rdoWorkedHours: project.rdoWorkedHours,
+    travelHours: project.travelHours,
     he70Hours: project.he70Hours,
     he100Hours: project.he100Hours,
     offshore: project.offshore
@@ -1344,7 +1770,18 @@ export async function computeCollaboratorRates(importId = null) {
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
-        collaborator: { select: { id: true, name: true, role: true } },
+        collaborator: {
+          select: {
+            id: true,
+            name: true,
+            jobRoleId: true,
+            jobRole: { select: { id: true, name: true } },
+            jobRoleHistory: {
+              select: { jobRoleId: true, effectiveDate: true, jobRole: { select: { id: true, name: true } } },
+              orderBy: { effectiveDate: 'asc' }
+            }
+          }
+        },
         import: { select: { createdAt: true } }
       }
     }),
@@ -1366,19 +1803,39 @@ export async function computeCollaboratorRates(importId = null) {
     periodRows,
     ignoredEmployees.map(item => item.externalEmployeeId)
   ));
+  const actualAvailability = periods.length
+    ? await checkWorkforceAvailability(prisma, {
+        collaboratorIds: periods.map(period => period.collaboratorId).filter(Boolean),
+        startDate: dateKeyUTC(pontoScope.periodStart),
+        endDate: dateKeyUTC(pontoScope.periodEnd),
+        context: 'ACTUAL_REPORT'
+      })
+    : { calendarRevision: 1, conflicts: [] };
   const manualProjects = manualProjectsByCollaborator(manualDayOverrides);
+  const scheduleWindowEligibility = buildScheduleWindowEligibility(
+    projectAllocationContext.scheduleWindows,
+    rdoData
+  );
   const epiMensal = annualCosts.epiAnnualCost / 12;
 
   const rates = [];
   const byCollaboratorId = new Map();
   for (const period of periods) {
-    const role = period.collaborator?.role || null;
+    const role = collaboratorRoleAtDate(period.collaborator, fileEnd)?.roleName
+      || period.collaborator?.jobRole?.name
+      || null;
     const rdo = rdoData.get(period.collaboratorId) || {
       byProject: new Map(),
       dayProjects: new Map(),
       mobilizationProjectsByDate: new Map()
     };
     const projectMetaById = projectMetaForCollaborator(projectAllocationContext.projects, period.collaboratorId);
+    const scheduleWindowContext = {
+      windows: projectAllocationContext.scheduleWindows,
+      eligibleByProject: scheduleWindowEligibility,
+      effectiveAllocationIndex: projectAllocationContext.effectiveAllocationIndex,
+      collaboratorId: period.collaboratorId
+    };
 
     const he70Horas = period.he70Minutes / 60;
     const he100Horas = period.he100Minutes / 60;
@@ -1396,6 +1853,7 @@ export async function computeCollaboratorRates(importId = null) {
       he70Horas,
       he100Horas,
       totalHoras: normalHours + he70Horas + he100Horas,
+      workedDates,
       folgaHours: 0,
       totalMensal: null,
       totalMensalBase: null,
@@ -1406,10 +1864,39 @@ export async function computeCollaboratorRates(importId = null) {
       idle: { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } },
       byProject: {},
       analyticalByProject: {},
+      allocationTrail: [], // decisão de alocação de cada dia (auditoria)
+      analyticalAllocationTrail: [], // mesma trilha no eixo analítico usado pelo dashboard do projeto
+      unresolvedDays: [], // dias com horas que não chegaram a projeto nenhum (pendência)
       months: [] // detalhe por mês (para o filtro da aba Custo/hora)
     };
 
-    if (role && roleParams.hasProfile(role) && totalWorkedDays > 0) {
+    // A trilha também define se uma marcação positiva menor que 8h48 recebe o piso de projeto.
+    // Ela fica fora do bloco de custo porque colaboradores sem perfil configurado ainda precisam
+    // aparecer na auditoria e nas pendências.
+    const trailDays = monthsOf(period).flatMap(mrec => splitOvertimeDays(
+      mrec.days || [],
+      Number(roleParams.paramsFor(
+        collaboratorRoleAtDate(period.collaborator, `${mrec.monthKey}-01`)?.roleName || role,
+        `${mrec.monthKey}-01`
+      )?.he70LimiteHoras) || 30
+    ));
+    trailDays.sort((left, right) => left.date.localeCompare(right.date));
+    const trail = classifyProjectHours(
+      trailDays,
+      rdo,
+      projectAllocationContext.resolveTag,
+      projectMetaById,
+      manualProjects.get(period.collaboratorId) || new Map(),
+      projectAllocationContext.missionGroupProjectsByProjectId,
+      'ACCOUNTING',
+      scheduleWindowContext
+    );
+    entry.allocationTrail = trail.dayTrail;
+    entry.unresolvedDays = trail.unresolvedDays;
+    const hasMinimumPaidProjectDay = trail.dayTrail.some(day => day.minimumNormalHoursApplied);
+
+    const costRoleSegments = collaboratorRoleSegments(period.collaborator, dateKeyUTC(fileStart), dateKeyUTC(fileEnd));
+    if (costRoleSegments.some(segment => roleParams.hasProfile(segment.roleName)) && (totalWorkedDays > 0 || hasMinimumPaidProjectDay)) {
       const months = monthsOf(period);
 
       const agg = { folha: 0, folhaBase: 0, fixo: 0, variavel: 0, totalHours: 0, folga: 0, normal: 0, he70: 0, he100: 0 };
@@ -1422,10 +1909,16 @@ export async function computeCollaboratorRates(importId = null) {
         const mk = mrec.monthKey;
         const monthCov = monthCoverage(mk, fileStart, fileEnd);
         if (monthCov.days <= 0) continue;
-        const capParams = roleParams.paramsFor(role, monthCov.startKey) || roleParams.paramsFor(role, `${mk}-01`);
+        const monthRole = collaboratorRoleAtDate(period.collaborator, monthCov.startKey)?.roleName || role;
+        const capParams = roleParams.paramsFor(monthRole, monthCov.startKey) || roleParams.paramsFor(monthRole, `${mk}-01`);
         const cap = Number(capParams?.he70LimiteHoras) || 30; // teto de HE70 por mês (excesso vira 100%)
         const daysWithOvertime = splitOvertimeDays(mrec.days || [], cap);
-        const segments = roleParams.segmentsFor(role, monthCov.startKey, monthCov.endKey);
+        const segments = buildCollaboratorRoleCostSegments({
+          collaborator: period.collaborator,
+          roleParams,
+          startKey: monthCov.startKey,
+          endKey: monthCov.endKey
+        });
 
         const monthAgg = { folha: 0, folhaBase: 0, fixo: 0, variavel: 0, totalHours: 0, folga: 0, normal: 0, he70: 0, he100: 0 };
         const monthIdle = { sede: { cost: 0, costBase: 0, hours: 0 }, folga: { cost: 0, costBase: 0, hours: 0 } };
@@ -1437,10 +1930,8 @@ export async function computeCollaboratorRates(importId = null) {
           const segCov = coverageForRange(mk, fileStart, fileEnd, segment.startKey, segment.endKey);
           if (segCov.days <= 0) continue;
           const segmentDays = daysWithOvertime.filter(day => day.date >= segCov.startKey && day.date <= segCov.endKey);
-          const normalHoursS = segmentDays.reduce((sum, day) => sum + (day.normalHours || 0), 0);
           const he70S = segmentDays.reduce((sum, day) => sum + (day.he70Horas || 0), 0);
           const he100S = segmentDays.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
-          const folgaS = countFolgaWeekdays(segCov.start, segCov.end, workedSet) * HORAS_POR_DIA;
 
           const classified = classifyProjectHours(
             segmentDays,
@@ -1448,8 +1939,16 @@ export async function computeCollaboratorRates(importId = null) {
             projectAllocationContext.resolveTag,
             projectMetaById,
             manualProjects.get(period.collaboratorId) || new Map(),
-            projectAllocationContext.missionGroupProjectsByProjectId
+            projectAllocationContext.missionGroupProjectsByProjectId,
+            'ACCOUNTING',
+            scheduleWindowContext
           );
+          const normalHoursS = classified.costNormalHours;
+          const costWorkedSet = new Set(workedSet);
+          for (const day of classified.dayTrail) {
+            if (day.costNormalHours > 0) costWorkedSet.add(day.date);
+          }
+          const folgaS = countFolgaWeekdays(segCov.start, segCov.end, costWorkedSet) * HORAS_POR_DIA;
           const analyticalClassified = classifyProjectHours(
             segmentDays,
             rdo,
@@ -1457,8 +1956,12 @@ export async function computeCollaboratorRates(importId = null) {
             projectMetaById,
             manualProjects.get(period.collaboratorId) || new Map(),
             projectAllocationContext.missionGroupProjectsByProjectId,
-            'ANALYTICAL'
+            'ANALYTICAL',
+            scheduleWindowContext
           );
+          // O dashboard detalha exatamente os segmentos que participaram do custo. Manter esta
+          // trilha aqui evita exibir dias fora da vigência do perfil financeiro do colaborador.
+          entry.analyticalAllocationTrail.push(...analyticalClassified.dayTrail);
           const projects = costProjectsFromClassification(classified);
           const analyticalProjects = costProjectsFromClassification(analyticalClassified);
           const examsTrainingMensal = examsTrainingAnnualCostForMonth({
@@ -1485,14 +1988,16 @@ export async function computeCollaboratorRates(importId = null) {
           monthAgg.variavel += res.variavelMensal; monthAgg.totalHours += res.totalHours; monthAgg.folga += folgaS;
           monthAgg.normal += normalHoursS; monthAgg.he70 += he70S; monthAgg.he100 += he100S;
           for (const [pid, a] of Object.entries(res.byProject)) {
-            if (!monthByProject[pid]) monthByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+            if (!monthByProject[pid]) monthByProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
             monthByProject[pid].cost += a.cost; monthByProject[pid].costBase += a.costBase; monthByProject[pid].hours += a.hours;
+            monthByProject[pid].travelHours += a.travelHours || 0;
           }
           for (const [pid, a] of Object.entries(analyticalCosts)) {
-            if (!monthAnalyticalByProject[pid]) monthAnalyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+            if (!monthAnalyticalByProject[pid]) monthAnalyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
             monthAnalyticalByProject[pid].cost += a.cost;
             monthAnalyticalByProject[pid].costBase += a.costBase;
             monthAnalyticalByProject[pid].hours += a.hours;
+            monthAnalyticalByProject[pid].travelHours += a.travelHours || 0;
           }
           monthIdle.sede.cost += res.idle.sede.cost; monthIdle.sede.costBase += res.idle.sede.costBase; monthIdle.sede.hours += res.idle.sede.hours;
           monthIdle.folga.cost += res.idle.folga.cost; monthIdle.folga.costBase += res.idle.folga.costBase; monthIdle.folga.hours += res.idle.folga.hours;
@@ -1503,14 +2008,16 @@ export async function computeCollaboratorRates(importId = null) {
         agg.variavel += monthAgg.variavel; agg.totalHours += monthAgg.totalHours; agg.folga += monthAgg.folga;
         agg.normal += monthAgg.normal; agg.he70 += monthAgg.he70; agg.he100 += monthAgg.he100;
         for (const [pid, a] of Object.entries(monthByProject)) {
-          if (!byProject[pid]) byProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+          if (!byProject[pid]) byProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
           byProject[pid].cost += a.cost; byProject[pid].costBase += a.costBase; byProject[pid].hours += a.hours;
+          byProject[pid].travelHours += a.travelHours || 0;
         }
         for (const [pid, a] of Object.entries(monthAnalyticalByProject)) {
-          if (!analyticalByProject[pid]) analyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0 };
+          if (!analyticalByProject[pid]) analyticalByProject[pid] = { cost: 0, costBase: 0, hours: 0, travelHours: 0 };
           analyticalByProject[pid].cost += a.cost;
           analyticalByProject[pid].costBase += a.costBase;
           analyticalByProject[pid].hours += a.hours;
+          analyticalByProject[pid].travelHours += a.travelHours || 0;
         }
         idle.sede.cost += monthIdle.sede.cost; idle.sede.costBase += monthIdle.sede.costBase; idle.sede.hours += monthIdle.sede.hours;
         idle.folga.cost += monthIdle.folga.cost; idle.folga.costBase += monthIdle.folga.costBase; idle.folga.hours += monthIdle.folga.hours;
@@ -1532,6 +2039,7 @@ export async function computeCollaboratorRates(importId = null) {
         });
       }
       entry.months.sort((a, b) => a.month.localeCompare(b.month));
+      entry.analyticalAllocationTrail.sort((a, b) => a.date.localeCompare(b.date));
 
       if (computedAny) {
         entry.hasCostProfile = true;
@@ -1556,14 +2064,25 @@ export async function computeCollaboratorRates(importId = null) {
     rates.push(entry);
     byCollaboratorId.set(period.collaboratorId, entry);
   }
+  const annotatedRates = annotateActualRowsWithWorkforceConflicts(rates, actualAvailability.conflicts).map(entry => ({
+    ...entry,
+    workforceCalendarRevision: actualAvailability.calendarRevision,
+    workforceDays: classifyActualWorkforceDays({
+      startDate: dateKeyUTC(pontoScope.periodStart),
+      endDate: dateKeyUTC(pontoScope.periodEnd),
+      workedDates: entry.workedDates,
+      conflicts: actualAvailability.conflicts.filter(conflict => conflict.collaboratorId === entry.collaboratorId)
+    })
+  }));
+  const annotatedByCollaboratorId = new Map(annotatedRates.map(entry => [entry.collaboratorId, entry]));
   return {
     pontoImport: pontoScope.pontoImport,
     pontoImports: pontoScope.pontoImports,
     periodStart: pontoScope.periodStart,
     periodEnd: pontoScope.periodEnd,
     fileName: pontoScope.fileName,
-    rates,
-    byCollaboratorId
+    rates: annotatedRates,
+    byCollaboratorId: annotatedByCollaboratorId
   };
 }
 
@@ -1587,7 +2106,18 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     prisma.pontoPeriodSummary.findMany({
       where: { importId: { in: importIds }, collaboratorId: { not: null } },
       include: {
-        collaborator: { select: { id: true, name: true, role: true } },
+        collaborator: {
+          select: {
+            id: true,
+            name: true,
+            jobRoleId: true,
+            jobRole: { select: { id: true, name: true } },
+            jobRoleHistory: {
+              select: { jobRoleId: true, effectiveDate: true, jobRole: { select: { id: true, name: true } } },
+              orderBy: { effectiveDate: 'asc' }
+            }
+          }
+        },
         import: { select: { createdAt: true } }
       }
     }),
@@ -1614,8 +2144,9 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   ));
   if (!period) throw new Error(`Colaborador "${nameQuery}" não encontrado no ponto vigente.`);
 
-  const role = period.collaborator.role;
   const cov = monthCoverage(monthKey, pontoScope.periodStart, pontoScope.periodEnd);
+  const role = collaboratorRoleAtDate(period.collaborator, cov.startKey)?.roleName
+    || period.collaborator.jobRole?.name;
   const params = roleParams.paramsFor(role, cov.startKey);
   if (!params) throw new Error(`Cargo "${role}" sem custo configurado.`);
   const rdo = rdoData.get(period.collaboratorId) || { byProject: new Map(), dayProjects: new Map() };
@@ -1624,10 +2155,8 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
   const mrec = monthsOf(period).find(m => m.monthKey === monthKey);
   if (!mrec) throw new Error(`Sem dados de ${nameQuery} no mês ${monthKey}.`);
   const daysM = splitOvertimeDays(mrec.days || [], cap);
-  const normalHoursM = daysM.reduce((sum, day) => sum + (day.normalHours || 0), 0);
   const he70M = daysM.reduce((sum, day) => sum + (day.he70Horas || 0), 0);
   const he100M = daysM.reduce((sum, day) => sum + (day.he100Horas || 0), 0);
-  const folgaHours = countFolgaWeekdays(cov.start, cov.end, new Set(period.workedDates || [])) * HORAS_POR_DIA;
 
   const classified = classifyProjectHours(
     daysM,
@@ -1635,8 +2164,21 @@ export async function debugCollaboratorMonth(nameQuery, monthKey, importId = nul
     projectAllocationContext.resolveTag,
     projectMetaForCollaborator(projectAllocationContext.projects, period.collaboratorId),
     manualProjectsByCollaborator(manualDayOverrides).get(period.collaboratorId) || new Map(),
-    projectAllocationContext.missionGroupProjectsByProjectId
+    projectAllocationContext.missionGroupProjectsByProjectId,
+    'ACCOUNTING',
+    {
+      windows: projectAllocationContext.scheduleWindows,
+      eligibleByProject: buildScheduleWindowEligibility(projectAllocationContext.scheduleWindows, rdoData),
+      effectiveAllocationIndex: projectAllocationContext.effectiveAllocationIndex,
+      collaboratorId: period.collaboratorId
+    }
   );
+  const normalHoursM = classified.costNormalHours;
+  const costWorkedSet = new Set(period.workedDates || []);
+  for (const day of classified.dayTrail) {
+    if (day.costNormalHours > 0) costWorkedSet.add(day.date);
+  }
+  const folgaHours = countFolgaWeekdays(cov.start, cov.end, costWorkedSet) * HORAS_POR_DIA;
   let projectDaysHours = 0;
   let awayDaysHours = 0;
   let homeDaysHours = 0;

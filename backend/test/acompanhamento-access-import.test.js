@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  assertScheduleWindowDates,
+  syncProjectDemobilizationToMissions,
   applyManualCostsToDashboardRows,
   applyStockCostsToDashboardRows,
   buildCommercialPendencias,
@@ -374,4 +376,75 @@ test('shouldRecordManualProgressHistory grava só quando o avanço manual numér
   assert.equal(shouldRecordManualProgressHistory('25.0', 25), false);
   assert.equal(shouldRecordManualProgressHistory(25, null), false);
   assert.equal(shouldRecordManualProgressHistory(undefined, undefined), false);
+});
+
+// === Datas da janela do cronograma (mobilização ↔ desmobilização) ===
+
+const MOB = new Date('2026-07-14T00:00:00.000Z');
+
+test('desmobilização exige mobilização, porque sem as duas datas não existe janela', () => {
+  assert.throws(
+    () => assertScheduleWindowDates({ demobilizationDate: '2026-08-31T00:00:00.000Z' }),
+    /Informe a data de mobilização antes da desmobilização/
+  );
+  // Limpar a mobilização na mesma requisição também deixa a janela sem início.
+  assert.throws(
+    () => assertScheduleWindowDates({
+      mobilizationDate: null,
+      demobilizationDate: '2026-08-31T00:00:00.000Z',
+      currentMobilizationDate: MOB
+    }),
+    /Informe a data de mobilização antes da desmobilização/
+  );
+});
+
+test('desmobilização anterior à mobilização é recusada, senão o intervalo se inverteria', () => {
+  assert.throws(
+    () => assertScheduleWindowDates({
+      demobilizationDate: '2026-07-13T00:00:00.000Z',
+      currentMobilizationDate: MOB
+    }),
+    /não pode ser anterior à mobilização/
+  );
+});
+
+test('mobilização do corpo tem precedência sobre a vigente no banco', () => {
+  // Campo ausente (undefined) significa "não mexeu": vale a do banco.
+  assert.doesNotThrow(() => assertScheduleWindowDates({
+    demobilizationDate: '2026-08-31T00:00:00.000Z',
+    currentMobilizationDate: MOB
+  }));
+  // Enviar uma mobilização nova mais recente valida contra ela, não contra a antiga.
+  assert.throws(
+    () => assertScheduleWindowDates({
+      mobilizationDate: '2026-09-01T00:00:00.000Z',
+      demobilizationDate: '2026-08-31T00:00:00.000Z',
+      currentMobilizationDate: MOB
+    }),
+    /não pode ser anterior à mobilização/
+  );
+});
+
+test('janela de um dia só é válida e ausência de desmobilização nunca bloqueia', () => {
+  assert.doesNotThrow(() => assertScheduleWindowDates({
+    mobilizationDate: '2026-07-14T00:00:00.000Z',
+    demobilizationDate: '2026-07-14T00:00:00.000Z'
+  }));
+  // Obra em andamento: sem desmobilização a regra segue conservadora e nada é validado.
+  assert.doesNotThrow(() => assertScheduleWindowDates({ mobilizationDate: null, demobilizationDate: null }));
+  assert.doesNotThrow(() => assertScheduleWindowDates({}));
+});
+
+test('cronograma replica a desmobilização para as programações da missão', async () => {
+  const calls = [];
+  const tx = {
+    efetivoMissionPlan: {
+      findMany: async () => [{ planId: 'official' }, { planId: 'scenario' }, { planId: 'official' }],
+      updateMany: async input => { calls.push(['missions', input]); }
+    },
+    efetivoPlan: { updateMany: async input => { calls.push(['plans', input]); } }
+  };
+  await syncProjectDemobilizationToMissions(tx, 'project-1', '2026-08-31T00:00:00.000Z');
+  assert.equal(calls[0][1].data.returnDate.toISOString(), '2026-08-31T00:00:00.000Z');
+  assert.deepEqual(calls[1][1].where.id.in, ['official', 'scenario']);
 });

@@ -7,13 +7,16 @@ import {
   availableHubModulesForUser,
   hasSeenAcompanhamentoNovelty,
   markAcompanhamentoNoveltySeen,
+  markEfetivoHubNoveltySeen,
   markQualidadeNoveltySeen,
+  shouldShowEfetivoHubNovelty,
   shouldShowQualidadeNovelty,
   userHasAcompanhamentoModule
 } from '../auth/moduleNavigation';
 import { HubTutorial } from '../components/HubTutorial';
 import { AcompanhamentoHubNovelty } from '../components/AcompanhamentoHubNovelty';
 import { QualidadeHubNovelty } from '../components/QualidadeHubNovelty';
+import { EfetivoHubNovelty } from '../components/EfetivoHubNovelty';
 import { HubModuleCard } from '../components/hub/HubModuleCard';
 import { AppIcon } from '../components/icons/AppIcon';
 import { Button } from '../components/ui/ds';
@@ -69,8 +72,14 @@ export function HubPage() {
   const [qualityNoveltyActive, setQualityNoveltyActive] = useState(() =>
     shouldShowQualidadeNovelty(user)
   );
+  const [efetivoNoveltyActive, setEfetivoNoveltyActive] = useState(() =>
+    shouldShowEfetivoHubNovelty(user)
+  );
   const shouldRedirect =
-    baseShouldRedirect && !acompNoveltyActive && !qualityNoveltyActive;
+    baseShouldRedirect &&
+    !acompNoveltyActive &&
+    !qualityNoveltyActive &&
+    !efetivoNoveltyActive;
   const availableModuleCount = modules.filter(
     (module) => module.path && !module.disabled
   ).length;
@@ -80,6 +89,7 @@ export function HubPage() {
       userHasAcompanhamentoModule(user) && !hasSeenAcompanhamentoNovelty(user)
     );
     setQualityNoveltyActive(shouldShowQualidadeNovelty(user));
+    setEfetivoNoveltyActive(shouldShowEfetivoHubNovelty(user));
   }, [user]);
 
   const firstName = user?.name?.split(' ')[0] || 'Usuário';
@@ -180,7 +190,8 @@ export function HubPage() {
               const path = module.path;
               const isNew =
                 (module.id === 'acompanhamento' && acompNoveltyActive) ||
-                (module.id === 'qualidade' && qualityNoveltyActive);
+                (module.id === 'qualidade' && qualityNoveltyActive) ||
+                (module.id === 'efetivo' && efetivoNoveltyActive);
 
               return (
                 <HubModuleCard
@@ -196,6 +207,9 @@ export function HubPage() {
                           } else if (module.id === 'qualidade') {
                             markQualidadeNoveltySeen(user);
                             setQualityNoveltyActive(false);
+                          } else if (module.id === 'efetivo') {
+                            markEfetivoHubNoveltySeen(user);
+                            setEfetivoNoveltyActive(false);
                           }
                           navigate(path);
                         }
@@ -227,6 +241,13 @@ export function HubPage() {
           user={user}
           enabled={!shouldRedirect && qualityNoveltyActive}
           onSeen={() => setQualityNoveltyActive(false)}
+        />
+      ) : null}
+      {user ? (
+        <EfetivoHubNovelty
+          user={user}
+          enabled={!shouldRedirect && efetivoNoveltyActive}
+          onSeen={() => setEfetivoNoveltyActive(false)}
         />
       ) : null}
     </AppShell>

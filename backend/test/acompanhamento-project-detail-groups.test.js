@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { groupProjectDetails } from '../src/lib/acompanhamento/project-detail-groups.js';
+import { combineRecentDays, groupProjectDetails } from '../src/lib/acompanhamento/project-detail-groups.js';
 
 function group() {
   return {
@@ -75,10 +75,16 @@ function detail(overrides = {}) {
       horas: 5,
       horasLancadas: 5,
       horasApropriadas: 3,
+      horasDeslocamento: 1,
+      diasApropriados: [{
+        data: '2026-07-09', horas: 3, horasNormais: 3, horasExtras: 0, emViagem: true,
+        rdos: [{ numero: 4, projetoId: 'p1', projetoCodigo: '1001' }]
+      }],
       sobreposicaoHoras: 0,
       horasRelatoriosPorData: [{ data: '2026-07-09', horas: 5 }],
       custo: 20,
-      custoHora: 20 / 3
+      custoHora: 20 / 3,
+      custoDeslocamento: 6
     }],
     equipamentos: overrides.equipamentos ?? [{ name: 'Bomba', days: 3, since: '2026-07-07T00:00:00.000Z' }],
     footer: overrides.footer ?? {
@@ -89,6 +95,24 @@ function detail(overrides = {}) {
     }
   };
 }
+
+test('combineRecentDays mantém até 10 dias distintos nos grupos', () => {
+  const recentDays = Array.from({ length: 12 }, (_, index) => {
+    const day = String(index + 1).padStart(2, '0');
+    return {
+      date: `2026-08-${day}`,
+      status: 'TRABALHADO',
+      workedMinutes: 480,
+      standbyMinutes: 0
+    };
+  });
+
+  const result = combineRecentDays([{ detail: { ultimosDias: recentDays } }]);
+
+  assert.equal(result.length, 10);
+  assert.equal(result[0].date, '2026-08-03');
+  assert.equal(result[9].date, '2026-08-12');
+});
 
 test('groupProjectDetails returns one consolidated project detail shape', () => {
   const result = groupProjectDetails(group(), [
@@ -138,13 +162,22 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
             horas: 7,
             horasLancadas: 7,
             horasApropriadas: 4,
+            horasDeslocamento: 2,
+            diasApropriados: [
+              {
+                data: '2026-07-09', horas: 2, horasNormais: 2, horasExtras: 0, emViagem: false,
+                rdos: [{ numero: 7, projetoId: 'p2', projetoCodigo: '1002' }]
+              },
+              { data: '2026-07-10', horas: 2, horasNormais: 1, horasExtras: 1, emViagem: true, rdos: [] }
+            ],
             sobreposicaoHoras: 0,
             horasRelatoriosPorData: [
               { data: '2026-07-09', horas: 5 },
               { data: '2026-07-10', horas: 2 }
             ],
             custo: 30,
-            custoHora: 7.5
+            custoHora: 7.5,
+            custoDeslocamento: 15
           },
           {
             name: 'Bruno',
@@ -152,10 +185,16 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
             horas: 4,
             horasLancadas: 4,
             horasApropriadas: 5,
+            horasDeslocamento: 0,
+            diasApropriados: [{
+              data: '2026-07-10', horas: 5, horasNormais: 5, horasExtras: 0, emViagem: false,
+              rdos: [{ numero: 7, projetoId: 'p2', projetoCodigo: '1002' }]
+            }],
             sobreposicaoHoras: 0,
             horasRelatoriosPorData: [{ data: '2026-07-10', horas: 4 }],
             custo: 40,
-            custoHora: 8
+            custoHora: 8,
+            custoDeslocamento: null
           }
         ],
         equipamentos: [
@@ -213,13 +252,29 @@ test('groupProjectDetails returns one consolidated project detail shape', () => 
     horasSemSobreposicao: item.horas,
     horasLancadas: item.horasLancadas,
     horasApropriadas: item.horasApropriadas,
+    horasDeslocamento: item.horasDeslocamento,
     sobreposicaoHoras: item.sobreposicaoHoras,
-    custo: item.custo
+    custo: item.custo,
+    custoDeslocamento: item.custoDeslocamento
   })), [
-    { name: 'Ana', horasSemSobreposicao: 7, horasLancadas: 12, horasApropriadas: 7, sobreposicaoHoras: 5, custo: 50 },
-    { name: 'Bruno', horasSemSobreposicao: 4, horasLancadas: 4, horasApropriadas: 5, sobreposicaoHoras: 0, custo: 40 }
+    { name: 'Ana', horasSemSobreposicao: 7, horasLancadas: 12, horasApropriadas: 7, horasDeslocamento: 3, sobreposicaoHoras: 5, custo: 50, custoDeslocamento: 21 },
+    { name: 'Bruno', horasSemSobreposicao: 4, horasLancadas: 4, horasApropriadas: 5, horasDeslocamento: 0, sobreposicaoHoras: 0, custo: 40, custoDeslocamento: null }
   ]);
   assert.equal(result.colaboradores[0].custoHora, 50 / 7);
+  assert.deepEqual(result.colaboradores[0].diasApropriados, [
+    {
+      data: '2026-07-09',
+      horas: 5,
+      horasNormais: 5,
+      horasExtras: 0,
+      emViagem: true,
+      rdos: [
+        { numero: 4, projetoId: 'p1', projetoCodigo: '1001' },
+        { numero: 7, projetoId: 'p2', projetoCodigo: '1002' }
+      ]
+    },
+    { data: '2026-07-10', horas: 2, horasNormais: 1, horasExtras: 1, emViagem: true, rdos: [] }
+  ]);
   assert.deepEqual(result.equipamentos.map(item => [item.name, item.days]), [['Bomba', 5], ['Filtro', 2]]);
   assert.equal(result.plannedScope.services[0].weight, 70);
   assert.equal(result.plannedScope.services[0].systems[0].quantity, 150);

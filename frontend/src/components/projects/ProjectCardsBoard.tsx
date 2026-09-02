@@ -13,7 +13,6 @@ import {
   type LastDayStatus,
   type MissionGroupCard,
   type MissionGroupLaborAllocationMode,
-  type ProjectCardCategory,
   type ProjectCardItem
 } from '../../api/acompanhamentoComercial';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -22,6 +21,11 @@ import { ProjectGroupRenameNovelty } from './ProjectGroupRenameNovelty';
 import { ProjectLaborPolicyNovelty } from './ProjectLaborPolicyNovelty';
 import { ProjectTrackingNovelties } from './ProjectTrackingNovelties';
 import { acompanhamentoRefreshQueryOptions } from './acompanhamentoRefresh';
+import {
+  cardMatchesView,
+  parseCardsView,
+  type CardsView
+} from './projectCardViews';
 import type { AuthUser } from '../../types/auth';
 import {
   hasSeenAcompanhamentoFinalizedMission,
@@ -514,24 +518,7 @@ function Card({
   );
 }
 
-// Aba "Projetos": um card por projeto com previsto x realizado (dias, avanço, colaboradores, prazos).
-type CardsView = 'andamento' | 'futuros' | 'arquivados';
 type SelectedDetail = { kind: 'PROJECT'; id: string } | { kind: 'GROUP'; id: string };
-const CARD_VIEWS: CardsView[] = ['andamento', 'futuros', 'arquivados'];
-
-const VIEW_CATEGORY: Record<CardsView, ProjectCardCategory> = {
-  andamento: 'ANDAMENTO',
-  futuros: 'FUTURO',
-  arquivados: 'ARQUIVADO'
-};
-
-function cardCategory(card: ProjectCardItem): ProjectCardCategory {
-  return card.category ?? (card.archived ? 'ARQUIVADO' : 'ANDAMENTO');
-}
-
-function parseCardsView(value: string | null): CardsView {
-  return CARD_VIEWS.includes(value as CardsView) ? value as CardsView : 'andamento';
-}
 
 function selectedDetailFromParams(params: URLSearchParams): SelectedDetail | null {
   const groupId = params.get('group')?.trim();
@@ -544,11 +531,13 @@ export function ProjectCardsBoard({
   canManage = false,
   canManageGroups = false,
   canManageManualCosts = false,
+  canManageProjectNotes = false,
   progressHistoryNoveltyUser = null
 }: {
   canManage?: boolean;
   canManageGroups?: boolean;
   canManageManualCosts?: boolean;
+  canManageProjectNotes?: boolean;
   progressHistoryNoveltyUser?: Pick<AuthUser, 'id'> | null;
 }) {
   const queryClient = useQueryClient();
@@ -714,21 +703,21 @@ export function ProjectCardsBoard({
     }, { replace: true });
   }, [setSearchParams]);
 
-  // Separa pelo status operacional do card: em andamento, futuro ou arquivado.
+  // Separa pelo status operacional e tira dos arquivados as missões já conferidas.
   const counts = useMemo(() => {
     const list = data ?? [];
     return {
-      andamento: list.filter(c => cardCategory(c) === 'ANDAMENTO').length,
-      futuros: list.filter(c => cardCategory(c) === 'FUTURO').length,
-      arquivados: list.filter(c => cardCategory(c) === 'ARQUIVADO').length
+      andamento: list.filter(c => cardMatchesView(c, 'andamento')).length,
+      futuros: list.filter(c => cardMatchesView(c, 'futuros')).length,
+      arquivados: list.filter(c => cardMatchesView(c, 'arquivados')).length,
+      conferidas: list.filter(c => cardMatchesView(c, 'conferidas')).length
     };
   }, [data]);
 
   const cards = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const category = VIEW_CATEGORY[view];
     return (data ?? [])
-      .filter(c => cardCategory(c) === category)
+      .filter(c => cardMatchesView(c, view))
       .filter(c => {
         if (!term) return true;
         const members = isGroupCard(c) ? c.members.map(member => `${member.code} ${member.name} ${member.clientName} ${member.clientCnpj ?? ''}`).join(' ') : '';
@@ -769,8 +758,8 @@ export function ProjectCardsBoard({
   // Todos os hooks acima; só então a troca para o dashboard do projeto (Rules of Hooks).
   if (selected) {
     return selected.kind === 'GROUP'
-      ? <ProjectDetailDashboard groupId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />
-      : <ProjectDetailDashboard projectId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />;
+      ? <ProjectDetailDashboard groupId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} canManageProjectNotes={canManageProjectNotes} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />
+      : <ProjectDetailDashboard projectId={selected.id} canManage={canManage} canManageManualCosts={canManageManualCosts} canManageProjectNotes={canManageProjectNotes} progressHistoryNoveltyUser={progressHistoryNoveltyUser} onBack={() => setSelected(null)} />;
   }
 
   if (isLoading) return <div className="page-card placeholder-copy">Carregando projetos…</div>;
@@ -808,6 +797,13 @@ export function ProjectCardsBoard({
             onClick={() => setView('arquivados')}
           >
             Arquivados <span className="acp-seg-count">{counts.arquivados}</span>
+          </button>
+          <button
+            type="button" role="tab" aria-selected={view === 'conferidas'}
+            className={`acp-seg-btn${view === 'conferidas' ? ' active' : ''}`}
+            onClick={() => setView('conferidas')}
+          >
+            Conferidas <span className="acp-seg-count">{counts.conferidas}</span>
           </button>
         </div>
         <div className="field-group acp-pcards-search">
@@ -865,7 +861,7 @@ export function ProjectCardsBoard({
         <div className="page-card placeholder-copy">
           {search.trim()
             ? 'Nenhum projeto encontrado para a busca nesta situação.'
-            : view === 'arquivados' ? 'Nenhum projeto arquivado.' : view === 'futuros' ? 'Nenhum projeto futuro.' : 'Nenhum projeto em andamento.'}
+            : view === 'conferidas' ? 'Nenhuma missão conferida.' : view === 'arquivados' ? 'Nenhum projeto arquivado aguardando conferência.' : view === 'futuros' ? 'Nenhum projeto futuro.' : 'Nenhum projeto em andamento.'}
         </div>
       ) : (
         <div className="acp-pcards-grid">

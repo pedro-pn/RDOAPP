@@ -4,11 +4,13 @@ import {
   BarChart3,
   Bell,
   Boxes,
+  CalendarDays,
   ChevronUp,
   CircleSlash2,
   ClipboardList,
   HardHat,
   HelpCircle,
+  FileSignature,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -35,6 +37,8 @@ export const MODULE_NAVIGATION_ICONS = {
   romaneio: Truck,
   epi: HardHat,
   privacy: ShieldCheck,
+  efetivo: CalendarDays,
+  assinaturas: FileSignature,
   none: CircleSlash2
 } satisfies Record<HubModuleId, LucideIcon>;
 

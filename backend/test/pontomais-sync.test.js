@@ -151,7 +151,7 @@ test('colaborador externo ignorado não entra no snapshot nem gera pendência', 
   assert.equal(normalized.collaboratorsMatched, 0);
 });
 
-test('pendência ambígua histórica é ocultada somente quando os RDOs atuais resolvem o dia', () => {
+test('pendência histórica sem RDO/Efetivo atual é descartada em vez de perpetuada', () => {
   const ambiguousDays = [
     { externalEmployeeId: '101', date: '2026-08-01', projectCodes: ['5761', '5794'], reason: 'RDO_NOT_CONFIRMED' },
     { externalEmployeeId: '102', date: '2026-08-02', projectCodes: ['5761', '5794'], reason: 'RDO_NOT_CONFIRMED' }
@@ -178,7 +178,7 @@ test('pendência ambígua histórica é ocultada somente quando os RDOs atuais r
     }]
   });
 
-  assert.deepEqual(unresolved, [ambiguousDays[1]]);
+  assert.deepEqual(unresolved, []);
 });
 
 test('dia sem etiqueta e com dois RDOs atuais continua visível para seleção manual', () => {
@@ -240,7 +240,7 @@ test('separa somente dias cujos projetos candidatos não existem no cadastro', (
   });
 });
 
-test('resumo sinaliza dia ambíguo sem copiar nome, matrícula ou CPF', () => {
+test('várias etiquetas sem RDO/Efetivo não geram pendência nem expõem dados pessoais', () => {
   const normalized = normalizePontoMaisSnapshot(fixture({
     timeCards: [
       { date: 'Sáb, 01/08/2026', time: '08:00', registration_number: '000-42', tag_manager: 'Missão 5745' },
@@ -260,15 +260,55 @@ test('resumo sinaliza dia ambíguo sem copiar nome, matrícula ou CPF', () => {
     rdoReports: []
   });
 
-  assert.deepEqual(pending, [{
+  assert.deepEqual(pending, []);
+  assert.doesNotMatch(JSON.stringify(pending), /Pessoa Externa|000-42|000\.000/);
+});
+
+test('pendência do sync usa a mesma janela individual do Efetivo do cálculo financeiro', () => {
+  const projects = [
+    { id: 'project-a', code: '5745' },
+    { id: 'project-b', code: '5752' }
+  ];
+  const normalized = normalizePontoMaisSnapshot(fixture({
+    projects,
+    timeCards: [
+      { date: 'Sáb, 01/08/2026', time: '08:00', registration_number: '000-42', tag_manager: 'EM VIAGEM' },
+      { date: 'Sáb, 01/08/2026', time: '17:00', registration_number: '000-42', tag_manager: 'EM VIAGEM' }
+    ]
+  }));
+  const allocation = projectId => ({
+    id: `allocation-${projectId}`,
+    collaboratorId: 'collaborator-1',
+    mobilizationDate: new Date('2026-08-01T00:00:00.000Z'),
+    demobilizationDate: new Date('2026-08-10T00:00:00.000Z'),
+    mission: {
+      id: `mission-${projectId}`,
+      projectId,
+      mobilizationDate: new Date('2026-07-20T00:00:00.000Z'),
+      executionEndDate: new Date('2026-08-15T00:00:00.000Z'),
+      returnDate: new Date('2026-08-15T00:00:00.000Z')
+    }
+  });
+
+  assert.deepEqual(buildAmbiguousDayPendencies({
+    periods: normalized.periods,
+    projects,
+    effectiveAllocations: [allocation('project-a')]
+  }), []);
+
+  assert.deepEqual(buildAmbiguousDayPendencies({
+    periods: normalized.periods,
+    projects,
+    effectiveAllocations: [allocation('project-a'), allocation('project-b')]
+  }), [{
     externalEmployeeId: '101',
     date: '2026-08-01',
     projectCodes: ['5745', '5752'],
-    tagProjectCodes: ['5745', '5752'],
+    tagProjectCodes: [],
     rdoProjectCodes: [],
-    reason: 'RDO_NOT_CONFIRMED'
+    reason: 'EFFECTIVE_ALLOCATION_AMBIGUOUS',
+    travelContext: true
   }]);
-  assert.doesNotMatch(JSON.stringify(pending), /Pessoa Externa|000-42|000\.000/);
 });
 
 test('pendência usa o mesmo fallback de missão mesclada do cálculo financeiro', () => {
@@ -320,7 +360,7 @@ test('pendência usa o mesmo fallback de missão mesclada do cálculo financeiro
   assert.deepEqual(unresolved[0].rdoProjectCodes, ['5761', '5794']);
 });
 
-test('pendências de viagem usam mobilização e RDO posterior nominal sem copiar horas futuras', () => {
+test('RDO posterior sugere o projeto, mas não substitui o RDO do próprio dia', () => {
   const projects = [
     { id: 'project-a', code: '5810', mobilizationDate: new Date('2026-08-01T00:00:00.000Z') },
     { id: 'project-b', code: '5813', mobilizationDate: new Date('2026-08-01T00:00:00.000Z') }
@@ -350,7 +390,15 @@ test('pendências de viagem usam mobilização e RDO posterior nominal sem copia
     periods: normalized.periods,
     projects,
     rdoReports: [laterRdo('project-a')]
-  }), []);
+  }), [{
+    externalEmployeeId: '101',
+    date: '2026-08-01',
+    projectCodes: ['5810'],
+    tagProjectCodes: [],
+    rdoProjectCodes: [],
+    reason: 'RDO_PERIOD_MISMATCH',
+    travelContext: true
+  }]);
 
   const ambiguous = buildAmbiguousDayPendencies({
     periods: normalized.periods,
@@ -363,7 +411,7 @@ test('pendências de viagem usam mobilização e RDO posterior nominal sem copia
     projectCodes: ['5810', '5813'],
     tagProjectCodes: [],
     rdoProjectCodes: [],
-    reason: 'MOBILIZATION_RDO_AMBIGUOUS',
+    reason: 'RDO_PERIOD_MISMATCH',
     travelContext: true
   }]);
 
@@ -372,7 +420,7 @@ test('pendências de viagem usam mobilização e RDO posterior nominal sem copia
     periodLinks: [{ externalEmployeeId: '101', collaboratorId: 'collaborator-1' }],
     projects,
     rdoReports: [laterRdo('project-a')]
-  }), []);
+  }), ambiguous);
 });
 
 function createFakeDb({ running = false, automationState = null } = {}) {
@@ -389,6 +437,7 @@ function createFakeDb({ running = false, automationState = null } = {}) {
     imports: [],
     periods: [],
     externalLinks: [],
+    nameAliases: [],
     tagAliases: [],
     externalEmployees: [],
     dayOverrides: [],
@@ -442,6 +491,18 @@ function createFakeDb({ running = false, automationState = null } = {}) {
         }
         const created = { id: `employee-link-${++sequence}`, ...create };
         state.externalLinks.push(created);
+        return created;
+      }
+    },
+    pontoNameAlias: {
+      async upsert({ where, create, update }) {
+        const existing = state.nameAliases.find(item => item.normalizedName === where.normalizedName);
+        if (existing) {
+          Object.assign(existing, update);
+          return existing;
+        }
+        const created = { id: `name-alias-${++sequence}`, ...create };
+        state.nameAliases.push(created);
         return created;
       }
     },
@@ -549,7 +610,11 @@ function createFakeDb({ running = false, automationState = null } = {}) {
       async updateMany({ where, data }) {
         let count = 0;
         for (const period of state.periods) {
-          if (period.externalEmployeeId === where.externalEmployeeId) {
+          const filters = where.OR || [where];
+          const matches = filters.some(filter => Object.entries(filter).every(
+            ([key, value]) => period[key] === value
+          ));
+          if (matches) {
             Object.assign(period, data);
             count += 1;
           }
@@ -770,6 +835,24 @@ test('vínculo externo é persistido e reaplica colaborador aos resumos históri
     now: () => new Date('2026-08-17T12:00:00.000Z')
   });
   await service.runSync({ startDate: '2026-08-01', endDate: '2026-08-02' });
+  state.runs[0].summary.pending.employees = [{
+    externalEmployeeId: '101',
+    registrationNumber: '42',
+    externalName: 'Pessoa Externa',
+    reason: 'NO_UNIQUE_MATCH'
+  }];
+  state.periods.push({
+    id: 'legacy-xlsx-period',
+    importId: 'legacy-xlsx-import',
+    externalEmployeeId: null,
+    collaboratorId: null,
+    registrationNumber: null,
+    rawName: 'Pessoa Externa',
+    normalizedName: 'pessoa externa',
+    monthly: null,
+    createdAt: new Date('2026-07-01T12:00:00.000Z')
+  });
+  assert.equal((await service.getPending()).employees.length, 1);
 
   const result = await service.linkExternalEmployee({
     externalEmployeeId: '101',
@@ -780,10 +863,13 @@ test('vínculo externo é persistido e reaplica colaborador aos resumos históri
   assert.deepEqual(result, {
     externalEmployeeId: '101',
     collaboratorId: 'collaborator-1',
-    relinked: 1
+    normalizedName: 'pessoa externa',
+    relinked: 2
   });
   assert.equal(state.externalLinks[0].createdByUserId, 'manager-1');
-  assert.equal(state.periods[0].collaboratorId, 'collaborator-1');
+  assert.equal(state.nameAliases[0].collaboratorId, 'collaborator-1');
+  assert.equal(state.periods.every(period => period.collaboratorId === 'collaborator-1'), true);
+  assert.equal((await service.getPending()).employees.length, 0);
 });
 
 test('diretório lista todos os encontrados e torna a preferência de ignorar reversível', async () => {
@@ -1009,4 +1095,97 @@ test('pendências históricas permanecem visíveis entre lotes e dia ambíguo re
   assert.equal(corrected.employees.length, 1);
   assert.equal(corrected.missingProjects.projectTags.length, 1);
   assert.deepEqual(corrected.missingProjects.ambiguousDays, []);
+});
+
+test('Efetivo individual resolve viagem; fora do período não perpetua pendência histórica', () => {
+  const ambiguousDay = {
+    externalEmployeeId: '101',
+    date: '2026-07-15',
+    projectCodes: ['5804', '5820'],
+    tagProjectCodes: [],
+    rdoProjectCodes: [],
+    reason: 'MOBILIZATION_RDO_AMBIGUOUS',
+    travelContext: true
+  };
+  const periodLinks = [{ externalEmployeeId: '101', collaboratorId: 'collaborator-1' }];
+  const effective = ({ mobilizationDate, demobilizationDate }) => ({
+    id: 'allocation-1',
+    collaboratorId: 'collaborator-1',
+    mobilizationDate: new Date(`${mobilizationDate}T00:00:00.000Z`),
+    demobilizationDate: new Date(`${demobilizationDate}T00:00:00.000Z`),
+    mission: {
+      id: 'mission-5804',
+      projectId: 'project-5804',
+      mobilizationDate: new Date('2026-07-01T00:00:00.000Z'),
+      executionEndDate: new Date('2026-08-31T00:00:00.000Z'),
+      returnDate: new Date('2026-08-31T00:00:00.000Z')
+    }
+  });
+
+  // Sem nenhuma evidência atual, a pendência congelada do snapshot é descartada.
+  const semEvidencia = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{ id: 'project-5804', code: '5804' }],
+    rdoReports: []
+  });
+  assert.deepEqual(semEvidencia, []);
+
+  const dentroDoEfetivo = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{ id: 'project-5804', code: '5804' }],
+    rdoReports: [],
+    effectiveAllocations: [effective({ mobilizationDate: '2026-07-14', demobilizationDate: '2026-08-31' })]
+  });
+  assert.deepEqual(dentroDoEfetivo, []);
+
+  const foraDoPeriodoIndividual = filterCurrentlyResolvedAmbiguousDays({
+    ambiguousDays: [ambiguousDay],
+    periodLinks,
+    projects: [{ id: 'project-5804', code: '5804' }],
+    rdoReports: [],
+    effectiveAllocations: [effective({ mobilizationDate: '2026-07-16', demobilizationDate: '2026-08-31' })]
+  });
+  assert.deepEqual(foraDoPeriodoIndividual, []);
+});
+
+test('ignorar etiqueta guarda a forma normalizada e recusa etiqueta já vinculada', async () => {
+  const ignored = new Map();
+  const aliases = new Map([['missao 5745', { normalizedTag: 'missao 5745', projectId: 'project-1' }]]);
+  const db = {
+    pontoIgnoredProjectTag: {
+      upsert: async ({ where, create }) => { ignored.set(where.normalizedTag, create); },
+      deleteMany: async ({ where }) => { ignored.delete(where.normalizedTag); },
+      findMany: async () => [...ignored.values()]
+    },
+    pontoProjectTagAlias: {
+      findUnique: async ({ where }) => aliases.get(where.normalizedTag) || null
+    }
+  };
+  const service = createPontoMaisSyncService({ db, configured: () => true });
+
+  // Acento e caixa não criam entradas diferentes.
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: '  Missão 9999  ' }),
+    { normalizedTag: 'missao 9999', ignored: true }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), [{ normalizedTag: 'missao 9999', rawTag: 'Missão 9999' }]);
+
+  // Etiqueta já vinculada a projeto não pode virar ignorada: são decisões excludentes.
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: 'MISSAO 5745' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  await assert.rejects(
+    () => service.setProjectTagIgnored({ rawTag: '   ' }),
+    error => error instanceof PontoSyncError && error.code === 'INVALID_TAG'
+  );
+
+  assert.deepEqual(
+    await service.setProjectTagIgnored({ rawTag: 'Missão 9999', ignored: false }),
+    { normalizedTag: 'missao 9999', ignored: false }
+  );
+  assert.deepEqual(await service.listIgnoredProjectTags(), []);
 });

@@ -4,7 +4,9 @@ import { test } from 'node:test';
 import {
   buildOmieCostPaymentSummary,
   buildPlannedRoleCounts,
-  buildProjectDetailCollaborator
+  buildProjectAppropriationDays,
+  buildProjectDetailCollaborator,
+  buildRecentReportDays
 } from '../src/lib/acompanhamento/project-detail.js';
 import { isSalaryCategory } from '../src/lib/acompanhamento/salary.js';
 
@@ -35,11 +37,11 @@ test('buildPlannedRoleCounts conta colaboradores distintos e horas usadas por ca
     { roleName: null }
   ];
   const collaborators = [
-    { collaboratorId: 'c1', collaborator: { role: 'tecnico de campo' }, report: { daytimeWorkedMinutes: 1800, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c1', collaborator: { role: 'Técnico de Campo' }, report: { daytimeWorkedMinutes: 1200, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c2', collaborator: { role: 'TÉCNICO DE CAMPO' }, report: { daytimeWorkedMinutes: 3000, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c3', collaborator: { role: 'Auxiliar' }, report: { daytimeWorkedMinutes: 600, nighttimeWorkedMinutes: 0 } },
-    { collaboratorId: 'c4', collaborator: { role: 'Encarregado' }, report: { daytimeWorkedMinutes: 480, nighttimeWorkedMinutes: 120 } }
+    { collaboratorId: 'c1', roleNameSnapshot: 'tecnico de campo', collaborator: { jobRole: { name: 'Técnico de Campo' } }, report: { daytimeWorkedMinutes: 1800, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c1', roleNameSnapshot: 'Técnico de Campo', collaborator: { jobRole: { name: 'Técnico de Campo' } }, report: { daytimeWorkedMinutes: 1200, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c2', roleNameSnapshot: 'TÉCNICO DE CAMPO', collaborator: { jobRole: { name: 'Técnico de Campo' } }, report: { daytimeWorkedMinutes: 3000, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c3', roleNameSnapshot: 'Auxiliar', collaborator: { jobRole: { name: 'Auxiliar' } }, report: { daytimeWorkedMinutes: 600, nighttimeWorkedMinutes: 0 } },
+    { collaboratorId: 'c4', roleNameSnapshot: 'Encarregado', collaborator: { jobRole: { name: 'Encarregado' } }, report: { daytimeWorkedMinutes: 480, nighttimeWorkedMinutes: 120 } }
   ];
 
   assert.deepEqual(buildPlannedRoleCounts(plannedRows, collaborators, 300), [
@@ -56,7 +58,8 @@ test('buildPlannedRoleCounts separa horas noturnas por equipe do turno quando re
   const collaborators = [
     {
       collaboratorId: 'day-1',
-      collaborator: { role: 'Técnico' },
+      roleNameSnapshot: 'Técnico',
+      collaborator: { jobRole: { name: 'Técnico' } },
       report: { daytimeWorkedMinutes: 480, nighttimeWorkedMinutes: 360 }
     }
   ];
@@ -81,7 +84,7 @@ test('buildPlannedRoleCounts separa horas noturnas por equipe do turno quando re
 test('buildPlannedRoleCounts omite cargos previstos sem colaborador correspondente', () => {
   const out = buildPlannedRoleCounts(
     [{ roleName: 'Supervisor' }],
-    [{ collaboratorId: 'c1', collaborator: { role: 'Técnico' } }]
+    [{ collaboratorId: 'c1', roleNameSnapshot: 'Técnico', collaborator: { jobRole: { name: 'Técnico' } } }]
   );
 
   assert.deepEqual(out, []);
@@ -91,7 +94,7 @@ test('buildProjectDetailCollaborator separa apropriação financeira da jornada 
   const result = buildProjectDetailCollaborator({
     name: 'Ana',
     role: 'Operadora',
-    allocation: { cost: 212.5, hours: 4.25 },
+    allocation: { cost: 212.5, hours: 4.25, travelHours: 1.5 },
     workedMinutes: 630,
     workedMinutesByDate: new Map([
       ['2026-07-17', 150],
@@ -106,28 +109,77 @@ test('buildProjectDetailCollaborator separa apropriação financeira da jornada 
     horas: 10.5,
     horasLancadas: 10.5,
     horasApropriadas: 4.25,
+    horasDeslocamento: 1.5,
+    diasApropriados: [],
     sobreposicaoHoras: 0,
     horasRelatoriosPorData: [
       { data: '2026-07-16', horas: 8 },
       { data: '2026-07-17', horas: 2.5 }
     ],
     custo: 212.5,
-    custoHora: 50
+    custoHora: 50,
+    custoDeslocamento: 75
   });
+});
+
+test('buildProjectAppropriationDays detalha horas analíticas, viagem e número do RDO', () => {
+  const result = buildProjectAppropriationDays({
+    analyticalAllocationTrail: [
+      {
+        date: '2026-08-25',
+        costNormalHours: 8.8,
+        he70Hours: 1,
+        he100Hours: 0,
+        travelContext: false,
+        allocations: [{ projectId: 'p-5800', weight: 1 }],
+        rdoProjects: [{ projectId: 'p-5800', projectCode: '5800', rdoNumber: 12, hours: 8 }]
+      },
+      {
+        date: '2026-08-26',
+        costNormalHours: 8.8,
+        he70Hours: 0,
+        he100Hours: 0,
+        travelContext: true,
+        allocations: [{ projectId: 'p-5800', weight: 1 }],
+        rdoProjects: []
+      }
+    ]
+  }, 'p-5800');
+
+  assert.deepEqual(result, [
+    {
+      data: '2026-08-25',
+      horas: 9.8,
+      horasNormais: 8.8,
+      horasExtras: 1,
+      emViagem: false,
+      rdos: [{ numero: 12, projetoId: 'p-5800', projetoCodigo: '5800' }]
+    },
+    {
+      data: '2026-08-26',
+      horas: 8.8,
+      horasNormais: 8.8,
+      horasExtras: 0,
+      emViagem: true,
+      rdos: []
+    }
+  ]);
 });
 
 test('buildProjectDetailCollaborator oculta valores financeiros sem ocultar as horas apropriadas', () => {
   const result = buildProjectDetailCollaborator({
     rate: { name: 'Carlos', role: 'Assistente' },
-    allocation: { cost: 180, hours: 6 },
+    allocation: { cost: 180, hours: 6, travelHours: 2 },
     includeCollaboratorCosts: false
   });
 
   assert.equal(result.name, 'Carlos');
   assert.equal(result.role, 'Assistente');
   assert.equal(result.horasApropriadas, 6);
+  assert.equal(result.horasDeslocamento, 2);
   assert.equal(result.custo, null);
   assert.equal(result.custoHora, null);
+  assert.equal(result.custoDeslocamento, null);
 });
 
 test('buildOmieCostPaymentSummary separa pago de títulos previstos a pagar', () => {
@@ -139,4 +191,30 @@ test('buildOmieCostPaymentSummary separa pago de títulos previstos a pagar', ()
   ]);
 
   assert.deepEqual(out, { pago: 150.25, previstoPagar: 250.5 });
+});
+
+test('buildRecentReportDays preserva os 10 RDOs mais recentes em ordem cronológica', () => {
+  const byDay = new Map(Array.from({ length: 12 }, (_, index) => {
+    const day = String(index + 1).padStart(2, '0');
+    const date = `2026-08-${day}`;
+    const standbyMinutes = index === 11 ? 480 : index === 10 ? 60 : 0;
+    return [date, {
+      reportDate: `${date}T12:00:00.000Z`,
+      statusStandbyMin: standbyMinutes,
+      workedMin: standbyMinutes === 480 ? 0 : 480,
+      standbyMin: standbyMinutes
+    }];
+  }));
+
+  const result = buildRecentReportDays(byDay, { workdayHours: '08:00' });
+
+  assert.equal(result.length, 10);
+  assert.equal(result[0].date, '2026-08-03');
+  assert.equal(result[8].status, 'STANDBY');
+  assert.deepEqual(result[9], {
+    date: '2026-08-12',
+    status: 'PARADO',
+    workedMinutes: 0,
+    standbyMinutes: 480
+  });
 });

@@ -10,6 +10,8 @@ import {
   buildRequiredWeeklyProgress,
   realizedReportWhere,
   isRealizedSourceReport,
+  isPointWorkbookDerivedRdoRoster,
+  isConfirmedReportParticipant,
   selectRealizedSourceReportData
 } from '../src/lib/acompanhamento/avanco.js';
 
@@ -47,6 +49,22 @@ test('seleção do realizado inclui equipe de serviceOnly independente e exclui 
 
   assert.deepEqual(selected.reports.map(report => report.id), ['rdo-1', 'service-only-1']);
   assert.deepEqual(selected.collaborators.map(item => item.collaboratorId), ['maria', 'ronaldo']);
+});
+
+test('equipe inferida da planilha do ponto não confirma participação sem horas apropriadas', () => {
+  const imported = {
+    reportType: 'RDO',
+    specialConditions: {
+      __manualUpload: { importedByScript: 'import-manual-rdo-pdfs' }
+    }
+  };
+  const native = { reportType: 'RDO', specialConditions: {} };
+
+  assert.equal(isPointWorkbookDerivedRdoRoster(imported), true);
+  assert.equal(isConfirmedReportParticipant(imported, false), false);
+  assert.equal(isConfirmedReportParticipant(imported, true), true);
+  assert.equal(isPointWorkbookDerivedRdoRoster(native), false);
+  assert.equal(isConfirmedReportParticipant(native, false), true);
 });
 
 test('isServiceFinalized: coluna booleana e campo textual do extraData', () => {

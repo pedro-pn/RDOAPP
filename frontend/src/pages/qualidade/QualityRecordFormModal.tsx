@@ -365,9 +365,9 @@ export function QualityRecordFormModal({ open, record, projects, natures, saving
           </div>
 
           <div className={fieldClass(errors, 'projectId')}>
-            <label htmlFor="quality-project">Obra/Projeto{isDeviation ? '' : ' *'}</label>
+            <label htmlFor="quality-project">Obra/Projeto</label>
             <select id="quality-project" disabled={saving} aria-invalid={Boolean(errors.projectId) || undefined} {...register('projectId')}>
-              <option value="">{isDeviation ? 'Interno/SGQ' : 'Selecione'}</option>
+              <option value="">Interno/SGQ</option>
               {projects.map(project => (
                 <option key={project.id} value={project.id}>{project.code} - {project.name}</option>
               ))}

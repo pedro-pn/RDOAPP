@@ -17,10 +17,12 @@
 
 - **Decisão**: `POST /api/webhooks/projects` recebe `code`, `name`, `clientName`,
   `clientCnpj`, `proposalCode`, `revision` e `location`. Os textos são obrigatórios e
-  têm espaços externos removidos; `revision` é inteiro não negativo. CNPJ aceita
+  têm espaços externos removidos; `revision` é `-1` quando ausente na origem ou inteiro
+  não negativo. CNPJ aceita
   pontuação, remove todos os caracteres não numéricos e somente então exige exatamente
   14 dígitos. O primeiro número válido da proposta é persistido como
-  “{proposta} Rev. {revisão}”.
+  “{proposta} Rev. {revisão}”; para `revision: -1`, persiste somente “{proposta}” e a
+  seleção comercial procura a revisão `0`.
 - **Motivo**: usa a terminologia correta no contrato externo e evita a função legada que trunca
   CNPJ acima de 14 dígitos, o que aceitaria entradas inválidas.
 - **Alternativas**: `contractCode` foi rejeitado sem alias porque o webhook ainda não

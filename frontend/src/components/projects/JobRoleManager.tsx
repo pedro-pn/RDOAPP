@@ -14,6 +14,7 @@ import {
   updateJobRole,
   type JobRole
 } from '../../api/jobRoles';
+import { useAuth } from '../../auth/AuthContext';
 import {
   Button,
   Card,
@@ -28,6 +29,7 @@ import {
 import { AppIcon } from '../icons/AppIcon';
 import { DS_ICONS } from '../ui/ds/icons';
 import { useToast } from '../ui/ToastContext';
+import { EfetivoControlNovelty } from '../EfetivoControlNovelty';
 import '../../styles/rdo-ds-actions.css';
 import './JobRoleManager.ds.css';
 
@@ -51,16 +53,23 @@ export function JobRoleManager({
 }: JobRoleManagerProps) {
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const { user } = useAuth();
+  const canManageOperational =
+    user?.accountType === 'ADMIN' ||
+    Boolean(user?.moduleRoles?.includes('efetivo:manager'));
   const { data, isLoading } = useQuery({
     queryKey: ['job-roles', 'all'],
     queryFn: () => listJobRoles(true)
   });
 
   const [newName, setNewName] = useState('');
+  const [newIsOperational, setNewIsOperational] = useState(true);
   const [internalCreateOpen, setInternalCreateOpen] = useState(false);
-  const [editing, setEditing] = useState<{ id: string; name: string } | null>(
-    null
-  );
+  const [editing, setEditing] = useState<{
+    id: string;
+    name: string;
+    isOperational: boolean;
+  } | null>(null);
   const designSystemSurfaceRef = useRef<HTMLElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
   const renameLauncherIdRef = useRef<string | null>(null);
@@ -70,10 +79,12 @@ export function JobRoleManager({
     queryClient.invalidateQueries({ queryKey: ['job-roles'] });
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => createJobRole(name),
+    mutationFn: (payload: { name: string; isOperational?: boolean }) =>
+      createJobRole(payload),
     onSuccess: () => {
       showToast('Cargo adicionado.');
       setNewName('');
+      setNewIsOperational(true);
       setShowCreateForm(false);
       invalidate();
     },
@@ -83,7 +94,11 @@ export function JobRoleManager({
   const updateMutation = useMutation({
     mutationFn: (payload: {
       id: string;
-      data: { name?: string; isActive?: boolean };
+      data: {
+        name?: string;
+        isActive?: boolean;
+        isOperational?: boolean;
+      };
     }) => updateJobRole(payload.id, payload.data),
     onSuccess: () => {
       showToast('Cargo atualizado.');
@@ -133,7 +148,22 @@ export function JobRoleManager({
     event.preventDefault();
     const name = newName.trim();
     if (!name || createMutation.isPending) return;
-    createMutation.mutate(name);
+    createMutation.mutate({
+      name,
+      ...(canManageOperational ? { isOperational: newIsOperational } : {})
+    });
+  }
+
+  function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing || !editing.name.trim() || updateMutation.isPending) return;
+    updateMutation.mutate({
+      id: editing.id,
+      data: {
+        name: editing.name.trim(),
+        ...(canManageOperational ? { isOperational: editing.isOperational } : {})
+      }
+    });
   }
 
   function restoreDesignSystemLauncherFocus(selector: string) {
@@ -147,12 +177,17 @@ export function JobRoleManager({
   function cancelDesignSystemCreate() {
     setShowCreateForm(false);
     setNewName('');
+    setNewIsOperational(true);
     restoreDesignSystemLauncherFocus('[data-job-role-create]');
   }
 
   function openDesignSystemRename(role: JobRole) {
     renameLauncherIdRef.current = role.id;
-    setEditing({ id: role.id, name: role.name });
+    setEditing({
+      id: role.id,
+      name: role.name,
+      isOperational: role.isOperational !== false
+    });
   }
 
   function cancelDesignSystemRename() {
@@ -178,24 +213,43 @@ export function JobRoleManager({
   function renderDesignSystemRoleName(role: JobRole) {
     if (editing?.id === role.id) {
       return (
-        <Field
-          className="rdo-job-roles__rename-field"
-          label="Novo nome"
-          optionalText={null}
-        >
-          <Input
-            ref={editingInputRef}
-            size="lg"
-            value={editing.name}
-            aria-label={`Novo nome para ${role.name}`}
-            onChange={(event) =>
-              setEditing({ id: role.id, name: event.target.value })
-            }
-            onKeyDown={(event) =>
-              handleDesignSystemEscape(event, cancelDesignSystemRename)
-            }
-          />
-        </Field>
+        <div className="rdo-job-roles__edit-fields">
+          <Field
+            className="rdo-job-roles__rename-field"
+            label="Novo nome"
+            optionalText={null}
+          >
+            <Input
+              ref={editingInputRef}
+              size="lg"
+              value={editing.name}
+              aria-label={`Novo nome para ${role.name}`}
+              onChange={(event) =>
+                setEditing({ ...editing, name: event.target.value })
+              }
+              onKeyDown={(event) =>
+                handleDesignSystemEscape(event, cancelDesignSystemRename)
+              }
+            />
+          </Field>
+          <label
+            className="rdo-job-roles__operational-control"
+            data-efetivo-operational-control
+          >
+            <input
+              type="checkbox"
+              checked={editing.isOperational}
+              disabled={!canManageOperational || updateMutation.isPending}
+              onChange={(event) =>
+                setEditing({
+                  ...editing,
+                  isOperational: event.target.checked
+                })
+              }
+            />
+            <span>Função operacional</span>
+          </label>
+        </div>
       );
     }
 
@@ -218,7 +272,12 @@ export function JobRoleManager({
             onClick={() =>
               updateMutation.mutate({
                 id: role.id,
-                data: { name: editing.name.trim() }
+                data: {
+                  name: editing.name.trim(),
+                  ...(canManageOperational
+                    ? { isOperational: editing.isOperational }
+                    : {})
+                }
               })
             }
           >
@@ -284,6 +343,11 @@ export function JobRoleManager({
         render: renderDesignSystemRoleName
       },
       {
+        key: 'operational',
+        header: 'Efetivo',
+        render: (role) => role.isOperational ? 'Operacional' : 'Administrativo'
+      },
+      {
         key: 'status',
         header: 'Status',
         render: (role) => (
@@ -328,7 +392,8 @@ export function JobRoleManager({
         >
           <p className="rdo-job-roles__description">
             Lista usada no cadastro de colaboradores. Cargos inativos não
-            aparecem na seleção.
+            aparecem na seleção. A marcação operacional define quem entra nos
+            indicadores do Efetivo.
           </p>
 
           {showCreateForm ? (
@@ -350,6 +415,20 @@ export function JobRoleManager({
                   required
                 />
               </Field>
+              <label
+                className="rdo-job-roles__operational-control"
+                data-efetivo-operational-control
+              >
+                <input
+                  type="checkbox"
+                  checked={newIsOperational}
+                  disabled={!canManageOperational || createMutation.isPending}
+                  onChange={(event) =>
+                    setNewIsOperational(event.target.checked)
+                  }
+                />
+                <span>Função operacional</span>
+              </label>
               <div className="rdo-job-roles__form-actions">
                 <Button
                   size="md"
@@ -424,7 +503,18 @@ export function JobRoleManager({
               }}
             />
           )}
+          {!canManageOperational ? (
+            <p className="rdo-job-roles__description">
+              A função operacional só pode ser alterada por um gestor do
+              módulo Efetivo Operacional.
+            </p>
+          ) : null}
         </Card>
+        <EfetivoControlNovelty
+          user={user}
+          control="operational-role"
+          selector="[data-efetivo-operational-control]"
+        />
       </section>
     );
   }
@@ -444,8 +534,7 @@ export function JobRoleManager({
         ) : null}
       </div>
       <p className="placeholder-copy" style={{ margin: '4px 0 10px' }}>
-        Lista usada no cadastro de colaboradores. Cargos inativos não aparecem
-        na seleção.
+        Lista usada no cadastro de colaboradores. Cargos inativos não aparecem na seleção. A marcação operacional define quem entra no indicador do Efetivo.
       </p>
       {showCreateForm ? (
         <form
@@ -455,14 +544,7 @@ export function JobRoleManager({
         >
           <div className="admin-toolbar full">
             <div className="sec">Novo cargo</div>
-            <button
-              className="mini-btn alt"
-              type="button"
-              onClick={() => {
-                setShowCreateForm(false);
-                setNewName('');
-              }}
-            >
+            <button className="mini-btn alt" type="button" onClick={() => { setShowCreateForm(false); setNewName(''); setNewIsOperational(true); }}>
               Cancelar
             </button>
           </div>
@@ -476,6 +558,22 @@ export function JobRoleManager({
                 onChange={(event) => setNewName(event.target.value)}
                 required
               />
+            </div>
+            <div className="tog-row job-role-operational-field" data-efetivo-operational-control>
+              <span className="job-role-operational-copy">
+                <span className="tog-lbl">Função operacional</span>
+                <span className="placeholder-copy">Inclui este cargo nos indicadores e planejamentos do Efetivo.</span>
+              </span>
+              <label className="tog">
+                <input
+                  type="checkbox"
+                  checked={newIsOperational}
+                  disabled={!canManageOperational || createMutation.isPending}
+                  aria-label="Função operacional"
+                  onChange={event => setNewIsOperational(event.target.checked)}
+                />
+                <span className="tog-sl" />
+              </label>
             </div>
             <div className="admin-form-actions">
               <button
@@ -492,46 +590,49 @@ export function JobRoleManager({
       {isLoading ? (
         <div className="placeholder-copy">Carregando cargos…</div>
       ) : (
-        <ul
-          className="admin-stack"
-          style={{ listStyle: 'none', padding: 0, margin: 0 }}
-        >
-          {roles.map((role) => (
-            <li
-              key={role.id}
-              className="det-row"
-              style={{ display: 'flex', gap: 8, alignItems: 'center' }}
-            >
+        <ul className="admin-stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {roles.map(role => (
+            <li key={role.id} className="det-row job-role-row" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {editing?.id === role.id ? (
-                <>
-                  <input
-                    style={{ flex: 1 }}
-                    value={editing.name}
-                    onChange={(event) =>
-                      setEditing({ id: role.id, name: event.target.value })
-                    }
-                  />
-                  <button
-                    className="mini-btn"
-                    type="button"
-                    disabled={updateMutation.isPending || !editing.name.trim()}
-                    onClick={() =>
-                      updateMutation.mutate({
-                        id: role.id,
-                        data: { name: editing.name.trim() }
-                      })
-                    }
-                  >
-                    Salvar
-                  </button>
-                  <button
-                    className="mini-btn alt"
-                    type="button"
-                    onClick={() => setEditing(null)}
-                  >
-                    Cancelar
-                  </button>
-                </>
+                <form className="admin-inline-form" onSubmit={handleEditSubmit} autoComplete="off">
+                  <div className="admin-toolbar full">
+                    <div className="sec">Editar cargo</div>
+                    <button className="mini-btn alt" type="button" onClick={() => setEditing(null)}>Cancelar</button>
+                  </div>
+                  <div className="admin-inline-grid">
+                    <div className="field-group field-group-wide">
+                      <label htmlFor={`job-role-name-${role.id}`}>Nome do cargo</label>
+                      <input
+                        id={`job-role-name-${role.id}`}
+                        value={editing.name}
+                        autoComplete="off"
+                        onChange={event => setEditing({ ...editing, name: event.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="tog-row job-role-operational-field" data-efetivo-operational-control>
+                      <span className="job-role-operational-copy">
+                        <span className="tog-lbl">Função operacional</span>
+                        <span className="placeholder-copy">Inclui este cargo nos indicadores e planejamentos do Efetivo.</span>
+                      </span>
+                      <label className="tog">
+                        <input
+                          type="checkbox"
+                          checked={editing.isOperational}
+                          disabled={!canManageOperational || updateMutation.isPending}
+                          aria-label="Função operacional"
+                          onChange={event => setEditing({ ...editing, isOperational: event.target.checked })}
+                        />
+                        <span className="tog-sl" />
+                      </label>
+                    </div>
+                    <div className="admin-form-actions">
+                      <button className="mini-btn" type="submit" disabled={updateMutation.isPending || !editing.name.trim()}>
+                        Salvar
+                      </button>
+                    </div>
+                  </div>
+                </form>
               ) : (
                 <>
                   <span style={{ flex: 1, opacity: role.isActive ? 1 : 0.5 }}>
@@ -541,9 +642,9 @@ export function JobRoleManager({
                   <button
                     className="mini-btn"
                     type="button"
-                    onClick={() => setEditing({ id: role.id, name: role.name })}
+                    onClick={() => setEditing({ id: role.id, name: role.name, isOperational: role.isOperational !== false })}
                   >
-                    Renomear
+                    Editar
                   </button>
                   {role.isActive ? (
                     <button
@@ -569,12 +670,17 @@ export function JobRoleManager({
                       Reativar
                     </button>
                   )}
+                  {!canManageOperational ? <span className="placeholder-copy">Somente leitura</span> : null}
                 </>
               )}
             </li>
           ))}
         </ul>
       )}
+      {!canManageOperational ? (
+        <p className="placeholder-copy">A função operacional só pode ser alterada por um gestor do módulo Efetivo Operacional.</p>
+      ) : null}
+      <EfetivoControlNovelty user={user} control="operational-role" selector="[data-efetivo-operational-control]" />
     </div>
   );
 }

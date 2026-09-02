@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { OfficialMissionContext } from './reports';
 
 export interface CommercialRevision {
   codBd: number;
@@ -58,6 +59,7 @@ export interface ProjectRevisions {
   mobilizationLeadDays?: number | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  demobilizationDate?: string | null;
   manualProgressPct?: string | number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
@@ -81,6 +83,7 @@ export interface ProjectSchedulePayload {
   approvedAt?: string | null;
   startDate?: string | null;
   mobilizationDate?: string | null;
+  demobilizationDate?: string | null;
   manualProgressPct?: number | null;
   offshore?: boolean;
   laborSleepModeByCollaborator?: Record<string, 'HOME' | 'AWAY'>;
@@ -157,6 +160,14 @@ export interface PresumedProfitTaxEstimate {
 export async function getProjectRevisions(projectId: string): Promise<ProjectRevisions> {
   const { data } = await apiClient.get<ProjectRevisions>(
     `/acompanhamento/comercial/projetos/${projectId}/revisoes`
+  );
+  return data;
+}
+
+export async function getProjectPlanningContext(projectId: string, date: string): Promise<OfficialMissionContext | null> {
+  const { data } = await apiClient.get<OfficialMissionContext | null>(
+    `/acompanhamento/comercial/projetos/${projectId}/planning-context`,
+    { params: { date } }
   );
   return data;
 }
@@ -600,8 +611,57 @@ export interface MissionGroupCard extends Omit<ProjectCard, 'kind' | 'projectId'
 
 export type ProjectCardItem = ProjectCard | MissionGroupCard;
 
+export interface ProjectStandbyHistoryEntry {
+  date: string;
+  standbyMinutes: number;
+  collaboratorCount: number | null;
+  reason: string | null;
+}
+
+export interface ProjectStandbyHistory {
+  project: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  entries: ProjectStandbyHistoryEntry[];
+}
+
+export interface ProjectManagementNote {
+  id: string;
+  projectId: string;
+  content: string;
+  author: { id: string | null; name: string };
+  createdAt: string;
+}
+
 export async function getProjectCards(): Promise<ProjectCardItem[]> {
   const { data } = await apiClient.get<ProjectCardItem[]>('/acompanhamento/comercial/projetos-cards');
+  return data;
+}
+
+export async function getProjectStandbyHistory(projectId: string): Promise<ProjectStandbyHistory> {
+  const { data } = await apiClient.get<ProjectStandbyHistory>(
+    `/acompanhamento/comercial/projetos/${encodeURIComponent(projectId)}/standby-historico`
+  );
+  return data;
+}
+
+export async function listProjectManagementNotes(projectId: string): Promise<ProjectManagementNote[]> {
+  const { data } = await apiClient.get<ProjectManagementNote[]>(
+    `/acompanhamento/comercial/projetos/${encodeURIComponent(projectId)}/notas-gestao`
+  );
+  return data;
+}
+
+export async function createProjectManagementNote(
+  projectId: string,
+  content: string
+): Promise<ProjectManagementNote> {
+  const { data } = await apiClient.post<ProjectManagementNote>(
+    `/acompanhamento/comercial/projetos/${encodeURIComponent(projectId)}/notas-gestao`,
+    { content }
+  );
   return data;
 }
 
@@ -645,10 +705,27 @@ export interface ProjectDetailCollaborator {
   horasLancadas: number;
   /** Horas analíticas do Ponto Mais apropriadas ao projeto; podem repetir em execução compartilhada. */
   horasApropriadas: number | null;
+  /** Parte das horas apropriadas registrada em dias marcados como viagem/deslocamento. */
+  horasDeslocamento: number;
+  /** Trilha diária das horas do ponto que formam a apropriação deste projeto. */
+  diasApropriados: Array<{
+    data: string;
+    horas: number;
+    horasNormais: number;
+    horasExtras: number;
+    emViagem: boolean;
+    rdos: Array<{
+      numero: number | null;
+      projetoId: string | null;
+      projetoCodigo: string | null;
+    }>;
+  }>;
   sobreposicaoHoras: number;
   horasRelatoriosPorData: Array<{ data: string; horas: number }>;
   custo: number | null;
   custoHora: number | null;
+  /** Parcela proporcional do custo apropriado correspondente às horas de deslocamento. */
+  custoDeslocamento: number | null;
 }
 
 export interface ProjectDetail {

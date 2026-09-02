@@ -37,7 +37,7 @@ async function findSessionWithRetry(tokenHash, options = {}) {
         include: {
           user: {
             include: {
-              collaborator: true,
+              collaborator: { include: { jobRole: true } },
               moduleRoles: true
             }
           }

@@ -24,20 +24,42 @@ import {
   getPontoMaisIntegrationStatus,
   linkPontoMaisExternalEmployee,
   linkPontoMaisProjectTag,
+  listPontoMaisIgnoredProjectTags,
   listPontoMaisExternalEmployees,
   listPontoMaisSyncRuns,
   PontoSyncError,
   runPontoMaisSync,
   setPontoMaisDayProjectOverride,
   setPontoMaisDayProjectOverridesBatch,
-  setPontoMaisExternalEmployeeIgnored
+  setPontoMaisExternalEmployeeIgnored,
+  setPontoMaisProjectTagIgnored
 } from '../../lib/pontomais/sync.js';
+import { normalizeName } from '../../lib/pontomais/normalize.js';
 import prisma from '../../lib/prisma.js';
+import {
+  AllocationAuditError,
+  getAllocationAudit,
+  getUnallocatedDays,
+  resolveUnallocatedDays
+} from '../../lib/acompanhamento/allocation-audit.js';
 import { requireAcompanhamentoAccess, requireAcompanhamentoManager, requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB (o export real tem ~centenas de KB)
+
+export function currentUnmatchedPontoNames(periods = []) {
+  const byName = new Map();
+  for (const period of periods) {
+    const normalizedName = String(period?.normalizedName || '').trim();
+    if (!normalizedName) continue;
+    byName.set(normalizedName, {
+      rawName: String(period?.rawName || normalizedName).trim() || normalizedName,
+      normalizedName
+    });
+  }
+  return [...byName.values()];
+}
 
 function strictDateKey(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -79,6 +101,11 @@ export const projectTagLinkSchema = z.object({
   projectId: z.string().trim().min(1).max(200)
 }).strict();
 
+export const projectTagIgnoreSchema = z.object({
+  rawTag: z.string().trim().min(1),
+  ignored: z.boolean().default(true)
+});
+
 export const dayProjectOverrideSchema = z.object({
   externalEmployeeId: z.string().trim().min(1).max(200),
   date: z.string().refine(strictDateKey, 'Data da jornada inválida.'),
@@ -112,6 +139,26 @@ export function mapPontoSyncHttpError(error) {
   };
 }
 
+/*
+ * Fiação padrão do router. Fica exportada porque os testes injetam services próprios e, com o mapa
+ * escondido aqui dentro, uma função nova no serviço podia ficar sem entrada aqui e só quebrar em
+ * runtime — foi exatamente o que aconteceu com o "ignorar etiqueta".
+ */
+export const defaultPontoMaisIntegration = {
+  runSync: runPontoMaisSync,
+  getIntegrationStatus: getPontoMaisIntegrationStatus,
+  listSyncRuns: listPontoMaisSyncRuns,
+  getPending: getPontoMaisPending,
+  listExternalEmployees: listPontoMaisExternalEmployees,
+  setExternalEmployeeIgnored: setPontoMaisExternalEmployeeIgnored,
+  linkExternalEmployee: linkPontoMaisExternalEmployee,
+  linkProjectTag: linkPontoMaisProjectTag,
+  setProjectTagIgnored: setPontoMaisProjectTagIgnored,
+  listIgnoredProjectTags: listPontoMaisIgnoredProjectTags,
+  setDayProjectOverride: setPontoMaisDayProjectOverride,
+  setDayProjectOverridesBatch: setPontoMaisDayProjectOverridesBatch
+};
+
 export function createPontoMaisIntegrationRouter({
   authenticate = requireAuth,
   authorizeAccess = requireAcompanhamentoAccess,
@@ -120,19 +167,7 @@ export function createPontoMaisIntegrationRouter({
   db = prisma
 } = {}) {
   const routes = Router();
-  const integration = {
-    runSync: runPontoMaisSync,
-    getIntegrationStatus: getPontoMaisIntegrationStatus,
-    listSyncRuns: listPontoMaisSyncRuns,
-    getPending: getPontoMaisPending,
-    listExternalEmployees: listPontoMaisExternalEmployees,
-    setExternalEmployeeIgnored: setPontoMaisExternalEmployeeIgnored,
-    linkExternalEmployee: linkPontoMaisExternalEmployee,
-    linkProjectTag: linkPontoMaisProjectTag,
-    setDayProjectOverride: setPontoMaisDayProjectOverride,
-    setDayProjectOverridesBatch: setPontoMaisDayProjectOverridesBatch,
-    ...services
-  };
+  const integration = { ...defaultPontoMaisIntegration, ...services };
 
   routes.post(
     '/sync',
@@ -282,6 +317,36 @@ export function createPontoMaisIntegrationRouter({
     })
   );
 
+  routes.get(
+    '/project-tags/ignored',
+    authenticate,
+    authorizeManager,
+    asyncHandler(async (_req, res) => {
+      res.json(await integration.listIgnoredProjectTags());
+    })
+  );
+
+  routes.post(
+    '/project-tags/ignore',
+    authenticate,
+    authorizeManager,
+    asyncHandler(async (req, res) => {
+      const parsed = projectTagIgnoreSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: 'Etiqueta inválida.', code: 'INVALID_TAG' });
+      try {
+        return res.json(await integration.setProjectTagIgnored({
+          ...parsed.data,
+          ignoredByUserId: req.auth?.user?.id ?? null
+        }));
+      } catch (error) {
+        if (error instanceof PontoSyncError && error.code === 'INVALID_TAG') {
+          return res.status(400).json({ error: error.message, code: error.code });
+        }
+        throw error;
+      }
+    })
+  );
+
   routes.post(
     '/day-project-overrides',
     authenticate,
@@ -382,8 +447,20 @@ router.get(
   requireAuth,
   requireAcompanhamentoManager,
   asyncHandler(async (req, res) => {
-    const take = Math.min(Number(req.query.limit) || 50, 200);
-    const imports = await prisma.pontoImport.findMany({ orderBy: { createdAt: 'desc' }, take });
+    const take = Math.min(Number(req.query.limit) || 50, 500);
+    // Sem recorte por origem, as centenas de snapshots da API empurram as planilhas para fora da
+    // janela e elas ficam inalcançáveis na tela — inclusive para exclusão.
+    const source = String(req.query.source || '').trim().toUpperCase();
+    const where = source === 'PONTOMAIS_API'
+      ? { source: 'PONTOMAIS_API' }
+      : source === 'XLSX'
+        ? { NOT: { source: 'PONTOMAIS_API' } }
+        : undefined;
+    const imports = await prisma.pontoImport.findMany({
+      ...(where ? { where } : {}),
+      orderBy: { createdAt: 'desc' },
+      take
+    });
     res.json(imports);
   })
 );
@@ -414,21 +491,36 @@ router.get(
   requireAcompanhamentoAccess,
   asyncHandler(async (req, res) => {
     const { pontoImport, pontoImports = [], periodStart, periodEnd, fileName, rates } = await computeCollaboratorRates();
-    const unmatchedByName = new Map();
-    for (const item of pontoImports) {
-      const unmatched = item.summary?.unmatched ?? [];
-      for (const row of unmatched) {
-        if (!row?.normalizedName) continue;
-        unmatchedByName.set(row.normalizedName, row);
-      }
-    }
+    const xlsxImportIds = pontoImports
+      .filter(item => item.source !== 'PONTOMAIS_API')
+      .map(item => item.id);
+    const [unmatchedPeriods, ignoredExternalEmployees] = xlsxImportIds.length
+      ? await Promise.all([
+        prisma.pontoPeriodSummary.findMany({
+          where: {
+            importId: { in: xlsxImportIds },
+            collaboratorId: null
+          },
+          select: { rawName: true, normalizedName: true },
+          orderBy: { createdAt: 'asc' }
+        }),
+        prisma.pontoExternalEmployee.findMany({
+          where: { ignoredAt: { not: null } },
+          select: { externalName: true }
+        })
+      ])
+      : [[], []];
+    // Quem foi marcado como ignorado na aba de colaboradores não volta como pendência aqui. A lista
+    // do XLSX é por nome (a planilha não traz o id externo), então o cruzamento é pelo nome
+    // normalizado — o mesmo critério que o vínculo automático já usa.
+    const ignoredNames = new Set(ignoredExternalEmployees.map(item => normalizeName(item.externalName)));
     res.json({
       importId: pontoImport?.id ?? null,
       periodStart: periodStart ?? null,
       periodEnd: periodEnd ?? null,
       fileName: fileName ?? pontoImport?.fileName ?? null,
       rates,
-      unmatched: [...unmatchedByName.values()]
+      unmatched: currentUnmatchedPontoNames(unmatchedPeriods).filter(item => !ignoredNames.has(item.normalizedName))
     });
   })
 );
@@ -444,9 +536,9 @@ router.get(
     const collaborators = await prisma.collaborator.findMany({
       where: includeInactive ? {} : { isActive: true },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, role: true, isActive: true }
+      select: { id: true, name: true, jobRoleId: true, jobRole: { select: { id: true, name: true } }, isActive: true }
     });
-    res.json(collaborators);
+    res.json(collaborators.map(item => ({ ...item, role: item.jobRole?.name || '' })));
   })
 );
 
@@ -468,6 +560,128 @@ router.post(
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
+  })
+);
+
+
+// === Auditoria da alocação diária do ponto ===
+// Leitura e resolução restritas ao gestor do módulo: a trilha expõe onde cada hora de cada
+// colaborador foi parar, que é a mesma sensibilidade do custo de mão de obra.
+
+const dateKeySchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.');
+
+export const allocationAuditQuerySchema = z.object({
+  collaboratorId: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).optional(),
+  de: dateKeySchema.optional(),
+  ate: dateKeySchema.optional(),
+  somenteNaoAlocados: z.enum(['true', 'false']).optional()
+});
+
+export const unallocatedQuerySchema = z.object({
+  de: dateKeySchema.optional(),
+  ate: dateKeySchema.optional()
+});
+
+export const resolveUnallocatedSchema = z.object({
+  items: z.array(z.object({
+    collaboratorId: z.string().trim().min(1),
+    date: dateKeySchema,
+    projectIds: z.array(z.string().trim().min(1)).min(1)
+  })).min(1).max(200)
+});
+
+router.get(
+  '/auditoria-alocacao',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const parsed = allocationAuditQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Filtro inválido.',
+        code: 'INVALID_AUDIT_FILTER'
+      });
+    }
+    const { collaboratorId, projectId, de, ate, somenteNaoAlocados } = parsed.data;
+    return res.json(await getAllocationAudit({
+      collaboratorId: collaboratorId ?? null,
+      projectId: projectId ?? null,
+      from: de ?? null,
+      to: ate ?? null,
+      onlyUnallocated: somenteNaoAlocados === 'true'
+    }));
+  })
+);
+
+router.get(
+  '/dias-sem-alocacao',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const parsed = unallocatedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Filtro inválido.',
+        code: 'INVALID_AUDIT_FILTER'
+      });
+    }
+    return res.json(await getUnallocatedDays({
+      from: parsed.data.de ?? null,
+      to: parsed.data.ate ?? null
+    }));
+  })
+);
+
+router.post(
+  '/dias-sem-alocacao/resolver',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (req, res) => {
+    const parsed = resolveUnallocatedSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Seleção inválida.',
+        code: 'INVALID_DAY_ALLOCATION'
+      });
+    }
+    try {
+      return res.json(await resolveUnallocatedDays({
+        items: parsed.data.items,
+        createdByUserId: req.auth?.user?.id ?? null
+      }));
+    } catch (error) {
+      if (error instanceof AllocationAuditError) {
+        const status = error.code === 'PROJECT_NOT_FOUND' ? 404 : 400;
+        return res.status(status).json({ error: error.message, code: error.code });
+      }
+      throw error;
+    }
+  })
+);
+
+// Contagem para o aviso na navegação do módulo. O balde de projeto não cadastrado fica de fora de
+// propósito: aquilo é fila de cadastro de missão, não pendência a resolver.
+router.get(
+  '/pendencias/contagem',
+  requireAuth,
+  requireAcompanhamentoManager,
+  asyncHandler(async (_req, res) => {
+    const [unallocated, integrationPending] = await Promise.all([
+      getUnallocatedDays(),
+      getPontoMaisPending()
+    ]);
+    const unlinkedEmployees = integrationPending.employees.length;
+    res.json({
+      unallocatedDays: unallocated.counts.actionableDays,
+      unallocatedBlocks: unallocated.actionable.length,
+      unallocatedHours: unallocated.counts.actionableHours,
+      // Conflito é um recorte dos dias sem alocação, não uma fila separada: somá-lo ao total
+      // contaria o mesmo dia duas vezes.
+      conflictDays: unallocated.counts.conflictDays,
+      unlinkedEmployees,
+      total: unallocated.counts.actionableDays + unlinkedEmployees
+    });
   })
 );
 

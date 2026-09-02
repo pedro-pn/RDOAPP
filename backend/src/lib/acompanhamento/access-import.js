@@ -403,7 +403,7 @@ function addLaborCollaborator(map, collaborator, source) {
   map.set(collaborator.id, {
     id: collaborator.id,
     name: collaborator.name,
-    role: collaborator.role ?? null,
+    role: collaborator.jobRole?.name ?? collaborator.roleNameSnapshot ?? null,
     sources: [source]
   });
 }
@@ -418,16 +418,21 @@ async function listProjectLaborCollaborators(project, sleepModeMap) {
   const [rdoCollaborators, manualCollaborators] = await Promise.all([
     prisma.reportCollaborator.findMany({
       where: { report: { projectId: project.id, reportType: 'RDO', deletedAt: null } },
-      select: { collaborator: { select: { id: true, name: true, role: true } } },
+      select: {
+        roleNameSnapshot: true,
+        collaborator: { select: { id: true, name: true, jobRole: { select: { name: true } } } }
+      },
       orderBy: { collaborator: { name: 'asc' } }
     }),
     prisma.collaborator.findMany({
       where: { id: { in: [...new Set([...manualIds, ...sleepModeIds])] } },
-      select: { id: true, name: true, role: true }
+      select: { id: true, name: true, jobRole: { select: { name: true } } }
     })
   ]);
 
-  for (const row of rdoCollaborators) addLaborCollaborator(rows, row.collaborator, 'RDO');
+  for (const row of rdoCollaborators) {
+    addLaborCollaborator(rows, { ...row.collaborator, roleNameSnapshot: row.roleNameSnapshot }, 'RDO');
+  }
   const manualById = new Map(manualCollaborators.map(collaborator => [collaborator.id, collaborator]));
   for (const id of [...manualIds, ...sleepModeIds]) addLaborCollaborator(rows, manualById.get(id), 'MANUAL');
 
@@ -501,11 +506,12 @@ export async function listProjectRevisions(projectId) {
       code: true,
       startDate: true,
       mobilizationDate: true,
+      demobilizationDate: true,
       manualProgressPct: true,
       offshore: true,
       laborSleepModeByCollaborator: true,
       laborCollaboratorIds: true,
-      operator: { select: { id: true, name: true, role: true } }
+      operator: { select: { id: true, name: true, jobRole: { select: { name: true } } } }
     }
   });
   if (!project) throw new Error('Projeto não encontrado.');
@@ -519,6 +525,7 @@ export async function listProjectRevisions(projectId) {
       resolved: false,
       startDate: project.startDate ?? null,
       mobilizationDate: project.mobilizationDate ?? null,
+      demobilizationDate: project.demobilizationDate ?? null,
       manualProgressPct: project.manualProgressPct ?? null,
       offshore: project.offshore ?? false,
       laborSleepModeByCollaborator,
@@ -572,6 +579,7 @@ export async function listProjectRevisions(projectId) {
     mobilizationLeadDays: budget?.mobilizationLeadDays ?? null,
     startDate: project.startDate ?? null,
     mobilizationDate: project.mobilizationDate ?? null,
+    demobilizationDate: project.demobilizationDate ?? null,
     manualProgressPct: project.manualProgressPct ?? null,
     offshore: project.offshore ?? false,
     laborSleepModeByCollaborator,
@@ -583,12 +591,56 @@ export async function listProjectRevisions(projectId) {
   };
 }
 
+/*
+ * A desmobilização fecha a janela usada como contexto do cronograma, então precisa ser coerente:
+ * sem mobilização não há janela, e uma data anterior à mobilização inverteria o intervalo.
+ * Como cada campo é opcional na requisição, a mobilização vigente vem do banco quando não veio no
+ * corpo — `undefined` significa "não mexeu", `null` significa "limpou".
+ */
+export function assertScheduleWindowDates({
+  mobilizationDate,
+  demobilizationDate,
+  currentMobilizationDate = null
+} = {}) {
+  if (!demobilizationDate) return;
+  const effectiveMobilization = mobilizationDate !== undefined
+    ? (mobilizationDate ? new Date(mobilizationDate) : null)
+    : currentMobilizationDate;
+  if (!effectiveMobilization) {
+    throw new Error('Informe a data de mobilização antes da desmobilização.');
+  }
+  if (new Date(demobilizationDate) < new Date(effectiveMobilization)) {
+    throw new Error('A desmobilização não pode ser anterior à mobilização.');
+  }
+}
+
+export async function syncProjectDemobilizationToMissions(tx, projectId, demobilizationDate) {
+  const missions = await tx.efetivoMissionPlan.findMany({
+    where: { projectId, deletedAt: null },
+    select: { planId: true }
+  });
+  if (!missions.length) return;
+  await tx.efetivoMissionPlan.updateMany({
+    where: { projectId, deletedAt: null },
+    data: {
+      returnDate: demobilizationDate ? new Date(demobilizationDate) : null,
+      version: { increment: 1 }
+    }
+  });
+  const planIds = [...new Set(missions.map(mission => mission.planId))];
+  await tx.efetivoPlan.updateMany({
+    where: { id: { in: planIds } },
+    data: { revision: { increment: 1 } }
+  });
+}
+
 // Edita o cronograma: data de aprovação da proposta (no orçamento) e início real (no projeto).
 // Cada campo é opcional; passar null limpa. approvedAt exige um orçamento já escolhido.
 export async function setProjectSchedule(projectId, {
   approvedAt,
   startDate,
   mobilizationDate,
+  demobilizationDate,
   manualProgressPct,
   offshore,
   laborSleepModeByCollaborator,
@@ -617,10 +669,25 @@ export async function setProjectSchedule(projectId, {
         data: { approvedAt: approvedAt ? new Date(approvedAt) : null }
       });
     }
+    if (demobilizationDate) {
+      const currentDates = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { mobilizationDate: true }
+      });
+      assertScheduleWindowDates({
+        mobilizationDate,
+        demobilizationDate,
+        currentMobilizationDate: currentDates?.mobilizationDate ?? null
+      });
+    }
+
     const projectData = {};
     const nextManualProgressPct = manualProgressPct == null ? null : Number(manualProgressPct);
     if (startDate !== undefined) projectData.startDate = startDate ? new Date(startDate) : null;
     if (mobilizationDate !== undefined) projectData.mobilizationDate = mobilizationDate ? new Date(mobilizationDate) : null;
+    if (demobilizationDate !== undefined) {
+      projectData.demobilizationDate = demobilizationDate ? new Date(demobilizationDate) : null;
+    }
     if (manualProgressPct !== undefined) projectData.manualProgressPct = nextManualProgressPct;
     if (offshore !== undefined) projectData.offshore = Boolean(offshore);
     if (laborSleepModeByCollaborator !== undefined) {
@@ -641,6 +708,9 @@ export async function setProjectSchedule(projectId, {
     }
     if (Object.keys(projectData).length > 0) {
       await tx.project.update({ where: { id: projectId }, data: projectData });
+    }
+    if (demobilizationDate !== undefined) {
+      await syncProjectDemobilizationToMissions(tx, projectId, demobilizationDate);
     }
     if (
       manualProgressPct !== undefined
@@ -730,9 +800,12 @@ export async function removeProjectAdditionalProposal(projectId, codProp) {
 
 // Dashboard de acompanhamento: projetos cuja proposta bate com propostas importadas, com o
 // previsto (orçamento/revisão) e o realizado parcial (nº de RDOs = dias trabalhados, % prazo).
-export async function listCommercialDashboard({ categoryCode = null } = {}) {
+export async function listCommercialDashboard({ categoryCode = null, includeAdminOnlyCategories = true } = {}) {
   // Salários do Omie nunca entram no realizado (serão calculados no app via ponto).
-  const categoryWhere = await buildOmieCostCategoryWhere({ categoryCode });
+  const categoryWhere = await buildOmieCostCategoryWhere({
+    categoryCode,
+    includeAdminOnly: includeAdminOnlyCategories
+  });
   const realizedWhere = {
     projectId: { not: null },
     ...categoryWhere

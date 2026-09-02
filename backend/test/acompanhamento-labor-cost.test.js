@@ -2,9 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  allocationDecisionRequiresAction,
   buildDailyProjectWeights,
+  buildEffectiveAllocationIndex,
+  effectiveProjectsForCollaborator,
+  effectiveProjectsForDay,
   buildMissionGroupProjectIndex,
+  buildScheduleWindowEligibility,
+  buildScheduleWindows,
+  scheduleWindowsForDay,
   buildRoleParamsResolver,
+  buildCollaboratorRoleCostSegments,
   classifyProjectHours,
   computeAnalyticalProjectCosts,
   computeCollaboratorCost,
@@ -91,6 +99,38 @@ test('parâmetros de custo respeitam data de vigência do salário', () => {
   assert.equal(resolver.paramsFor('Operador', '2026-07-10').salarioBase, 4000);
   assert.equal(resolver.paramsFor('Operador', '2026-07-14').transferenciaPct, 0.3);
   assert.equal(resolver.paramsFor('Operador', '2026-07-15').transferenciaPct, 0.4);
+});
+
+test('mudança de cargo divide os parâmetros de custo na data efetiva', () => {
+  const resolver = buildRoleParamsResolver({
+    models: [{
+      key: 'operador',
+      parameterSets: [{ version: 1, effectiveDate: new Date('1970-01-01T00:00:00.000Z'), params: { salarioBase: 1000 } }]
+    }],
+    roles: [
+      { name: 'Operador', costProfile: { parameterSets: [{ version: 1, effectiveDate: new Date('1970-01-01T00:00:00.000Z'), params: { baseModel: 'operador', salarioBase: 3000 } }] } },
+      { name: 'Supervisor', costProfile: { parameterSets: [{ version: 1, effectiveDate: new Date('1970-01-01T00:00:00.000Z'), params: { baseModel: 'operador', salarioBase: 5000 } }] } }
+    ]
+  });
+  const collaborator = {
+    jobRoleId: 'role-2',
+    jobRole: { id: 'role-2', name: 'Supervisor' },
+    jobRoleHistory: [
+      { jobRoleId: 'role-1', effectiveDate: new Date('2026-01-01T00:00:00.000Z'), jobRole: { id: 'role-1', name: 'Operador' } },
+      { jobRoleId: 'role-2', effectiveDate: new Date('2026-01-15T00:00:00.000Z'), jobRole: { id: 'role-2', name: 'Supervisor' } }
+    ]
+  };
+
+  const segments = buildCollaboratorRoleCostSegments({ collaborator, roleParams: resolver, startKey: '2026-01-01', endKey: '2026-01-31' });
+  assert.deepEqual(segments.map(segment => ({
+    roleName: segment.roleName,
+    startKey: segment.startKey,
+    endKey: segment.endKey,
+    salarioBase: segment.params.salarioBase
+  })), [
+    { roleName: 'Operador', startKey: '2026-01-01', endKey: '2026-01-14', salarioBase: 3000 },
+    { roleName: 'Supervisor', startKey: '2026-01-15', endKey: '2026-01-31', salarioBase: 5000 }
+  ]);
 });
 
 test('prova real: Σ projetos + sede + folga = folha', () => {
@@ -333,10 +373,11 @@ test('dados de RDO incluem manuais e relatórios de serviço com horas sem dupla
     {
       projectId: 'projeto-rdo',
       reportType: 'RDO',
+      sequenceNumber: 17,
       reportDate: '2026-07-13T00:00:00.000Z',
       daytimeWorkedMinutes: 480,
       nighttimeWorkedMinutes: 0,
-      project: { offshore: false, laborSleepModeByCollaborator: {} },
+      project: { code: '5800', offshore: false, laborSleepModeByCollaborator: {} },
       collaborators: [{ collaboratorId: 'col-1' }],
       services: []
     },
@@ -352,6 +393,16 @@ test('dados de RDO incluem manuais e relatórios de serviço com horas sem dupla
         { startTime: '08:00', endTime: '12:00' },
         { startTime: '10:00', endTime: '14:00' }
       ]
+    },
+    {
+      projectId: 'projeto-rdo',
+      reportType: 'RTP',
+      reportDate: '2026-07-13T00:00:00.000Z',
+      daytimeWorkedMinutes: 540,
+      nighttimeWorkedMinutes: 0,
+      project: { code: '5800', offshore: false, laborSleepModeByCollaborator: {} },
+      collaborators: [{ collaboratorId: 'col-1' }],
+      services: []
     },
     {
       projectId: 'projeto-manual-rtp',
@@ -391,12 +442,16 @@ test('dados de RDO incluem manuais e relatórios de serviço com horas sem dupla
 
   const map = rdoDataByCollaboratorFromReports(reports);
 
-  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').hours, 8);
+  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').hours, 9);
+  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').rdoNumber, 17);
+  assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-rdo').projectCode, '5800');
   assert.equal(map.get('col-1').dayProjects.get('2026-07-13').get('projeto-servico').hours, 6);
   assert.equal(map.get('col-2').dayProjects.get('2026-07-13').get('projeto-servico').hours, 6);
   assert.equal(map.get('col-2').dayProjects.get('2026-07-14').get('projeto-manual-rtp').hours, 4);
   assert.equal(map.get('col-2').dayProjects.has('2026-07-15'), false);
   assert.equal(map.get('col-3').dayProjects.get('2026-07-16').get('projeto-rdo-zero').hours, 0);
+  assert.deepEqual([...map.get('col-1').rdoProjectIds], ['projeto-rdo']);
+  assert.deepEqual([...map.get('col-1').nominalRdoProjectsByDate.get('2026-07-13')], ['projeto-rdo']);
 });
 
 test('RDO posterior nominal confirma o projeto na data exata de mobilização', () => {
@@ -466,13 +521,94 @@ function dailyRdo(entries) {
   }]));
 }
 
+test('apropriação por evidência aplica 8h48 como piso do total no dia útil', () => {
+  const result = classifyProjectHours([
+    { date: '2026-08-03', normalHours: 7, he70Horas: 0, he100Horas: 0, tags: ['Missão A'] },
+    { date: '2026-08-04', normalHours: 9, he70Horas: 0, he100Horas: 0, tags: ['Missão A'] },
+    { date: '2026-08-06', normalHours: 0, he70Horas: 0, he100Horas: 0, tags: ['Missão A'] },
+    { date: '2026-08-08', normalHours: 7, he70Horas: 0, he100Horas: 0, tags: ['Missão A'] },
+    { date: '2026-08-05', normalHours: 7, he70Horas: 0, he100Horas: 0, tags: [] },
+    { date: '2026-08-10', normalHours: 7, he70Horas: 1, he100Horas: 0, tags: [] },
+    { date: '2026-08-11', normalHours: 7, he70Horas: 1, he100Horas: 1, tags: [] }
+  ], {
+    byProject: new Map(),
+    dayProjects: new Map([
+      ['2026-08-03', dailyRdo([['A', 7]])],
+      ['2026-08-04', dailyRdo([['A', 9]])],
+      ['2026-08-06', dailyRdo([['A', 8]])],
+      ['2026-08-08', dailyRdo([['A', 7]])],
+      ['2026-08-10', dailyRdo([['A', 8]])],
+      ['2026-08-11', dailyRdo([['A', 9]])]
+    ])
+  }, resolveTestTag);
+
+  assert.ok(near(result.byProject.get('A').normalHours, 8.8 + 9 + 7 + 7.8 + 7));
+  assert.ok(near(result.byProject.get('A').he70Hours, 2));
+  assert.ok(near(result.byProject.get('A').he100Hours, 1));
+  assert.ok(near(result.costNormalHours, 8.8 + 9 + 7 + 7 + 7.8 + 7));
+  assert.deepEqual(result.dayTrail.map(day => ({
+    date: day.date,
+    recorded: day.normalHours,
+    cost: Number(day.costNormalHours.toFixed(6)),
+    minimumApplied: day.minimumNormalHoursApplied,
+    reason: day.reason
+  })), [
+    { date: '2026-08-03', recorded: 7, cost: 8.8, minimumApplied: true, reason: 'SINGLE_TAG' },
+    { date: '2026-08-04', recorded: 9, cost: 9, minimumApplied: false, reason: 'SINGLE_TAG' },
+    { date: '2026-08-06', recorded: 0, cost: 0, minimumApplied: false, reason: 'NO_POINT_HOURS' },
+    { date: '2026-08-08', recorded: 7, cost: 7, minimumApplied: false, reason: 'SINGLE_TAG' },
+    { date: '2026-08-05', recorded: 7, cost: 7, minimumApplied: false, reason: 'NO_PROJECT_EVIDENCE' },
+    { date: '2026-08-10', recorded: 7, cost: 7.8, minimumApplied: true, reason: 'SINGLE_RDO_FALLBACK' },
+    { date: '2026-08-11', recorded: 7, cost: 7, minimumApplied: false, reason: 'SINGLE_RDO_FALLBACK' }
+  ]);
+  assert.deepEqual(result.unresolvedDays.map(day => [day.date, day.reason]), [
+    ['2026-08-05', 'NO_PROJECT_EVIDENCE']
+  ]);
+});
+
+test('apropriações contábil e analítica preservam as horas de deslocamento', () => {
+  const accounting = computeCollaboratorCost({
+    params: PARAMS,
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    folgaHours: 0,
+    projects: [{
+      pid: 'A',
+      rdoDaysHours: 8.8,
+      awayDaysHours: 8.8,
+      rdoWorkedHours: 8.8,
+      travelHours: 4.4,
+      he70Hours: 0,
+      he100Hours: 0
+    }]
+  });
+  assert.equal(accounting.byProject.A.travelHours, 4.4);
+
+  const analytical = computeAnalyticalProjectCosts({
+    params: PARAMS,
+    fixedBase: accounting.fixoMensal,
+    totalHours: accounting.totalHours,
+    projects: [{
+      pid: 'A',
+      rdoDaysHours: 8.8,
+      awayDaysHours: 8.8,
+      travelHours: 2.2,
+      he70Hours: 0,
+      he100Hours: 0
+    }]
+  });
+  assert.equal(analytical.A.travelHours, 2.2);
+});
+
 test('precedência de pesos diários cobre etiqueta única, interseção e fallback de RDO', () => {
   const oneTag = buildDailyProjectWeights({
     tags: ['Missão A'],
     rdoProjects: new Map(),
     resolveTag: resolveTestTag
   });
-  assert.deepEqual(oneTag.allocations.map(item => [item.projectId, item.weight]), [['A', 1]]);
+  assert.deepEqual(oneTag.allocations, []);
+  assert.equal(oneTag.reason, 'NO_PROJECT_EVIDENCE');
 
   const soleDivergentRdo = buildDailyProjectWeights({
     tags: ['Missão A'],
@@ -569,7 +705,7 @@ test('grupo de missões só resolve o dia quando resta um único RDO membro', ()
   assert.equal(withoutPointTag.reason, 'AMBIGUOUS_WITHOUT_TAGS');
 });
 
-test('fallback de missão mesclada conserva normal e horas extras do ponto', () => {
+test('fallback de missão mesclada usa o total do ponto quando ele supera 8h48', () => {
   const missionGroups = buildMissionGroupProjectIndex([{
     id: 'group-detroit',
     members: [{ projectId: 'A' }, { projectId: 'B' }]
@@ -615,7 +751,7 @@ test('dois projetos confirmados usam todas as horas de RDO somente como pesos no
   assert.deepEqual(equal.allocations.map(item => item.weight), [0.5, 0.5]);
 });
 
-test('alocação diária aplica o mesmo peso ao normal, HE70 e HE100 sem criar horas', () => {
+test('alocação diária aplica o mesmo peso ao normal ajustado, HE70 e HE100', () => {
   const rdo = {
     byProject: new Map(),
     dayProjects: new Map([['2026-08-03', dailyRdo([['A', 8], ['B', 4]])]])
@@ -628,7 +764,7 @@ test('alocação diária aplica o mesmo peso ao normal, HE70 e HE100 sem criar h
     tags: ['Missão A', 'Missão B']
   }], rdo, resolveTestTag, new Map());
 
-  assert.ok(near(result.byProject.get('A').normalHours, 16 / 3));
+  assert.ok(near(result.byProject.get('A').normalHours, 8 * 2 / 3));
   assert.ok(near(result.byProject.get('B').normalHours, 8 / 3));
   assert.ok(near(result.byProject.get('A').he70Hours, 1));
   assert.ok(near(result.byProject.get('B').he70Hours, 0.5));
@@ -708,7 +844,9 @@ test('execução compartilhada conserva a folha e replica integralmente a apropr
   const analyticalHours = classifyProjectHours(rows, rdo, resolveTestTag, new Map(), new Map(), missionGroups, 'ANALYTICAL');
   assert.ok(near([...accountingHours.byProject.values()].reduce((sum, item) => sum + item.normalHours, 0), 8.8));
   assert.ok(near([...analyticalHours.byProject.values()].reduce((sum, item) => sum + item.normalHours, 0), 17.6));
-  assert.ok([...analyticalHours.byProject.values()].every(item => item.travelHours === 8.8));
+  assert.equal(accountingHours.dayTrail[0].travelContext, false);
+  assert.ok([...accountingHours.byProject.values()].every(item => near(item.travelHours, 0)));
+  assert.ok([...analyticalHours.byProject.values()].every(item => near(item.travelHours, 0)));
 });
 
 test('consolidação excepcional direciona evidência dos membros uma única vez ao projeto principal', () => {
@@ -784,19 +922,21 @@ test('política de grupo não resolve RDO externo nem grupo apenas visual', () =
   assert.deepEqual(visualDecision.allocations, []);
 });
 
-test('viagem usa mobilização com RDO posterior somente como último fallback', () => {
+test('mobilização inferida por RDO vira divergência; seleção manual resolve sem RDO do dia', () => {
   const unique = buildDailyProjectWeights({
     tags: ['EM VIAGEM - cliente'],
     mobilizationProjectIds: ['A']
   });
-  assert.equal(unique.reason, 'MOBILIZATION_FUTURE_RDO');
-  assert.deepEqual(unique.allocations.map(item => [item.projectId, item.weight, item.rdo]), [['A', 1, null]]);
+  assert.equal(unique.reason, 'RDO_PERIOD_MISMATCH');
+  assert.deepEqual(unique.allocations, []);
+  assert.equal(allocationDecisionRequiresAction(unique), true);
 
   const withoutTravel = buildDailyProjectWeights({
     tags: [],
     mobilizationProjectIds: ['A']
   });
   assert.equal(withoutTravel.reason, 'NO_PROJECT_EVIDENCE');
+  assert.equal(allocationDecisionRequiresAction(withoutTravel), false);
 
   const sameDayWins = buildDailyProjectWeights({
     tags: ['EM VIAGEM'],
@@ -818,12 +958,11 @@ test('viagem usa mobilização com RDO posterior somente como último fallback',
     tags: ['EM VIAGEM'],
     mobilizationProjectIds: ['A', 'B']
   });
-  assert.equal(ambiguous.reason, 'MOBILIZATION_RDO_AMBIGUOUS');
-  assert.deepEqual(ambiguous.candidateProjectIds, ['A', 'B']);
+  assert.equal(ambiguous.reason, 'RDO_PERIOD_MISMATCH');
   assert.deepEqual(ambiguous.allocations, []);
 });
 
-test('mobilizações compartilhadas repetem somente o eixo analítico e não copiam horas do RDO posterior', () => {
+test('mobilização inferida sem período não é apropriada automaticamente em nenhum eixo', () => {
   const sharedGroups = buildMissionGroupProjectIndex([{
     id: 'group-shared',
     laborAllocationMode: 'SHARED_EXECUTION',
@@ -837,10 +976,10 @@ test('mobilizações compartilhadas repetem somente o eixo analítico e não cop
   const accounting = buildDailyProjectWeights(input);
   const analytical = buildDailyProjectWeights({ ...input, allocationAxis: 'ANALYTICAL' });
 
-  assert.equal(accounting.reason, 'MOBILIZATION_SHARED_ACCOUNTING');
-  assert.deepEqual(accounting.allocations.map(item => [item.projectId, item.weight]), [['A', 0.5], ['B', 0.5]]);
-  assert.equal(analytical.reason, 'MOBILIZATION_SHARED_ANALYTICAL');
-  assert.deepEqual(analytical.allocations.map(item => [item.projectId, item.weight]), [['A', 1], ['B', 1]]);
+  assert.equal(accounting.reason, 'RDO_PERIOD_MISMATCH');
+  assert.deepEqual(accounting.allocations, []);
+  assert.equal(analytical.reason, 'RDO_PERIOD_MISMATCH');
+  assert.deepEqual(analytical.allocations, []);
 
   const classified = classifyProjectHours([{
     date: '2026-07-16',
@@ -853,10 +992,9 @@ test('mobilizações compartilhadas repetem somente o eixo analítico e não cop
     dayProjects: new Map(),
     mobilizationProjectsByDate: new Map([['2026-07-16', new Set(['A'])]])
   });
-  assert.equal(classified.byProject.get('A').normalHours, 8);
-  assert.equal(classified.byProject.get('A').he70Hours, 1);
-  assert.equal(classified.byProject.get('A').travelHours, 8);
-  assert.equal(classified.byProject.get('A').rdoWorkedHours, 0);
+  assert.equal(classified.byProject.size, 0);
+  assert.deepEqual(classified.unresolvedDays.map(item => item.reason), ['RDO_PERIOD_MISMATCH']);
+  assert.equal(classified.unresolvedDays[0].pending, true);
 
   const consolidatedGroups = buildMissionGroupProjectIndex([{
     id: 'group-primary',
@@ -870,8 +1008,8 @@ test('mobilizações compartilhadas repetem somente o eixo analítico e não cop
     missionGroupProjectsByProjectId: consolidatedGroups,
     allocationAxis: 'ANALYTICAL'
   });
-  assert.equal(consolidated.reason, 'MOBILIZATION_CONSOLIDATE_PRIMARY');
-  assert.deepEqual(consolidated.allocations.map(item => [item.projectId, item.weight]), [['A', 1]]);
+  assert.equal(consolidated.reason, 'RDO_PERIOD_MISMATCH');
+  assert.deepEqual(consolidated.allocations, []);
 });
 
 test('custo analítico usa a mesma base real sem reconciliar cópias compartilhadas contra a folha', () => {
@@ -919,4 +1057,499 @@ test('RDO não-offshore usa hospedagem manual: fora = transferência, casa = gra
   });
   assert.notEqual(home.folha, away.folha);
   assert.notEqual(home.variavelMensal, away.variavelMensal);
+});
+
+test('dia com horas e sem RDO/Efetivo fica na auditoria sem virar pendência', () => {
+  const result = classifyProjectHours([{
+    date: '2026-08-17',
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.equal(result.byProject.size, 0);
+  assert.deepEqual(result.unresolvedDays.map(item => [item.date, item.reason]), [['2026-08-17', 'NO_PROJECT_EVIDENCE']]);
+  assert.equal(result.unresolvedDays[0].pending, false);
+  assert.equal(result.dayTrail[0].pending, false);
+  assert.ok(near(result.unresolvedDays[0].normalHours, 8.8));
+});
+
+test('dia com RDO e ponto zerado não é apropriado nem vira pendência', () => {
+  const result = classifyProjectHours([{
+    date: '2026-08-16',
+    normalHours: 0,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: []
+  }], {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-08-16', dailyRdo([['A', 8]])]])
+  }, resolveTestTag, new Map());
+
+  assert.deepEqual(result.unresolvedDays, []);
+  assert.equal(result.byProject.size, 0);
+  assert.equal(result.dayTrail.length, 1);
+  assert.equal(result.dayTrail[0].reason, 'NO_POINT_HOURS');
+  assert.deepEqual(result.dayTrail[0].allocations, []);
+});
+
+test('dia só com hora extra continua auditável, mas sem evidência não vira pendência', () => {
+  const result = classifyProjectHours([{
+    date: '2026-06-19',
+    normalHours: 0,
+    he70Horas: 0,
+    he100Horas: 10.97,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map());
+
+  assert.equal(result.unresolvedDays.length, 1);
+  assert.ok(near(result.unresolvedDays[0].he100Hours, 10.97));
+  assert.equal(result.unresolvedDays[0].pending, false);
+});
+
+test('trilha registra etiquetas, RDO, motivo e pesos de cada dia', () => {
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-07-20', dailyRdo([['A', 9.5]])]])
+  };
+  const result = classifyProjectHours([{
+    date: '2026-07-20',
+    normalHours: 6.15,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['EM VIAGEM - 07.264.184/0001-46']
+  }], rdo, resolveTestTag, new Map());
+
+  const [day] = result.dayTrail;
+  assert.equal(day.reason, 'SINGLE_RDO_FALLBACK');
+  assert.deepEqual(day.tags, ['EM VIAGEM - 07.264.184/0001-46']);
+  assert.deepEqual(day.tagProjectIds, []);
+  assert.deepEqual(day.rdoProjects, [{ projectId: 'A', hours: 9.5 }]);
+  assert.deepEqual(day.allocations, [{ projectId: 'A', weight: 1 }]);
+  assert.deepEqual(result.unresolvedDays, []);
+});
+
+test('trilha e pendência convivem no mesmo lote sem contaminar as horas por projeto', () => {
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-07-20', dailyRdo([['A', 9.5]])]])
+  };
+  const rows = [
+    { date: '2026-07-20', normalHours: 8, he70Horas: 0, he100Horas: 0, tags: [] },
+    { date: '2026-07-21', normalHours: 8, he70Horas: 0, he100Horas: 0, tags: [] }
+  ];
+  const result = classifyProjectHours(rows, rdo, resolveTestTag, new Map());
+
+  assert.equal(result.dayTrail.length, 2);
+  assert.ok(near(result.byProject.get('A').normalHours, 8.8));
+  assert.deepEqual(result.unresolvedDays.map(item => item.date), ['2026-07-21']);
+});
+
+// === Janela do cronograma (mobilização ↔ desmobilização) ===
+
+const JANELA_5804 = {
+  id: 'p-5804',
+  code: '5804',
+  operatorId: null,
+  laborCollaboratorIds: [],
+  mobilizationDate: new Date('2026-07-14T00:00:00.000Z'),
+  demobilizationDate: new Date('2026-08-31T00:00:00.000Z')
+};
+
+function effectiveAllocation({
+  id = 'allocation-a',
+  collaboratorId = 'c-1',
+  projectId = 'A',
+  mobilizationDate = null,
+  demobilizationDate = null,
+  missionStart = '2026-07-14',
+  missionEnd = '2026-08-31',
+  cycles = null,
+  missionCycles = null
+} = {}) {
+  return {
+    id,
+    collaboratorId,
+    mobilizationDate: mobilizationDate ? new Date(`${mobilizationDate}T00:00:00.000Z`) : null,
+    demobilizationDate: demobilizationDate ? new Date(`${demobilizationDate}T00:00:00.000Z`) : null,
+    ...(cycles ? { cycles: cycles.map((cycle, index) => ({
+      id: `allocation-cycle-${index}`,
+      mobilizationDate: new Date(`${cycle[0]}T00:00:00.000Z`),
+      demobilizationDate: cycle[1] ? new Date(`${cycle[1]}T00:00:00.000Z`) : null
+    })) } : {}),
+    mission: {
+      id: `mission-${projectId}`,
+      projectId,
+      mobilizationDate: new Date(`${missionStart}T00:00:00.000Z`),
+      executionEndDate: new Date(`${missionEnd}T00:00:00.000Z`),
+      returnDate: new Date(`${missionEnd}T00:00:00.000Z`),
+      ...(missionCycles ? { cycles: missionCycles.map((cycle, index) => ({
+        id: `mission-cycle-${index}`,
+        mobilizationDate: new Date(`${cycle[0]}T00:00:00.000Z`),
+        demobilizationDate: cycle[1] ? new Date(`${cycle[1]}T00:00:00.000Z`) : null
+      })) } : {})
+    }
+  };
+}
+
+test('janela só existe com mobilização E desmobilização preenchidas', () => {
+  const janelas = buildScheduleWindows([
+    JANELA_5804,
+    { id: 'p-emAndamento', code: '5820', mobilizationDate: new Date('2026-08-01T00:00:00.000Z'), demobilizationDate: null },
+    { id: 'p-semNada', code: '5900', mobilizationDate: null, demobilizationDate: null },
+    { id: 'p-invertida', code: '5901', mobilizationDate: new Date('2026-08-10T00:00:00.000Z'), demobilizationDate: new Date('2026-08-01T00:00:00.000Z') }
+  ]);
+
+  assert.deepEqual(janelas.map(item => item.projectId), ['p-5804']);
+  assert.equal(janelas[0].startKey, '2026-07-14');
+  assert.equal(janelas[0].endKey, '2026-08-31');
+});
+
+test('projeto presente no Efetivo oficial não usa a janela global como fallback legado', () => {
+  const janelas = buildScheduleWindows([JANELA_5804], new Set(['p-5804']));
+  assert.deepEqual(janelas, []);
+});
+
+test('fallback legado exige RDO nominal dentro da janela e ignora cadastro manual do Project', () => {
+  const janelas = buildScheduleWindows([{ ...JANELA_5804, operatorId: 'c-operador', laborCollaboratorIds: ['c-manual'] }]);
+  const rdoData = new Map([
+    ['c-rdoDentro', { nominalRdoProjectsByDate: new Map([['2026-07-20', new Set(['p-5804'])]]) }],
+    ['c-rdoFora', { nominalRdoProjectsByDate: new Map([['2026-03-10', new Set(['p-5804'])]]) }]
+  ]);
+
+  const elegiveis = buildScheduleWindowEligibility(janelas, rdoData);
+  const doProjeto = elegiveis.get('p-5804');
+
+  assert.ok(!doProjeto.has('c-operador'));
+  assert.ok(!doProjeto.has('c-manual'));
+  assert.ok(doProjeto.has('c-rdoDentro'));
+  // Vazamento histórico: quem fez RDO fora da janela não entra por ela.
+  assert.ok(!doProjeto.has('c-rdoFora'));
+});
+
+test('Efetivo usa datas individuais e herda datas da missão quando elas não foram informadas', () => {
+  const index = buildEffectiveAllocationIndex([
+    effectiveAllocation({ mobilizationDate: '2026-07-20', demobilizationDate: '2026-08-20' }),
+    effectiveAllocation({ id: 'allocation-b', projectId: 'B', missionStart: '2026-08-10', missionEnd: '2026-08-15' }),
+    { ...effectiveAllocation({ id: 'allocation-c', projectId: 'C' }), deletedAt: new Date() },
+    {
+      ...effectiveAllocation({ id: 'allocation-d', projectId: 'D' }),
+      mission: { ...effectiveAllocation({ projectId: 'D' }).mission, scheduleStatus: 'CANCELLED' }
+    },
+    {
+      ...effectiveAllocation({ id: 'allocation-e', projectId: 'E' }),
+      mission: {
+        ...effectiveAllocation({ projectId: 'E' }).mission,
+        scheduleStatus: 'CONFIRMED',
+        plan: { kind: 'SCENARIO', status: 'ACTIVE' }
+      }
+    }
+  ]);
+
+  assert.deepEqual(effectiveProjectsForCollaborator(index, 'c-1'), ['A', 'B']);
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-07-19' }), []);
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-07-20' }), ['A']);
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-08-10' }), ['A', 'B']);
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-08-20' }), ['A']);
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-08-21' }), []);
+});
+
+test('Efetivo não apropria horas na pausa entre ciclos de mobilização', () => {
+  const index = buildEffectiveAllocationIndex([
+    effectiveAllocation({
+      projectId: '5811',
+      missionStart: '2026-07-07',
+      missionEnd: '2026-09-09',
+      missionCycles: [['2026-07-07', '2026-07-09'], ['2026-09-07', '2026-09-09']]
+    })
+  ]);
+
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-07-08' }), ['5811']);
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-08-01' }), []);
+  assert.deepEqual(effectiveProjectsForDay({ effectiveAllocationIndex: index, collaboratorId: 'c-1', dateKey: '2026-09-08' }), ['5811']);
+});
+
+test('Efetivo individual apropria EM VIAGEM sem RDO e aplica o piso de 8h48', () => {
+  const effectiveAllocationIndex = buildEffectiveAllocationIndex([
+    effectiveAllocation({ projectId: 'p-5804', mobilizationDate: '2026-08-01', demobilizationDate: '2026-08-31' })
+  ]);
+
+  const decisao = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: ['p-5804'],
+  });
+
+  assert.equal(decisao.reason, 'EFFECTIVE_ALLOCATION_TRAVEL');
+  assert.deepEqual(decisao.allocations, [{ projectId: 'p-5804', weight: 1, rdo: null }]);
+  assert.equal(decisao.travelContext, true);
+
+  const classificado = classifyProjectHours([{
+    date: '2026-08-17',
+    normalHours: 7,
+    he70Horas: 1,
+    he100Horas: 0,
+    tags: ['EM VIAGEM']
+  }], { byProject: new Map(), dayProjects: new Map() }, resolveTestTag, new Map([
+    ['p-5804', { offshore: false, sleepMode: 'HOME' }]
+  ]), new Map(), new Map(), 'ACCOUNTING', {
+    effectiveAllocationIndex,
+    collaboratorId: 'c-1'
+  });
+
+  assert.deepEqual(classificado.unresolvedDays, []);
+  assert.ok(near(classificado.byProject.get('p-5804').normalHours, 7.8));
+  assert.ok(near(classificado.byProject.get('p-5804').he70Hours, 1));
+  assert.ok(near(classificado.byProject.get('p-5804').travelHours, 8.8));
+  assert.equal(classificado.dayTrail[0].minimumNormalHoursApplied, true);
+});
+
+test('RDO do dia prevalece; Efetivo resolve viagem e etiqueta isolada não gera pendência', () => {
+  const comRdo = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: dailyRdo([['B', 9]]),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: ['A'],
+    knownEffectiveProjectIds: ['A']
+  });
+  assert.equal(comRdo.reason, 'SINGLE_RDO_FALLBACK');
+  assert.equal(comRdo.allocations[0].projectId, 'B');
+
+  const rdoIgnoraViagem = classifyProjectHours([{
+    date: '2026-08-17',
+    normalHours: 8,
+    he70Horas: 0.8,
+    he100Horas: 0,
+    tags: ['EM VIAGEM']
+  }], {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-08-17', dailyRdo([['B', 9]])]])
+  }, resolveTestTag, new Map([
+    ['B', { offshore: false, sleepMode: 'HOME' }]
+  ]));
+  assert.equal(rdoIgnoraViagem.dayTrail[0].reason, 'SINGLE_RDO_FALLBACK');
+  assert.equal(rdoIgnoraViagem.dayTrail[0].travelContext, false);
+  assert.ok(near(rdoIgnoraViagem.byProject.get('B').travelHours, 0));
+
+  const comEtiqueta = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag
+  });
+  assert.equal(comEtiqueta.reason, 'NO_PROJECT_EVIDENCE');
+  assert.deepEqual(comEtiqueta.allocations, []);
+  assert.equal(allocationDecisionRequiresAction(comEtiqueta), false);
+
+  const etiquetaDoEfetivo = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: ['A'],
+    knownEffectiveProjectIds: ['A']
+  });
+  assert.equal(etiquetaDoEfetivo.reason, 'EFFECTIVE_PROJECT_TAG_TRAVEL');
+  assert.deepEqual(etiquetaDoEfetivo.allocations.map(item => item.projectId), ['A']);
+
+  const etiquetaDesempata = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: ['A', 'B'],
+    knownEffectiveProjectIds: ['A', 'B']
+  });
+  assert.equal(etiquetaDesempata.reason, 'EFFECTIVE_PROJECT_TAG_TRAVEL');
+  assert.deepEqual(etiquetaDesempata.allocations, [{ projectId: 'A', weight: 1, rdo: null }]);
+
+  const comOverride = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    manualProjectIds: ['C']
+  });
+  assert.equal(comOverride.reason, 'MANUAL_OVERRIDE');
+  assert.deepEqual(comOverride.allocations.map(item => item.projectId), ['C']);
+});
+
+test('Efetivo sem marcação do ponto não aloca nem gera pendência; EM VIAGEM ambígua gera', () => {
+  const decisao = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: ['A', 'B']
+  });
+
+  assert.equal(decisao.reason, 'NO_PROJECT_EVIDENCE');
+  assert.deepEqual(decisao.allocations, []);
+  assert.equal(allocationDecisionRequiresAction(decisao), false);
+
+  const viagemAmbigua = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: ['A', 'B']
+  });
+  assert.equal(viagemAmbigua.reason, 'EFFECTIVE_ALLOCATION_AMBIGUOUS');
+  assert.deepEqual(viagemAmbigua.allocations, []);
+});
+
+test('dia fora do período individual não usa evidência histórica; relatório do próprio dia prevalece', () => {
+  const foraDoPeriodo = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: []
+  });
+  assert.equal(foraDoPeriodo.reason, 'NO_PROJECT_EVIDENCE');
+  assert.equal(allocationDecisionRequiresAction(foraDoPeriodo), false);
+
+  const comRelatorioReal = buildDailyProjectWeights({
+    tags: ['Missão A'],
+    rdoProjects: dailyRdo([['B', 8.8]]),
+    resolveTag: resolveTestTag,
+    effectiveProjectIds: []
+  });
+  assert.equal(comRelatorioReal.reason, 'SINGLE_RDO_OVERRIDES_TAG');
+  assert.deepEqual(comRelatorioReal.allocations.map(item => item.projectId), ['B']);
+
+  const effectiveAllocationIndex = buildEffectiveAllocationIndex([
+    effectiveAllocation({ projectId: 'A', mobilizationDate: '2026-08-01', demobilizationDate: '2026-08-10' })
+  ]);
+  const classificado = classifyProjectHours([{
+    date: '2026-08-17', normalHours: 8.8, he70Horas: 0, he100Horas: 0, tags: []
+  }], {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-08-17', dailyRdo([['B', 8.8]])]])
+  }, resolveTestTag, new Map(), new Map(), new Map(), 'ACCOUNTING', {
+    effectiveAllocationIndex,
+    collaboratorId: 'c-1'
+  });
+  assert.equal(classificado.dayTrail[0].reason, 'SINGLE_RDO_FALLBACK');
+  assert.equal(classificado.dayTrail[0].planningMismatch, true);
+});
+
+test('vários RDOs sem etiqueta continuam ambíguos: a janela não desempata evidência de RDO', () => {
+  const decisao = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: dailyRdo([['A', 8], ['B', 8]]),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+
+  assert.equal(decisao.reason, 'AMBIGUOUS_WITHOUT_TAGS');
+  assert.deepEqual(decisao.allocations, []);
+});
+
+test('fallback legado resolve janela confirmada por RDO, mas mobilização isolada não', () => {
+  const semJanela = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    mobilizationProjectIds: ['A', 'B']
+  });
+  assert.equal(semJanela.reason, 'RDO_PERIOD_MISMATCH');
+
+  const comJanela = buildDailyProjectWeights({
+    tags: ['EM VIAGEM'],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    mobilizationProjectIds: ['A', 'B'],
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(comJanela.reason, 'SCHEDULE_TRAVEL_TAG');
+  assert.deepEqual(comJanela.allocations, [{ projectId: 'p-5804', weight: 1, rdo: null }]);
+
+  const semMarcacaoNoPonto = buildDailyProjectWeights({
+    tags: [],
+    rdoProjects: new Map(),
+    resolveTag: resolveTestTag,
+    scheduleWindowProjectIds: ['p-5804']
+  });
+  assert.equal(semMarcacaoNoPonto.reason, 'NO_PROJECT_EVIDENCE');
+  assert.deepEqual(semMarcacaoNoPonto.allocations, []);
+  assert.equal(allocationDecisionRequiresAction(semMarcacaoNoPonto), false);
+});
+
+test('dia fora da janela não é alocado por ela', () => {
+  const janelas = buildScheduleWindows([JANELA_5804]);
+  const elegiveis = buildScheduleWindowEligibility(janelas, new Map([[
+    'c-1',
+    { nominalRdoProjectsByDate: new Map([['2026-08-17', new Set(['p-5804'])]]) }
+  ]]));
+
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-07-13'
+  }), []);
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-09-01'
+  }), []);
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-08-17'
+  }), ['p-5804']);
+  // Colaborador que não é elegível não entra mesmo dentro da janela.
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-outro',
+    dateKey: '2026-08-17'
+  }), []);
+});
+
+test('dia já resolvido à mão não volta a ser pendência quando o snapshot é re-sincronizado', () => {
+  // Conflito clássico: etiqueta aponta um projeto, o RDO do dia aponta outros dois.
+  const rdo = {
+    byProject: new Map(),
+    dayProjects: new Map([['2026-08-17', dailyRdo([['B', 8], ['C', 8]])]])
+  };
+  const rows = [{
+    date: '2026-08-17',
+    normalHours: 8.8,
+    he70Horas: 0,
+    he100Horas: 0,
+    tags: ['Missão A']
+  }];
+
+  const semResolucao = classifyProjectHours(rows, rdo, resolveTestTag, new Map());
+  assert.deepEqual(semResolucao.unresolvedDays.map(item => item.reason), ['TAG_RDO_CONFLICT']);
+
+  // A seleção manual é por colaborador+data e não pertence ao snapshot, então sobrevive a qualquer
+  // reimportação do período: o dia continua alocado e fora da fila de pendências.
+  const resolvido = classifyProjectHours(
+    rows,
+    rdo,
+    resolveTestTag,
+    new Map(),
+    new Map([['2026-08-17', ['B']]])
+  );
+  assert.deepEqual(resolvido.unresolvedDays, []);
+  assert.equal(resolvido.dayTrail[0].reason, 'MANUAL_OVERRIDE');
+  assert.deepEqual(resolvido.dayTrail[0].allocations, [{ projectId: 'B', weight: 1 }]);
+  assert.ok(near(resolvido.byProject.get('B').normalHours, 8.8));
+});
+
+test('campos manuais do Project não tornam colaborador elegível no fallback legado', () => {
+  const janelas = buildScheduleWindows([{
+    ...JANELA_5804,
+    operatorId: 'c-operador',
+    laborCollaboratorIds: ['  c-1  ', '', null, 42, 'c-1', 'c-2']
+  }]);
+  const elegiveis = buildScheduleWindowEligibility(janelas, new Map());
+
+  assert.deepEqual([...elegiveis.get('p-5804')], []);
+  assert.deepEqual(scheduleWindowsForDay({
+    scheduleWindows: janelas,
+    eligibleByProject: elegiveis,
+    collaboratorId: 'c-1',
+    dateKey: '2026-08-17'
+  }), []);
 });

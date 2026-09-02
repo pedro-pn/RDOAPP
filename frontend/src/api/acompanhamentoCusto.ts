@@ -114,6 +114,7 @@ export interface OmieCostCategory {
   codigo: string;
   descricao: string | null;
   includeInAcompanhamentoCosts: boolean;
+  adminOnly: boolean;
   syncedAt?: string;
   purchasesCount: number;
   purchasesTotal: string | number | null;
@@ -128,6 +129,14 @@ export async function setOmieCostCategoryIncluded(codigo: string, includeInAcomp
   const { data } = await apiClient.put<OmieCostCategory>(
     `/acompanhamento/custo/categorias-omie/${encodeURIComponent(codigo)}`,
     { includeInAcompanhamentoCosts }
+  );
+  return data;
+}
+
+export async function setOmieCostCategoryAdminOnly(codigo: string, adminOnly: boolean): Promise<OmieCostCategory> {
+  const { data } = await apiClient.patch<OmieCostCategory>(
+    `/acompanhamento/custo/categorias-omie/${encodeURIComponent(codigo)}/visibilidade`,
+    { adminOnly }
   );
   return data;
 }

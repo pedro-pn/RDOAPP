@@ -58,6 +58,13 @@ import {
   writeFinalEvidencePdf
 } from '../../lib/internal-report-signatures.js';
 import { calculateReportOvertime } from '../../lib/overtime.js';
+import { loadCorporateCalendar } from '../../lib/calendar/corporate-calendar.js';
+import { reportCollaboratorCreateManyData, resolveCollaboratorsByShift } from '../../lib/report-collaborators.js';
+import { buildReportSnapshot, stripAuthoritativeExecutionContext, stripInternalEditState } from '../../lib/reports/edit-snapshot.js';
+import {
+  reportCollaboratorPrefillHandler,
+  reportPlanningContextHandler
+} from '../../lib/reports/planning-context-handler.js';
 import { coordinatorNotificationEmails, NotificationEmailCategory, notificationRecipientsForEmails } from '../../lib/notification-preferences.js';
 import { createMemoryRateLimit } from '../../lib/rate-limit.js';
 import prisma from '../../lib/prisma.js';
@@ -87,6 +94,8 @@ import {
   updateManualReportOperationalData
 } from '../../lib/reports/manual-operational-data.js';
 import { RDO_ACCESS_ROLES, requireAuth, requireModuleRole } from '../../middleware/auth.js';
+import { resolveActualWorkforceContext } from '../../lib/workforce/actual-conflicts.js';
+import { getOfficialMissionContext } from '../../lib/efetivo/planning/official-mission-context.js';
 
 const router = Router();
 const requireRdoAccess = requireModuleRole(...RDO_ACCESS_ROLES);
@@ -1261,21 +1270,21 @@ function sendDownloadBuffer(res, { contentType, fileName, buffer }) {
 const include = {
   project: {
     include: {
-      operator: true,
+      operator: { include: { jobRole: true } },
       authorizedUsers: true
     }
   },
   createdBy: {
     include: {
-      collaborator: true
+      collaborator: { include: { jobRole: true } }
     }
   },
   reviewedBy: {
     include: {
-      collaborator: true
+      collaborator: { include: { jobRole: true } }
     }
   },
-  collaborators: { include: { collaborator: true } },
+  collaborators: { include: { collaborator: { include: { jobRole: true } }, jobRoleSnapshot: true } },
   services: {
     include: {
       equipment: true,
@@ -1372,7 +1381,9 @@ const listSummarySelect = {
   collaborators: {
     select: {
       collaboratorId: true,
-      collaborator: true
+      jobRoleIdSnapshot: true,
+      roleNameSnapshot: true,
+      collaborator: { include: { jobRole: true } }
     }
   },
   services: {
@@ -2705,7 +2716,7 @@ async function withCurrentServiceLeaderSnapshot(report) {
   const parent = await prisma.report.findUnique({
     where: { id: parentRdoId },
     include: {
-      project: { include: { operator: true } },
+      project: { include: { operator: { include: { jobRole: true } } } },
       createdBy: { include: { collaborator: true } }
     }
   });
@@ -3497,13 +3508,13 @@ function assertProjectAllowsInhibition(project, services) {
   throw error;
 }
 
-const serviceSchema = z.object({
+export const serviceSchema = z.object({
   serviceType: z.string().min(1),
   equipmentId: z.string().nullable().optional(),
   system: z.string().nullable().optional(),
   material: z.string().nullable().optional(),
-  startTime: z.string().nullable().optional(),
-  endTime: z.string().nullable().optional(),
+  startTime: z.string().trim().min(1, 'Informe a hora de início.'),
+  endTime: z.string().trim().min(1, 'Informe a hora de término/pausa.'),
   finalized: z.boolean(),
   extraData: z.any().optional()
 });
@@ -3511,6 +3522,10 @@ const serviceSchema = z.object({
 const serviceOnlyServiceSchema = serviceSchema.extend({
   finalized: z.boolean().optional()
 });
+
+const reportSpecialConditionsSchema = z.object({
+  workforceJustification: z.string().trim().max(2000).optional().nullable()
+}).passthrough();
 
 const schema = z.object({
   projectId: z.string().min(1),
@@ -3524,7 +3539,7 @@ const schema = z.object({
   daytimeCount: z.number().int().nonnegative(),
   overtimeReason: z.string().optional().nullable(),
   dailyDescription: z.string().optional().nullable(),
-  specialConditions: z.any().optional(),
+  specialConditions: reportSpecialConditionsSchema.optional(),
   collaboratorIds: z.array(z.string()).default([]),
   services: z.array(serviceSchema).default([])
 });
@@ -3701,17 +3716,6 @@ export async function assertRenderableReportSignatureImageDataUrl(value) {
   }]);
 }
 
-function stripInternalEditState(specialConditions) {
-  if (!specialConditions || typeof specialConditions !== 'object' || Array.isArray(specialConditions)) {
-    return specialConditions || {};
-  }
-
-  const cleaned = cloneJson(specialConditions) || {};
-  delete cleaned.__editOriginalSnapshot;
-  delete cleaned.__editMeta;
-  return cleaned;
-}
-
 function extractInternalEditState(specialConditions) {
   if (!specialConditions || typeof specialConditions !== 'object' || Array.isArray(specialConditions)) {
     return {};
@@ -3729,19 +3733,6 @@ function markOvertimeRejected(specialConditions) {
   return next;
 }
 
-function reportSnapshotUploadAttachments(report) {
-  const records = [];
-  for (const attachment of report.attachments || []) {
-    if (attachment?.storagePath) records.push({ storagePath: attachment.storagePath });
-  }
-  for (const service of report.services || []) {
-    for (const attachment of service.attachments || []) {
-      if (attachment?.storagePath) records.push({ storagePath: attachment.storagePath });
-    }
-  }
-  return records;
-}
-
 function trustedStoragePathsFromSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return [];
   return (Array.isArray(snapshot.uploadAttachments) ? snapshot.uploadAttachments : [])
@@ -3749,46 +3740,9 @@ function trustedStoragePathsFromSnapshot(snapshot) {
     .filter(Boolean);
 }
 
-function buildReportSnapshot(report) {
-  return {
-    projectId: report.projectId,
-    createdByUserId: report.createdByUserId || null,
-    reportType: report.reportType,
-    status: report.status,
-    reportDate: report.reportDate ? new Date(report.reportDate).toISOString().slice(0, 10) : null,
-    arrivalTime: report.arrivalTime,
-    departureTime: report.departureTime,
-    lunchBreak: report.lunchBreak,
-    daytimeCount: report.daytimeCount,
-    overtimeReason: report.overtimeReason || null,
-    dailyDescription: report.dailyDescription || null,
-    reviewNotes: report.reviewNotes || null,
-    reviewedByUserId: report.reviewedByUserId || null,
-    approvedAt: report.approvedAt ? new Date(report.approvedAt).toISOString() : null,
-    returnedAt: report.returnedAt ? new Date(report.returnedAt).toISOString() : null,
-    specialConditions: stripInternalEditState(report.specialConditions || {}),
-    collaboratorIds: (report.collaborators || []).map(link => link.collaboratorId).filter(Boolean),
-    collaborators: (report.collaborators || []).map(link => ({
-      collaboratorId: link.collaboratorId,
-      name: link.collaborator?.name || null,
-      role: link.collaborator?.role || null
-    })),
-    uploadAttachments: reportSnapshotUploadAttachments(report),
-    services: (report.services || []).map(service => ({
-      serviceType: service.serviceType,
-      equipmentId: service.equipmentId || null,
-      system: service.system || null,
-      material: service.material || null,
-      startTime: service.startTime || null,
-      endTime: service.endTime || null,
-      finalized: typeof service.finalized === 'boolean' ? service.finalized : null,
-      extraData: cloneJson(service.extraData || {})
-    }))
-  };
-}
-
-function buildReportUpdateFromSnapshot(project, snapshot) {
-  const overtime = calculateReportOvertime(project, snapshot);
+async function buildReportUpdateFromSnapshot(tx, project, snapshot) {
+  const corporateCalendar = await loadCorporateCalendar(tx, snapshot.reportDate, snapshot.reportDate);
+  const overtime = calculateReportOvertime(project, snapshot, corporateCalendar);
   return {
     projectId: snapshot.projectId,
     reportType: snapshot.reportType,
@@ -3815,7 +3769,14 @@ function buildReportUpdateFromSnapshot(project, snapshot) {
     },
     pendingDerivedTypes: collectPendingDerivedTypes(snapshot.services || []),
     collaborators: {
-      create: uniqueIds(snapshot.collaboratorIds).map(collaboratorId => ({ collaboratorId }))
+      create: uniqueIds(snapshot.collaboratorIds).map(collaboratorId => {
+        const stored = snapshot.collaborators?.find(item => item.collaboratorId === collaboratorId);
+        return {
+          collaboratorId,
+          jobRoleIdSnapshot: stored?.jobRoleId || null,
+          roleNameSnapshot: stored?.role || null
+        };
+      })
     },
     services: {
       create: (snapshot.services || []).map(service => ({
@@ -3843,7 +3804,7 @@ export async function restoreReportFromSnapshot(tx, reportId, originalSnapshot) 
 
   const restored = await tx.report.update({
     where: { id: reportId },
-    data: buildReportUpdateFromSnapshot(project, originalSnapshot),
+    data: await buildReportUpdateFromSnapshot(tx, project, originalSnapshot),
     include
   });
 
@@ -3857,21 +3818,6 @@ export async function restoreReportFromSnapshot(tx, reportId, originalSnapshot) 
     trustedStoragePaths: trustedStoragePathsFromSnapshot(originalSnapshot)
   });
   return restored;
-}
-
-function resolveCollaboratorsByShift(report, collaborators) {
-  const daytimeIds = new Set((report.collaborators || []).map(link => link.collaboratorId).filter(Boolean));
-  const nighttimeIds = new Set(
-    (((report.specialConditions || {}).noturnoDetails || {}).collaboratorIds || []).filter(Boolean)
-  );
-
-  return collaborators.flatMap(c => {
-    const inDay = daytimeIds.has(c.id);
-    const inNight = nighttimeIds.has(c.id);
-    if (!inDay && !inNight) return [{ id: c.id, name: c.name, role: c.role, shift: 'Diurno' }];
-    const shift = inDay && inNight ? 'Diurno e Noturno' : (inNight ? 'Noturno' : 'Diurno');
-    return [{ id: c.id, name: c.name, role: c.role, shift }];
-  });
 }
 
 function safePathLocal(value) {
@@ -4176,7 +4122,7 @@ function projectLeaderSnapshot(project) {
   if (!project || !project.operator) return null;
   return {
     name: project.operator.name || null,
-    role: project.operator.role || null,
+    role: project.operator.jobRole?.name || null,
     signatureImage: project.operator.signatureImage || null
   };
 }
@@ -4282,6 +4228,7 @@ async function syncApprovedRtpReports(tx, report) {
       consolidatedFields['Colaboradores do serviÃ§o'] ||
       consolidatedFields['Colaboradores do servico'];
     const collabIds = [...new Set(Array.isArray(collabField?.ids) ? collabField.ids.filter(Boolean) : [])];
+    const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, collabIds);
 
     const manoField =
       fields['Manômetros utilizados'] ||
@@ -4296,7 +4243,7 @@ async function syncApprovedRtpReports(tx, report) {
       : (uthField && typeof uthField === 'string' ? [uthField] : []);
 
     const [collaborators, manometers, uthUnits] = await Promise.all([
-      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } } }) : Promise.resolve([]),
+      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } }) : Promise.resolve([]),
       resolveReportManometers(tx, manoIds),
       resolveReportUnits(tx, uthIds)
     ]);
@@ -4353,7 +4300,7 @@ async function syncApprovedRtpReports(tx, report) {
         data: {
           ...rtpPayload,
           collaborators: {
-            create: collabIds.map(id => ({ collaboratorId: id }))
+            create: reportCollaboratorRows
           },
           services: {
             create: [{
@@ -4379,7 +4326,7 @@ async function syncApprovedRtpReports(tx, report) {
         ...rtpPayload,
         sequenceNumber: rtpSeq,
         collaborators: {
-          create: collabIds.map(id => ({ collaboratorId: id }))
+          create: reportCollaboratorRows
         },
         services: {
           create: [{
@@ -4472,6 +4419,7 @@ async function syncApprovedRlqReports(tx, report) {
       consolidatedFields['Colaboradores do serviÃ§o'] ||
       consolidatedFields['Colaboradores do servico'];
     const collabIds = [...new Set(Array.isArray(collabField?.ids) ? collabField.ids.filter(Boolean) : [])];
+    const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, collabIds);
 
     const ulqField =
       consolidatedFields['Unidade de Limpeza Química'] ||
@@ -4481,7 +4429,7 @@ async function syncApprovedRlqReports(tx, report) {
       : (ulqField && typeof ulqField === 'string' ? [ulqField] : []);
 
     const [collaborators, ulqUnits] = await Promise.all([
-      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } } }) : Promise.resolve([]),
+      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } }) : Promise.resolve([]),
       resolveReportUnits(tx, ulqIds)
     ]);
 
@@ -4528,7 +4476,7 @@ async function syncApprovedRlqReports(tx, report) {
         data: {
           ...rlqPayload,
           collaborators: {
-            create: collabIds.map(id => ({ collaboratorId: id }))
+            create: reportCollaboratorRows
           },
           services: {
             create: [{
@@ -4554,7 +4502,7 @@ async function syncApprovedRlqReports(tx, report) {
         ...rlqPayload,
         sequenceNumber: rlqSeq,
         collaborators: {
-          create: collabIds.map(id => ({ collaboratorId: id }))
+          create: reportCollaboratorRows
         },
         services: {
           create: [{
@@ -5071,6 +5019,7 @@ async function syncApprovedRcpReports(tx, report) {
       consolidatedFields['Colaboradores do serviÃ§o'] ||
       consolidatedFields['Colaboradores do servico'];
     const collabIds = [...new Set(Array.isArray(collabField?.ids) ? collabField.ids.filter(Boolean) : [])];
+    const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, collabIds);
 
     const unitFieldVal = service.serviceType === 'filtragem'
       ? (consolidatedFields['Unidade de filtragem'] || consolidatedFields['Unidade de Filtragem'])
@@ -5090,7 +5039,7 @@ async function syncApprovedRcpReports(tx, report) {
       : (counterRaw?.id || null);
 
     const [collaborators, units, thermoUnits, counter] = await Promise.all([
-      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } } }) : Promise.resolve([]),
+      collabIds.length ? tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } }) : Promise.resolve([]),
       resolveReportUnits(tx, unitIds),
       resolveReportUnits(tx, thermoIds),
       resolveReportCounter(tx, counterId)
@@ -5152,7 +5101,7 @@ async function syncApprovedRcpReports(tx, report) {
         data: {
           ...rcpPayload,
           collaborators: {
-            create: collabIds.map(id => ({ collaboratorId: id }))
+            create: reportCollaboratorRows
           },
           services: {
             create: [{
@@ -5177,7 +5126,7 @@ async function syncApprovedRcpReports(tx, report) {
         ...rcpPayload,
         sequenceNumber: rcpSeq,
         collaborators: {
-          create: collabIds.map(id => ({ collaboratorId: id }))
+          create: reportCollaboratorRows
         },
         services: {
           create: [{
@@ -5267,9 +5216,10 @@ async function syncApprovedRlmReports(tx, report) {
       consolidatedFields['Colaboradores do serviÃ§o'] ||
       consolidatedFields['Colaboradores do servico'];
     const collabIds = [...new Set(Array.isArray(collabField?.ids) ? collabField.ids.filter(Boolean) : [])];
+    const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, collabIds);
 
     const collaborators = collabIds.length
-      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } } })
+      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } })
       : [];
 
     const resolvedCollaborators = resolveCollaboratorsByShift(report, collaborators);
@@ -5313,7 +5263,7 @@ async function syncApprovedRlmReports(tx, report) {
         data: {
           ...rlmPayload,
           collaborators: {
-            create: collabIds.map(id => ({ collaboratorId: id }))
+            create: reportCollaboratorRows
           },
           services: {
             create: [{
@@ -5338,7 +5288,7 @@ async function syncApprovedRlmReports(tx, report) {
         ...rlmPayload,
         sequenceNumber: rlmSeq,
         collaborators: {
-          create: collabIds.map(id => ({ collaboratorId: id }))
+          create: reportCollaboratorRows
         },
         services: {
           create: [{
@@ -5421,8 +5371,9 @@ async function syncApprovedInhibitionReports(tx, report, targetReportType) {
     const consolidatedFields = buildHistoricalServiceData(fields, serviceHistory);
 
     const collabIds = uniqueIds((report.collaborators || []).map(link => link.collaboratorId).filter(Boolean));
+    const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, collabIds);
     const collaborators = collabIds.length
-      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } } })
+      ? await tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } })
       : [];
     const resolvedCollaborators = resolveCollaboratorsByShift(report, collaborators);
 
@@ -5466,7 +5417,7 @@ async function syncApprovedInhibitionReports(tx, report, targetReportType) {
         data: {
           ...payload,
           collaborators: {
-            create: collabIds.map(id => ({ collaboratorId: id }))
+            create: reportCollaboratorRows
           },
           services: {
             create: [{
@@ -5491,7 +5442,7 @@ async function syncApprovedInhibitionReports(tx, report, targetReportType) {
         ...payload,
         sequenceNumber,
         collaborators: {
-          create: collabIds.map(id => ({ collaboratorId: id }))
+          create: reportCollaboratorRows
         },
         services: {
           create: [{
@@ -5594,7 +5545,7 @@ async function buildIndependentSpecialConditions(tx, reportType, sourceReport, s
   const fields = expandUploadGroupsInServiceData(service.extraData || {}, service.extraData || {});
   const collabIds = serviceCollaboratorIds(service, (sourceReport.collaborators || []).map(link => link.collaboratorId));
   const collaborators = collabIds.length
-    ? await tx.collaborator.findMany({ where: { id: { in: collabIds } } })
+    ? await tx.collaborator.findMany({ where: { id: { in: collabIds } }, include: { jobRole: true } })
     : [];
   const resolvedCollaborators = resolveCollaboratorsByShift(sourceReport, collaborators);
   const serviceLinkKey = serviceHistoryKey(service) || String(service.id || '').trim();
@@ -5725,6 +5676,7 @@ async function createIndependentServiceReports(tx, project, data, managerUserId)
       const sequenceNumber = await reserveSequence(tx, data.projectId, reportType);
       const specialConditions = await buildIndependentSpecialConditions(tx, reportType, sourceReport, normalizedService);
       const reportCollaboratorIds = serviceCollaboratorIds(normalizedService, collaboratorIds);
+      const reportCollaboratorRows = await reportCollaboratorCreateManyData(tx, reportCollaboratorIds);
       const created = await tx.report.create({
         data: {
           projectId: data.projectId,
@@ -5747,7 +5699,7 @@ async function createIndependentServiceReports(tx, project, data, managerUserId)
           specialConditions,
           pendingDerivedTypes: [],
           collaborators: {
-            create: reportCollaboratorIds.map(collaboratorId => ({ collaboratorId }))
+            create: reportCollaboratorRows
           },
           services: {
             create: [{
@@ -5824,6 +5776,9 @@ async function buildReportListWhere(auth, query) {
   applyReportProjectActiveFilter(where, query.projectActive);
   return { where, searchTerm };
 }
+
+router.get('/planning-context', requireAuth, requireRdoAccess, asyncHandler(reportPlanningContextHandler));
+router.get('/collaborator-prefill', requireAuth, requireRdoAccess, asyncHandler(reportCollaboratorPrefillHandler));
 
 router.get('/', requireAuth, requireRdoAccess, asyncHandler(async (req, res) => {
   const pagination = parseReportListPagination(req.query);
@@ -5975,7 +5930,7 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
 
   const project = await prisma.project.findFirstOrThrow({
     where: { id: data.projectId, deletedAt: null },
-    include: { operator: true, authorizedUsers: true }
+    include: { operator: { include: { jobRole: true } }, authorizedUsers: true }
   });
   assertProjectReadyForReports(project);
   const manualSpecialConditions = {
@@ -6032,6 +5987,7 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
       }
 
       const operationalFields = await buildManualReportOperationalFields(tx, project, reportDate, data.operationalData, data.reportType);
+      const reportCollaborators = await reportCollaboratorCreateManyData(tx, operationalFields.collaboratorIds);
       const storedSpecialConditions = {
         ...manualSpecialConditions,
         ...operationalFields.specialConditions
@@ -6052,7 +6008,7 @@ router.post('/manual-upload', requireAuth, requireRdoManager, asyncHandler(async
           ...(operationalFields.collaboratorIds.length
             ? {
                 collaborators: {
-                  create: operationalFields.collaboratorIds.map(collaboratorId => ({ collaboratorId }))
+                  create: reportCollaborators
                 }
               }
             : {})
@@ -6121,7 +6077,7 @@ router.put('/:id/manual-pdf', requireAuth, requireRdoManager, asyncHandler(async
   const targetProjectId = data.projectId || existing.projectId;
   const targetProject = targetProjectId === existing.projectId ? existing.project : await prisma.project.findFirstOrThrow({
     where: { id: targetProjectId, deletedAt: null },
-    include: { operator: true, authorizedUsers: true }
+    include: { operator: { include: { jobRole: true } }, authorizedUsers: true }
   });
   assertProjectReadyForReports(targetProject);
 
@@ -6495,7 +6451,7 @@ router.post('/service-only', requireAuth, requireRdoAccess, asyncHandler(async (
   const createdReports = await prisma.$transaction(async tx => {
     const project = await tx.project.findFirstOrThrow({
       where: { id: data.projectId, ...activeReportProjectWhere() },
-      include: { operator: true, authorizedUsers: true }
+      include: { operator: { include: { jobRole: true } }, authorizedUsers: true }
     });
     assertProjectReadyForReports(project);
     assertProjectAllowsInhibition(project, data.services);
@@ -6528,7 +6484,7 @@ router.post('/', requireAuth, requireRdoAccess, asyncHandler(async (req, res) =>
   const item = await prisma.$transaction(async tx => {
     const project = await tx.project.findFirstOrThrow({
       where: { id: data.projectId, ...activeReportProjectWhere() },
-      include: { operator: true, authorizedUsers: true }
+      include: { operator: { include: { jobRole: true } }, authorizedUsers: true }
     });
     assertProjectReadyForReports(project);
     assertProjectAllowsInhibition(project, data.services);
@@ -6553,20 +6509,32 @@ router.post('/', requireAuth, requireRdoAccess, asyncHandler(async (req, res) =>
       project
     }, tx);
     const sequenceNumber = await reserveSequence(tx, data.projectId, data.reportType);
-    const overtime = calculateReportOvertime(project, data);
+    const corporateCalendar = await loadCorporateCalendar(tx, data.reportDate, data.reportDate);
+    const overtime = calculateReportOvertime(project, data, corporateCalendar);
     const leaderSnapshot = project.operator ? {
       name: project.operator.name || null,
-      role: project.operator.role || null,
+      role: project.operator.jobRole?.name || null,
       signatureImage: project.operator.signatureImage || null
     } : null;
-    const specialConditions = await enrichNightCollaboratorsInSpecialConditions(
-      tx,
-      normalizeStoredReportUploadUrls(data.specialConditions || {})
+    const specialConditions = stripAuthoritativeExecutionContext(
+      await enrichNightCollaboratorsInSpecialConditions(
+        tx,
+        normalizeStoredReportUploadUrls(data.specialConditions || {})
+      )
     );
+    const workforceContext = await resolveActualWorkforceContext(tx, {
+      collaboratorIds,
+      reportDate: data.reportDate,
+      justification: specialConditions.workforceJustification
+    });
+    const planningContext = await getOfficialMissionContext({ projectId: data.projectId, date: data.reportDate }, { database: tx });
+    const reportCollaborators = await reportCollaboratorCreateManyData(tx, collaboratorIds);
 
     const created = await tx.report.create({
       data: {
         projectId: data.projectId,
+        efetivoMissionId: planningContext?.missionId || null,
+        efetivoPlanRevision: planningContext?.planRevision || null,
         createdByUserId: req.auth.user.role === 'MANAGER' ? data.createdByUserId : req.auth.user.id,
         reportType: data.reportType,
         sequenceNumber,
@@ -6588,10 +6556,12 @@ router.post('/', requireAuth, requireRdoAccess, asyncHandler(async (req, res) =>
         specialConditions: withLeaderSnapshot({
           ...specialConditions,
           overtimeSummary: overtime,
+          workforceContext,
+          ...(planningContext ? { efetivoPlanningContext: planningContext } : {}),
         }, leaderSnapshot),
         pendingDerivedTypes,
         collaborators: {
-          create: collaboratorIds.map(collaboratorId => ({ collaboratorId }))
+          create: reportCollaborators
         },
         services: {
           create: data.services.map(service => ({
@@ -6728,7 +6698,7 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
   const item = await prisma.$transaction(async tx => {
     const project = await tx.project.findFirstOrThrow({
       where: { id: data.projectId, ...activeReportProjectWhere() },
-      include: { operator: true, authorizedUsers: true }
+      include: { operator: { include: { jobRole: true } }, authorizedUsers: true }
     });
     assertProjectReadyForReports(project);
     assertProjectAllowsInhibition(project, data.services);
@@ -6740,7 +6710,8 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
         excludeReportId: existing.id
       });
     }
-    const overtime = calculateReportOvertime(project, data);
+    const corporateCalendar = await loadCorporateCalendar(tx, data.reportDate, data.reportDate);
+    const overtime = calculateReportOvertime(project, data, corporateCalendar);
     const leaderSnapshot = projectLeaderSnapshot(project);
     const serviceOnlySpecialConditions = isServiceOnlyReport && !manualUploadedReport
       ? await buildIndependentSpecialConditions(
@@ -6761,10 +6732,18 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
     const managerProvidedSequence = req.auth.user.role === 'MANAGER' && data.sequenceNumber;
     const targetSequenceNumber = managerProvidedSequence ? data.sequenceNumber : existing.sequenceNumber;
     const sequenceGroupChanged = existing.projectId !== data.projectId || existing.reportType !== data.reportType;
-    const specialConditions = await enrichNightCollaboratorsInSpecialConditions(
-      tx,
-      normalizeStoredReportUploadUrls(data.specialConditions || {})
+    const specialConditions = stripAuthoritativeExecutionContext(
+      await enrichNightCollaboratorsInSpecialConditions(
+        tx,
+        normalizeStoredReportUploadUrls(data.specialConditions || {})
+      )
     );
+    const workforceContext = await resolveActualWorkforceContext(tx, {
+      collaboratorIds,
+      reportDate: data.reportDate,
+      justification: specialConditions.workforceJustification
+    });
+    const planningContext = await getOfficialMissionContext({ projectId: data.projectId, date: data.reportDate }, { database: tx });
     const internalEditState = req.auth.user.role === 'MANAGER'
       ? extractInternalEditState(existing.specialConditions)
       : (hasApprovedVersion
@@ -6784,6 +6763,8 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
         : stripInternalEditState(specialConditions)),
       ...(serviceOnlySpecialConditions || {}),
       overtimeSummary: overtime,
+      workforceContext,
+      ...(planningContext ? { efetivoPlanningContext: planningContext } : {}),
       ...internalEditState
     };
     const storedSpecialConditionsBase = isDirectDerivedServiceReport
@@ -6804,6 +6785,7 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
           delete next.overtimeAccepted;
           return next;
         })();
+    const reportCollaborators = await reportCollaboratorCreateManyData(tx, collaboratorIds);
     await tx.reportCollaborator.deleteMany({ where: { reportId: req.params.id } });
     await tx.reportService.deleteMany({ where: { reportId: req.params.id } });
     const sequenceSwap = (managerProvidedSequence || sequenceGroupChanged) && Number.isInteger(targetSequenceNumber)
@@ -6830,6 +6812,8 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
     const updated = await tx.report.update({
       where: { id: req.params.id },
       data: {
+        efetivoMissionId: planningContext?.missionId || null,
+        efetivoPlanRevision: planningContext?.planRevision || null,
         projectId: data.projectId,
         reportType: data.reportType,
         ...(managerProvidedSequence ? { sequenceNumber: data.sequenceNumber } : {}),
@@ -6859,7 +6843,7 @@ router.put('/:id', requireAuth, requireRdoAccess, asyncHandler(async (req, res) 
           ? (isManagerFixingClientRejection ? new Date() : existing.approvedAt)
           : null,
         collaborators: {
-          create: collaboratorIds.map(collaboratorId => ({ collaboratorId }))
+          create: reportCollaborators
         },
         services: {
           create: data.services.map(service => ({

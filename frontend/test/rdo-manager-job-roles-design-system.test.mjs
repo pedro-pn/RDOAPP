@@ -41,18 +41,21 @@ test('B.7 preserves the job-role query, original order and mutation contracts', 
 
   assert.match(
     manager,
-    /mutationFn: \(name: string\) => createJobRole\(name\)/
+    /mutationFn: \(payload: \{ name: string; isOperational\?: boolean \}\)[\s\S]{0,40}?createJobRole\(payload\)/
   );
   assert.match(manager, /const name = newName\.trim\(\)/);
   assert.match(manager, /if \(!name \|\| createMutation\.isPending\) return/);
-  assert.match(manager, /createMutation\.mutate\(name\)/);
+  assert.match(
+    manager,
+    /createMutation\.mutate\(\{[\s\S]{0,120}?name,[\s\S]{0,120}?isOperational: newIsOperational/
+  );
   assert.match(manager, /Cargo adicionado\./);
   assert.match(manager, /Não foi possível adicionar \(nome já existe\?\)\./);
 
   assert.match(manager, /updateJobRole\(payload\.id, payload\.data\)/);
   assert.match(
     manager,
-    /id: role\.id,[\s\S]{0,80}?data: \{ name: editing\.name\.trim\(\) \}/
+    /id: role\.id,[\s\S]{0,120}?name: editing\.name\.trim\(\)/
   );
   assert.match(manager, /id: role\.id,[\s\S]{0,80}?data: \{ isActive: true \}/);
   assert.match(manager, /Cargo atualizado\./);
@@ -72,7 +75,7 @@ test('B.7 preserves the job-role query, original order and mutation contracts', 
   );
   assert.match(
     api,
-    /apiClient\.post<JobRole>\(rdoApiPath\('\/job-roles'\), \{ name \}\)/
+    /apiClient\.post<JobRole>\(rdoApiPath\('\/job-roles'\), payload\)/
   );
   assert.match(
     api,

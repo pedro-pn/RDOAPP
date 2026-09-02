@@ -20,6 +20,7 @@ import {
   buildRequiredWeeklyProgress,
   computeProgressHistoryForProjects,
   computeProjectProgress,
+  isConfirmedReportParticipant,
   selectRealizedSourceReportData
 } from './avanco.js';
 import {
@@ -108,9 +109,10 @@ export function buildPlannedRoleCounts(plannedRows = [], collaborators = [], pla
   const roleByCollaboratorId = new Map();
   const useTurnAwareReports = Array.isArray(reports);
   for (const c of collaborators) {
-    if (c.collaboratorId && c.collaborator?.role) roleByCollaboratorId.set(c.collaboratorId, c.collaborator.role);
+    const currentRole = c.roleNameSnapshot || c.collaborator?.jobRole?.name;
+    if (c.collaboratorId && currentRole) roleByCollaboratorId.set(c.collaboratorId, currentRole);
     const workedMinutes = (c.report?.daytimeWorkedMinutes || 0) + (useTurnAwareReports ? 0 : c.report?.nighttimeWorkedMinutes || 0);
-    addRoleWork(collaboratorIdsByRole, workedHoursByRole, c.collaboratorId, c.collaborator?.role, workedMinutes);
+    addRoleWork(collaboratorIdsByRole, workedHoursByRole, c.collaboratorId, currentRole, workedMinutes);
   }
 
   if (useTurnAwareReports) {
@@ -185,16 +187,28 @@ export function buildProjectDetailCollaborator({
   role = '',
   rate = null,
   allocation = null,
+  projectId = null,
   workedMinutes = 0,
   workedMinutesByDate = new Map(),
   includeCollaboratorCosts = false
 } = {}) {
   const custo = allocation?.cost ?? null;
-  const custoHora = allocation && allocation.hours > 0 ? allocation.cost / allocation.hours : null;
+  const horasApropriadas = Math.max(0, toNum(allocation?.hours) ?? 0);
+  const horasDeslocamento = Math.min(
+    horasApropriadas,
+    Math.max(0, toNum(allocation?.travelHours) ?? 0)
+  );
+  const custoHora = allocation && horasApropriadas > 0 ? allocation.cost / horasApropriadas : null;
+  const custoDeslocamento = custo != null && horasApropriadas > 0 && horasDeslocamento > 0
+    ? roundMoney(custo * (horasDeslocamento / horasApropriadas))
+    : null;
   const horasRelatorios = minutesToHours(workedMinutes);
   const horasRelatoriosPorData = [...workedMinutesByDate.entries()]
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
     .map(([data, minutes]) => ({ data, horas: minutes / 60 }));
+  const diasApropriados = projectId && rate
+    ? buildProjectAppropriationDays(rate, projectId)
+    : [];
 
   return {
     name: name || rate?.name || '—',
@@ -203,12 +217,52 @@ export function buildProjectDetailCollaborator({
     horas: horasRelatorios,
     horasLancadas: Math.max(0, workedMinutes) / 60,
     horasApropriadas: allocation?.hours ?? null,
+    horasDeslocamento,
+    diasApropriados,
     sobreposicaoHoras: 0,
     horasRelatoriosPorData,
     // Custo é dado sensível (salário): só para gestores.
     custo: includeCollaboratorCosts ? custo : null,
-    custoHora: includeCollaboratorCosts ? custoHora : null
+    custoHora: includeCollaboratorCosts ? custoHora : null,
+    custoDeslocamento: includeCollaboratorCosts ? custoDeslocamento : null
   };
+}
+
+export function buildProjectAppropriationDays(rate = null, projectId = null) {
+  if (!rate || !projectId) return [];
+  const analyticalTrail = Array.isArray(rate.analyticalAllocationTrail)
+    ? rate.analyticalAllocationTrail
+    : [];
+  const trail = analyticalTrail.length > 0
+    ? analyticalTrail
+    : Array.isArray(rate.allocationTrail) ? rate.allocationTrail : [];
+
+  return trail.flatMap(day => {
+    const weight = (day.allocations || [])
+      .filter(item => item.projectId === projectId)
+      .reduce((sum, item) => sum + Math.max(0, Number(item.weight) || 0), 0);
+    if (weight <= 0) return [];
+
+    const horasNormais = Math.max(0, Number(day.costNormalHours ?? day.normalHours) || 0) * weight;
+    const horasExtras = (
+      Math.max(0, Number(day.he70Hours) || 0)
+      + Math.max(0, Number(day.he100Hours) || 0)
+    ) * weight;
+    const rdos = (day.rdoProjects || []).map(item => ({
+      numero: item.rdoNumber ?? null,
+      projetoId: item.projectId ?? null,
+      projetoCodigo: item.projectCode ? String(item.projectCode) : null
+    }));
+
+    return [{
+      data: day.date,
+      horas: horasNormais + horasExtras,
+      horasNormais,
+      horasExtras,
+      emViagem: Boolean(day.travelContext),
+      rdos
+    }];
+  }).sort((left, right) => left.data.localeCompare(right.data));
 }
 
 // Status do dia a partir do standby agregado vs jornada cheia.
@@ -218,11 +272,28 @@ function dayStatus(standbyMin, journeyMin) {
   return 'TRABALHADO';
 }
 
-export async function getProjectDetail(projectId, { includeCollaboratorCosts = false } = {}) {
-  const rows = await listCommercialDashboard();
+export function buildRecentReportDays(byDay, project, limit = 10) {
+  return [...byDay.entries()]
+    .sort((a, b) => new Date(a[1].reportDate) - new Date(b[1].reportDate))
+    .slice(-limit)
+    .map(([key, day]) => ({
+      date: key,
+      status: dayStatus(day.statusStandbyMin, journeyMinutes(project, day.reportDate)),
+      workedMinutes: day.workedMin,
+      standbyMinutes: day.standbyMin
+    }));
+}
+
+export async function getProjectDetail(projectId, {
+  includeCollaboratorCosts = false,
+  includeAdminOnlyCategories = true
+} = {}) {
+  const rows = await listCommercialDashboard({ includeAdminOnlyCategories });
   const row = rows.find(r => r.projectId === projectId);
   if (!row) throw new Error('Projeto não encontrado no acompanhamento comercial.');
-  const categoryWhere = await buildOmieCostCategoryWhere();
+  const categoryWhere = await buildOmieCostCategoryWhere({
+    includeAdminOnly: includeAdminOnlyCategories
+  });
 
   const [
     project,
@@ -260,7 +331,8 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
       select: {
         reportId: true,
         collaboratorId: true,
-        collaborator: { select: { name: true, role: true } },
+        roleNameSnapshot: true,
+        collaborator: { select: { name: true, jobRole: { select: { name: true } } } },
         report: { select: { daytimeWorkedMinutes: true, nighttimeWorkedMinutes: true } }
       }
     }),
@@ -369,29 +441,43 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
 
   const workedDays = byDay.size;
 
-  // Últimos 5 dias (cronológico) com status para a régua de bolinhas.
-  const ultimosDias = [...byDay.entries()]
-    .sort((a, b) => new Date(a[1].reportDate) - new Date(b[1].reportDate))
-    .slice(-5)
-    .map(([key, d]) => ({
-      date: key,
-      status: dayStatus(d.statusStandbyMin, journeyMinutes(project, d.reportDate)),
-      workedMinutes: d.workedMin,
-      standbyMinutes: d.standbyMin
-    }));
+  // Últimos 10 dias (cronológico) com status para a régua de bolinhas.
+  const ultimosDias = buildRecentReportDays(byDay, project);
 
   // --- Colaboradores distintos (nome + cargo + custo/hora do ponto vigente) ---
   const ratesById = labor.byCollaboratorId || new Map();
+  const reportById = new Map(reports.map(report => [report.id, report]));
+  const projectAllocation = collaboratorId => {
+    const rate = ratesById.get(collaboratorId) || null;
+    return rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId] || null;
+  };
+  const hasAllocatedHours = collaboratorId => (
+    Math.max(0, toNum(projectAllocation(collaboratorId)?.hours) ?? 0) > 0
+  );
+  const confirmedReportParticipantIds = new Set();
+  for (const item of collaborators) {
+    if (isConfirmedReportParticipant(reportById.get(item.reportId), hasAllocatedHours(item.collaboratorId))) {
+      confirmedReportParticipantIds.add(item.collaboratorId);
+    }
+  }
+  for (const report of reports) {
+    for (const collaboratorId of nightCollaboratorIdsFromReport(report)) {
+      if (isConfirmedReportParticipant(report, hasAllocatedHours(collaboratorId))) {
+        confirmedReportParticipantIds.add(collaboratorId);
+      }
+    }
+  }
   const collabMap = new Map();
   const ensureCollaborator = (collaboratorId, { name = '', role = '' } = {}) => {
     if (!collaboratorId || collabMap.has(collaboratorId)) return;
     const rate = ratesById.get(collaboratorId) || null;
-    const alloc = rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId] || null;
+    const alloc = projectAllocation(collaboratorId);
     collabMap.set(collaboratorId, buildProjectDetailCollaborator({
       name,
       role,
       rate,
       allocation: alloc,
+      projectId,
       workedMinutes: workedMinutesByCollaborator.get(collaboratorId) || 0,
       workedMinutesByDate: workedMinutesByCollaboratorAndDate.get(collaboratorId) || new Map(),
       includeCollaboratorCosts
@@ -400,7 +486,7 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   for (const c of collaborators) {
     ensureCollaborator(c.collaboratorId, {
       name: c.collaborator?.name || '',
-      role: c.collaborator?.role || ''
+      role: c.roleNameSnapshot || c.collaborator?.jobRole?.name || ''
     });
   }
   for (const report of reports) {
@@ -414,7 +500,20 @@ export async function getProjectDetail(projectId, { includeCollaboratorCosts = f
   for (const collaboratorId of workedMinutesByCollaborator.keys()) {
     ensureCollaborator(collaboratorId);
   }
-  const colaboradores = [...collabMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  // A exceção de viagem pode apropriar ponto pela janela do cronograma mesmo quando o colaborador
+  // não consta em nenhum RDO da obra. Esses colaboradores também precisam aparecer no dashboard.
+  for (const [collaboratorId, rate] of ratesById) {
+    if (rate?.analyticalByProject?.[projectId] || rate?.byProject?.[projectId]) {
+      ensureCollaborator(collaboratorId, { name: rate.name, role: rate.role });
+    }
+  }
+  const colaboradores = [...collabMap.entries()]
+    .filter(([collaboratorId]) => (
+      confirmedReportParticipantIds.has(collaboratorId)
+      || hasAllocatedHours(collaboratorId)
+    ))
+    .map(([, item]) => item)
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   // --- Prazos / dias ---
   const plannedDays = toNum(row.plannedDays);
