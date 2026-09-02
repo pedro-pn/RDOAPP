@@ -3,7 +3,7 @@ import {
   ACCOUNT_PASSWORD_SETUP_EXPIRES_LABEL,
   createPendingPasswordHash,
   issueAccountPasswordSetup
-} from './account-password-setup.js';
+} from './accounts/password-setup.js';
 import { buildClientProjectLinkedEmailTemplate, buildClientWelcomeEmailTemplate } from './email-templates.js';
 import { clientEmailsEnabled, getMissingMailerConfig, sendClientMail } from './mailer.js';
 import { defaultPublicModuleRolesForLegacyRole, moduleRoleRows } from './module-roles.js';

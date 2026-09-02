@@ -6,7 +6,7 @@ import {
   createPendingPasswordHash,
   issueAccountPasswordSetup,
   passwordSetupUrlForToken
-} from '../src/lib/account-password-setup.js';
+} from '../src/lib/accounts/password-setup.js';
 import { createPasswordResetToken, hashToken } from '../src/lib/auth.js';
 import { verifyPassword } from '../src/lib/password.js';
 

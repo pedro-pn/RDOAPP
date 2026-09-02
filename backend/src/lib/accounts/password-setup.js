@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
-import { createPasswordResetToken } from './auth.js';
-import { hashPassword } from './password.js';
+import { createPasswordResetToken } from '../auth.js';
+import { hashPassword } from '../password.js';
 
 export const ACCOUNT_PASSWORD_SETUP_HOURS = 24 * 7;
 export const ACCOUNT_PASSWORD_SETUP_EXPIRES_LABEL = '7 dias';

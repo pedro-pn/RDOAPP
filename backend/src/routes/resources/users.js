@@ -8,7 +8,7 @@ import {
   ACCOUNT_PASSWORD_SETUP_EXPIRES_LABEL,
   createPendingPasswordHash,
   issueAccountPasswordSetup
-} from '../../lib/account-password-setup.js';
+} from '../../lib/accounts/password-setup.js';
 import { createPasswordResetToken, publicUser } from '../../lib/auth.js';
 import { missingClientAccessResetConfig, sendClientAccessResetEmail } from '../../lib/client-access-reset.js';
 import { projectHasClientSignerEmail } from '../../lib/client-project-access.js';

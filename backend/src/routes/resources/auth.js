@@ -7,7 +7,7 @@ import env from '../../config/env.js';
 import {
   ACCOUNT_PASSWORD_SETUP_EXPIRES_LABEL,
   issueAccountPasswordSetup
-} from '../../lib/account-password-setup.js';
+} from '../../lib/accounts/password-setup.js';
 import { createEmailChangeToken, createPasswordResetToken, createSession, hashToken, publicUser } from '../../lib/auth.js';
 import { normalizeCnpj } from '../../lib/cnpj.js';
 import {
