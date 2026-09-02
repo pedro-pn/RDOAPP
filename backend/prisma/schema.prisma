@@ -411,10 +411,27 @@ model Collaborator {
   pontoDayProjectOverrides       PontoDayProjectOverride[]
   absences                       CollaboratorAbsence[]
   jobRole                        JobRole                          @relation("CollaboratorJobRole", fields: [jobRoleId], references: [id], onDelete: Restrict)
+  jobRoleHistory                 CollaboratorJobRoleHistory[]
   efetivoMissionResponsibilities EfetivoMissionPlan[]             @relation("EfetivoMissionResponsible")
   efetivoMissionAllocations      EfetivoMissionAllocation[]
 
   @@index([jobRoleId])
+}
+
+model CollaboratorJobRoleHistory {
+  id             String       @id @default(cuid())
+  collaboratorId String
+  jobRoleId      String
+  effectiveDate  DateTime     @db.Date
+  note           String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  collaborator   Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  jobRole        JobRole      @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+
+  @@unique([collaboratorId, effectiveDate])
+  @@index([collaboratorId, effectiveDate])
+  @@index([jobRoleId, effectiveDate])
 }
 
 model CollaboratorSignatureNoticeLog {
@@ -715,6 +732,7 @@ model JobRole {
   plannedOvertime             ProjectPlannedOvertime[]
   costProfile                 CostProfile?
   collaborators               Collaborator[]              @relation("CollaboratorJobRole")
+  collaboratorHistory         CollaboratorJobRoleHistory[]
   efetivoMissionDemands       EfetivoMissionDemand[]
   efetivoMissionAllocations   EfetivoMissionAllocation[]
   efetivoPlannedHires         EfetivoPlannedHire[]

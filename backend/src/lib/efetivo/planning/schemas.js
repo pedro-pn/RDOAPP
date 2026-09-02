@@ -37,12 +37,16 @@ export const intervalQuerySchema = z.object({
 export const collaboratorInputSchema = z.object({
   name: z.string().trim().min(1).max(160),
   jobRoleId: idSchema,
+  jobRoleEffectiveDate: dateOnlySchema.optional(),
   admissionDate: dateOnlySchema,
   terminationDate: dateOnlySchema.nullable().optional(),
   note: z.string().trim().max(1000).nullable().optional()
 }).refine(value => !value.terminationDate || value.terminationDate >= value.admissionDate, {
   path: ['terminationDate'],
   message: 'O desligamento não pode ser anterior à admissão.'
+}).refine(value => !value.jobRoleEffectiveDate || value.jobRoleEffectiveDate >= value.admissionDate, {
+  path: ['jobRoleEffectiveDate'],
+  message: 'A vigência do cargo não pode ser anterior à admissão.'
 });
 
 const absenceInputFields = {

@@ -10,6 +10,7 @@ export interface Collaborator {
   name: string;
   jobRoleId: string;
   jobRole: { id: string; name: string; isActive?: boolean };
+  jobRoleHistory?: CollaboratorJobRoleHistory[];
   /** Alias derivado de jobRole.name para consumidores visuais existentes. */
   role: string;
   email: string | null;
@@ -21,6 +22,17 @@ export interface Collaborator {
   signatureNoticeAcceptedAt?: string | null;
   signatureNoticeVersion?: string | null;
   isActive: boolean;
+}
+
+export interface CollaboratorJobRoleHistory {
+  id: string;
+  collaboratorId: string;
+  jobRoleId: string;
+  effectiveDate: string;
+  note: string | null;
+  jobRole: { id: string; name: string; isActive?: boolean; isOperational?: boolean };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProjectReportSequence {
