@@ -3571,6 +3571,30 @@ a {
 }
 .acp-collaborator-hours-trigger:hover { color: var(--g2); }
 .acp-collaborator-hours-trigger:focus-visible { outline: 2px solid var(--g); outline-offset: 3px; border-radius: 2px; }
+.acp-report-hours-fallback-tip {
+  display: inline-flex;
+  color: var(--bl);
+  font-weight: 700;
+  cursor: help;
+}
+.acp-report-hours-fallback-tip:focus-visible {
+  outline: 2px solid var(--bl);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.acp-report-hours-fallback-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border-bottom: 1px dashed currentColor;
+  white-space: nowrap;
+}
+.acp-report-hours-fallback-value small {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  line-height: 1;
+}
 .modal-card.acp-collaborator-hours-dialog {
   width: min(94vw, 900px);
   max-width: 900px;
