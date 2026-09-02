@@ -67,7 +67,7 @@ Todas as fases devem preservar os seguintes contratos:
 | Hub e navegação global | Cards de Efetivo e Assinaturas, novidades, ícones e acesso por perfil | Integração concluída; revisão visual final pendente |
 | Efetivo | Visão geral, Calendário, Colaboradores/Ausências, Disponibilidade, Missões, Kanban de evolução, Simulações, Produtividade e Administração | Novo módulo; redesign completo pendente |
 | Assinaturas | Lista de ativos/arquivados, novo documento, configuração do PDF, assinantes, publicação, acompanhamento, auditoria e assinatura pública | Novo módulo; redesign completo pendente |
-| Acompanhamento | Dashboard e cards de missão, relatórios/PDF, notas da gestão, histórico de standby, horas por colaborador, auditoria de alocação e dias não alocados | Novos fluxos; harmonização pendente |
+| Acompanhamento | Dashboard e cards de missão, relatórios/PDF, notas da gestão, histórico de standby, horas por colaborador, destaque de horas de RDO na apropriação, auditoria de alocação e dias não alocados | Novos fluxos; harmonização pendente |
 | Estoque | Resumo expansível por lote, devolução com múltiplos itens, documentos do item e ordenação de movimentações | Novos fluxos; harmonização pendente |
 | Romaneio | Impressão de etiquetas QR, scanner por câmera e continuação da inclusão do item após leitura | Novos fluxos; harmonização pendente |
 | RDO e gestão | Histórico de cargos, upload manual de vários PDFs, sugestão de equipe do Efetivo, justificativas, horários obrigatórios e avisos operacionais | Parcialmente conciliado com o piloto; revisão pendente |
