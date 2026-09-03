@@ -2,6 +2,9 @@
 
 import { uploadFiles, type UploadedFile } from '../../api/uploads';
 import { loadUploadAssetUrl } from '../../utils/uploadAssetUrl';
+import { AppIcon } from '../icons/AppIcon';
+import { IconButton } from './ds/Button';
+import { DS_ICONS } from './ds/icons';
 import { stageUploadDeletion } from './photoDeletionStaging';
 
 interface UploadFieldProps {
@@ -9,6 +12,7 @@ interface UploadFieldProps {
   value: UploadedFile[];
   projectId?: string | null;
   disabled?: boolean;
+  appearance?: 'legacy' | 'design-system';
   onChange: (files: UploadedFile[]) => void;
 }
 
@@ -28,6 +32,7 @@ interface UploadListItemProps {
   disabled: boolean;
   file: UploadValue;
   index: number;
+  appearance: 'legacy' | 'design-system';
   onRemove: (index: number) => void;
 }
 
@@ -67,7 +72,7 @@ function uploadFileKey(file: UploadValue) {
   return rawFileUrl(file) || `${file.fileName}-${file.mimeType || ''}`;
 }
 
-function UploadListItem({ disabled, file, index, onRemove }: UploadListItemProps) {
+function UploadListItem({ disabled, file, index, appearance, onRemove }: UploadListItemProps) {
   const [href, setHref] = useState('');
   const source = rawFileUrl(file);
 
@@ -110,21 +115,32 @@ function UploadListItem({ disabled, file, index, onRemove }: UploadListItemProps
       )}
       {wasPreviouslyAdded(file) ? <span className="upload-previous-badge">Adicionada anteriormente</span> : null}
       {!disabled ? (
-        <button
-          className="upload-remove-button"
-          type="button"
-          onClick={() => onRemove(index)}
-          aria-label={`Remover ${file.fileName}`}
-          title="Remover"
-        >
-          X
-        </button>
+        appearance === 'design-system' ? (
+          <IconButton
+            className="upload-remove-button"
+            icon={DS_ICONS.trash}
+            label={`Remover ${file.fileName}`}
+            variant="danger"
+            size="sm"
+            onClick={() => onRemove(index)}
+          />
+        ) : (
+          <button
+            className="upload-remove-button"
+            type="button"
+            onClick={() => onRemove(index)}
+            aria-label={`Remover ${file.fileName}`}
+            title="Remover"
+          >
+            X
+          </button>
+        )
       ) : null}
     </div>
   );
 }
 
-export function UploadField({ label, value, projectId, disabled = false, onChange }: UploadFieldProps) {
+export function UploadField({ label, value, projectId, disabled = false, appearance = 'legacy', onChange }: UploadFieldProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
@@ -187,7 +203,7 @@ export function UploadField({ label, value, projectId, disabled = false, onChang
   }
 
   return (
-    <div className="upload-field">
+    <div className={`upload-field ${appearance === 'design-system' ? 'upload-field--ds' : ''}`}>
       {displayLabel ? <label className="upload-field-label">{displayLabel}</label> : null}
       <div
         className={`upload-dropzone ${dragOver ? 'drag-over' : ''} ${isUploading ? 'busy' : ''} ${value.length ? 'has-file' : ''}`}
@@ -209,7 +225,9 @@ export function UploadField({ label, value, projectId, disabled = false, onChang
           disabled={disabled || isUploading}
           onChange={event => void handleFiles(event.target.files)}
         />
-        <span className="upload-dropzone-icon" aria-hidden="true">⤓</span>
+        <span className="upload-dropzone-icon" aria-hidden="true">
+          {appearance === 'design-system' ? <AppIcon icon={DS_ICONS.upload} /> : '⤓'}
+        </span>
         <span className="upload-dropzone-text">
           <strong>{isUploading ? 'Enviando…' : 'Arraste as fotos aqui'}</strong>
           <small>{value.length ? `${value.length} arquivo(s) · clique ou solte para adicionar` : 'ou clique para selecionar'}</small>
@@ -227,6 +245,7 @@ export function UploadField({ label, value, projectId, disabled = false, onChang
               disabled={disabled}
               file={file}
               index={index}
+              appearance={appearance}
               onRemove={removeFile}
             />
           ))}

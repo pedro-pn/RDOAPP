@@ -99,9 +99,13 @@ test.describe('RDO A.1 — acesso do colaborador', () => {
 
     await page.getByRole('button', { name: /Novo relatório/i }).click();
     await expect(page).toHaveURL('/rdo/relatorio/novo');
-    await expectLegacyRdoShell(page);
-    await expect(page.locator('.topbar-title')).toHaveText('Novo relatório');
-    await expect(page.locator('.topbar-step')).toHaveText('1 / 3');
+    await expect(page.locator('[data-testid="fv-app-shell"]')).toBeVisible();
+    await expect(page.locator('.app-shell')).toHaveCount(0);
+    await expect(page.locator('.fv-topbar')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Novo relatório', exact: true })
+    ).toBeVisible();
+    await expect(page.getByText('Etapa 1 de 3 · Cabeçalho')).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Cabeçalho' })).toHaveAttribute(
       'aria-selected',
       'true'

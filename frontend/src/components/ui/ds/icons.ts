@@ -16,7 +16,10 @@ import {
   CircleX,
   FileText,
   FileQuestion,
+  Filter,
+  FlaskConical,
   FolderKanban,
+  Gauge,
   Info,
   PackageOpen,
   Pencil,
@@ -27,8 +30,12 @@ import {
   Settings,
   SlidersHorizontal,
   Trash2,
+  Upload,
   UserRound,
   UsersRound,
+  Waves,
+  Wrench,
+  ShieldCheck,
   X
 } from 'lucide-react';
 
@@ -51,6 +58,12 @@ export const DS_ICONS = {
   emptyError: AlertCircle,
   emptySearch: SearchX,
   fileText: FileText,
+  serviceFilter: Filter,
+  serviceChemical: FlaskConical,
+  servicePressure: Gauge,
+  serviceFlushing: Waves,
+  serviceMechanical: Wrench,
+  serviceInhibition: ShieldCheck,
   folder: FolderKanban,
   close: X,
   plus: Plus,
@@ -62,6 +75,7 @@ export const DS_ICONS = {
   sortDescending: ArrowDown,
   settings: Settings,
   trash: Trash2,
+  upload: Upload,
   user: UserRound,
   users: UsersRound
 } as const;

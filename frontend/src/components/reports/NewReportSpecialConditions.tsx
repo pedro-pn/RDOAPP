@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { DdsTheme } from '../../api/ddsThemes';
 import type { RdoStoreState } from '../../store/rdoStore';
 import type { Collaborator } from '../../types/domain';
+import { Badge, Button, Card, Input, Select, Switch } from '../ui/ds';
 
 interface NewReportSpecialConditionsProps {
   collaborators: Collaborator[];
@@ -69,10 +70,15 @@ export function NewReportSpecialConditions({
     return nightCollaboratorIds.map(id => {
       const item = collaborators.find(candidate => candidate.id === id);
       return (
-        <span className="colab-tag" key={`night-${id}`}>
-          <span>{item?.name || id}</span>
-          <button type="button" onClick={() => setNightCollaborators(nightCollaboratorIds.filter(candidate => candidate !== id))}>×</button>
-        </span>
+        <Badge
+          className="rdo-person-badge"
+          key={`night-${id}`}
+          tone="brand"
+          onRemove={() => setNightCollaborators(nightCollaboratorIds.filter(candidate => candidate !== id))}
+          removeLabel={`Remover ${item?.name || id}`}
+        >
+          {item?.name || id}
+        </Badge>
       );
     });
   }
@@ -101,10 +107,15 @@ export function NewReportSpecialConditions({
   function renderDdsThemeList(themes: RdoStoreState['ddsDayThemes'], shift: 'day' | 'night') {
     if (!themes.length) return <div className="colab-empty">Nenhum tema adicionado.</div>;
     return themes.map(theme => (
-      <span className={`colab-tag ${theme.custom ? 'colab-tag-custom' : ''}`} key={`${shift}-dds-${theme.id}`}>
-        <span>{theme.custom ? `${theme.name} (novo)` : theme.name}</span>
-        <button type="button" onClick={() => removeDdsTheme(shift, theme.id)}>×</button>
-      </span>
+      <Badge
+        className={theme.custom ? 'rdo-theme-badge rdo-theme-badge--custom' : 'rdo-theme-badge'}
+        key={`${shift}-dds-${theme.id}`}
+        tone={theme.custom ? 'info' : 'brand'}
+        onRemove={() => removeDdsTheme(shift, theme.id)}
+        removeLabel={`Remover tema ${theme.name}`}
+      >
+        {theme.custom ? `${theme.name} (novo)` : theme.name}
+      </Badge>
     ));
   }
 
@@ -119,33 +130,31 @@ export function NewReportSpecialConditions({
 
     return (
       <>
-        <div className="tog-row" data-dds-novelty={isDay ? true : undefined} style={isDay ? undefined : { marginTop: 14 }}>
-          <span className="tog-lbl">{isDay ? 'Houve DDS?' : 'Houve DDS no turno noturno?'}</span>
-          <label className="tog">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={event => setHeaderField(isDay ? 'ddsDay' : 'ddsNight', event.target.checked)}
-            />
-            <span className="tog-sl" />
-          </label>
+        <div className="rdo-condition-switch" data-dds-novelty={isDay ? true : undefined}>
+          <Switch
+            label={isDay ? 'Houve DDS?' : 'Houve DDS no turno noturno?'}
+            checked={enabled}
+            onChange={event => setHeaderField(isDay ? 'ddsDay' : 'ddsNight', event.target.checked)}
+          />
         </div>
         {enabled ? (
           <div className="collapse-section">
             <div className="fg-r2">
               <div className={fieldState(startTarget)} data-invalid-target={startTarget}>
                 <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
-                <input
+                <Input
                   type="time"
                   value={isDay ? ddsDayStart : ddsNightStart}
+                  invalid={invalidTarget === startTarget}
                   onChange={event => setHeaderField(isDay ? 'ddsDayStart' : 'ddsNightStart', event.target.value)}
                 />
               </div>
               <div className={fieldState(endTarget)} data-invalid-target={endTarget}>
                 <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
-                <input
+                <Input
                   type="time"
                   value={isDay ? ddsDayEnd : ddsNightEnd}
+                  invalid={invalidTarget === endTarget}
                   onChange={event => setHeaderField(isDay ? 'ddsDayEnd' : 'ddsNightEnd', event.target.value)}
                 />
               </div>
@@ -155,15 +164,15 @@ export function NewReportSpecialConditions({
               {renderDdsThemeList(themes, shift)}
             </div>
             <div className="cadd">
-              <select value="" onChange={event => addDdsThemeById(event.target.value, shift)}>
+              <Select value="" aria-label="Adicionar tema de DDS" onChange={event => addDdsThemeById(event.target.value, shift)}>
                 <option value="">Adicionar...</option>
                 {ddsThemes
                   .filter(item => !themes.some(theme => theme.id === item.id))
                   .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
+              </Select>
             </div>
             <div className="cadd">
-              <input
+              <Input
                 value={customInput}
                 placeholder="Tema fora da lista? Digite aqui..."
                 onChange={event => setCustomThemeInputs(current => ({ ...current, [shift]: event.target.value }))}
@@ -173,9 +182,9 @@ export function NewReportSpecialConditions({
                   addCustomDdsTheme(shift);
                 }}
               />
-              <button className="cadd-btn" type="button" disabled={!customInput.trim()} onClick={() => addCustomDdsTheme(shift)}>
+              <Button size="sm" variant="secondary" type="button" disabled={!customInput.trim()} onClick={() => addCustomDdsTheme(shift)}>
                 + Add
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
@@ -184,68 +193,59 @@ export function NewReportSpecialConditions({
   }
 
   return (
-    <section className="page-card">
-      <div className="section-title">Condições especiais</div>
+    <Card className="rdo-form-card rdo-form-card--conditions" title="Condições especiais">
       {renderDdsFields('day')}
-      <div className="tog-row">
-        <span className="tog-lbl">Houve standby?</span>
-        <label className="tog">
-          <input type="checkbox" checked={standby} onChange={event => setHeaderField('standby', event.target.checked)} />
-          <span className="tog-sl" />
-        </label>
+      <div className="rdo-condition-switch">
+        <Switch label="Houve standby?" checked={standby} onChange={event => setHeaderField('standby', event.target.checked)} />
       </div>
       {standby ? (
         <div className="collapse-section">
           <div className="fg-r2">
             <div className={fieldState('header:standbyDuration')} data-invalid-target="header:standbyDuration">
               <label>Tempo total <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <input type="time" step={60} value={standbyDuration} onChange={event => setHeaderField('standbyDuration', event.target.value)} />
+              <Input type="time" step={60} value={standbyDuration} invalid={invalidTarget === 'header:standbyDuration'} onChange={event => setHeaderField('standbyDuration', event.target.value)} />
             </div>
             <div className={fieldState('header:standbyMotivo')} data-invalid-target="header:standbyMotivo">
               <label>Motivo <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <input type="text" placeholder="Motivo..." value={standbyMotivo} onChange={event => setHeaderField('standbyMotivo', event.target.value)} />
+              <Input type="text" placeholder="Motivo..." value={standbyMotivo} invalid={invalidTarget === 'header:standbyMotivo'} onChange={event => setHeaderField('standbyMotivo', event.target.value)} />
             </div>
           </div>
         </div>
       ) : null}
-      <div className="tog-row">
-        <span className="tog-lbl">Houve turno noturno?</span>
-        <label className="tog">
-          <input type="checkbox" checked={noturno} onChange={event => setHeaderField('noturno', event.target.checked)} />
-          <span className="tog-sl" />
-        </label>
+      <div className="rdo-condition-switch">
+        <Switch label="Houve turno noturno?" checked={noturno} onChange={event => setHeaderField('noturno', event.target.checked)} />
       </div>
       {noturno ? (
         <div className="collapse-section noturno-section">
           <div className="fg-r2 night-time-grid">
             <div className={fieldState('header:noturnoStart')} data-invalid-target="header:noturnoStart">
               <label>Início <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <input type="time" value={noturnoStart} onChange={event => setHeaderField('noturnoStart', event.target.value)} />
+              <Input type="time" value={noturnoStart} invalid={invalidTarget === 'header:noturnoStart'} onChange={event => setHeaderField('noturnoStart', event.target.value)} />
             </div>
             <div className={fieldState('header:noturnoEnd')} data-invalid-target="header:noturnoEnd">
               <label>Término <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <input type="time" value={noturnoEnd} onChange={event => setHeaderField('noturnoEnd', event.target.value)} />
+              <Input type="time" value={noturnoEnd} invalid={invalidTarget === 'header:noturnoEnd'} onChange={event => setHeaderField('noturnoEnd', event.target.value)} />
             </div>
           </div>
           <div className={fieldState('header:noturnoInterval')} style={{ marginTop: 6 }} data-invalid-target="header:noturnoInterval">
             <label>Intervalo noturno</label>
-            <input type="time" step={1} value={noturnoInterval} onChange={event => setHeaderField('noturnoInterval', event.target.value)} />
+            <Input type="time" step={1} value={noturnoInterval} invalid={invalidTarget === 'header:noturnoInterval'} onChange={event => setHeaderField('noturnoInterval', event.target.value)} />
           </div>
           <div className="section-title" style={{ marginTop: 14 }}>Equipe noturna</div>
           <div className={`colab-list ${invalidTarget === 'header:nightCollaborators' ? 'field-invalid-panel' : ''}`} data-invalid-target="header:nightCollaborators">
             {renderNightCollaborators()}
           </div>
           <div className="cadd">
-            <select value="" onChange={event => addNightCollaboratorById(event.target.value)}>
+            <Select value="" aria-label="Adicionar colaborador noturno" onChange={event => addNightCollaboratorById(event.target.value)}>
               <option value="">Adicionar...</option>
               {collaborators
                 .filter(item => !nightCollaboratorIds.includes(item.id))
                 .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            </Select>
           </div>
           {renderDdsFields('night')}
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }

@@ -152,7 +152,7 @@ test('diálogo de numeração permanece compacto e centralizado no mobile', () =
   assert.match(mobileDialog, /border-radius: var\(--radius-lg\)/);
 });
 
-test('diálogo de numeração mantém opt-in DS e só B.10/B.11 ampliam os Modals autorizados', () => {
+test('diálogo de numeração mantém opt-in DS e o formulário de RDO usa o Modal migrado', () => {
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const modal = source('src/components/ui/Modal.tsx');
   const reasonDialog = source('src/components/ui/ReasonDialog.tsx');
@@ -232,9 +232,11 @@ test('diálogo de numeração mantém opt-in DS e só B.10/B.11 ampliam os Modal
     /appearance="design-system"/,
     'SignatureDialog deve continuar legacy'
   );
-  assert.doesNotMatch(
+  assert.match(
     collaboratorServiceDialog,
     /appearance="design-system"/,
-    'diálogo do formulário do Colaborador deve continuar legacy'
+    'seletor de serviço do formulário migrado deve usar o design system'
   );
+  assert.match(collaboratorServiceDialog, /fullscreenOnMobile=\{false\}/);
+  assert.match(collaboratorServiceDialog, /panelClassName="rdo-service-picker"/);
 });

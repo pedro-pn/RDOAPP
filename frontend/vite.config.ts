@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(() => {
+  const apiProxyTarget =
+    process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:4000';
+
   return {
     base: '/',
     plugins: [react(), tailwindcss()],
@@ -11,23 +14,23 @@ export default defineConfig(() => {
       port: 5173,
       proxy: {
         '/api': {
-          target: 'http://localhost:4000',
+          target: apiProxyTarget,
           changeOrigin: true
         },
         '/assets': {
-          target: 'http://localhost:4000',
+          target: apiProxyTarget,
           changeOrigin: true
         },
         '/uploads': {
-          target: 'http://localhost:4000',
+          target: apiProxyTarget,
           changeOrigin: true
         },
         '/relatorios': {
-          target: 'http://localhost:4000',
+          target: apiProxyTarget,
           changeOrigin: true
         },
         '/certificados-calibracao': {
-          target: 'http://localhost:4000',
+          target: apiProxyTarget,
           changeOrigin: true
         }
       }

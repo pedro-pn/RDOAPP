@@ -23,6 +23,10 @@ export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { Field, type FieldProps } from './Field';
 export { Input, type InputProps } from './Input';
 export { MetricCard, type MetricCardProps } from './MetricCard';
+export {
+  ProgressSteps,
+  type ProgressStepsProps
+} from './ProgressSteps';
 export { DataTable, type DataTableProps } from './listings/DataTable';
 export {
   FilterBar,
@@ -48,6 +52,7 @@ export type {
 export { Select, type SelectOption, type SelectProps } from './Select';
 export { Skeleton, type SkeletonProps, type SkeletonVariant } from './Skeleton';
 export { Spinner, type SpinnerProps } from './Spinner';
+export { Switch, type SwitchProps } from './Switch';
 export { resolveStatusTone, statusToTone, type StatusToneMap } from './status';
 export { Textarea, type TextareaProps } from './Textarea';
 export type { ControlSize, FeedbackTone, SemanticTone } from './types';

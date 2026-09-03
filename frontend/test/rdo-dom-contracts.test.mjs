@@ -90,6 +90,7 @@ test('novidade de DDS mantém o mesmo alvo entre Driver.js e formulário', () =>
 
 test('editor de RDO mantém âncoras de campos, etapas e validação focável', () => {
   const editor = source('src/pages/collaborator/NewReportPage.tsx');
+  const progressSteps = source('src/components/ui/ds/ProgressSteps.tsx');
   const conditions = source(
     'src/components/reports/NewReportSpecialConditions.tsx'
   );
@@ -97,10 +98,9 @@ test('editor de RDO mantém âncoras de campos, etapas e validação focável', 
   assertIncludesAll(
     editor,
     [
-      'aria-label="Etapas do relatório"',
-      'role="tablist"',
-      'role="tab"',
-      'aria-selected={step === index}',
+      '<ProgressSteps',
+      'ariaLabel="Etapas do relatório"',
+      'onKeyDown={handleHorizontalTabListKeyDown}',
       'id="rdo-project"',
       'id="rdo-date"',
       'id="rdo-arrival"',
@@ -120,6 +120,18 @@ test('editor de RDO mantém âncoras de campos, etapas e validação focável', 
       '`[data-service-id="${serviceId}"] .field-invalid input`'
     ],
     'NewReportPage'
+  );
+
+  assertIncludesAll(
+    progressSteps,
+    [
+      'role="tablist"',
+      'role="tab"',
+      'aria-selected={index === currentIndex}',
+      "aria-current={index === currentIndex ? 'step' : undefined}",
+      'aria-disabled={disabled || undefined}'
+    ],
+    'ProgressSteps'
   );
 
   assertIncludesAll(

@@ -39,6 +39,7 @@ está especificado.
 | 6 | [06-migration-map.md](./06-migration-map.md) | Mapeamento das classes/componentes atuais → novos tokens/componentes |
 | 7 | [07-foundation-phase-1.md](./07-foundation-phase-1.md) | Decisões técnicas implementadas na Fase 1: Tailwind, tema, marca, ícones e coexistência com o legado |
 | 8 | [variables.css](./variables.css) | Tokens CSS completos (framework-agnóstico + variante Tailwind v4) |
+| 9 | [rdo-form-redesign-study.md](./rdo-form-redesign-study.md) | Estudo e plano de migração exclusivamente visual do formulário de RDO |
 
 ## Princípios do sistema
 

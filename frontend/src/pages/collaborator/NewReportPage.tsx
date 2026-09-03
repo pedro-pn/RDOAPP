@@ -12,16 +12,31 @@ import { RdoDdsNovelty } from '../../components/reports/RdoDdsNovelty';
 import { ReportWorkforceNotices } from '../../components/reports/ReportWorkforceNotices';
 import { ServiceCollaboratorsBlock, ServiceFields } from '../../components/reports/ServiceFields';
 import { serviceTypeLabels } from '../../components/reports/serviceTypes';
+import { AppIcon } from '../../components/icons/AppIcon';
 import { Modal } from '../../components/ui/Modal';
 import { UploadField } from '../../components/ui/UploadField';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  IconButton,
+  Input,
+  ProgressSteps,
+  Select,
+  Switch,
+  Textarea
+} from '../../components/ui/ds';
+import { DS_ICONS } from '../../components/ui/ds/icons';
 import { clearStagedUploadDeletions, flushStagedUploadDeletions } from '../../components/ui/photoDeletionStaging';
 import { useToast } from '../../components/ui/ToastContext';
 import { useNewReportBootstrap } from '../../hooks/useBootstrap';
 import { useDraftMutations, useDrafts } from '../../hooks/useDrafts';
 import { useReportMutations } from '../../hooks/useReports';
 import { useReportWorkforcePrefill } from '../../hooks/useReportWorkforcePrefill';
-import { Shell } from '../../layout/Shell';
-import { TopBar } from '../../layout/TopBar';
+import { AppShell } from '../../layout/AppShell';
+import { createNavigationModel } from '../../layout/navigationModel';
+import { PageHeader } from '../../layout/PageHeader';
 import { useRdoStore } from '../../store/rdoStore';
 import type { UploadedFile } from '../../api/uploads';
 import type { ReportSummary } from '../../types/domain';
@@ -31,6 +46,8 @@ import { sortProjects } from '../../utils/projectSort';
 import { autosaveDraftTargetId } from '../../utils/draftAutosave';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 import { rdoWorkforceJustificationSchema } from '../../utils/rdoPlanningPrefill';
+import { hubModulesForUser } from '../hubModules';
+import './NewReportPage.css';
 
 const TEXT = {
   addService: 'Adicionar serviço',
@@ -66,12 +83,12 @@ const TEXT = {
 };
 
 const serviceTypeModalOptions = [
-  { type: 'limpeza',  icon: '🧪', name: 'Limpeza química' },
-  { type: 'pressao',  icon: '🔴', name: 'Teste de pressão' },
-  { type: 'filtragem', icon: '🔵', name: 'Filtragem' },
-  { type: 'flushing', icon: '💧', name: 'Flushing' },
-  { type: 'mecanica', icon: '⚙️', name: 'Limpeza mecânica' },
-  { type: 'inibicao', icon: '🛡️', name: 'Inibição' },
+  { type: 'limpeza', icon: DS_ICONS.serviceChemical, name: 'Limpeza química' },
+  { type: 'pressao', icon: DS_ICONS.servicePressure, name: 'Teste de pressão' },
+  { type: 'filtragem', icon: DS_ICONS.serviceFilter, name: 'Filtragem' },
+  { type: 'flushing', icon: DS_ICONS.serviceFlushing, name: 'Flushing' },
+  { type: 'mecanica', icon: DS_ICONS.serviceMechanical, name: 'Limpeza mecânica' },
+  { type: 'inibicao', icon: DS_ICONS.serviceInhibition, name: 'Inibição' },
 ] as const;
 
 const rdoSteps = [TEXT.header, TEXT.services, TEXT.finalization];
@@ -263,6 +280,19 @@ export function NewReportPage() {
   const canCreateReportWithoutLeader = user?.role === 'MANAGER' || user?.role === 'COORDINATOR';
   const effectiveServiceOnly = canCreateServiceOnly && serviceOnly;
   const steps = effectiveServiceOnly ? serviceOnlySteps : rdoSteps;
+  const navigationModules = useMemo(() => hubModulesForUser(user), [user]);
+  const navigation = useMemo(
+    () => createNavigationModel({ modules: navigationModules, pathname: location.pathname }),
+    [location.pathname, navigationModules]
+  );
+  const profileInitials = user?.name
+    ? user.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part[0].toUpperCase())
+        .join('')
+    : 'U';
 
   const projects = useMemo(() => sortProjects(bootstrapQuery.data?.projects || [], 'asc'), [bootstrapQuery.data?.projects]);
   const collaborators = (bootstrapQuery.data?.collaborators || []).filter(item => item.isActive);
@@ -661,13 +691,18 @@ export function NewReportPage() {
       const item = collaborators.find(candidate => candidate.id === id);
       const roleName = item?.jobRole?.name || item?.role || 'Cargo não informado';
       return (
-        <span className="colab-tag" key={`${night ? 'night' : 'day'}-${id}`}>
+        <Badge
+          className="rdo-person-badge"
+          key={`${night ? 'night' : 'day'}-${id}`}
+          tone="brand"
+          onRemove={() => removeCollaboratorFromList(id, night)}
+          removeLabel={`Remover ${item?.name || id}`}
+        >
           <span className="colab-tag-copy">
             <span>{item?.name || id}</span>
             <small className="colab-tag-role">{roleName}</small>
           </span>
-          <button type="button" aria-label={`Remover ${item?.name || id}`} onClick={() => removeCollaboratorFromList(id, night)}>×</button>
-        </span>
+        </Badge>
       );
     });
   }
@@ -1193,85 +1228,91 @@ export function NewReportPage() {
   }
 
   return (
-    <Shell>
-      <TopBar
-        title={TEXT.newReport}
-        subtitle={steps[step]}
-        step={`${step + 1} / ${steps.length}`}
-        actions={
-          <>
-            <button className="topbar-chip" type="button" onClick={handleBack}>
-              {TEXT.back}
-            </button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
-              Conta
-            </button>
-            <button className="topbar-chip" type="button" onClick={handleLogout}>
-              Sair
-            </button>
-          </>
-        }
-      />
-      <main className="page-scroll">
-        <section className="page-card rdo-step-panel">
-          <div className="rdo-progress-track" aria-hidden="true">
-            <div className="rdo-progress-fill" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
-          </div>
-          <div className="filter-tabs" role="tablist" aria-label="Etapas do relatório" onKeyDown={handleHorizontalTabListKeyDown}>
-            {steps.map((label, index) => (
-              <button
-                className={`filter-tab ${step === index ? 'active' : ''}`}
-                key={label}
-                type="button"
-                role="tab"
-                aria-selected={step === index}
-                onClick={() => {
-                  if (index <= step) {
-                    setStep(index);
-                    return;
-                  }
-                  if (index === step + 1) {
-                    handleNextStep();
-                  }
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+    <AppShell
+      navigation={navigation}
+      title={TEXT.newReport}
+      breadcrumb={[
+        { label: 'Filtrovali', href: '/modulos' },
+        { label: 'RDO', href: backPath },
+        { label: TEXT.newReport }
+      ]}
+      contentWidth="fluid"
+      profile={
+        user
+          ? {
+              name: user.name,
+              description: user.email || user.username,
+              initials: profileInitials,
+              onOpen: () =>
+                navigate('/conta', {
+                  state: accountPageStateFromPath(location)
+                })
+            }
+          : undefined
+      }
+      onLogout={handleLogout}
+    >
+      <main className="fv-ds rdo-form-page">
+        <PageHeader
+          title={TEXT.newReport}
+          description={`Etapa ${step + 1} de ${steps.length} · ${steps[step]}`}
+          breadcrumb={[
+            { label: 'RDO', href: backPath },
+            { label: TEXT.newReport }
+          ]}
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<AppIcon icon={DS_ICONS.previous} size="sm" />}
+              onClick={handleBack}
+            >
+              Voltar aos relatórios
+            </Button>
+          }
+        />
+
+        <Card className="rdo-form-stepper" padding="md">
+          <ProgressSteps
+            labels={steps}
+            currentIndex={step}
+            ariaLabel="Etapas do relatório"
+            onKeyDown={handleHorizontalTabListKeyDown}
+            onSelect={(index) => {
+              if (index <= step) {
+                setStep(index);
+                return;
+              }
+              if (index === step + 1) handleNextStep();
+            }}
+          />
           <DraftSaveStatus status={draftSaveStatus} visible={Boolean(projectId && reportDate)} />
-        </section>
+        </Card>
+
+        <div className="rdo-form-stage">
 
         {step === 0 ? (
-        <>
-        {/* Card 1: Identificação */}
-        <section className="page-card">
-          <div className="section-title">{TEXT.identification}</div>
+        <div className={`rdo-form-grid rdo-form-grid--header ${effectiveServiceOnly ? 'is-service-only' : ''}`}>
+        <Card className="rdo-form-card rdo-form-card--identification" title={TEXT.identification}>
           {canCreateServiceOnly ? (
-            <div className="tog-row" style={{ marginBottom: 12 }}>
-              <span className="tog-lbl">
-                {TEXT.serviceOnly}
-                <span className="placeholder-copy" style={{ display: 'block', marginTop: 2 }}>{TEXT.serviceOnlyHint}</span>
-              </span>
-              <label className="tog">
-                <input
-                  type="checkbox"
-                  checked={effectiveServiceOnly}
-                  onChange={event => {
-                    setHeaderField('serviceOnly', event.target.checked);
-                    setStep(0);
-                  }}
-                />
-                <span className="tog-sl" />
-              </label>
-            </div>
+            <Switch
+              containerClassName="rdo-service-only-switch"
+              label={TEXT.serviceOnly}
+              description={TEXT.serviceOnlyHint}
+              checked={effectiveServiceOnly}
+              onChange={event => {
+                setHeaderField('serviceOnly', event.target.checked);
+                setStep(0);
+              }}
+            />
           ) : null}
-          <div className="admin-form-grid">
+          <div className="rdo-field-grid rdo-field-grid--identification">
             <div className={fieldState('header:projectId')} data-invalid-target="header:projectId">
               <label htmlFor="rdo-project">Projeto <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <select
+              <Select
                 id="rdo-project"
                 value={projectId || ''}
+                invalid={invalidTarget === 'header:projectId'}
                 onChange={event => handleProjectChange(event.target.value)}
                 required
               >
@@ -1281,79 +1322,81 @@ export function NewReportPage() {
                     {project.code} - {project.name}
                   </option>
                 ))}
-              </select>
+              </Select>
               {showProjectWithoutLeaderWarning ? (
-                <div className="form-hint" role="status">
+                <Alert className="rdo-inline-alert" tone="warning">
                   {TEXT.projectWithoutLeader}
-                </div>
+                </Alert>
               ) : null}
             </div>
             <div className={fieldState('header:reportDate')} data-invalid-target="header:reportDate">
               <label htmlFor="rdo-date">Data do relatório <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <input
+              <Input
                 id="rdo-date"
                 type="date"
                 value={reportDate}
+                invalid={invalidTarget === 'header:reportDate'}
                 onChange={event => setHeaderField('reportDate', event.target.value)}
                 required
               />
               {isCheckingDuplicateReportDate ? (
-                <div className="form-hint" role="status">
+                <Alert className="rdo-inline-alert" tone="info">
                   {TEXT.duplicateReportDateChecking}
-                </div>
+                </Alert>
               ) : duplicateReportForDate ? (
-                <div className="form-hint" role="alert">
+                <Alert className="rdo-inline-alert" tone="danger">
                   {TEXT.duplicateReportDate}
-                </div>
+                </Alert>
               ) : null}
             </div>
           </div>
-        </section>
+        </Card>
 
         {!effectiveServiceOnly ? (
         <>
-        {/* Card 2: Horários */}
-        <section className="page-card">
-          <div className="section-title">{TEXT.schedules}</div>
+        <Card className="rdo-form-card rdo-form-card--schedule" title={TEXT.schedules}>
           <div className="fg-r2">
             <div className={fieldState('header:arrivalTime')} data-invalid-target="header:arrivalTime">
               <label htmlFor="rdo-arrival">Chegada <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <input
+              <Input
                 id="rdo-arrival"
                 type="time"
                 value={arrivalTime}
+                invalid={invalidTarget === 'header:arrivalTime'}
                 onChange={event => setHeaderField('arrivalTime', event.target.value)}
                 required
               />
             </div>
             <div className={fieldState('header:departureTime')} data-invalid-target="header:departureTime">
               <label htmlFor="rdo-departure">{TEXT.departure} <span style={{ color: 'var(--rd)' }}>*</span></label>
-              <input
+              <Input
                 id="rdo-departure"
                 type="time"
                 value={departureTime}
+                invalid={invalidTarget === 'header:departureTime'}
                 onChange={event => setHeaderField('departureTime', event.target.value)}
                 required
               />
             </div>
           </div>
-          <div className={fieldState('header:lunchBreak')} style={{ marginTop: 10 }} data-invalid-target="header:lunchBreak">
+          <div className={fieldState('header:lunchBreak')} data-invalid-target="header:lunchBreak">
             <label htmlFor="rdo-lunch">Intervalo de almoço <span style={{ color: 'var(--rd)' }}>*</span></label>
-            <input
+            <Input
               id="rdo-lunch"
               type="time"
               step={1}
               value={lunchBreak}
+              invalid={invalidTarget === 'header:lunchBreak'}
               onChange={event => setHeaderField('lunchBreak', event.target.value)}
               required
             />
           </div>
-        </section>
+        </Card>
         </>
         ) : null}
 
         {/* Card 3: Equipe diurna */}
-        <section className="page-card">
+        <Card className="rdo-form-card rdo-form-card--team">
           <ReportWorkforceNotices
             planningContext={planningContext}
             prefilledFromLastReport={collaboratorsPrefilled}
@@ -1373,14 +1416,14 @@ export function NewReportPage() {
             {renderCollaboratorList(collaboratorIds)}
           </div>
           <div className="cadd">
-            <select value="" onChange={event => addCollaboratorById(event.target.value)}>
+            <Select value="" aria-label="Adicionar colaborador" onChange={event => addCollaboratorById(event.target.value)}>
               <option value="">Adicionar...</option>
               {collaborators
                 .filter(item => !collaboratorIds.includes(item.id))
                 .map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            </Select>
           </div>
-        </section>
+        </Card>
 
         {!effectiveServiceOnly ? (
         <>
@@ -1414,18 +1457,17 @@ export function NewReportPage() {
         </>
         ) : null}
 
-        </>
+        </div>
         ) : null}
 
         {step === 1 ? (
-        <>
+        <div className="rdo-form-services">
         {projectId && !effectiveServiceOnly && visiblePendingProjectServices.length > 0 ? (
-          <section className="page-card continuity-card">
-            <div className="section-title">Serviços em andamento</div>
+          <Card className="rdo-form-card continuity-card" title="Serviços em andamento">
             <p className="placeholder-copy">
               Selecione individualmente quais serviços deseja continuar neste RDO.
             </p>
-            <div className="admin-list" style={{ marginTop: 10 }}>
+            <div className="admin-list">
               {visiblePendingProjectServices.map(({ key, report, service }) => {
                 const type = normalizeServiceType(service.serviceType);
                 const equipment = serviceEquipmentName(service) || 'Equipamento não informado';
@@ -1439,97 +1481,119 @@ export function NewReportPage() {
                           {equipment}{system ? ` · ${system}` : ''} · RDO {report.sequenceNumber || '---'}
                         </div>
                       </div>
-                      <button className="ongoing-badge-react" type="button" onClick={() => continueService(service, key)}>
+                      <Button variant="secondary" size="sm" type="button" onClick={() => continueService(service, key)}>
                         Continuar
-                      </button>
+                      </Button>
                     </div>
                   </article>
                 );
               })}
             </div>
             {visiblePendingProjectServices.length > 1 ? (
-              <div className="admin-form-actions" style={{ marginTop: 10 }}>
-                <button className="secondary-button" type="button" onClick={handleContinueServices}>
+              <div className="admin-form-actions">
+                <Button variant="secondary" size="sm" type="button" onClick={handleContinueServices}>
                   Continuar todos
-                </button>
+                </Button>
               </div>
             ) : null}
-          </section>
+          </Card>
         ) : null}
-        <section className="page-card report-services-step" data-invalid-target="services:empty">
-          <div className="section-title">{TEXT.services}</div>
+        <Card className="rdo-form-card report-services-step" title={TEXT.services} data-invalid-target="services:empty">
           {services.length ? (
-            <div className="admin-stack" style={{ marginTop: 12 }}>
+            <div className="admin-stack">
               {services.map((service, index) => (
-                <article className="admin-card-react" key={service.id} data-service-id={service.id}>
-                  <div className="svc-card-header">
+                <Card
+                  className="rdo-service-card"
+                  key={service.id}
+                  data-service-id={service.id}
+                  title={
                     <div className="svc-card-title">
                       <span>{serviceTypeLabels[normalizeServiceType(service.type)] || service.type}</span>
-                      <span className="svc-card-badge">{TEXT.service} {index + 1}</span>
+                      <Badge tone="brand">{TEXT.service} {index + 1}</Badge>
                     </div>
-                    <div className="admin-card-actions">
-                      <button className="svc-remove" type="button" onClick={() => removeService(service.id)}>
-                        {TEXT.remove}
-                      </button>
-                    </div>
-                  </div>
+                  }
+                  actions={
+                    <IconButton
+                      icon={DS_ICONS.trash}
+                      label={`${TEXT.remove} serviço ${index + 1}`}
+                      variant="danger"
+                      size="sm"
+                      onClick={() => removeService(service.id)}
+                    />
+                  }
+                >
                   <div className="admin-form-grid">
                     {normalizeServiceType(service.type) !== 'inibicao' ? (
-                    <div className={serviceFieldState(service.id, 'equipmentId')}>
-                      <label>
-                        Equipamento(s) <span style={{ color: 'var(--rd)' }}>*</span>
-                        {service.data._prefilled && service.data.equipmentId ? <span className="pre-badge">pré-preenchido</span> : null}
-                      </label>
-                      <input
-                        className={service.data._prefilled && service.data.equipmentId ? 'pre' : ''}
-                        value={typeof service.data.equipmentId === 'string' ? service.data.equipmentId : ''}
-                        placeholder="Informar equipamento do cliente..."
-                        onChange={event => updateService(service.id, { equipmentId: event.target.value })}
-                      />
-                    </div>
-                    ) : null}
-                    {normalizeServiceType(service.type) !== 'inibicao' ? (
-                      <div className={serviceFieldState(service.id, 'system')}>
-                        <label>
-                          Sistema <span style={{ color: 'var(--rd)' }}>*</span>
-                          {service.data._prefilled && service.data.system ? <span className="pre-badge">pré-preenchido</span> : null}
-                        </label>
-                        <input
-                          className={service.data._prefilled && service.data.system ? 'pre' : ''}
-                          value={typeof service.data.system === 'string' ? service.data.system : ''}
-                          onChange={event => updateService(service.id, { system: event.target.value })}
-                        />
-                      </div>
-                    ) : null}
-                    {normalizeServiceType(service.type) !== 'inibicao' ? (
-                      <ServiceCollaboratorsBlock
-                        data={service.data}
-                        onChange={update => updateService(service.id, update)}
-                        invalidKey={invalidTarget === `${service.id}:serviceCollaboratorIds` ? 'serviceCollaboratorIds' : null}
-                        collaboratorOptions={serviceCollaboratorOptions}
-                      />
-                    ) : null}
-                    {normalizeServiceType(service.type) !== 'inibicao' ? (
-                    <div className="fg-r2 service-time-grid">
-                      <div className={serviceFieldState(service.id, 'startTime')}>
-                        <label>Hora de início <span style={{ color: 'var(--rd)' }}>*</span></label>
-                        <input
-                          type="time"
-                          required
-                          value={typeof service.data.startTime === 'string' ? service.data.startTime : ''}
-                          onChange={event => updateService(service.id, { startTime: event.target.value })}
-                        />
-                      </div>
-                      <div className={serviceFieldState(service.id, 'endTime')}>
-                        <label>Hora de término/pausa <span style={{ color: 'var(--rd)' }}>*</span></label>
-                        <input
-                          type="time"
-                          required
-                          value={typeof service.data.endTime === 'string' ? service.data.endTime : ''}
-                          onChange={event => updateService(service.id, { endTime: event.target.value })}
-                        />
-                      </div>
-                    </div>
+                      <>
+                        <section className="rdo-service-section" aria-label="Equipamento e sistema">
+                          <h4 className="rdo-service-section__title">Equipamento e sistema</h4>
+                          <div className="rdo-service-section__grid">
+                            <div className={serviceFieldState(service.id, 'equipmentId')}>
+                              <label>
+                                Equipamento(s) <span style={{ color: 'var(--rd)' }}>*</span>
+                                {service.data._prefilled && service.data.equipmentId ? <span className="pre-badge">pré-preenchido</span> : null}
+                              </label>
+                              <Input
+                                className={service.data._prefilled && service.data.equipmentId ? 'pre' : ''}
+                                value={typeof service.data.equipmentId === 'string' ? service.data.equipmentId : ''}
+                                invalid={invalidTarget === `${service.id}:equipmentId`}
+                                placeholder="Informar equipamento do cliente..."
+                                onChange={event => updateService(service.id, { equipmentId: event.target.value })}
+                              />
+                            </div>
+                            <div className={serviceFieldState(service.id, 'system')}>
+                              <label>
+                                Sistema <span style={{ color: 'var(--rd)' }}>*</span>
+                                {service.data._prefilled && service.data.system ? <span className="pre-badge">pré-preenchido</span> : null}
+                              </label>
+                              <Input
+                                className={service.data._prefilled && service.data.system ? 'pre' : ''}
+                                value={typeof service.data.system === 'string' ? service.data.system : ''}
+                                invalid={invalidTarget === `${service.id}:system`}
+                                onChange={event => updateService(service.id, { system: event.target.value })}
+                              />
+                            </div>
+                          </div>
+                        </section>
+                        <section className="rdo-service-section" aria-label="Equipe do serviço">
+                          <h4 className="rdo-service-section__title">Equipe do serviço</h4>
+                          <div className="rdo-service-section__grid">
+                            <ServiceCollaboratorsBlock
+                              data={service.data}
+                              onChange={update => updateService(service.id, update)}
+                              invalidKey={invalidTarget === `${service.id}:serviceCollaboratorIds` ? 'serviceCollaboratorIds' : null}
+                              collaboratorOptions={serviceCollaboratorOptions}
+                            />
+                          </div>
+                        </section>
+                        <section className="rdo-service-section" aria-label="Horários do serviço">
+                          <h4 className="rdo-service-section__title">Horários do serviço</h4>
+                          <div className="rdo-service-section__grid">
+                            <div className="fg-r2 service-time-grid">
+                              <div className={serviceFieldState(service.id, 'startTime')}>
+                                <label>Hora de início <span style={{ color: 'var(--rd)' }}>*</span></label>
+                                <Input
+                                  type="time"
+                                  required
+                                  value={typeof service.data.startTime === 'string' ? service.data.startTime : ''}
+                                  invalid={invalidTarget === `${service.id}:startTime`}
+                                  onChange={event => updateService(service.id, { startTime: event.target.value })}
+                                />
+                              </div>
+                              <div className={serviceFieldState(service.id, 'endTime')}>
+                                <label>Hora de término/pausa <span style={{ color: 'var(--rd)' }}>*</span></label>
+                                <Input
+                                  type="time"
+                                  required
+                                  value={typeof service.data.endTime === 'string' ? service.data.endTime : ''}
+                                  invalid={invalidTarget === `${service.id}:endTime`}
+                                  onChange={event => updateService(service.id, { endTime: event.target.value })}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+                      </>
                     ) : null}
                     <ServiceFields
                       serviceType={service.type}
@@ -1546,57 +1610,48 @@ export function NewReportPage() {
                       projectId={projectId}
                       invalidKey={serviceInvalidKey(service.id)}
                       hideFinalization={effectiveServiceOnly}
+                      appearance="design-system"
                     />
                   </div>
-                </article>
+                </Card>
               ))}
             </div>
           ) : (
             <p className="placeholder-copy">{TEXT.noService}</p>
           )}
-          <div className="admin-form-actions" style={{ marginTop: 12 }}>
-            <button
-              className="secondary-button"
+          <div className="admin-form-actions rdo-add-service-action">
+            <Button
+              variant="secondary"
               type="button"
-              style={{ width: '100%', borderStyle: 'dashed', color: 'var(--g)', fontWeight: 700 }}
+              fullWidth
+              iconLeft={<AppIcon icon={DS_ICONS.plus} size="sm" />}
               onClick={() => setShowServiceModal(true)}
             >
-              ＋ {TEXT.addService}
-            </button>
+              {TEXT.addService}
+            </Button>
           </div>
-        </section>
-        </>
+        </Card>
+        </div>
         ) : null}
 
         {step === 2 ? (
-        <>
-        {/* Card Horas extras */}
-        <section className="page-card">
-          <div className="section-title">Horas extras</div>
-          <div
-            style={{
-              fontSize: 12,
-              color: overtimeSummary.totalOvertimeMinutes > 0 ? 'var(--rd)' : 'var(--mu)',
-              lineHeight: 1.7,
-              marginBottom: 10
-            }}
+        <div className="rdo-form-grid rdo-form-grid--finalization">
+        <Card className="rdo-form-card rdo-form-card--overtime" title="Horas extras">
+          <Alert
+            className="rdo-overtime-summary"
+            tone={overtimeSummary.totalOvertimeMinutes > 0 ? 'warning' : 'info'}
+            title={
+              overtimeSummary.totalOvertimeMinutes > 0
+                ? `Hora extra identificada: ${formatMinutes(overtimeSummary.totalOvertimeMinutes)}`
+                : 'Nenhuma hora extra identificada'
+            }
           >
-            {overtimeSummary.totalOvertimeMinutes > 0 ? (
-              <>
-                <strong>Hora extra identificada: {formatMinutes(overtimeSummary.totalOvertimeMinutes)}</strong>
-                {overtimeLines.map(line => <div key={line}>{line}</div>)}
-              </>
-            ) : (
-              <>
-                Nenhuma hora extra identificada.
-                {overtimeLines.map(line => <div key={line}>{line}</div>)}
-              </>
-            )}
-          </div>
+            {overtimeLines.map(line => <div key={line}>{line}</div>)}
+          </Alert>
           {overtimeSummary.totalOvertimeMinutes > 0 ? (
             <div className="field-group">
               <label htmlFor="rdo-overtime">Justificativa</label>
-              <textarea
+              <Textarea
                 id="rdo-overtime"
                 placeholder="Descreva o motivo das horas extras..."
                 rows={3}
@@ -1605,59 +1660,68 @@ export function NewReportPage() {
               />
             </div>
           ) : null}
-        </section>
+        </Card>
 
-        {/* Card Atividades do dia */}
-        <section className="page-card">
-          <div className="section-title">Atividades do dia</div>
+        <Card className="rdo-form-card rdo-form-card--activities" title="Atividades do dia">
           <div className="field-group">
             <label htmlFor="rdo-description">{TEXT.dailyDescription}</label>
-            <textarea
+            <Textarea
               id="rdo-description"
-              style={{ minHeight: 100 }}
+              className="rdo-activities-textarea"
               placeholder="Descreva as atividades realizadas..."
               rows={5}
               value={dailyDescription}
               onChange={event => setHeaderField('dailyDescription', event.target.value)}
             />
           </div>
-        </section>
+        </Card>
 
-        {/* Card Fotos */}
-        <section className="page-card">
-          <div className="section-title">{TEXT.photos}</div>
+        <Card className="rdo-form-card rdo-form-card--photos" title={TEXT.photos}>
           <UploadField
             label=""
             value={generalUploads as UploadedFile[]}
             projectId={projectId}
+            appearance="design-system"
             onChange={setGeneralUploads}
           />
-        </section>
+        </Card>
 
-        {/* Card Resumo */}
-        <section className="page-card resumo-card">
-          <div className="resumo-card-title">Resumo</div>
+        <Card className="rdo-form-card rdo-form-card--summary" variant="accent" accentTone="brand" title="Resumo">
           <div className="resumo-txt">{buildResumoText()}</div>
-        </section>
-        </>
+        </Card>
+        </div>
         ) : null}
 
-        <section className="page-card rdo-bottom-actions">
-          <button
-            className="secondary-button"
+        </div>
+
+        <section className="rdo-form-actions" aria-label="Ações do formulário">
+          <Button
+            variant="secondary"
             type="button"
+            iconLeft={step > 0 ? <AppIcon icon={DS_ICONS.previous} size="sm" /> : undefined}
             onClick={step === 0 ? handleBack : () => setStep(current => Math.max(current - 1, 0))}
           >
-            {step === 0 ? 'Cancelar' : `← ${TEXT.back}`}
-          </button>
+            {step === 0 ? 'Cancelar' : TEXT.back}
+          </Button>
           {step < steps.length - 1 ? (
-            <button className="primary-button" type="button" onClick={handleNextStep}>
-              {TEXT.next}
-            </button>
+            <Button
+              variant="primary"
+              type="button"
+              iconRight={<AppIcon icon={DS_ICONS.next} size="sm" />}
+              onClick={handleNextStep}
+            >
+              Próximo
+            </Button>
           ) : (
-            <button className="primary-button" type="button" disabled={isSubmitting} onClick={handleSubmit}>
-              {isSubmitting ? 'Enviando...' : TEXT.submit}
-            </button>
+            <Button
+              variant="primary"
+              type="button"
+              loading={isSubmitting}
+              loadingLabel="Enviando relatório"
+              onClick={handleSubmit}
+            >
+              Enviar relatório
+            </Button>
           )}
         </section>
       </main>
@@ -1665,12 +1729,14 @@ export function NewReportPage() {
       <Modal
         open={showServiceModal}
         onClose={() => setShowServiceModal(false)}
-        backdropClassName="stype-modal-ov"
-        panelClassName="stype-modal-sh"
-        ariaLabelledBy="new-report-service-type-title"
+        appearance="design-system"
+        title="Tipo de serviço"
+        size="md"
+        fullscreenOnMobile={false}
+        closeOnBackdrop
+        backdropClassName="rdo-service-picker-backdrop"
+        panelClassName="rdo-service-picker"
       >
-            <div className="stype-modal-handle" />
-            <div className="stype-modal-title" id="new-report-service-type-title">Tipo de serviço</div>
             <div className="stype-grid">
               {serviceOptions.map(({ type, icon, name }) => (
                 <button
@@ -1682,7 +1748,7 @@ export function NewReportPage() {
                     setShowServiceModal(false);
                   }}
                 >
-                  <div className="stype-icon">{icon}</div>
+                  <div className="stype-icon"><AppIcon icon={icon} /></div>
                   <div className="stype-name">{name}</div>
                 </button>
               ))}
@@ -1696,6 +1762,6 @@ export function NewReportPage() {
           onSeen={() => setDdsNoveltyActive(false)}
         />
       ) : null}
-    </Shell>
+    </AppShell>
   );
 }
