@@ -222,7 +222,7 @@ test('Gestor preserva abertura, handler, payload, fechamento e toasts da devolu�
   assert.match(manager, /const reportMutations = useReportMutations\(\)/);
 });
 
-test('gate B.5 mantém default legacy e restringe o futuro opt-in DS ao Gestor', () => {
+test('gate B.5 mantém default legacy e restringe o opt-in DS às superfícies migradas', () => {
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const reasonDialog = source('src/components/ui/ReasonDialog.tsx');
   const modal = source('src/components/ui/Modal.tsx');
@@ -253,13 +253,16 @@ test('gate B.5 mantém default legacy e restringe o futuro opt-in DS ao Gestor',
     2,
     'ReportDetail deve manter suas duas instâncias caracterizadas de ReasonDialog'
   );
-  for (const detailDialog of detailDialogs) {
-    assert.doesNotMatch(
-      detailDialog,
-      /\bappearance=/,
-      'ReasonDialog do detalhe deve permanecer no default legacy'
-    );
-  }
+  assert.equal(
+    detailDialogs.filter((dialog) => /\bappearance="design-system"/.test(dialog)).length,
+    1,
+    'apenas o ReasonDialog do formulário de edição deve acompanhar o design system'
+  );
+  assert.equal(
+    detailDialogs.filter((dialog) => !/\bappearance=/.test(dialog)).length,
+    1,
+    'o diálogo da revisão do cliente deve preservar o default legacy'
+  );
 
   if (!hasAppearanceApi) {
     assert.doesNotMatch(
@@ -293,7 +296,11 @@ test('gate B.5 mantém default legacy e restringe o futuro opt-in DS ao Gestor',
       )
     );
 
-  assert.deepEqual(optedInFiles, [
-    join(frontendRoot, 'src/pages/gestor/GestorPage.tsx')
-  ]);
+  assert.deepEqual(
+    optedInFiles.sort(),
+    [
+      join(frontendRoot, 'src/pages/ReportDetailPage.tsx'),
+      join(frontendRoot, 'src/pages/gestor/GestorPage.tsx')
+    ].sort()
+  );
 });

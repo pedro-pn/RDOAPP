@@ -6834,7 +6834,9 @@ export function GestorPage() {
         onClose={() => setArchiveSurveyProject(null)}
         appearance="design-system"
         size="sm"
+        backdropClassName="rdo-manager-archive-project-dialog-backdrop"
         panelClassName="rdo-manager-archive-project-dialog rdo-ds-actions"
+        fullscreenOnMobile={false}
         ariaLabelledBy="archive-survey-title"
         ariaDescribedBy="archive-survey-description"
         initialFocusRef={archiveSurveyCancelRef}

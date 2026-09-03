@@ -8,9 +8,10 @@
   --tx: var(--ink);
   --br: var(--line);
   --wh: var(--surface);
+  --rdo-form-max: 540px;
 
   display: grid;
-  width: min(100%, var(--content-max));
+  width: min(100%, var(--rdo-form-max));
   min-width: 0;
   margin-inline: auto;
   gap: var(--space-5);
@@ -719,6 +720,12 @@
   white-space: nowrap;
 }
 
+.rdo-form-page a.upload-list-name {
+  color: var(--bl);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
 .rdo-form-page .rdo-overtime-summary {
   margin: 0;
 }
@@ -826,14 +833,129 @@
     padding: var(--space-3);
   }
 
-  .fv-ds.rdo-form-page
-    :where(input:not([type='checkbox']):not([type='radio']), select, textarea) {
-    font-size: var(--text-md);
+  /* Preserve the denser scale of the previous mobile RDO form without
+     reverting the new shell, stepper, cards or thematic organization. */
+  .rdo-form-stage,
+  .rdo-form-stage :where(.rdo-form-grid, .fv-card__body, .admin-form-grid) {
+    gap: var(--space-3);
   }
 
-  .rdo-form-page .upload-dropzone {
-    min-height: calc(var(--space-16) + var(--space-8));
-    padding: var(--space-4);
+  .rdo-form-page .rdo-form-stage :where(.rdo-form-card, .rdo-service-card) {
+    padding: var(--space-3);
+  }
+
+  .rdo-form-stage :where(.rdo-form-card, .rdo-service-card) .fv-card__header {
+    gap: var(--space-2);
+    padding-block-end: var(--space-2);
+  }
+
+  .rdo-form-stage :where(.rdo-form-card, .rdo-service-card) .fv-card__heading {
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
+  }
+
+  .rdo-form-stage :where(.field-group) {
+    gap: calc(var(--space-1) + var(--border-width) * 2);
+  }
+
+  .rdo-form-stage :where(.field-group > label, .upload-field-label) {
+    font-size: var(--text-xs);
+    line-height: var(--leading-xs);
+  }
+
+  .fv-ds.rdo-form-page .rdo-form-stage .fv-control-shell {
+    height: calc(var(--space-10) - var(--space-1));
+    padding-inline: var(--space-3);
+  }
+
+  .fv-ds.rdo-form-page
+    .rdo-form-stage
+    :where(.fv-input, .fv-select, .fv-textarea) {
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
+  }
+
+  .fv-ds.rdo-form-page
+    .rdo-form-stage
+    :where(
+      input:not([type='checkbox']):not([type='radio']):not(.fv-input),
+      select:not(.fv-select),
+      textarea:not(.fv-textarea)
+    ) {
+    min-height: calc(var(--space-10) - var(--space-1));
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-base);
+    line-height: var(--leading-base);
+  }
+
+  .rdo-form-stage .fv-textarea {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .rdo-form-stage
+    :where(.rdo-form-card, .rdo-service-card)
+    .fv-button {
+    --fv-button-height: calc(var(--space-10) - var(--space-1));
+    --fv-button-padding: var(--space-3);
+    --fv-button-font-size: var(--text-sm);
+
+    min-height: calc(var(--space-10) - var(--space-1));
+  }
+
+  .rdo-form-stage .rdo-service-card .fv-icon-button {
+    min-width: calc(var(--space-10) - var(--space-1));
+    min-height: calc(var(--space-10) - var(--space-1));
+  }
+
+  .rdo-form-stage .rdo-check-row,
+  .rdo-form-stage :where(.rdo-tag-option, .rdo-pill-option) {
+    min-height: calc(var(--space-10) - var(--space-1));
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .rdo-form-page .rdo-form-stage .upload-dropzone {
+    min-height: calc(var(--space-16) + var(--space-1));
+    padding: var(--space-3);
+  }
+
+  .rdo-form-stage .upload-dropzone-icon {
+    width: var(--space-8);
+    height: var(--space-8);
+  }
+
+  .rdo-form-page .rdo-form-stage .upload-list-item {
+    display: grid;
+    grid-template-columns: var(--space-12) minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--space-3);
+    row-gap: var(--space-1);
+  }
+
+  .rdo-form-stage .upload-list-preview {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .rdo-form-stage .upload-list-name {
+    grid-column: 2;
+    grid-row: 1;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .rdo-form-stage .upload-previous-badge {
+    max-width: 100%;
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    white-space: normal;
+  }
+
+  .rdo-form-stage .upload-remove-button {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .rdo-form-page .report-services-step,
@@ -915,7 +1037,7 @@
 
   .rdo-form-grid--header,
   .rdo-form-grid--finalization {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .rdo-form-card--identification,
@@ -932,16 +1054,16 @@
   .rdo-field-grid--identification,
   .rdo-form-page .fg-r2,
   .rdo-form-page .rdo-check-grid:not(.service-step-list) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .rdo-form-page .admin-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .rdo-form-page .rdo-service-section__grid,
   .rdo-form-page .admin-form-grid.rdo-analysis-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .rdo-form-actions {
@@ -956,16 +1078,16 @@
 
 @media (min-width: 1024px) {
   .rdo-form-page .admin-form-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .rdo-service-card .service-time-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1280px) {
   .rdo-form-grid--header {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }

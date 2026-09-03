@@ -35,7 +35,8 @@ test('CSS do formulário é escopado, tokenizado e cobre os breakpoints oficiais
   const css = source('src/pages/collaborator/NewReportPage.css');
 
   assert.match(css, /\.fv-ds\.rdo-form-page/);
-  assert.match(css, /var\(--content-max\)/);
+  assert.match(css, /--rdo-form-max: 540px/);
+  assert.match(css, /width: min\(100%, var\(--rdo-form-max\)\)/);
   assert.match(css, /@media \(max-width: 767\.98px\)/);
   assert.match(css, /@media \(min-width: 768px\)/);
   assert.match(css, /@media \(min-width: 1024px\)/);
@@ -86,6 +87,49 @@ test('agrupamento temático fica plano e compacto apenas no mobile', () => {
   assert.match(mobileBlock, /\.rdo-form-page \.rdo-service-section \{[\s\S]*?padding: 0/);
   assert.match(mobileBlock, /border: 0/);
   assert.match(mobileBlock, /background: transparent/);
+});
+
+test('formulário recupera a escala anterior no mobile sem regredir a página', () => {
+  const page = source('src/pages/collaborator/NewReportPage.tsx');
+  const css = source('src/pages/collaborator/NewReportPage.css');
+  const mobileStart = css.indexOf('@media (max-width: 767.98px)');
+  const mobileEnd = css.indexOf('@media (min-width: 768px)', mobileStart);
+  const mobileBlock = css.slice(mobileStart, mobileEnd);
+
+  assert.match(page, /<AppShell\b/);
+  assert.match(page, /<PageHeader\b/);
+  assert.match(page, /className="rdo-form-stage"/);
+  assert.match(
+    mobileBlock,
+    /\.rdo-form-page \.rdo-form-stage :where\(\.rdo-form-card, \.rdo-service-card\) \{[\s\S]*?padding: var\(--space-3\)/
+  );
+  assert.match(
+    mobileBlock,
+    /\.rdo-form-stage \.fv-control-shell \{[\s\S]*?height: calc\(var\(--space-10\) - var\(--space-1\)\)/
+  );
+  assert.match(
+    mobileBlock,
+    /:where\(\.fv-input, \.fv-select, \.fv-textarea\) \{[\s\S]*?font-size: var\(--text-base\)/
+  );
+});
+
+test('editor preserva a largura original e a leitura em coluna no desktop', () => {
+  const css = source('src/pages/collaborator/NewReportPage.css');
+  const desktopStart = css.indexOf('@media (min-width: 768px)');
+  const wideDesktopStart = css.indexOf('@media (min-width: 1024px)', desktopStart);
+  const desktopBlock = css.slice(desktopStart, wideDesktopStart);
+  const wideDesktopBlock = css.slice(wideDesktopStart);
+
+  assert.match(css, /--rdo-form-max: 540px/);
+  assert.match(
+    desktopBlock,
+    /\.rdo-form-grid--header,[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/
+  );
+  assert.match(
+    desktopBlock,
+    /\.rdo-form-page \.admin-form-grid \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/
+  );
+  assert.doesNotMatch(wideDesktopBlock, /repeat\([23], minmax\(0, 1fr\)\)/);
 });
 
 test('upload de PDF e foco dos campos preservam contraste e contorno', () => {

@@ -987,6 +987,21 @@
   white-space: normal;
 }
 
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]).rdo-manager-archive-project-dialog-backdrop {
+    align-items: center;
+    padding: var(--space-4);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-archive-project-dialog {
+    width: min(100%, var(--fv-modal-width));
+    height: auto;
+    max-height: calc(100dvh - var(--space-8));
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+}
+
 :where(.fv-ds, [data-fv-ds])
   .rdo-manager-project-team-dialog
   :where(

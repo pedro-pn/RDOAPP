@@ -1,0 +1,96 @@
+/* Visual migration boundary for the RDO editor embedded in report details. */
+
+.rdo-edit-form {
+  padding-block-end: var(--space-4);
+}
+
+.rdo-edit-form .rdo-edit-field-hint,
+.rdo-edit-form .field-group > .placeholder-copy,
+.rdo-edit-form .field-group > .inline-error {
+  margin-block-start: var(--space-1);
+}
+
+.rdo-edit-form .manual-operational-sections,
+.rdo-edit-form .manual-operational-section {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+.rdo-edit-form .manual-operational-fields-embedded {
+  grid-column: 1 / -1;
+}
+
+.rdo-edit-form .manual-operational-section + .manual-operational-section {
+  padding-block-start: var(--space-4);
+  border-block-start: var(--border-width) solid var(--line);
+}
+
+.rdo-edit-form .manual-operational-lunch,
+.rdo-edit-form .manual-operational-subtitle {
+  margin-block-start: 0;
+}
+
+.rdo-edit-form .upload-final-note {
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--info-line);
+  border-radius: var(--radius-md);
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.rdo-edit-form .overtime-review-inline,
+.rdo-edit-form .overtime-review-main {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.rdo-edit-actions {
+  position: sticky;
+  inset-block-end: var(--space-3);
+  z-index: var(--z-sticky);
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-e3);
+}
+
+.rdo-edit-actions .fv-button {
+  flex: 1 1 calc(var(--space-16) * 2);
+}
+
+@media (max-width: 767.98px) {
+  .rdo-edit-form {
+    padding-block-end: calc(var(--space-16) + var(--space-8));
+  }
+
+  .rdo-edit-actions {
+    inset-block-end: calc(
+      var(--bottombar-h) + env(safe-area-inset-bottom) + var(--space-1)
+    );
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-1);
+    padding: var(--space-2);
+  }
+
+  .rdo-edit-actions .fv-button {
+    --fv-button-height: calc(var(--space-10) - var(--space-1));
+    --fv-button-padding: var(--space-2);
+    --fv-button-font-size: var(--text-sm);
+
+    width: 100%;
+    min-width: 0;
+    min-height: calc(var(--space-10) - var(--space-1));
+  }
+}

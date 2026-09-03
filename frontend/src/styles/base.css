@@ -6379,6 +6379,12 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   border: 1px solid var(--br);
 }
 
+.upload-list-preview {
+  display: block;
+  flex: 0 0 44px;
+  line-height: 0;
+}
+
 .upload-list-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -6387,6 +6393,12 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+a.upload-list-name {
+  color: var(--bl);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .upload-remove-button {
@@ -6437,6 +6449,64 @@ input[type="time"]::-webkit-datetime-edit-ampm-field {
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid var(--br);
+}
+
+.report-upload-link {
+  display: grid;
+  width: 72px;
+  min-width: 0;
+  gap: 6px;
+  color: var(--bl);
+  text-decoration: none;
+}
+
+.report-upload-link .upload-thumb {
+  display: block;
+}
+
+.report-upload-name {
+  min-width: 0;
+  color: var(--bl);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.report-upload-link:hover .report-upload-name {
+  color: var(--g);
+}
+
+.report-upload-link:focus-visible {
+  border-radius: var(--rs);
+  outline: 3px solid rgba(9, 90, 44, 0.35);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767.98px) {
+  .report-upload-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .report-upload-link {
+    width: 100%;
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border: 1px solid var(--br);
+    border-radius: var(--rs);
+    background: var(--wh);
+  }
+
+  .report-upload-name {
+    font-size: 13px;
+    line-height: 1.45;
+  }
 }
 
 .detail-list {

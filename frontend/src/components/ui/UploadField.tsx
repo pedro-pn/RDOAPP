@@ -102,12 +102,24 @@ function UploadListItem({ disabled, file, index, appearance, onRemove }: UploadL
   return (
     <div className="upload-list-item">
       {href && isImageFile(file) ? (
-        <a href={href} target="_blank" rel="noreferrer" aria-label={`Abrir ${file.fileName}`}>
-          <img className="upload-list-thumb" src={href} alt={file.fileName} />
+        <a
+          className="upload-list-preview"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Abrir ${file.fileName}`}
+        >
+          <img className="upload-list-thumb" src={href} alt="" />
         </a>
       ) : null}
       {href ? (
-        <a className="upload-list-name" href={href} target="_blank" rel="noreferrer">
+        <a
+          className="upload-list-name"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          title={file.fileName}
+        >
           {file.fileName}
         </a>
       ) : (

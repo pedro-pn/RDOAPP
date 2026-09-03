@@ -163,8 +163,13 @@ test('B.10 restringe o Modal DS a esta instância e preserva defaults globais', 
   assert.match(dialog, /size="sm"/);
   assert.match(
     dialog,
+    /backdropClassName="rdo-manager-archive-project-dialog-backdrop"/
+  );
+  assert.match(
+    dialog,
     /panelClassName="rdo-manager-archive-project-dialog rdo-ds-actions"/
   );
+  assert.match(dialog, /fullscreenOnMobile=\{false\}/);
   assert.match(
     dialog,
     /title=\{[\s\S]*?<h2[\s\S]*?Arquivar projeto[\s\S]*?<\/h2>[\s\S]*?\}/
@@ -211,6 +216,14 @@ test('B.10 mantém a hierarquia de botões e o CSS local tokenizado', () => {
   assert.doesNotMatch(block, /\brgba?\(/i);
   assert.doesNotMatch(block, /!important/);
   assert.match(block, /flex-wrap:\s*nowrap/);
+  assert.match(
+    block,
+    /@media \(max-width: 768px\)[\s\S]*?\.rdo-manager-archive-project-dialog-backdrop\s*\{[\s\S]*?align-items:\s*center[\s\S]*?padding:\s*var\(--space-4\)/
+  );
+  assert.match(
+    block,
+    /\.rdo-manager-archive-project-dialog\s*\{[\s\S]*?height:\s*auto[\s\S]*?max-height:\s*calc\(100dvh - var\(--space-8\)\)[\s\S]*?border-radius:\s*var\(--radius-lg\)/
+  );
 });
 
 test('B.10 não altera primitives, API nem infraestrutura compartilhada', () => {
