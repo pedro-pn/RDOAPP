@@ -140,11 +140,28 @@ test('Arquivados preserva busca, agrupamentos, seleção e ações sem mutar dad
     project.locator('.rdo-archived-project-card__details dl')
   ).toBeVisible();
 
-  const reportCheckbox = project
+  await expect(
+    project.locator('.rdo-archived-project-card__meta .fv-badge')
+  ).toHaveCount(0);
+  await expect(project.getByText('Apto para restaurar', { exact: true })).toHaveCount(0);
+  await expect(
+    project.locator('.rdo-archived-project-card__selection')
+  ).toHaveCount(0);
+
+  const reportTypeSection = project
+    .locator('.rdo-archived-report-type')
+    .first();
+  const batchToolbar = reportTypeSection.locator(
+    '.rdo-manager-listing__batch-toolbar'
+  );
+  await expect(
+    batchToolbar.getByRole('button', { name: 'Selecionar todos', exact: true })
+  ).toBeVisible();
+
+  const reportCheckbox = reportTypeSection
     .getByRole('checkbox', { name: /^Selecionar (?!todos)/ })
     .first();
   await reportCheckbox.check();
-  const batchToolbar = surface.locator('.rdo-archived-projects__batch-toolbar');
   await expect(batchToolbar).toBeVisible();
   await expect(batchToolbar.getByText(/selecionado\(s\)/)).toBeVisible();
   await expect(
@@ -244,6 +261,29 @@ test('Arquivados valida desktop/mobile em light/dark sem overflow', async ({
       await expect(
         project.locator('.fv-data-table__mobile').first()
       ).toBeVisible();
+
+      const quickActions = project.locator(
+        ':scope > .fv-card__header > .fv-card__actions'
+      );
+      const reportsButton = project.locator(
+        '.rdo-archived-project-card__reports-toggle'
+      );
+      await expect(quickActions).toBeVisible();
+      await expect
+        .poll(() =>
+          quickActions.evaluate(
+            element => element.scrollWidth <= element.clientWidth
+          )
+        )
+        .toBe(true);
+      const quickActionsBox = await quickActions.boundingBox();
+      const reportsButtonBox = await reportsButton.boundingBox();
+      expect(quickActionsBox).toBeTruthy();
+      expect(reportsButtonBox).toBeTruthy();
+      const quickActionsCenterY = (quickActionsBox?.y || 0) + (quickActionsBox?.height || 0) / 2;
+      const reportsButtonCenterY = (reportsButtonBox?.y || 0) + (reportsButtonBox?.height || 0) / 2;
+      expect(Math.abs(quickActionsCenterY - reportsButtonCenterY)).toBeLessThan(2);
+      expect((reportsButtonBox?.x || 0) < (quickActionsBox?.x || 0)).toBe(true);
     }
   }
 });

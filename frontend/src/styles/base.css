@@ -870,10 +870,51 @@ a {
   border-bottom: 1px solid var(--br);
 }
 
+.report-batch-toolbar > .admin-form-actions {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.report-batch-action-label--compact {
+  display: none;
+}
+
 .report-batch-count {
   font-size: 12px;
   font-weight: 700;
   color: var(--mu);
+}
+
+@media (max-width: 768px) {
+  .report-batch-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .report-batch-toolbar > .admin-form-actions {
+    display: grid;
+    width: 100%;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 4px;
+  }
+
+  .report-batch-toolbar > .admin-form-actions > button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .report-batch-action-label--full {
+    display: none;
+  }
+
+  .report-batch-action-label--compact {
+    display: inline;
+  }
 }
 
 .client-report-card {

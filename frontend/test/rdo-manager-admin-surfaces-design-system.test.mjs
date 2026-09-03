@@ -44,6 +44,10 @@ test('Equipe usa a hierarquia administrativa DS e preserva suas três subáreas'
   assert.match(team, /showCreateAction=\{false\}/);
   assert.match(team, /<DataTable\b/);
   assert.match(team, /className="rdo-team-collaborators__table"/);
+  assert.match(
+    team,
+    /className="rdo-team-collaborators__table"[\s\S]*?mobileBreakpoint="xl"/
+  );
   assert.match(team, /loading=\{collaboratorsQuery\.isLoading\}/);
   assert.match(team, /renderRowDetails=\{collaborator =>/);
   assert.match(team, /mobile=\{\{/);
@@ -56,6 +60,11 @@ test('Equipe usa a hierarquia administrativa DS e preserva suas três subáreas'
 
 test('Usuários usa toolbar, listagem responsiva e formulários DS sem alterar contratos', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
+  const toolbar = sectionBetween(
+    page,
+    'function renderUsersToolbar',
+    'function renderUsuariosTab'
+  );
   const users = sectionBetween(
     page,
     'function renderUsuariosTab',
@@ -71,6 +80,11 @@ test('Usuários usa toolbar, listagem responsiva e formulários DS sem alterar c
   assert.match(users, /aria-label="Tipo de usuário"/);
   assert.match(users, /<DataTable\b/);
   assert.match(users, /className="rdo-users__table"/);
+  assert.match(
+    users,
+    /className="rdo-users__table"[\s\S]*?mobileBreakpoint="xl"/
+  );
+  assert.match(toolbar, /<FilterBar[\s\S]*?mobileBreakpoint="xl"/);
   assert.match(users, /rows=\{internalUsers\}/);
   assert.match(users, /renderRowDetails=\{item =>/);
   assert.doesNotMatch(page, /<Pagination\b/);

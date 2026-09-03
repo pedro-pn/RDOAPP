@@ -88,10 +88,14 @@ export function ProjectRevisionPicker({ projectId }: { projectId: string }) {
   return (
     <div className="project-revision-picker">
       {revisions.length > 0 ? (
-        <div className="det-row">
+        <div className="det-row project-revision-picker__row">
           <span className="det-label">Revisão que vale</span>
-          <span className="det-val det-inline-actions">
-            <select value={chosen ?? ''} onChange={event => setSelected(Number(event.target.value))}>
+          <span className="det-val det-inline-actions project-revision-picker__actions">
+            <select
+              className="project-revision-picker__select"
+              value={chosen ?? ''}
+              onChange={event => setSelected(Number(event.target.value))}
+            >
               {revisions.map(revision => (
                 <option key={revision.codBd} value={revision.codBd}>
                   {`Rev ${revision.nRev} · ${formatBRL(revision.salePrice)}${revision.codBd === current ? ' (atual)' : ''}`}
@@ -99,6 +103,7 @@ export function ProjectRevisionPicker({ projectId }: { projectId: string }) {
               ))}
             </select>
             <Button
+              className="project-revision-picker__button"
               variant="primary"
               size="sm"
               type="button"
@@ -115,10 +120,11 @@ export function ProjectRevisionPicker({ projectId }: { projectId: string }) {
         const proposalCode = Number(group.proposalCode);
         const additionalChosen = selectedAdditionals[group.proposalCode] ?? group.currentCodBd ?? group.revisions[0]?.codBd ?? null;
         return (
-          <div className="det-row acp-additional-proposal-row" key={group.proposalCode}>
+          <div className="det-row acp-additional-proposal-row project-revision-picker__row" key={group.proposalCode}>
             <span className="det-label">Proposta adicional {group.proposalCode}</span>
-            <span className="det-val det-inline-actions">
+            <span className="det-val det-inline-actions project-revision-picker__actions">
               <select
+                className="project-revision-picker__select"
                 value={additionalChosen ?? ''}
                 onChange={event => setSelectedAdditionals(prev => ({
                   ...prev,
@@ -132,6 +138,7 @@ export function ProjectRevisionPicker({ projectId }: { projectId: string }) {
                 ))}
               </select>
               <Button
+                className="project-revision-picker__button"
                 variant="primary"
                 size="sm"
                 type="button"
@@ -142,6 +149,7 @@ export function ProjectRevisionPicker({ projectId }: { projectId: string }) {
               </Button>
               {group.currentCodBd ? (
                 <Button
+                  className="project-revision-picker__button"
                   variant="secondary"
                   size="sm"
                   type="button"

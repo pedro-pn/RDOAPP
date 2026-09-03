@@ -38,21 +38,43 @@ export function ReportPdfBatchActions({ reports, selectedIds, onSelectionChange 
         <button
           className="mini-btn alt"
           type="button"
+          aria-label="Selecionar todos"
           onClick={() => onSelectionChange(Array.from(new Set([...selectedIds, ...visibleIds])))}
         >
-          Selecionar todos
+          <span className="report-batch-action-label report-batch-action-label--full">
+            Selecionar todos
+          </span>
+          <span className="report-batch-action-label report-batch-action-label--compact">
+            Todos
+          </span>
         </button>
         {hasSelection ? (
           <>
             <button
               className="mini-btn alt"
               type="button"
+              aria-label="Limpar seleção"
               onClick={() => onSelectionChange(selectedIds.filter(id => !visibleIds.includes(id)))}
             >
-              Limpar seleção
+              <span className="report-batch-action-label report-batch-action-label--full">
+                Limpar seleção
+              </span>
+              <span className="report-batch-action-label report-batch-action-label--compact">
+                Limpar
+              </span>
             </button>
-            <button className="mini-btn alt" type="button" onClick={() => void handleDownload()}>
-              Baixar PDF
+            <button
+              className="mini-btn alt"
+              type="button"
+              aria-label="Baixar PDF"
+              onClick={() => void handleDownload()}
+            >
+              <span className="report-batch-action-label report-batch-action-label--full">
+                Baixar PDF
+              </span>
+              <span className="report-batch-action-label report-batch-action-label--compact">
+                PDF
+              </span>
             </button>
           </>
         ) : null}

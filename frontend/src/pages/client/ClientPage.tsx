@@ -860,26 +860,62 @@ export function ClientPage() {
       <div className="report-batch-toolbar">
         {hasSelection ? <span className="report-batch-count">{selectedTypeIds.length} selecionado(s)</span> : null}
         <div className="admin-form-actions">
-          <button className="secondary-button" type="button" onClick={() => setSelectedIds(current => Array.from(new Set([...current, ...selectableTypeIds])))}>
-            Selecionar todos
+          <button
+            className="secondary-button"
+            type="button"
+            aria-label="Selecionar todos"
+            onClick={() => setSelectedIds(current => Array.from(new Set([...current, ...selectableTypeIds])))}
+          >
+            <span className="report-batch-action-label report-batch-action-label--full">
+              Selecionar todos
+            </span>
+            <span className="report-batch-action-label report-batch-action-label--compact">
+              Todos
+            </span>
           </button>
           {hasSelection ? (
             <>
-              <button className="secondary-button" type="button" onClick={() => setSelectedIds(current => current.filter(id => !typeIds.includes(id)))}>
-                Limpar seleção
+              <button
+                className="secondary-button"
+                type="button"
+                aria-label="Limpar seleção"
+                onClick={() => setSelectedIds(current => current.filter(id => !typeIds.includes(id)))}
+              >
+                <span className="report-batch-action-label report-batch-action-label--full">
+                  Limpar seleção
+                </span>
+                <span className="report-batch-action-label report-batch-action-label--compact">
+                  Limpar
+                </span>
               </button>
-              <button className="secondary-button" type="button" onClick={() => void handleBatchDownload(selectedTypeIds)}>
-                {TEXT.batchDownload}
+              <button
+                className="secondary-button"
+                type="button"
+                aria-label={TEXT.batchDownload}
+                onClick={() => void handleBatchDownload(selectedTypeIds)}
+              >
+                <span className="report-batch-action-label report-batch-action-label--full">
+                  {TEXT.batchDownload}
+                </span>
+                <span className="report-batch-action-label report-batch-action-label--compact">
+                  Baixar
+                </span>
               </button>
               {hasSignableReports ? (
                 <button
                   className="primary-button"
                   type="button"
                   data-client-batch-signature-button
+                  aria-label={TEXT.batchSignature}
                   disabled={reportMutations.requestSignature.isPending || !signableIds.length}
                   onClick={() => void handleBatchSignature(signableIds)}
                 >
-                  {TEXT.batchSignature}
+                  <span className="report-batch-action-label report-batch-action-label--full">
+                    {TEXT.batchSignature}
+                  </span>
+                  <span className="report-batch-action-label report-batch-action-label--compact">
+                    Assinar
+                  </span>
                 </button>
               ) : null}
             </>

@@ -541,6 +541,7 @@ export function ManagerReportListing({
         getRowClassName={() => 'rel-item rdo-manager-listing__row'}
         ariaLabel={ariaLabel}
         density="comfortable"
+        mobileBreakpoint="xl"
         sort={{ key: 'report', direction: sortDirection }}
         onSortChange={onSortChange}
         selection={{

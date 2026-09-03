@@ -66,7 +66,7 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
     expect(scrollContract).toEqual({ overflowY: 'auto', scrollable: true });
   });
 
-  test('mobile usa o grupo segmentado por teclado, preserva a rota e não cria overflow', async ({
+  test('mobile oculta as abas locais e preserva a navegação pelo menu lateral', async ({
     page
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
@@ -82,30 +82,16 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
       brandBounds?.x ?? Number.NEGATIVE_INFINITY
     );
 
-    const navigation = page.getByRole('group', {
+    await expect(page.locator('.rdo-section-navigation')).toBeHidden();
+    await page.getByRole('button', { name: 'Abrir menu' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Menu' });
+    const navigation = drawer.getByRole('list', {
       name: 'Áreas de Relatórios e Projetos'
     });
-    await expect(navigation.getByRole('button')).toHaveCount(8);
-    const pendingItem = navigation.getByRole('button', {
-      name: 'Pendentes',
-      exact: true
-    });
-    await expect(pendingItem).toHaveAttribute('aria-current', 'page');
-    await expect(pendingItem).toHaveAttribute('aria-pressed', 'true');
-    await pendingItem.focus();
-    await pendingItem.press('ArrowRight');
-    await expect(
-      navigation.getByRole('button', { name: 'Aprovados', exact: true })
-    ).toBeFocused();
-    await navigation
-      .getByRole('button', { name: 'Arquivados', exact: true })
-      .click();
+    await expect(navigation.getByRole('link')).toHaveCount(8);
+    await navigation.getByRole('link', { name: 'Arquivados', exact: true }).click();
     await expect(page).toHaveURL(/\/rdo\/gestor\?tab=arquivados$/);
-    await expect(
-      page
-        .getByRole('group', { name: 'Áreas de Relatórios e Projetos' })
-        .getByRole('button', { name: 'Arquivados', exact: true })
-    ).toHaveAttribute('aria-current', 'page');
+    await expect(drawer).toBeHidden();
     await expect
       .poll(() =>
         page.evaluate(
@@ -115,7 +101,7 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
       .toBe(true);
   });
 
-  test('mobile mantém as oito áreas densas, sem divisórias de ação ou overflow', async ({
+  test('mobile mantém as áreas sem abas locais, divisórias de ação ou overflow', async ({
     page
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
@@ -170,7 +156,7 @@ test.describe('navegação compartilhada do RDO Gestor', () => {
       );
     expect(new Set(teamActionTops).size).toBe(1);
 
-    for (const width of [320, 480, 768]) {
+    for (const width of [320, 480, 767]) {
       await page.setViewportSize({ width, height: 812 });
       await page.goto(MANAGER_HOME);
       await expectManagerRdoMobileNavigation(page);

@@ -80,6 +80,12 @@
   }
 }
 
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]).rdo-section-navigation {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   :where(.fv-ds, [data-fv-ds]) .rdo-section-navigation__item {
     padding-inline: 0;
@@ -1166,36 +1172,6 @@
   width: 100%;
 }
 
-:where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__batch-toolbar {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-  box-shadow: var(--shadow-e0);
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__selection-summary,
-:where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__batch-actions {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__selection-summary {
-  color: var(--muted);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  line-height: var(--leading-sm);
-}
-
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__result-count {
   margin: 0;
   color: var(--muted);
@@ -1543,7 +1519,7 @@
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__heading {
   display: grid;
   min-width: 0;
-  grid-template-columns: auto auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
 }
@@ -1580,10 +1556,6 @@
   .rdo-project-card--archived
   .rdo-archived-project-card__chevron {
   grid-area: auto;
-}
-
-:where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__selection {
-  flex: 0 0 auto;
 }
 
 :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__icon {
@@ -2244,34 +2216,100 @@
   :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__actions .fv-button {
     width: 100%;
   }
-
-  :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__batch-actions,
-  :where(.fv-ds, [data-fv-ds])
-    .rdo-archived-projects__batch-actions
-    .fv-button {
-    width: 100%;
-  }
-
-  :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__batch-actions {
-    display: grid;
-    grid-template-columns: repeat(
-      auto-fit,
-      minmax(min(100%, calc(var(--space-16) * 2)), 1fr)
-    );
-  }
 }
 
 @media (max-width: 768px) {
-  :where(.fv-ds, [data-fv-ds]) .rdo-project-card--archived > .fv-card__header {
-    align-items: stretch;
-    flex-direction: column;
+  :where(.fv-ds, [data-fv-ds]):is(
+      .rdo-manager-projects-page,
+      .rdo-manager-archived-page
+    )
+    .project-revision-picker {
+    gap: var(--space-1);
   }
 
-  :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__heading {
-    grid-template-columns: auto minmax(0, 1fr);
+  :where(.fv-ds, [data-fv-ds]):is(
+      .rdo-manager-projects-page,
+      .rdo-manager-archived-page
+    )
+    .project-revision-picker__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-1);
+    padding-block: var(--space-1);
+  }
+
+  :where(.fv-ds, [data-fv-ds]):is(
+      .rdo-manager-projects-page,
+      .rdo-manager-archived-page
+    )
+    .project-revision-picker__actions {
+    width: 100%;
+    max-width: none;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: var(--space-1);
+  }
+
+  :where(.fv-ds, [data-fv-ds]):is(
+      .rdo-manager-projects-page,
+      .rdo-manager-archived-page
+    )
+    .project-revision-picker__select {
+    width: auto;
+    max-width: none;
+    height: var(--space-8);
+    min-height: var(--space-8);
+    flex: 1 1 auto;
+    padding: var(--space-1) var(--space-2);
+    border-color: var(--control-border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--text-xs);
+    line-height: var(--leading-xs);
+  }
+
+  :where(.fv-ds, [data-fv-ds]):is(
+      .rdo-manager-projects-page,
+      .rdo-manager-archived-page
+    )
+    .project-revision-picker__button {
+    min-height: var(--space-8);
+    flex: 0 0 auto;
+    --fv-button-height: var(--space-8);
+    --fv-button-padding: var(--space-2);
+    --fv-button-font-size: var(--text-xs);
+    --fv-button-line-height: var(--leading-xs);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-project-card--archived > .fv-card__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      'identity selection'
-      'toggle toggle';
+      'identity identity'
+      'reports quick-actions';
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-project-card--archived
+    > .fv-card__header
+    > .fv-card__heading,
+  :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__heading {
+    display: contents;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-project-card--archived
+    > .fv-card__header
+    > .fv-card__actions {
+    grid-area: quick-actions;
+    width: auto;
+    max-width: 100%;
+    justify-self: end;
+    overflow: visible;
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__icon {
@@ -2281,13 +2319,8 @@
   :where(.fv-ds, [data-fv-ds])
     .rdo-project-card--archived
     .rdo-archived-project-card__reports-toggle {
-    grid-area: toggle;
+    grid-area: reports;
     justify-self: start;
-  }
-
-  :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__selection {
-    grid-area: selection;
-    justify-self: end;
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-archived-project-card__identity {
@@ -2297,25 +2330,10 @@
   :where(.fv-ds, [data-fv-ds])
     .rdo-project-card--archived
     .rdo-archived-project-card__badges {
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  :where(.fv-ds, [data-fv-ds])
-    .rdo-project-card--archived
-    .rdo-archived-project-card__badges
-    .fv-status-pill {
-    margin-inline-end: auto;
-  }
-
-  :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__batch-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  :where(.fv-ds, [data-fv-ds]) .rdo-archived-projects__batch-actions {
-    justify-content: flex-end;
+    width: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow: visible;
   }
 }
 
@@ -3313,7 +3331,10 @@
 
   :where(.fv-ds, [data-fv-ds])
     .rdo-manager-project-group
-    .rdo-manager-report-type-sort {
+    .rdo-manager-report-type-sort,
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-archived-report-type__header
+    > .rdo-manager-report-type-sort {
     display: inline-flex;
     min-height: var(--space-8);
     margin-inline-end: var(--space-2);
@@ -3692,6 +3713,62 @@
     margin-block: 0;
     padding-block: var(--space-2);
     border-block: 0;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__batch-toolbar
+    > .admin-form-actions {
+    display: flex;
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__batch-toolbar
+    > .admin-form-actions
+    > .fv-button {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 0;
+    --fv-button-padding: var(--space-1);
+    --fv-button-font-size: var(--text-xs);
+    --fv-button-line-height: var(--leading-xs);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__batch-toolbar
+    > .admin-form-actions
+    > .report-batch-select-all {
+    flex-grow: 2;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__batch-toolbar
+    .report-batch-select-all
+    .report-batch-action-label--full {
+    display: inline;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__batch-toolbar
+    .report-batch-select-all
+    .report-batch-action-label--compact {
+    display: none;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__batch-toolbar--archived {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-listing__batch-toolbar--archived
+    > .report-batch-count {
+    white-space: nowrap;
   }
 
   :where(.fv-ds, [data-fv-ds]) .rdo-manager-listing__metadata,

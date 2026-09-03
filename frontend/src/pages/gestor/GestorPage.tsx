@@ -31,6 +31,7 @@ import { rdoPath, rdoReportDetailPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
 import { ReportTypeBadge } from '../../components/reports/ReportTypeBadge';
 import { ManagerReportListing } from '../../components/reports/manager/ManagerReportListing';
+import { ManagerReportTypeSortButton } from '../../components/reports/manager/ManagerReportTypeSortButton';
 import { AppIcon } from '../../components/icons/AppIcon';
 import type { ManualReportOperationalFieldsValue } from '../../components/reports/ManualReportOperationalFields';
 import {
@@ -994,12 +995,6 @@ function renderProjectCard(
     onToggleDetails: (project: Project) => void;
     reportSectionExpanded?: boolean;
     reportCount?: number;
-    reportSelection?: {
-      checked: boolean;
-      indeterminate: boolean;
-      disabled: boolean;
-      onChange: (checked: boolean) => void;
-    };
     onToggleReports?: (project: Project) => void;
     onSendSurvey?: (project: Project) => void;
     onResendSurvey?: (survey: SatisfactionSurveySummary) => void;
@@ -1401,23 +1396,6 @@ function renderProjectCard(
             >
               Relatórios
             </Button>
-            {options.reportSelection ? (
-              <label
-                className="fv-listing-checkbox rdo-archived-project-card__selection"
-                title={`Selecionar relatórios de ${title}`}
-              >
-                <input
-                  ref={input => {
-                    if (input) input.indeterminate = options.reportSelection?.indeterminate ?? false;
-                  }}
-                  type="checkbox"
-                  checked={options.reportSelection.checked}
-                  disabled={options.reportSelection.disabled}
-                  aria-label={`Selecionar relatórios de ${title}`}
-                  onChange={event => options.reportSelection?.onChange(event.target.checked)}
-                />
-              </label>
-            ) : null}
             <span className="rdo-archived-project-card__icon" aria-hidden="true">
               <AppIcon icon={DS_ICONS.archive} size="md" />
             </span>
@@ -1445,8 +1423,6 @@ function renderProjectCard(
                 <span>
                   {options.reportCount || 0} relatório{options.reportCount === 1 ? '' : 's'}
                 </span>
-                <span aria-hidden="true">•</span>
-                <Badge tone="brand">RDO</Badge>
               </span>
             </span>
           </div>
@@ -1458,11 +1434,13 @@ function renderProjectCard(
         )}
         actions={
           <div className="rdo-archived-project-card__badges">
-            <StatusPill
-              status={pendingRegistration ? 'pending' : activeProject ? 'active' : 'ready'}
-              label={pendingRegistration ? stateLabel : activeProject ? stateLabel : 'Apto para restaurar'}
-              tone={pendingRegistration || activeProject ? stateTone : 'success'}
-            />
+            {activeProject ? (
+              <StatusPill
+                status={pendingRegistration ? 'pending' : 'active'}
+                label={stateLabel}
+                tone={stateTone}
+              />
+            ) : null}
             {!activeProject ? (
               <>
                 <IconButton
@@ -3378,42 +3356,73 @@ export function GestorPage() {
 
     if (reportListingTab || forceDesignSystem) {
       return (
-        <div className="report-batch-toolbar rdo-manager-listing__batch-toolbar">
+        <div
+          className={`report-batch-toolbar rdo-manager-listing__batch-toolbar${
+            forceDesignSystem
+              ? ' rdo-manager-listing__batch-toolbar--archived'
+              : ''
+          }`}
+        >
           <span className="report-batch-count" role="status" aria-live="polite">
             {selectedVisibleCount} selecionado(s)
           </span>
           <div className="admin-form-actions">
             <Button
+              className="report-batch-select-all"
               variant="secondary"
               size="sm"
+              aria-label="Selecionar todos"
               onClick={() => setSelectedReportIds(visibleIds)}
             >
-              Selecionar todos
+              <span className="report-batch-action-label report-batch-action-label--full">
+                Selecionar todos
+              </span>
+              <span className="report-batch-action-label report-batch-action-label--compact">
+                Todos
+              </span>
             </Button>
             {hasSelectedVisible ? (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label="Limpar seleção"
                   onClick={() => setSelectedReportIds([])}
                 >
-                  Limpar seleção
+                  <span className="report-batch-action-label report-batch-action-label--full">
+                    Limpar seleção
+                  </span>
+                  <span className="report-batch-action-label report-batch-action-label--compact">
+                    Limpar
+                  </span>
                 </Button>
                 <Button
                   variant="secondary"
                   size="sm"
+                  aria-label="Baixar PDF"
                   onClick={() => void handleBatchReportDownload('pdf', reports)}
                 >
-                  Baixar PDF
+                  <span className="report-batch-action-label report-batch-action-label--full">
+                    Baixar PDF
+                  </span>
+                  <span className="report-batch-action-label report-batch-action-label--compact">
+                    PDF
+                  </span>
                 </Button>
                 <Button
                   variant="secondary"
                   size="sm"
+                  aria-label="Baixar DOCX"
                   onClick={() =>
                     void handleBatchReportDownload('docx', reports)
                   }
                 >
-                  Baixar DOCX
+                  <span className="report-batch-action-label report-batch-action-label--full">
+                    Baixar DOCX
+                  </span>
+                  <span className="report-batch-action-label report-batch-action-label--compact">
+                    DOCX
+                  </span>
                 </Button>
               </>
             ) : null}
@@ -3426,82 +3435,62 @@ export function GestorPage() {
       <div className="report-batch-toolbar">
         <span className="report-batch-count">{selectedVisibleCount} selecionado(s)</span>
         <div className="admin-form-actions">
-          <button className="mini-btn alt" type="button" onClick={() => setSelectedReportIds(visibleIds)}>
-            Selecionar todos
+          <button
+            className="mini-btn alt"
+            type="button"
+            aria-label="Selecionar todos"
+            onClick={() => setSelectedReportIds(visibleIds)}
+          >
+            <span className="report-batch-action-label report-batch-action-label--full">
+              Selecionar todos
+            </span>
+            <span className="report-batch-action-label report-batch-action-label--compact">
+              Todos
+            </span>
           </button>
           {hasSelectedVisible ? (
             <>
-              <button className="mini-btn alt" type="button" onClick={() => setSelectedReportIds([])}>
-                Limpar seleção
+              <button
+                className="mini-btn alt"
+                type="button"
+                aria-label="Limpar seleção"
+                onClick={() => setSelectedReportIds([])}
+              >
+                <span className="report-batch-action-label report-batch-action-label--full">
+                  Limpar seleção
+                </span>
+                <span className="report-batch-action-label report-batch-action-label--compact">
+                  Limpar
+                </span>
               </button>
-              <button className="mini-btn alt" type="button" onClick={() => void handleBatchReportDownload('pdf', reports)}>
-                Baixar PDF
+              <button
+                className="mini-btn alt"
+                type="button"
+                aria-label="Baixar PDF"
+                onClick={() => void handleBatchReportDownload('pdf', reports)}
+              >
+                <span className="report-batch-action-label report-batch-action-label--full">
+                  Baixar PDF
+                </span>
+                <span className="report-batch-action-label report-batch-action-label--compact">
+                  PDF
+                </span>
               </button>
-              <button className="mini-btn alt" type="button" onClick={() => void handleBatchReportDownload('docx', reports)}>
-                Baixar DOCX
+              <button
+                className="mini-btn alt"
+                type="button"
+                aria-label="Baixar DOCX"
+                onClick={() => void handleBatchReportDownload('docx', reports)}
+              >
+                <span className="report-batch-action-label report-batch-action-label--full">
+                  Baixar DOCX
+                </span>
+                <span className="report-batch-action-label report-batch-action-label--compact">
+                  DOCX
+                </span>
               </button>
             </>
           ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  function renderArchivedBatchActions(reports: ReportSummary[]) {
-    const visibleIds = reports.map(report => report.id);
-    const selectedVisibleIds = selectedReportIds.filter(id => visibleIds.includes(id));
-    const allVisibleSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
-    const someVisibleSelected = selectedVisibleIds.length > 0 && !allVisibleSelected;
-
-    return (
-      <div className="rdo-archived-projects__batch-toolbar" aria-label="Ações dos relatórios arquivados">
-        <div className="rdo-archived-projects__selection-summary">
-          <label className="fv-listing-checkbox" title="Selecionar todos os relatórios arquivados visíveis">
-            <input
-              ref={input => {
-                if (input) input.indeterminate = someVisibleSelected;
-              }}
-              type="checkbox"
-              checked={allVisibleSelected}
-              disabled={!visibleIds.length}
-              aria-label="Selecionar todos os relatórios arquivados visíveis"
-              onChange={event => {
-                setSelectedReportIds(current => event.target.checked
-                  ? Array.from(new Set([...current, ...visibleIds]))
-                  : current.filter(id => !visibleIds.includes(id)));
-              }}
-            />
-          </label>
-          <span role="status" aria-live="polite">
-            {selectedVisibleIds.length} selecionado(s)
-          </span>
-        </div>
-        <div className="rdo-archived-projects__batch-actions">
-          {selectedVisibleIds.length ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedReportIds(current => current.filter(id => !visibleIds.includes(id)))}
-            >
-              Limpar seleção
-            </Button>
-          ) : null}
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!selectedVisibleIds.length}
-            onClick={() => void handleBatchReportDownload('pdf', reports)}
-          >
-            Baixar PDF
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!selectedVisibleIds.length}
-            onClick={() => void handleBatchReportDownload('docx', reports)}
-          >
-            Baixar DOCX
-          </Button>
         </div>
       </div>
     );
@@ -3655,12 +3644,10 @@ export function GestorPage() {
                     size="sm"
                   />
                 </button>
-                <IconButton
-                  icon={typeSortDirection === 'asc' ? DS_ICONS.sortAscending : DS_ICONS.sortDescending}
-                  label={typeSortDirection === 'asc' ? `Ordenar ${reportType} do mais recente` : `Ordenar ${reportType} do mais antigo`}
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => toggleArchivedTypeSort(typeKey)}
+                <ManagerReportTypeSortButton
+                  reportType={reportType}
+                  direction={typeSortDirection}
+                  onToggle={() => toggleArchivedTypeSort(typeKey)}
                 />
               </div>
             ) : (
@@ -3688,6 +3675,9 @@ export function GestorPage() {
             )}
             {!typeClosed ? (
               <div className={designSystem ? 'rdo-archived-report-type__content' : undefined} id={typeContentId}>
+                {designSystem && visibleReports.length
+                  ? renderBatchReportActions(visibleReports, true)
+                  : null}
                 {visibleReports.length ? (
                   designSystem ? (
                     <ManagerReportListing
@@ -4651,8 +4641,6 @@ export function GestorPage() {
         };
       })
       .filter(item => item.visible);
-    const visibleArchivedReports = archivedProjectCards.flatMap(item => item.projectReports);
-
     return (
       <section
         id="rdo-manager-archived-results"
@@ -4661,15 +4649,12 @@ export function GestorPage() {
       >
         {archivedProjectCards.length ? (
           <>
-            {renderArchivedBatchActions(visibleArchivedReports)}
             <p className="rdo-archived-projects__result-count">
               {archivedProjectCards.length} projeto{archivedProjectCards.length === 1 ? '' : 's'} encontrado{archivedProjectCards.length === 1 ? '' : 's'}
             </p>
             <div className="rdo-archived-projects__list">
               {archivedProjectCards.map(({ project, projectReports, reportTotal }) => {
                 const projectClosed = closedArchivedProjectIds.includes(project.id);
-                const projectReportIds = projectReports.map(report => report.id);
-                const selectedProjectReportCount = selectedReportIds.filter(id => projectReportIds.includes(id)).length;
                 return renderProjectCard(project, {
                   appearance: 'design-system',
                   commercialPendencia: commercialPendenciaByProject.get(project.id) ?? null,
@@ -4692,16 +4677,6 @@ export function GestorPage() {
                   onToggleDetails: toggleProjectDetails,
                   reportSectionExpanded: !projectClosed,
                   reportCount: reportTotal,
-                  reportSelection: {
-                    checked: projectReportIds.length > 0 && selectedProjectReportCount === projectReportIds.length,
-                    indeterminate: selectedProjectReportCount > 0 && selectedProjectReportCount < projectReportIds.length,
-                    disabled: !projectReportIds.length,
-                    onChange: checked => {
-                      setSelectedReportIds(current => checked
-                        ? Array.from(new Set([...current, ...projectReportIds]))
-                        : current.filter(id => !projectReportIds.includes(id)));
-                    }
-                  },
                   onToggleReports: item => toggleArchivedProject(item.id),
                   onSendSurvey: handleSendSurvey,
                   onResendSurvey: handleResendSurvey,
@@ -5054,6 +5029,7 @@ export function GestorPage() {
           }
           ariaLabel="Colaboradores"
           density="compact"
+          mobileBreakpoint="xl"
           actionsLabel="Ações"
           rowActions={renderCollaboratorActions}
           renderRowDetails={collaborator =>
@@ -5209,6 +5185,7 @@ export function GestorPage() {
         clearLabel="Limpar filtros de usuários"
         mobileTitle="Filtrar usuários"
         mobileDescription="Refine por perfil, status e ordenação."
+        mobileBreakpoint="xl"
       >
         {userAdminGroup === 'internal' ? (
           <label className="rdo-users-filter-control">
@@ -5651,6 +5628,7 @@ export function GestorPage() {
             getRowId={item => item.id}
             ariaLabel="Usuários internos"
             density="compact"
+            mobileBreakpoint="xl"
             actionsLabel="Ações"
             rowActions={renderInternalUserActions}
             renderRowDetails={item =>

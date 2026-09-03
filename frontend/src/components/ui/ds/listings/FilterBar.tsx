@@ -14,7 +14,10 @@ import { Button, IconButton } from '../Button';
 import { DS_ICONS } from '../icons';
 import { Spinner } from '../Spinner';
 import { joinClassNames } from '../utils';
-import { useListingMobileViewport } from './useListingMedia';
+import {
+  useListingMobileViewport,
+  type ListingMobileBreakpoint
+} from './useListingMedia';
 import './listings.css';
 
 export interface ActiveFilter {
@@ -42,6 +45,7 @@ export interface FilterBarProps extends Omit<
   mobileTitle?: string;
   mobileDescription?: string;
   mobileApplyLabel?: string;
+  mobileBreakpoint?: ListingMobileBreakpoint;
   mobileOpen?: boolean;
   defaultMobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
@@ -63,6 +67,7 @@ export function FilterBar({
   mobileTitle = 'Filtros',
   mobileDescription = 'Refine os registros exibidos.',
   mobileApplyLabel = 'Ver resultados',
+  mobileBreakpoint = 'md',
   mobileOpen,
   defaultMobileOpen = false,
   onMobileOpenChange,
@@ -70,7 +75,7 @@ export function FilterBar({
   className,
   ...props
 }: FilterBarProps) {
-  const isMobile = useListingMobileViewport();
+  const isMobile = useListingMobileViewport(mobileBreakpoint);
   const [internalOpen, setInternalOpen] = useState(defaultMobileOpen);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);

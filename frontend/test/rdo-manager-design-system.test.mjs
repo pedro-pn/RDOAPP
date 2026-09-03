@@ -44,6 +44,7 @@ test('manager listing composes DataTable and MobileList explicitly while preserv
 
   assert.match(listing, /<DataTable<ReportSummary>/);
   assert.match(listing, /mobile=\{\{/);
+  assert.match(listing, /mobileBreakpoint="xl"/);
   assert.doesNotMatch(listing, /rdo-manager-listing__mobile-sort/);
   assert.match(listing, /showSelectAll: false/);
   assert.match(listing, /controlClassName: 'report-select-checkbox'/);
@@ -61,6 +62,9 @@ test('manager listing composes DataTable and MobileList explicitly while preserv
 
 test('manager report ordering stays beside the report type on mobile', () => {
   const groupedList = source('src/components/reports/GroupedReportList.tsx');
+  const reportTypeSortButton = source(
+    'src/components/reports/manager/ManagerReportTypeSortButton.tsx'
+  );
   const reportTypeBadge = source('src/components/reports/ReportTypeBadge.tsx');
   const reportTypeBadgeCss = source(
     'src/components/reports/ReportTypeBadge.css'
@@ -68,8 +72,17 @@ test('manager report ordering stays beside the report type on mobile', () => {
   const styles = source('src/pages/gestor/GestorPage.ds.css');
 
   assert.match(groupedList, /rdo-manager-report-type-row/);
-  assert.match(groupedList, /rdo-manager-report-type-sort/);
+  assert.match(groupedList, /<ManagerReportTypeSortButton/);
   assert.match(groupedList, /showTypeSort \?/);
+  assert.match(reportTypeSortButton, /<Button\b/);
+  assert.match(reportTypeSortButton, /rdo-manager-report-type-sort/);
+  assert.match(reportTypeSortButton, /DS_ICONS\.sort/);
+  assert.match(reportTypeSortButton, /A→Z/);
+  assert.match(reportTypeSortButton, /Z→A/);
+  assert.match(
+    reportTypeSortButton,
+    /Ordenar relatórios \$\{reportType\} em ordem \$\{nextDirectionLabel\}/
+  );
   assert.match(
     groupedList,
     /<ReportTypeBadge[\s\S]*?reportType=\{reportType\}/
@@ -92,6 +105,10 @@ test('manager report ordering stays beside the report type on mobile', () => {
   assert.match(
     styles,
     /\.rdo-manager-report-type-sort[\s\S]*?display: none;[\s\S]*?@media \(max-width: 768px\)[\s\S]*?\.rdo-manager-report-type-sort[\s\S]*?display: inline-flex;/
+  );
+  assert.match(
+    styles,
+    /\.rdo-archived-report-type__header[\s\S]*?> \.rdo-manager-report-type-sort[\s\S]*?display: inline-flex;/
   );
 });
 

@@ -68,14 +68,7 @@ export async function expectManagerRdoMobileNavigation(page: Page) {
   await expect(page.locator('.fv-topbar .fv-topbar__brand')).toBeVisible();
   await expect(page.locator('.fv-theme-toggle')).toBeVisible();
   await expect(page.locator('.rdo-manager-tabs-wrap')).toHaveCount(0);
-  const navigation = page.getByRole('group', {
-    name: 'Áreas de Relatórios e Projetos'
-  });
-  await expect(navigation).toBeVisible();
-  await expect(navigation.getByRole('button')).toHaveCount(8);
-  await expect(
-    navigation.locator('.rdo-section-navigation__item[aria-current="page"]')
-  ).toHaveCount(1);
+  await expect(page.locator('.rdo-section-navigation')).toBeHidden();
 }
 
 export async function logoutFromRdo(page: Page) {

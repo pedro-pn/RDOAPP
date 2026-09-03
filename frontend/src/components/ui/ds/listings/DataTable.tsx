@@ -23,7 +23,10 @@ import type {
   ListingRowId,
   ListingSelection
 } from './types';
-import { useListingMobileViewport } from './useListingMedia';
+import {
+  useListingMobileViewport,
+  type ListingMobileBreakpoint
+} from './useListingMedia';
 import './listings.css';
 
 const EMPTY_ROW_IDS: readonly ListingRowId[] = [];
@@ -110,6 +113,7 @@ export interface DataTableProps<T> extends Omit<
   renderRowDetails?: (row: T, index: number) => ReactNode;
   actionsLabel?: string;
   mobile: DataTableMobileConfig<T>;
+  mobileBreakpoint?: ListingMobileBreakpoint;
   loading?: boolean;
   loadingRows?: number;
   updating?: boolean;
@@ -137,6 +141,7 @@ export function DataTable<T>({
   renderRowDetails,
   actionsLabel = 'Ações',
   mobile,
+  mobileBreakpoint = 'md',
   loading = false,
   loadingRows = 5,
   updating = false,
@@ -150,7 +155,7 @@ export function DataTable<T>({
   className,
   ...props
 }: DataTableProps<T>) {
-  const isMobile = useListingMobileViewport();
+  const isMobile = useListingMobileViewport(mobileBreakpoint);
   const selectedIds = selection?.selectedRowIds ?? EMPTY_ROW_IDS;
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectableRows = selection

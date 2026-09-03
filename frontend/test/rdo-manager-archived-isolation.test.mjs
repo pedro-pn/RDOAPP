@@ -117,15 +117,12 @@ test('Arquivados preserva queries, busca, agrupamento, paginação e handlers de
   assert.match(archivedTypeSections, /handleLoadMoreArchivedType\(/);
   assert.match(archivedTypeSections, /<InfiniteScrollSentinel/);
   assert.match(archivedTypeSections, /<ManagerReportListing/);
-  assert.doesNotMatch(
-    archivedTypeSections,
-    /renderBatchReportActions\(visibleReports, designSystem\)/
-  );
   assert.match(
-    archivedTab,
-    /renderArchivedBatchActions\(visibleArchivedReports\)/
+    archivedTypeSections,
+    /renderBatchReportActions\(visibleReports, true\)/
   );
-  assert.match(archivedTab, /reportSelection:\s*\{/);
+  assert.doesNotMatch(archivedTab, /renderArchivedBatchActions/);
+  assert.doesNotMatch(archivedTab, /reportSelection:\s*\{/);
   assert.match(
     archivedTypeSections,
     /renderManagerReportActions\(report, true\)/
@@ -163,10 +160,13 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
   assert.match(projectCard, /<Card[\s\S]*?rdo-archived-project-card/);
   assert.match(projectCard, /<Badge\b/);
   assert.match(projectCard, /<StatusPill\b/);
+  assert.doesNotMatch(projectCard, /Apto para restaurar/);
   assert.match(projectCard, /<Alert\b/);
   assert.match(projectCard, /<Button\b/);
   assert.match(projectCard, /aria-expanded=\{options\.reportSectionExpanded\}/);
   assert.match(projectCard, /aria-expanded=\{options\.detailsExpanded\}/);
+  assert.doesNotMatch(projectCard, /reportSelection/);
+  assert.doesNotMatch(projectCard, /<Badge tone="brand">RDO<\/Badge>/);
   assert.match(
     projectCard,
     /className="rdo-archived-project-card__reports-toggle"[\s\S]{0,620}?>\s*Relatórios\s*<\/Button>/
@@ -189,13 +189,19 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
   );
   assert.match(archivedTypeSections, /<Skeleton\b/);
   assert.match(archivedTypeSections, /<EmptyState\b/);
-  assert.match(archivedTypeSections, /<IconButton\b/);
+  assert.match(archivedTypeSections, /<ManagerReportTypeSortButton\b/);
+  assert.doesNotMatch(archivedTypeSections, /DS_ICONS\.sort(?:Ascending|Descending)/);
   assert.match(archivedTypeSections, /aria-controls=\{typeContentId\}/);
   assert.match(archivedTypeSections, /aria-expanded=\{!typeClosed\}/);
+  assert.match(
+    archivedTypeSections,
+    /rdo-archived-report-type__content[\s\S]*?renderBatchReportActions\(visibleReports, true\)[\s\S]*?<ManagerReportListing/
+  );
 
   assert.match(archivedTab, /<Skeleton\b/);
   assert.match(archivedTab, /<EmptyState\b/);
   assert.match(archivedTab, /if \(reportListQuery\.isError\)/);
+  assert.doesNotMatch(archivedTab, /renderArchivedBatchActions/);
   assert.match(
     search,
     /reportListingTab \|\| projectsTab \|\| archivedProjectsTab \|\| adminTab/
@@ -213,6 +219,18 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
   assert.match(archivedCss, /var\(--/);
   assert.match(archivedCss, /@media \(min-width: 768px\)/);
   assert.match(archivedCss, /@media \(max-width: 480px\)/);
+  assert.match(
+    archivedCss,
+    /grid-template-areas:\s*'identity identity'\s*'reports quick-actions'/
+  );
+  assert.match(
+    archivedCss,
+    /> \.fv-card__actions\s*\{[\s\S]*?grid-area:\s*quick-actions[\s\S]*?justify-self:\s*end;[\s\S]*?overflow:\s*visible/
+  );
+  assert.match(
+    archivedCss,
+    /\.rdo-archived-project-card__reports-toggle\s*\{[\s\S]*?grid-area:\s*reports;[\s\S]*?justify-self:\s*start;/
+  );
   assert.doesNotMatch(archivedCss, /#[\da-f]{3,8}\b/i);
   assert.doesNotMatch(archivedCss, /\brgba?\(/i);
   assert.doesNotMatch(archivedCss, /!important/);

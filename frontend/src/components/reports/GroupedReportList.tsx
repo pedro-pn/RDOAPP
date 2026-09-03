@@ -16,6 +16,7 @@ import { ProjectSortButton } from '../../utils/ProjectSortButton';
 import { Alert, Badge, Button, Card, Skeleton } from '../ui/ds';
 import { DS_ICONS } from '../ui/ds/icons';
 import { InfiniteScrollSentinel } from '../ui/InfiniteScrollSentinel';
+import { ManagerReportTypeSortButton } from './manager/ManagerReportTypeSortButton';
 import { ReportTypeBadge } from './ReportTypeBadge';
 import { ReportSummaryCard } from './ReportSummaryCard';
 
@@ -383,18 +384,11 @@ export function GroupedReportList({
                         {typeHeaderContent}
                       </button>
                       {showTypeSort ? (
-                        <Button
-                          className="rdo-manager-report-type-sort"
-                          variant="secondary"
-                          size="sm"
-                          iconLeft={<AppIcon icon={DS_ICONS.sort} size="sm" />}
-                          aria-label={typeSortDirection === 'asc'
-                            ? `Ordenar relatórios ${reportType} em ordem decrescente`
-                            : `Ordenar relatórios ${reportType} em ordem crescente`}
-                          onClick={() => toggleTypeSort(typeKey)}
-                        >
-                          {typeSortDirection === 'asc' ? 'A→Z' : 'Z→A'}
-                        </Button>
+                        <ManagerReportTypeSortButton
+                          reportType={reportType}
+                          direction={typeSortDirection}
+                          onToggle={() => toggleTypeSort(typeKey)}
+                        />
                       ) : null}
                     </div>
                   ) : (

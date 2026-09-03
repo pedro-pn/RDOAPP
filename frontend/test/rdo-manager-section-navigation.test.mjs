@@ -56,7 +56,7 @@ test('RDO manager navigation preserves unrelated query params and canonical pend
   );
 });
 
-test('RDO manager renders one compact accessible mobile toggle group instead of a dropdown', () => {
+test('RDO manager keeps the section navigation for tablet and hides it on mobile', () => {
   const page = source('src/pages/gestor/GestorPage.tsx');
   const navigation = source('src/pages/gestor/RdoSectionNavigation.tsx');
   const css = source('src/pages/gestor/GestorPage.ds.css');
@@ -101,6 +101,10 @@ test('RDO manager renders one compact accessible mobile toggle group instead of 
   assert.match(
     css,
     /@media \(min-width: 768px\) and \(max-width: 1024px\)[\s\S]*?\.rdo-section-navigation__items\s*\{[\s\S]*?repeat\(8,/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 768px\)[\s\S]*?\.rdo-section-navigation\s*\{[\s\S]*?display:\s*none/
   );
   assert.match(
     css,

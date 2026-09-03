@@ -32,6 +32,7 @@ export {
 export { MobileList, type MobileListProps } from './listings/MobileList';
 export { Pagination, type PaginationProps } from './listings/Pagination';
 export { SearchInput, type SearchInputProps } from './listings/SearchInput';
+export type { ListingMobileBreakpoint } from './listings/useListingMedia';
 export type {
   DataTableAlign,
   DataTableColumn,

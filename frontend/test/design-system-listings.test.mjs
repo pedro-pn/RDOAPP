@@ -83,6 +83,30 @@ test('FilterBar provides active filters and an accessible mobile sheet', () => {
   assert.match(filterBar, /document\.body\.style\.overflow = 'hidden'/);
 });
 
+test('dense listings can opt into card composition at official tablet breakpoints', () => {
+  const dataTable = source('src/components/ui/ds/listings/DataTable.tsx');
+  const filterBar = source('src/components/ui/ds/listings/FilterBar.tsx');
+  const listingMedia = source(
+    'src/components/ui/ds/listings/useListingMedia.ts'
+  );
+  const designSystemBarrel = source('src/components/ui/ds/index.ts');
+
+  assert.match(
+    listingMedia,
+    /ListingMobileBreakpoint = 'md' \| 'lg' \| 'xl'/
+  );
+  for (const edge of ['767.98', '1023.98', '1279.98']) {
+    assert.match(listingMedia, new RegExp(`max-width: ${edge.replace('.', '\\.')}`));
+  }
+  assert.match(dataTable, /mobileBreakpoint\?: ListingMobileBreakpoint/);
+  assert.match(dataTable, /mobileBreakpoint = 'md'/);
+  assert.match(dataTable, /useListingMobileViewport\(mobileBreakpoint\)/);
+  assert.match(filterBar, /mobileBreakpoint\?: ListingMobileBreakpoint/);
+  assert.match(filterBar, /mobileBreakpoint = 'md'/);
+  assert.match(filterBar, /useListingMobileViewport\(mobileBreakpoint\)/);
+  assert.match(designSystemBarrel, /type \{ ListingMobileBreakpoint \}/);
+});
+
 test('Pagination is controlled, semantic and exposes all navigation boundaries', () => {
   const pagination = source('src/components/ui/ds/listings/Pagination.tsx');
 

@@ -324,6 +324,8 @@ test('Projetos reaproveita o card DS e mantém formulários e revisões isolados
   );
 
   assert.doesNotMatch(revisionPicker, /mini-btn/);
+  assert.match(revisionPicker, /project-revision-picker__select/);
+  assert.match(revisionPicker, /project-revision-picker__button/);
   assert.match(
     revisionPicker,
     /<Button[\s\S]*?variant="primary"[\s\S]*?size="sm"[\s\S]*?mutation\.isPending[\s\S]*?Aplicar/
@@ -358,6 +360,31 @@ test('Projetos compartilha o layout de Arquivados com CSS escopado e responsivo'
   );
   assert.match(block, /\.rdo-manager-projects__filters/);
   assert.match(block, /\.rdo-project-card__overview/);
+  const compactRevisionSelectIndex = block.indexOf(
+    '.project-revision-picker__select'
+  );
+  const compactRevisionMediaIndex = block.lastIndexOf(
+    '@media (max-width: 768px)',
+    compactRevisionSelectIndex
+  );
+  assert.ok(compactRevisionSelectIndex >= 0, 'estilo compacto da revisão ausente');
+  assert.ok(compactRevisionMediaIndex >= 0, 'estilo compacto da revisão fora do mobile');
+  assert.doesNotMatch(
+    block.slice(0, compactRevisionMediaIndex),
+    /\.project-revision-picker__(?:select|button)/
+  );
+  assert.match(
+    block.slice(compactRevisionMediaIndex),
+    /\.project-revision-picker__select\s*\{[\s\S]*?height:\s*var\(--space-8\)[\s\S]*?font-size:\s*var\(--text-xs\)/
+  );
+  assert.match(
+    block.slice(compactRevisionMediaIndex),
+    /\.project-revision-picker__button\s*\{[\s\S]*?--fv-button-height:\s*var\(--space-8\)[\s\S]*?--fv-button-font-size:\s*var\(--text-xs\)/
+  );
+  assert.match(
+    block.slice(compactRevisionMediaIndex),
+    /\.project-revision-picker__actions\s*\{[\s\S]*?width:\s*100%[\s\S]*?max-width:\s*none/
+  );
   assert.match(block, /\.rdo-manager-projects__pending/);
   assert.match(block, /\.rdo-active-project-card__identity/);
   assert.match(
