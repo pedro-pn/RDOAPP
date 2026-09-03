@@ -19,6 +19,7 @@ test.before(async () => {
   server = await createServer({
     configFile: false,
     root: new URL('..', import.meta.url).pathname,
+    optimizeDeps: { noDiscovery: true },
     server: { middlewareMode: true },
     appType: 'custom'
   });
@@ -395,6 +396,42 @@ test('produto dosado por % do volume gera necessidade proporcional', () => {
 
   assert.ok(um > 0, 'dosagem de 2% tem de gerar necessidade');
   assert.ok(Math.abs(outro / um - 2) < 0.01, 'dobrar a dosagem dobra a necessidade');
+});
+
+test('um produto pode ser dimensionado para todos os circuitos de uma vez', () => {
+  const circuitos = [
+    circuito({
+      id: 'c1',
+      manualVolumes: [{ id: 'v1', description: 'Volume 1', quantity: 1, volumeLiters: 100 }]
+    }),
+    circuito({
+      id: 'c2',
+      manualVolumes: [{ id: 'v2', description: 'Volume 2', quantity: 1, volumeLiters: 200 }]
+    }),
+    circuito({
+      id: 'c3',
+      manualVolumes: [{ id: 'v3', description: 'Volume 3', quantity: 1, volumeLiters: 300 }]
+    })
+  ];
+  const base = motor.createDefaultCostEstimatePayload();
+
+  const todos = motor.calculateEstimate({
+    ...base,
+    volumeSystems: circuitos,
+    products: [produto({ systemId: '*', dose: 1 })]
+  });
+  const apenasPrimeiro = motor.calculateEstimate({
+    ...base,
+    volumeSystems: circuitos,
+    products: [produto({ systemId: 'c1', dose: 1 })]
+  });
+
+  assert.equal(Number(todos.productResults[0].sourceVolumeLiters), 600);
+  assert.equal(
+    Number(todos.productResults[0].requiredQuantity),
+    Number(apenasPrimeiro.productResults[0].requiredQuantity) * 6,
+    'a dosagem única deve considerar a soma dos três circuitos'
+  );
 });
 
 test('a EMBALAGEM arredonda a compra para cima', () => {

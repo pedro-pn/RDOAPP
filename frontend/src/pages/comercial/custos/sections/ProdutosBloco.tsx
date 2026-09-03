@@ -91,7 +91,8 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
           <h2>Produtos dimensionados por volume</h2>
           <p>
             A regra de dosagem transforma o volume do circuito em quantidade de produto. A
-            embalagem arredonda a compra para cima.
+            embalagem arredonda a compra para cima. Se a mesma dosagem valer para todos,
+            selecione todos os circuitos e cadastre o produto uma única vez.
           </p>
         </div>
         <button type="button" className="com-btn-add" onClick={acrescentar}>
@@ -159,6 +160,7 @@ export function ProdutosBloco({ levantamento }: { levantamento: Levantamento }) 
                         }}
                       >
                         <option value="">Manual / sem circuito</option>
+                        <option value="*">Todos os circuitos</option>
                         {circuitos.map(circuito => (
                           <option key={String(circuito.id)} value={String(circuito.id)}>
                             {String(circuito.name || 'Circuito')}

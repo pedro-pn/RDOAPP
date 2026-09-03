@@ -9,6 +9,8 @@ let server;
 let motor;
 let FaseCard;
 let CircuitosBloco;
+let MaoDeObraSection;
+let ProdutosBloco;
 
 test.before(async () => {
   server = await createServer({
@@ -24,6 +26,12 @@ test.before(async () => {
   ));
   ({ CircuitosBloco } = await server.ssrLoadModule(
     '/src/pages/comercial/custos/sections/CircuitosBloco.tsx'
+  ));
+  ({ MaoDeObraSection } = await server.ssrLoadModule(
+    '/src/pages/comercial/custos/sections/MaoDeObraSection.tsx'
+  ));
+  ({ ProdutosBloco } = await server.ssrLoadModule(
+    '/src/pages/comercial/custos/sections/ProdutosBloco.tsx'
   ));
 });
 
@@ -49,6 +57,75 @@ function levantamento() {
       result.contextResults.find((item) => item.id === id) || {}
   };
 }
+
+function encontrarElemento(no, predicado) {
+  if (Array.isArray(no)) {
+    for (const filho of no) {
+      const encontrado = encontrarElemento(filho, predicado);
+      if (encontrado) return encontrado;
+    }
+    return undefined;
+  }
+  if (!no || typeof no !== 'object') return undefined;
+  if (predicado(no)) return no;
+  return encontrarElemento(no.props?.children, predicado);
+}
+
+test('Adicionar fase cria uma fase completa e com identificadores próprios', () => {
+  const estado = levantamento();
+  estado.draft.scopeConfirmations.mobilizationCrewAlreadyOnSite = true;
+  estado.draft.scopeConfirmations.demobilizationCrewAlreadyOnSite = true;
+  estado.setDraft = atualizador => {
+    estado.draft = atualizador(estado.draft);
+  };
+  const faseOriginal = estado.draft.laborContexts[0];
+  const arvore = MaoDeObraSection({ levantamento: estado });
+  const botao = encontrarElemento(
+    arvore,
+    no => no.type === 'button' && no.props?.children === '+ Adicionar fase'
+  );
+
+  assert.equal(typeof botao?.props?.onClick, 'function');
+  botao.props.onClick();
+
+  assert.equal(estado.draft.laborContexts.length, 2);
+  assert.equal(estado.draft.scopeConfirmations.noLabor, false);
+  assert.equal(estado.draft.scopeConfirmations.mobilizationCrewAlreadyOnSite, false);
+  assert.equal(estado.draft.scopeConfirmations.demobilizationCrewAlreadyOnSite, false);
+  const adicionada = estado.draft.laborContexts[1];
+  assert.equal(adicionada.name, 'Etapa 1');
+  assert.equal(adicionada.startOffsetDays, 30);
+  assert.equal(adicionada.assignments[0].role, 'OPERADOR');
+  assert.notEqual(adicionada.id, faseOriginal.id);
+  assert.notEqual(adicionada.assignments[0].id, faseOriginal.assignments[0].id);
+  assert.notEqual(adicionada.expenses[0].id, faseOriginal.expenses[0].id);
+});
+
+test('Incluir mão de obra reativa as fases preservadas sem duplicá-las', () => {
+  const estado = levantamento();
+  estado.draft.scopeConfirmations.noLabor = true;
+  estado.setDraft = atualizador => {
+    estado.draft = atualizador(estado.draft);
+  };
+  const arvore = MaoDeObraSection({ levantamento: estado });
+  const botao = encontrarElemento(
+    arvore,
+    no => no.type === 'button' && no.props?.children === 'Incluir mão de obra'
+  );
+
+  botao.props.onClick();
+
+  assert.equal(estado.draft.scopeConfirmations.noLabor, false);
+  assert.equal(estado.draft.laborContexts.length, 1);
+});
+
+test('produto oferece dimensionamento único para todos os circuitos', () => {
+  const html = renderToStaticMarkup(
+    createElement(ProdutosBloco, { levantamento: levantamento() })
+  );
+
+  assert.match(html, /<option value="\*">Todos os circuitos<\/option>/);
+});
 
 test('veículo continua obrigatório, mas oferece a decisão explícita "Sem veículo"', () => {
   const estado = levantamento();
