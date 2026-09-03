@@ -116,7 +116,7 @@ test('B.3 preserves the real detailed dashboard behavior without mutations or do
     .locator('.fv-sidebar')
     .getByRole('link', { name: 'Estatísticas', exact: true });
   const launcher = page.getByRole('button', {
-    name: 'Dashboard detalhado',
+    name: 'Abrir dashboard detalhado',
     exact: true
   });
   await expect(launcher).toBeVisible();
@@ -144,17 +144,23 @@ test('B.3 preserves the real detailed dashboard behavior without mutations or do
   );
   const standbyCard = dashboard
     .locator('.stats-kpi-card')
-    .filter({ hasText: 'Standby (dias)' });
+    .filter({ hasText: 'Standby' });
   await expect(standbyCard.locator('.stats-kpi-value')).toHaveText(
-    String(statsData.summary.standbyCount)
+    `${statsData.summary.standbyCount} ${statsData.summary.standbyCount === 1 ? 'dia' : 'dias'}`
   );
-  const daytimeCard = dashboard
-    .locator('.stats-kpi-card')
-    .filter({ hasText: 'Horas trabalhadas' })
-    .first();
-  await expect(daytimeCard.locator('.stats-kpi-value')).toHaveText(
+  const daytimePanel = dashboard.locator(
+    '.stats-shift-panel[data-shift="daytime"]'
+  );
+  await expect(daytimePanel.locator('dd').first()).toHaveText(
     formatMinutes(statsData.summary.daytimeWorkedMinutes)
   );
+
+  const projectPicker = dashboard.locator('.stats-project-picker');
+  await projectPicker.locator('summary').click();
+  await expect(
+    projectPicker.getByRole('searchbox', { name: 'Buscar projeto' })
+  ).toBeVisible();
+  await projectPicker.locator('summary').click();
 
   const servicesTimeline = dashboard.getByRole('button', {
     name: 'Serviços realizados',
@@ -201,6 +207,13 @@ test('B.3 preserves the real detailed dashboard behavior without mutations or do
   const activeStatsData =
     (await activeStatsResponse.json()) as ProjectStatsResponse;
   await expect(status).toHaveValue('active');
+
+  const firstServiceDisclosure = dashboard
+    .locator('.stats-service-disclosure')
+    .first();
+  if (await firstServiceDisclosure.isVisible()) {
+    await firstServiceDisclosure.locator('summary').click();
+  }
 
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(dashboard.locator('table')).toHaveCount(0);

@@ -259,21 +259,32 @@ function ProjectStatusFilter({
 function KpiCard({
   label,
   value,
-  appearance
+  appearance,
+  supportingText,
+  emphasis = false
 }: {
   label: string;
   value: string;
   appearance: StatsDashboardAppearance;
+  supportingText?: string;
+  emphasis?: boolean;
 }) {
   const content = (
     <>
       <div className="stats-kpi-value">{value}</div>
       <div className="stats-kpi-label">{label}</div>
+      {supportingText ? (
+        <div className="stats-kpi-supporting">{supportingText}</div>
+      ) : null}
     </>
   );
 
   return appearance === 'design-system' ? (
-    <Card className="stats-kpi-card" variant="flat" padding="sm">
+    <Card
+      className={`stats-kpi-card${emphasis ? ' stats-kpi-card--emphasis' : ''}`}
+      variant="flat"
+      padding="sm"
+    >
       {content}
     </Card>
   ) : (
@@ -288,6 +299,100 @@ function KpiCards({
   summary: StatsSummary;
   appearance: StatsDashboardAppearance;
 }) {
+  if (appearance === 'design-system') {
+    const workedMinutes =
+      summary.daytimeWorkedMinutes + summary.nighttimeWorkedMinutes;
+    const overtimeMinutes =
+      summary.daytimeOvertimeMinutes + summary.nighttimeOvertimeMinutes;
+
+    return (
+      <div className="stats-kpi-layout">
+        <div className="stats-kpi-primary" aria-label="Indicadores principais">
+          <KpiCard
+            appearance={appearance}
+            label="RDOs analisados"
+            value={String(summary.reportCount)}
+            supportingText="Relatórios no recorte atual"
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Dias executados"
+            value={String(summary.totalDays)}
+            supportingText="Dias com atividade registrada"
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Horas trabalhadas"
+            value={fmtMin(workedMinutes)}
+            supportingText="Soma dos turnos diurno e noturno"
+            emphasis
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Horas extras"
+            value={fmtMin(overtimeMinutes)}
+            supportingText="Soma das horas extras dos dois turnos"
+          />
+          <KpiCard
+            appearance={appearance}
+            label="Standby"
+            value={`${summary.standbyCount} dia${summary.standbyCount === 1 ? '' : 's'}`}
+            supportingText={`${fmtMin(summary.standbyMinutes)} acumuladas`}
+          />
+        </div>
+
+        <div className="stats-shift-comparison" aria-label="Comparativo por turno">
+          {[
+            {
+              key: 'daytime',
+              label: 'Turno diurno',
+              worked: summary.daytimeWorkedMinutes,
+              overtime: summary.daytimeOvertimeMinutes,
+              collaborators: summary.avgDaytimeCollaborators
+            },
+            {
+              key: 'nighttime',
+              label: 'Turno noturno',
+              worked: summary.nighttimeWorkedMinutes,
+              overtime: summary.nighttimeOvertimeMinutes,
+              collaborators: summary.avgNighttimeCollaborators
+            }
+          ].map((shift) => (
+            <section
+              key={shift.key}
+              className="stats-shift-panel"
+              data-shift={shift.key}
+            >
+              <header className="stats-shift-panel__header">
+                <div>
+                  <span>Jornada</span>
+                  <strong>{shift.label}</strong>
+                </div>
+                <span className="stats-shift-panel__total">
+                  {fmtMin(shift.worked + shift.overtime)} totais
+                </span>
+              </header>
+              <dl className="stats-shift-panel__metrics">
+                <div>
+                  <dt>Horas trabalhadas</dt>
+                  <dd>{fmtMin(shift.worked)}</dd>
+                </div>
+                <div>
+                  <dt>Horas extras</dt>
+                  <dd>{fmtMin(shift.overtime)}</dd>
+                </div>
+                <div>
+                  <dt>Média de colaboradores</dt>
+                  <dd>{fmtNum(shift.collaborators)}</dd>
+                </div>
+              </dl>
+            </section>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="stats-kpi-layout">
       {/* Linha geral */}
@@ -413,6 +518,22 @@ function TimelineChart({
 
   const chartH = H - PAD_T - PAD_B;
 
+  const slotValue = (slot: StatsTimelineSlot) =>
+    mode === 'hours'
+      ? slot.daytimeWorkedMinutes +
+        slot.nighttimeWorkedMinutes +
+        slot.daytimeOvertimeMinutes +
+        slot.nighttimeOvertimeMinutes
+      : Object.values(slot.serviceBreakdown).reduce((sum, value) => sum + value, 0);
+  const chartTotal = slots.reduce((sum, slot) => sum + slotValue(slot), 0);
+  const peakSlot = slots.reduce((peak, slot) =>
+    slotValue(slot) > slotValue(peak) ? slot : peak
+  );
+  const formattedChartValue = (value: number) =>
+    mode === 'hours'
+      ? fmtMin(value)
+      : `${value} serviço${value === 1 ? '' : 's'}`;
+
   function barX(i: number) {
     return PAD_L + i * step + step / 2 - barW / 2;
   }
@@ -523,7 +644,7 @@ function TimelineChart({
                   yOffset += h;
                   return rect;
                 })}
-                <title>{`${slot.label}: ${fmtMin(slot.daytimeWorkedMinutes + slot.nighttimeWorkedMinutes)}`}</title>
+                <title>{`${slot.label}: ${formattedChartValue(slotValue(slot))}`}</title>
               </g>
             );
           } else {
@@ -567,6 +688,24 @@ function TimelineChart({
           </text>
         ))}
       </svg>
+
+      {isDesignSystem ? (
+        <div className="stats-chart-insights" aria-label="Resumo da evolução temporal">
+          <div>
+            <span>Total no período</span>
+            <strong>{formattedChartValue(chartTotal)}</strong>
+          </div>
+          <div>
+            <span>Maior volume</span>
+            <strong>{peakSlot.label}</strong>
+            <small>{formattedChartValue(slotValue(peakSlot))}</small>
+          </div>
+          <div>
+            <span>Intervalos analisados</span>
+            <strong>{slots.length}</strong>
+          </div>
+        </div>
+      ) : null}
 
       {mode === 'hours' && (
         <div className="stats-chart-legend">
@@ -770,32 +909,70 @@ function ServicesSection({
                 {stats.serviceCount !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="stats-service-details">
-              {stats.volumeOleoLiters > 0 && (
-                <span>
-                  Volume total:{' '}
-                  <strong>{fmtNum(stats.volumeOleoLiters, 0)} L</strong>
-                </span>
-              )}
-              {tubeTotal > 0 && (
-                <span>
-                  Comprimento total: <strong>{fmtNum(tubeTotal, 1)} m</strong>
-                </span>
-              )}
-              {Object.entries(stats.tubesByDiameter).map(([d, m]) => (
-                <span key={d}>
-                  <strong>{d}</strong> → <strong>{fmtNum(m, 1)} m</strong>
-                </span>
-              ))}
-              {stats.hasTubulacao > 0 && (
-                <span>
-                  Em tubulação: <strong>{stats.hasTubulacao}×</strong>
-                </span>
-              )}
-            </div>
+            {appearance === 'design-system' ? (
+              <div className="stats-service-metrics">
+                <div>
+                  <span>Execuções</span>
+                  <strong>{stats.serviceCount}</strong>
+                </div>
+                {stats.volumeOleoLiters > 0 ? (
+                  <div>
+                    <span>Volume processado</span>
+                    <strong>{fmtNum(stats.volumeOleoLiters, 0)} L</strong>
+                  </div>
+                ) : null}
+                {tubeTotal > 0 ? (
+                  <div>
+                    <span>Comprimento total</span>
+                    <strong>{fmtNum(tubeTotal, 1)} m</strong>
+                  </div>
+                ) : null}
+                {stats.hasTubulacao > 0 ? (
+                  <div>
+                    <span>Registros em tubulação</span>
+                    <strong>{stats.hasTubulacao}</strong>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="stats-service-details">
+                {stats.volumeOleoLiters > 0 && (
+                  <span>
+                    Volume total:{' '}
+                    <strong>{fmtNum(stats.volumeOleoLiters, 0)} L</strong>
+                  </span>
+                )}
+                {tubeTotal > 0 && (
+                  <span>
+                    Comprimento total: <strong>{fmtNum(tubeTotal, 1)} m</strong>
+                  </span>
+                )}
+                {Object.entries(stats.tubesByDiameter).map(([d, m]) => (
+                  <span key={d}>
+                    <strong>{d}</strong> → <strong>{fmtNum(m, 1)} m</strong>
+                  </span>
+                ))}
+                {stats.hasTubulacao > 0 && (
+                  <span>
+                    Em tubulação: <strong>{stats.hasTubulacao}×</strong>
+                  </span>
+                )}
+              </div>
+            )}
             {items.length > 0 &&
               (appearance === 'design-system' ? (
-                <DesignSystemServiceItemsTable items={items} type={type} />
+                <details className="stats-service-disclosure">
+                  <summary>
+                    <span>Equipamentos e sistemas</span>
+                    <small>
+                      {items.length} item{items.length === 1 ? '' : 's'} agrupado
+                      {items.length === 1 ? '' : 's'}
+                    </small>
+                  </summary>
+                  <div className="stats-service-disclosure__content">
+                    <DesignSystemServiceItemsTable items={items} type={type} />
+                  </div>
+                </details>
               ) : (
                 <table className="stats-svc-items-table">
                   <thead>
@@ -1298,33 +1475,51 @@ function ProjectRow({
     appearance === 'design-system'
       ? `rdo-stats-project-${project.projectId}-detail`
       : undefined;
-  const content = (
-    <>
-      <span className="stats-byproject-code">{project.code}</span>
-      <span className="stats-byproject-name">{project.name}</span>
-      <span className="stats-byproject-meta">
-        {project.summary.reportCount} RDO
-        {project.summary.reportCount !== 1 ? 's' : ''} ·{' '}
-        {fmtMin(
-          project.summary.daytimeWorkedMinutes +
-            project.summary.nighttimeWorkedMinutes
-        )}{' '}
-        diurnos/noturnos
-      </span>
-      <span
-        className="stats-byproject-chevron"
-        aria-hidden={appearance === 'design-system' ? true : undefined}
-      >
-        {appearance === 'design-system' ? (
-          <AppIcon icon={DS_ICONS.chevronDown} size="sm" />
-        ) : expanded ? (
-          '▲'
-        ) : (
-          '▼'
-        )}
-      </span>
-    </>
+  const workedMinutes =
+    project.summary.daytimeWorkedMinutes +
+    project.summary.nighttimeWorkedMinutes;
+  const serviceCount = Object.values(project.services).reduce(
+    (sum, service) => sum + service.serviceCount,
+    0
   );
+  const content =
+    appearance === 'design-system' ? (
+      <>
+        <span className="stats-byproject-identity">
+          <span className="stats-byproject-code">{project.code}</span>
+          <span className="stats-byproject-name">{project.name}</span>
+        </span>
+        <span className="stats-byproject-metrics">
+          <span>
+            <strong>{project.summary.reportCount}</strong> RDO
+            {project.summary.reportCount !== 1 ? 's' : ''}
+          </span>
+          <span>
+            <strong>{fmtMin(workedMinutes)}</strong> trabalhadas
+          </span>
+          <span>
+            <strong>{serviceCount}</strong> serviço
+            {serviceCount !== 1 ? 's' : ''}
+          </span>
+        </span>
+        <span className="stats-byproject-chevron" aria-hidden="true">
+          <AppIcon icon={DS_ICONS.chevronDown} size="sm" />
+        </span>
+      </>
+    ) : (
+      <>
+        <span className="stats-byproject-code">{project.code}</span>
+        <span className="stats-byproject-name">{project.name}</span>
+        <span className="stats-byproject-meta">
+          {project.summary.reportCount} RDO
+          {project.summary.reportCount !== 1 ? 's' : ''} ·{' '}
+          {fmtMin(workedMinutes)} diurnos/noturnos
+        </span>
+        <span className="stats-byproject-chevron">
+          {expanded ? '▲' : '▼'}
+        </span>
+      </>
+    );
 
   return (
     <div
@@ -1433,6 +1628,7 @@ export function StatsDashboard({
   const [customGranularity, setCustomGranularity] =
     useState<StatsParams['granularity']>('month');
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [projectSearch, setProjectSearch] = useState('');
   const [projectStatus, setProjectStatus] =
     useState<ProjectStatusFilterValue>('all');
   const [byProjectStatus, setByProjectStatus] =
@@ -1467,6 +1663,13 @@ export function StatsDashboard({
     () => selectedProjects.filter((id) => visibleProjectIds.has(id)),
     [selectedProjects, visibleProjectIds]
   );
+  const filteredProjects = useMemo(() => {
+    const query = projectSearch.trim().toLocaleLowerCase('pt-BR');
+    if (!query) return allProjects;
+    return allProjects.filter((project) =>
+      `${project.code} ${project.name}`.toLocaleLowerCase('pt-BR').includes(query)
+    );
+  }, [allProjects, projectSearch]);
 
   const periodPart =
     preset === 'custom'
@@ -1504,6 +1707,34 @@ export function StatsDashboard({
   const data = statsQuery.data;
   const byProjectData = byProjectStatsQuery.data;
   const singleProject = selectedVisibleProjects.length === 1;
+  const activeFilterCount =
+    (preset !== 'year' ? 1 : 0) +
+    (projectStatus !== 'all' ? 1 : 0) +
+    (segment ? 1 : 0) +
+    (selectedVisibleProjects.length > 0 ? 1 : 0);
+  const periodLabel =
+    preset === 'today'
+      ? 'Hoje'
+      : preset === 'week'
+        ? 'Semana atual'
+        : preset === 'month'
+          ? 'Mês atual'
+          : preset === 'year'
+            ? 'Ano atual'
+            : `${formatDateOnlyPtBr(periodPart.from)} a ${formatDateOnlyPtBr(periodPart.to)}`;
+  const projectScopeLabel =
+    selectedVisibleProjects.length === 0
+      ? 'Todos os projetos'
+      : selectedVisibleProjects.length === 1
+        ? allProjects.find((project) => project.id === selectedVisibleProjects[0])
+            ?.code || '1 projeto'
+        : `${selectedVisibleProjects.length} projetos`;
+  const projectStatusLabel =
+    PROJECT_STATUS_OPTIONS.find((option) => option.value === projectStatus)
+      ?.label || 'Todos os projetos';
+  const segmentLabel =
+    segmentsQuery.data?.find((item) => item.slug === segment)?.label ||
+    'Todos os segmentos';
 
   useEffect(() => {
     if (
@@ -1557,6 +1788,17 @@ export function StatsDashboard({
     setSelectedProjects((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  }
+
+  function resetDashboardFilters() {
+    setPreset('year');
+    setCustomFrom('');
+    setCustomTo('');
+    setCustomGranularity('month');
+    setSelectedProjects([]);
+    setProjectSearch('');
+    setProjectStatus('all');
+    setSegment('');
   }
 
   async function handleExport(
@@ -1621,11 +1863,29 @@ export function StatsDashboard({
       data-appearance={isDesignSystem ? appearance : undefined}
     >
       {/* ── Filters ── */}
-      <DashboardCard appearance={appearance} className="stats-filters">
+      <DashboardCard
+        appearance={appearance}
+        className="stats-filters"
+        title={
+          isDesignSystem ? (
+            <div className="stats-filter-heading">
+              <h2>Filtros da análise</h2>
+              <span>Os indicadores são atualizados conforme o recorte selecionado.</span>
+            </div>
+          ) : undefined
+        }
+        actions={
+          isDesignSystem && activeFilterCount > 0 ? (
+            <Button variant="ghost" size="sm" onClick={resetDashboardFilters}>
+              Limpar filtros
+            </Button>
+          ) : undefined
+        }
+      >
         <div className="stats-filters-row">
           {/* Period presets */}
           <div
-            className="stats-filter-group"
+            className="stats-filter-group stats-filter-period"
             role={isDesignSystem ? 'group' : undefined}
             aria-labelledby={
               isDesignSystem ? 'rdo-stats-period-label' : undefined
@@ -1834,68 +2094,118 @@ export function StatsDashboard({
         </div>
 
         {/* Project multi-select */}
-        <div className="stats-filter-group">
-          <label
-            className="stats-filter-label"
-            id={isDesignSystem ? 'rdo-stats-projects-label' : undefined}
-          >
-            Projetos{' '}
-            {selectedVisibleProjects.length > 0
-              ? `(${selectedVisibleProjects.length} selecionados)`
-              : '(todos)'}
-          </label>
-          <div
-            className="stats-project-chips"
-            role={isDesignSystem ? 'group' : undefined}
-            aria-labelledby={
-              isDesignSystem ? 'rdo-stats-projects-label' : undefined
-            }
-          >
-            {allProjects.map((p) => {
-              const active = selectedVisibleProjects.includes(p.id);
-              return isDesignSystem ? (
-                <Button
-                  key={p.id}
-                  className={`stats-project-chip${active ? ' active' : ''}`}
-                  variant={active ? 'primary' : 'secondary'}
-                  size="sm"
-                  aria-pressed={active}
-                  onClick={() => toggleProject(p.id)}
+        {isDesignSystem ? (
+          <div className="stats-filter-group stats-project-filter-group">
+            <label className="stats-filter-label" id="rdo-stats-projects-label">
+              Projetos
+            </label>
+            <details className="stats-project-picker">
+              <summary>
+                <span>
+                  <strong>{projectScopeLabel}</strong>
+                  <small>
+                    {selectedVisibleProjects.length > 0
+                      ? 'Clique para alterar a seleção'
+                      : 'Nenhum projeto específico selecionado'}
+                  </small>
+                </span>
+                <AppIcon icon={DS_ICONS.chevronDown} size="sm" />
+              </summary>
+              <div className="stats-project-picker__panel">
+                <Input
+                  type="search"
+                  value={projectSearch}
+                  aria-label="Buscar projeto"
+                  placeholder="Buscar por código ou nome"
+                  onChange={(event) => setProjectSearch(event.target.value)}
+                />
+                <div
+                  className="stats-project-chips"
+                  role="group"
+                  aria-labelledby="rdo-stats-projects-label"
                 >
-                  {p.code}
-                </Button>
-              ) : (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`stats-project-chip${active ? ' active' : ''}`}
-                  onClick={() => toggleProject(p.id)}
-                >
-                  {p.code}
-                </button>
-              );
-            })}
-            {selectedVisibleProjects.length > 0 &&
-              (isDesignSystem ? (
-                <Button
-                  className="stats-project-chip-clear"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedProjects([])}
-                >
-                  Limpar seleção
-                </Button>
-              ) : (
-                <button
-                  type="button"
-                  className="stats-project-chip-clear"
-                  onClick={() => setSelectedProjects([])}
-                >
-                  Limpar seleção
-                </button>
-              ))}
+                  {filteredProjects.map((project) => {
+                    const active = selectedVisibleProjects.includes(project.id);
+                    return (
+                      <Button
+                        key={project.id}
+                        className={`stats-project-chip${active ? ' active' : ''}`}
+                        variant={active ? 'primary' : 'ghost'}
+                        size="sm"
+                        fullWidth
+                        aria-pressed={active}
+                        onClick={() => toggleProject(project.id)}
+                      >
+                        <span className="stats-project-chip__copy">
+                          <strong>{project.code}</strong>
+                          <small>{project.name}</small>
+                        </span>
+                      </Button>
+                    );
+                  })}
+                  {filteredProjects.length === 0 ? (
+                    <p className="stats-project-picker__empty">
+                      Nenhum projeto encontrado.
+                    </p>
+                  ) : null}
+                </div>
+                {selectedVisibleProjects.length > 0 ? (
+                  <Button
+                    className="stats-project-chip-clear"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedProjects([])}
+                  >
+                    Limpar seleção de projetos
+                  </Button>
+                ) : null}
+              </div>
+            </details>
           </div>
-        </div>
+        ) : (
+          <div className="stats-filter-group">
+            <label className="stats-filter-label">
+              Projetos{' '}
+              {selectedVisibleProjects.length > 0
+                ? `(${selectedVisibleProjects.length} selecionados)`
+                : '(todos)'}
+            </label>
+            <div className="stats-project-chips">
+              {allProjects.map((p) => {
+                const active = selectedVisibleProjects.includes(p.id);
+                return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`stats-project-chip${active ? ' active' : ''}`}
+                  onClick={() => toggleProject(p.id)}
+                >
+                  {p.code}
+                </button>
+                );
+              })}
+              {selectedVisibleProjects.length > 0 ? (
+                <button
+                  type="button"
+                  className="stats-project-chip-clear"
+                  onClick={() => setSelectedProjects([])}
+                >
+                  Limpar seleção
+                </button>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {isDesignSystem ? (
+          <div className="stats-filter-scope" aria-live="polite">
+            <span className="stats-filter-scope__label">Visualização atual</span>
+            <span>{periodLabel}</span>
+            <span>{projectStatusLabel}</span>
+            <span>{segmentLabel}</span>
+            <span>{projectScopeLabel}</span>
+          </div>
+        ) : null}
       </DashboardCard>
 
       {/* ── Loading / Error ── */}
@@ -1949,7 +2259,14 @@ export function StatsDashboard({
           <DashboardCard
             appearance={appearance}
             title={
-              <div className="survey-dash-card-title">Resumo do período</div>
+              isDesignSystem ? (
+                <div className="rdo-stats-dashboard__section-heading">
+                  <h2 className="survey-dash-card-title">Resumo do período</h2>
+                  <span>Visão executiva e comparação das jornadas registradas.</span>
+                </div>
+              ) : (
+                <div className="survey-dash-card-title">Resumo do período</div>
+              )
             }
           >
             <KpiCards summary={data.summary} appearance={appearance} />
@@ -1960,7 +2277,14 @@ export function StatsDashboard({
             <DashboardCard
               appearance={appearance}
               title={
-                <div className="survey-dash-card-title">Evolução temporal</div>
+                isDesignSystem ? (
+                  <div className="rdo-stats-dashboard__section-heading">
+                    <h2 className="survey-dash-card-title">Evolução temporal</h2>
+                    <span>Distribuição dos resultados ao longo do período.</span>
+                  </div>
+                ) : (
+                  <div className="survey-dash-card-title">Evolução temporal</div>
+                )
               }
               actions={
                 <div
@@ -2028,7 +2352,14 @@ export function StatsDashboard({
           <DashboardCard
             appearance={appearance}
             title={
-              <div className="survey-dash-card-title">Serviços executados</div>
+              isDesignSystem ? (
+                <div className="rdo-stats-dashboard__section-heading">
+                  <h2 className="survey-dash-card-title">Serviços executados</h2>
+                  <span>Volume operacional por tipo, com detalhes sob demanda.</span>
+                </div>
+              ) : (
+                <div className="survey-dash-card-title">Serviços executados</div>
+              )
             }
           >
             <ServicesSection
@@ -2045,7 +2376,14 @@ export function StatsDashboard({
               className="stats-byproject-card"
               title={
                 <div className="stats-card-title-group">
-                  <div className="survey-dash-card-title">Por projeto</div>
+                  {isDesignSystem ? (
+                    <div className="rdo-stats-dashboard__section-heading">
+                      <h2 className="survey-dash-card-title">Por projeto</h2>
+                      <span>Compare resultados e abra os RDOs de cada projeto.</span>
+                    </div>
+                  ) : (
+                    <div className="survey-dash-card-title">Por projeto</div>
+                  )}
                   <ProjectStatusFilter
                     value={byProjectStatus}
                     onChange={setByProjectStatus}
@@ -2107,7 +2445,14 @@ export function StatsDashboard({
             <DashboardCard
               appearance={appearance}
               title={
-                <div className="survey-dash-card-title">RDOs do projeto</div>
+                isDesignSystem ? (
+                  <div className="rdo-stats-dashboard__section-heading">
+                    <h2 className="survey-dash-card-title">RDOs do projeto</h2>
+                    <span>Detalhamento diário do projeto selecionado.</span>
+                  </div>
+                ) : (
+                  <div className="survey-dash-card-title">RDOs do projeto</div>
+                )
               }
               actions={
                 <div className="stats-export-btns">
@@ -2194,7 +2539,12 @@ export function StatsDashboardOverlay({
               variant="adaptive"
               decorative
             />
-            <span>Dashboard de Estatísticas</span>
+            <span className="rdo-stats-dashboard-modal__title-long">
+              Dashboard de Estatísticas
+            </span>
+            <span className="rdo-stats-dashboard-modal__title-short">
+              Estatísticas
+            </span>
           </span>
         }
         headerActions={

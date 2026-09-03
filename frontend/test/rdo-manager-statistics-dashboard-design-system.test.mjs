@@ -232,3 +232,48 @@ test('B.3 keeps responsive table alternatives exclusive in the detailed DS compo
   assert.match(dashboard, /<Skeleton\b/);
   assert.match(servicesSection, /<EmptyState\b/);
 });
+
+test('B.3 reorganiza filtros e dados com divulgação progressiva no dashboard detalhado', () => {
+  const stats = source('src/components/stats/StatsDashboard.tsx');
+  const css = source('src/components/stats/StatsDashboard.ds.css');
+  const dashboard = sectionBetween(
+    stats,
+    'export function StatsDashboard',
+    '// ─── Overlay wrapper'
+  );
+  const kpis = sectionBetween(stats, 'function KpiCards', '// ─── Timeline SVG');
+  const timeline = sectionBetween(stats, 'function TimelineChart', '// ─── Services Section');
+  const services = sectionBetween(stats, 'function ServicesSection', '// ─── By Project Section');
+
+  assert.match(dashboard, /useState\(''\).*projectSearch|\[projectSearch, setProjectSearch\] = useState\(''\)/s);
+  assert.match(dashboard, /className="stats-project-picker"/);
+  assert.match(dashboard, /type="search"/);
+  assert.match(dashboard, /aria-label="Buscar projeto"/);
+  assert.match(dashboard, /filteredProjects\.map/);
+  assert.match(dashboard, /className="stats-filter-scope" aria-live="polite"/);
+  assert.match(dashboard, />\s*Limpar filtros\s*</);
+
+  assert.match(kpis, /label="RDOs analisados"/);
+  assert.match(kpis, /className="stats-kpi-primary"/);
+  assert.match(kpis, /className="stats-shift-comparison"/);
+  assert.match(kpis, /data-shift=\{shift\.key\}/);
+  assert.match(timeline, /className="stats-chart-insights"/);
+  assert.match(timeline, />Total no período</);
+  assert.match(timeline, />Maior volume</);
+  assert.match(services, /<details className="stats-service-disclosure">/);
+  assert.match(services, />Equipamentos e sistemas</);
+
+  for (const selector of [
+    '.stats-project-picker',
+    '.stats-filter-scope',
+    '.stats-kpi-primary',
+    '.stats-shift-comparison',
+    '.stats-chart-insights',
+    '.stats-service-disclosure'
+  ]) {
+    assert.match(css, new RegExp(selector.replace('.', '\\.')));
+  }
+  assert.match(css, /@media \(max-width: 767\.98px\)/);
+  assert.match(css, /@media \(min-width: 1024px\)/);
+  assert.doesNotMatch(css, /!important/);
+});
