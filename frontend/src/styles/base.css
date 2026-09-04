@@ -11523,12 +11523,13 @@ select:disabled {
 }
 
 .equip-card .report-card-actions .mini-btn {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 108px;
+  min-width: min(108px, 100%);
   justify-content: center;
   padding-left: 8px;
   padding-right: 8px;
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* === Dados Técnicos (datasheet) === */

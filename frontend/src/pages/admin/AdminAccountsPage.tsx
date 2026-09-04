@@ -1,7 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-
 import { useAuth } from '../../auth/AuthContext';
 import { accountPageStateFromPath } from '../../auth/moduleNavigation';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -10,16 +9,10 @@ import { useUserMutations, useUsers } from '../../hooks/useUsers';
 import { useCollaborators } from '../../hooks/useCollaborators';
 import { Shell } from '../../layout/Shell';
 import { TopBar } from '../../layout/TopBar';
-import {
-  assignableRoleOptionsForAccountType,
-  moduleIdForPublicRole,
-  moduleRegistry,
-  moduleRoleLabel,
-  sameModuleRoles
-} from '../../modules/registry';
+import { assignableRoleOptionsForAccountType, moduleIdForPublicRole, moduleRegistry, moduleRoleLabel, sameModuleRoles } from '../../modules/registry';
 import { rolesForAccountType } from './accountRoleRules';
 import type { UserDeletionImpact, UserPayload } from '../../api/users';
-import type { AccountType, ModuleRole, UserRole } from '../../types/auth';
+import type { AccountType, ModuleRole, ReportEmissionPermission, UserRole } from '../../types/auth';
 import type { InternalUserSummary } from '../../types/domain';
 
 type AccountFilter = 'all' | AccountType;
@@ -34,6 +27,7 @@ interface AccountFormState {
   isActive: boolean;
   collaboratorId: string;
   moduleRoles: ModuleRole[];
+  reportEmissionPermissions: ReportEmissionPermission[];
 }
 
 interface ManualPasswordSetup {
@@ -49,8 +43,18 @@ const emptyForm: AccountFormState = {
   password: '',
   isActive: true,
   collaboratorId: '',
-  moduleRoles: []
+  moduleRoles: [],
+  reportEmissionPermissions: []
 };
+
+const reportPermissionOptions: Array<{
+  value: ReportEmissionPermission;
+  label: string;
+}> = [
+  { value: 'SITE_RDO', label: 'Emitir RDO de obra' },
+  { value: 'MAINTENANCE', label: 'Acessar manutenção e emitir relatórios' },
+  { value: 'PRODUCTION', label: 'Acessar produção e emitir relatórios' }
+];
 
 function accountTypeLabel(accountType?: AccountType) {
   if (accountType === 'ADMIN') return 'Admin';
@@ -79,25 +83,15 @@ function userToForm(user: InternalUserSummary): AccountFormState {
     password: '',
     isActive: user.isActive,
     collaboratorId: user.collaboratorId || '',
-    moduleRoles: rolesForAccountType(accountType, user.moduleRoles || [])
+    moduleRoles: rolesForAccountType(accountType, user.moduleRoles || []),
+    reportEmissionPermissions: accountType === 'CLIENT' ? [] : user.reportEmissionPermissions || []
   };
 }
 
 function matchesAccountSearch(user: InternalUserSummary, search: string) {
   const query = search.trim().toLowerCase();
   if (!query) return true;
-  return [
-    user.username,
-    user.name,
-    user.email,
-    user.role,
-    user.accountType,
-    user.collaborator?.name,
-    ...(user.moduleRoles || []),
-    ...(user.linkedProjects || []).flatMap(project => [project.code, project.name, project.contractCode])
-  ]
-    .filter(Boolean)
-    .some(value => String(value).toLowerCase().includes(query));
+  return [user.username, user.name, user.email, user.role, user.accountType, user.collaborator?.name, ...(user.moduleRoles || []), ...(user.linkedProjects || []).flatMap(project => [project.code, project.name, project.contractCode])].filter(Boolean).some(value => String(value).toLowerCase().includes(query));
 }
 
 function accountHasModule(user: InternalUserSummary, module: ModuleFilter) {
@@ -158,7 +152,11 @@ export function AdminAccountsPage() {
   }
 
   function openCreateForm(accountType: AccountType = 'INTERNAL') {
-    setForm({ ...emptyForm, accountType, moduleRoles: rolesForAccountType(accountType, emptyForm.moduleRoles) });
+    setForm({
+      ...emptyForm,
+      accountType,
+      moduleRoles: rolesForAccountType(accountType, emptyForm.moduleRoles)
+    });
     setEditingUser(null);
     setShowForm(true);
     setMessage('');
@@ -180,16 +178,22 @@ export function AdminAccountsPage() {
       ...current,
       accountType,
       collaboratorId: accountType === 'CLIENT' ? '' : current.collaboratorId,
-      moduleRoles: rolesForAccountType(accountType, current.moduleRoles)
+      moduleRoles: rolesForAccountType(accountType, current.moduleRoles),
+      reportEmissionPermissions: accountType === 'CLIENT' ? [] : current.reportEmissionPermissions
+    }));
+  }
+
+  function toggleReportPermission(permission: ReportEmissionPermission) {
+    setForm(current => ({
+      ...current,
+      reportEmissionPermissions: current.reportEmissionPermissions.includes(permission) ? current.reportEmissionPermissions.filter(item => item !== permission) : [...current.reportEmissionPermissions, permission]
     }));
   }
 
   function toggleRole(role: ModuleRole) {
     setForm(current => {
       const hasRole = current.moduleRoles.includes(role);
-      const nextRoles = hasRole
-        ? current.moduleRoles.filter(item => item !== role)
-        : [...current.moduleRoles.filter(item => !sameModuleRoles(role).includes(item)), role];
+      const nextRoles = hasRole ? current.moduleRoles.filter(item => item !== role) : [...current.moduleRoles.filter(item => !sameModuleRoles(role).includes(item)), role];
       return {
         ...current,
         moduleRoles: rolesForAccountType(current.accountType, nextRoles)
@@ -223,13 +227,17 @@ export function AdminAccountsPage() {
           role: legacyRoleForForm(form),
           accountType: form.accountType,
           moduleRoles: rolesForAccountType(form.accountType, form.moduleRoles),
+          reportEmissionPermissions: form.accountType === 'CLIENT' ? [] : form.reportEmissionPermissions,
           isActive: form.isActive,
           collaboratorId: form.accountType === 'CLIENT' ? null : form.collaboratorId || null
         };
 
     try {
       if (editingUser) {
-        await userMutations.updateUser.mutateAsync({ id: editingUser.id, payload });
+        await userMutations.updateUser.mutateAsync({
+          id: editingUser.id,
+          payload
+        });
         setMessage('Conta atualizada.');
       } else {
         const createdUser = await userMutations.createUser.mutateAsync(payload as UserPayload);
@@ -285,7 +293,17 @@ export function AdminAccountsPage() {
           {!isEditingClient ? (
             <div className="field-group">
               <label htmlFor="account-username">Usuário</label>
-              <input id="account-username" value={form.username} onChange={event => setForm(current => ({ ...current, username: event.target.value }))} required />
+              <input
+                id="account-username"
+                value={form.username}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    username: event.target.value
+                  }))
+                }
+                required
+              />
             </div>
           ) : null}
           <div className="field-group">
@@ -294,12 +312,31 @@ export function AdminAccountsPage() {
           </div>
           <div className="field-group">
             <label htmlFor="account-email">E-mail</label>
-            <input id="account-email" type="email" value={form.email} onChange={event => setForm(current => ({ ...current, email: event.target.value }))} />
+            <input
+              id="account-email"
+              type="email"
+              value={form.email}
+              onChange={event =>
+                setForm(current => ({
+                  ...current,
+                  email: event.target.value
+                }))
+              }
+            />
           </div>
           {!isEditingClient ? (
             <div className="field-group">
               <label htmlFor="account-active">Status</label>
-              <select id="account-active" value={String(form.isActive)} onChange={event => setForm(current => ({ ...current, isActive: event.target.value === 'true' }))}>
+              <select
+                id="account-active"
+                value={String(form.isActive)}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    isActive: event.target.value === 'true'
+                  }))
+                }
+              >
                 <option value="true">Ativo</option>
                 <option value="false">Inativo</option>
               </select>
@@ -308,11 +345,24 @@ export function AdminAccountsPage() {
           {!isEditingClient && form.accountType !== 'CLIENT' ? (
             <div className="field-group">
               <label htmlFor="account-collaborator">Colaborador</label>
-              <select id="account-collaborator" value={form.collaboratorId} onChange={event => setForm(current => ({ ...current, collaboratorId: event.target.value }))}>
+              <select
+                id="account-collaborator"
+                value={form.collaboratorId}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    collaboratorId: event.target.value
+                  }))
+                }
+              >
                 <option value="">Sem vínculo</option>
-                {(collaboratorsQuery.data || []).filter(item => item.isActive).map(item => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
+                {(collaboratorsQuery.data || [])
+                  .filter(item => item.isActive)
+                  .map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
               </select>
             </div>
           ) : null}
@@ -324,14 +374,17 @@ export function AdminAccountsPage() {
                 type="password"
                 value={form.password}
                 autoComplete="new-password"
-                onChange={event => setForm(current => ({ ...current, password: event.target.value }))}
+                onChange={event =>
+                  setForm(current => ({
+                    ...current,
+                    password: event.target.value
+                  }))
+                }
               />
             </div>
           ) : (
             <div className="field-group field-group-wide">
-              <div className="form-hint">
-                A senha será criada pelo próprio usuário por um link único. Com e-mail, o link será enviado automaticamente.
-              </div>
+              <div className="form-hint">A senha será criada pelo próprio usuário por um link único. Com e-mail, o link será enviado automaticamente.</div>
             </div>
           )}
           {!isEditingClient ? (
@@ -343,16 +396,26 @@ export function AdminAccountsPage() {
                 <div className="admin-role-grid">
                   {availableRoleOptions.map(option => (
                     <label className="admin-role-option" key={option.value}>
-                      <input
-                        type="checkbox"
-                        checked={form.moduleRoles.includes(option.value)}
-                        onChange={() => toggleRole(option.value)}
-                      />
+                      <input type="checkbox" checked={form.moduleRoles.includes(option.value)} onChange={() => toggleRole(option.value)} />
                       <span>{option.label}</span>
                     </label>
                   ))}
                 </div>
               )}
+            </div>
+          ) : null}
+          {!isEditingClient && form.accountType !== 'CLIENT' ? (
+            <div className="field-group field-group-wide">
+              <label>Emissão de relatórios</label>
+              <div className="admin-role-grid">
+                {reportPermissionOptions.map(option => (
+                  <label className="admin-role-option" key={option.value}>
+                    <input type="checkbox" checked={form.reportEmissionPermissions.includes(option.value)} onChange={() => toggleReportPermission(option.value)} />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="form-hint">Sem seleção, a conta não poderá criar relatórios.</div>
             </div>
           ) : null}
           <div className="admin-form-actions">
@@ -431,7 +494,15 @@ export function AdminAccountsPage() {
         showLogo
         actions={
           <>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
+            <button
+              className="topbar-chip"
+              type="button"
+              onClick={() =>
+                navigate('/conta', {
+                  state: accountPageStateFromPath(location)
+                })
+              }
+            >
               Conta
             </button>
             <button className="topbar-chip" type="button" onClick={handleLogout}>
@@ -471,9 +542,13 @@ export function AdminAccountsPage() {
             <label htmlFor="account-module-filter">Módulo</label>
             <select id="account-module-filter" value={moduleFilter} onChange={event => setModuleFilter(event.target.value as ModuleFilter)}>
               <option value="all">Todos</option>
-              {moduleRegistry.filter(module => module.roles.length).map(module => (
-                <option key={module.id} value={module.id}>{module.title}</option>
-              ))}
+              {moduleRegistry
+                .filter(module => module.roles.length)
+                .map(module => (
+                  <option key={module.id} value={module.id}>
+                    {module.title}
+                  </option>
+                ))}
             </select>
           </div>
         </section>
@@ -508,21 +583,23 @@ export function AdminAccountsPage() {
               <article className="card admin-card admin-account-card" key={user.id}>
                 <div className="admin-section-head">
                   <div>
-                    <div className="admin-item-title">{user.name} · {user.username}</div>
+                    <div className="admin-item-title">
+                      {user.name} · {user.username}
+                    </div>
                     <div className="admin-item-sub">
                       {accountTypeLabel(user.accountType)}
                       {user.email ? ` · ${user.email}` : ''}
                       {user.collaborator?.name ? ` · ${user.collaborator.name}` : ''}
                     </div>
                   </div>
-                  <span className={`status-pill ${user.isActive ? 'status-approved' : 'status-returned'}`}>
-                    {user.isActive ? 'Ativo' : 'Inativo'}
-                  </span>
+                  <span className={`status-pill ${user.isActive ? 'status-approved' : 'status-returned'}`}>{user.isActive ? 'Ativo' : 'Inativo'}</span>
                 </div>
                 <div className="admin-account-role-list">
                   {(user.moduleRoles || []).length ? (
                     (user.moduleRoles || []).map(role => (
-                      <span className="admin-account-role-pill" key={role}>{moduleRoleLabel(role)}</span>
+                      <span className="admin-account-role-pill" key={role}>
+                        {moduleRoleLabel(role)}
+                      </span>
                     ))
                   ) : (
                     <span className="admin-account-role-pill">Sem módulos</span>

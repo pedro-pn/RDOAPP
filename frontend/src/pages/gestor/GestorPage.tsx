@@ -6,6 +6,7 @@ import { formatCnpj, normalizeCnpjInput } from '../../utils/formatCnpj';
 import { compareReportTypes, sortProjects, sortReportsInGroup } from '../../utils/projectSort';
 import { ProjectSortButton } from '../../utils/ProjectSortButton';
 import { manualReportMetadataFromFileName, reportDownloadFileName } from '../../utils/reportFileName';
+import { SITE_RDO_DRAFT_FORM_PATH } from '../../utils/reportDraft';
 import { matchesSearch, reportSearchParts } from '../../utils/search';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
 import {
@@ -1504,7 +1505,7 @@ export function GestorPage() {
       services: asServices(payload.services)
     });
 
-    navigate(rdoPath('/relatorio/novo'));
+    navigate(rdoPath(SITE_RDO_DRAFT_FORM_PATH));
   }
 
   function resetProjectForm() {
@@ -2917,7 +2918,6 @@ export function GestorPage() {
         </div>
       </section>
     ) : null;
-
     if (!visibleReports.length) {
       return (
         <>

@@ -4,6 +4,7 @@ import prisma from './prisma.js';
 import { accountTypeForLegacyRole, serializeModuleRoles } from './module-roles.js';
 import { notificationPreferences } from './notification-preferences.js';
 import { CLIENT_PRIVACY_NOTICE_VERSION, clientPrivacyConsentRequired } from './privacy-consent.js';
+import { serializeReportEmissionPermissions } from './operational-reports/permissions.js';
 
 const SESSION_DAYS = 7;
 const REMEMBER_SESSION_DAYS = 30;
@@ -37,9 +38,7 @@ export async function createPasswordResetToken(userId, prismaClient = prisma, op
   const token = `${tokenPrefix}${randomBytes(32).toString('hex')}`;
   const tokenHash = hashToken(token);
   const requestedHours = Number(options.expiresInHours);
-  const expiresInHours = Number.isFinite(requestedHours) && requestedHours > 0
-    ? requestedHours
-    : PASSWORD_RESET_HOURS;
+  const expiresInHours = Number.isFinite(requestedHours) && requestedHours > 0 ? requestedHours : PASSWORD_RESET_HOURS;
   const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
   await prismaClient.passwordResetToken.create({
@@ -82,6 +81,7 @@ export function publicUser(user) {
     role: user.role,
     accountType: user.accountType || accountTypeForLegacyRole(user.role),
     moduleRoles: serializeModuleRoles(user),
+    reportEmissionPermissions: serializeReportEmissionPermissions(user),
     isActive: user.isActive,
     clientCnpj: user.clientCnpj || null,
     privacyPolicyAcceptedAt: user.privacyPolicyAcceptedAt?.toISOString?.() || user.privacyPolicyAcceptedAt || null,
