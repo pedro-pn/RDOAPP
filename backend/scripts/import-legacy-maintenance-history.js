@@ -140,6 +140,15 @@ function normalizeEquipmentCode(value) {
   return suffix ? `${suffix[1]}${Number(suffix[2])}` : compact;
 }
 
+function exactEquipmentCode(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 function stableId(prefix, sourceKey) {
   const digest = crypto
     .createHash('sha256')
@@ -267,8 +276,20 @@ function indexEquipment(equipment) {
 function resolveEquipment(record, equipmentIndex, aliases = new Map()) {
   const sourceCode = normalizeEquipmentCode(record.equipmentCode);
   const alias = aliases.get(sourceCode);
-  const targetCode = normalizeEquipmentCode(alias || record.equipmentCode);
+  const requestedCode = alias || record.equipmentCode;
+  const targetCode = normalizeEquipmentCode(requestedCode);
   const matches = equipmentIndex.get(targetCode) || [];
+  const exactCode = exactEquipmentCode(requestedCode);
+  const exactMatches = matches.filter(
+    (item) => exactEquipmentCode(item.code) === exactCode
+  );
+  if (exactMatches.length === 1) {
+    return {
+      status: 'matched',
+      equipment: exactMatches[0],
+      strategy: alias ? 'alias-exact-code' : 'exact-code'
+    };
+  }
   if (matches.length === 1) {
     return {
       status: 'matched',
@@ -785,6 +806,7 @@ async function main() {
 
 export {
   effectiveProfileSnapshots,
+  exactEquipmentCode,
   maintenanceAuditId,
   maintenanceRecordId,
   normalizeEquipmentCode,
