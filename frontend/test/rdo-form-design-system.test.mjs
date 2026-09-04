@@ -113,6 +113,40 @@ test('formulário recupera a escala anterior no mobile sem regredir a página', 
   );
 });
 
+test('opções de inspeção RLQ e equipamento de pressão permanecem legíveis no mobile', () => {
+  const serviceFields = source('src/components/reports/ServiceFields.tsx');
+  const css = source('src/pages/collaborator/NewReportPage.css');
+  const mobileStart = css.indexOf('@media (max-width: 767.98px)');
+  const mobileEnd = css.indexOf('@media (min-width: 768px)', mobileStart);
+  const mobileBlock = css.slice(mobileStart, mobileEnd);
+
+  assert.match(
+    serviceFields,
+    /\{ value: 'Vídeo boroscopia', label: 'Boroscopia' \}/,
+    'o rótulo curto não deve alterar o valor persistido em relatórios existentes'
+  );
+  assert.match(
+    serviceFields,
+    /className="rdo-pill-list rdo-inspection-type-options"/
+  );
+  assert.match(
+    serviceFields,
+    /className="rdo-tag-group rdo-tested-equipment-options"/
+  );
+  assert.match(
+    mobileBlock,
+    /\.rdo-inspection-type-options \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/
+  );
+  assert.match(
+    mobileBlock,
+    /\.rdo-tested-equipment-options \{[\s\S]*?flex-wrap: nowrap/
+  );
+  assert.match(
+    mobileBlock,
+    /\.rdo-tested-equipment-options \.rdo-tag-option span \{[\s\S]*?white-space: nowrap/
+  );
+});
+
 test('editor preserva a largura original e a leitura em coluna no desktop', () => {
   const css = source('src/pages/collaborator/NewReportPage.css');
   const desktopStart = css.indexOf('@media (min-width: 768px)');

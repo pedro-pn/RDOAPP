@@ -275,5 +275,10 @@ test('B.3 reorganiza filtros e dados com divulgação progressiva no dashboard d
   }
   assert.match(css, /@media \(max-width: 767\.98px\)/);
   assert.match(css, /@media \(min-width: 1024px\)/);
+  assert.match(
+    css,
+    /\.stats-byproject-toggle\.fv-button\s*\{[\s\S]{0,120}?height: auto;/,
+    'os cards de projeto precisam crescer com nome e métricas no mobile'
+  );
   assert.doesNotMatch(css, /!important/);
 });

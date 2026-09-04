@@ -913,6 +913,40 @@
     padding: var(--space-2) var(--space-3);
   }
 
+  .rdo-form-stage .rdo-inspection-type-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-1);
+  }
+
+  .rdo-form-stage .rdo-inspection-type-options .rdo-pill-option {
+    display: grid;
+    min-width: 0;
+    align-items: center;
+    justify-items: center;
+    padding-inline: var(--space-1);
+    text-align: center;
+  }
+
+  .rdo-form-stage .rdo-inspection-type-options .rdo-pill-option span {
+    overflow-wrap: normal;
+  }
+
+  .rdo-form-stage .rdo-tested-equipment-options {
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+  }
+
+  .rdo-form-stage .rdo-tested-equipment-options .rdo-tag-option {
+    flex: 1 1 auto;
+    padding-inline: var(--space-2);
+  }
+
+  .rdo-form-stage .rdo-tested-equipment-options .rdo-tag-option span {
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+
   .rdo-form-page .rdo-form-stage .upload-dropzone {
     min-height: calc(var(--space-16) + var(--space-1));
     padding: var(--space-3);

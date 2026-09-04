@@ -44,6 +44,12 @@ const PRESSURE_TESTED_EQUIPMENT_OPTIONS: Array<{ value: PressureTestedEquipment;
   { value: 'outro', label: 'Outro' }
 ];
 
+const RLQ_INSPECTION_OPTIONS = [
+  { value: 'Visual', label: 'Visual' },
+  { value: 'Corpo de prova', label: 'Corpo de prova' },
+  { value: 'Vídeo boroscopia', label: 'Boroscopia' }
+] as const;
+
 const commonInchDiameters = [
   '1/8',
   '1/4',
@@ -1092,11 +1098,11 @@ export function ServiceFields({
           <EtapasSection serviceType={serviceType} data={data} onChange={onChange} disabled={disabled} invalidKey={invalidKey} />
           <div className={fieldClass(invalidKey, 'tipoInspecao')}>
             <label>Tipo de inspeção {requiredMark()}</label>
-            <div className="rdo-pill-list">
-              {['Visual', 'Corpo de prova', 'Vídeo boroscopia'].map(t => (
-                <label className={pillOptionClass(tipoInspecao.includes(t))} key={t}>
-                  <input type="checkbox" checked={tipoInspecao.includes(t)} disabled={disabled} onChange={e => onChange({ tipoInspecao: toggleItem(tipoInspecao, t, e.target.checked) })} />
-                  <span>{t}</span>
+            <div className="rdo-pill-list rdo-inspection-type-options">
+              {RLQ_INSPECTION_OPTIONS.map(option => (
+                <label className={pillOptionClass(tipoInspecao.includes(option.value))} key={option.value}>
+                  <input type="checkbox" checked={tipoInspecao.includes(option.value)} disabled={disabled} onChange={e => onChange({ tipoInspecao: toggleItem(tipoInspecao, option.value, e.target.checked) })} />
+                  <span>{option.label}</span>
                 </label>
               ))}
             </div>
@@ -1131,7 +1137,7 @@ export function ServiceFields({
         <ServiceFormSection title="Escopo e equipamentos" appearance={appearance}>
           <div className={fieldClass(invalidKey, 'equipamentoTestado')}>
           <label>Equipamento testado {requiredMark()}</label>
-          <div className="rdo-tag-group">
+          <div className="rdo-tag-group rdo-tested-equipment-options">
             {PRESSURE_TESTED_EQUIPMENT_OPTIONS.map(option => (
               <label className={radioOptionClass(equipamentoTestado === option.value)} key={option.value}>
                 <input

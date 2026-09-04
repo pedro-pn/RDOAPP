@@ -5867,7 +5867,12 @@ export function GestorPage() {
 
     return (
       <section className="fv-ds rdo-nps rdo-ds-actions" aria-label="NPS">
-        {npsDashboardOpen && <SurveyDashboardOverlay onClose={() => setNpsDashboardOpen(false)} />}
+        {npsDashboardOpen && (
+          <SurveyDashboardOverlay
+            appearance="design-system"
+            onClose={() => setNpsDashboardOpen(false)}
+          />
+        )}
         <PageHeader
           className="rdo-nps__page-header"
           title="NPS"

@@ -319,6 +319,37 @@ test('B.9 caracteriza a aba NPS real sem reenviar pesquisas', async ({
   await page.setViewportSize({ width: 1280, height: 900 });
   if (designSystem) {
     await expectComfortableTapTargets(page, SURFACE);
+
+    // O dashboard detalhado usa o mesmo DS, sem alterar o fluxo de entrada
+    // da aba nem disparar as ações de acompanhamento dos detratores.
+    const dashboardLauncher = reloadedSurface.getByRole('button', {
+      name: 'Abrir dashboard NPS'
+    });
+    await dashboardLauncher.click();
+
+    const dashboardDialog = page.getByRole('dialog', {
+      name: 'Dashboard NPS'
+    });
+    await expect(dashboardDialog).toBeVisible();
+    await expect(
+      dashboardDialog.locator('.rdo-nps-dashboard')
+    ).toBeVisible();
+    await expect(
+      dashboardDialog.getByRole('heading', { name: 'Visão executiva' })
+    ).toBeVisible();
+    await expect(dashboardDialog.locator('.fv-metric-card')).toHaveCount(4);
+    await expect(dashboardDialog.getByRole('combobox')).toHaveCount(2);
+
+    for (const width of [375, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectNoDocumentOverflow(page);
+      await expect(dashboardDialog).toBeVisible();
+    }
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await dashboardDialog.getByRole('button', { name: 'Voltar' }).click();
+    await expect(dashboardDialog).toBeHidden();
+    await expect(dashboardLauncher).toBeFocused();
   }
 
   await expect(page).toHaveURL(/\/rdo\/gestor\?tab=nps$/);

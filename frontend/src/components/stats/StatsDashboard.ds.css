@@ -668,6 +668,7 @@
 :where(.fv-ds, [data-fv-ds])
   .rdo-stats-dashboard
   .stats-byproject-toggle.fv-button {
+  height: auto;
   min-height: calc(var(--space-12) + var(--space-1));
   justify-content: stretch;
   padding: var(--space-3) var(--space-4);
@@ -1588,6 +1589,12 @@
 
   :where(.fv-ds, [data-fv-ds]) .rdo-stats-dashboard .stats-byproject-name {
     white-space: normal;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-stats-dashboard
+    .stats-byproject-toggle.fv-button {
+    align-items: stretch;
   }
 }
 

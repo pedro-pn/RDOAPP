@@ -298,8 +298,9 @@ test('a ordenação do NPS usa Button DS sem alterar o ProjectSortButton compart
   assert.doesNotMatch(css, /\.rdo-nps \.project-sort-button/);
 });
 
-test('B.9 não altera o Coordenador nem os componentes compartilhados', () => {
+test('B.9 preserva o Coordenador e migra o dashboard compartilhado por opt-in', () => {
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
+  const gestor = source('src/pages/gestor/GestorPage.tsx');
 
   // O Coordenador tem implementação própria de NPS e segue integralmente legacy.
   assert.match(coordinator, /function renderNpsTab\(\)/);
@@ -308,7 +309,8 @@ test('B.9 não altera o Coordenador nem os componentes compartilhados', () => {
   assert.doesNotMatch(coordinator, /appearance="design-system"/);
   assert.doesNotMatch(coordinator, /gestorSurveyHelpers/);
 
-  // A superfície DS da B.9 existe somente no Gestor.
+  // O dashboard compartilhado pode conter o escopo DS, mas a aparência nova
+  // só é ativada explicitamente na superfície do Gestor.
   const files = [];
   (function visit(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -322,18 +324,116 @@ test('B.9 não altera o Coordenador nem os componentes compartilhados', () => {
     .filter((path) => /rdo-nps/.test(readFileSync(path, 'utf8')))
     .sort();
   assert.deepEqual(owners, [
+    join(frontendRoot, 'src/components/surveys/SurveyDashboard.tsx'),
     join(frontendRoot, 'src/pages/gestor/GestorPage.tsx')
   ]);
 
-  // O overlay e os helpers continuam legacy e intocados pela B.9.
+  // Os helpers de status continuam independentes da migração visual.
   const helpers = source('src/pages/gestor/gestorSurveyHelpers.ts');
   assert.match(helpers, /className: 'status-approved'/);
   assert.match(helpers, /className: 'status-returned'/);
   assert.match(helpers, /className: 'status-pending'/);
 
   const surveyDashboard = source('src/components/surveys/SurveyDashboard.tsx');
-  assert.doesNotMatch(surveyDashboard, /rdo-nps|appearance/);
+  assert.match(surveyDashboard, /appearance = 'legacy'/);
+  assert.match(surveyDashboard, /appearance === 'design-system'/);
+  assert.match(surveyDashboard, /panelClassName="rdo-nps-dashboard-modal"/);
+  assert.match(
+    gestor,
+    /<SurveyDashboardOverlay[\s\S]{0,180}?appearance="design-system"/
+  );
+  assert.doesNotMatch(
+    coordinator,
+    /<SurveyDashboardOverlay[\s\S]{0,180}?appearance="design-system"/
+  );
 
   const sortButton = source('src/utils/ProjectSortButton.tsx');
   assert.doesNotMatch(sortButton, /fv-button|rdo-nps/);
+});
+
+test('dashboard NPS detalhado organiza filtros, leitura executiva e ação de recuperação', () => {
+  const dashboard = source('src/components/surveys/SurveyDashboard.tsx');
+
+  // Mantém as derivações e os fluxos existentes; a mudança é de apresentação.
+  for (const contract of [
+    'aggregateMonths',
+    'getFilteredMonths',
+    'getPreviousMonths',
+    'useSurveyDashboard',
+    'useSurveyMutations',
+    'downloadCsv'
+  ]) {
+    assert.match(dashboard, new RegExp(`\\b${contract}\\b`));
+  }
+
+  // Filtros compactos substituem a grade de 16 botões apenas no opt-in DS.
+  assert.match(dashboard, /className="rdo-nps-dashboard__filter-grid"/);
+  assert.match(dashboard, /<Field label="Ano"/);
+  assert.match(dashboard, /<Field label="Período"/);
+  assert.match(dashboard, /<optgroup label="Trimestres">/);
+  assert.match(dashboard, /<optgroup label="Meses">/);
+  assert.match(dashboard, /className="survey-dash-period-grid"/);
+
+  // A primeira leitura reúne o índice, qualidade da coleta e distribuição.
+  assert.match(dashboard, /<h2>Visão executiva<\/h2>/);
+  assert.equal((dashboard.match(/<MetricCard\b/g) ?? []).length, 4);
+  assert.match(dashboard, /className="rdo-nps-dashboard__segments"/);
+  assert.match(dashboard, /Promotores/);
+  assert.match(dashboard, /Neutros/);
+  assert.match(dashboard, /Detratores/);
+
+  // Análise e ação permanecem na mesma tela com títulos semânticos.
+  for (const title of [
+    'Distribuição das notas NPS',
+    'Evolução NPS por período',
+    'Médias por pergunta',
+    'NPS por responsável',
+    'Drivers de satisfação',
+    'Evolução por cliente',
+    'Acompanhamento de detratores'
+  ]) {
+    assert.match(dashboard, new RegExp(title));
+  }
+  assert.match(dashboard, /<Field label="Status"/);
+  assert.match(dashboard, /<Field label="Resultado do contato"/);
+  assert.match(
+    dashboard,
+    /<details className="rdo-nps-dashboard__project-disclosure">/
+  );
+  assert.match(
+    dashboard,
+    /<Modal[\s\S]{0,120}?appearance="design-system"/
+  );
+});
+
+test('dashboard NPS detalhado mantém CSS responsivo, escopado e tokenizado', () => {
+  const css = source('src/components/surveys/SurveyDashboard.ds.css');
+
+  assert.match(css, /\.rdo-nps-dashboard\b/);
+  assert.match(css, /\.rdo-nps-dashboard-modal\b/);
+  assert.match(css, /var\(--/);
+  assert.doesNotMatch(css, /#[\da-f]{3,8}\b/i);
+  assert.doesNotMatch(css, /\brgba?\(/i);
+  assert.doesNotMatch(css, /!important/);
+
+  // Breakpoints oficiais do app e tendência sem carrossel local no mobile.
+  assert.match(css, /@media \(max-width: 767\.98px\)/);
+  assert.match(css, /@media \(min-width: 768px\)/);
+  assert.match(css, /@media \(min-width: 1024px\)/);
+  assert.match(
+    css,
+    /\.survey-dash-trend\s*\{[\s\S]{0,180}?grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/
+  );
+  assert.doesNotMatch(css, /overflow-x:\s*(auto|scroll)/);
+
+  const rules = [...css.matchAll(/([^{}]+)\{/g)]
+    .map((match) => match[1].replace(/\s+/g, ' ').trim())
+    .filter((selector) => selector && !selector.startsWith('@'));
+  for (const selector of rules) {
+    assert.match(
+      selector,
+      /\.rdo-nps-dashboard(?:-modal)?\b/,
+      `seletor fora do escopo do dashboard NPS: ${selector}`
+    );
+  }
 });
