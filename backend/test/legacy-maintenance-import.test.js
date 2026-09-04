@@ -12,6 +12,7 @@ import {
 import { uniqueAssets } from '../scripts/download-legacy-maintenance-assets.js';
 import {
   effectiveProfileSnapshots,
+  exactEquipmentCode,
   maintenanceAuditId,
   maintenanceRecordId,
   normalizeEquipmentCode,
@@ -97,6 +98,7 @@ test('importador usa IDs estáveis e encontra TAGs apesar da pontuação e zeros
   assert.notEqual(maintenanceRecordId(record), maintenanceAuditId(record));
   assert.equal(normalizeEquipmentCode(' UFI-008 '), 'UFI8');
   assert.equal(normalizeEquipmentCode('UFI 8'), 'UFI8');
+  assert.equal(exactEquipmentCode(' uth   001 '), 'UTH 001');
 
   const equipment = { id: 'eq-1', code: 'UFI-8', name: 'Unidade 8' };
   const match = resolveEquipment(
@@ -105,6 +107,19 @@ test('importador usa IDs estáveis e encontra TAGs apesar da pontuação e zeros
   );
   assert.equal(match.status, 'matched');
   assert.equal(match.equipment.id, 'eq-1');
+
+  const ambiguousNormalizedMatch = resolveEquipment(
+    { equipmentCode: 'UTH 001' },
+    new Map([
+      ['UTH1', [
+        { id: 'uth-short', code: 'UTH 01', name: 'Unidade 01 curta' },
+        { id: 'uth-exact', code: 'UTH 001', name: 'Unidade 001 exata' }
+      ]]
+    ])
+  );
+  assert.equal(ambiguousNormalizedMatch.status, 'matched');
+  assert.equal(ambiguousNormalizedMatch.equipment.id, 'uth-exact');
+  assert.equal(ambiguousNormalizedMatch.strategy, 'exact-code');
 });
 
 test('serviços importados mantêm o texto legado e ligam itens atuais equivalentes', () => {
