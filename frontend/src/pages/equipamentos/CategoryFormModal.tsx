@@ -44,6 +44,7 @@ export function CategoryFormModal({ open, category, saving, unitsCatalog, onClos
   const [name, setName] = useState(category?.name || '');
   const [supportsCalibration, setSupportsCalibration] = useState(Boolean(category?.supportsCalibration));
   const [supportsTechnicalDoc, setSupportsTechnicalDoc] = useState(category?.supportsTechnicalDoc ?? true);
+  const [showInMaintenance, setShowInMaintenance] = useState(category?.showInMaintenance ?? true);
   const [syncToRomaneio, setSyncToRomaneio] = useState(Boolean(category?.syncToRomaneio));
   const [checklistEnabled, setChecklistEnabled] = useState(Boolean(category?.checklistEnabled));
   const [checklistDisplayMode, setChecklistDisplayMode] = useState<ChecklistDisplayMode>(category?.checklistDisplayMode || 'AUTO');
@@ -62,6 +63,7 @@ export function CategoryFormModal({ open, category, saving, unitsCatalog, onClos
       name: name.trim(),
       supportsCalibration,
       supportsTechnicalDoc,
+      showInMaintenance,
       syncToRomaneio,
       checklistEnabled,
       checklistDisplayMode,
@@ -124,6 +126,10 @@ export function CategoryFormModal({ open, category, saving, unitsCatalog, onClos
           <label className="equip-toggle">
             <input type="checkbox" checked={technicalDocEnabled} onChange={e => setTechnicalDocEnabled(e.target.checked)} />
             <span>Dados Técnicos (datasheet preenchível)</span>
+          </label>
+          <label className="equip-toggle">
+            <input type="checkbox" checked={showInMaintenance} onChange={e => setShowInMaintenance(e.target.checked)} />
+            <span>Exibir no módulo de manutenção</span>
           </label>
           <label className="equip-toggle">
             <input type="checkbox" checked={syncToRomaneio} onChange={e => setSyncToRomaneio(e.target.checked)} />

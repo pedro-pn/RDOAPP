@@ -1621,6 +1621,7 @@ model EquipmentCategory {
   name                 String // rótulo editável (vira a aba)
   maintenanceProfileId String?
   maintenanceIntervalDays Int?
+  showInMaintenance    Boolean            @default(true)
   order                Int                @default(0)
   fieldSchema          Json               @default("[]") // [{ key, label, type, required, options?, order, showInDashboard? }]
   technicalSchema      Json               @default("[]") // dados técnicos: [{ key, label, type, group?, unit?, options?, repeatable?, itemSchema?, optionalPerEquipment?, showInDoc?, order }]

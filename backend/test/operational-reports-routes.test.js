@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   approveMaintenanceRecords,
   assertCanEditOperationalRecord,
+  loadEquipmentForMaintenance,
 } from "../src/routes/resources/operational-reports.js";
 import operationalReportsRouter from "../src/routes/resources/operational-reports.js";
 import { operationalReportEvent } from "../src/lib/operational-reports/events.js";
@@ -105,6 +106,7 @@ test("programação de manutenção exige permissão e usa somente a última man
   const originalEquipmentFindMany = prisma.companyEquipment.findMany;
   const originalCategoryFindMany = prisma.equipmentCategory.findMany;
   let equipmentArgs = null;
+  let categoryArgs = null;
   prisma.companyEquipment.findMany = async (args) => {
     equipmentArgs = args;
     return [
@@ -126,9 +128,12 @@ test("programação de manutenção exige permissão e usa somente a última man
       },
     ];
   };
-  prisma.equipmentCategory.findMany = async () => [
-    { id: "category-1", name: "UFI", maintenanceIntervalDays: 30 },
-  ];
+  prisma.equipmentCategory.findMany = async (args) => {
+    categoryArgs = args;
+    return [
+      { id: "category-1", name: "UFI", maintenanceIntervalDays: 30 },
+    ];
+  };
   try {
     const response = await invokeForJson(handler, {
       query: { q: "ufi", categoryId: "category-1", pageSize: "10" },
@@ -146,6 +151,13 @@ test("programação de manutenção exige permissão e usa somente a última man
     assert.equal(response.value.categories[0].maintenanceIntervalDays, 30);
     assert.equal(equipmentArgs.where.isActive, true);
     assert.equal(equipmentArgs.where.categoryId, "category-1");
+    assert.deepEqual(equipmentArgs.where.category, {
+      is: { isActive: true, showInMaintenance: true },
+    });
+    assert.deepEqual(categoryArgs.where, {
+      isActive: true,
+      showInMaintenance: true,
+    });
     assert.deepEqual(equipmentArgs.select.maintenanceRecords.where, {
       status: "APPROVED",
     });
@@ -154,6 +166,33 @@ test("programação de manutenção exige permissão e usa somente a última man
     prisma.companyEquipment.findMany = originalEquipmentFindMany;
     prisma.equipmentCategory.findMany = originalCategoryFindMany;
   }
+});
+
+test("equipamento de categoria oculta não aceita uma nova manutenção", async () => {
+  const database = {
+    companyEquipment: {
+      findFirst: async () => ({
+        id: "equipment-hidden",
+        isActive: true,
+        category: {
+          showInMaintenance: false,
+          maintenanceProfile: {
+            id: "profile-1",
+            name: "Perfil",
+            isActive: true,
+            items: [],
+          },
+        },
+        maintenanceProfileOverride: false,
+        maintenanceProfile: null,
+      }),
+    },
+  };
+
+  await assert.rejects(
+    loadEquipmentForMaintenance(database, "equipment-hidden"),
+    /não está disponível no módulo de manutenção/,
+  );
 });
 
 test("histórico consolidado exige permissão de manutenção e consulta todas as origens aprovadas", async () => {
@@ -351,6 +390,44 @@ test("contexto do módulo rejeita acesso sem permissão de área", async () => {
   });
   assert.equal(error.statusCode, 403);
   assert.match(error.message, /Sem permissão/);
+});
+
+test("contexto do módulo consulta somente categorias habilitadas para manutenção", async () => {
+  const originalFindConfiguration = prisma.maintenanceConfiguration.findUnique;
+  const originalProjectFindMany = prisma.project.findMany;
+  const originalCollaboratorFindMany = prisma.collaborator.findMany;
+  const originalEquipmentFindMany = prisma.companyEquipment.findMany;
+  let equipmentArgs = null;
+  prisma.maintenanceConfiguration.findUnique = async () => null;
+  prisma.project.findMany = async () => [];
+  prisma.collaborator.findMany = async () => [];
+  prisma.companyEquipment.findMany = async (args) => {
+    equipmentArgs = args;
+    return [];
+  };
+  try {
+    const response = await invokeForJson(routeHandler("/context", "get"), {
+      auth: {
+        user: {
+          id: "maintenance-user",
+          accountType: "INTERNAL",
+          reportEmissionPermissions: ["MAINTENANCE"],
+        },
+      },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(equipmentArgs.where, {
+      isActive: true,
+      category: {
+        is: { isActive: true, showInMaintenance: true },
+      },
+    });
+  } finally {
+    prisma.maintenanceConfiguration.findUnique = originalFindConfiguration;
+    prisma.project.findMany = originalProjectFindMany;
+    prisma.collaborator.findMany = originalCollaboratorFindMany;
+    prisma.companyEquipment.findMany = originalEquipmentFindMany;
+  }
 });
 
 test("upload de manutenção rejeita conteúdo que não seja uma imagem válida", async () => {
