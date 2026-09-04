@@ -216,6 +216,8 @@ export function NewReportSpecialConditions({
             </div>
             <div className="cadd">
               <input
+                id={`rdo-dds-custom-theme-${shift}`}
+                aria-label={`Adicionar tema personalizado do DDS (${shift === 'night' ? 'noturno' : 'diurno'})`}
                 value={customInput}
                 placeholder="Tema fora da lista? Digite aqui..."
                 onChange={(event) =>
@@ -269,10 +271,11 @@ export function NewReportSpecialConditions({
               className={fieldState('header:standbyDuration')}
               data-invalid-target="header:standbyDuration"
             >
-              <label>
+              <label htmlFor="rdo-standby-duration">
                 Tempo total <span style={{ color: 'var(--rd)' }}>*</span>
               </label>
               <input
+                id="rdo-standby-duration"
                 type="time"
                 step={60}
                 value={standbyDuration}
@@ -285,10 +288,11 @@ export function NewReportSpecialConditions({
               className={fieldState('header:standbyMotivo')}
               data-invalid-target="header:standbyMotivo"
             >
-              <label>
+              <label htmlFor="rdo-standby-reason">
                 Motivo <span style={{ color: 'var(--rd)' }}>*</span>
               </label>
               <input
+                id="rdo-standby-reason"
                 type="text"
                 placeholder="Motivo..."
                 value={standbyMotivo}
