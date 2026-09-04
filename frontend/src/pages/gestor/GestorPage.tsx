@@ -3779,13 +3779,36 @@ export function GestorPage() {
       <Modal
         open={manualReportModalOpen}
         onClose={closeManualReportModal}
-        ariaLabelledBy="manual-report-upload-title"
-        panelClassName="modal-card manual-report-modal"
+        appearance="design-system"
+        size="lg"
+        title={replacing ? 'Editar relatório manual' : 'Upload de relatório antigo'}
+        backdropClassName="rdo-manager-manual-report-dialog-backdrop"
+        panelClassName="rdo-manager-manual-report-dialog"
+        fullscreenOnMobile={false}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              disabled={submitting}
+              onClick={closeManualReportModal}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              form="manual-report-form"
+              disabled={submitting || (replacing ? !manualReportForm.projectId : !manualReportForm.files.length)}
+            >
+              {submitting ? 'Salvando...' : replacing ? 'Salvar alterações' : manualReportForm.files.length > 1 ? 'Adicionar relatórios' : 'Adicionar relatório'}
+            </Button>
+          </>
+        }
       >
-        <form className="admin-form admin-form-grid manual-report-form" onSubmit={handleManualReportSubmit}>
-          <div className="section-title" id="manual-report-upload-title">
-            {replacing ? 'Editar relatório manual' : 'Upload de relatório antigo'}
-          </div>
+        <form id="manual-report-form" className="admin-form admin-form-grid manual-report-form" onSubmit={handleManualReportSubmit}>
           <div className="field-group">
             <label htmlFor="manual-report-project">Projeto</label>
             <select
@@ -3926,14 +3949,6 @@ export function GestorPage() {
               })}
             </div>
           ) : null}
-          <div className="admin-form-actions manual-report-actions">
-            <button className="secondary-button" type="button" disabled={submitting} onClick={closeManualReportModal}>
-              Cancelar
-            </button>
-            <button className="primary-button" type="submit" disabled={submitting || (replacing ? !manualReportForm.projectId : !manualReportForm.files.length)}>
-              {submitting ? 'Salvando...' : replacing ? 'Salvar alterações' : manualReportForm.files.length > 1 ? 'Adicionar relatórios' : 'Adicionar relatório'}
-            </button>
-          </div>
         </form>
       </Modal>
     );
@@ -6904,16 +6919,12 @@ export function GestorPage() {
       <Modal
         open={showSurveyQuestionEditor}
         onClose={() => setShowSurveyQuestionEditor(false)}
-        ariaLabelledBy="survey-question-editor-title"
-        panelClassName="modal-card survey-question-editor-modal"
+        appearance="design-system"
+        size="lg"
+        title="Editar pesquisa NPS"
+        panelClassName="rdo-manager-survey-editor-dialog"
       >
         <form className="admin-form survey-question-editor-form" onSubmit={handleSurveyQuestionsSubmit}>
-          <div className="survey-question-editor-head">
-            <div className="section-title" id="survey-question-editor-title">Editar pesquisa NPS</div>
-            <button className="mini-btn alt" type="button" onClick={() => setShowSurveyQuestionEditor(false)}>
-              Fechar
-            </button>
-          </div>
           <div className="survey-question-suggestions">
             <span>Adicionar sugestão:</span>
             {suggestedSurveyQuestions.map(template => (

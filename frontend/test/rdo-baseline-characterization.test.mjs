@@ -398,11 +398,20 @@ test('coordinator, manager and client tabs keep their current query filters and 
 test('incremental report loading keeps lazy ensure, skeleton, error and retry states', () => {
   const groupedList = source('src/components/reports/GroupedReportList.tsx');
   const reportHooks = source('src/hooks/useReports.ts');
+  const baseCss = source('src/styles/base.css');
 
   assert.match(groupedList, /new IntersectionObserver/);
   assert.match(groupedList, /rootMargin = '400px'/);
   assert.match(groupedList, /<LazyTypeEnsure/);
   assert.match(groupedList, /report-type-skeleton/);
+  assert.match(
+    baseCss,
+    /\.skeleton\s*\{[^}]*var\(--surface-2\)[^}]*var\(--skeleton-highlight\)[^}]*var\(--surface-2\)/
+  );
+  assert.doesNotMatch(
+    baseCss,
+    /\.skeleton\s*\{[^}]*#[\da-f]{3,8}\b[^}]*\}/i
+  );
   assert.match(
     groupedList,
     /Não foi possível carregar os relatórios desta aba/

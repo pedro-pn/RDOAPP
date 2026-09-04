@@ -361,3 +361,20 @@ test('other RDO profiles share the new shell and responsive report listing', () 
   assert.match(client, /<MetricCard\b/);
   assert.doesNotMatch(client, /layout\/Shell|<Shell\b/);
 });
+
+test('upload manual usa modal DS e campos tokenizados no tema escuro', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+  const css = source('src/pages/gestor/GestorPage.ds.css');
+
+  assert.match(
+    page,
+    /<Modal[\s\S]{0,220}?open=\{manualReportModalOpen\}[\s\S]{0,220}?appearance="design-system"/
+  );
+  assert.match(page, /panelClassName="rdo-manager-manual-report-dialog"/);
+  assert.match(page, /form="manual-report-form"/);
+  assert.match(
+    css,
+    /\.rdo-manager-manual-report-dialog[\s\S]*?\.pdf-dropzone \{[\s\S]*?background: var\(--surface-2\)[\s\S]*?color: var\(--ink\)/
+  );
+  assert.doesNotMatch(page, /panelClassName="modal-card manual-report-modal"/);
+});

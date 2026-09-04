@@ -26,13 +26,13 @@ test('tutorial do cliente mantém seletores Driver.js com produtores no DOM do R
     '.det-section',
     '.filter-tabs[aria-label="Tipos de relatório"]',
     '.client-report-card',
-    '.client-report-card .secondary-button',
+    '.client-report-card .fv-button--secondary',
     '.client-report-comment textarea',
-    '.client-report-actions .primary-button',
-    '.client-report-actions .danger-button',
+    '.client-report-actions .fv-button--primary',
+    '.client-report-actions .fv-button--danger',
     '.signature-progress',
     '.report-batch-toolbar',
-    '.topbar-chip'
+    '.fv-topbar-profile:not(:disabled)'
   ];
 
   assertIncludesAll(tutorial, requiredSelectors, 'ClientTutorial');
@@ -48,7 +48,9 @@ test('tutorial do cliente mantém seletores Driver.js com produtores no DOM do R
       'className="field-group client-report-comment"',
       'className="client-report-actions"',
       'className="report-batch-toolbar',
-      'className="topbar-chip"'
+      'variant="secondary"',
+      'variant="primary"',
+      'variant="danger"'
     ],
     'ClientPage'
   );

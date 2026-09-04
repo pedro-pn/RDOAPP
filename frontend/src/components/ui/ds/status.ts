@@ -6,7 +6,7 @@ export type StatusToneMap = Readonly<Record<string, SemanticTone>>;
 export const statusToTone: StatusToneMap = {
   aprovado: 'success',
   concluido: 'success',
-  assinado: 'success',
+  assinado: 'info',
   ativo: 'success',
   valido: 'success',
   pendente: 'warning',

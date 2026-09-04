@@ -746,14 +746,19 @@ export function ClientPage() {
     const specialRejection = activeSpecialRejection(report);
     const rejectionComments = new Set(rejections.map(review => normalizeClientComment(review.comment)));
     const specialRejectionComment = normalizeClientComment(specialRejection?.comment);
+    const approvalComments = (report.clientReviews || [])
+      .filter(review => review.action === 'APPROVED')
+      .map(review => ({ review, comment: normalizeClientComment(review.comment) }))
+      .filter(item => item.comment)
+      .slice(0, 3);
     const serviceOnly = report.specialConditions?.serviceOnly === true;
     const subtitle = clientRejected
-      ? 'Reprovado. Aguarde a alteração do gestor.'
+      ? 'Aguardando correção do gestor'
       : report.reportType === 'RDO'
-        ? 'RDO pronto para conferência do cliente'
+        ? signable ? 'Pronto para assinar' : 'Disponível para consulta'
         : serviceOnly
-          ? 'Relatório de serviço liberado pelo gestor'
-          : 'Relatório de serviço liberado após assinatura do RDO';
+          ? 'Liberado pelo gestor'
+          : 'Liberado após a assinatura do RDO';
 
     return (
       <article
@@ -779,7 +784,10 @@ export function ClientPage() {
             ) : null}
             <div className="client-report-copy">
               <div className="admin-card-title">{reportLabel(report)} - {formatDate(report.reportDate)}</div>
-              <div className="admin-card-subtitle">{report.createdBy?.name || '-'} - {subtitle}</div>
+              <div className="admin-card-subtitle">
+                {report.createdBy?.name ? <span className="client-report-author">{report.createdBy.name}</span> : null}
+                <span className="client-report-context">{subtitle}</span>
+              </div>
             </div>
           </div>
           <StatusPill
@@ -791,29 +799,34 @@ export function ClientPage() {
           />
         </div>
         <div className="client-report-actions" onClick={event => event.stopPropagation()}>
-          <Button variant="secondary" size="sm" type="button" onClick={() => void handleDownloadPdf(report)}>
-            Baixar PDF
-          </Button>
           {signable ? (
-            <>
-              <div className="field-group client-report-comment">
-                <label htmlFor={`client-review-comment-${report.id}`}>Comentário do cliente</label>
-                <textarea
-                  id={`client-review-comment-${report.id}`}
-                  rows={3}
-                  placeholder="Comentário opcional que será exibido no relatório final"
-                  value={commentsById[report.id] || ''}
-                  onChange={event => setCommentsById(current => ({ ...current, [report.id]: event.target.value }))}
-                />
-              </div>
-              <Button variant="primary" size="sm" type="button" onClick={() => void handleRequestSignature(report)}>
-                Assinar digitalmente
-              </Button>
-              <Button variant="danger" size="sm" type="button" onClick={() => void handleReject(report)}>
-                {TEXT.reject}
-              </Button>
-            </>
+            <div className="field-group client-report-comment">
+              <label htmlFor={`client-review-comment-${report.id}`}>Comentário do cliente</label>
+              <textarea
+                id={`client-review-comment-${report.id}`}
+                rows={3}
+                placeholder="Comentário opcional que será exibido no relatório final"
+                value={commentsById[report.id] || ''}
+                onChange={event => setCommentsById(current => ({ ...current, [report.id]: event.target.value }))}
+              />
+            </div>
           ) : null}
+          <div className="client-report-action-buttons">
+            <Button variant="secondary" size="sm" type="button" onClick={() => void handleDownloadPdf(report)}>
+              Baixar PDF
+            </Button>
+            {signable ? (
+              <>
+                <Button variant="primary" size="sm" type="button" onClick={() => void handleRequestSignature(report)}>
+                  <span className="client-report-action-label--full">Assinar digitalmente</span>
+                  <span className="client-report-action-label--compact">Assinar</span>
+                </Button>
+                <Button variant="danger" size="sm" type="button" onClick={() => void handleReject(report)}>
+                  {TEXT.reject}
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
         <SignatureProgress report={report} />
         {rejections.length || specialRejectionComment ? (
@@ -835,12 +848,12 @@ export function ClientPage() {
             ) : null}
           </div>
         ) : null}
-        {report.clientReviews?.some(review => review.action === 'APPROVED') ? (
+        {approvalComments.length ? (
           <div className="det-section">
-            {report.clientReviews.filter(review => review.action === 'APPROVED').slice(0, 3).map(review => (
+            {approvalComments.map(({ review, comment }) => (
               <div className="det-row" key={review.id}>
-                <span className="det-label">Aprovado</span>
-                <span className="det-val">{normalizeClientComment(review.comment) || 'Sem comentário'}</span>
+                <span className="det-label">Comentário da aprovação</span>
+                <span className="det-val">{comment}</span>
               </div>
             ))}
           </div>
@@ -981,19 +994,19 @@ export function ClientPage() {
         <Card className="client-welcome-card" padding="md">
           <div className="client-welcome-title">{user?.name || 'Cliente'}</div>
           <div className="client-welcome-subtitle">
-            Acompanhe os relatórios liberados e registre a aprovação do cliente.
+            Acompanhe os relatórios liberados e registre sua avaliação.
           </div>
           <div className="client-welcome-meta">
-            <span className="topbar-chip"><strong>Usuário:</strong> {formatCnpj(user?.username) || user?.username || '—'}</span>
+            <span><strong>Usuário:</strong> {formatCnpj(user?.username) || user?.username || '—'}</span>
             <span><strong>E-mail:</strong> {user?.email || '—'}</span>
-            <span><strong>Projetos nesta página:</strong> {reportSummary.projectCount}</span>
+            <span><strong>Projetos:</strong> {reportSummary.projectCount}</span>
           </div>
         </Card>
 
         <section className="stats-grid" aria-label={TEXT.summary}>
-          <MetricCard label={TEXT.availableReports} value={reportSummary.total} tone="brand" icon={<AppIcon icon={DS_ICONS.fileText} size="md" />} />
-          <MetricCard label="Aprovados na página" value={reportSummary.approved} tone="info" icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />} />
-          <MetricCard label="Assinados na página" value={reportSummary.signed} tone="success" icon={<AppIcon icon={DS_ICONS.users} size="md" />} />
+          <MetricCard label="Disponíveis" value={reportSummary.total} tone="brand" icon={<AppIcon icon={DS_ICONS.fileText} size="md" />} />
+          <MetricCard label="Aprovados" value={reportSummary.approved} tone="success" icon={<AppIcon icon={DS_ICONS.alertSuccess} size="md" />} />
+          <MetricCard label="Assinados" value={reportSummary.signed} tone="info" icon={<AppIcon icon={DS_ICONS.users} size="md" />} />
         </section>
 
         {reportsQuery.isLoading || archivedProjectsQuery.isLoading ? <ReportListSkeleton /> : null}

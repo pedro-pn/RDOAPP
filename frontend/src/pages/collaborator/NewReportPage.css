@@ -639,6 +639,24 @@
   gap: var(--space-3);
 }
 
+/* O bloco de anexos vive dentro da seção do serviço; uma segunda superfície
+   criava um card claro no tema escuro e desperdiçava largura no mobile. */
+.rdo-form-page .upload-field {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.rdo-form-page .upload-field-label {
+  color: var(--ink);
+}
+
+.rdo-form-page .upload-field-count {
+  color: var(--muted);
+}
+
 .rdo-form-page .upload-dropzone {
   display: flex;
   min-width: 0;
@@ -698,6 +716,18 @@
   line-height: var(--leading-xs);
 }
 
+.rdo-form-page .upload-previous-note {
+  border-color: var(--warning-line);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.rdo-form-page .upload-final-note {
+  border-color: var(--success-line);
+  background: var(--success-bg);
+  color: var(--success);
+}
+
 .rdo-form-page .upload-list-item {
   display: flex;
   min-width: 0;
@@ -721,9 +751,23 @@
 }
 
 .rdo-form-page a.upload-list-name {
-  color: var(--bl);
+  color: var(--info);
   text-decoration: underline;
   text-underline-offset: var(--space-1);
+}
+
+.rdo-form-page .upload-list-thumb {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+.rdo-form-page .upload-previous-badge {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.rdo-form-page .upload-remove-button {
+  color: var(--danger);
 }
 
 .rdo-form-page .rdo-overtime-summary {

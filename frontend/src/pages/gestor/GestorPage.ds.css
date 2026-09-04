@@ -2003,6 +2003,143 @@
 /* A edição acontece dentro de um card que já possui padding. No mobile, uma
    densidade própria evita somar a escala do formulário desktop à do card e
    devolve largura útil aos campos que continuam organizados em duas colunas. */
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  .admin-inline-form {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.admin-inline-form, .rdo-manager-projects__legacy-form)
+  .field-group
+  > label {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.admin-inline-form, .rdo-manager-projects__legacy-form)
+  :where(input:not([type='checkbox']), select, textarea) {
+  border-color: var(--line-strong);
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.admin-inline-form, .rdo-manager-projects__legacy-form)
+  :where(input:not([type='checkbox']), select, textarea):focus {
+  border-color: var(--brand);
+  background-color: var(--surface);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--brand-soft);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.admin-inline-form, .rdo-manager-projects__legacy-form)
+  :where(input, textarea)::placeholder {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.admin-inline-form, .rdo-manager-projects__legacy-form)
+  option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .cc-list {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .cc-list-header {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  :where(.cc-row, .cc-add-row) {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .cc-email {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .cc-name-row
+  label {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .project-sequence-field {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .project-sequence-field
+  > span {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .project-sequence-field
+  > input {
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .tog-lbl {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .tog-sl {
+  border: var(--border-width) solid var(--line-strong);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .tog-sl::after {
+  background: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .tog
+  input:checked
+  + .tog-sl {
+  border-color: var(--brand);
+  background: var(--brand);
+}
+
+:where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
+  :where(.rdo-project-edit-form, .rdo-manager-projects__legacy-form)
+  .tog
+  input:checked
+  + .tog-sl::after {
+  background: var(--on-brand);
+}
+
 @media (max-width: 768px) {
   :where(.fv-ds, [data-fv-ds]).rdo-manager-projects-page
     .rdo-project-edit-form {
@@ -2108,6 +2245,271 @@
     .admin-form-actions
     .fv-button {
     flex: 1 1 0;
+  }
+}
+
+/* ── Diálogos administrativos ainda baseados nos formulários legados ───────
+   Uploads manuais e a configuração do NPS agora usam a moldura do DS. Estes
+   seletores traduzem apenas os controles internos restantes para tokens, sem
+   mudar dados, validações ou ordem dos fluxos. */
+:where(.fv-ds, [data-fv-ds]).rdo-manager-manual-report-dialog-backdrop {
+  align-items: center;
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-manual-report-dialog {
+  max-height: calc(100dvh - var(--space-8));
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-manual-report-dialog
+  .manual-report-form {
+  gap: var(--space-4);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :is(.rdo-manager-manual-report-dialog, .rdo-manager-survey-editor-dialog)
+  .field-group
+  > label {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :is(.rdo-manager-manual-report-dialog, .rdo-manager-survey-editor-dialog)
+  .field-group
+  :where(input:not([type='checkbox']), select, textarea) {
+  border-color: var(--line-strong);
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :is(.rdo-manager-manual-report-dialog, .rdo-manager-survey-editor-dialog)
+  .field-group
+  :where(input:not([type='checkbox']), select, textarea):focus {
+  border-color: var(--brand);
+  background-color: var(--surface);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--brand-soft);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :is(.rdo-manager-manual-report-dialog, .rdo-manager-survey-editor-dialog)
+  :where(input, textarea)::placeholder {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  :is(.rdo-manager-manual-report-dialog, .rdo-manager-survey-editor-dialog)
+  option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-manual-report-dialog
+  .pdf-dropzone {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-manual-report-dialog
+  :where(.pdf-dropzone-icon, .pdf-dropzone-text strong) {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-manual-report-dialog
+  .pdf-dropzone-text small {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-manual-report-dialog
+  .manual-report-file-card {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-manual-report-dialog
+  .manual-report-file-name {
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds]) .rdo-manager-survey-editor-dialog {
+  height: min(760px, calc(100dvh - var(--space-8)));
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .fv-modal__body {
+  display: flex;
+  min-height: 0;
+  padding: 0;
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-editor-form {
+  width: 100%;
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-suggestions {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-suggestions
+  > span {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-editor-list {
+  background: var(--surface-2);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-card {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-e1);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-card.drag-placeholder {
+  border-color: var(--brand);
+  background: var(--brand-softer);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  :where(.survey-question-drag-handle, .checkbox-line) {
+  color: var(--muted);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-drag-handle:active {
+  border-color: var(--brand);
+  background: var(--brand-softer);
+  color: var(--brand-text);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-scale-dot {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  :where(.mini-btn.alt, .secondary-button) {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  :where(.mini-btn.alt, .secondary-button):hover {
+  border-color: var(--brand);
+  background: var(--brand-softer);
+  color: var(--brand-text);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .survey-question-editor-actions {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+:where(.fv-ds, [data-fv-ds])
+  .rdo-manager-survey-editor-dialog
+  .colab-tag {
+  background: var(--brand-soft);
+  color: var(--brand-text);
+}
+
+@media (max-width: 768px) {
+  :where(.fv-ds, [data-fv-ds]).rdo-manager-manual-report-dialog-backdrop {
+    padding: var(--space-4);
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-manual-report-dialog {
+    width: min(100%, var(--fv-modal-width));
+    height: auto;
+    max-height: calc(100dvh - var(--space-8));
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-manual-report-dialog
+    .fv-modal__footer {
+    align-items: stretch;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-manual-report-dialog
+    .fv-modal__footer
+    .fv-button {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  :where(.fv-ds, [data-fv-ds]) .rdo-manager-survey-editor-dialog {
+    height: 100dvh;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-survey-editor-dialog
+    .survey-question-card
+    .admin-inline-grid {
+    grid-template-columns: var(--space-8) minmax(0, 1fr);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-survey-editor-dialog
+    .survey-question-card
+    :where(.survey-question-type-field, .checkbox-line) {
+    grid-column: 1 / -1;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-survey-editor-dialog
+    .survey-question-card
+    .field-group-wide {
+    grid-column: 2 / -1;
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-survey-editor-dialog
+    .admin-form-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  :where(.fv-ds, [data-fv-ds])
+    .rdo-manager-survey-editor-dialog
+    .admin-form-actions
+    > button {
+    width: 100%;
   }
 }
 

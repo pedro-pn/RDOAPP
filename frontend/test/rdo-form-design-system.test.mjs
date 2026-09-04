@@ -176,8 +176,23 @@ test('upload de PDF e foco dos campos preservam contraste e contorno', () => {
   const css = source('src/pages/collaborator/NewReportPage.css');
   const legacyCss = source('src/styles/base.css');
 
-  assert.match(legacyCss, /\.dark \.pdf-dropzone \{/);
-  assert.match(legacyCss, /\.dark \.pdf-dropzone\.has-file \{/);
+  assert.match(
+    legacyCss,
+    /\.dark \.pdf-dropzone,\s*\.dark \.upload-dropzone \{/
+  );
+  assert.match(
+    legacyCss,
+    /\.dark \.pdf-dropzone\.has-file,?[\s\S]{0,100}?\.dark \.upload-dropzone\.has-file \{/
+  );
+  assert.match(
+    css,
+    /\.rdo-form-page \.upload-field \{[\s\S]*?border: 0;[\s\S]*?background: transparent;/
+  );
+  assert.match(
+    css,
+    /\.rdo-form-page \.upload-previous-note \{[\s\S]*?background: var\(--warning-bg\)[\s\S]*?color: var\(--warning\)/
+  );
+  assert.match(css, /\.rdo-form-page a\.upload-list-name \{[\s\S]*?color: var\(--info\)/);
   assert.match(css, /\.fv-ds\.rdo-form-page \.report-services-step/);
   assert.match(css, /overflow: visible/);
   assert.match(css, /min-height: calc\(var\(--space-10\) - var\(--space-1\)\)/);

@@ -422,5 +422,25 @@ test('Edição de projeto usa densidade compacta e ações em uma linha no mobil
   assert.match(compactForm, /min-height: calc\(var\(--space-8\) \+ 2px\)/);
   assert.match(compactForm, /\.admin-form-actions\s*\{[\s\S]*?flex-wrap: nowrap/);
   assert.match(compactForm, /\.admin-form-actions\s+\.fv-button\s*\{[\s\S]*?flex: 1 1 0/);
+  assert.match(
+    compactForm,
+    /\.admin-inline-form\s*\{[\s\S]*?border-color: var\(--line\)[\s\S]*?background: var\(--surface-2\)[\s\S]*?color: var\(--ink\)/
+  );
+  assert.match(
+    compactForm,
+    /input:not\(\[type='checkbox'\]\), select, textarea\) \{[\s\S]*?background-color: var\(--surface\)[\s\S]*?color: var\(--ink\)/
+  );
+  assert.match(
+    compactForm,
+    /\.cc-list \{[\s\S]*?background: var\(--surface\)[\s\S]*?color: var\(--ink\)/
+  );
+  assert.match(
+    compactForm,
+    /\.project-sequence-field \{[\s\S]*?background: var\(--surface\)[\s\S]*?color: var\(--ink\)/
+  );
+  assert.match(
+    compactForm,
+    /\.tog-lbl \{[\s\S]*?color: var\(--ink\)/
+  );
   assert.doesNotMatch(compactForm, /!important/);
 });

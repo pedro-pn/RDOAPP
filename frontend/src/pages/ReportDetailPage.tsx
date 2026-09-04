@@ -26,8 +26,6 @@ import { SIGNATURE_RDO_NOTICE_VERSION } from '../constants/privacy';
 import { useReportDetailBootstrap } from '../hooks/useBootstrap';
 import { pageScrollRestoreStateFromNavigation } from '../hooks/usePageScrollRestoration';
 import { useReport, useReportAudit, useReportMutations } from '../hooks/useReports';
-import { Shell } from '../layout/Shell';
-import { TopBar } from '../layout/TopBar';
 import { AppShell } from '../layout/AppShell';
 import { createNavigationModel } from '../layout/navigationModel';
 import { PageHeader } from '../layout/PageHeader';
@@ -42,8 +40,10 @@ import {
   IconButton,
   Input,
   Select,
+  StatusPill,
   Switch,
-  Textarea
+  Textarea,
+  type StatusToneMap
 } from '../components/ui/ds';
 import { DS_ICONS } from '../components/ui/ds/icons';
 import { clearStagedUploadDeletions, flushStagedUploadDeletions } from '../components/ui/photoDeletionStaging';
@@ -1531,47 +1531,52 @@ function ReportDetailActions({ report, role }: { report: ReportSummary; role?: s
 
   return (
     <>
-      <div className="detail-action-bar">
-        <button className="primary-button" type="button" onClick={() => void handleDownload('pdf')}>
+      <div className="rdo-report-detail-actions">
+        {canClientSign ? (
+          <div className="rdo-report-detail-comment">
+            <label htmlFor={`detail-client-review-comment-${report.id}`}>Comentário do cliente</label>
+            <Textarea
+              id={`detail-client-review-comment-${report.id}`}
+              size="md"
+              rows={3}
+              placeholder="Comentário opcional que será exibido no relatório final"
+              value={clientComment}
+              onChange={event => setClientComment(event.target.value)}
+            />
+          </div>
+        ) : null}
+        <Button variant="primary" size="sm" type="button" onClick={() => void handleDownload('pdf')}>
           PDF
-        </button>
+        </Button>
         {canDownloadDocx ? (
-          <button className="secondary-button" type="button" onClick={() => void handleDownload('docx')}>
+          <Button variant="secondary" size="sm" type="button" onClick={() => void handleDownload('docx')}>
             DOCX
-          </button>
+          </Button>
         ) : null}
         {canEditSequence ? (
-          <button
-            className="secondary-button"
+          <Button
+            variant="secondary"
+            size="sm"
             type="button"
             disabled={reportMutations.updateSequence.isPending}
             onClick={openSequenceEdit}
           >
             Alterar nº
-          </button>
+          </Button>
         ) : null}
         {canClientSign ? (
           <>
-            <div className="field-group client-report-comment detail-client-comment">
-              <label htmlFor={`detail-client-review-comment-${report.id}`}>Comentário do cliente</label>
-              <textarea
-                id={`detail-client-review-comment-${report.id}`}
-                rows={3}
-                placeholder="Comentário opcional que será exibido no relatório final"
-                value={clientComment}
-                onChange={event => setClientComment(event.target.value)}
-              />
-            </div>
-            <button
-              className="primary-button"
+            <Button
+              variant="primary"
+              size="sm"
               type="button"
               onClick={() => setSignatureOpen(true)}
             >
               Assinar digitalmente
-            </button>
-            <button className="secondary-button" type="button" onClick={() => setClientRejectOpen(true)}>
+            </Button>
+            <Button variant="danger" size="sm" type="button" onClick={() => setClientRejectOpen(true)}>
               {TEXT.rejectClient}
-            </button>
+            </Button>
           </>
         ) : null}
       </div>
@@ -1583,12 +1588,14 @@ function ReportDetailActions({ report, role }: { report: ReportSummary; role?: s
         confirmLabel={TEXT.rejectClient}
         requiredMessage={TEXT.rejectClientRequired}
         isSubmitting={reportMutations.clientReview.isPending}
+        appearance="design-system"
         onCancel={() => setClientRejectOpen(false)}
         onConfirm={reason => void handleClientReject(reason)}
       />
       <SignatureDialog
         open={signatureOpen}
         title="Assinar relatório"
+        appearance="design-system"
         initialSignerName={initialSignerName}
         allowCachedSignerName={Boolean(initialSignerName)}
         cacheIdentity={user?.email || user?.username || user?.id || ''}
@@ -1612,16 +1619,18 @@ function ReportDetailActions({ report, role }: { report: ReportSummary; role?: s
       <Modal
         open={sequenceEditOpen}
         onClose={closeSequenceEdit}
+        appearance="design-system"
+        title="Alterar numeração"
+        size="sm"
         ariaLabelledBy="detail-sequence-edit-title"
       >
-        <form className="admin-form" onSubmit={handleSequenceEditSubmit}>
-          <div className="section-title" id="detail-sequence-edit-title">Alterar numeração</div>
+        <form className="rdo-report-sequence-form" onSubmit={handleSequenceEditSubmit}>
           <p className="placeholder-copy">
             Informe o novo número para {report.reportType}{report.sequenceNumber ? ` ${report.sequenceNumber}` : ''}.
           </p>
-          <div className="field-group">
+          <div className="rdo-report-detail-field">
             <label htmlFor="detail-sequence-edit-input">Novo número</label>
-            <input
+            <Input
               id="detail-sequence-edit-input"
               type="number"
               min={1}
@@ -1632,18 +1641,19 @@ function ReportDetailActions({ report, role }: { report: ReportSummary; role?: s
               required
             />
           </div>
-          <div className="admin-form-actions sequence-dialog-actions">
-            <button
-              className="secondary-button"
+          <div className="rdo-report-sequence-actions">
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
               disabled={reportMutations.updateSequence.isPending}
               onClick={closeSequenceEdit}
             >
               Cancelar
-            </button>
-            <button className="primary-button" type="submit" disabled={reportMutations.updateSequence.isPending}>
+            </Button>
+            <Button variant="primary" size="sm" type="submit" disabled={reportMutations.updateSequence.isPending}>
               {reportMutations.updateSequence.isPending ? 'Salvando...' : 'Salvar número'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
@@ -1656,6 +1666,13 @@ const statusLabels: Record<string, string> = {
   RETURNED: 'Devolvido',
   APPROVED: 'Aprovado',
   SIGNED: 'Assinado'
+};
+
+const reportStatusTones: StatusToneMap = {
+  pending: 'warning',
+  returned: 'danger',
+  approved: 'success',
+  signed: 'info'
 };
 
 function ServiceSummaryRow({ service, index }: { service: NonNullable<ReportSummary['services']>[number]; index: number }) {
@@ -1711,7 +1728,7 @@ function ServiceSummaryRow({ service, index }: { service: NonNullable<ReportSumm
   if (notes) rows.push({ label: 'Observações', value: notes });
 
   return (
-    <article className="admin-card-react">
+    <Card className="rdo-report-detail-service" padding="sm" elevation="none">
       <div className="admin-card-title">{index + 1}. {label}</div>
       {rows.length ? (
         <div className="detail-grid" style={{ marginTop: 8 }}>
@@ -1723,7 +1740,7 @@ function ServiceSummaryRow({ service, index }: { service: NonNullable<ReportSumm
           ))}
         </div>
       ) : null}
-    </article>
+    </Card>
   );
 }
 
@@ -1779,8 +1796,7 @@ function ReportAuditHistory({ reportId }: { reportId: string }) {
   const logs = auditQuery.data || [];
 
   return (
-    <section className="page-card report-audit-section">
-      <div className="section-title">{TEXT.reportAudit}</div>
+    <Card className="rdo-report-detail-card report-audit-section" padding="md" title={TEXT.reportAudit}>
       {auditQuery.isLoading ? <p className="placeholder-copy">Carregando auditoria...</p> : null}
       {auditQuery.isError ? (
         <p className="inline-error">
@@ -1821,7 +1837,7 @@ function ReportAuditHistory({ reportId }: { reportId: string }) {
           })}
         </div>
       ) : null}
-    </section>
+    </Card>
   );
 }
 
@@ -1882,8 +1898,7 @@ function DerivedReportDetails({ report }: { report: ReportSummary }) {
   if (!rows.length) return null;
 
   return (
-    <section className="page-card">
-      <div className="section-title">Dados do {report.reportType}</div>
+    <Card className="rdo-report-detail-card" padding="md" title={`Dados do ${report.reportType}`}>
       <div className="detail-grid">
         {rows.map(row => (
           <div key={row.label}>
@@ -1892,7 +1907,7 @@ function DerivedReportDetails({ report }: { report: ReportSummary }) {
           </div>
         ))}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -1936,23 +1951,31 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
 
   return (
     <>
-      <section className="page-card">
-        <div className="section-title">{TEXT.generalInfo}</div>
+      <Card className="rdo-report-detail-card" padding="md" title={TEXT.generalInfo}>
         <div className="detail-grid">
           <div><span className="detail-label">{TEXT.project}</span><span className="detail-value">{report.project.name}</span></div>
           <div><span className="detail-label">{TEXT.code}</span><span className="detail-value">{report.project.code}</span></div>
           <div><span className="detail-label">Data</span><span className="detail-value">{formatDateOnlyPtBr(report.reportDate)}</span></div>
           <div><span className="detail-label">{TEXT.time}</span><span className="detail-value">{report.arrivalTime} às {report.departureTime}</span></div>
           <div><span className="detail-label">{TEXT.interval}</span><span className="detail-value">{report.lunchBreak || '-'}</span></div>
-          <div><span className="detail-label">Status</span><span className="detail-value">{statusLabels[report.status] || report.status}</span></div>
+          <div>
+            <span className="detail-label">Status</span>
+            <span className="detail-value">
+              <StatusPill
+                status={report.status}
+                label={statusLabels[report.status] || report.status}
+                toneMap={reportStatusTones}
+                dot={false}
+              />
+            </span>
+          </div>
           {isStandby ? <div><span className="detail-label">Standby</span><span className="detail-value">Sim</span></div> : null}
           {isNoturno ? <div><span className="detail-label">Turno noturno</span><span className="detail-value">Sim</span></div> : null}
         </div>
         <SignatureProgress report={report} />
-      </section>
+      </Card>
 
-      <section className="page-card">
-        <div className="section-title">{TEXT.collaborators}</div>
+      <Card className="rdo-report-detail-card" padding="md" title={TEXT.collaborators}>
         {daytimeCollaborators.length ? (
           <ul className="detail-list">
             {daytimeCollaborators.map(name => <li key={name}>{name}</li>)}
@@ -1966,25 +1989,23 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
             </ul>
           </>
         ) : null}
-      </section>
+      </Card>
 
       <ReportDdsSummarySection blocks={ddsBlocks} />
 
       {(report.services?.length ?? 0) > 0 ? (
-        <section className="page-card">
-          <div className="section-title">{TEXT.services}</div>
-          <div className="admin-stack" style={{ marginTop: 8 }}>
+        <Card className="rdo-report-detail-card" padding="md" title={TEXT.services}>
+          <div className="rdo-report-detail-services">
             {(report.services || []).map((service, i) => (
               <ServiceSummaryRow key={service.id} service={service} index={i} />
             ))}
           </div>
-        </section>
+        </Card>
       ) : null}
 
       <DerivedReportDetails report={report} />
 
-      <section className="page-card">
-        <div className="section-title">{TEXT.reportSummary}</div>
+      <Card className="rdo-report-detail-card" padding="md" title={TEXT.reportSummary}>
         <div className="detail-grid report-summary-detail-grid">
           <div><span className="detail-label">Motivo hora extra</span><span className="detail-value">{report.overtimeReason || '-'}</span></div>
           <div><span className="detail-label">{TEXT.description}</span><span className="detail-value">{report.dailyDescription || '-'}</span></div>
@@ -2002,11 +2023,10 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
             </div>
           </div>
         ) : null}
-      </section>
+      </Card>
 
       {report.clientReviews?.length ? (
-        <section className="page-card">
-          <div className="section-title">Retorno do cliente</div>
+        <Card className="rdo-report-detail-card" padding="md" title="Retorno do cliente">
           <div className="det-section">
             {report.clientReviews.slice(0, 3).map(review => (
               <div className="det-row" key={review.id}>
@@ -2015,7 +2035,7 @@ function ReportSummaryView({ report }: { report: ReportSummary }) {
               </div>
             ))}
           </div>
-        </section>
+        </Card>
       ) : null}
     </>
   );
@@ -2134,32 +2154,57 @@ export function ReportDetailPage() {
     );
   }
 
-  return (
-    <Shell>
-      <TopBar
-        title={TEXT.details}
-        subtitle={report ? `${report.reportType}${report.sequenceNumber ? ` ${report.sequenceNumber}` : ''}` : user?.name}
-        actions={
-          <>
-            <button className="topbar-chip" type="button" onClick={handleBack}>
-              {TEXT.back}
-            </button>
-            <button className="topbar-chip" type="button" onClick={() => navigate('/conta', { state: accountPageStateFromPath(location) })}>
-              Conta
-            </button>
-            <button className="topbar-chip" type="button" onClick={handleLogout}>
-              Sair
-            </button>
-          </>
-        }
-      />
+  const reportLabel = report
+    ? `${report.reportType}${report.sequenceNumber ? ` ${report.sequenceNumber}` : ''}`
+    : TEXT.details;
 
-      <main className="page-scroll">
-        {reportQuery.isLoading ? <div className="page-card placeholder-copy">{TEXT.loading}</div> : null}
+  return (
+    <AppShell
+      navigation={navigation}
+      title={report ? `Detalhes do ${reportLabel}` : TEXT.details}
+      breadcrumb={[
+        { label: 'Filtrovali', href: '/modulos' },
+        { label: 'RDO', href: reportBackPath },
+        { label: reportLabel }
+      ]}
+      contentWidth="fluid"
+      profile={
+        user
+          ? {
+              name: user.name,
+              description: user.email || user.username,
+              initials: profileInitials,
+              onOpen: () => navigate('/conta', { state: accountPageStateFromPath(location) })
+            }
+          : undefined
+      }
+      onLogout={handleLogout}
+    >
+      <main className="fv-ds rdo-report-detail-page">
+        <PageHeader
+          title={reportLabel}
+          description={report ? `${report.project.code} · ${report.project.name}` : 'Consulte as informações do relatório.'}
+          breadcrumb={[
+            { label: 'RDO', href: reportBackPath },
+            { label: reportLabel }
+          ]}
+          actions={(
+            <Button
+              variant="secondary"
+              size="sm"
+              iconLeft={<AppIcon icon={DS_ICONS.previous} size="sm" />}
+              onClick={handleBack}
+            >
+              Voltar aos relatórios
+            </Button>
+          )}
+        />
+
+        {reportQuery.isLoading ? <Card className="placeholder-copy" padding="lg">{TEXT.loading}</Card> : null}
         {reportQuery.isError ? (
-          <div className="page-card inline-error">
+          <Card className="inline-error" padding="lg">
             {reportQuery.error instanceof Error ? reportQuery.error.message : TEXT.loadError}
-          </div>
+          </Card>
         ) : null}
 
         {report ? (
@@ -2171,11 +2216,11 @@ export function ReportDetailPage() {
         ) : null}
 
         {!reportQuery.isLoading && !reportQuery.isError && !report ? (
-          <div className="page-card placeholder-copy">
+          <Card className="placeholder-copy" padding="lg">
             {TEXT.missing}
-          </div>
+          </Card>
         ) : null}
       </main>
-    </Shell>
+    </AppShell>
   );
 }

@@ -21,7 +21,7 @@ const REPORT_STATUS_TONES: StatusToneMap = {
   edited: 'info',
   pending: 'warning',
   returned: 'danger',
-  signed: 'success'
+  signed: 'info'
 };
 
 const REPORT_STATUS_LABELS: Readonly<Record<string, string>> = {

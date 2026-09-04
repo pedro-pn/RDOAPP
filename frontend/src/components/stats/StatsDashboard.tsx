@@ -1198,7 +1198,7 @@ function DesignSystemDailyReportTable({
         <StatusPill
           status={report.status}
           label={report.status === 'SIGNED' ? 'Assinado' : 'Aprovado'}
-          tone="success"
+          tone={report.status === 'SIGNED' ? 'info' : 'success'}
         />
       )
     },
@@ -1275,7 +1275,7 @@ function DesignSystemDailyReportTable({
             <StatusPill
               status={report.status}
               label={report.status === 'SIGNED' ? 'Assinado' : 'Aprovado'}
-              tone="success"
+              tone={report.status === 'SIGNED' ? 'info' : 'success'}
             />
           ),
           metadata: [

@@ -187,6 +187,26 @@ test('B.9 usa variantes DS coerentes nas ações da página', () => {
   assert.doesNotMatch(tab, /<ProjectSortButton\b/);
 });
 
+test('editor da pesquisa NPS usa modal e superfícies compatíveis com dark mode', () => {
+  const page = source('src/pages/gestor/GestorPage.tsx');
+  const css = source('src/pages/gestor/GestorPage.ds.css');
+
+  assert.match(
+    page,
+    /<Modal[\s\S]{0,220}?open=\{showSurveyQuestionEditor\}[\s\S]{0,220}?appearance="design-system"/
+  );
+  assert.match(page, /panelClassName="rdo-manager-survey-editor-dialog"/);
+  assert.doesNotMatch(page, /panelClassName="modal-card survey-question-editor-modal"/);
+  assert.match(
+    css,
+    /\.rdo-manager-survey-editor-dialog[\s\S]*?\.survey-question-card \{[\s\S]*?background: var\(--surface\)[\s\S]*?color: var\(--ink\)/
+  );
+  assert.match(
+    css,
+    /\.rdo-manager-survey-editor-dialog[\s\S]*?\.survey-question-editor-list \{[\s\S]*?background: var\(--surface-2\)/
+  );
+});
+
 test('B.9 mantém o CSS escopado e tokenizado', () => {
   if (expectedAppearance === 'legacy') return;
   const css = source('src/pages/gestor/GestorPage.ds.css');

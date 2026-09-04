@@ -169,6 +169,16 @@ test('diálogo de numeração mantém opt-in DS e o formulário de RDO usa o Mod
     '<Modal\n        open={Boolean(archiveSurveyProject)}',
     '<Modal\n        open={showSurveyQuestionEditor}'
   );
+  const manualReportDialog = sectionBetween(
+    manager,
+    '<Modal\n        open={manualReportModalOpen}',
+    'function renderLoadMoreReports('
+  );
+  const surveyEditorDialog = sectionBetween(
+    manager,
+    '<Modal\n        open={showSurveyQuestionEditor}',
+    '</AppShell>'
+  );
   const segmentDialog = sectionBetween(
     manager,
     '<Modal\n        open={showSegmentForm}',
@@ -192,7 +202,9 @@ test('diálogo de numeração mantém opt-in DS e o formulário de RDO usa o Mod
   const managerWithoutAuthorizedDialogs = manager
     .replace(sequenceDialog, '')
     .replace(segmentDialog, '')
-    .replace(archiveProjectDialog, '');
+    .replace(archiveProjectDialog, '')
+    .replace(manualReportDialog, '')
+    .replace(surveyEditorDialog, '');
   const otherManagerModals = [
     ...managerWithoutAuthorizedDialogs.matchAll(/<Modal\b[\s\S]*?<\/Modal>/g)
   ].map((match) => match[0]);
@@ -210,11 +222,13 @@ test('diálogo de numeração mantém opt-in DS e o formulário de RDO usa o Mod
     /<Modal\b[\s\S]*?appearance="design-system"/
   );
   assert.match(segmentDialog, /<Modal\b[\s\S]*?appearance="design-system"/);
+  assert.match(manualReportDialog, /<Modal\b[\s\S]*?appearance="design-system"/);
+  assert.match(surveyEditorDialog, /<Modal\b[\s\S]*?appearance="design-system"/);
   for (const otherModal of otherManagerModals) {
     assert.doesNotMatch(
       otherModal,
       /appearance="design-system"/,
-      'nenhum Modal além das instâncias B.4, B.10 e B.11 pode receber opt-in DS'
+      'todo novo opt-in DS precisa ser coberto explicitamente pelo contrato'
     );
   }
   assert.doesNotMatch(
@@ -222,10 +236,10 @@ test('diálogo de numeração mantém opt-in DS e o formulário de RDO usa o Mod
     /<Modal\b[\s\S]*?appearance="design-system"/,
     'ReasonDialog deve continuar usando a aparência legacy padrão'
   );
-  assert.doesNotMatch(
+  assert.match(
     detailSequenceDialog,
     /appearance="design-system"/,
-    'diálogo de numeração do detalhe deve continuar legacy'
+    'diálogo de numeração do detalhe migrado deve acompanhar o design system'
   );
   assert.match(signatureDialog, /appearance = 'legacy'/);
   assert.match(signatureModal, /appearance=\{appearance\}/);

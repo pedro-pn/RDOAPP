@@ -334,6 +334,13 @@ body {
   overflow-x: hidden;
 }
 
+/* Compatibilidade das páginas ainda apoiadas nos aliases legados. Evita o
+   clarão do canvas ao rolar além do conteúdo no tema escuro. */
+.dark body {
+  background: var(--canvas);
+  color: var(--ink);
+}
+
 button,
 input,
 select,
@@ -1099,6 +1106,26 @@ a {
 .status-signed {
   background: #eef4ff;
   color: #1b4fa7;
+}
+
+.dark .status-pending {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.dark .status-returned {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.dark .status-approved {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.dark .status-signed {
+  background: var(--info-bg);
+  color: var(--info);
 }
 
 .page-card {
@@ -7516,14 +7543,15 @@ textarea.pre {
 
 /* ── Driver.js tour — visual do app ── */
 .driver-popover {
-  border-radius: var(--r) !important;
-  box-shadow: var(--shadow), 0 2px 8px rgba(0,0,0,0.12) !important;
+  border: var(--border-width) solid var(--line) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-e3) !important;
   font-family: inherit !important;
   padding: 16px !important;
   min-width: 260px !important;
   max-width: 320px !important;
-  color: var(--tx) !important;
-  background-color: var(--wh) !important;
+  color: var(--ink) !important;
+  background-color: var(--surface) !important;
 }
 
 .driver-popover * {
@@ -7533,19 +7561,19 @@ textarea.pre {
 .driver-popover-title {
   font-size: 14px !important;
   font-weight: 700 !important;
-  color: var(--tx) !important;
+  color: var(--ink) !important;
   line-height: 1.4 !important;
 }
 
 .driver-popover-description {
   font-size: 12px !important;
-  color: var(--mu) !important;
+  color: var(--muted) !important;
   line-height: 1.6 !important;
 }
 
 .driver-popover-progress-text {
   font-size: 11px !important;
-  color: var(--mu) !important;
+  color: var(--muted) !important;
 }
 
 .driver-popover-footer {
@@ -7562,10 +7590,10 @@ textarea.pre {
   all: unset !important;
   box-sizing: border-box !important;
   display: inline-block !important;
-  border: 1px solid var(--br) !important;
-  border-radius: var(--r) !important;
-  background: var(--wh) !important;
-  color: var(--tx) !important;
+  border: var(--border-width) solid var(--line) !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
   padding: 7px 10px !important;
   font-weight: 600 !important;
   font-size: 12px !important;
@@ -7574,7 +7602,7 @@ textarea.pre {
 }
 
 .driver-popover-footer .driver-popover-prev-btn:hover {
-  background: var(--bg) !important;
+  background: var(--surface-2) !important;
 }
 
 /* Botão "Próximo / Concluir" — padrão primary */
@@ -7583,9 +7611,9 @@ textarea.pre {
   box-sizing: border-box !important;
   display: inline-block !important;
   border: none !important;
-  border-radius: var(--r) !important;
-  background: var(--g) !important;
-  color: var(--wh) !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--brand) !important;
+  color: var(--on-brand) !important;
   padding: 8px 11px !important;
   font-weight: 700 !important;
   font-size: 12px !important;
@@ -7594,17 +7622,33 @@ textarea.pre {
 }
 
 .driver-popover-footer .driver-popover-next-btn:hover {
-  background: var(--gl) !important;
+  background: var(--brand-hover) !important;
 }
 
 /* Botão fechar (×) */
 .driver-popover-close-btn {
-  color: var(--mu) !important;
+  color: var(--muted) !important;
   font-size: 16px !important;
 }
 
 .driver-popover-close-btn:hover {
-  color: var(--tx) !important;
+  color: var(--ink) !important;
+}
+
+.driver-popover-arrow-side-top.driver-popover-arrow {
+  border-bottom-color: var(--surface) !important;
+}
+
+.driver-popover-arrow-side-right.driver-popover-arrow {
+  border-left-color: var(--surface) !important;
+}
+
+.driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-top-color: var(--surface) !important;
+}
+
+.driver-popover-arrow-side-left.driver-popover-arrow {
+  border-right-color: var(--surface) !important;
 }
 
 /* Estado desabilitado */
@@ -10976,7 +11020,12 @@ select:disabled {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #e9ebe9 25%, #f3f4f3 37%, #e9ebe9 63%);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--skeleton-highlight) 37%,
+    var(--surface-2) 63%
+  );
   background-size: 400% 100%;
   animation: skeleton-shimmer 1.4s ease infinite;
   border-radius: var(--rs);
@@ -12728,22 +12777,28 @@ select:disabled {
   background: rgba(48, 80, 58, 0.05);
 }
 
-.dark .pdf-dropzone {
+.dark .pdf-dropzone,
+.dark .upload-dropzone {
   border-color: var(--line-strong);
   background: var(--surface-2);
 }
 
 .dark .pdf-dropzone:hover,
-.dark .pdf-dropzone:focus-visible {
+.dark .pdf-dropzone:focus-visible,
+.dark .upload-dropzone:hover,
+.dark .upload-dropzone:focus-visible {
   border-color: var(--brand);
 }
 
-.dark .pdf-dropzone:focus-visible {
+.dark .pdf-dropzone:focus-visible,
+.dark .upload-dropzone:focus-visible {
   box-shadow: 0 0 0 var(--focus-ring-width) var(--brand-soft);
 }
 
 .dark .pdf-dropzone.drag-over,
-.dark .pdf-dropzone.has-file {
+.dark .pdf-dropzone.has-file,
+.dark .upload-dropzone.drag-over,
+.dark .upload-dropzone.has-file {
   border-color: var(--brand);
   background: var(--brand-softer);
 }
@@ -12754,11 +12809,18 @@ select:disabled {
 }
 
 .dark .pdf-dropzone-icon,
-.dark .pdf-dropzone-text strong {
+.dark .pdf-dropzone-text strong,
+.dark .upload-dropzone-icon,
+.dark .upload-dropzone-text strong {
   color: var(--ink);
 }
 
-.dark .pdf-dropzone-text small {
+.dark .pdf-dropzone-text small,
+.dark .upload-dropzone-text small {
+  color: var(--muted);
+}
+
+.dark .pdf-dropzone-current .equip-muted {
   color: var(--muted);
 }
 

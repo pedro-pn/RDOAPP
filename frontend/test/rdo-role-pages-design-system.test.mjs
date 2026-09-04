@@ -93,9 +93,32 @@ test('CSS compartilhado usa tokens, breakpoints oficiais e evita overflow mobile
   assert.match(css, /\.rdo-coordinator-page \.det-section\s*\{[\s\S]*?background:\s*var\(--surface-2\)/);
   assert.match(css, /\.rdo-client-page \.client-rejection-note\s*\{[\s\S]*?background:\s*var\(--danger-bg\)/);
   assert.match(css, /\.rdo-client-page \.signature-progress\s*\{[\s\S]*?background:\s*var\(--surface-2\)/);
+  assert.match(css, /:where\(\.fv-ds, \[data-fv-ds\]\)\.rdo-client-page \.client-report-card/);
+  assert.doesNotMatch(css, /:where\(\.fv-ds, \[data-fv-ds\]\)\s+\.rdo-client-page/);
   assert.match(css, /@media \(max-width: 768px\)[\s\S]*?\.rdo-collaborator-reports-page \.rdo-role-tabs\s*\{[\s\S]*?display:\s*none/);
   assert.match(css, /@media \(max-width: 480px\)/);
   assert.doesNotMatch(css, /#[\da-f]{3,8}\b/i);
   assert.doesNotMatch(css, /\brgba?\(/i);
   assert.doesNotMatch(css, /!important/);
+});
+
+test('cards do cliente mantêm texto compacto, ações em linha e contraste no tema escuro', () => {
+  const client = source('src/pages/client/ClientPage.tsx');
+  const css = source('src/pages/RdoRolePages.ds.css');
+  const variables = source('src/styles/variables.css');
+  const legacyCss = source('src/styles/base.css');
+
+  assert.match(client, /className="client-report-author"/);
+  assert.match(client, /className="client-report-context"/);
+  assert.match(client, /className="client-report-action-buttons"/);
+  assert.match(client, /client-report-action-label--compact">Assinar/);
+  assert.match(client, /\.filter\(item => item\.comment\)/);
+  assert.doesNotMatch(client, /RDO pronto para conferência do cliente/);
+  assert.match(css, /\.client-report-copy \.admin-card-title\s*\{[\s\S]*?text-overflow:\s*ellipsis[\s\S]*?white-space:\s*nowrap/);
+  assert.match(css, /\.client-report-context\s*\{[\s\S]*?text-overflow:\s*ellipsis[\s\S]*?white-space:\s*nowrap/);
+  assert.match(css, /\.client-report-action-buttons\s*\{[\s\S]*?flex-wrap:\s*nowrap/);
+  assert.match(css, /\.det-val\s*\{[\s\S]*?max-width:\s*none[\s\S]*?text-align:\s*start/);
+  assert.match(variables, /\.dark\s*\{[\s\S]*?--brand:\s*var\(--green-500\)[\s\S]*?--on-brand:\s*var\(--white\)/);
+  assert.match(legacyCss, /\.dark body\s*\{[\s\S]*?background: var\(--canvas\)[\s\S]*?color: var\(--ink\)/);
+  assert.match(legacyCss, /\.dark \.status-signed\s*\{[\s\S]*?background: var\(--info-bg\)[\s\S]*?color: var\(--info\)/);
 });

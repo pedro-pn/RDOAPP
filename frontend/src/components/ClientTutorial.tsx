@@ -122,9 +122,9 @@ function buildSteps() {
   ];
 
   // Passo de download — sempre presente quando há card
-  if (document.querySelector('.client-report-card .secondary-button')) {
+  if (document.querySelector('.client-report-card .fv-button--secondary')) {
     steps.push({
-      element: '.client-report-card .secondary-button',
+      element: '.client-report-card .fv-button--secondary',
       popover: {
         title: 'Baixar PDF',
         description:
@@ -149,9 +149,9 @@ function buildSteps() {
     });
   }
 
-  if (document.querySelector('.client-report-actions .primary-button')) {
+  if (document.querySelector('.client-report-actions .fv-button--primary')) {
     steps.push({
-      element: '.client-report-actions .primary-button',
+      element: '.client-report-actions .fv-button--primary',
       popover: {
         title: 'Assinar digitalmente',
         description:
@@ -162,9 +162,9 @@ function buildSteps() {
     });
   }
 
-  if (document.querySelector('.client-report-actions .danger-button')) {
+  if (document.querySelector('.client-report-actions .fv-button--danger')) {
     steps.push({
-      element: '.client-report-actions .danger-button',
+      element: '.client-report-actions .fv-button--danger',
       popover: {
         title: 'Reprovar relatório',
         description:
@@ -211,9 +211,9 @@ function buildSteps() {
   });
 
   // Botão de conta — sempre presente
-  if (document.querySelector('.topbar-chip')) {
+  if (document.querySelector('.fv-topbar-profile:not(:disabled)')) {
     steps.push({
-      element: '.topbar-chip',
+      element: '.fv-topbar-profile:not(:disabled)',
       popover: {
         title: 'Sua conta',
         description:

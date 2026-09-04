@@ -188,12 +188,12 @@
   --muted: var(--gray-400);
   --inverse: var(--gray-950);
 
-  --brand: var(--green-300);
-  --brand-hover: var(--green-200);
+  --brand: var(--green-500);
+  --brand-hover: var(--green-400);
   --brand-soft: rgba(79, 138, 99, 0.12);
   --brand-softer: rgba(79, 138, 99, 0.1);
   --brand-text: var(--green-200);
-  --on-brand: var(--gray-950);
+  --on-brand: var(--white);
   --link: var(--brand-hover);
   --link-hover: var(--ink);
   --control-border: var(--gray-400);
@@ -236,12 +236,12 @@
     --muted: var(--gray-400);
     --inverse: var(--gray-950);
 
-    --brand: var(--green-300);
-    --brand-hover: var(--green-200);
+    --brand: var(--green-500);
+    --brand-hover: var(--green-400);
     --brand-soft: rgba(79, 138, 99, 0.12);
     --brand-softer: rgba(79, 138, 99, 0.1);
     --brand-text: var(--green-200);
-    --on-brand: var(--gray-950);
+    --on-brand: var(--white);
     --link: var(--brand-hover);
     --link-hover: var(--ink);
     --control-border: var(--gray-400);

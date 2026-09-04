@@ -222,7 +222,7 @@ test('Gestor preserva abertura, handler, payload, fechamento e toasts da devolu�
   assert.match(manager, /const reportMutations = useReportMutations\(\)/);
 });
 
-test('gate B.5 mantém default legacy e restringe o opt-in DS às superfícies migradas', () => {
+test('gate B.5 mantém default legacy e habilita o DS apenas nas superfícies migradas', () => {
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const reasonDialog = source('src/components/ui/ReasonDialog.tsx');
   const modal = source('src/components/ui/Modal.tsx');
@@ -255,13 +255,13 @@ test('gate B.5 mantém default legacy e restringe o opt-in DS às superfícies m
   );
   assert.equal(
     detailDialogs.filter((dialog) => /\bappearance="design-system"/.test(dialog)).length,
-    1,
-    'apenas o ReasonDialog do formulário de edição deve acompanhar o design system'
+    2,
+    'edição e revisão do cliente devem acompanhar o design system'
   );
   assert.equal(
     detailDialogs.filter((dialog) => !/\bappearance=/.test(dialog)).length,
-    1,
-    'o diálogo da revisão do cliente deve preservar o default legacy'
+    0,
+    'nenhum diálogo do detalhe migrado deve depender do default legacy'
   );
 
   if (!hasAppearanceApi) {
