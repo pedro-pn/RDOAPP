@@ -121,14 +121,12 @@ test('B.8 preserves pending, disabled, reset and legacy rendering contracts', ()
   assert.doesNotMatch(manager, /useSearchParams|localStorage|sessionStorage/);
 });
 
-test('B.8 keeps legacy as default and opts in only the Gestor dds-theme surface', () => {
+test('B.8 keeps legacy as default and opts in on migrated RDO management surfaces', () => {
   const manager = source('src/components/reports/DdsThemeManager.tsx');
   const gestor = source('src/pages/gestor/GestorPage.tsx');
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
 
-  // O Coordenador permanece integralmente legacy.
-  assert.match(coordinator, /<DdsThemeManager\s*\/>/);
-  assert.doesNotMatch(coordinator, /<DdsThemeManager\b[^>]*appearance=/s);
+  assert.match(coordinator, /<DdsThemeManager appearance="design-system"\s*\/>/);
 
   if (expectedAppearance === 'legacy') {
     assert.match(manager, /export function DdsThemeManager\(\)/);
@@ -145,11 +143,12 @@ test('B.8 keeps legacy as default and opts in only the Gestor dds-theme surface'
     /<DdsThemeManager[\s\S]*?appearance="design-system"[\s\S]*?\/>/
   );
 
-  // Existe exatamente um opt-in em todo o `src`, e ele pertence ao Gestor.
+  // Gestor e Coordenador ativam explicitamente a apresentação migrada.
   const optIns = sourceFilesUnder('src').filter((path) =>
     /<DdsThemeManager\b[^>]*appearance=["'{]/s.test(readFileSync(path, 'utf8'))
   );
   assert.deepEqual(optIns, [
+    join(frontendRoot, 'src/pages/coordinator/CoordinatorPage.tsx'),
     join(frontendRoot, 'src/pages/gestor/GestorPage.tsx')
   ]);
 

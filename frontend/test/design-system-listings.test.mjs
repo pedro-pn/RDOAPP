@@ -207,7 +207,7 @@ test('listings harness is an isolated Vite entry without application routing', (
   assert.doesNotMatch(entry, /BrowserRouter|MemoryRouter|Routes|Route/);
 });
 
-test('Phase 5 listing primitives are enabled only for the manager RDO pilot', () => {
+test('Phase 5 listing primitives are enabled across the migrated RDO profiles', () => {
   const listingNames = 'DataTable|SearchInput|FilterBar|MobileList|Pagination';
   const namedListingImport = new RegExp(
     `import\\s*\\{[^}]*\\b(?:${listingNames})\\b[^}]*\\}\\s*from\\s*['"][^'"]*components/ui/ds(?:/listings(?:/[^'"]+)?)?['"]`,
@@ -220,27 +220,36 @@ test('Phase 5 listing primitives are enabled only for the manager RDO pilot', ()
     ...sourceFilesUnder('src/pages'),
     ...sourceFilesUnder('src/modules')
   ];
-  const managerPagePath = new URL(
-    '../src/pages/gestor/GestorPage.tsx',
-    import.meta.url
-  ).pathname;
+  const migratedRdoPagePaths = new Set([
+    'src/pages/gestor/GestorPage.tsx',
+    'src/pages/coordinator/CoordinatorPage.tsx',
+    'src/pages/client/ClientPage.tsx',
+    'src/pages/collaborator/MyReportsPage.tsx',
+    'src/pages/collaborator/MyArchivedReportsPage.tsx',
+    'src/pages/collaborator/OngoingServicesPage.tsx'
+  ].map(path => new URL(`../${path}`, import.meta.url).pathname));
+  const managerPagePath = new URL('../src/pages/gestor/GestorPage.tsx', import.meta.url).pathname;
   const managerPage = readFileSync(managerPagePath, 'utf8');
 
   assert.match(managerPage, /ManagerReportListing/);
   assert.match(managerPage, namedListingImport);
 
+  for (const file of migratedRdoPagePaths) {
+    assert.match(readFileSync(file, 'utf8'), namedListingImport, file);
+  }
+
   for (const file of productionFiles.filter(
-    (file) => file !== managerPagePath
+    (file) => !migratedRdoPagePaths.has(file)
   )) {
     assert.doesNotMatch(
       readFileSync(file, 'utf8'),
       namedListingImport,
-      `${file} não deve adotar os componentes de listagem fora do piloto RDO Gestor`
+      `${file} não deve adotar os componentes de listagem fora das superfícies RDO migradas`
     );
     assert.doesNotMatch(
       readFileSync(file, 'utf8'),
       directListingImport,
-      `${file} não deve adotar os componentes de listagem fora do piloto RDO Gestor`
+      `${file} não deve adotar os componentes de listagem fora das superfícies RDO migradas`
     );
   }
 });

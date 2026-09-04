@@ -236,7 +236,7 @@ test('Arquivados compõe primitives responsivos e mantém o opt-in restrito', ()
   assert.doesNotMatch(archivedCss, /!important/);
 });
 
-test('consumidores legacy de GroupedReportList não fazem opt-in no Design System', () => {
+test('consumidores compartilhados de GroupedReportList fazem opt-in no Design System', () => {
   for (const path of [
     'src/pages/coordinator/CoordinatorPage.tsx',
     'src/pages/collaborator/MyReportsPage.tsx',
@@ -245,6 +245,6 @@ test('consumidores legacy de GroupedReportList não fazem opt-in no Design Syste
     const page = source(path);
 
     assert.match(page, /<GroupedReportList\b/, path);
-    assert.doesNotMatch(page, /appearance="design-system"/, path);
+    assert.match(page, /appearance="design-system"/, path);
   }
 });

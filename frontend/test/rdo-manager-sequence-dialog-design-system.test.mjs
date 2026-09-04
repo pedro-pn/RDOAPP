@@ -186,7 +186,7 @@ test('diálogo de numeração mantém opt-in DS e o formulário de RDO usa o Mod
   );
   const signatureModal = sectionBetween(
     signatureDialog,
-    '<Modal open={open}',
+    '<Modal\n      open={open}',
     '</Modal>'
   );
   const managerWithoutAuthorizedDialogs = manager
@@ -227,11 +227,9 @@ test('diálogo de numeração mantém opt-in DS e o formulário de RDO usa o Mod
     /appearance="design-system"/,
     'diálogo de numeração do detalhe deve continuar legacy'
   );
-  assert.doesNotMatch(
-    signatureModal,
-    /appearance="design-system"/,
-    'SignatureDialog deve continuar legacy'
-  );
+  assert.match(signatureDialog, /appearance = 'legacy'/);
+  assert.match(signatureModal, /appearance=\{appearance\}/);
+  assert.doesNotMatch(signatureModal, /appearance="design-system"/);
   assert.match(
     collaboratorServiceDialog,
     /appearance="design-system"/,

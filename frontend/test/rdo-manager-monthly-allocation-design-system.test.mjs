@@ -128,7 +128,7 @@ test('B.6 preserves every mutable and download contract without moving domain lo
   );
 });
 
-test('B.6 keeps Coordinator legacy and limits the opt-in to the Gestor', () => {
+test('B.6 keeps the Gestor and Coordinator on the shared design-system dashboard', () => {
   const stats = source('src/components/stats/StatsDashboard.tsx');
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
@@ -140,11 +140,7 @@ test('B.6 keeps Coordinator legacy and limits the opt-in to the Gestor', () => {
 
   assert.match(
     coordinator,
-    /<MonthlyAllocationDashboardOverlay onClose=\{\(\) => setAllocationDashboardOpen\(false\)\}\s*\/>/
-  );
-  assert.doesNotMatch(
-    coordinator,
-    /<MonthlyAllocationDashboardOverlay\b[^>]*appearance=/s
+    /<MonthlyAllocationDashboardOverlay\s+appearance="design-system"[\s\S]*?onClose=\{\(\) => setAllocationDashboardOpen\(false\)\}/
   );
 
   if (expectedAppearance === 'legacy') {
@@ -172,6 +168,10 @@ test('B.6 keeps Coordinator legacy and limits the opt-in to the Gestor', () => {
     manager,
     /<MonthlyAllocationDashboardOverlay\s+appearance="design-system"/
   );
+  assert.match(
+    coordinator,
+    /<MonthlyAllocationDashboardOverlay\s+appearance="design-system"/
+  );
 
   const optIns = sourceFilesUnder('src').filter((path) =>
     /<MonthlyAllocationDashboardOverlay\b[^>]*appearance=["'{]/s.test(
@@ -179,6 +179,7 @@ test('B.6 keeps Coordinator legacy and limits the opt-in to the Gestor', () => {
     )
   );
   assert.deepEqual(optIns, [
+    join(frontendRoot, 'src/pages/coordinator/CoordinatorPage.tsx'),
     join(frontendRoot, 'src/pages/gestor/GestorPage.tsx')
   ]);
 });

@@ -236,10 +236,10 @@ test('drawer preserves modal accessibility and focus behavior', () => {
   );
 });
 
-test('new AppShell is enabled by Hub and the manager RDO pilot only', () => {
+test('new AppShell is enabled by Hub and every RDO account profile', () => {
   const hub = source('src/pages/HubPage.tsx');
   const manager = source('src/pages/gestor/GestorPage.tsx');
-  const collaborator = source('src/pages/collaborator/MyReportsPage.tsx');
+  const roleShell = source('src/pages/RdoAppShell.tsx');
   const legacyShell = source('src/layout/Shell.tsx');
 
   assert.match(hub, /import \{ AppShell \}/);
@@ -248,7 +248,21 @@ test('new AppShell is enabled by Hub and the manager RDO pilot only', () => {
   assert.match(manager, /import \{ AppShell \}/);
   assert.match(manager, /<AppShell/);
   assert.doesNotMatch(manager, /import \{ Shell \}/);
-  assert.match(collaborator, /import \{ Shell \}/);
-  assert.doesNotMatch(collaborator, /import \{ AppShell \}/);
+  assert.match(roleShell, /import \{ AppShell \}/);
+  assert.match(roleShell, /<AppShell/);
+  assert.match(roleShell, /createNavigationModel/);
+  assert.match(roleShell, /hubModulesForUser/);
+  for (const path of [
+    'src/pages/coordinator/CoordinatorPage.tsx',
+    'src/pages/client/ClientPage.tsx',
+    'src/pages/collaborator/HomePage.tsx',
+    'src/pages/collaborator/MyReportsPage.tsx',
+    'src/pages/collaborator/MyArchivedReportsPage.tsx',
+    'src/pages/collaborator/OngoingServicesPage.tsx'
+  ]) {
+    const page = source(path);
+    assert.match(page, /<RdoAppShell\b/, path);
+    assert.doesNotMatch(page, /layout\/Shell|<Shell\b/, path);
+  }
   assert.match(legacyShell, /className="app-shell"/);
 });

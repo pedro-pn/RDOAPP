@@ -279,11 +279,12 @@ test('collaborator home and ongoing-services actions keep their current data and
   assert.match(home, /navigate\(rdoPath\('\/relatorio\/novo'\)\)/);
   assert.match(home, /navigate\(rdoPath\('\/meus-relatorios'\)\)/);
   assert.match(home, /navigate\(rdoPath\('\/andamento'\)\)/);
-  assert.match(home, /disabled=\{!ongoingServices\.length\}/);
+  assert.match(home, /aria-disabled=\{!ongoingServices\.length\}/);
+  assert.match(home, /onClick=\{ongoingServices\.length \? \(\) => navigate\(rdoPath\('\/andamento'\)\) : undefined\}/);
   assert.match(home, /draftMutations\.removeDraft\.mutate\(draft\.id\)/);
 
   assert.match(ongoing, /useReports\(\{ mine: true, summary: true \}\)/);
-  assert.match(ongoing, /<SearchBar value=\{search\} onChange=\{setSearch\}/);
+  assert.match(ongoing, /<SearchInput value=\{search\} onChange=\{setSearch\}/);
   assert.match(ongoing, /matchesSearch\(\[/);
   assert.match(ongoing, /Carregando serviços em andamento/);
   assert.match(ongoing, /Nenhum serviço em andamento encontrado/);
@@ -502,15 +503,13 @@ test('report actions remain connected to the existing API mutations and download
 });
 
 test('authenticated RDO pages keep awaiting logout before their current replace navigation', () => {
+  const roleShell = source('src/pages/RdoAppShell.tsx');
+  assert.match(roleShell, /await logout\(\)/);
+  assert.match(roleShell, /navigate\('\/', \{ replace: true \}\)/);
+
   const pageDestinations = new Map([
-    ['src/pages/collaborator/HomePage.tsx', '/'],
-    ['src/pages/collaborator/OngoingServicesPage.tsx', '/'],
-    ['src/pages/collaborator/MyReportsPage.tsx', '/'],
-    ['src/pages/collaborator/MyArchivedReportsPage.tsx', '/'],
     ['src/pages/collaborator/NewReportPage.tsx', '/login'],
-    ['src/pages/coordinator/CoordinatorPage.tsx', '/'],
     ['src/pages/gestor/GestorPage.tsx', '/'],
-    ['src/pages/client/ClientPage.tsx', '/'],
     ['src/pages/ReportDetailPage.tsx', '/']
   ]);
 

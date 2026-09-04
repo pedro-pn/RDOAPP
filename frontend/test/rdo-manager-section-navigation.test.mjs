@@ -68,8 +68,10 @@ test('RDO manager keeps the section navigation for tablet and hides it on mobile
   assert.match(page, /<RdoSectionNavigation/);
   assert.match(
     navigation,
-    /aria-label="Navegar nas áreas de Relatórios e Projetos"/
+    /ariaLabel = 'Navegar nas áreas de Relatórios e Projetos'/
   );
+  assert.match(navigation, /aria-label=\{ariaLabel\}/);
+  assert.match(navigation, /'--rdo-section-count': navigationSections\.length/);
   assert.match(navigation, /role="group"/);
   assert.match(navigation, /aria-pressed=\{active\}/);
   assert.match(navigation, /aria-current=\{active \? 'page' : undefined\}/);
@@ -100,7 +102,7 @@ test('RDO manager keeps the section navigation for tablet and hides it on mobile
   );
   assert.match(
     css,
-    /@media \(min-width: 768px\) and \(max-width: 1024px\)[\s\S]*?\.rdo-section-navigation__items\s*\{[\s\S]*?repeat\(8,/
+    /@media \(min-width: 768px\) and \(max-width: 1024px\)[\s\S]*?\.rdo-section-navigation__items\s*\{[\s\S]*?repeat\(var\(--rdo-section-count, 8\),/
   );
   assert.match(
     css,

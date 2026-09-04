@@ -155,6 +155,7 @@
   --warning: var(--warning-500);
   --warning-bg: var(--warning-bg-500);
   --warning-line: var(--warning-line-500);
+  --on-warning: var(--gray-950);
   --danger: var(--danger-500);
   --danger-hover: #a40f13;
   --on-danger: var(--white);

@@ -275,7 +275,7 @@ test('DS service hierarchy and KPI alignment remain scoped and tokenized', () =>
   );
 });
 
-test('Gestor remains the only detailed dashboard opt-in and Coordinator stays legacy', () => {
+test('Gestor and Coordinator opt into the detailed dashboard presentation', () => {
   const stats = source('src/components/stats/StatsDashboard.tsx');
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
@@ -301,7 +301,7 @@ test('Gestor remains the only detailed dashboard opt-in and Coordinator stays le
   assert.equal(managerTags.length, 1);
   assert.match(managerTags[0], /appearance="design-system"/);
   assert.equal(coordinatorTags.length, 1);
-  assert.doesNotMatch(coordinatorTags[0], /\bappearance=/);
+  assert.match(coordinatorTags[0], /appearance="design-system"/);
 
   const optInConsumers = sourceFilesUnder('src')
     .filter((path) =>
@@ -312,5 +312,8 @@ test('Gestor remains the only detailed dashboard opt-in and Coordinator stays le
     .map((path) => path.slice(frontendRoot.length))
     .sort();
 
-  assert.deepEqual(optInConsumers, ['src/pages/gestor/GestorPage.tsx']);
+  assert.deepEqual(optInConsumers, [
+    'src/pages/coordinator/CoordinatorPage.tsx',
+    'src/pages/gestor/GestorPage.tsx'
+  ]);
 });

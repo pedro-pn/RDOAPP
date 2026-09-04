@@ -114,13 +114,12 @@ test('B.7 keeps legacy as default and opts in only the Gestor job-role surface',
   const gestor = source('src/pages/gestor/GestorPage.tsx');
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
 
-  // O Coordenador permanece integralmente legacy também na superfície de Temas
-  // de DDS. As asserções sobre o opt-in do Gestor em DdsThemeManager passaram a
+  // A superfície de Temas de DDS do Coordenador também segue o novo padrão.
+  // As asserções sobre o opt-in em DdsThemeManager passaram a
   // pertencer ao contrato da B.8
   // (rdo-manager-dds-themes-design-system.test.mjs), que as verifica de forma
   // mais forte, varrendo `src` inteiro.
-  assert.match(coordinator, /<DdsThemeManager\s*\/>/);
-  assert.doesNotMatch(coordinator, /<DdsThemeManager\b[^>]*appearance=/s);
+  assert.match(coordinator, /<DdsThemeManager appearance="design-system"\s*\/>/);
 
   if (expectedAppearance === 'legacy') {
     assert.match(manager, /export function JobRoleManager\(\)/);

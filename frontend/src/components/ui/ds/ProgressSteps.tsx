@@ -56,6 +56,10 @@ export function ProgressSteps({
               if (!disabled) onSelect(index);
             }}
           >
+            <span
+              className="fv-progress-steps__connector"
+              aria-hidden="true"
+            />
             <span className="fv-progress-steps__marker" aria-hidden="true">
               {index + 1}
             </span>

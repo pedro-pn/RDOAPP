@@ -343,15 +343,21 @@ test('RDO manager CSS is scoped, tokenized and uses only official breakpoints', 
   }
 });
 
-test('other RDO profiles keep the legacy shell and do not consume the manager listing', () => {
+test('other RDO profiles share the new shell and responsive report listing', () => {
   for (const path of [
     'src/pages/coordinator/CoordinatorPage.tsx',
-    'src/pages/client/ClientPage.tsx',
     'src/pages/collaborator/MyReportsPage.tsx',
     'src/pages/collaborator/MyArchivedReportsPage.tsx'
   ]) {
     const page = source(path);
-    assert.match(page, /from ['"]\.\.\/\.\.\/layout\/Shell['"]/);
-    assert.doesNotMatch(page, /ManagerReportListing|<AppShell\b/);
+    assert.match(page, /<RdoAppShell\b/);
+    assert.match(page, /<ManagerReportListing\b/);
+    assert.match(page, /appearance="design-system"/);
+    assert.doesNotMatch(page, /layout\/Shell|<Shell\b/);
   }
+
+  const client = source('src/pages/client/ClientPage.tsx');
+  assert.match(client, /<RdoAppShell\b/);
+  assert.match(client, /<MetricCard\b/);
+  assert.doesNotMatch(client, /layout\/Shell|<Shell\b/);
 });

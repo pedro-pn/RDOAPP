@@ -298,19 +298,18 @@ test('a ordenação do NPS usa Button DS sem alterar o ProjectSortButton compart
   assert.doesNotMatch(css, /\.rdo-nps \.project-sort-button/);
 });
 
-test('B.9 preserva o Coordenador e migra o dashboard compartilhado por opt-in', () => {
+test('B.9 preserva o fluxo do Coordenador e migra seu dashboard compartilhado por opt-in', () => {
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
   const gestor = source('src/pages/gestor/GestorPage.tsx');
 
-  // O Coordenador tem implementação própria de NPS e segue integralmente legacy.
+  // O Coordenador mantém a implementação e as regras próprias da aba.
   assert.match(coordinator, /function renderNpsTab\(\)/);
   assert.match(coordinator, /className="nps-tab-content"/);
   assert.doesNotMatch(coordinator, /rdo-nps/);
-  assert.doesNotMatch(coordinator, /appearance="design-system"/);
+  assert.match(coordinator, /<RdoAppShell\b/);
   assert.doesNotMatch(coordinator, /gestorSurveyHelpers/);
 
-  // O dashboard compartilhado pode conter o escopo DS, mas a aparência nova
-  // só é ativada explicitamente na superfície do Gestor.
+  // O dashboard compartilhado continua centralizado no componente próprio.
   const files = [];
   (function visit(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -342,7 +341,7 @@ test('B.9 preserva o Coordenador e migra o dashboard compartilhado por opt-in', 
     gestor,
     /<SurveyDashboardOverlay[\s\S]{0,180}?appearance="design-system"/
   );
-  assert.doesNotMatch(
+  assert.match(
     coordinator,
     /<SurveyDashboardOverlay[\s\S]{0,180}?appearance="design-system"/
   );

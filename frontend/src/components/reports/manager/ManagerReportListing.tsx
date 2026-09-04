@@ -44,6 +44,7 @@ export interface ManagerReportListingProps {
   projectLabel: string;
   sortDirection: ProjectSortDirection;
   onSortChange: () => void;
+  selectable?: boolean;
 }
 
 function reportLabel(report: ReportSummary) {
@@ -468,7 +469,8 @@ export function ManagerReportListing({
   reportType,
   projectLabel,
   sortDirection,
-  onSortChange
+  onSortChange,
+  selectable = true
 }: ManagerReportListingProps) {
   const ariaLabel = `Relatórios ${reportType} do projeto ${projectLabel}`;
   const visibleReportIds = new Set(reports.map((report) => report.id));
@@ -544,7 +546,7 @@ export function ManagerReportListing({
         mobileBreakpoint="xl"
         sort={{ key: 'report', direction: sortDirection }}
         onSortChange={onSortChange}
-        selection={{
+        selection={selectable ? {
           selectedRowIds: selectedVisibleIds,
           onSelectionChange: (rowIds) => {
             const selectedOutsideGroup = selectedReportIds.filter(
@@ -559,7 +561,7 @@ export function ManagerReportListing({
           label: `relatórios ${reportType}`,
           controlClassName: 'report-select-checkbox',
           showSelectAll: false
-        }}
+        } : undefined}
         rowActions={(report) => (
           <div
             className="rdo-manager-listing__actions"

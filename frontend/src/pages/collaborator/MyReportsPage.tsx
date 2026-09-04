@@ -1,23 +1,26 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { useAuth } from '../../auth/AuthContext';
-import { rdoPath } from '../../auth/rolePath';
+import { navigationStateFromLocation } from '../../auth/moduleNavigation';
+import { rdoPath, rdoReportDetailPath } from '../../auth/rolePath';
 import { GroupedReportList } from '../../components/reports/GroupedReportList';
 import { ReportPdfBatchActions, ReportSelectionCheckbox } from '../../components/reports/ReportPdfBatchActions';
 import { ReportSummaryCard } from '../../components/reports/ReportSummaryCard';
-import { SearchBar } from '../../components/ui/SearchBar';
+import { ManagerReportListing } from '../../components/reports/manager/ManagerReportListing';
+import { Card, Button, SearchInput } from '../../components/ui/ds';
 import { ReportListSkeleton } from '../../components/ui/Skeleton';
-import { Shell } from '../../layout/Shell';
-import { TopBar } from '../../layout/TopBar';
+import { PageHeader } from '../../layout/PageHeader';
 import { useAccumulatedReportsPage } from '../../hooks/useReports';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 import { usePersistentSearch } from '../../hooks/usePersistentSearch';
 import { useUrlParamState } from '../../hooks/useUrlParamState';
+import { currentPageScrollState, saveCurrentPageScroll } from '../../hooks/usePageScrollRestoration';
 import { type ProjectSortDirection } from '../../utils/projectSort';
 import { ProjectSortButton } from '../../utils/ProjectSortButton';
 import { handleHorizontalTabListKeyDown } from '../../utils/tabKeyboard';
+import { RdoAppShell } from '../RdoAppShell';
 
 type MyReportsTab = 'pending' | 'approved';
 const MY_REPORTS_TABS: MyReportsTab[] = ['pending', 'approved'];
@@ -29,7 +32,8 @@ function parseMyReportsTab(value: string | null): MyReportsTab {
 
 export function MyReportsPage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const location = useLocation();
+  const { user } = useAuth();
   const [tab, setTab] = useUrlParamState<MyReportsTab>({
     param: 'tab',
     defaultValue: 'pending',
@@ -72,31 +76,44 @@ export function MyReportsPage() {
     );
     return sorted;
   }, [reports]);
+  const navigationSections = useMemo(() => [
+    { id: 'home', label: 'Início', href: rdoPath('/home'), active: false },
+    { id: 'pending', label: 'Pendentes', href: `${rdoPath('/meus-relatorios')}?tab=pending`, active: tab === 'pending' },
+    { id: 'approved', label: 'Aprovados', href: `${rdoPath('/meus-relatorios')}?tab=approved`, active: tab === 'approved' },
+    { id: 'ongoing', label: 'Em andamento', href: rdoPath('/andamento'), active: false },
+    { id: 'archived', label: 'Arquivados', href: rdoPath('/meus-relatorios/arquivados'), active: false }
+  ], [tab]);
 
-  async function handleLogout() {
-    await logout();
-    navigate('/', { replace: true });
+  function handleOpenReport(report: (typeof reports)[number]) {
+    saveCurrentPageScroll(location, user?.id || user?.username || 'anonymous');
+    navigate(rdoReportDetailPath(user, report.id), {
+      state: {
+        ...(navigationStateFromLocation(location) || {}),
+        ...currentPageScrollState()
+      }
+    });
   }
 
   return (
-    <Shell>
-      <TopBar
-        title="Meus relatórios"
-        subtitle={user?.name}
-        actions={
-          <>
-            <button className="topbar-chip" type="button" onClick={() => navigate(rdoPath('/home'))}>
-              Início
-            </button>
-            <button className="topbar-chip" type="button" onClick={handleLogout}>
-              Sair
-            </button>
-          </>
-        }
+    <RdoAppShell
+      title="Meus relatórios"
+      sectionLabel={tab === 'pending' ? 'Pendentes' : 'Aprovados'}
+      subNavigation={navigationSections}
+    >
+      <main className="fv-ds rdo-role-page rdo-collaborator-reports-page">
+        <PageHeader
+          title={tab === 'pending' ? 'Relatórios pendentes' : 'Relatórios aprovados'}
+          description={tab === 'pending'
+            ? 'Acompanhe os relatórios enviados e retome os que precisam de ajustes.'
+            : 'Consulte e baixe os relatórios já aprovados ou assinados.'}
+          actions={(
+            <Button variant="secondary" size="sm" onClick={() => navigate(rdoPath('/home'))}>
+              Voltar ao início
+            </Button>
+          )}
       />
-      <main className="page-scroll">
-        <section className="page-card">
-          <div className="filter-tabs" role="tablist" aria-label="Status dos relatórios" onKeyDown={handleHorizontalTabListKeyDown}>
+        <Card className="rdo-role-toolbar" padding="sm">
+          <div className="filter-tabs rdo-role-tabs" role="tablist" aria-label="Status dos relatórios" onKeyDown={handleHorizontalTabListKeyDown}>
             <button className={`filter-tab ${tab === 'pending' ? 'active' : ''}`} type="button" role="tab" aria-selected={tab === 'pending'} onClick={() => setTab('pending')}>
               Pendentes
             </button>
@@ -104,73 +121,87 @@ export function MyReportsPage() {
               Aprovados
             </button>
           </div>
-          <div className="admin-search-row collaborator-report-search-row">
-            <SearchBar
+          <div className="rdo-role-toolbar__controls collaborator-report-search-row">
+            <SearchInput
               value={search}
               onChange={setSearch}
               placeholder={tab === 'pending' ? 'Buscar em pendentes' : 'Buscar em aprovados'}
+              aria-label={tab === 'pending' ? 'Buscar em pendentes' : 'Buscar em aprovados'}
             />
-          </div>
-          <div className="admin-create-toolbar collaborator-report-sort-toolbar">
             <ProjectSortButton
               direction={projectSortDir}
               onToggle={() => setProjectSortDir(direction => direction === 'asc' ? 'desc' : 'asc')}
             />
           </div>
-        </section>
+        </Card>
         {reportsQuery.isLoading ? <ReportListSkeleton /> : null}
         {!reportsQuery.isLoading && !groups.length ? (
-          <div className="page-card placeholder-copy">
+          <Card className="placeholder-copy" padding="lg">
             {tab === 'pending' ? 'Nenhum relatório pendente encontrado.' : 'Nenhum relatório aprovado encontrado.'}
-          </div>
+          </Card>
         ) : null}
-        <GroupedReportList
-          reports={groups}
-          sortDirection={projectSortDir}
-          showTypeSort
-          storageKey={`collaborator-report-groups:${user?.id || user?.username || 'anonymous'}:${tab}`}
-          renderTypeActions={tab === 'approved' ? typeReports => (
-            <ReportPdfBatchActions
-              reports={typeReports}
-              selectedIds={selectedReportIds}
-              onSelectionChange={setSelectedReportIds}
-            />
-          ) : undefined}
-          onLoadMoreType={reportsQuery.loadMoreGroup}
-          onEnsureTypePage={reportsQuery.ensureGroupPage}
-          isTypePageReady={reportsQuery.isGroupPageReady}
-          getTypeLoadedCount={reportsQuery.groupLoadedCount}
-          hasMoreType={reportsQuery.hasMoreGroup}
-          isTypeLoading={reportsQuery.isGroupLoading}
-          isTypePageErrored={reportsQuery.isGroupError}
-          getTypeTotal={reportsQuery.groupTotal}
-          getProjectTypeTotals={reportsQuery.projectTypeTotals}
-          renderReport={report => tab === 'approved' ? (
-            <ReportSummaryCard
-              key={report.id}
-              report={report}
-              leadingControl={(
-                <ReportSelectionCheckbox
-                  reportId={report.id}
-                  selectedIds={selectedReportIds}
-                  onSelectionChange={setSelectedReportIds}
-                />
-              )}
-            />
-          ) : <ReportSummaryCard key={report.id} report={report} />}
-        />
+        <div className="rdo-manager-listing rdo-role-report-listing">
+          <GroupedReportList
+            reports={groups}
+            appearance="design-system"
+            sortDirection={projectSortDir}
+            showTypeSort
+            storageKey={`collaborator-report-groups:${user?.id || user?.username || 'anonymous'}:${tab}`}
+            renderTypeActions={tab === 'approved' ? typeReports => (
+              <ReportPdfBatchActions
+                appearance="design-system"
+                reports={typeReports}
+                selectedIds={selectedReportIds}
+                onSelectionChange={setSelectedReportIds}
+              />
+            ) : undefined}
+            onLoadMoreType={reportsQuery.loadMoreGroup}
+            onEnsureTypePage={reportsQuery.ensureGroupPage}
+            isTypePageReady={reportsQuery.isGroupPageReady}
+            getTypeLoadedCount={reportsQuery.groupLoadedCount}
+            hasMoreType={reportsQuery.hasMoreGroup}
+            isTypeLoading={reportsQuery.isGroupLoading}
+            isTypePageErrored={reportsQuery.isGroupError}
+            getTypeTotal={reportsQuery.groupTotal}
+            getProjectTypeTotals={reportsQuery.projectTypeTotals}
+            renderReportCollection={({ reports: typeReports, projectLabel, reportType, sortDirection, onSortChange }) => (
+              <ManagerReportListing
+                reports={typeReports}
+                selectedReportIds={selectedReportIds}
+                onSelectionChange={setSelectedReportIds}
+                onOpenReport={handleOpenReport}
+                renderActions={() => null}
+                reportType={reportType}
+                projectLabel={projectLabel}
+                sortDirection={sortDirection}
+                onSortChange={onSortChange}
+                selectable={tab === 'approved'}
+              />
+            )}
+            renderReport={report => tab === 'approved' ? (
+              <ReportSummaryCard
+                key={report.id}
+                report={report}
+                leadingControl={(
+                  <ReportSelectionCheckbox
+                    reportId={report.id}
+                    selectedIds={selectedReportIds}
+                    onSelectionChange={setSelectedReportIds}
+                  />
+                )}
+              />
+            ) : <ReportSummaryCard key={report.id} report={report} />}
+          />
+        </div>
         <div ref={loadMoreRef} aria-hidden="true" />
         {reportsQuery.hasMore || reportsQuery.isLoadingMore ? (
-          <div className="admin-create-toolbar">
-            <button className="mini-btn" type="button" disabled={reportsQuery.isLoadingMore} onClick={reportsQuery.loadMore}>
+          <div className="admin-create-toolbar rdo-role-load-more">
+            <Button variant="secondary" size="sm" loading={reportsQuery.isLoadingMore} disabled={reportsQuery.isLoadingMore} onClick={reportsQuery.loadMore}>
               {reportsQuery.isLoadingMore ? 'Carregando...' : 'Carregar mais'}
-            </button>
+            </Button>
           </div>
         ) : null}
-        <button className="secondary-button" type="button" onClick={() => navigate(rdoPath('/home'))}>
-          Voltar
-        </button>
       </main>
-    </Shell>
+    </RdoAppShell>
   );
 }

@@ -71,12 +71,7 @@ test('Gestor is the only StatsOverview consumer that opts into the Design System
   );
   assert.doesNotMatch(managerStatistics, /mini-btn|nps-tab-toolbar/);
 
-  assert.match(coordinator, /<StatsOverview\s*\/>/);
-  assert.doesNotMatch(
-    coordinator,
-    /<StatsOverview\b[^>]*appearance=/,
-    'Coordenador deve continuar com a aparência legacy padrão'
-  );
+  assert.match(coordinator, /<StatsOverview appearance="design-system"\s*\/>/);
 
   const optInConsumers = sourceFilesUnder('src')
     .filter((path) => /\.tsx$/.test(path))
@@ -85,6 +80,7 @@ test('Gestor is the only StatsOverview consumer that opts into the Design System
     );
 
   assert.deepEqual(optInConsumers, [
+    join(frontendRoot, 'src/pages/coordinator/CoordinatorPage.tsx'),
     join(frontendRoot, 'src/pages/gestor/GestorPage.tsx')
   ]);
 });
@@ -204,7 +200,7 @@ test('the DS overview composes responsive listings and explicit loading, error a
   );
 });
 
-test('statistics overlays are DS only by Gestor opt-in while Coordinator stays legacy', () => {
+test('statistics overlays are DS in Gestor and Coordinator migrated surfaces', () => {
   const stats = source('src/components/stats/StatsDashboard.tsx');
   const manager = source('src/pages/gestor/GestorPage.tsx');
   const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
@@ -268,9 +264,9 @@ test('statistics overlays are DS only by Gestor opt-in while Coordinator stays l
     manager,
     /<MonthlyAllocationDashboardOverlay\s+appearance="design-system"/
   );
-  assert.doesNotMatch(
+  assert.match(
     coordinator,
-    /<MonthlyAllocationDashboardOverlay\b[^>]*appearance=/s
+    /<MonthlyAllocationDashboardOverlay appearance="design-system" onClose=\{\(\) => setAllocationDashboardOpen\(false\)\}\s*\/>/
   );
 });
 

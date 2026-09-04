@@ -49,12 +49,18 @@ test('CSS do formulário é escopado, tokenizado e cobre os breakpoints oficiais
 test('stepper e switch são primitivos exportados pelo barrel do DS', () => {
   const barrel = source('src/components/ui/ds/index.ts');
   const stepper = source('src/components/ui/ds/ProgressSteps.tsx');
+  const formCss = source('src/components/ui/ds/form.css');
   const switchSource = source('src/components/ui/ds/Switch.tsx');
 
   assert.match(barrel, /ProgressSteps/);
   assert.match(barrel, /Switch/);
   assert.match(stepper, /aria-current/);
   assert.match(stepper, /aria-disabled/);
+  assert.match(stepper, /className="fv-progress-steps__connector"/);
+  assert.match(formCss, /\.fv-progress-steps__connector\s*\{[\s\S]*?display:\s*block/);
+  assert.match(formCss, /\.fv-progress-steps__connector\s*\{[\s\S]*?pointer-events:\s*none/);
+  assert.doesNotMatch(formCss, /\.fv-progress-steps__connector\s*\{[\s\S]*?translateY/);
+  assert.doesNotMatch(formCss, /\.fv-progress-steps__item::before/);
   assert.match(switchSource, /type="checkbox"/);
   assert.match(switchSource, /htmlFor=\{controlId\}/);
 });

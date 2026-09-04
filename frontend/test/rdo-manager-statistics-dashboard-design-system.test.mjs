@@ -79,14 +79,9 @@ test('B.3 is an explicit StatsDashboardOverlay opt-in restricted to Gestor', () 
     managerDetailedOverlay,
     /onClose=\{\(\) => setStatsDashboardOpen\(false\)\}/
   );
-  assert.doesNotMatch(
-    coordinator,
-    /<StatsDashboardOverlay\b[^>]*appearance=/,
-    'Coordenador deve continuar usando o overlay legacy padrão'
-  );
   assert.match(
     coordinator,
-    /<StatsDashboardOverlay onClose=\{\(\) => setStatsDashboardOpen\(false\)\}\s*\/>/
+    /<StatsDashboardOverlay appearance="design-system" onClose=\{\(\) => setStatsDashboardOpen\(false\)\}\s*\/>/
   );
 
   const optInConsumers = sourceFilesUnder('src')
@@ -98,6 +93,7 @@ test('B.3 is an explicit StatsDashboardOverlay opt-in restricted to Gestor', () 
     );
 
   assert.deepEqual(optInConsumers, [
+    join(frontendRoot, 'src/pages/coordinator/CoordinatorPage.tsx'),
     join(frontendRoot, 'src/pages/gestor/GestorPage.tsx')
   ]);
 
@@ -109,10 +105,10 @@ test('B.3 is an explicit StatsDashboardOverlay opt-in restricted to Gestor', () 
     /<MonthlyAllocationDashboardOverlay\s+appearance="design-system"/,
     'a evolução B.6 deve continuar explícita no Gestor'
   );
-  assert.doesNotMatch(
+  assert.match(
     coordinator,
-    /<MonthlyAllocationDashboardOverlay\b[^>]*appearance=/s,
-    'o Coordenador deve continuar no default legacy após a B.6'
+    /<MonthlyAllocationDashboardOverlay appearance="design-system"/,
+    'o Coordenador também deve usar a apresentação migrada'
   );
 });
 

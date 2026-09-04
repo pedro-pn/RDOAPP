@@ -17,6 +17,7 @@
 
 :where(.fv-ds, [data-fv-ds]) .fv-progress-steps__item {
   position: relative;
+  isolation: isolate;
   display: grid;
   min-width: 0;
   justify-items: center;
@@ -29,28 +30,35 @@
   cursor: pointer;
 }
 
-:where(.fv-ds, [data-fv-ds]) .fv-progress-steps__item::before {
+:where(.fv-ds, [data-fv-ds]) .fv-progress-steps__connector {
   position: absolute;
   inset-block-start: calc(var(--space-6) / 2);
   inset-inline: 0;
+  z-index: 0;
+  display: block;
   height: var(--border-width);
   background: var(--line-strong);
-  content: '';
-  transform: translateY(-50%);
+  pointer-events: none;
 }
 
-:where(.fv-ds, [data-fv-ds]) .fv-progress-steps__item:first-child::before {
+:where(.fv-ds, [data-fv-ds])
+  .fv-progress-steps__item:first-child
+  .fv-progress-steps__connector {
   inset-inline-start: 50%;
 }
 
-:where(.fv-ds, [data-fv-ds]) .fv-progress-steps__item:last-child::before {
+:where(.fv-ds, [data-fv-ds])
+  .fv-progress-steps__item:last-child
+  .fv-progress-steps__connector {
   inset-inline-end: 50%;
 }
 
 :where(.fv-ds, [data-fv-ds])
-  .fv-progress-steps__item[data-state='complete']::before,
+  .fv-progress-steps__item[data-state='complete']
+  .fv-progress-steps__connector,
 :where(.fv-ds, [data-fv-ds])
-  .fv-progress-steps__item[data-state='current']::before {
+  .fv-progress-steps__item[data-state='current']
+  .fv-progress-steps__connector {
   background: var(--brand);
 }
 

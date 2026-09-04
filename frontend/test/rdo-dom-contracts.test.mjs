@@ -41,13 +41,13 @@ test('tutorial do cliente mantém seletores Driver.js com produtores no DOM do R
     [
       'className="client-welcome-card"',
       'className="stats-grid"',
-      'ariaLabel="Buscar relatórios"',
+      'aria-label="Buscar relatórios"',
       'aria-label="Projetos do cliente"',
       'aria-label="Tipos de relatório"',
       'className="client-report-card report-card-clickable"',
       'className="field-group client-report-comment"',
       'className="client-report-actions"',
-      'className="report-batch-toolbar"',
+      'className="report-batch-toolbar',
       'className="topbar-chip"'
     ],
     'ClientPage'
@@ -151,18 +151,11 @@ test('editor de RDO mantém âncoras de campos, etapas e validação focável', 
   );
 });
 
-test('abas legadas do RDO preservam nomes acessíveis, estado e teclado', () => {
+test('abas do RDO preservam nomes acessíveis, estado e teclado após a migração visual', () => {
   const contracts = [
     {
       file: 'src/pages/collaborator/MyReportsPage.tsx',
       label: 'aria-label="Status dos relatórios"',
-      selected: 'aria-selected={tab ===',
-      keyboard: 'handleHorizontalTabListKeyDown',
-      values: ["param: 'tab'", "defaultValue: 'pending'"]
-    },
-    {
-      file: 'src/pages/coordinator/CoordinatorPage.tsx',
-      label: 'aria-label="Seções do coordenador"',
       selected: 'aria-selected={tab ===',
       keyboard: 'handleHorizontalTabListKeyDown',
       values: ["param: 'tab'", "defaultValue: 'pending'"]
@@ -191,6 +184,25 @@ test('abas legadas do RDO preservam nomes acessíveis, estado e teclado', () => 
     assert.ok(page.includes('role="tablist"'), contract.file);
     assert.ok(page.includes('role="tab"'), contract.file);
   }
+
+  const coordinator = source('src/pages/coordinator/CoordinatorPage.tsx');
+  const sectionNavigation = source('src/pages/gestor/RdoSectionNavigation.tsx');
+  assertIncludesAll(coordinator, [
+    'ariaLabel="Seções do coordenador"',
+    'current={tab}',
+    'sections={COORDINATOR_SECTIONS}',
+    'onNavigate={setTab}',
+    "param: 'tab'",
+    "defaultValue: 'pending'"
+  ], 'CoordinatorPage');
+  assertIncludesAll(sectionNavigation, [
+    "'ArrowLeft'",
+    "'ArrowRight'",
+    "'Home'",
+    "'End'",
+    "aria-current={active ? 'page' : undefined}",
+    'aria-pressed={active}'
+  ], 'RdoSectionNavigation');
 });
 
 test('gestor usa navegação secundária responsiva sem a barra horizontal global', () => {
@@ -211,7 +223,8 @@ test('gestor usa navegação secundária responsiva sem a barra horizontal globa
   assertIncludesAll(
     navigation,
     [
-      'aria-label="Navegar nas áreas de Relatórios e Projetos"',
+      "ariaLabel = 'Navegar nas áreas de Relatórios e Projetos'",
+      'aria-label={ariaLabel}',
       'role="group"',
       'aria-pressed={active}',
       "aria-current={active ? 'page' : undefined}"
@@ -270,7 +283,8 @@ test('diálogo de assinatura mantém IDs e nomes acessíveis consumidos pelo flu
   assertIncludesAll(
     signatureDialog,
     [
-      'ariaLabelledBy="signature-dialog-title"',
+      "ariaLabelledBy={isDesignSystem ? undefined : 'signature-dialog-title'}",
+      'title={isDesignSystem ? title : undefined}',
       'id="signature-dialog-title"',
       'aria-label="Fechar"',
       'htmlFor="signature-signer-name"',

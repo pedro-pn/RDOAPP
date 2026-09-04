@@ -1,19 +1,29 @@
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 
 import {
   RDO_MANAGER_SECTIONS,
   type RdoManagerSection
 } from './rdoSectionNavigationModel';
 
-interface RdoSectionNavigationProps {
-  current: RdoManagerSection;
-  onNavigate: (section: RdoManagerSection) => void;
+export interface RdoSectionNavigationItem<Section extends string = string> {
+  id: Section;
+  label: string;
 }
 
-export function RdoSectionNavigation({
+interface RdoSectionNavigationProps<Section extends string = RdoManagerSection> {
+  current: Section;
+  onNavigate: (section: Section) => void;
+  sections?: readonly RdoSectionNavigationItem<Section>[];
+  ariaLabel?: string;
+}
+
+export function RdoSectionNavigation<Section extends string = RdoManagerSection>({
   current,
-  onNavigate
-}: RdoSectionNavigationProps) {
+  onNavigate,
+  sections,
+  ariaLabel = 'Navegar nas áreas de Relatórios e Projetos'
+}: RdoSectionNavigationProps<Section>) {
+  const navigationSections = (sections || RDO_MANAGER_SECTIONS) as readonly RdoSectionNavigationItem<Section>[];
   const handleGroupKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (
       ![
@@ -57,15 +67,16 @@ export function RdoSectionNavigation({
   return (
     <nav
       className="fv-ds rdo-section-navigation"
-      aria-label="Navegar nas áreas de Relatórios e Projetos"
+      aria-label={ariaLabel}
+      style={{ '--rdo-section-count': navigationSections.length } as CSSProperties}
     >
       <div
         className="rdo-section-navigation__items"
         role="group"
-        aria-label="Áreas de Relatórios e Projetos"
+        aria-label={ariaLabel}
         onKeyDown={handleGroupKeyDown}
       >
-        {RDO_MANAGER_SECTIONS.map((section) => {
+        {navigationSections.map((section) => {
           const active = section.id === current;
           return (
             <button
