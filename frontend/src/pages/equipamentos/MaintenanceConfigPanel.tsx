@@ -396,16 +396,28 @@ export function MaintenanceConfigPanel({
       )
   });
 
+  const maintenanceCategories = useMemo(
+    () => categories.filter((category) => category.showInMaintenance !== false),
+    [categories]
+  );
+  const maintenanceCategoryIds = useMemo(
+    () => new Set(maintenanceCategories.map((category) => category.id)),
+    [maintenanceCategories]
+  );
+  const maintenanceEquipment = useMemo(
+    () => equipment.filter((item) => maintenanceCategoryIds.has(item.categoryId)),
+    [equipment, maintenanceCategoryIds]
+  );
   const filteredEquipment = useMemo(() => {
     const query = equipmentSearch.trim().toLocaleLowerCase('pt-BR');
-    return equipment.filter(
+    return maintenanceEquipment.filter(
       (item) =>
         !query ||
-        `${item.code} ${item.name} ${categories.find((category) => category.id === item.categoryId)?.name || ''}`
+        `${item.code} ${item.name} ${maintenanceCategories.find((category) => category.id === item.categoryId)?.name || ''}`
           .toLocaleLowerCase('pt-BR')
           .includes(query)
     );
-  }, [categories, equipment, equipmentSearch]);
+  }, [equipmentSearch, maintenanceCategories, maintenanceEquipment]);
 
   function openProfile(profile?: MaintenanceProfileSummary) {
     setEditingProfileId(profile?.id || null);
@@ -458,7 +470,7 @@ export function MaintenanceConfigPanel({
     config.profiles.map((profile) => [profile.id, profile])
   );
   const categoriesById = new Map(
-    categories.map((category) => [category.id, category])
+    maintenanceCategories.map((category) => [category.id, category])
   );
 
   return (
@@ -571,7 +583,7 @@ export function MaintenanceConfigPanel({
           equipamentos da categoria que não possuem uma exceção individual.
         </p>
         <div className="operational-category-maintenance-list">
-          {categories.map((category) => (
+          {maintenanceCategories.map((category) => (
             <CategoryMaintenanceSettings
               key={category.id}
               category={category}
@@ -616,7 +628,7 @@ export function MaintenanceConfigPanel({
           value={equipmentSearch}
           onChange={setEquipmentSearch}
           placeholder="Buscar equipamento ou categoria"
-          count={{ shown: filteredEquipment.length, total: equipment.length }}
+          count={{ shown: filteredEquipment.length, total: maintenanceEquipment.length }}
         />
         <div className="operational-equipment-profile-list">
           {filteredEquipment.map((item) => {

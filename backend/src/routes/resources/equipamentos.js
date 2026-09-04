@@ -56,6 +56,7 @@ const categorySchema = z.object({
   name: z.string().trim().min(1),
   maintenanceProfileId: z.string().trim().min(1).nullable().optional(),
   maintenanceIntervalDays: z.number().int().min(1).max(3650).nullable().optional(),
+  showInMaintenance: z.boolean().optional(),
   order: z.number().int().optional(),
   fieldSchema: z.array(fieldDefinitionSchema).optional(),
   technicalSchema: z.array(technicalFieldSchema).optional(),
@@ -270,6 +271,7 @@ router.post(
         name: data.name,
         maintenanceProfileId: data.maintenanceProfileId || null,
         maintenanceIntervalDays: data.maintenanceIntervalDays ?? null,
+        showInMaintenance: data.showInMaintenance ?? true,
         order: data.order ?? 0,
         fieldSchema: normalizeFieldSchema(data.fieldSchema),
         technicalSchema: normalizeTechnicalSchema(data.technicalSchema),
@@ -301,6 +303,9 @@ router.put(
         : {}),
       ...(data.maintenanceIntervalDays !== undefined
         ? { maintenanceIntervalDays: data.maintenanceIntervalDays }
+        : {}),
+      ...(data.showInMaintenance !== undefined
+        ? { showInMaintenance: data.showInMaintenance }
         : {}),
       ...(data.order !== undefined ? { order: data.order } : {}),
       ...(data.fieldSchema !== undefined ? { fieldSchema: normalizeFieldSchema(data.fieldSchema) } : {}),

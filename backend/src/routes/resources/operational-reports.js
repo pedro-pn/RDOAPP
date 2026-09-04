@@ -179,6 +179,12 @@ async function loadEquipmentForMaintenance(database, equipmentId) {
     },
   });
   if (!equipment) throw fail(400, "Equipamento ativo não encontrado.");
+  if (equipment.category?.showInMaintenance === false) {
+    throw fail(
+      400,
+      "A categoria deste equipamento não está disponível no módulo de manutenção.",
+    );
+  }
   const maintenanceProfile = resolveEffectiveMaintenanceProfile(equipment);
   if (!maintenanceProfile?.isActive) {
     throw fail(
@@ -392,7 +398,12 @@ router.get(
       }),
       canEmitMaintenance
         ? prisma.companyEquipment.findMany({
-            where: { isActive: true },
+            where: {
+              isActive: true,
+              category: {
+                is: { isActive: true, showInMaintenance: true },
+              },
+            },
             select: {
               id: true,
               code: true,
@@ -819,6 +830,9 @@ router.get(
     const search = query.q.trim();
     const equipmentWhere = {
       isActive: true,
+      category: {
+        is: { isActive: true, showInMaintenance: true },
+      },
       ...(query.categoryId ? { categoryId: query.categoryId } : {}),
       ...(search
         ? {
@@ -857,7 +871,7 @@ router.get(
         },
       }),
       prisma.equipmentCategory.findMany({
-        where: { isActive: true },
+        where: { isActive: true, showInMaintenance: true },
         select: { id: true, name: true, maintenanceIntervalDays: true },
         orderBy: [{ order: "asc" }, { name: "asc" }],
       }),
@@ -1693,6 +1707,7 @@ router.use((error, req, _res, next) => {
 export {
   approveMaintenanceRecords,
   assertCanEditOperationalRecord,
+  loadEquipmentForMaintenance,
   maintenanceSupervisorState,
   publicMaintenance,
   publicOperationalReport,

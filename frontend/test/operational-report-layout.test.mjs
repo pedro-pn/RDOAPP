@@ -164,6 +164,35 @@ test('seleção da manutenção filtra equipamentos pela categoria escolhida', a
   assert.doesNotMatch(form, /maintenance-equipment-search/);
 });
 
+test('categoria controla sua presença em todas as áreas de manutenção', async () => {
+  const [modal, manager, config, api] = await Promise.all([
+    readFile(
+      new URL('../src/pages/equipamentos/CategoryFormModal.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/pages/equipamentos/CategoryManager.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/pages/equipamentos/MaintenanceConfigPanel.tsx', import.meta.url),
+      'utf8'
+    ),
+    readFile(new URL('../src/api/equipamentos.ts', import.meta.url), 'utf8')
+  ]);
+
+  assert.match(modal, /category\?\.showInMaintenance \?\? true/);
+  assert.match(modal, /Exibir no módulo de manutenção/);
+  assert.match(modal, /showInMaintenance,/);
+  assert.match(manager, /fora da manutenção/);
+  assert.match(
+    config,
+    /categories\.filter\(\(category\) => category\.showInMaintenance !== false\)/
+  );
+  assert.match(api, /showInMaintenance: boolean;/);
+  assert.match(api, /showInMaintenance\?: boolean;/);
+});
+
 test('serviço de terceiros usa grade responsiva sem larguras mínimas fixas', async () => {
   const styles = await readFile(
     new URL('../src/styles/operational-reports.css', import.meta.url),

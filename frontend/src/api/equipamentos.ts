@@ -63,6 +63,7 @@ export interface EquipmentCategory {
   name: string;
   maintenanceProfileId?: string | null;
   maintenanceIntervalDays?: number | null;
+  showInMaintenance: boolean;
   order: number;
   fieldSchema: EquipmentFieldDefinition[];
   technicalSchema: TechnicalFieldDefinition[];
@@ -138,6 +139,7 @@ export interface EquipmentCategoryPayload {
   name: string;
   maintenanceProfileId?: string | null;
   maintenanceIntervalDays?: number | null;
+  showInMaintenance?: boolean;
   order?: number;
   fieldSchema?: EquipmentFieldDefinition[];
   technicalSchema?: TechnicalFieldDefinition[];
