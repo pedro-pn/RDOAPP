@@ -17,6 +17,7 @@ import inhibitionOptionsRouter from './resources/inhibition-options.js';
 import jobRolesRouter from './resources/job-roles.js';
 import manometersRouter from './resources/manometers.js';
 import operationsRouter from './resources/operations.js';
+import operationalReportsRouter from './resources/operational-reports.js';
 import projectSegmentsRouter from './resources/project-segments.js';
 import privacyRouter from './resources/privacy.js';
 import projectIntakeWebhookRouter from './resources/project-intake-webhook.js';
@@ -44,6 +45,7 @@ function mountRdoRoutes(targetRouter) {
   targetRouter.use('/projects', projectsRouter);
   targetRouter.use('/project-segments', projectSegmentsRouter);
   targetRouter.use('/reports', reportsRouter);
+  targetRouter.use('/operational-reports', operationalReportsRouter);
   targetRouter.use('/statistics', statisticsRouter);
   targetRouter.use('/surveys', surveysRouter);
   targetRouter.use('/equipment', equipmentRouter);

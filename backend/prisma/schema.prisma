@@ -8,12 +8,32 @@ datasource db {
 
 enum ReportType {
   RDO
+  RDO_MAINTENANCE
+  RDO_PRODUCTION
   RTP
   RLQ
   RCPU
   RLM
   RLF
   RLI
+}
+
+enum ReportEmissionPermission {
+  SITE_RDO
+  MAINTENANCE
+  PRODUCTION
+}
+
+enum MaintenanceAttachmentKind {
+  PHOTO
+  DOCUMENT
+}
+
+enum ChemicalCleaningMaterial {
+  CARBON_STEEL
+  STAINLESS_STEEL
+  CUNIFE
+  OTHER
 }
 
 enum ReportStatus {
@@ -414,6 +434,7 @@ model Collaborator {
   jobRoleHistory                 CollaboratorJobRoleHistory[]
   efetivoMissionResponsibilities EfetivoMissionPlan[]             @relation("EfetivoMissionResponsible")
   efetivoMissionAllocations      EfetivoMissionAllocation[]
+  maintenanceSupervisorConfigs   MaintenanceConfiguration[]       @relation("MaintenanceSupervisor")
 
   @@index([jobRoleId])
 }
@@ -718,27 +739,27 @@ model PontoDayProjectOverride {
 
 // Lista gerenciável de cargos (substitui o texto livre em Collaborator.role).
 model JobRole {
-  id                          String                      @id @default(cuid())
-  name                        String                      @unique
-  normalizedKey               String                      @unique
-  order                       Int                         @default(0)
-  isActive                    Boolean                     @default(true)
-  isOperational               Boolean                     @default(true)
-  calendarColor               String                      @default("#64748B")
+  id                          String                       @id @default(cuid())
+  name                        String                       @unique
+  normalizedKey               String                       @unique
+  order                       Int                          @default(0)
+  isActive                    Boolean                      @default(true)
+  isOperational               Boolean                      @default(true)
+  calendarColor               String                       @default("#64748B")
   continuousWorkLimitDays     Int?
-  createdAt                   DateTime                    @default(now())
-  updatedAt                   DateTime                    @updatedAt
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
   plannedNormalHours          ProjectPlannedNormalHours[]
   plannedOvertime             ProjectPlannedOvertime[]
   costProfile                 CostProfile?
-  collaborators               Collaborator[]              @relation("CollaboratorJobRole")
+  collaborators               Collaborator[]               @relation("CollaboratorJobRole")
   collaboratorHistory         CollaboratorJobRoleHistory[]
   efetivoMissionDemands       EfetivoMissionDemand[]
   efetivoMissionAllocations   EfetivoMissionAllocation[]
   efetivoPlannedHires         EfetivoPlannedHire[]
-  epiProfiles                 EpiCollaboratorProfile[]    @relation("EpiRoleOverride")
-  epiSignatureSnapshots       EpiSignatureRequest[]       @relation("EpiSignatureJobRoleSnapshot")
-  reportCollaboratorSnapshots ReportCollaborator[]        @relation("ReportCollaboratorJobRoleSnapshot")
+  epiProfiles                 EpiCollaboratorProfile[]     @relation("EpiRoleOverride")
+  epiSignatureSnapshots       EpiSignatureRequest[]        @relation("EpiSignatureJobRoleSnapshot")
+  reportCollaboratorSnapshots ReportCollaborator[]         @relation("ReportCollaboratorJobRoleSnapshot")
 
   @@index([isActive, order])
 }
@@ -1174,6 +1195,9 @@ model Report {
   reportSignatures           ReportSignature[]
   auditLogs                  ReportAuditLog[]
   approvalPostProcessingJobs ReportApprovalPostProcessingJob[]
+  maintenanceRecords         MaintenanceRecord[]
+  chemicalCleanings          ChemicalCleaning[]
+  operationalReviewAudits    OperationalReviewAudit[]
 
   @@unique([projectId, reportType, sequenceNumber])
   @@index([projectId])
@@ -1344,6 +1368,148 @@ model ReportService {
   @@index([reportId])
 }
 
+model MaintenanceProfile {
+  id                 String                   @id @default(cuid())
+  key                String                   @unique
+  name               String
+  order              Int                      @default(0)
+  isActive           Boolean                  @default(true)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  items              MaintenanceProfileItem[]
+  categoryDefaults   EquipmentCategory[]       @relation("CategoryMaintenanceProfile")
+  equipment          CompanyEquipment[]        @relation("EquipmentMaintenanceProfile")
+  maintenanceRecords MaintenanceRecord[]
+
+  @@index([isActive, order])
+}
+
+model MaintenanceProfileItem {
+  id        String             @id @default(cuid())
+  profileId String
+  label     String
+  order     Int                @default(0)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  profile   MaintenanceProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, order])
+  @@index([profileId, isActive, order])
+}
+
+model MaintenanceConfiguration {
+  id                       String        @id @default("global")
+  supervisorCollaboratorId String?
+  updatedByUserId          String?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  supervisor               Collaborator? @relation("MaintenanceSupervisor", fields: [supervisorCollaboratorId], references: [id], onDelete: SetNull)
+  updatedBy                User?         @relation("MaintenanceConfigurationUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([supervisorCollaboratorId])
+}
+
+model MaintenanceRecord {
+  id                          String                         @id @default(cuid())
+  reportId                    String?
+  equipmentId                 String
+  profileId                   String?
+  maintenanceDate             DateTime                       @db.Date
+  status                      ReportStatus                   @default(PENDING)
+  createdByUserId             String?
+  reviewedByUserId            String?
+  responsibleNameSnapshot     String
+  profileNameSnapshot         String
+  selectedServices            Json
+  observations                String?
+  reviewNotes                 String?
+  supervisorNameSnapshot      String?
+  supervisorSignatureSnapshot String?
+  approvedAt                  DateTime?
+  returnedAt                  DateTime?
+  createdAt                   DateTime                       @default(now())
+  updatedAt                   DateTime                       @updatedAt
+  report                      Report?                        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  equipment                   CompanyEquipment               @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  profile                     MaintenanceProfile?            @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  createdBy                   User?                          @relation("MaintenanceCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  reviewedBy                  User?                          @relation("MaintenanceReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  thirdPartyServices          MaintenanceThirdPartyService[]
+  attachments                 MaintenanceAttachment[]
+  reviewAudits                OperationalReviewAudit[]
+
+  @@index([reportId])
+  @@index([equipmentId, status, maintenanceDate])
+  @@index([status, maintenanceDate])
+  @@index([profileId, status])
+}
+
+model MaintenanceThirdPartyService {
+  id            String            @id @default(cuid())
+  maintenanceId String
+  serviceDate   DateTime          @db.Date
+  location      String
+  description   String
+  order         Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  maintenance   MaintenanceRecord @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+
+  @@unique([maintenanceId, order])
+  @@index([maintenanceId])
+}
+
+model MaintenanceAttachment {
+  id            String                    @id @default(cuid())
+  maintenanceId String
+  kind          MaintenanceAttachmentKind
+  fileName      String
+  mimeType      String
+  storagePath   String
+  publicToken   String                    @unique
+  createdAt     DateTime                  @default(now())
+  maintenance   MaintenanceRecord         @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+
+  @@index([maintenanceId, kind, createdAt])
+}
+
+model ChemicalCleaning {
+  id            String                   @id @default(cuid())
+  reportId      String
+  description   String
+  material      ChemicalCleaningMaterial
+  otherMaterial String?
+  quantityKg    Decimal                  @db.Decimal(12, 3)
+  order         Int                      @default(0)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  report        Report                   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, order])
+  @@index([reportId])
+  @@index([material])
+}
+
+model OperationalReviewAudit {
+  id                String             @id @default(cuid())
+  reportId          String?
+  maintenanceId     String?
+  actorUserId       String?
+  actorNameSnapshot String
+  previousStatus    ReportStatus
+  nextStatus        ReportStatus
+  notes             String?
+  createdAt         DateTime           @default(now())
+  report            Report?            @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  maintenance       MaintenanceRecord? @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+  actor             User?              @relation("OperationalReviewAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([reportId, createdAt])
+  @@index([maintenanceId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
 model Equipment {
   id             String          @id @default(cuid())
   code           String          @unique
@@ -1453,6 +1619,8 @@ model EquipmentCategory {
   id                   String             @id @default(cuid())
   systemKey            String             @unique // slug imutável usado pelo RDO/romaneio
   name                 String // rótulo editável (vira a aba)
+  maintenanceProfileId String?
+  maintenanceIntervalDays Int?
   order                Int                @default(0)
   fieldSchema          Json               @default("[]") // [{ key, label, type, required, options?, order, showInDashboard? }]
   technicalSchema      Json               @default("[]") // dados técnicos: [{ key, label, type, group?, unit?, options?, repeatable?, itemSchema?, optionalPerEquipment?, showInDoc?, order }]
@@ -1468,7 +1636,10 @@ model EquipmentCategory {
   isActive             Boolean            @default(true)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
+  maintenanceProfile   MaintenanceProfile? @relation("CategoryMaintenanceProfile", fields: [maintenanceProfileId], references: [id], onDelete: SetNull)
   equipment            CompanyEquipment[]
+
+  @@index([maintenanceProfileId])
 }
 
 model CompanyEquipment {
@@ -1476,6 +1647,8 @@ model CompanyEquipment {
   code                    String                @unique
   name                    String
   categoryId              String
+  maintenanceProfileId    String?
+  maintenanceProfileOverride Boolean             @default(false)
   attributes              Json                  @default("{}") // valores dos campos dinâmicos, keyed por field.key
   technicalData           Json                  @default("{}") // valores do datasheet, keyed por technicalSchema.key
   technicalFieldOverrides Json                  @default("{}") // inclusão/exclusão de campos optionalPerEquipment, keyed por key -> bool
@@ -1490,9 +1663,12 @@ model CompanyEquipment {
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
   category                EquipmentCategory     @relation(fields: [categoryId], references: [id])
+  maintenanceProfile      MaintenanceProfile?   @relation("EquipmentMaintenanceProfile", fields: [maintenanceProfileId], references: [id], onDelete: SetNull)
   attachments             EquipmentAttachment[]
+  maintenanceRecords      MaintenanceRecord[]
 
   @@index([categoryId])
+  @@index([maintenanceProfileId])
   @@index([expiresAt])
 }
 
@@ -1671,6 +1847,7 @@ model User {
   passwordHash                         String
   role                                 UserRole
   accountType                          AccountType                         @default(INTERNAL)
+  reportEmissionPermissions            ReportEmissionPermission[]          @default([])
   isActive                             Boolean                             @default(true)
   clientCnpj                           String?
   privacyPolicyAcceptedAt              DateTime?
@@ -1720,6 +1897,10 @@ model User {
   responsibleEfetivoMissions           EfetivoMissionPlan[]                @relation("EfetivoMissionResponsibleUser")
   signatureDocuments                   SignatureDocument[]                 @relation("SignatureDocumentOwner")
   signatureDocumentAuditLogs           SignatureDocumentAuditLog[]         @relation("SignatureDocumentAuditActor")
+  maintenanceRecordsCreated            MaintenanceRecord[]                 @relation("MaintenanceCreator")
+  maintenanceRecordsReviewed           MaintenanceRecord[]                 @relation("MaintenanceReviewer")
+  maintenanceConfigurationUpdates      MaintenanceConfiguration[]          @relation("MaintenanceConfigurationUpdater")
+  operationalReviewAudits              OperationalReviewAudit[]            @relation("OperationalReviewAuditActor")
 
   @@index([clientCnpj])
 }

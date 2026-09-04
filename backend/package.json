@@ -29,7 +29,10 @@
     "audit:report-files": "node scripts/audit-report-files.js",
     "benchmark:assinaturas": "node scripts/benchmark-assinaturas.js",
     "repair:report-file-paths": "node scripts/repair-report-file-paths.js",
-    "import:rdo-manual-pdfs": "node scripts/import-manual-rdo-pdfs.js"
+    "import:rdo-manual-pdfs": "node scripts/import-manual-rdo-pdfs.js",
+    "extract:legacy-maintenance": "node scripts/extract-legacy-maintenance-history.js",
+    "download:legacy-maintenance-assets": "node scripts/download-legacy-maintenance-assets.js",
+    "import:legacy-maintenance": "node scripts/import-legacy-maintenance-history.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.8",
