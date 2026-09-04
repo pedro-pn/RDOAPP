@@ -171,16 +171,18 @@ export function CategoryFormModal({ open, category, saving, unitsCatalog, onClos
             <div className="equip-field-row" key={index}>
               <input
                 type="text"
+                aria-label={`Rótulo do campo ${index + 1}`}
                 placeholder="Rótulo"
                 value={field.label}
                 onChange={e => updateField(index, { label: e.target.value })}
               />
-              <select value={field.type} onChange={e => updateField(index, { type: e.target.value as EquipmentFieldType })}>
+              <select aria-label={`Tipo do campo ${index + 1}`} value={field.type} onChange={e => updateField(index, { type: e.target.value as EquipmentFieldType })}>
                 {fieldTypes.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
               </select>
               {field.type === 'select' && (
                 <input
                   type="text"
+                  aria-label={`Opções do campo ${index + 1}`}
                   placeholder="Opções (vírgula)"
                   value={(field.options || []).join(', ')}
                   onChange={e => updateField(index, { options: e.target.value.split(',').map(o => o.trim()) })}
